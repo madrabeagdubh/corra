@@ -1,0 +1,68 @@
+/* Reset default browser styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;  /* prevent scrolling */
+  background-color: black;
+}
+
+/* Fullscreen game container anchored to viewport */
+#gameContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  /*touch-action: none;  /* prevent default touch gestures */
+}
+
+/* Canvas styling */
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Start button styling */
+
+#startButton {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0066ff, #00ccff);
+  color: white;
+  font-size: 3rem;
+  border: none;
+  border-radius: 0;  /* remove rounded corners for fullscreen */
+  z-index: 10000;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+
+
+
+
+
+/* Optional touch feedback */
+#startButton:active {
+  transform: translate(-50%, -50%) scale(0.95);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* Virtual joystick base and thumb override if needed */
+.joystick-base, .joystick-thumb {
+  touch-action: none;
+  user-select: none;
+}

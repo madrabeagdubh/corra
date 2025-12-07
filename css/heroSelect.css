@@ -1,0 +1,233 @@
+.champion-name-ga, .champion-name-en{
+
+  font-family: monospace !important;
+  
+
+}
+.champion-name-en{
+	
+}
+
+.champion-choose-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  background: linear-gradient(145deg, #8b6914, #d4af37, #8b6914);
+  color: #1a1a1a;
+  border: 3px solid #d4af37;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 99999;
+  /* Add more styles here */
+}
+
+
+/* Main container */
+.hero-select-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  touch-action: pan-x;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scroll area */
+.champion-scroll {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.champion-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual champion card */
+.champion-card {
+  min-width: 100vw;
+  width: 100vw;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  pointer-events: none;
+}
+
+/* Champion canvas/sprite */
+.champion-canvas {
+  width: 50vw;
+  height: auto;
+  image-rendering: pixelated;
+  margin-bottom: 2rem;
+  pointer-events: auto;
+}
+
+/* Champion names */
+.champion-name-ga {
+  font-size: 2rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.champion-name-en {
+  font-size: 1.2rem;
+}
+
+/* Top panel with slider */
+.champion-top-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: rgba(26, 26, 26, 0.9);
+  border-bottom: 2px solid #333;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.champion-slider-label {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.champion-slider {
+  width: 100%;
+  z-index:99999;
+position:fixed;
+
+}
+/* Bottom panel with button */
+.champion-bottom-panel {
+  position: fixed; /* Changed from absolute to fixed */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom)); /* Handles notches on mobile */
+  background: rgba(26, 26, 26, 0.9);
+  border-top: 2px solid #333;
+}
+
+.champion-choose-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  background: #0066ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+z-index:99999;
+}
+
+.champion-choose-button:active {
+  background: #0052cc;
+
+}
+.bio-ga, .bio-en {
+    position: absolute;
+        left: 5vw;
+    width: 90vw;
+        font-size: 14px;
+    font-family: serif;
+        pointer-events: none;
+}
+
+.bio-ga  { bottom: 12vh; }
+.bio-en  { bottom: 4vh;  opacity: var(--eng-opacity); }
+
+
+
+
+
+
+
+
+/* Champion Stats Styling */
+.champion-stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.champion-stats.stats-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* characterModal.css (or inline via JS) */
+#characterModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0,0,0,0.6); /* semi-transparent overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#characterModalContent {
+  background-color: #111;
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 90%;
+  max-height: 80%;
+  overflow-y: auto; /* scroll if content is tall */
+}

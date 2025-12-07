@@ -1,0 +1,68 @@
+
+
+
+
+
+
+
+
+
+airn Mound**:
+   - A small, man-made stone pile, possibly a burial or waymarker. These can be scattered throughout the bog, each with its own history.
+
+2. **Cranóg**:
+   - An ancient man-made island, often found in Irish lakes and bogs. It could serve as a central hub or a location of lore and intrigue.
+
+3. **Bog Oak Sculpture**:
+   - A naturally preserved ancient tree, its twisted form could be used as a focal point within the landscape.
+
+4. **Peat Cuttings**:
+   - Open areas where peat has been extracted, revealing the dark, waterlogged earth beneath. These create interesting visual patterns and pathways.
+
+5. **Fenian Campfire Site**:
+   - The remains of a hearth, marked by blackened stones and scattered ashes, suggest past gatherings of the Fenians.
+
+6. **Willow Grove**:
+   - A dense cluster of willow trees, their drooping branches creating natural arches or tunnels along paths.
+
+7. **Ancient Pathway**:
+   - A raised stone path or causeway, possibly used in ancient times to cross the more treacherous parts of the bog.
+
+8. **Sunken Ringfort**:
+   - The remains of a circular earthen structure, partially submerged, hinting at ancient settlements and defenses.
+
+9. **Stone Circle**:
+   - A formation of standing stones, possibly used for rituals or as astronomical markers, shrouded in myth.
+
+10. **Moss-Covered Ruins**:
+    - Partially collapsed stone structures, remnants of forgotten buildings, now reclaimed by nature.
+
+   - Hex: `#50C878`
+
+2. **Bog Brown** - Reflects the earthy, peat-rich terrain.
+   - Hex: `#8B4513`
+
+3. **Heather Purple** - Captures the blooming heather across the moors.
+   - Hex: `#836FFF`
+
+4. **Stone Grey** - Echoes the ancient stone structures and cloudy skies.
+   - Hex: `#A9A9A9`
+
+5. **Moss Green** - Suggests the growth covering old trees and stones.
+   - Hex: `#808000`
+
+6. **Sky Blue** - For the expansive Irish sky.
+   - Hex: `#87CEEB`
+
+7. **Golden Yellow** - Signifies the sun on a clear day or the shimmering of field grasses.
+   - Hex: `#FFD700`
+
+8. **Peat Black** - Conveys the depth and mystery of the bog waters.
+   - Hex: `#2F4F4F`
+
+9. **Rust Red** - Provides accents for historical and hand-crafted objects.
+   - Hex: `#B22222`
+
+10. **Willow Green** - Evokes the gentle sway of willow trees by the water.
+    - Hex: `#708238`
+

@@ -1,4 +1,3 @@
- 
 import Phaser from 'phaser';
 import { GameSettings } from '../settings/gameSettings.js';
 
@@ -13,290 +12,250 @@ export default class TextPanel {
     this.englishTextObject = null;
   }
 
+  show(config) {
+    if (this.isVisible) {
+      this.hide();
+    }
 
+    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null } = config;
+    this.onDismiss = onDismiss;
+    this.irishFullText = irish;
+    this.englishFullText = english;
 
+    // Create container
+    this.container = this.scene.add.container(0, 0);
+    this.container.setDepth(2000);
+    this.container.setScrollFactor(0);
 
+    const screenWidth = this.scene.scale.width;
+    const screenHeight = this.scene.scale.height;
 
-show(config) {
-  if (this.isVisible) {
-    this.hide();
-  }
+    if (type === 'dialogue') {
+      this.createDialoguePanel(irish, english, speaker, screenWidth, screenHeight);
+    } else if (type === 'examine') {
+      this.createExaminePanel(irish, english, screenWidth, screenHeight);
+    } else if (type === 'notification') {
+      this.createNotificationPanel(irish, english, screenWidth, screenHeight);
+    }
 
-  const { irish, english, type = 'dialogue', speaker = null, onDismiss = null } = config;
-  this.onDismiss = onDismiss;
-  this.irishFullText = irish;
-  this.englishFullText = english;
+    this.isVisible = true;
 
-  // Create container
-  this.container = this.scene.add.container(0, 0);
-  this.container.setDepth(2000);
-  this.container.setScrollFactor(0);
+    // Disable joystick controls when text is showing
+    if (this.scene.joystick) {
+      this.scene.joystick.base.disableInteractive();
+      this.scene.joystick.thumb.disableInteractive();
 
-  const screenWidth = this.scene.scale.width;
-  const screenHeight = this.scene.scale.height;
+      // Disable directional buttons
+      Object.values(this.scene.joystick.buttons).forEach(button => {
+        button.disableInteractive();
+      });
 
-  if (type === 'dialogue') {
-    this.createDialoguePanel(irish, english, speaker, screenWidth, screenHeight);
-  } else if (type === 'examine') {
-    this.createExaminePanel(irish, english, screenWidth, screenHeight);
-  } else if (type === 'notification') {
-    this.createNotificationPanel(irish, english, screenWidth, screenHeight);
-  }
+      // Disable drag events
+      this.scene.input.setDraggable(this.scene.joystick.thumb, false);
+    }
 
-  this.isVisible = true;
-
-  // Disable joystick controls when text is showing
-  if (this.scene.joystick) {
-    this.scene.joystick.base.disableInteractive();
-    this.scene.joystick.thumb.disableInteractive();
+    // Fade in container
+    this.container.alpha = 1; // Start visible instead of fading
     
-    // Disable directional buttons
-    Object.values(this.scene.joystick.buttons).forEach(button => {
-      button.disableInteractive();
-    });
-    
-    // Disable drag events
-    this.scene.input.setDraggable(this.scene.joystick.thumb, false);
+    // Start typewriter immediately
+    if (type === 'dialogue' || type === 'examine') {
+      this.startTypewriter();
+    }
   }
 
-  // Fade in container
-  this.container.alpha = 0;
-  this.scene.tweens.add({
-    targets: this.container,
-    alpha: 1,
-    duration: 200,
-    ease: 'Power2',
-    onComplete: () => {
-      // Start typewriter after fade in
-      if (type === 'dialogue' || type === 'examine') {
-        this.startTypewriter();
-      }
-    }
-  });
-}
+  createExaminePanel(irish, english, screenWidth, screenHeight) {
+    const panelHeight = screenHeight * 0.35;
 
- 
+    // Background panel
+    const panel = this.scene.add.rectangle(
+      screenWidth / 2,
+      screenHeight - panelHeight / 2,
+      screenWidth,
+      panelHeight,
+      0x2a1810,
+      0.95
+    );
+    this.container.add(panel);
 
+    const textY = screenHeight - panelHeight + 25;
+    const textX = screenWidth * 0.05; // Left edge with 5% padding
 
-
-
-createExaminePanel(irish, english, screenWidth, screenHeight) {
-  // Add invisible full-screen overlay for easy dismissal
-  const bg = this.scene.add.rectangle(
-    screenWidth / 2,
-    screenHeight / 2,
-    screenWidth,
-    screenHeight,
-    0x000000,
-    0.01 // Nearly transparent
-  );
-  bg.setInteractive();
-  bg.on('pointerdown', () => {
-    this.dismissWithCooldown();
-  });
-  this.container.add(bg);
-
-  const panelHeight = screenHeight * 0.35;
-
-  // Background panel
-  const panel = this.scene.add.rectangle(
-    screenWidth / 2,
-    screenHeight - panelHeight / 2,
-    screenWidth,
-    panelHeight,
-    0x2a1810,
-    0.95
-  );
-  this.container.add(panel);
-
-  const textY = screenHeight - panelHeight + 25;
-  const textX = screenWidth * 0.05; // Left edge with 5% padding
-
-  // Irish text - ANCHORED LEFT
-  this.irishTextObject = this.scene.add.text(
-    textX,
-    textY,
-    '',
-    {
-      fontSize: '20px',
-      fontFamily: 'monospace',
-      color: '#ffffff',
-      wordWrap: { width: screenWidth * 0.9 },
-      lineSpacing: 6
-    }
-  ).setOrigin(0, 0);
-  this.container.add(this.irishTextObject);
-
-  // English text - ANCHORED LEFT
-  this.englishTextObject = this.scene.add.text(
-    textX,
-    textY + 60,
-    '',
-    {
-      fontSize: '16px',
-      fontFamily: 'monospace',
-      color: '#00ff00',
-      wordWrap: { width: screenWidth * 0.9 },
-      lineSpacing: 4
-    }
-  ).setOrigin(0, 0);
-  this.englishTextObject.setAlpha(0);
-  this.englishTextObject.setData('isEnglish', true);
-  this.container.add(this.englishTextObject);
-
-  // Tap hint
-  const hint = this.scene.add.text(
-    screenWidth / 2,
-    screenHeight - 15,
-    'Tap to close',
-    {
-      fontSize: '12px',
-      fontFamily: 'monospace',
-      color: '#888888',
-      fontStyle: 'italic'
-    }
-  ).setOrigin(0.5, 1);
-  this.container.add(hint);
-
-  // Make panel also tappable
-  panel.setInteractive();
-  panel.on('pointerdown', () => {
-    this.dismissWithCooldown();
-  });
-}
-
-
-
-
-
-
-
-
-
-
-createDialoguePanel(irish, english, speaker, screenWidth, screenHeight) {
-  // Semi-transparent background overlay
-  const bg = this.scene.add.rectangle(
-    screenWidth / 2,
-    screenHeight / 2,
-    screenWidth,
-    screenHeight,
-    0x000000,
-    0.7
-  );
-  this.container.add(bg);
-
-  // Main panel
-  const panelHeight = screenHeight * 0.5;
-  const panelY = screenHeight - panelHeight / 2;
-
-  const panel = this.scene.add.rectangle(
-    screenWidth / 2,
-    panelY,
-    screenWidth * 0.9,
-    panelHeight,
-    0x2a1810,
-    0.95
-  );
-  this.container.add(panel);
-
-  let textY = panelY - panelHeight / 2 + 30;
-  const textX = screenWidth * 0.1; // Left edge with 10% padding
-
-  // Speaker name if provided
-  if (speaker) {
-    const speakerText = this.scene.add.text(
+    // Irish text - ANCHORED LEFT
+    this.irishTextObject = this.scene.add.text(
       textX,
       textY,
-      speaker,
+      '',
+      {
+        fontSize: '20px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        wordWrap: { width: screenWidth * 0.9 },
+        lineSpacing: 6
+      }
+    ).setOrigin(0, 0);
+    this.container.add(this.irishTextObject);
+
+    // English text - ANCHORED LEFT
+    this.englishTextObject = this.scene.add.text(
+      textX,
+      textY + 60,
+      '',
+      {
+        fontSize: '16px',
+        fontFamily: 'monospace',
+        color: '#00ff00',
+        wordWrap: { width: screenWidth * 0.9 },
+        lineSpacing: 4
+      }
+    ).setOrigin(0, 0);
+    this.englishTextObject.setAlpha(0);
+    this.englishTextObject.setData('isEnglish', true);
+    this.container.add(this.englishTextObject);
+
+    // Tap hint
+    const hint = this.scene.add.text(
+      screenWidth / 2,
+      screenHeight - 15,
+      'Tap to close',
+      {
+        fontSize: '12px',
+        fontFamily: 'monospace',
+        color: '#888888',
+        fontStyle: 'italic'
+      }
+    ).setOrigin(0.5, 0);
+    this.container.add(hint);
+
+    // Create tap zone OUTSIDE container, at scene level
+    this.tapZone = this.scene.add.zone(
+      0,
+      0,
+      screenWidth,
+      screenHeight
+    ).setOrigin(0, 0);
+    
+    this.tapZone.setInteractive();
+    this.tapZone.setDepth(3000); // Higher than container
+    this.tapZone.setScrollFactor(0);
+
+    this.tapZone.on('pointerdown', () => {
+      console.log('Examine panel tap detected!');
+      this.dismissWithCooldown();
+    });
+  }
+
+  createDialoguePanel(irish, english, speaker, screenWidth, screenHeight) {
+    // Main panel
+    const panelHeight = screenHeight * 0.5;
+    const panelY = screenHeight - panelHeight / 2;
+
+    const panel = this.scene.add.rectangle(
+      screenWidth / 2,
+      panelY,
+      screenWidth * 0.9,
+      panelHeight,
+      0x2a1810,
+      0.95
+    );
+    this.container.add(panel);
+
+    let textY = panelY - panelHeight / 2 + 30;
+    const textX = screenWidth * 0.1; // Left edge with 10% padding
+
+    // Speaker name if provided
+    if (speaker) {
+      const speakerText = this.scene.add.text(
+        textX,
+        textY,
+        speaker,
+        {
+          fontSize: '18px',
+          fontFamily: 'monospace',
+          color: '#d4af37',
+          fontStyle: 'bold'
+        }
+      ).setOrigin(0, 0);
+      this.container.add(speakerText);
+      textY += 35;
+    }
+
+    // Irish text (will be filled by typewriter) - ANCHORED LEFT
+    this.irishTextObject = this.scene.add.text(
+      textX,
+      textY,
+      '',
+      {
+        fontSize: '22px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        wordWrap: { width: screenWidth * 0.8 },
+        lineSpacing: 8
+      }
+    ).setOrigin(0, 0);
+    this.container.add(this.irishTextObject);
+
+    // English text (will fade in after typewriter) - ANCHORED LEFT
+    this.englishTextObject = this.scene.add.text(
+      textX,
+      textY + 100,
+      '',
       {
         fontSize: '18px',
         fontFamily: 'monospace',
-        color: '#d4af37',
-        fontStyle: 'bold'
+        color: '#00ff00',
+        wordWrap: { width: screenWidth * 0.8 },
+        lineSpacing: 6
       }
-    ).setOrigin(0, 0); // Anchor to top-left
-    this.container.add(speakerText);
-    textY += 35;
-  }
+    ).setOrigin(0, 0);
+    this.englishTextObject.setAlpha(0);
+    this.englishTextObject.setData('isEnglish', true);
+    this.container.add(this.englishTextObject);
 
-  // Irish text (will be filled by typewriter) - ANCHORED LEFT
-  this.irishTextObject = this.scene.add.text(
-    textX,
-    textY,
-    '',
-    {
-      fontSize: '22px',
-      fontFamily: 'monospace',
-      color: '#ffffff',
-      wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 8
-    }
-  ).setOrigin(0, 0); // Changed from 0.5, 0 to 0, 0
-  this.container.add(this.irishTextObject);
+    // Tap to continue hint
+    const hint = this.scene.add.text(
+      screenWidth / 2,
+      panelY + panelHeight / 2 - 20,
+      'Tap to continue',
+      {
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        color: '#888888',
+        fontStyle: 'italic'
+      }
+    ).setOrigin(0.5, 0);
+    this.container.add(hint);
 
-  // English text (will fade in after typewriter) - ANCHORED LEFT
-  this.englishTextObject = this.scene.add.text(
-    textX,
-    textY + 100,
-    '',
-    {
-      fontSize: '18px',
-      fontFamily: 'monospace',
-      color: '#00ff00',
-      wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 6
-    }
-  ).setOrigin(0, 0); // Changed from 0.5, 0 to 0, 0
-  this.englishTextObject.setAlpha(0);
-  this.englishTextObject.setData('isEnglish', true);
-  this.container.add(this.englishTextObject);
-
-  // Tap to continue hint
-  const hint = this.scene.add.text(
-    screenWidth / 2,
-    panelY + panelHeight / 2 - 20,
-    'Tap to continue',
-    {
-      fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#888888',
-      fontStyle: 'italic'
-    }
-  ).setOrigin(0.5, 0);
-  this.container.add(hint);
-
-  // Make ENTIRE screen tappable to dismiss (not just bg)
-  bg.setInteractive();
-  bg.on('pointerdown', () => {
-    this.dismissWithCooldown();
-  });
-  
-  // Also make panel tappable
-  panel.setInteractive();
-  panel.on('pointerdown', () => {
-    this.dismissWithCooldown();
-  });
-}
-
-
-
-dismissWithCooldown() {
-  console.log('dismissWithCooldown called, typewriterActive:', this.typewriterActive);
-  if (this.typewriterActive) {
-    this.skipTypewriter();
-  } else {
-    this.hide();
+    // Create tap zone OUTSIDE container, at scene level
+    this.tapZone = this.scene.add.zone(
+      0,
+      0,
+      screenWidth,
+      screenHeight
+    ).setOrigin(0, 0);
     
-    this.scene.textPanelCooldown = true;
-    this.scene.time.delayedCall(2000, () => {
-      this.scene.textPanelCooldown = false;
+    this.tapZone.setInteractive();
+    this.tapZone.setDepth(3000); // Higher than container
+    this.tapZone.setScrollFactor(0);
+
+    this.tapZone.on('pointerdown', () => {
+      console.log('Dialogue panel tap detected!');
+      this.dismissWithCooldown();
     });
   }
-}
 
+  dismissWithCooldown() {
+    console.log('dismissWithCooldown called, typewriterActive:', this.typewriterActive);
+    if (this.typewriterActive) {
+      this.skipTypewriter();
+    } else {
+      this.hide();
 
-
+      this.scene.textPanelCooldown = true;
+      this.scene.time.delayedCall(2000, () => {
+        this.scene.textPanelCooldown = false;
+      });
+    }
+  }
 
   createNotificationPanel(irish, english, screenWidth, screenHeight) {
     const panelWidth = screenWidth * 0.8;
@@ -361,20 +320,20 @@ dismissWithCooldown() {
 
     if (this.currentCharIndex < this.irishFullText.length) {
       const char = this.irishFullText[this.currentCharIndex];
-      
+
       // Add character with glow effect
       const currentText = this.irishTextObject.text + char;
       this.irishTextObject.setText(currentText);
-      
+
       // Add temporary glow to the whole text
-      this.irishTextObject.setStyle({ 
-        shadow: { 
-          offsetX: 0, 
-          offsetY: 0, 
-          color: '#ffffff', 
-          blur: 8, 
-          fill: true 
-        } 
+      this.irishTextObject.setStyle({
+        shadow: {
+          offsetX: 0,
+          offsetY: 0,
+          color: '#ffffff',
+          blur: 8,
+          fill: true
+        }
       });
 
       // Remove glow after brief moment
@@ -385,7 +344,7 @@ dismissWithCooldown() {
       });
 
       this.currentCharIndex++;
-      
+
       // Continue to next character
       const speed = 40; // milliseconds per character
       this.scene.time.delayedCall(speed, () => this.typeNextCharacter());
@@ -428,68 +387,50 @@ dismissWithCooldown() {
     }
   }
 
+  hide() {
+    if (!this.isVisible || !this.container) return;
 
+    this.typewriterActive = false;
 
-
-de() {
-  if (!this.isVisible || !this.container) return;
-
-  this.typewriterActive = false;
-
-  this.scene.tweens.add({
-    targets: this.container,
-    alpha: 0,
-    duration: 200,
-    ease: 'Power2',
-    onComplete: () => {
-      if (this.container) {
-        this.container.destroy();
-        this.container = null;
-        this.irishTextObject = null;
-        this.englishTextObject = null;
-      }
-      this.isVisible = false;
-
-      // Re-enable joystick when text is hidden
-      if (this.scene.joystick) {
-        this.scene.joystick.base.setInteractive();
-        this.scene.joystick.thumb.setInteractive();
-        
-        // Re-enable directional buttons
-        Object.values(this.scene.joystick.buttons).forEach(button => {
-          button.setInteractive();
-        });
-        
-        // Re-enable drag
-        this.scene.input.setDraggable(this.scene.joystick.thumb, true);
-      }
-
-      if (this.onDismiss) {
-        this.onDismiss();
-      }
+    // Destroy the tap zone
+    if (this.tapZone) {
+      this.tapZone.destroy();
+      this.tapZone = null;
     }
-  });
+
+    this.scene.tweens.add({
+      targets: this.container,
+      alpha: 0,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        if (this.container) {
+          this.container.destroy();
+          this.container = null;
+          this.irishTextObject = null;
+          this.englishTextObject = null;
+        }
+        this.isVisible = false;
+
+        // Re-enable joystick when text is hidden
+        if (this.scene.joystick) {
+          this.scene.joystick.base.setInteractive();
+          this.scene.joystick.thumb.setInteractive();
+
+          // Re-enable directional buttons
+          Object.values(this.scene.joystick.buttons).forEach(button => {
+            button.setInteractive();
+          });
+
+          // Re-enable drag
+          this.scene.input.setDraggable(this.scene.joystick.thumb, true);
+        }
+
+        if (this.onDismiss) {
+          this.onDismiss();
+        }
+      }
+    });
+  }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
-
-
-
-
-
-
 

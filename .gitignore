@@ -1,12 +1,37 @@
 # Node dependencies
-node_modules/                                                      
+node_modules/
 
 # Build output
- build/                                                     
+build/
+dist/
+
 # Environment variables
 .env
+.env.local
 
-# Logs 
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+
+# SSH keys and sensitive files
+.ssh/
+*.pem
+id_rsa*
+id_ed25519*
+id_*
+banba*
+id_mdc*
+*.key
+*.priv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

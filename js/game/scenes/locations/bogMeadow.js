@@ -7,19 +7,34 @@ export default class BogMeadow extends BaseLocationScene {
     super({ key: 'BogMeadow' });
   }
 
-  preload() {
-super.preload();
-    console.log('BogMeadow: preload starting');
-    this.load.json('bogMeadowMap', '/maps/bogMeadow.json?v=' + Date.now());
-    
-    this.load.on('complete', () => {
-      console.log('BogMeadow: assets loaded');
-    });
-    
-    this.load.on('loaderror', (file) => {
-      console.error('BogMeadow: load error', file.src);
-    });
-  }
+
+
+
+
+preload() {
+  super.preload();
+  console.log('BogMeadow: preload starting');
+  this.load.json('bogMeadowMap', '/maps/bogMap10.json?v=' + Date.now());
+  
+  // Load the spritesheet
+  this.load.spritesheet('bogTiles', '/assets/13.png', {
+    frameWidth: 32,  // adjust to your actual tile size
+    frameHeight: 32
+  });
+
+  this.load.on('complete', () => {
+    console.log('BogMeadow: assets loaded');
+  });
+
+  this.load.on('loaderror', (file) => {
+    console.error('BogMeadow: load error', file.src);
+  });
+}
+
+
+
+
+
 
 
 
@@ -77,38 +92,24 @@ console.log('Player sprite visible?', this.player.sprite.visible);
     console.log('BogMeadow: scene created successfully');
   }
 
-  drawTilemap() {
-    const tiles = this.mapData.tiles;
-    const tileSize = this.tileSize;
+ drawTilemap() {
+  const tiles = this.mapData.tiles;
+  const tileSize = this.tileSize;
 
-    for (let y = 0; y < tiles.length; y++) {
-      for (let x = 0; x < tiles[y].length; x++) {
-        const tileType = tiles[y][x];
-        const pixelX = x * tileSize + tileSize / 2;
-        const pixelY = y * tileSize + tileSize / 2;
-        
-        let color;
-        switch (tileType) {
-          case 0:
-            color = 0x4a7c3a; // grass
-            break;
-          case 1:
-            color = 0x666666; // rock
-            break;
-          case 2:
-            color = 0x6a9c5a; // exit
-            break;
-          case 3:
-            color = 0x2a4a2a; // bog
-            break;
-          default:
-            color = 0x000000;
-        }
-        
-        this.add.rectangle(pixelX, pixelY, tileSize, tileSize, color);
-      }
+  for (let y = 0; y < tiles.length; y++) {
+    for (let x = 0; x < tiles[y].length; x++) {
+      const tileType = tiles[y][x];
+      const pixelX = x * tileSize;
+      const pixelY = y * tileSize;
+
+      // Use sprite from spritesheet instead of colored rectangle
+      // tileType is the frame index in your spritesheet
+      this.add.image(pixelX, pixelY, 'bogTiles', tileType)
+        .setOrigin(0, 0)  // align to top-left
+        .setDisplaySize(tileSize, tileSize);
     }
   }
+} 
 
 
 

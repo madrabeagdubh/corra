@@ -131,20 +131,25 @@ update() {
   /**
    * Override this in child scenes for custom collision logic
    */
-  isColliding(x, y) {
-    const tileX = Math.floor(x / this.tileSize);
-    const tileY = Math.floor(y / this.tileSize);
-    
-    // Check bounds
-    if (tileY < 0 || tileY >= this.mapData.tiles.length ||
-        tileX < 0 || tileX >= this.mapData.tiles[0].length) {
-      return true;
-    }
-    
-    // Check tile type (1 = rock, 3 = bog - both unwalkable)
-    const tileType = this.mapData.tiles[tileY][tileX];
-    return tileType === 1 || tileType === 3;
+
+
+isColliding(x, y) {
+  const tileX = Math.floor(x / this.tileSize);
+  const tileY = Math.floor(y / this.tileSize);
+
+  // Check bounds
+  if (tileY < 0 || tileY >= this.mapData.tiles.length ||
+      tileX < 0 || tileX >= this.mapData.tiles[0].length) {
+    return true;
   }
+
+  // Check if tile is unwalkable (using map's unwalkableTiles array)
+  const tileType = this.mapData.tiles[tileY][tileX];
+  return this.mapData.unwalkableTiles && this.mapData.unwalkableTiles.includes(tileType);
+}
+
+
+
 
   createObjects() {
     if (!this.mapData.objects) return;

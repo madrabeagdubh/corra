@@ -8,7 +8,7 @@ let initialized = false;
 // Stat descriptions
 const statDescriptions = {
   attack: {
-    irish: "Ionsaí",
+    irish: "Ionsaigh",
     english: "Attack"
   },
   defense: {
@@ -48,10 +48,12 @@ function createStatPopup(statName, englishOpacity) {
     padding: 1.5rem;
     width: 100%;
     max-width: 100%;
+    min-height: 180px;
     height: auto;
     z-index: 10000;
     box-shadow: 0 10px 40px rgba(0,0,0,0.8);
     animation: popupFadeIn 0.2s ease-out;
+    cursor: pointer;
   `;
 
   // Large icon at top center
@@ -64,6 +66,7 @@ function createStatPopup(statName, englishOpacity) {
   iconElement.textContent = statIcons[statName];
 
   const irishText = document.createElement('div');
+  irishText.id = 'statPopupIrish';
   irishText.style.cssText = `
     font-size: 1.2rem;
     color: #ffffff;
@@ -71,18 +74,20 @@ function createStatPopup(statName, englishOpacity) {
     line-height: 1.5;
     font-family: monospace;
     text-align: center;
+    min-height: 1.8rem;
   `;
-  irishText.textContent = statDescriptions[statName].irish;
 
   const englishText = document.createElement('div');
+  englishText.id = 'statPopupEnglish';
   englishText.style.cssText = `
     font-size: 1rem;
     color: rgba(0, 255, 0, ${englishOpacity});
     line-height: 1.5;
     font-family: monospace;
     text-align: center;
+    opacity: 0;
+    transition: opacity 0.8s ease;
   `;
-  englishText.textContent = statDescriptions[statName].english;
 
   popup.appendChild(iconElement);
   popup.appendChild(irishText);
@@ -113,26 +118,97 @@ function createStatPopup(statName, englishOpacity) {
           transform: translate(-50%, -50%) scale(0.9);
         }
       }
+      @keyframes letterGlow {
+        0% {
+          opacity: 0;
+          transform: scale(1.3);
+          text-shadow: 0 0 15px rgba(255, 200, 100, 1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+          text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        }
+      }
     `;
     document.head.appendChild(style);
   }
 
-  // Close on tap
-  popup.addEventListener('click', () => {
-    popup.style.animation = 'popupFadeOut 0.2s ease-in';
-    setTimeout(() => popup.remove(), 200);
-  });
+  let autoCloseTimer = null;
 
-  // Auto-dismiss after 4 seconds
-  setTimeout(() => {
-    if (document.getElementById('statPopup') === popup) {
-      popup.style.animation = 'popupFadeOut 0.2s ease-in';
-      setTimeout(() => popup.remove(), 200);
-    }
-  }, 4000);
+  // Close function
+  const closePopup = () => {
+    if (autoCloseTimer) clearTimeout(autoCloseTimer);
+    popup.style.animation = 'popupFadeOut 0.2s ease-in';
+    setTimeout(() => {
+      if (popup.parentNode) popup.remove();
+    }, 200);
+  };
+
+  // Close on tap
+  popup.addEventListener('click', closePopup);
 
   document.body.appendChild(popup);
   console.log('Popup added to body');
+
+  // Typewriter effect for Irish text
+  const irishString = statDescriptions[statName].irish;
+  const englishString = statDescriptions[statName].english;
+  let charIndex = 0;
+  const typeSpeed = 40;
+
+  function typeNextChar() {
+    if (charIndex < irishString.length) {
+      const char = irishString[charIndex];
+      const span = document.createElement('span');
+      span.textContent = char;
+      span.style.cssText = `
+        display: inline;
+        animation: letterGlow 0.4s ease;
+      `;
+      
+      irishText.appendChild(span);
+
+      // Remove glow after animation
+      setTimeout(() => {
+        span.style.textShadow = 'none';
+      }, 400);
+
+      charIndex++;
+      setTimeout(typeNextChar, typeSpeed);
+    } else {
+      // Irish complete, show English
+      setTimeout(() => {
+        englishText.textContent = englishString;
+        
+        // Get current slider value
+        const slider = document.querySelector('.champion-slider');
+        const currentOpacity = slider ? parseFloat(slider.value) : englishOpacity;
+        englishText.style.opacity = currentOpacity;
+
+        // Update opacity when slider changes
+        if (slider) {
+          const updateOpacity = () => {
+            englishText.style.opacity = slider.value;
+          };
+          slider.addEventListener('input', updateOpacity);
+          
+          // Clean up listener when popup closes
+          popup.addEventListener('remove', () => {
+            slider.removeEventListener('input', updateOpacity);
+          });
+        }
+
+        // Start auto-close timer after English appears
+        autoCloseTimer = setTimeout(closePopup, 4000);
+      }, 600);
+    }
+  }
+
+  typeNextChar();
 }
 
 function initHeroSelect() {

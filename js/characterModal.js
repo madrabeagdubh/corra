@@ -24,7 +24,6 @@ const statDescriptions = {
         english: "luck"
     }
 };
-
 const statIcons = {
     attack: '⚔️',
     defense: '🛡️',
@@ -55,6 +54,7 @@ function createStatPopup(statName, englishOpacity) {
         padding: 1.5rem;
         width: 100%;
         max-width: 100%;
+        min-height: 180px;
         height: auto;
         z-index: 10000;
         box-shadow: 0 10px 40px rgba(0,0,0,0.8);

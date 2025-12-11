@@ -1,5 +1,8 @@
 import Phaser from "phaser";
 import WorldScene from "./game/scenes/worldScene.js";
+
+
+
 const config = {
   type: Phaser.AUTO,
   width: window.innerWidth,
@@ -10,9 +13,14 @@ const config = {
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  render: {
+    pixelArt: true  // Optional: keeps tiles crisp
+  },
+  physics: {
+    default: 'arcade'  // If you need it later
   }
 };
-
 
 export function startGame(selectedChampion) {
   console.log('startGame called with:', selectedChampion);

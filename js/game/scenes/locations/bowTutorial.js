@@ -10,7 +10,7 @@ export default class BowTutorial extends Phaser.Scene {
   preload() {
     // Load champion spritesheet and atlas (same as base scene)
     this.load.image('championSheet', 'assets/champions/champions-with-kit.png');
-    this.load.image('arrowTexture', 'assets/arrow.png');
+    this.load.image('arrowTexture', 'assets/arrow1.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
   }
 

@@ -103,13 +103,13 @@ export default class BowMechanics {
     arrow.setOrigin(0.5);
     arrow.setDepth(50);
 arrow.setTint(0xf5f5f5);
-    const baseScale = 0.035;
+    const baseScale = 0.085;
     arrow.setScale(baseScale);
     arrow.setData('baseScale', baseScale);
 
     // Horizontal texture → rotate 90° clockwise
-    const flightRotation = angle + Math.PI / 2;
-    arrow.setRotation(flightRotation);
+    const flightRotation = angle  
+  //  arrow.setRotation(flightRotation);
     arrow.setData('flightRotation', flightRotation);
 
     const shadow = this.scene.add.ellipse(x, y, 20, 10, 0x000000, 0.4);
@@ -159,8 +159,9 @@ arrow.setTint(0xf5f5f5);
       const elapsed = arrow.getData('elapsed') + delta;
       arrow.setData('elapsed', elapsed);
 
-      const progress = Math.min(elapsed / this.flightTime, 1);
-
+const force = arrow.getData('force');
+const dynamicFlightTime = this.flightTime * (0.4 + force * 0.6); // 40% to 100% of max time
+const progress = Math.min(elapsed / dynamicFlightTime, 1); 
       const sx = arrow.getData('startX');
       const sy = arrow.getData('startY');
       const angle = arrow.getData('angle');
@@ -169,8 +170,10 @@ arrow.setTint(0xf5f5f5);
       const groundX = sx + Math.cos(angle) * dist * progress;
       const groundY = sy + Math.sin(angle) * dist * progress;
 
-      const arc = -4 * this.arcHeight * progress * (progress - 1);
 
+
+const dynamicArcHeight = this.arcHeight * (0.2 + force * 0.8); // 20% to 100% of max arc
+const arc = -4 * dynamicArcHeight * progress * (progress - 1);
       arrow.x = groundX;
       arrow.y = groundY - arc;
 
@@ -183,19 +186,20 @@ arrow.setTint(0xf5f5f5);
       arrow.setScale(base + scaleOffset);
 
       const shadow = arrow.getData('shadow');
-      if (shadow) {
-        shadow.x = groundX;
-        shadow.y = groundY;
-        shadow.setScale(1 + (arc / this.arcHeight) * 0.6);
-        shadow.setAlpha(0.5 - (arc / this.arcHeight) * 0.3);
-      }
+     
+if (shadow) {
+  shadow.x = groundX;
+  shadow.y = groundY;
+  shadow.setScale(1 + (arc / dynamicArcHeight) * 0.6);
+  shadow.setAlpha(0.5 - (arc / dynamicArcHeight) * 0.3);
+}
 
       if (progress >= 1 && !arrow.getData('hasLanded')) {
         arrow.setData('hasLanded', true);
         arrow.setData('active', false);
 
         arrow.setRotation(Math.PI / 2);
-        arrow.setScale(0.02);
+        arrow.setScale(0.12);
         arrow.setAlpha(0.75);
 
         if (shadow) {

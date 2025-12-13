@@ -263,8 +263,11 @@ isColliding(x, y) {
     });
   }
 
-
 checkProximityInteractions() {
+  // Don't check proximity during narrative
+  if (this.narrativeInProgress) return;
+  
+
   // Check for cooldown
   if (this.textPanel.isVisible || this.textPanelCooldown) return;
 

@@ -72,6 +72,7 @@ export default class BogMeadow extends BaseLocationScene {
     // Add settings slider (temporary UI)
     this.addSettingsSlider();
 
+this.showIntroNarrative();
     console.log('BogMeadow: scene created successfully');
   }
 
@@ -115,10 +116,47 @@ export default class BogMeadow extends BaseLocationScene {
   console.log('BogMeadow: lighting setup complete');
 } 
 
+showIntroNarrative() {
+  const champion = this.registry.get('selectedChampion');
+  const narrativeKey = `bog_intro_seen_${champion.id}`;
 
+  if (localStorage.getItem(narrativeKey)) {
+    console.log('BogMeadow: intro already seen');
+    return;
+  }
 
+  const narrative = this.mapData.introNarrative;
+  if (!narrative || narrative.length === 0) return;
 
+  this.narrativeInProgress = true;
+  this.narrativeQueue = [...narrative];
 
+  const showNext = () => {
+    if (this.narrativeQueue.length === 0) {
+      // All done
+      localStorage.setItem(narrativeKey, 'true');
+      this.narrativeInProgress = false;
+      console.log('BogMeadow: intro narrative complete');
+      return;
+    }
+
+    const entry = this.narrativeQueue.shift();
+    console.log('Showing narrative entry, remaining:', this.narrativeQueue.length);
+
+    this.textPanel.show({
+      irish: entry.irish,
+      english: entry.english,
+      type: 'dialogue',
+      onDismiss: () => {
+        // Small delay before next
+        this.time.delayedCall(300, showNext);
+      }
+    });
+  };
+
+  // Start showing
+  showNext();
+}
   update() {
     // Call parent update for player movement, collision, etc.
     super.update();

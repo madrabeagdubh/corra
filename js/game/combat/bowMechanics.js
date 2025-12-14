@@ -132,7 +132,9 @@ export default class BowMechanics {
       hasLanded: false,
       shadow,
       trailGraphics,
-      trailPositions: []
+      trailPositions: [],
+      prevX: x,
+      prevY: y
     });
 
     this.arrows.push(arrow);
@@ -164,46 +166,36 @@ export default class BowMechanics {
   }
 
   createImpactEffect(x, y, force) {
-    // Dust/debris particles
-    const particles = this.scene.add.particles(x, y, 'arrowTexture', {
-      speed: { min: 50, max: 150 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 0.02, end: 0 },
-      alpha: { start: 0.8, end: 0 },
-      lifespan: 400,
-      quantity: 8,
-      tint: [0x8B7355, 0xA0826D, 0x654321],
-      blendMode: 'NORMAL'
-    });
-
-    // Impact flash
-    const flash = this.scene.add.circle(x, y, 15, 0xFFFFFF, 0.6);
+    // Multiple expanding rings
+    const ringCount = force > 0.7 ? 3 : 2;
+    
+    for (let i = 0; i < ringCount; i++) {
+      const ring = this.scene.add.circle(x, y, 10, 0xFFFFFF, 0);
+      ring.setStrokeStyle(3 - i, 0xFFAA00, 0.8);
+      ring.setDepth(99 + i);
+      
+      this.scene.tweens.add({
+        targets: ring,
+        radius: 40 + (i * 15),
+        alpha: 0,
+        duration: 400 + (i * 100),
+        delay: i * 50,
+        ease: 'Power2',
+        onComplete: () => ring.destroy()
+      });
+    }
+    
+    // Central flash
+    const flash = this.scene.add.circle(x, y, 8, 0xFFFFFF, 0.9);
     flash.setDepth(100);
     this.scene.tweens.add({
       targets: flash,
-      scale: 2,
+      scale: 3,
       alpha: 0,
-      duration: 150,
-      ease: 'Power2',
+      duration: 200,
+      ease: 'Power3',
       onComplete: () => flash.destroy()
     });
-
-    // Stronger impact for powerful shots
-    if (force > 0.7) {
-      const shockwave = this.scene.add.circle(x, y, 20, 0xFFAA00, 0);
-      shockwave.setStrokeStyle(2, 0xFFAA00, 0.8);
-      shockwave.setDepth(99);
-      this.scene.tweens.add({
-        targets: shockwave,
-        scale: 2.5,
-        alpha: 0,
-        duration: 300,
-        ease: 'Power2',
-        onComplete: () => shockwave.destroy()
-      });
-    }
-
-    this.scene.time.delayedCall(500, () => particles.destroy());
   }
 
   update(delta) {
@@ -228,8 +220,23 @@ export default class BowMechanics {
       const dynamicArcHeight = this.arcHeight * (0.2 + force * 0.8);
       const arc = -4 * dynamicArcHeight * progress * (progress - 1);
 
+      const prevX = arrow.getData('prevX');
+      const prevY = arrow.getData('prevY');
+
       arrow.x = groundX;
       arrow.y = groundY - arc;
+
+      // Calculate arrow rotation based on actual direction of movement
+      const deltaX = arrow.x - prevX;
+      const deltaY = arrow.y - prevY;
+      
+      if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+        arrow.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
+      }
+      
+      // Store current position for next frame
+      arrow.setData('prevX', arrow.x);
+      arrow.setData('prevY', arrow.y);
 
       // Store position for vapor trail
       const trailPositions = arrow.getData('trailPositions');
@@ -255,8 +262,8 @@ export default class BowMechanics {
           const p1 = trailPositions[i - 1];
           const p2 = trailPositions[i];
           
-          const alpha = p2.alpha * 0.4;
-          const width = 3 * (i / trailPositions.length);
+          const alpha = p2.alpha * 0.7; // Increased from 0.4
+          const width = 5 * (i / trailPositions.length); // Increased from 3
           
           trailGraphics.lineStyle(width, 0xCCDDFF, alpha);
           trailGraphics.beginPath();
@@ -266,8 +273,8 @@ export default class BowMechanics {
         }
       }
 
-      // LOCK rotation during flight
-      arrow.rotation = arrow.getData('flightRotation');
+      // REMOVE the locked rotation - now handled by velocity above
+      // arrow.rotation = arrow.getData('flightRotation'); // DELETED
 
       // Subtle scale modulation only
       const base = arrow.getData('baseScale');
@@ -300,9 +307,14 @@ export default class BowMechanics {
         // Create impact effect
         this.createImpactEffect(groundX, groundY, force);
 
-        arrow.setRotation(Math.PI / 2);
-        arrow.setScale(0.12);
-        arrow.setAlpha(0.75);
+        // Stick arrow in ground at an angle (60-75 degrees from horizontal)
+        const stickAngle = Phaser.Math.DegToRad(Phaser.Math.Between(60, 75));
+        arrow.setRotation(stickAngle);
+        arrow.setScale(0.09); // Smaller - partially embedded
+        arrow.setAlpha(0.8);
+        
+        // Crop off the point by adjusting origin
+        arrow.setOrigin(0.5, 0.3); // Shift origin up to hide bottom 20%
 
         if (shadow) {
           this.scene.tweens.add({

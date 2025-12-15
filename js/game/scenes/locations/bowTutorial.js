@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
+import TextPanel from '../../ui/textPanel.js';
+import { GameSettings } from '../../settings/gameSettings.js';
 
 export default class BowTutorial extends Phaser.Scene {
   constructor() {
@@ -8,101 +10,220 @@ export default class BowTutorial extends Phaser.Scene {
   }
 
   preload() {
-    // Load champion spritesheet and atlas (same as base scene)
+    
+this.load.image('skyeBackground', 'assets/skye1.png');
+this.load.image('cape', 'assets/cape.png');
+    // Load champion spritesheet and atlas
     this.load.image('championSheet', 'assets/champions/champions-with-kit.png');
     this.load.image('arrowTexture', 'assets/arrow1.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
+    
+    this.load.image('scathach', 'assets/sc01.png');
+    // Load tutorial data
+    this.load.json('bowTutorialData', '/maps/bowTutorial.json?v=' + Date.now());
   }
 
   create() {
     console.log('BowTutorial: starting');
-
-    // Simple background
-    this.cameras.main.setBackgroundColor('#3a5f3a');
+this.hitLocked = false;
+    // Load tutorial data
+    this.tutorialData = this.cache.json.get('bowTutorialData');
     
+    if (!this.tutorialData) {
+      console.error('BowTutorial: Tutorial data not found!');
+      return;
+    }
+
+
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
+const bg = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeBackground');
+bg.setDisplaySize(screenWidth, screenHeight); // Scale to fit screen
+bg.setDepth(0); // Behind everything
 
-    // Create ground
-    this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth, screenHeight, 0x4a7a4a, 0.5);
 
     // Get champion
-    const champion = this.registry.get('selectedChampion') || 
-                     window.selectedChampion || 
+    const champion = this.registry.get('selectedChampion') ||
+                     window.selectedChampion ||
                      { id: 'demo', nameGa: 'Demo', row: 0, col: 0 };
 
     // Create player in LOWER third of screen
     const playerX = screenWidth / 2;
-    const playerY = screenHeight * 0.6;
+    const playerY = screenHeight * 0.75;
     this.player = new Player(this, playerX, playerY, champion);
-    
+
     // Disable player movement for tutorial
     this.player.canMove = false;
 
     // Initialize bow mechanics
     this.bowMechanics = new BowMechanics(this, this.player);
 
-    // Create single target near top
+    // Create single target
     this.createTarget();
 
-    // Add instructions
-    this.addInstructions();
+    // Initialize text panel system
+    this.textPanel = new TextPanel(this);
 
     // Track hits
     this.hitCount = 0;
     this.missCount = 0;
-    this.scoreText = this.add.text(20, 20, 'Hits: 0 | Misses: 0', {
-      fontSize: '24px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
-      backgroundColor: '#000000',
-      padding: { x: 10, y: 5 }
-    }).setScrollFactor(0).setDepth(1000);
 
+this.consecutiveHits = 0;
+this.consecutiveMisses = 0;
+this.NARRATIVE_THRESHOLD = 3;
+    this.usedHitDialogues = [];
+    this.usedMissDialogues = [];
+    this.tutorialComplete = false;
+
+    // Add settings slider
+    this.addSettingsSlider();
+
+    // Show exposition narrative
+    this.showExposition();
+this.createScathach();
     console.log('BowTutorial: ready');
   }
 
-  createTarget() {
-    const screenWidth = this.scale.width;
-    const screenHeight = this.scale.height;
-    
-    // Single target near top of screen
-    const targetX = screenWidth / 2;
-    const targetY = screenHeight * 0.2; // 20% from top
+  showExposition() {
+    const exposition = this.tutorialData.narrative.exposition;
+    if (!exposition || exposition.length === 0) return;
 
-    this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
-    this.target.setStrokeStyle(4, 0xffffff);
-    this.target.setData('hit', false);
-    
-    // Add bullseye rings
-    this.add.circle(targetX, targetY, 20, 0xff6600, 0.8);
-    this.add.circle(targetX, targetY, 10, 0xffff00, 0.9);
-  }
+    this.narrativeInProgress = true;
+    this.narrativeQueue = [...exposition];
 
-  addInstructions() {
-    const instructions = [
-      'Touch your hero',
-      'Drag DOWN to aim UP',
-      'Match power to distance!'
-    ];
-
-    const text = this.add.text(
-      this.scale.width / 2,
-      this.scale.height - 80,
-      instructions.join('\n'),
-      {
-        fontSize: '20px',
-        fontFamily: 'Arial',
-        color: '#ffff00',
-        backgroundColor: '#000000',
-        padding: { x: 15, y: 10 },
-        align: 'center',
-        lineSpacing: 8
+    const showNext = () => {
+      if (this.narrativeQueue.length === 0) {
+        this.narrativeInProgress = false;
+        console.log('BowTutorial: exposition complete');
+        return;
       }
-    ).setOrigin(0.5);
-    text.setScrollFactor(0);
-    text.setDepth(1000);
+
+      const entry = this.narrativeQueue.shift();
+      
+      this.textPanel.show({
+        irish: entry.irish,
+        english: entry.english,
+        type: 'dialogue',
+        speaker: ' ',
+        onDismiss: () => {
+          this.time.delayedCall(300, showNext);
+        }
+      });
+    };
+
+    showNext();
   }
+
+  getRandomDialogue(pool, usedArray) {
+    // Get unused dialogues
+    const unused = pool.filter((d, i) => !usedArray.includes(i));
+    
+    // If all used, reset
+    if (unused.length === 0) {
+      usedArray.length = 0;
+      return pool[0];
+    }
+    
+    // Pick random unused
+    const randomIndex = Phaser.Math.Between(0, unused.length - 1);
+    const dialogue = unused[randomIndex];
+    const originalIndex = pool.indexOf(dialogue);
+    usedArray.push(originalIndex);
+    
+    return dialogue;
+  }
+
+  showHitDialogue() {
+    if (this.narrativeInProgress || this.textPanel.isVisible || this.tutorialComplete) return;
+    
+    const hitDialogues = this.tutorialData.narrative.onHit;
+    const dialogue = this.getRandomDialogue(hitDialogues, this.usedHitDialogues);
+    
+    this.textPanel.show({
+      irish: dialogue.irish,
+      english: dialogue.english,
+      type: 'dialogue',
+      speaker: ' '
+    });
+  }
+
+  showMissDialogue() {
+    if (this.narrativeInProgress || this.textPanel.isVisible || this.tutorialComplete) return;
+    
+    const missDialogues = this.tutorialData.narrative.onMiss;
+    const dialogue = this.getRandomDialogue(missDialogues, this.usedMissDialogues);
+    
+    this.textPanel.show({
+      irish: dialogue.irish,
+      english: dialogue.english,
+      type: 'dialogue',
+      speaker: ' '
+    });
+  }
+
+  showFarewell() {
+    const farewell = this.tutorialData.narrative.farewell;
+    if (!farewell || farewell.length === 0) return;
+
+    this.tutorialComplete = true;
+    this.narrativeInProgress = true;
+    this.narrativeQueue = [...farewell];
+
+    const showNext = () => {
+      if (this.narrativeQueue.length === 0) {
+        this.narrativeInProgress = false;
+        console.log('BowTutorial: farewell complete - tutorial finished');
+        // Could transition to another scene here
+        return;
+      }
+
+      const entry = this.narrativeQueue.shift();
+      
+      this.textPanel.show({
+        irish: entry.irish,
+        english: entry.english,
+        type: 'dialogue',
+        speaker: ' ',
+        onDismiss: () => {
+          this.time.delayedCall(300, showNext);
+        }
+      });
+    };
+
+    showNext();
+  }
+
+ createTarget() {
+ this.currentTargetIndex = 0;
+ const screenWidth = this.scale.width;
+ const screenHeight = this.scale.height;
+ const targetData = this.tutorialData.targetSequence[this.currentTargetIndex];
+ const targetX = screenWidth * targetData.x;
+ const targetY = screenHeight * targetData.y;
+ this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
+ this.target.setStrokeStyle(4, 0xffffff);
+ this.target.setData('hit', false);
+ this.bullseye1 = this.add.circle(targetX, targetY, 20, 0xff6600, 0.8);
+ this.bullseye2 = this.add.circle(targetX, targetY, 10, 0xffff00, 0.9);
+ }
+ moveTargetToNext() {
+ this.currentTargetIndex++;
+ if (this.currentTargetIndex >= this.tutorialData.targetSequence.length) {
+ this.currentTargetIndex = 0;
+ }
+ const screenWidth = this.scale.width;
+ const screenHeight = this.scale.height;
+ const targetData = this.tutorialData.targetSequence[this.currentTargetIndex];
+ const newX = screenWidth * targetData.x;
+ const newY = screenHeight * targetData.y;
+ this.tweens.add({
+ targets: [this.target, this.bullseye1, this.bullseye2],
+ x: newX,
+ y: newY,
+ duration: 500,
+ ease: 'Power2'
+ });
+ }
 
   update(time, delta) {
     // Update bow mechanics (arrow physics)
@@ -116,69 +237,222 @@ export default class BowTutorial extends Phaser.Scene {
       }
     }
 
-    // Check for missed arrows (arrows that landed but didn't hit)
-    this.bowMechanics.arrows.forEach(arrow => {
 
 
-if (!arrow.getData('active') && !arrow.getData('counted')) {
-	  arrow.setData('counted', true);
+// Check for missed arrows (arrows that landed but didn't hit)
+this.bowMechanics.arrows.forEach(arrow => {
+  if (!arrow.getData('active') && !arrow.getData('counted')) {
+      arrow.setData('counted', true);
 
-	  const landX = arrow.getData('x');
-	  const landY = arrow.getData('y');
+          const landX = arrow.x;
+	      const landY = arrow.y;
 
-	  const distance = Phaser.Math.Distance.Between(
-		      landX, landY,
-		      this.target.x, this.target.y
-		    );
+	          const distance = Phaser.Math.Distance.Between(
+		        landX, landY,
+			      this.target.x, this.target.y
+			          );
 
-	  if (distance > 35) {
-		      this.missCount++;
-		      this.updateScore();
-		    }
-}
-    });
+				      if (distance > 35) {
+				            this.consecutiveHits = 0; // reset hits on a miss
+					          this.missCount++;
+						        this.onMiss();
+							    }
+							      }
+							      });
+
+
+
+
   }
 
-  onTargetHit(hitData) {
-    this.target.setData('hit', true);
-    this.hitCount++;
     
-    // Visual feedback
+
+
+
+
+
+
+onTargetHit(hitData) {
+  this.target.setData('hit', true);
+
+   this.hitCount++;
+   this.consecutiveHits++;
+   this.consecutiveMisses = 0; // reset misses
+
+  // visual feedback stays immediate
     this.target.setFillStyle(0x00ff00, 0.9);
-    
-    // Particle effect
-    const particles = this.add.particles(this.target.x, this.target.y, 'championSheet', {
-      speed: { min: 80, max: 200 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 0.4, end: 0 },
-      alpha: { start: 1, end: 0 },
-      lifespan: 600,
-      quantity: 15,
-      tint: 0x00ff00
-    });
-    
-    this.time.delayedCall(600, () => particles.destroy());
-    
-    // Update score
-    this.updateScore();
-    
-    // Reset target after delay
-    this.time.delayedCall(2000, () => {
-      this.target.setFillStyle(0xff0000, 0.7);
-      this.target.setData('hit', false);
-    });
 
-    console.log(`TARGET HIT! Force: ${hitData.force.toFixed(2)}, Distance: ${hitData.distance.toFixed(0)}`);
+
+
+
+	  // 🎯 THRESHOLD CHECK
+	    if (
+      this.consecutiveHits >= this.NARRATIVE_THRESHOLD &&
+    !this.tutorialComplete
+     ) {
+         this.showHitDialogue();
+      this.consecutiveHits = 0; // reset after speaking
+       }
+
+  // Tutorial completion still wins
+    if (this.hitCount >= 5 && !this.tutorialComplete) {
+       this.showFarewell();
+    return;
+      }
+
+      this.time.delayedCall(2000, () => {
+    this.target.setFillStyle(0xff0000, 0.7);
+       this.target.setData('hit', false);
+    this.moveTargetToNext();
+      });
+
+        console.log(
+    `TARGET HIT! Force: ${hitData.force.toFixed(2)}, Distance: ${hitData.distance.toFixed(0)}`
+      );
+									      }
+
+
+
+
+
+
+
+onMiss() {
+  this.consecutiveHits = 0;
+    this.consecutiveMisses++;
+
+  if (
+     this.consecutiveMisses >= this.NARRATIVE_THRESHOLD &&
+      !this.tutorialComplete
+    ) {
+    this.showMissDialogue();
+     this.consecutiveMisses = 0; // reset after speaking
+  }
   }
 
-  updateScore() {
-    this.scoreText.setText(`Hits: ${this.hitCount} | Misses: ${this.missCount}`);
-    
-    // Calculate accuracy
-    const total = this.hitCount + this.missCount;
-    if (total > 0) {
-      const accuracy = Math.round((this.hitCount / total) * 100);
-      this.scoreText.setText(`Hits: ${this.hitCount} | Misses: ${this.missCount} | Accuracy: ${accuracy}%`);
-    }
+createScathach() {
+  const screenWidth = this.scale.width;
+    const screenHeight = this.scale.height;
+
+      // Position
+        const scathachX = screenWidth * 0.65;
+  const scathachY = screenHeight * 0.45;
+
+    // Wind direction (left + slightly down)
+      this.wind = { x: -15, y: 5 };
+
+        // Add Scáthach
+	  this.scathach = this.add.image(scathachX, scathachY, 'scathach');
+	    this.scathach.setScale(0.8);
+      this.scathach.setDepth(20);
+
+        // --- CAPE SPRITE ---
+	  this.cape = this.add.image(
+      scathachX - 20, // slightly behind shoulder
+          scathachY-15 ,
+      'cape'
+        );
+
+	  this.cape.setOrigin(0, 0); // attach left edge
+    this.cape.setDepth(15);
+
+	      // Animation state
+        this.capeTime = 0;
+
+	  // Billowing update
+    this.events.on('update', (time, delta) => {
+        this.capeTime += delta * 0.001;
+
+	    // Normalize wind strength
+        const windStrength = Phaser.Math.Clamp(
+      Math.abs(this.wind.x) / 15,
+           0.4,
+          1
+      );
+
+          // Gentle rotation (wind-biased)
+      this.cape.rotation =
+            -0.12 * windStrength +
+          Math.sin(this.capeTime * 1.1) * 0.05;
+
+	      // Soft unfurl / relax
+        1 + Math.sin(this.capeTime * 0.9) * 0.1;
+
+	    this.cape.scaleY =
+          1 + Math.sin(this.capeTime * 1.3 + 1) * 0.04;
+	    });
+
+	      // --- OCCASIONAL GUST ---
+        this.time.addEvent({
+    delay: 5000,
+       loop: true,
+    callback: () => {
+          this.tweens.add({
+          targets: this.cape,
+          scaleX: 1.25,
+          rotation: -0.2,
+          duration: 900,
+         yoyo: true,
+          ease: 'Sine.easeInOut'
+        });
+	    }
+      });
+
+        console.log('Scáthach created at:', scathachX, scathachY);
+	}
+
+
+
+  addSettingsSlider() {
+    const sliderWidth = this.scale.width * 0.95; // 95% of screen width
+    const sliderHeight = 8;
+    const sliderX = this.scale.width * 0.025; // Center it (2.5% margin on each side)
+    const sliderY = 20;
+
+    // Create background track (dark part)
+    const trackBg = this.add.rectangle(
+      sliderX + sliderWidth / 2,
+      sliderY,
+      sliderWidth,
+      sliderHeight,
+      0x444444
+    ).setScrollFactor(0).setDepth(3500); // Above text panel (which is 3000)
+
+    // Create golden fill (updates based on opacity)
+    const trackFill = this.add.rectangle(
+      sliderX,
+      sliderY,
+      sliderWidth * GameSettings.englishOpacity,
+      sliderHeight,
+      0xd4af37
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(3501);
+
+    // Create draggable thumb
+    const thumb = this.add.circle(
+      sliderX + (sliderWidth * GameSettings.englishOpacity),
+      sliderY,
+      15,
+      0xffd700
+    ).setScrollFactor(0).setDepth(3502).setInteractive();
+
+    this.input.setDraggable(thumb);
+
+    this.input.on('drag', (pointer, gameObject, dragX) => {
+      if (gameObject === thumb) {
+        const clampedX = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth);
+        thumb.x = clampedX;
+
+        const opacity = (clampedX - sliderX) / sliderWidth;
+        GameSettings.setEnglishOpacity(opacity);
+
+        // Update golden fill width
+        trackFill.width = sliderWidth * opacity;
+
+        // Update any visible English text in real-time
+        if (this.textPanel) {
+          this.textPanel.updateEnglishOpacity();
+        }
+      }
+    });
   }
-}
+} 

@@ -1,0 +1,90 @@
+
+{
+  "name": "ScáthachTraining",
+  "type": "tutorial",
+
+  "narrative": {
+    "exposition": [
+      {
+        "irish": "Seas Scáthach ar chnoic fhraoigh Sgitheanach.",
+        "english": "The Shadowed one stood upon the heathered hills of Skye."
+      },
+      {
+        "irish": "Éist liom, laoch dána, agus tuigfaid tu an bogha",
+        "english": "Hark to me, bold hero, and you will understand the bow"
+      },
+      {
+        "irish": "Tarraing síar agus scaoil gan fearg, gan fonn, gan faitíos",
+        "english": "'Draw and release without anger, without desire, without fear'"
+      }
+    ],
+
+    "onHit": [
+      {
+        "irish": "Maith. Ach ní hé an sprioc an bua.",
+        "english": "Good. But the target is not the victory."
+      },
+      {
+        "irish": "S'ea. Nochtan an saighead an chroí.",
+
+        "english": "It is so. The arrow reveals the heart."
+      },
+      {
+        "irish": "Tá tú ag foghlaim.",
+        "english": "You're learning."
+      },
+      {
+        "irish": "Sin é. Scaoiltear an saighead ón intinn, ar dtus.",
+        "english": "That's it. First the arrow is released from the mind."
+      }
+    ],
+
+    "onMiss": [
+      {
+        "irish": "Tá tú ag foghlaim.",
+        "english": "You are learning."
+      },
+
+      {
+        "irish": "Haw! Chaitheann do saighead a neart go fánach ar an talamh fliuch",
+        "english": "Ha! Thine arrow squanders it's might upon the sodden earth"
+      },
+      {
+        "irish": "Féach anois, saighdeoir lag rún!",
+        "english": "Look ye now, O archer of frail intent!"
+      },
+      {
+        "irish": "Seo! Scaipann tú sháigheada chun na muc fiáine a chur ag gáire!",
+        "english": "Lo! Thou scatter the arrows to the glee of forest pigs!"
+      },
+      {
+        "english": "Thy shafts, o unsteady hand, make their bed in the ground.",
+        "irish": "Tá do sháigheada, a lámh guagach, ag luí ar an talamh."
+      }
+      
+    ],   "farewell": [
+      {
+        "irish": "Mar sin a chaith Scáthach breithiúnas ar foghlaim; le teanga géar agus súile gealán",
+        "english": "Thus did Scáthach cast her judgment upon learning;  with sharp tongue and eyes ablaze"
+      },
+     
+      {
+        "irish": "Seachas slán, leabhair sí le cinnteacht tairngire:",
+        "english":"Instead of farewell, she spoke with the certainty of prophecy: "
+      },  {
+        "irish": "'Choinóigh tú saigheada ullamh, agus cothrom na Féinne i do chroí.'",
+        "english":"'You shall keep arrows ready, and justice in your heart.'"
+      }
+    ]
+  },
+
+"targetSequence": [
+  { "x": 0.25, "y": 0.4 },
+  { "x": 0.75,  "y": 0.4 },
+  { "x": 0.25,  "y": 0.5 },
+  { "x": 0.75,  "y": 0.5 },
+  { "x": 0.5,  "y": 0.4 }
+] 
+}
+
+

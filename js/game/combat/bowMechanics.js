@@ -130,6 +130,7 @@ export default class BowMechanics {
       elapsed: 0,
       active: true,
       hasLanded: false,
+      hitTarget:false,
       shadow,
       trailGraphics,
       trailPositions: [],
@@ -327,29 +328,30 @@ export default class BowMechanics {
     });
   }
 
-  checkHit(target, radius = 30) {
-    for (const arrow of this.arrows) {
-      if (!arrow.getData('hasLanded')) continue;
+ checkHit(target, radius = 30) {
+     for (const arrow of this.arrows) {
+           if (!arrow.getData('hasLanded')) continue;
+	         if (arrow.getData('hitTarget')) continue; // ✅ prevents repeat
+       const d = Phaser.Math.Distance.Between(
+             arrow.x,
+              arrow.y,
+              target.x,
+              target.y
+             );
+	        if (d < radius) {
+	          arrow.setData('hitTarget', true); // ✅ consume arrow
+									           return {
+										      arrow,
+	    force: arrow.getData('force'),
+           distance: arrow.getData('travelDistance'),
+           landX: arrow.x,
+            landY: arrow.y
+             };
+									           }
+									       }
+								           return null;
+     }
 
-      const d = Phaser.Math.Distance.Between(
-        arrow.x,
-        arrow.y,
-        target.x,
-        target.y
-      );
-
-      if (d < radius) {
-        return {
-          arrow,
-          force: arrow.getData('force'),
-          distance: arrow.getData('travelDistance'),
-          landX: arrow.x,
-          landY: arrow.y
-        };
-      }
-    }
-    return null;
-  }
 
   destroy() {
     this.cancelAiming();

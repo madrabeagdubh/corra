@@ -41,7 +41,9 @@ export default class BowMechanics {
     this.isAiming = true;
     this.aimStartX = this.player.sprite.x;
     this.aimStartY = this.player.sprite.y;
+this.scene.sound.unlock();
 
+	  console.log(this.scene.sound.context.state);
     this.aimLine = this.scene.add.graphics();
     this.aimLine.setDepth(100);
   }

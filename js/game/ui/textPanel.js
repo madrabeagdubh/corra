@@ -12,9 +12,31 @@ export default class TextPanel {
     this.englishTextObject = null;
   }
 
-  show(config) {
-    if (this.isVisible) {
-      this.hide();
+
+show(config) {
+    // If a panel is visible, start fading it out but don't wait
+    if (this.isVisible && this.container) {
+      const oldContainer = this.container;
+      const oldTapZone = this.tapZone;
+      
+      this.typewriterActive = false;
+      this.container = null;
+      this.tapZone = null;
+      this.irishTextObject = null;
+      this.englishTextObject = null;
+      
+      // Fade out old container in background (it will be behind the new one)
+      oldContainer.setDepth(1999); // Put old panel behind new one
+      this.scene.tweens.add({
+        targets: oldContainer,
+        alpha: 0,
+        duration: 200,
+        ease: 'Power2',
+        onComplete: () => {
+          oldContainer.destroy();
+          if (oldTapZone) oldTapZone.destroy();
+        }
+      });
     }
 
     const { irish, english, type = 'dialogue', speaker = null, onDismiss = null } = config;
@@ -26,6 +48,7 @@ export default class TextPanel {
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(2000);
     this.container.setScrollFactor(0);
+    this.container.alpha = 1; // Start at full opacity immediately
 
     const screenWidth = this.scene.scale.width;
     const screenHeight = this.scene.scale.height;
@@ -54,14 +77,16 @@ export default class TextPanel {
       this.scene.input.setDraggable(this.scene.joystick.thumb, false);
     }
 
-    // Fade in container
-    this.container.alpha = 1; // Start visible instead of fading
-    
     // Start typewriter immediately
     if (type === 'dialogue' || type === 'examine') {
       this.startTypewriter();
     }
   }
+
+
+
+
+
 
   createExaminePanel(irish, english, screenWidth, screenHeight) {
     const panelHeight = screenHeight * 0.35;

@@ -26,7 +26,7 @@ export default class BowTutorial extends Phaser.Scene {
     this.load.json('bowTutorialData', '/maps/bowTutorial.json?v=' + Date.now());
   }
 
-  create() {
+create() {  // <-- THIS WAS MISSING!
     console.log('BowTutorial: starting');
     this.hitLocked = false;
     // Load tutorial data
@@ -81,19 +81,16 @@ export default class BowTutorial extends Phaser.Scene {
 
     // Show exposition narrative
     this.showExposition();
-    
-    this.createScathach();
 
-    // Create Scáthach hitbox
-    const scathachX = screenWidth * 0.65;
-    const scathachY = screenHeight * 0.45;
-    this.scathachHitbox = this.add.circle(scathachX, scathachY, 60, 0xff0000, 0);
-    this.scathachHitbox.setData('isScathach', true);
+    this.createScathach();
 
     console.log('BowTutorial: ready');
   }
 
-  showExposition() {
+
+
+
+   showExposition() {
     const exposition = this.tutorialData.narrative.exposition;
     if (!exposition || exposition.length === 0) return;
 
@@ -235,179 +232,215 @@ export default class BowTutorial extends Phaser.Scene {
     });
   }
 
-  update(time, delta) {
-    // Update bow mechanics (arrow physics)
-    this.bowMechanics.update(delta);
 
-    // Check for arrow hit on target
-    if (!this.target.getData('hit')) {
-      const hit = this.bowMechanics.checkHit(this.target, 35);
-      if (hit) {
-        this.onTargetHit(hit);
+
+
+
+
+
+update(time, delta) {
+  // Update Scáthach hitbox to follow sprite position
+  if (this.scathach && this.scathachHitbox) {
+    this.scathachHitbox.x = this.scathach.x;
+    this.scathachHitbox.y = this.scathach.y;
+  }
+
+  // Update bow mechanics (arrow physics)
+  this.bowMechanics.update(delta);
+
+  // Check for arrow hit on target
+  if (!this.target.getData('hit')) {
+    const hit = this.bowMechanics.checkHit(this.target, 35);
+    if (hit) {
+      this.onTargetHit(hit);
+    }
+  }
+
+  // Check if any arrow hit Scáthach (SINGLE CHECK, NOT DUPLICATE)
+  this.bowMechanics.arrows.forEach(arrow => {
+    if (arrow.getData('active') && !arrow.getData('parried')) {
+      const distance = Phaser.Math.Distance.Between(
+        arrow.x, arrow.y,
+        this.scathachHitbox.x, this.scathachHitbox.y
+      );
+
+      // Only parry if arrow is close AND hasn't passed Scáthach yet
+      // Assuming arrows travel upward (decreasing y)
+      const hasPassedScathach = arrow.y < this.scathachHitbox.y - 50;
+      
+      if (distance < 40 && !hasPassedScathach) {
+        this.onScathachHit(arrow);
       }
     }
+  });
 
-    // Check if any arrow hit Scáthach
-    this.bowMechanics.arrows.forEach(arrow => {
-      if (arrow.getData('active') && !arrow.getData('parried')) {
-	              const distance = Phaser.Math.Distance.Between(
-			                arrow.x, arrow.y,
-			                this.scathachHitbox.x, this.scathachHitbox.y
-			              );
-	              
-	              if (distance < 60) {
-			                this.onScathachHit(arrow);
-			              }
-	            }
-	        });
+  // Check for missed arrows (arrows that landed but didn't hit)
+  this.bowMechanics.arrows.forEach(arrow => {
+    if (!arrow.getData('active') && !arrow.getData('counted')) {
+      arrow.setData('counted', true);
 
-	      // Check for missed arrows (arrows that landed but didn't hit)
-	       this.bowMechanics.arrows.forEach(arrow => {
-	             if (!arrow.getData('active') && !arrow.getData('counted')) {
-	                     arrow.setData('counted', true);
-	  
-	                            const landX = arrow.x;
-	                                    const landY = arrow.y;
-	 
-	                                           const distance = Phaser.Math.Distance.Between(
-	                                                     landX, landY,
-	                                                               this.target.x, this.target.y
-	                                                                       );
-	
-	                                                                                if (distance > 35) {
-	                                                                                          this.consecutiveHits = 0;
-	                                                                                                    this.missCount++;
-	                                                                                                              this.onMiss();
-	                                                                                                                      }
-	                                                                                                                            }
-	                                                                                                                                });
-	                                                                                                                                  }
-	 
-	                                                                                                                                   onTargetHit(hitData) {
-	                                                                                                                                       this.target.setData('hit', true);
-	
-                                                                                                                                           this.hitCount++;
-                                                                                                                                               this.consecutiveHits++;
-                                                                                                                                                  this.consecutiveMisses = 0;
+      const landX = arrow.x;
+      const landY = arrow.y;
 
-                                                                                                                                                       // Visual feedback stays immediate
-                                                                                                                                                           this.target.setFillStyle(0x00ff00, 0.9);
+      const distance = Phaser.Math.Distance.Between(
+        landX, landY,
+        this.target.x, this.target.y
+      );
 
-                                                                                                                                                               // Check win condition first
-                                                                                                                                                                   if (this.consecutiveHits >= 5 && !this.tutorialComplete) {
-                                                                                                                                                                         this.showFarewell();
-                                                                                                                                                                               return;
-                                                                                                                                                                                  }
-
-                                                                                                                                                                                       // Show dialogue at 3 hits, but don't reset the counter
-                                                                                                                                                                                           if (this.consecutiveHits === this.NARRATIVE_THRESHOLD && !this.tutorialComplete) {
-                                                                                                                                                                                                this.showHitDialogue();
-                                                                                                                                                                                                     }
-
-                                                                                                                                                                                                         this.time.delayedCall(2000, () => {
-                                                                                                                                                                                                               this.target.setFillStyle(0xff0000, 0.7);
-                                                                                                                                                                                                                     this.target.setData('hit', false);
-                                                                                                                                                                                                                           this.moveTargetToNext();
-                                                                                                                                                                                                                               });
-
-                                                                                                                                                                                                                                   console.log(
-                                                                                                                                                                                                                                         `TARGET HIT! Force: ${hitData.force.toFixed(2)}, Distance: ${hitData.distance.toFixed(0)}`
-                                                                                                                                                                                                                                             );
-                                                                                                                                                                                                                                               }
-
-                                                                                                                                                                                                                                                 onMiss() {
-                                                                                                                                                                                                                                                     this.consecutiveHits = 0;
-                                                                                                                                                                                                                                                         this.consecutiveMisses++;
-
-                                                                                                                                                                                                                                                             if (
-                                                                                                                                                                                                                                                                   this.consecutiveMisses >= this.NARRATIVE_THRESHOLD &&
-                                                                                                                                                                                                                                                                         !this.tutorialComplete
-                                                                                                                                                                                                                                                                             ) {
-                                                                                                                                                                                                                                                                                  this.showMissDialogue();
-                                                                                                                                                                                                                                                                                         this.consecutiveMisses = 0;
-                                                                                                                                                                                                                                                                                             }
-                                                                                                                                                                                                                                                                                               }
-
-                                                                                                                                                                                                                                                                                             onScathachHit(arrow) {
-    // Mark the original arrow
-    arrow.setData('parried', true);
-																																				         arrow.setData('active', false);
-																																				         arrow.setData('counted', true);
-																																				         
-																																				         // Store arrow's current state before we mess with it
-																																			     const arrowX = arrow.x;
-																																			         const arrowY = arrow.y;
-																																			             const arrowRotation = arrow.rotation;
-																																			            
-																																			                     // Destroy the trail and shadow immediately
-																																			                         const trail = arrow.getData('trailGraphics');
-																																			                             if (trail) trail.destroy();
-																																			                                 
-																																			                                     const shadow = arrow.getData('shadow');
-																																			                                         if (shadow) shadow.destroy();
-																																			                                             
-																																			                                                // Remove from bowMechanics tracking immediately
-																																			                                                    const arrowIndex = this.bowMechanics.arrows.indexOf(arrow);
-																																			                                                        if (arrowIndex > -1) {
-																																			                                                              this.bowMechanics.arrows.splice(arrowIndex, 1);
-																																			                                                                   }
-																																			                                                                     
-																																			                                                                          // Destroy the physics arrow immediately
-																																			                                                                               arrow.destroy();
-																																			                                                                                   
-																																			                                                                                       // Create a NEW visual-only arrow sprite for the parry effect
-																																			                                                                                          const parriedArrow = this.add.image(arrowX, arrowY, 'arrowTexture');
-																																			                                                                                               parriedArrow.setRotation(arrowRotation);
-																 parriedArrow.setOrigin(0.5, 0.5).setScale(0.2);
-
-      // Play parry sound
-     if (this.sound.get('parrySound')) {
+      if (distance > 35) {
+        this.consecutiveHits = 0;
+        this.missCount++;
+        this.onMiss();
       }
- this.sound.play('parrySound', { volume: 1 });
-console.log('TEST PLAY FROM START AIMING'); 
-    // Flash Scáthach white briefly
-    this.scathach.setTint(0xffffff);
-    this.time.delayedCall(100, () => {
+    }
+  });
+}
+
+onTargetHit(hitData) {
+  this.target.setData('hit', true);
+
+  this.hitCount++;
+  this.consecutiveHits++;
+  this.consecutiveMisses = 0;
+
+  // Visual feedback stays immediate
+  this.target.setFillStyle(0x00ff00, 0.9);
+
+  // Check win condition first
+  if (this.consecutiveHits >= 5 && !this.tutorialComplete) {
+    this.showFarewell();
+    return;
+  }
+
+  // Show dialogue at 3 hits, but don't reset the counter
+  if (this.consecutiveHits === this.NARRATIVE_THRESHOLD && !this.tutorialComplete) {
+    this.showHitDialogue();
+  }
+
+  this.time.delayedCall(2000, () => {
+    this.target.setFillStyle(0xff0000, 0.7);
+    this.target.setData('hit', false);
+    this.moveTargetToNext();
+  });
+
+  console.log(
+    `TARGET HIT! Force: ${hitData.force.toFixed(2)}, Distance: ${hitData.distance.toFixed(0)}`
+  );
+}
+
+onMiss() {
+  this.consecutiveHits = 0;
+  this.consecutiveMisses++;
+
+  if (
+    this.consecutiveMisses >= this.NARRATIVE_THRESHOLD &&
+    !this.tutorialComplete
+  ) {
+    this.showMissDialogue();
+    this.consecutiveMisses = 0;
+  }
+}
+
+
+onScathachHit(arrow) {
+  // Mark the original arrow
+  arrow.setData('parried', true);
+  arrow.setData('active', false);
+  arrow.setData('counted', true);
+
+  // Store arrow's current state
+  const arrowX = arrow.x;
+  const arrowY = arrow.y;
+  const arrowRotation = arrow.rotation;
+
+  // Destroy the trail and shadow immediately
+  const trail = arrow.getData('trailGraphics');
+  if (trail) trail.destroy();
+
+  const shadow = arrow.getData('shadow');
+  if (shadow) shadow.destroy();
+
+  // Remove from bowMechanics tracking
+  const arrowIndex = this.bowMechanics.arrows.indexOf(arrow);
+  if (arrowIndex > -1) {
+    this.bowMechanics.arrows.splice(arrowIndex, 1);
+  }
+
+  // Destroy the physics arrow
+  arrow.destroy();
+
+  // === VISUAL PARRY EFFECT ===
+
+  // Tint Scáthach bright white for 200ms
+  this.scathach.setTint(0xffffff);
+  this.time.delayedCall(200, () => {
     this.scathach.clearTint();
-	                  });
-	                      
-	                          // Calculate bounce-back direction
-	                              const angle = arrowRotation;
-	                                  const bounceDistance = 80;
-	                                      
-	                                          // Spin the NEW arrow away dramatically
-	                                              this.tweens.add({
-	                                                    targets: parriedArrow,
-	                                                          x: arrowX + Math.cos(angle + Math.PI) * bounceDistance,
-	                                                                y: arrowY + Math.sin(angle + Math.PI) * bounceDistance,
-	                                                                      rotation: arrowRotation + (Math.PI * 4),
-	                                                                            alpha: 0,
-	                                                                                  duration: 800,
-	                                                                                        ease: 'Cubic.easeOut',
-	                                                                                              onComplete: () => {
-	                                                                                                      parriedArrow.destroy();
-	                                                                                                            }
-	                                                                                                                });
-	                                                                                                                    
-	                                                                                                                        console.log('🗡️ PARRIED! Scáthach deflected the arrow!');
-	                                                                                                                          }
+  });
 
-  createScathach() {
-    const screenWidth = this.scale.width;
-    const screenHeight = this.scale.height;
+  // Subtle recoil on Scáthach
+  this.tweens.add({
+    targets: this.scathach,
+    x: this.scathach.x + Phaser.Math.Between(-6, 6),
+    duration: 80,
+    yoyo: true,
+    ease: 'Quad.easeOut'
+  });
 
-    // Position
-    const scathachX = screenWidth * 0.65;
-    const scathachY = screenHeight * 0.45;
+  // Create a NEW visual-only arrow sprite for the parry effect
+  const parriedArrow = this.add.image(arrowX, arrowY, 'arrowTexture');
+  parriedArrow.setOrigin(0.5, 0.5).setScale(0.2);
+  parriedArrow.setRotation(arrowRotation);
 
-    // Wind direction (left + slightly down)
-    this.wind = { x: -15, y: 5 };
+  // Play parry sound
+  this.sound.play('parrySound', { volume: 1 });
 
-    // Add Scáthach
-    this.scathach = this.add.image(scathachX, scathachY, 'scathach');
-    this.scathach.setScale(0.8);
-    this.scathach.setDepth(20);
+  // === RANDOM SKYWARD DEFLECTION ===
+  const baseUpwardAngle = -Math.PI / 2; // straight up
+  const spread = Phaser.Math.DegToRad(60); // ±30°
+  const deflectAngle =
+    baseUpwardAngle + Phaser.Math.FloatBetween(-spread / 2, spread / 2);
 
+  const bounceDistance = Phaser.Math.Between(100, 160);
+
+  this.tweens.add({
+    targets: parriedArrow,
+    x: arrowX + Math.cos(deflectAngle) * bounceDistance,
+    y: arrowY + Math.sin(deflectAngle) * bounceDistance,
+    rotation:
+      arrowRotation + Phaser.Math.FloatBetween(Math.PI * 3, Math.PI * 6),
+    alpha: 0,
+    duration: Phaser.Math.Between(700, 1000),
+    ease: 'Cubic.easeOut',
+    onComplete: () => {
+      parriedArrow.destroy();
+    }
+  });
+
+  console.log('🗡️  PARRIED! Scáthach deflected the arrow!');
+}
+
+
+
+createScathach() {
+  const screenWidth = this.scale.width;
+  const screenHeight = this.scale.height;
+
+  // Position
+  const scathachX = screenWidth * 0.65;
+  const scathachY = screenHeight * 0.45;
+
+  // Wind direction (left + slightly down)
+  this.wind = { x: -15, y: 5 };
+
+  // Add Scáthach
+  this.scathach = this.add.image(scathachX, scathachY, 'scathach');
+  this.scathach.setScale(0.8);
+  this.scathach.setDepth(20);
+
+  // Create hitbox attached to Scáthach (make it match her visual size better)
+  this.scathachHitbox = this.add.circle(scathachX, scathachY, 40, 0xff0000, 0);
+  this.scathachHitbox.setData('isScathach', true);
+  this.scathachHitbox.setDepth(19);
     // --- CAPE SPRITE ---
     this.cape = this.add.image(
       scathachX - 20, // slightly behind shoulder

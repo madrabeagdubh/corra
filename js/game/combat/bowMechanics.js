@@ -201,134 +201,140 @@ this.scene.sound.unlock();
     });
   }
 
-  update(delta) {
-    this.arrows.forEach(arrow => {
-      if (!arrow.getData('active')) return;
+update(delta) {
+  this.arrows.forEach(arrow => {
+    if (!arrow.getData('active')) return;
 
-      const elapsed = arrow.getData('elapsed') + delta;
-      arrow.setData('elapsed', elapsed);
+    const elapsed = arrow.getData('elapsed') + delta;
+    arrow.setData('elapsed', elapsed);
 
-      const force = arrow.getData('force');
-      const dynamicFlightTime = this.flightTime * (0.4 + force * 0.6);
-      const progress = Math.min(elapsed / dynamicFlightTime, 1);
+    const force = arrow.getData('force');
+    const dynamicFlightTime = this.flightTime * (0.4 + force * 0.6);
+    const progress = Math.min(elapsed / dynamicFlightTime, 1);
 
-      const sx = arrow.getData('startX');
-      const sy = arrow.getData('startY');
-      const angle = arrow.getData('angle');
-      const dist = arrow.getData('travelDistance');
+    const sx = arrow.getData('startX');
+    const sy = arrow.getData('startY');
+    const angle = arrow.getData('angle');
+    const dist = arrow.getData('travelDistance');
 
-      const groundX = sx + Math.cos(angle) * dist * progress;
-      const groundY = sy + Math.sin(angle) * dist * progress;
+    const groundX = sx + Math.cos(angle) * dist * progress;
+    const groundY = sy + Math.sin(angle) * dist * progress;
+    const dynamicArcHeight = this.arcHeight * (0.2 + force * 0.8);
+    const arc = -4 * dynamicArcHeight * progress * (progress - 1);
 
-      const dynamicArcHeight = this.arcHeight * (0.2 + force * 0.8);
-      const arc = -4 * dynamicArcHeight * progress * (progress - 1);
+    const prevX = arrow.getData('prevX');
+    const prevY = arrow.getData('prevY');
 
-      const prevX = arrow.getData('prevX');
-      const prevY = arrow.getData('prevY');
+    arrow.x = groundX;
+    arrow.y = groundY - arc;
 
-      arrow.x = groundX;
-      arrow.y = groundY - arc;
+    // Arrow rotation based on movement
+    const deltaX = arrow.x - prevX;
+    const deltaY = arrow.y - prevY;
+    if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+      arrow.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
+    }
 
-      // Calculate arrow rotation based on actual direction of movement
-      const deltaX = arrow.x - prevX;
-      const deltaY = arrow.y - prevY;
-      
-      if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-        arrow.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
+    arrow.setData('prevX', arrow.x);
+    arrow.setData('prevY', arrow.y);
+
+    // Vapor trail
+    const trailPositions = arrow.getData('trailPositions');
+    trailPositions.push({ x: arrow.x, y: arrow.y, alpha: 1 });
+    if (trailPositions.length > 15) trailPositions.shift();
+
+    const trailGraphics = arrow.getData('trailGraphics');
+    if (trailGraphics && trailPositions.length > 1) {
+      trailGraphics.clear();
+      trailPositions.forEach(pos => (pos.alpha *= 0.92));
+      for (let i = 1; i < trailPositions.length; i++) {
+        const p1 = trailPositions[i - 1];
+        const p2 = trailPositions[i];
+        trailGraphics.lineStyle(5 * (i / trailPositions.length), 0xCCDDFF, p2.alpha * 0.7);
+        trailGraphics.beginPath();
+        trailGraphics.moveTo(p1.x, p1.y);
+        trailGraphics.lineTo(p2.x, p2.y);
+        trailGraphics.strokePath();
       }
-      
-      // Store current position for next frame
-      arrow.setData('prevX', arrow.x);
-      arrow.setData('prevY', arrow.y);
+    }
 
-      // Store position for vapor trail
-      const trailPositions = arrow.getData('trailPositions');
-      trailPositions.push({ x: arrow.x, y: arrow.y, alpha: 1 });
-      
-      // Keep only last 15 positions
-      if (trailPositions.length > 15) {
-        trailPositions.shift();
+    // Subtle scale modulation
+    const base = arrow.getData('baseScale');
+    arrow.setScale(base + Math.sin(progress * Math.PI) * 0.02);
+
+    // Shadow follow
+    const shadow = arrow.getData('shadow');
+    if (shadow) {
+      shadow.x = groundX;
+      shadow.y = groundY;
+      shadow.setScale(1 + (arc / dynamicArcHeight) * 0.6);
+      shadow.setAlpha(0.5 - (arc / dynamicArcHeight) * 0.3);
+    }
+
+    // === Parry logic ===
+    const scathach = this.scene.scathach;
+    if (scathach && !arrow.getData('parried')) {
+      const arrowY = arrow.y;
+      const parryZoneHeight = 50;
+    
+// Get her sprite bounds
+const scathachBounds = scathach.getBounds();
+
+// Check if arrow intersects her bounds
+const arrowX = arrow.x;
+
+// Optional margin if you want the parry zone slightly bigger
+const margin = 5;
+
+const isInParryZone =
+  arrowX > scathachBounds.left - margin &&
+  arrowX < scathachBounds.right + margin &&
+  arrowY > scathachBounds.top - margin &&
+  arrowY < scathachBounds.bottom + margin;
+
+
+
+      // Only parry if arrow hasn't passed target yet
+      const target = this.scene.target;
+      const hasPassedTarget = target && arrow.y < target.y;
+      if (isInParryZone && !hasPassedTarget) {
+        this.scene.onScathachHit(arrow);
+        return; // Arrow is parried, skip further processing
       }
-      
-      // Draw elegant vapor trail
-      const trailGraphics = arrow.getData('trailGraphics');
-      if (trailGraphics && trailPositions.length > 1) {
-        trailGraphics.clear();
-        
-        // Fade each position
-        trailPositions.forEach((pos, i) => {
-          pos.alpha *= 0.92; // Fade out
+    }
+
+    // === Landing / impact ===
+    if (progress >= 1 && !arrow.getData('hasLanded')) {
+      arrow.setData('hasLanded', true);
+      arrow.setData('active', false);
+
+      if (trailGraphics) {
+        this.scene.tweens.add({
+          targets: trailGraphics,
+          alpha: 0,
+          duration: 300,
+          onComplete: () => trailGraphics.destroy(),
         });
-        
-        // Draw smooth gradient trail
-        for (let i = 1; i < trailPositions.length; i++) {
-          const p1 = trailPositions[i - 1];
-          const p2 = trailPositions[i];
-          
-          const alpha = p2.alpha * 0.7; // Increased from 0.4
-          const width = 5 * (i / trailPositions.length); // Increased from 3
-          
-          trailGraphics.lineStyle(width, 0xCCDDFF, alpha);
-          trailGraphics.beginPath();
-          trailGraphics.moveTo(p1.x, p1.y);
-          trailGraphics.lineTo(p2.x, p2.y);
-          trailGraphics.strokePath();
-        }
       }
 
-      // REMOVE the locked rotation - now handled by velocity above
-      // arrow.rotation = arrow.getData('flightRotation'); // DELETED
+      this.createImpactEffect(groundX, groundY, force);
 
-      // Subtle scale modulation only
-      const base = arrow.getData('baseScale');
-      const scaleOffset = Math.sin(progress * Math.PI) * 0.02;
-      arrow.setScale(base + scaleOffset);
+      const stickAngle = Phaser.Math.DegToRad(Phaser.Math.Between(60, 75));
+      arrow.setRotation(stickAngle);
+      arrow.setScale(0.09);
+      arrow.setAlpha(0.8);
+      arrow.setOrigin(0.5, 0.3);
 
-      const shadow = arrow.getData('shadow');
       if (shadow) {
-        shadow.x = groundX;
-        shadow.y = groundY;
-        shadow.setScale(1 + (arc / dynamicArcHeight) * 0.6);
-        shadow.setAlpha(0.5 - (arc / dynamicArcHeight) * 0.3);
+        this.scene.tweens.add({
+          targets: shadow,
+          alpha: 0,
+          duration: 200,
+        });
       }
-
-      if (progress >= 1 && !arrow.getData('hasLanded')) {
-        arrow.setData('hasLanded', true);
-        arrow.setData('active', false);
-
-        // Clear trail
-        const trailGraphics = arrow.getData('trailGraphics');
-        if (trailGraphics) {
-          this.scene.tweens.add({
-            targets: trailGraphics,
-            alpha: 0,
-            duration: 300,
-            onComplete: () => trailGraphics.destroy()
-          });
-        }
-
-        // Create impact effect
-        this.createImpactEffect(groundX, groundY, force);
-
-        // Stick arrow in ground at an angle (60-75 degrees from horizontal)
-        const stickAngle = Phaser.Math.DegToRad(Phaser.Math.Between(60, 75));
-        arrow.setRotation(stickAngle);
-        arrow.setScale(0.09); // Smaller - partially embedded
-        arrow.setAlpha(0.8);
-        
-        // Crop off the point by adjusting origin
-        arrow.setOrigin(0.5, 0.3); // Shift origin up to hide bottom 20%
-
-        if (shadow) {
-          this.scene.tweens.add({
-            targets: shadow,
-            alpha: 0,
-            duration: 200
-          });
-        }
-      }
-    });
-  }
+    }
+  });
+}
 
  checkHit(target, radius = 30) {
      for (const arrow of this.arrows) {

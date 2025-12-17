@@ -5,17 +5,9 @@
 
   "narrative": {
     "exposition": [
-      {
-        "irish": "Seas Scáthach ar chnoic fhraoigh Sgitheanach.",
-        "english": "The Shadowed one stood upon the heathered hills of Skye."
-      },
-      {
-        "irish": "Éist liom, laoch dána, agus tuigfaid tu an bogha",
-        "english": "Hark to me, bold hero, and you will understand the bow"
-      },
-      {
-        "irish": "Tarraing síar agus scaoil gan fearg, gan fonn, gan faitíos",
-        "english": "'Draw and release without anger, without desire, without fear'"
+     {
+        "irish": "Tarraing síar agus scaoil saighead.\nDean sin gan fearg, gan faitíos, gan fonn",
+        "english": "'Pull back and release an arrow.\nDo so without anger, without fear, without desire'"
       }
     ],
 
@@ -64,16 +56,8 @@
       
     ],   "farewell": [
       {
-        "irish": "Mar sin a chaith Scáthach breithiúnas ar foghlaim; le teanga géar agus súile gealán",
-        "english": "Thus did Scáthach cast her judgment upon learning;  with sharp tongue and eyes ablaze"
-      },
-     
-      {
-        "irish": "Seachas slán, leabhair sí le cinnteacht tairngire:",
-        "english":"Instead of farewell, she spoke with the certainty of prophecy: "
-      },  {
-        "irish": "'Choinóigh tú saigheada ullamh, agus cothrom na Féinne i do chroí.'",
-        "english":"'You shall keep arrows ready, and justice in your heart.'"
+        "irish": "'Choinnaigh faobhar ar do ga\nagus cothrom na féinne i do chroí.'",
+        "english":"'Keep your edge sharp\nand justice in your heart.'"
       }
     ]
   },

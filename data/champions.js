@@ -119,7 +119,7 @@ export const champions = [
 , stats: {health: 9, attack: 7,  defense: 8,speed: 3, magic: 6,  luck: 4 }
 
 },
-,{spriteKey:'032.png', monologueID:1,gender:"m", nameGa: 'Orthanach', nameEn: 'potent in prayers or charms', charBioEn: "I was Orthanach, warrior of Domhnach Mor, who died, as recorded in M837.1.", charBioGa: "Ba mise Orthanach , laoch Dhomhnach Mór, a fuair bás, mar a taifeadadh i M837.1." 
+,{spriteKey:'069.png', monologueID:1,gender:"m", nameGa: 'Orthanach', nameEn: 'potent in prayers or charms', charBioEn: "I was Orthanach, warrior of Domhnach Mor, who died, as recorded in M837.1.", charBioGa: "Ba mise Orthanach , laoch Dhomhnach Mór, a fuair bás, mar a taifeadadh i M837.1." 
 , stats: {health: 6, attack: 7,  defense: 5,speed: 9, magic: 8,  luck: 4 }
 
 },
@@ -306,7 +306,7 @@ export const champions = [
 , stats: {health: 7, attack: 6,  defense: 8,speed: 5, magic: 4,  luck: 5 }
 
 },
-,{spriteKey:'073.png', monologueID:1,gender:"f", nameGa: 'Nuala', nameEn: 'Fionnuala (white shoulders)', charBioEn: "I was Nuala, daughter of Maelruanaidh. My spirit lingers in the mist, luring greedy raiders to their cold, watery doom.", charBioGa: "Ba mise Nuala , iníon Maelruanaidh. D'fan mo spiorad sa cheo, ag mealladh foghlaithe cráite chuig a bhás uisceach." 
+,{spriteKey:'53.png', monologueID:1,gender:"f", nameGa: 'Nuala', nameEn: 'Fionnuala (white shoulders)', charBioEn: "I was Nuala, daughter of Maelruanaidh. My spirit lingers in the mist, luring greedy raiders to their cold, watery doom.", charBioGa: "Ba mise Nuala , iníon Maelruanaidh. D'fan mo spiorad sa cheo, ag mealladh foghlaithe cráite chuig a bhás uisceach." 
 , stats: {health: 6, attack: 8,  defense: 4,speed: 4, magic: 5,  luck: 3 }
 
 },
@@ -593,7 +593,7 @@ export const champions = [
 
 },
   {
-    spriteKey: "111.png",
+    spriteKey: "051.png",
     monologueID: 1,
     gender: "f",
     nameGa: "Fionnghuala",
@@ -1010,7 +1010,7 @@ charBioGa:
  
 
 },
-,{spriteKey:'147.png', monologueID:1,gender:"m", nameGa: 'Lachtna', nameEn: 'milk-white, milk-like', 
+,{spriteKey:'117.png', monologueID:1,gender:"m", nameGa: 'Lachtna', nameEn: 'milk-white, milk-like', 
 charBioEn:
 
  "I was Lachtna, 'milk-white,' a Fighter of Ui Failghe. I watch over tranquil waters."

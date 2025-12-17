@@ -110,7 +110,7 @@ create() {  // <-- THIS WAS MISSING!
         irish: entry.irish,
         english: entry.english,
         type: 'dialogue',
-        speaker: ' ',
+        speaker: 'Scáthach ',
         onDismiss: () => {
           this.time.delayedCall(300, showNext);
         }
@@ -189,7 +189,7 @@ create() {  // <-- THIS WAS MISSING!
         irish: entry.irish,
         english: entry.english,
         type: 'dialogue',
-        speaker: ' ',
+        speaker: 'Scáthach',
         onDismiss: () => {
           this.time.delayedCall(300, showNext);
         }
@@ -426,7 +426,7 @@ createScathach() {
   const screenHeight = this.scale.height;
 
   // Position
-  const scathachX = screenWidth * 0.65;
+  const scathachX = screenWidth * 0.85;
   const scathachY = screenHeight * 0.45;
 
   // Wind direction (left + slightly down)

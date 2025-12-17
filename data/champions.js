@@ -306,7 +306,7 @@ export const champions = [
 , stats: {health: 7, attack: 6,  defense: 8,speed: 5, magic: 4,  luck: 5 }
 
 },
-,{spriteKey:'53.png', monologueID:1,gender:"f", nameGa: 'Nuala', nameEn: 'Fionnuala (white shoulders)', charBioEn: "I was Nuala, daughter of Maelruanaidh. My spirit lingers in the mist, luring greedy raiders to their cold, watery doom.", charBioGa: "Ba mise Nuala , iníon Maelruanaidh. D'fan mo spiorad sa cheo, ag mealladh foghlaithe cráite chuig a bhás uisceach." 
+,{spriteKey:'053.png', monologueID:1,gender:"f", nameGa: 'Nuala', nameEn: 'Fionnuala (white shoulders)', charBioEn: "I was Nuala, daughter of Maelruanaidh. My spirit lingers in the mist, luring greedy raiders to their cold, watery doom.", charBioGa: "Ba mise Nuala , iníon Maelruanaidh. D'fan mo spiorad sa cheo, ag mealladh foghlaithe cráite chuig a bhás uisceach." 
 , stats: {health: 6, attack: 8,  defense: 4,speed: 4, magic: 5,  luck: 3 }
 
 },

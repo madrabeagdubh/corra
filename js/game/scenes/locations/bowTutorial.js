@@ -308,7 +308,39 @@ onTargetHit(hitData) {
 
   // Check win condition first
   if (this.consecutiveHits >= 5 && !this.tutorialComplete) {
-    this.showFarewell();
+    
+
+
+this.textPanel.show({
+  type: 'chat_options',
+  irish: 'Sin é.',
+  english: 'That\'s it.',
+  speaker: 'Scáthach', // optional
+  options: [
+    { 
+      irish: 'Ceacht eile?',
+      english: 'Another lesson?'
+    },
+    { 
+      irish: 'Slán',
+      english: 'Goodbye'
+    }
+  ],
+  onChoice: (index, option) => {
+    console.log(`Player chose option ${index}:`, option);
+    // Handle the choice here
+    if (index === 0) {
+      // Player chose first option
+    } else {
+    
+  this.time.delayedCall(300, () => {
+      this.showFarewell();
+    });
+    }
+  }
+});
+
+//
     return;
   }
 

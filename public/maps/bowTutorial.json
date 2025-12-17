@@ -6,28 +6,28 @@
   "narrative": {
     "exposition": [
      {
-        "irish": "Tarraing síar agus scaoil saighead.\nDean sin gan fearg, gan faitíos, gan fonn",
-        "english": "'Pull back and release an arrow.\nDo so without anger, without fear, without desire'"
+        "irish": "Gan fearg, gan faitíos, gan deifir;\ntarraing síar, agus scaoil an saighead.",
+        "english": "'Without anger, without fear, without haste;\ndraw back, and release the arrow.'"
       }
     ],
 
     "onHit": [
       {
-        "irish": "Maith. Ach ní hé an sprioc an bua.",
-        "english": "Good. But the target is not the victory."
+        "irish": "Go maith. Ní hé an sprioc an bua.",
+        "english": "Good. The target is not the victory."
       },
       {
-        "irish": "S'ea. Nochtan an saighead an chroí.",
+        "irish": "Go maith.",
 
-        "english": "It is so. The arrow reveals the heart."
+        "english": "Good."
       },
       {
         "irish": "Tá tú ag foghlaim.",
         "english": "You're learning."
       },
       {
-        "irish": "Sin é. Scaoiltear an saighead ón intinn, ar dtus.",
-        "english": "That's it. First the arrow is released from the mind."
+        "irish": "Sin é. Scaoil ón intinn.",
+        "english": "That's it. Release from the mind."
       }
     ],
 
@@ -38,26 +38,26 @@
       },
 
       {
-        "irish": "Haw! Chaitheann do saighead a neart go fánach ar an talamh fliuch",
-        "english": "Ha! Thine arrow squanders it's might upon the sodden earth"
+        "irish": "Haw!",
+        "english": "Ha!"
       },
       {
-        "irish": "Féach anois, saighdeoir lag rún!",
-        "english": "Look ye now, O archer of frail intent!"
+        "irish": "Arís, le do thoil.",
+        "english": "Again, with your will."
       },
       {
-        "irish": "Seo! Scaipann tú sháigheada chun na muc fiáine a chur ag gáire!",
-        "english": "Lo! Thou scatter the arrows to the glee of forest pigs!"
+        "irish": "Seo!",
+        "english": "Lo!"
       },
       {
-        "english": "Thy shafts, o unsteady hand, make their bed in the ground.",
-        "irish": "Tá do sháigheada, a lámh guagach, ag luí ar an talamh."
+        "english": "Bíonn gach tús lag.",
+        "irish": "Every beginning is weak."
       }
       
     ],   "farewell": [
       {
         "irish": "'Choinnaigh faobhar ar do ga\nagus cothrom na féinne i do chroí.'",
-        "english":"'Keep your edge sharp\nand justice in your heart.'"
+        "english":"'Keep your edge sharp\nand honour in your heart.'"
       }
     ]
   },

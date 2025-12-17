@@ -12,19 +12,18 @@ export default class TextPanel {
     this.englishTextObject = null;
   }
 
-
-show(config) {
+  show(config) {
     // If a panel is visible, start fading it out but don't wait
     if (this.isVisible && this.container) {
       const oldContainer = this.container;
       const oldTapZone = this.tapZone;
-      
+
       this.typewriterActive = false;
       this.container = null;
       this.tapZone = null;
       this.irishTextObject = null;
       this.englishTextObject = null;
-      
+
       // Fade out old container in background (it will be behind the new one)
       oldContainer.setDepth(1999); // Put old panel behind new one
       this.scene.tweens.add({
@@ -39,7 +38,7 @@ show(config) {
       });
     }
 
-    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null } = config;
+    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
     this.onDismiss = onDismiss;
     this.irishFullText = irish;
     this.englishFullText = english;
@@ -59,6 +58,8 @@ show(config) {
       this.createExaminePanel(irish, english, screenWidth, screenHeight);
     } else if (type === 'notification') {
       this.createNotificationPanel(irish, english, screenWidth, screenHeight);
+    } else if (type === 'chat_options') {
+      this.createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight);
     }
 
     this.isVisible = true;
@@ -77,16 +78,154 @@ show(config) {
       this.scene.input.setDraggable(this.scene.joystick.thumb, false);
     }
 
-    // Start typewriter immediately
+    // Start typewriter immediately (but not for chat_options)
     if (type === 'dialogue' || type === 'examine') {
       this.startTypewriter();
     }
   }
 
+  createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
+    const panelHeight = screenHeight * 0.6;
+    const panelY = screenHeight - panelHeight / 2;
 
+    const panel = this.scene.add.rectangle(
+      screenWidth / 2,
+      panelY,
+      screenWidth * 0.9,
+      panelHeight,
+      0x2a1810,
+      0.95
+    );
+    this.container.add(panel);
 
+    let textY = panelY - panelHeight / 2 + 30;
+    const textX = screenWidth * 0.1;
 
+    // Speaker name if provided
+    if (speaker) {
+      const speakerText = this.scene.add.text(
+        textX,
+        textY,
+        speaker,
+        {
+          fontSize: '18px',
+          fontFamily: 'monospace',
+          color: '#d4af37',
+          fontStyle: 'bold'
+        }
+      ).setOrigin(0, 0);
+      this.container.add(speakerText);
+      textY += 35;
+    }
 
+    // Irish text (shown immediately, no typewriter)
+    const irishText = this.scene.add.text(
+      textX,
+      textY,
+      irish,
+      {
+        fontSize: '22px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        wordWrap: { width: screenWidth * 0.8 },
+        lineSpacing: 8
+      }
+    ).setOrigin(0, 0);
+    this.container.add(irishText);
+
+    // English text (shown immediately with opacity)
+    const englishText = this.scene.add.text(
+      textX,
+      textY + irishText.height + 15,
+      english,
+      {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        color: '#00ff00',
+        wordWrap: { width: screenWidth * 0.8 },
+        lineSpacing: 6
+      }
+    ).setOrigin(0, 0);
+    englishText.setAlpha(GameSettings.englishOpacity);
+    englishText.setData('isEnglish', true);
+    this.container.add(englishText);
+
+    // Position for options (below the dialogue text with more spacing)
+    const optionsStartY = textY + irishText.height + englishText.height + 60;
+
+    // Create clickable option buttons
+    options.forEach((option, index) => {
+      const optionY = optionsStartY + (index * 90);
+      
+      // Button background
+      const buttonBg = this.scene.add.rectangle(
+        screenWidth / 2,
+        optionY,
+        screenWidth * 0.8,
+        70,
+        0x3a2820,
+        1
+      );
+      buttonBg.setStrokeStyle(2, 0xd4af37);
+      buttonBg.setInteractive({ useHandCursor: true });
+      this.container.add(buttonBg);
+
+      // Irish option text
+      const optionIrishText = this.scene.add.text(
+        screenWidth / 2,
+        optionY - 15,
+        option.irish,
+        {
+          fontSize: '20px',
+          fontFamily: 'monospace',
+          color: '#ffffff',
+          wordWrap: { width: screenWidth * 0.7 }
+        }
+      ).setOrigin(0.5, 0);
+      this.container.add(optionIrishText);
+
+      // English option text
+      const optionEnglishText = this.scene.add.text(
+        screenWidth / 2,
+        optionY + optionIrishText.height - 10,
+        option.english,
+        {
+          fontSize: '16px',
+          fontFamily: 'monospace',
+          color: '#00ff00',
+          wordWrap: { width: screenWidth * 0.7 }
+        }
+      ).setOrigin(0.5, 0);
+      optionEnglishText.setAlpha(GameSettings.englishOpacity);
+      optionEnglishText.setData('isEnglish', true);
+      this.container.add(optionEnglishText);
+// Hover effects
+      buttonBg.on('pointerover', () => {
+        buttonBg.setFillStyle(0x4a3830);
+        buttonBg.setStrokeStyle(3, 0xffd700);
+      });
+
+      buttonBg.on('pointerout', () => {
+        buttonBg.setFillStyle(0x3a2820);
+        buttonBg.setStrokeStyle(2, 0xd4af37);
+      });
+
+      // Click handler
+      buttonBg.on('pointerdown', () => {
+        console.log(`Option ${index} selected:`, option.irish);
+        
+        // Dismiss the panel first
+        this.hide();
+        
+        // Call the choice callback after a brief delay to ensure panel is hidden
+        this.scene.time.delayedCall(100, () => {
+          if (onChoice) {
+            onChoice(index, option);
+          }
+        });
+      });
+    });
+  }
 
   createExaminePanel(irish, english, screenWidth, screenHeight) {
     const panelHeight = screenHeight * 0.35;
@@ -158,7 +297,7 @@ show(config) {
       screenWidth,
       screenHeight
     ).setOrigin(0, 0);
-    
+
     this.tapZone.setInteractive();
     this.tapZone.setDepth(3000); // Higher than container
     this.tapZone.setScrollFactor(0);
@@ -257,7 +396,7 @@ show(config) {
       screenWidth,
       screenHeight
     ).setOrigin(0, 0);
-    
+
     this.tapZone.setInteractive();
     this.tapZone.setDepth(3000); // Higher than container
     this.tapZone.setScrollFactor(0);
@@ -458,4 +597,3 @@ show(config) {
     });
   }
 }
-

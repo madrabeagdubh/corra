@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import WorldScene from "./game/scenes/worldScene.js";
 import BowTutorial from "./game/scenes/locations/bowTutorial.js" 
+import BogMeadow from "./game/scenes/locations/bogMeadow.js" 
 
 
 
@@ -11,7 +12,7 @@ const config = {
   height: window.innerHeight,
   backgroundColor: '#222222',
   parent: 'gameContainer',
-  scene: [WorldScene, BowTutorial],
+  scene: [WorldScene, BowTutorial,BogMeadow],
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH

@@ -180,7 +180,13 @@ create() {  // <-- THIS WAS MISSING!
         this.narrativeInProgress = false;
         console.log('BowTutorial: farewell complete - tutorial finished');
         // Could transition to another scene here
-        return;
+      
+this.cameras.main.fadeOut(500, 0, 0, 0);
+this.cameras.main.once('camerafadeoutcomplete', () => {
+  this.scene.start('BogMeadow');
+});
+
+  return;
       }
 
       const entry = this.narrativeQueue.shift();

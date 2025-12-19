@@ -3,7 +3,7 @@ import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
 import TextPanel from '../../ui/textPanel.js';
 import { GameSettings } from '../../settings/gameSettings.js';
-
+import AdvancedTraining from './advancedTraining.js';
 export default class BowTutorial extends Phaser.Scene {
 	  constructor() {
 		      super({ key: 'BowTutorial' });
@@ -84,7 +84,13 @@ create() {  // <-- THIS WAS MISSING!
 
     this.createScathach();
 
-    console.log('BowTutorial: ready');
+   
+this.advancedTraining = new AdvancedTraining(this);
+  
+
+
+
+ console.log('BowTutorial: ready');
   }
 
 
@@ -254,52 +260,61 @@ update(time, delta) {
   // Update bow mechanics (arrow physics)
   this.bowMechanics.update(delta);
 
-  // Check for arrow hit on target
-  if (!this.target.getData('hit')) {
+  // Check for arrow hit on target - ADD NULL CHECK
+  if (this.target && !this.target.getData('hit')) {
     const hit = this.bowMechanics.checkHit(this.target, 35);
     if (hit) {
       this.onTargetHit(hit);
     }
   }
 
-  // Check if any arrow hit Scáthach (SINGLE CHECK, NOT DUPLICATE)
-  this.bowMechanics.arrows.forEach(arrow => {
-    if (arrow.getData('active') && !arrow.getData('parried')) {
-      const distance = Phaser.Math.Distance.Between(
-        arrow.x, arrow.y,
-        this.scathachHitbox.x, this.scathachHitbox.y
-      );
+  // Check if any arrow hit Scáthach - ADD NULL CHECKS
+  if (this.scathach && this.scathachHitbox) {
+    this.bowMechanics.arrows.forEach(arrow => {
+      if (arrow.getData('active') && !arrow.getData('parried')) {
+        const distance = Phaser.Math.Distance.Between(
+          arrow.x, arrow.y,
+          this.scathachHitbox.x, this.scathachHitbox.y
+        );
 
-      // Only parry if arrow is close AND hasn't passed Scáthach yet
-      // Assuming arrows travel upward (decreasing y)
-      const hasPassedScathach = arrow.y < this.scathachHitbox.y - 50;
-      
-      if (distance < 40 && !hasPassedScathach) {
-        this.onScathachHit(arrow);
+        const hasPassedScathach = arrow.y < this.scathachHitbox.y - 50;
+
+        if (distance < 40 && !hasPassedScathach) {
+          this.onScathachHit(arrow);
+        }
       }
-    }
-  });
+    });
+  }
 
-  // Check for missed arrows (arrows that landed but didn't hit)
-  this.bowMechanics.arrows.forEach(arrow => {
-    if (!arrow.getData('active') && !arrow.getData('counted')) {
-      arrow.setData('counted', true);
+  // Check for missed arrows - ADD NULL CHECK
+  if (this.target) {
+    this.bowMechanics.arrows.forEach(arrow => {
+      if (!arrow.getData('active') && !arrow.getData('counted')) {
+        arrow.setData('counted', true);
 
-      const landX = arrow.x;
-      const landY = arrow.y;
+        const landX = arrow.x;
+        const landY = arrow.y;
 
-      const distance = Phaser.Math.Distance.Between(
-        landX, landY,
-        this.target.x, this.target.y
-      );
+        const distance = Phaser.Math.Distance.Between(
+          landX, landY,
+          this.target.x, this.target.y
+        );
 
-      if (distance > 35) {
-        this.consecutiveHits = 0;
-        this.missCount++;
-        this.onMiss();
+        if (distance > 35) {
+          this.consecutiveHits = 0;
+          this.missCount++;
+          this.onMiss();
+        }
       }
-    }
-  });
+    });
+  }
+
+
+
+  if (this.advancedTraining) {
+    this.advancedTraining.update();
+  }
+
 }
 
 onTargetHit(hitData) {
@@ -328,8 +343,8 @@ this.textPanel.show({
       english: 'Another lesson?'
     },
     { 
-      irish: 'Slán',
-      english: 'Goodbye'
+      irish: 'Fág slán',
+      english: 'Take your leavee'
     }
   ],
   onChoice: (index, option) => {
@@ -337,6 +352,9 @@ this.textPanel.show({
     // Handle the choice here
     if (index === 0) {
       // Player chose first option
+this.time.delayedCall(300, ()=>{
+	this.moreTraining();
+})
     } else {
     
   this.time.delayedCall(300, () => {
@@ -349,6 +367,7 @@ this.textPanel.show({
 //
     return;
   }
+
 
   // Show dialogue at 3 hits, but don't reset the counter
   if (this.consecutiveHits === this.NARRATIVE_THRESHOLD && !this.tutorialComplete) {
@@ -457,6 +476,74 @@ onScathachHit(arrow) {
   console.log('🗡️  PARRIED! Scáthach deflected the arrow!');
 }
 
+ining() {
+  console.log('BowTutorial: starting more training');
+  
+  this.narrativeInProgress = true;
+  
+  // Remove Scáthach
+  if (this.scathach) {
+    this.scathach.destroy();
+    this.scathach = null;
+  }
+  
+  // Remove the original target
+  if (this.target) {
+    this.target.destroy();
+    this.target = null;
+  }
+  
+  // Get player position
+  const playerX = this.player.x;
+  const playerY = this.player.y;
+  
+  // Create dark-themed target to the north-west
+  const darkTarget = this.add.sprite(
+    playerX - 150,  // West
+    playerY - 150,  // North
+    'target'  // Use your target sprite key
+  );
+  darkTarget.setTint(0x4a2860);  // Dark purple tint
+  darkTarget.setScale(1);
+  darkTarget.setDepth(10);
+  
+  // Create light-themed target to the north-east
+  const lightTarget = this.add.sprite(
+    playerX + 150,  // East
+    playerY - 150,  // North
+    'target'  // Use your target sprite key
+  );
+  lightTarget.setTint(0xffd700);  // Golden/light tint
+  lightTarget.setScale(1);
+  lightTarget.setDepth(10);
+  
+  // Store references
+  this.darkTarget = darkTarget;
+  this.lightTarget = lightTarget;
+  
+  this.narrativeInProgress = false;
+  
+  // Maybe show some dialogue explaining the new challenge?
+  this.textPanel.show({
+    irish: 'Anois, déan iarracht ar an dá sprioc seo!',
+    english: 'Now, try hitting both of these targets!',
+    type: 'dialogue',
+    speaker: 'Scáthach',
+    onDismiss: () => {
+      console.log('Ready for advanced training');
+    }
+  });
+}
+
+
+moreTraining() {
+  this.time.delayedCall(300, () => {
+    this.advancedTraining.start();
+  });
+}
+
+
+
 
 
 createScathach() {
@@ -475,64 +562,69 @@ createScathach() {
   this.scathach.setScale(0.8);
   this.scathach.setDepth(20);
 
-  // Create hitbox attached to Scáthach (make it match her visual size better)
+  // Create hitbox attached to Scáthach
   this.scathachHitbox = this.add.circle(scathachX, scathachY, 40, 0xff0000, 0);
   this.scathachHitbox.setData('isScathach', true);
   this.scathachHitbox.setDepth(19);
-    // --- CAPE SPRITE ---
-    this.cape = this.add.image(
-      scathachX - 20, // slightly behind shoulder
-      scathachY - 15,
-      'cape'
+  
+  // --- CAPE SPRITE ---
+  this.cape = this.add.image(
+    scathachX - 20,
+    scathachY - 15,
+    'cape'
+  );
+
+  this.cape.setOrigin(0, 0);
+  this.cape.setDepth(15);
+
+  // Animation state
+  this.capeTime = 0;
+
+  // Store the cape update callback so we can remove it later
+  this.capeUpdateCallback = (time, delta) => {
+    if (!this.cape) return; // Guard clause
+    
+    this.capeTime += delta * 0.001;
+
+    const windStrength = Phaser.Math.Clamp(
+      Math.abs(this.wind.x) / 15,
+      0.4,
+      1
     );
 
-    this.cape.setOrigin(0, 0); // attach left edge
-    this.cape.setDepth(15);
+    this.cape.rotation =
+      -0.12 * windStrength +
+      Math.sin(this.capeTime * 1.1) * 0.05;
 
-    // Animation state
-    this.capeTime = 0;
+    this.cape.scaleX = 1 + Math.sin(this.capeTime * 0.9) * 0.1;
 
-    // Billowing update
-    this.events.on('update', (time, delta) => {
-      this.capeTime += delta * 0.001;
+    this.cape.scaleY =
+      1 + Math.sin(this.capeTime * 1.3 + 1) * 0.04;
+  };
 
-      // Normalize wind strength
-      const windStrength = Phaser.Math.Clamp(
-        Math.abs(this.wind.x) / 15,
-        0.4,
-        1
-      );
+  // Billowing update
+  this.events.on('update', this.capeUpdateCallback);
 
-      // Gentle rotation (wind-biased)
-      this.cape.rotation =
-        -0.12 * windStrength +
-        Math.sin(this.capeTime * 1.1) * 0.05;
+  // --- OCCASIONAL GUST ---
+  this.time.addEvent({
+    delay: 5000,
+    loop: true,
+    callback: () => {
+      if (!this.cape) return; // Guard clause
+      
+      this.tweens.add({
+        targets: this.cape,
+        scaleX: 1.25,
+        rotation: -0.2,
+        duration: 900,
+        yoyo: true,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  });
 
-      // Soft unfurl / relax
-      this.cape.scaleX = 1 + Math.sin(this.capeTime * 0.9) * 0.1;
-
-      this.cape.scaleY =
-        1 + Math.sin(this.capeTime * 1.3 + 1) * 0.04;
-    });
-
-    // --- OCCASIONAL GUST ---
-    this.time.addEvent({
-      delay: 5000,
-      loop: true,
-      callback: () => {
-        this.tweens.add({
-          targets: this.cape,
-          scaleX: 1.25,
-          rotation: -0.2,
-          duration: 900,
-          yoyo: true,
-          ease: 'Sine.easeInOut'
-        });
-      }
-    });
-
-    console.log('Scáthach created at:', scathachX, scathachY);
-  }
+  console.log('Scáthach created at:', scathachX, scathachY);
+}
 
 
   addSettingsSlider() {

@@ -2729,18 +2729,13 @@
 
 "introNarrative": [
     {
-      "irish": " Ó dhúichí Chúailnge a thánaigh mé, chuig an áit uaigneach seo;",
-      "english": " From the depths of Cúailnge, I have journeyed, to this eerie land;"
+      "irish": " Ó oileán a' Cheò a thánaigh mé,\nchuig an áit uaigneach seo-",
+      "english": " From the Island of Skye I have journeyed, to this eerie land-"
     },
     {
       "irish": "an portach a shlogann solas na gealaí.",
       "english": "the bog that devours the moon's light."
-    },
-    {
-      "irish": "Fada na scáileanna os mo chionn, an talamh fúm bog agus fúair.",
-      "english": "Long are the shadows above me, The earth beneath is soft and cold."
-    }
-  ]
+    }  ]
 }
 
 

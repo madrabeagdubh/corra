@@ -13,8 +13,8 @@
 
     "onHit": [
       {
-        "irish": "Go maith. Ní hé an sprioc an bua.",
-        "english": "Good. The target is not the victory."
+        "irish": "Go maith. Cé nach é an sprioc an bua.",
+        "english": "Good. Although the target is not the victory."
       },
       {
         "irish": "Go maith.",
@@ -26,8 +26,8 @@
         "english": "You're learning."
       },
       {
-        "irish": "Sin é. Scaoil ón intinn.",
-        "english": "That's it. Release from the mind."
+        "irish": "Sin é. Ar dtús, scaoilimid  ón intinn.",
+        "english": "That's it. First, we release from the mind."
       }
     ],
 
@@ -43,11 +43,11 @@
       },
       {
         "irish": "Arís, le do thoil.",
-        "english": "Again, with your will."
+        "english": "Again, by your will."
       },
       {
-        "irish": "Seo!",
-        "english": "Lo!"
+        "irish": "Foighne",
+        "english": "Patience"
       },
       {
         "english": "Bíonn gach tús lag.",

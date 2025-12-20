@@ -3,7 +3,7 @@ export default class AdvancedTraining {
   constructor(scene) {
     this.scene = scene;
 this.wordPairs =[
-  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
+/*  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
   { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
   { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
   { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
@@ -31,7 +31,7 @@ this.wordPairs =[
   { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
   { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
   { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
-  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
+*/  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
 ]
    
     this.currentPairIndex = 0;
@@ -279,12 +279,25 @@ this.createScathachForKata();
 }
 
 spearKata1() {
- 
- // TODO: Spear kata begins - draw back, feint, curve
-  this.scene.time.delayedCall(2000, () => {
-    this.revealSpear2();
+  // Simple settling into stance - just a small weight shift
+  const startX = this.scene.scathach.x;
+  const startY = this.scene.scathach.y;
+  
+  // Single small movement settling into ready position
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: startY + 5, // Small downward settle
+    duration: 300,
+    ease: 'Sine.easeOut',
+    yoyo: true,
+    onComplete: () => {
+      this.scene.time.delayedCall(300, () => {
+        this.revealSpear2();
+      });
+    }
   });
 }
+
 
 revealSpear2() {
   this.scene.textPanel.show({
@@ -298,10 +311,86 @@ revealSpear2() {
   });
 }
 
+
 spearKata2() {
-  // TODO: Spear whirls - serpent motion
-  this.scene.time.delayedCall(2000, () => {
-    this.revealSpear3();
+  // Nimble backflips with slash effects
+  const scathachX = this.scene.scathach.x;
+  const scathachY = this.scene.scathach.y;
+  
+  // Create slash effect graphics
+  this.slashEffect = this.scene.add.graphics();
+  this.slashEffect.setDepth(25);
+  
+  // First hop and backflip with slash
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: scathachY - 80,
+    rotation: Math.PI, // Half rotation
+    duration: 300,
+    ease: 'Quad.easeOut',
+    yoyo: true,
+    onStart: () => {
+      // Draw first crescent slash effect
+      this.drawSlashEffect(scathachX, scathachY, 0.3, 0xff6600);
+    },
+    onComplete: () => {
+      this.scene.scathach.rotation = 0;
+      
+      // Second backflip in opposite direction
+      this.scene.tweens.add({
+        targets: this.scene.scathach,
+        y: scathachY - 100,
+        x: scathachX + 50,
+        rotation: -Math.PI * 2, // Full rotation opposite way
+        duration: 400,
+        ease: 'Quad.easeInOut',
+        yoyo: true,
+        onStart: () => {
+          // Second slash effect
+          this.drawSlashEffect(scathachX + 25, scathachY, -0.3, 0xff8800);
+        },
+        onComplete: () => {
+          this.scene.scathach.rotation = 0;
+          this.scene.scathach.x = scathachX;
+          this.scene.scathach.y = scathachY;
+          
+          // Clear slash effects and continue
+          this.scene.time.delayedCall(500, () => {
+            if (this.slashEffect) {
+              this.slashEffect.destroy();
+              this.slashEffect = null;
+            }
+            this.revealSpear3();
+          });
+        }
+      });
+    }
+  });
+}
+
+drawSlashEffect(x, y, angleOffset, color) {
+  const radius = 80;
+  const startAngle = -Math.PI / 4 + angleOffset;
+  const endAngle = Math.PI / 4 + angleOffset;
+  
+  // Main slash line
+  this.slashEffect.lineStyle(4, color, 0.8);
+  this.slashEffect.beginPath();
+  this.slashEffect.arc(x, y, radius, startAngle, endAngle, false);
+  this.slashEffect.strokePath();
+  
+  // Motion blur trail
+  this.slashEffect.lineStyle(8, color, 0.3);
+  this.slashEffect.beginPath();
+  this.slashEffect.arc(x, y, radius - 5, startAngle, endAngle, false);
+  this.slashEffect.strokePath();
+  
+  // Fade out effect
+  this.scene.tweens.add({
+    targets: this.slashEffect,
+    alpha: 0,
+    duration: 400,
+    ease: 'Power2'
   });
 }
 
@@ -317,12 +406,262 @@ revealSpear3() {
   });
 }
 
+
 spearKataFinal() {
-  // TODO: Final flourish - blade stops at champion's neck
-  this.scene.time.delayedCall(1500, () => {
+  // THE DRAGON SEQUENCE
+  const scathachX = this.scene.scathach.x;
+  const scathachY = this.scene.scathach.y;
+  
+  // Create placeholder mountain (two rectangles for top and bottom)
+  const screenWidth = this.scene.scale.width;
+  const screenHeight = this.scene.scale.height;
+  
+  this.mountainTop = this.scene.add.rectangle(
+    screenWidth / 2,
+    screenHeight * 0.15,
+    screenWidth * 0.4,
+    screenHeight * 0.3,
+    0x8b7355
+  );
+  this.mountainTop.setDepth(5);
+  
+  this.mountainBottom = this.scene.add.rectangle(
+    screenWidth / 2,
+    screenHeight * 0.35,
+    screenWidth * 0.5,
+    screenHeight * 0.2,
+    0x6b5345
+  );
+  this.mountainBottom.setDepth(5);
+  
+  // Darken the sky
+  this.darkOverlay = this.scene.add.rectangle(
+    screenWidth / 2,
+    screenHeight / 2,
+    screenWidth,
+    screenHeight,
+    0x000000,
+    0
+  );
+  this.darkOverlay.setDepth(19);
+  
+  this.scene.tweens.add({
+    targets: this.darkOverlay,
+    alpha: 0.6,
+    duration: 1000,
+    ease: 'Power2'
+  });
+  
+  // Ethereal glow around Scáthach
+  this.etherealGlow = this.scene.add.circle(scathachX, scathachY, 60, 0xffffff, 0);
+  this.etherealGlow.setDepth(18);
+  
+  this.scene.tweens.add({
+    targets: this.etherealGlow,
+    alpha: 0.4,
+    scale: 1.5,
+    duration: 800,
+    ease: 'Sine.easeInOut'
+  });
+  
+  // Levitate upward
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: scathachY - 150,
+    duration: 1500,
+    ease: 'Sine.easeOut',
+    onComplete: () => {
+      this.executeThreeSlashes(scathachX, scathachY - 150);
+    }
+  });
+}
+
+executeThreeSlashes(x, y) {
+  // First slash
+  this.createDraconicSlash(x, y, Math.PI / 6, 0xff0000);
+  this.scene.cameras.main.shake(200, 0.005);
+  
+  this.scene.time.delayedCall(400, () => {
+    // Second slash
+    this.createDraconicSlash(x, y, -Math.PI / 6, 0xff6600);
+    this.scene.cameras.main.shake(300, 0.008);
+    
+    this.scene.time.delayedCall(400, () => {
+      // THIRD BLINDING SLASH - THE DRAGON
+      this.createDragonSlash(x, y);
+    });
+  });
+}
+
+createDraconicSlash(x, y, angle, color) {
+  const slash = this.scene.add.graphics();
+  slash.setDepth(26);
+  
+  const length = 200;
+  const startX = x + Math.cos(angle) * -length / 2;
+  const startY = y + Math.sin(angle) * -length / 2;
+  const endX = x + Math.cos(angle) * length / 2;
+  const endY = y + Math.sin(angle) * length / 2;
+  
+  // Main slash
+  slash.lineStyle(6, color, 1);
+  slash.lineBetween(startX, startY, endX, endY);
+  
+  // Glow effect
+  slash.lineStyle(15, color, 0.3);
+  slash.lineBetween(startX, startY, endX, endY);
+  
+  this.scene.tweens.add({
+    targets: slash,
+    alpha: 0,
+    duration: 600,
+    onComplete: () => slash.destroy()
+  });
+}
+
+createDragonSlash(x, y) {
+  // White flash
+  const flash = this.scene.add.rectangle(
+    this.scene.scale.width / 2,
+    this.scene.scale.height / 2,
+    this.scene.scale.width,
+    this.scene.scale.height,
+    0xffffff,
+    0
+  );
+  flash.setDepth(30);
+  
+  this.scene.tweens.add({
+    targets: flash,
+    alpha: 1,
+    duration: 100,
+    yoyo: true,
+    onComplete: () => {
+      this.showDragonSilhouette(x, y);
+      flash.destroy();
+    }
+  });
+  
+  // Massive screen shake
+  this.scene.cameras.main.shake(500, 0.02);
+  
+  // Land and clear sky
+  this.scene.time.delayedCall(1200, () => {
+    this.landAndSliceMountain();
+  });
+}
+
+showDragonSilhouette(x, y) {
+  // Placeholder dragon - simple triangular shape
+  const dragon = this.scene.add.graphics();
+  dragon.setDepth(29);
+  dragon.fillStyle(0xff0000, 0.8);
+  
+  // Dragon body (triangle)
+  dragon.fillTriangle(x, y - 100, x - 80, y + 50, x + 80, y + 50);
+  
+  // Left wing
+  dragon.fillTriangle(x - 80, y, x - 150, y - 40, x - 80, y + 50);
+  
+  // Right wing
+  dragon.fillTriangle(x + 80, y, x + 150, y - 40, x + 80, y + 50);
+  
+  // Eyes glow
+  dragon.fillStyle(0xffff00, 1);
+  dragon.fillCircle(x - 20, y - 30, 5);
+  dragon.fillCircle(x + 20, y - 30, 5);
+  
+  this.scene.tweens.add({
+    targets: dragon,
+    alpha: 0,
+    duration: 500,
+    onComplete: () => dragon.destroy()
+  });
+}
+
+landAndSliceMountain() {
+  const originalY = this.scene.scale.height * 0.45;
+  
+  // Scáthach lands gracefully
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: originalY,
+    duration: 600,
+    ease: 'Bounce.easeOut'
+  });
+  
+  // Clear sky
+  this.scene.tweens.add({
+    targets: this.darkOverlay,
+    alpha: 0,
+    duration: 1000,
+    onComplete: () => {
+      this.darkOverlay.destroy();
+      this.darkOverlay = null;
+    }
+  });
+  
+  this.scene.tweens.add({
+    targets: this.etherealGlow,
+    alpha: 0,
+    duration: 800,
+    onComplete: () => {
+      this.etherealGlow.destroy();
+      this.etherealGlow = null;
+    }
+  });
+  
+  // Wait a beat, THEN slice the mountain
+  this.scene.time.delayedCall(1000, () => {
+    this.sliceMountain();
+  });
+}
+
+sliceMountain() {
+  // Draw the slice line
+  const sliceLine = this.scene.add.graphics();
+  sliceLine.setDepth(10);
+  sliceLine.lineStyle(2, 0xffffff, 0.8);
+  sliceLine.lineBetween(
+    0, 
+    this.scene.scale.height * 0.28, 
+    this.scene.scale.width, 
+    this.scene.scale.height * 0.28
+  );
+  
+  // Slide the top of the mountain down
+  this.scene.tweens.add({
+    targets: this.mountainTop,
+    y: this.mountainTop.y + 30,
+    x: this.mountainTop.x - 20,
+    angle: -5,
+    duration: 1500,
+    ease: 'Cubic.easeIn',
+    onComplete: () => {
+      // Fade out the mountain pieces
+      this.scene.tweens.add({
+        targets: [this.mountainTop, this.mountainBottom],
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          this.mountainTop.destroy();
+          this.mountainBottom.destroy();
+          this.mountainTop = null;
+          this.mountainBottom = null;
+        }
+      });
+    }
+  });
+  
+  this.scene.time.delayedCall(500, () => {
+    sliceLine.destroy();
+  });
+  
+  this.scene.time.delayedCall(2500, () => {
     this.revealSpear4();
   });
 }
+
 revealSpear4() {
   this.scene.textPanel.show({
     irish: 'Ach ní go fóil.\nAr dtús, seas i scáil crann ársa,\nagus geall do chroí don chaith ós comhair na Fíanna.',
@@ -330,13 +669,56 @@ revealSpear4() {
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
-      // Call farewell from the scene
       if (this.scene.showFarewell) {
         this.scene.showFarewell();
       }
     }
   });
 }
+
+cleanup() {
+  if (this.darkTarget) {
+    this.darkTarget.destroy();
+    this.darkTarget = null;
+  }
+  
+  if (this.lightTarget) {
+    this.lightTarget.destroy();
+    this.lightTarget = null;
+  }
+  
+  // Clean up kata effects if they still exist
+  if (this.slashEffect) {
+    this.slashEffect.destroy();
+    this.slashEffect = null;
+  }
+  
+  if (this.darkOverlay) {
+    this.darkOverlay.destroy();
+    this.darkOverlay = null;
+  }
+  
+  if (this.etherealGlow) {
+    this.etherealGlow.destroy();
+    this.etherealGlow = null;
+  }
+  
+  if (this.mountainTop) {
+    this.mountainTop.destroy();
+    this.mountainTop = null;
+  }
+  
+  if (this.mountainBottom) {
+    this.mountainBottom.destroy();
+    this.mountainBottom = null;
+  }
+  
+  this.isActive = false;
+}
+
+
+
+
   cleanup() {
     if (this.darkTarget) {
       this.darkTarget.destroy();

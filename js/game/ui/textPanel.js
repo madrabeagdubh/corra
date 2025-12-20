@@ -321,7 +321,7 @@ this.container.add(panelGraphics);
 const panelWidth = screenWidth * 0.9;
 const panelHeight = screenHeight * 0.5;
 const panelX = screenWidth / 2;
-const panelY = screenHeight - panelHeight / 2;
+const panelY = screenHeight - panelHeight / 2 -16;
 
 const panelGraphics = this.scene.add.graphics();
 panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background

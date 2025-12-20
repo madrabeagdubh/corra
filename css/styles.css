@@ -1,3 +1,12 @@
+
+font-face {
+  font-family: 'Urchlo';
+  src: url('assets/fonts/urchlo.ttf') format('truetype');
+}
+
+
+
+
 /* Reset default browser styles */
 html, body {
   margin: 0;

@@ -85,18 +85,21 @@ export default class TextPanel {
   }
 
   createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
-    const panelHeight = screenHeight * 0.6;
-    const panelY = screenHeight - panelHeight / 2;
 
-    const panel = this.scene.add.rectangle(
-      screenWidth / 2,
-      panelY,
-      screenWidth * 0.9,
-      panelHeight,
-      0x2a1810,
-      0.95
-    );
-    this.container.add(panel);
+const panelWidth = screenWidth * 0.9;
+const panelHeight = screenHeight * 0.5;
+const panelX = screenWidth / 2;
+const panelY = screenHeight - panelHeight / 2;
+
+const panelGraphics = this.scene.add.graphics();
+panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background
+panelGraphics.lineStyle(4, 0xc0c0c0, 1); // silver border
+panelGraphics.fillRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+panelGraphics.strokeRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+
+this.container.add(panelGraphics);
+
+
 
     let textY = panelY - panelHeight / 2 + 30;
     const textX = screenWidth * 0.1;
@@ -109,7 +112,7 @@ export default class TextPanel {
         speaker,
         {
           fontSize: '18px',
-          fontFamily: 'monospace',
+          fontFamily: 'Urchlo',
           color: '#d4af37',
           fontStyle: 'bold'
         }
@@ -125,7 +128,7 @@ export default class TextPanel {
       irish,
       {
         fontSize: '22px',
-        fontFamily: 'monospace',
+        fontFamily: 'Urchlo',
         color: '#ffffff',
         wordWrap: { width: screenWidth * 0.8 },
         lineSpacing: 8
@@ -177,7 +180,7 @@ export default class TextPanel {
         option.irish,
         {
           fontSize: '20px',
-          fontFamily: 'monospace',
+          fontFamily: 'Urchlo',
           color: '#ffffff',
           wordWrap: { width: screenWidth * 0.7 }
         }
@@ -228,18 +231,22 @@ export default class TextPanel {
   }
 
   createExaminePanel(irish, english, screenWidth, screenHeight) {
-    const panelHeight = screenHeight * 0.35;
+const panelWidth = screenWidth * 0.35;
+const panelHeight = screenHeight * 0.5;
+const panelX = screenWidth / 2;
+const panelY = screenHeight - panelHeight / 2;
 
-    // Background panel
-    const panel = this.scene.add.rectangle(
-      screenWidth / 2,
-      screenHeight - panelHeight / 2,
-      screenWidth,
-      panelHeight,
-      0x2a1810,
-      0.95
-    );
-    this.container.add(panel);
+const panelGraphics = this.scene.add.graphics();
+panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background
+panelGraphics.lineStyle(4, 0xc0c0c0, 1); // silver border
+panelGraphics.fillRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+panelGraphics.strokeRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+
+this.container.add(panelGraphics);
+
+
+
+
 
     const textY = screenHeight - panelHeight + 25;
     const textX = screenWidth * 0.05; // Left edge with 5% padding
@@ -251,7 +258,7 @@ export default class TextPanel {
       '',
       {
         fontSize: '20px',
-        fontFamily: 'monospace',
+        fontFamily: 'Urchlo',
         color: '#ffffff',
         wordWrap: { width: screenWidth * 0.9 },
         lineSpacing: 6
@@ -276,11 +283,12 @@ export default class TextPanel {
     this.englishTextObject.setData('isEnglish', true);
     this.container.add(this.englishTextObject);
 
-    // Tap hint
+    // Tap to close type hint - currently an empty string
+	
     const hint = this.scene.add.text(
       screenWidth / 2,
       screenHeight - 15,
-      'Tap to close',
+      '',
       {
         fontSize: '12px',
         fontFamily: 'monospace',
@@ -310,18 +318,18 @@ export default class TextPanel {
 
   createDialoguePanel(irish, english, speaker, screenWidth, screenHeight) {
     // Main panel
-    const panelHeight = screenHeight * 0.5;
-    const panelY = screenHeight - panelHeight / 2;
+const panelWidth = screenWidth * 0.9;
+const panelHeight = screenHeight * 0.5;
+const panelX = screenWidth / 2;
+const panelY = screenHeight - panelHeight / 2;
 
-    const panel = this.scene.add.rectangle(
-      screenWidth / 2,
-      panelY,
-      screenWidth * 0.9,
-      panelHeight,
-      0x2a1810,
-      0.95
-    );
-    this.container.add(panel);
+const panelGraphics = this.scene.add.graphics();
+panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background
+panelGraphics.lineStyle(4, 0xc0c0c0, 1); // silver border
+panelGraphics.fillRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+panelGraphics.strokeRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+
+this.container.add(panelGraphics);
 
     let textY = panelY - panelHeight / 2 + 30;
     const textX = screenWidth * 0.1; // Left edge with 10% padding
@@ -350,7 +358,7 @@ export default class TextPanel {
       '',
       {
         fontSize: '22px',
-        fontFamily: 'monospace',
+        fontFamily: 'Urchlo',
         color: '#ffffff',
         wordWrap: { width: screenWidth * 0.8 },
         lineSpacing: 8
@@ -379,7 +387,7 @@ export default class TextPanel {
     const hint = this.scene.add.text(
       screenWidth / 2,
       panelY + panelHeight / 2 - 20,
-      'Tap to continue',
+      '',
       {
         fontSize: '14px',
         fontFamily: 'monospace',
@@ -421,57 +429,78 @@ export default class TextPanel {
     }
   }
 
-  createNotificationPanel(irish, english, screenWidth, screenHeight) {
-    const panelWidth = screenWidth * 0.8;
-    const panelHeight = 80;
 
-    // Background panel at top
-    const panel = this.scene.add.rectangle(
-      screenWidth / 2,
-      panelHeight / 2 + 10,
-      panelWidth,
-      panelHeight,
-      0x2a1810,
-      0.9
-    );
-    this.container.add(panel);
 
-    // For notifications, just show text immediately (no typewriter)
-    const irishText = this.scene.add.text(
-      screenWidth / 2,
-      25,
-      irish,
-      {
+createNotificationPanel(irish, english, screenWidth, screenHeight) {
+    // Estimate text height
+    const panelPadding = 10; // space around text
+    const panelWidth = screenWidth * 0.9;
+    
+    // Create temporary text objects to measure height
+    const tempIrishText = this.scene.add.text(0, 0, irish, {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        wordWrap: { width: panelWidth * 0.9 }
+    });
+    let totalHeight = tempIrishText.height;
+
+    let tempEnglishText;
+    if (GameSettings.englishOpacity > 0.1 && english) {
+        tempEnglishText = this.scene.add.text(0, 0, english, {
+            fontSize: '14px',
+            fontFamily: 'monospace',
+            wordWrap: { width: panelWidth * 0.9 }
+        });
+        totalHeight += tempEnglishText.height + 5; // extra spacing
+    }
+
+    const panelHeight = totalHeight + panelPadding * 2;
+    const panelX = screenWidth / 2;
+    const panelY = panelHeight / 2 + 30; // top padding from screen
+
+    // Draw background with border
+    const panelGraphics = this.scene.add.graphics();
+    panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background
+    panelGraphics.lineStyle(4, 0xc0c0c0, 1); // silver border
+    panelGraphics.fillRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+    panelGraphics.strokeRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
+    this.container.add(panelGraphics);
+
+    // Add Irish text
+    const irishText = this.scene.add.text(panelX, panelY - panelHeight/2 + panelPadding, irish, {
         fontSize: '18px',
         fontFamily: 'monospace',
         color: '#ffffff',
         wordWrap: { width: panelWidth * 0.9 }
-      }
-    ).setOrigin(0.5, 0);
+    }).setOrigin(0.5, 0);
     this.container.add(irishText);
 
-    if (GameSettings.englishOpacity > 0.1) {
-      const englishText = this.scene.add.text(
-        screenWidth / 2,
-        25 + irishText.height + 5,
-        english,
-        {
-          fontSize: '14px',
-          fontFamily: 'monospace',
-          color: '#00ff00',
-          wordWrap: { width: panelWidth * 0.9 }
-        }
-      ).setOrigin(0.5, 0);
-      englishText.setAlpha(GameSettings.englishOpacity);
-      englishText.setData('isEnglish', true);
-      this.container.add(englishText);
+    // Add English text if needed
+    if (tempEnglishText) {
+        const englishText = this.scene.add.text(panelX, irishText.y + irishText.height + 5, english, {
+            fontSize: '14px',
+            fontFamily: 'monospace',
+            color: '#00ff00',
+            wordWrap: { width: panelWidth * 0.9 }
+        }).setOrigin(0.5, 0);
+        englishText.setAlpha(GameSettings.englishOpacity);
+        englishText.setData('isEnglish', true);
+        this.container.add(englishText);
     }
 
+    // Destroy temporary measurement text
+    tempIrishText.destroy();
+    if (tempEnglishText) tempEnglishText.destroy();
+
     // Auto-dismiss
-    this.scene.time.delayedCall(3000, () => {
-      this.hide();
+    this.scene.time.delayedCall(4000, () => {
+        this.hide();
     });
-  }
+}
+
+
+
+
 
   startTypewriter() {
     this.typewriterActive = true;
@@ -488,29 +517,16 @@ export default class TextPanel {
       // Add character with glow effect
       const currentText = this.irishTextObject.text + char;
       this.irishTextObject.setText(currentText);
-
-      // Add temporary glow to the whole text
-      this.irishTextObject.setStyle({
-        shadow: {
-          offsetX: 0,
-          offsetY: 0,
-          color: '#ffffff',
-          blur: 8,
-          fill: true
-        }
-      });
-
-      // Remove glow after brief moment
-      this.scene.time.delayedCall(100, () => {
-        if (this.irishTextObject) {
-          this.irishTextObject.setStyle({ shadow: { blur: 0 } });
-        }
-      });
-
       this.currentCharIndex++;
+this.irishTextObject.setScale(1.01);
 
+this.scene.time.delayedCall(60, () => {
+  if (this.irishTextObject) {
+    this.irishTextObject.setScale(1);
+  }
+});
       // Continue to next character
-      const speed = 40; // milliseconds per character
+      const speed = 30; // milliseconds per character
       this.scene.time.delayedCall(speed, () => this.typeNextCharacter());
     } else {
       // Typewriter complete
@@ -523,7 +539,6 @@ export default class TextPanel {
     this.typewriterActive = false;
     if (this.irishTextObject) {
       this.irishTextObject.setText(this.irishFullText);
-      this.irishTextObject.setStyle({ shadow: { blur: 0 } });
     }
     this.showEnglishText();
   }

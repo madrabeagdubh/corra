@@ -1,8 +1,21 @@
-.champion-name-ga, .champion-name-en{
+
+
+
+   font-face {
+     font-family: 'Urchlo';                                                                              src: url('assets/fonts/urchlo.ttf') format('truetype');
+   }
+  
+
+
+
+ .champion-name-en{
 
   font-family: monospace !important;
   
+}
 
+.champion-name-ga{
+	font-family:'Urchlo' !important;
 }
 .champion-name-en{
 	

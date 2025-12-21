@@ -155,7 +155,7 @@ this.advancedTraining = new AdvancedTraining(this);
       irish: dialogue.irish,
       english: dialogue.english,
       type: 'dialogue',
-      speaker: ' '
+      speaker: 'Scáthach '
     });
   }
 
@@ -169,7 +169,7 @@ this.advancedTraining = new AdvancedTraining(this);
       irish: dialogue.irish,
       english: dialogue.english,
       type: 'dialogue',
-      speaker: ' '
+      speaker: 'Scáthach'
     });
   }
 

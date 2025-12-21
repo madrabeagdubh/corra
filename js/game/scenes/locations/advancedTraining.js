@@ -3,7 +3,7 @@ export default class AdvancedTraining {
   constructor(scene) {
     this.scene = scene;
 this.wordPairs =[
-/*  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
+  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
   { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
   { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
   { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
@@ -31,7 +31,7 @@ this.wordPairs =[
   { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
   { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
   { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
-*/  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
+  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
 ]
    
     this.currentPairIndex = 0;
@@ -39,6 +39,8 @@ this.wordPairs =[
     this.darkTarget = null;
     this.lightTarget = null;
     this.currentTargetType = null;
+this.bullseyeHits = 0;
+  this.totalHits = 0;
   }
 
   start() {
@@ -195,36 +197,116 @@ this.wordPairs =[
     }
   }
 
-  onTargetHit(targetType) {
-    const hitCorrectTarget = targetType === this.currentTargetType;
+ onTargetHit(targetType) {
+  const hitCorrectTarget = targetType === this.currentTargetType;
+  
+  if (hitCorrectTarget) {
+    const target = targetType === 'dark' ? this.darkTarget : this.lightTarget;
     
-    if (hitCorrectTarget) {
-      const target = targetType === 'dark' ? this.darkTarget : this.lightTarget;
+    // Find the arrow that just hit by looking for recently deactivated arrows
+    let hitDistance = 999; // Default to far away
+    
+    this.scene.bowMechanics.arrows.forEach(arrow => {
+      const distance = Phaser.Math.Distance.Between(
+        arrow.x, arrow.y,
+        target.x, target.y
+      );
       
-      // Visual feedback - green flash
-      target.clear();
-      target.fillStyle(0x00ff00, 1);
-      target.fillCircle(0, 0, 25);
-      target.setData('hit', true);
-      
-      // Move to next word after delay
-      this.scene.time.delayedCall(1500, () => {
-        target.clear();
-        this.drawTarget(target, targetType);
-        target.setData('hit', false);
-        
-        this.currentPairIndex++;
-        this.showNextWord();
-      });
-    } else {
-      // Wrong target
-      this.scene.textPanel.show({
-        irish: 'Mícheart! Bain triail eile as.',
-        english: 'Wrong! Try again.',
-        type: 'notification'
-      });
+      // If arrow is very close to target, it's our hit
+      if (distance < 35) {
+        hitDistance = distance;
+      }
+    });
+    
+    console.log('Hit distance from center:', hitDistance);
+    
+    // Check if it's a bullseye (center circle)
+    let isBullseye = false;
+    if (hitDistance <= 5) { // Testing with 20 pixels
+      isBullseye = true;
+      this.bullseyeHits++;
+      console.log('BULLSEYE! Total bullseyes:', this.bullseyeHits);
+       this.scene.textPanel.show({
+    irish: 'Súil na sprice!',
+    english: 'Bullseye!',
+    type: 'dialogue'
+  }); 
     }
+    
+    this.totalHits++;
+    
+    // Visual feedback - gold flash for bullseye, green for regular hit
+    target.clear();
+    const hitColor = isBullseye ? 0xffd700 : 0x00ff00;
+    target.fillStyle(hitColor, 1);
+    target.fillCircle(0, 0, 25);
+    target.setData('hit', true);
+    
+    // Show bullseye notification
+    if (isBullseye) {
+      this.showBullseyeEffect(target.x, target.y);
+    }
+    
+    // Move to next word after delay
+    this.scene.time.delayedCall(1500, () => {
+      target.clear();
+      this.drawTarget(target, targetType);
+      target.setData('hit', false);
+      
+      this.currentPairIndex++;
+      this.showNextWord();
+    });
+  } else {
+    // Wrong target
+    this.scene.textPanel.show({
+      irish: 'Mícheart! Bain triail eile as.',
+      english: 'Wrong! Try again.',
+      type: 'notification'
+    });
   }
+} 
+
+showBullseyeEffect(x, y) {
+  // Create a golden ring that expands outward
+  const ring = this.scene.add.graphics();
+  ring.setDepth(101);
+  ring.lineStyle(3, 0xffd700, 1);
+  ring.strokeCircle(x, y, 10);
+  
+  this.scene.tweens.add({
+    targets: ring,
+    alpha: 0,
+    duration: 600,
+    ease: 'Power2',
+    onUpdate: () => {
+      ring.clear();
+      ring.lineStyle(3, 0xffd700, ring.alpha);
+      ring.strokeCircle(x, y, 10 + (1 - ring.alpha) * 30);
+    },
+    onComplete: () => ring.destroy()
+  });
+  
+  // Optional: Add text popup
+  const bullseyeText = this.scene.add.text(x, y - 30, 'BULLSEYE!', {
+    fontSize: '16px',
+    fontFamily: 'monospace',
+    color: '#ffd700',
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+  bullseyeText.setDepth(102);
+  
+  this.scene.tweens.add({
+    targets: bullseyeText,
+    y: y - 60,
+    alpha: 0,
+    duration: 800,
+    ease: 'Power2',
+    onComplete: () => bullseyeText.destroy()
+  });
+}
+
+
+
 
 createScathachForKata() {
   const screenWidth = this.scene.scale.width;
@@ -663,17 +745,54 @@ sliceMountain() {
 }
 
 revealSpear4() {
+  // Calculate accuracy
+  const accuracy = this.totalHits > 0 ? Math.round((this.bullseyeHits / this.totalHits) * 100) : 0;
+  
+  let rewardText = '';
+  if (this.bullseyeHits === 0) {
+    rewardText = '\n\nTá obair le déanamh fós.';
+  } else if (this.bullseyeHits <= 2) {
+    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye. Toradh sách maith.`;
+  } else if (this.bullseyeHits <= 4) {
+    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye. Tá tú ag foghlaim go maith.`;
+  } else {
+    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye! Láimh iontach!`;
+  }
+  
   this.scene.textPanel.show({
-    irish: 'Ach ní go fóil.\nAr dtús, seas i scáil crann ársa,\nagus geall do chroí don chaith ós comhair na Fíanna.',
-    english: 'But not yet. First you must stand with the Fenians and in the shadow of ancient trees pledged your heart to battle.',
+    irish: 'Ach ní go fóil.\nAr dtús, seas i scáil crann ársa,\nagus geall do chroí don chaith ós comhair na Fíanna.' + rewardText,
+    english: `But not yet. First you must stand with the Fenians and in the shadow of ancient trees pledged your heart to battle.\n\nYou hit ${this.bullseyeHits} bullseyes. Take these magic arrows.`,
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
+      this.grantMagicArrows();
+    }
+  });
+}
+
+grantMagicArrows() {
+  // Store the magic arrows count in the game registry for later
+  this.scene.registry.set('magicArrows', this.bullseyeHits);
+  console.log(`Granted ${this.bullseyeHits} magic arrows to player inventory`);
+  
+  // Show a brief notification
+  if (this.bullseyeHits > 0) {
+    this.scene.textPanel.show({
+      irish: `Fuair tú ${this.bullseyeHits} saighead draíochta!`,
+      english: `You received ${this.bullseyeHits} magic arrows!`,
+      type: 'notification'
+    });
+    
+    this.scene.time.delayedCall(2000, () => {
       if (this.scene.showFarewell) {
         this.scene.showFarewell();
       }
+    });
+  } else {
+    if (this.scene.showFarewell) {
+      this.scene.showFarewell();
     }
-  });
+  }
 }
 
 cleanup() {

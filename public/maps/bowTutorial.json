@@ -13,10 +13,6 @@
 
     "onHit": [
       {
-        "irish": "Go maith. Cé nach é an sprioc an bua.",
-        "english": "Good. Although the target is not the victory."
-      },
-      {
         "irish": "Go maith.",
 
         "english": "Good."

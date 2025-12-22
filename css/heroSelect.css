@@ -2,9 +2,25 @@
 
 
    font-face {
-     font-family: 'Urchlo';                                                                              src: url('assets/fonts/urchlo.ttf') format('truetype');
+     font-family: 'Urchlo'; 
+     src: url('assets/fonts/urchlo.ttf') format('truetype');
    }
   
+
+   font-face {
+     font-family: 'Aonchlo';
+     src: url('assets/fonts/aonchlo.ttf') format('truetype');
+   }
+  
+   font-face {
+     font-family: 'IrishPenny';
+     src: url('assets/fonts/IrishPenny.ttf') format('truetype');
+   }
+  
+
+
+
+
 
 
 
@@ -15,7 +31,7 @@
 }
 
 .champion-name-ga{
-	font-family:'Urchlo' !important;
+	font-family:'IrishPenny' !important;
 }
 .champion-name-en{
 	

@@ -3,7 +3,7 @@ export default class AdvancedTraining {
   constructor(scene) {
     this.scene = scene;
 this.wordPairs =[
-  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
+  /*{ light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
   { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
   { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
   { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
@@ -31,7 +31,7 @@ this.wordPairs =[
   { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
   { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
   { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
-  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
+ */ { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
 ]
    
     this.currentPairIndex = 0;
@@ -42,6 +42,15 @@ this.wordPairs =[
 this.bullseyeHits = 0;
   this.totalHits = 0;
   }
+
+	preload(){
+// Make sure fonts are loaded
+  this.load.on('complete', () => {
+    document.fonts.ready.then(() => {
+      console.log('Fonts loaded');
+    });
+  });
+	}
 
   start() {
     console.log('AdvancedTraining: starting');
@@ -159,24 +168,27 @@ this.bullseyeHits = 0;
     });
   }
 
-  showNextWord() {
-    if (this.currentPairIndex >= this.wordPairs.length) {
-      this.complete();
-      return;
-    }
-    
-    const pair = this.wordPairs[this.currentPairIndex];
-    const showLight = Math.random() > 0.5;
-    const wordToShow = showLight ? pair.light : pair.dark;
-    
-    this.currentTargetType = showLight ? 'light' : 'dark';
-    
-    this.scene.textPanel.show({
-      irish: wordToShow.irish,
-      english: wordToShow.english,
-      type: 'notification'
-    });
+
+showNextWord() {
+  if (this.currentPairIndex >= this.wordPairs.length) {
+    this.complete();
+    return;
   }
+  
+  const pair = this.wordPairs[this.currentPairIndex];
+  const showLight = Math.random() > 0.5;
+  const wordToShow = showLight ? pair.light : pair.dark;
+  
+  this.currentTargetType = showLight ? 'light' : 'dark';
+  
+  // Use archery_prompt type instead of notification
+  this.scene.textPanel.show({
+    irish: wordToShow.irish,
+    english: wordToShow.english,
+    type: 'archery_prompt'
+  });
+}
+
 
   update() {
     if (!this.isActive) return;
@@ -309,71 +321,146 @@ showBullseyeEffect(x, y) {
 
 
 createScathachForKata() {
+// Create Scáthach off-screen right
+
+
+this.dragonKataComplete = false;
   const screenWidth = this.scene.scale.width;
   const screenHeight = this.scene.scale.height;
-  const scathachX = screenWidth * 0.85;
-  const scathachY = screenHeight * 0.45;
+  const targetX = screenWidth * 0.5; // Center of screen
+  const targetY = screenHeight * 0.45;
   
-  // Recreate Scáthach
-  this.scene.scathach = this.scene.add.image(scathachX, scathachY, 'scathach');
+  this.scene.scathach = this.scene.add.image(screenWidth + 50, targetY, 'scathach');
   this.scene.scathach.setScale(0.8);
   this.scene.scathach.setDepth(20);
-  this.scene.scathach.setAlpha(0); // Start invisible
+  this.scene.scathach.setAlpha(1);
   
-  // Fade her in
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    alpha: 1,
-    duration: 800,
-    ease: 'Power2'
-  });
+  // Create spear graphic (placeholder - simple line for now)
+  this.spear = this.scene.add.graphics();
+  this.spear.lineStyle(3, 0x888888, 1); // Gray spear shaft
+  this.spear.lineBetween(0, 0, 0, -60); // 60 pixels tall
+  this.spear.fillStyle(0xc0c0c0, 1); // Silver spearhead
+  this.spear.fillTriangle(-4, -60, 4, -60, 0, -75);
+  this.spear.setDepth(21);
+  this.spear.x = this.scene.scathach.x - 5; // Slightly in front
+  this.spear.y = this.scene.scathach.y + 20; // Bottom near her feet
+  
+  // Start the hobbling walk
+  this.hobbleToCenter(targetX, targetY);
+}
+
+hobbleToCenter(targetX, targetY) {
+  const stepDistance = 18;
+  const numSteps = Math.floor((this.scene.scathach.x - targetX) / stepDistance);
+  let currentStep = 0;
+
+  const takeStep = () => {
+    if (currentStep >= numSteps) {
+      this.scene.time.delayedCall(500, () => {
+        this.revealSpear1();
+      });
+      return;
+    }
+
+    this.scene.tweens.add({
+      targets: this.spear,
+      x: this.spear.x - stepDistance,
+      angle: -15,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: this.scene.scathach,
+          x: this.scene.scathach.x - stepDistance,
+          y: this.scene.scathach.y + Math.sin(currentStep) * 2,
+          duration: 300,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            this.scene.tweens.add({
+              targets: this.spear,
+              angle: 0,
+              duration: 100
+            });
+
+            currentStep++;
+            this.scene.time.delayedCall(150, takeStep);
+          }
+        });
+      }
+    });
+  };
+
+  takeStep();
 } 
+
+
+
+
 complete() {
   this.isActive = false;
-  
+  this.createScathachForKata();
+}
+
+
+
+
+
+revealSpear1() {
   this.scene.textPanel.show({
-	irish: 'Ní thuigenn an saighead ach an haon agus náid',
+    irish: 'Ní thuigenn an saighead ach an haon agus náid',
     english: 'The arrow knows only loose and hold.',
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
-      this.revealSpear1();
+      this.spearKata1();
     }
   });
 }
 
-revealSpear1() {
- 
-this.createScathachForKata();
+spearKata1() {
+  const startY = this.scene.scathach.y;
 
- // TODO: Scáthach appears with spear
-  this.scene.time.delayedCall(800, () => {
-    this.scene.textPanel.show({
-      irish: 'Ach ní hionnan ríal an slea agus ríal an saighead.\nCeistíonn an slea- cé chomh fada? cé chomh fíor?',
-      english: 'But the spear is not ruled as the arrow is ruled. The spear asks how far? How true?',
-      type: 'dialogue',
-      speaker: 'Scáthach',
-      onDismiss: () => {
-        this.spearKata1();
-      }
-    });
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: startY - 12,
+    duration: 400,
+    ease: 'Sine.easeOut',
+    onComplete: () => {
+      this.revealSpear2();
+    }
   });
 }
 
-spearKata1() {
-  // Simple settling into stance - just a small weight shift
-  const startX = this.scene.scathach.x;
+// KATA 0 — assume stance / settle into position
+spearKata0() {
   const startY = this.scene.scathach.y;
-  
-  // Single small movement settling into ready position
+
   this.scene.tweens.add({
     targets: this.scene.scathach,
-    y: startY + 5, // Small downward settle
-    duration: 300,
+    y: startY - 12,
+    duration: 400,
     ease: 'Sine.easeOut',
-    yoyo: true,
     onComplete: () => {
       this.scene.time.delayedCall(300, () => {
+        this.spearKataSimple();
+      });
+    }
+  });
+}
+
+// KATA 1 — simple, grounded movement
+spearKataSimple() {
+  const startX = this.scene.scathach.x;
+
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    x: startX + 20,
+    duration: 250,
+    yoyo: true,
+    repeat: 1,
+    ease: 'Quad.easeInOut',
+    onComplete: () => {
+      this.scene.time.delayedCall(200, () => {
         this.revealSpear2();
       });
     }
@@ -383,8 +470,8 @@ spearKata1() {
 
 revealSpear2() {
   this.scene.textPanel.show({
-    irish: 'Is í an tslea bunús ár neart,\ncrá ár namhaid.',
-    english: 'The spear is the essence of our might, the bane of our foes.',
+    irish: 'Ach ní hionnan ríal an slea agus ríal an saighead.',
+    english: 'But the spear is not ruled as the arrow is ruled.',
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
@@ -393,62 +480,129 @@ revealSpear2() {
   });
 }
 
-
 spearKata2() {
-  // Nimble backflips with slash effects
+  const startX = this.scene.scathach.x;
+
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    x: startX + 20,
+    duration: 250,
+    yoyo: true,
+    repeat: 1,
+    ease: 'Quad.easeInOut',
+    onComplete: () => {
+      this.revealSpear3();
+    }
+  });
+}
+
+revealSpear3() {
+  this.scene.textPanel.show({
+    irish: 'Is í an tslea bunús ár neart,\ncrá ár namhaid.',
+    english: 'The spear is the essence of our might, the bane of our foes.',
+    type: 'dialogue',
+    speaker: 'Scáthach',
+    onDismiss: () => {
+      this.spearKata3();
+    }
+  });
+}
+
+spearKata3() {
   const scathachX = this.scene.scathach.x;
   const scathachY = this.scene.scathach.y;
-  
-  // Create slash effect graphics
+
   this.slashEffect = this.scene.add.graphics();
   this.slashEffect.setDepth(25);
-  
-  // First hop and backflip with slash
+
   this.scene.tweens.add({
     targets: this.scene.scathach,
     y: scathachY - 80,
-    rotation: Math.PI, // Half rotation
+    rotation: Math.PI,
     duration: 300,
     ease: 'Quad.easeOut',
     yoyo: true,
     onStart: () => {
-      // Draw first crescent slash effect
       this.drawSlashEffect(scathachX, scathachY, 0.3, 0xff6600);
     },
     onComplete: () => {
       this.scene.scathach.rotation = 0;
-      
-      // Second backflip in opposite direction
+
       this.scene.tweens.add({
         targets: this.scene.scathach,
         y: scathachY - 100,
         x: scathachX + 50,
-        rotation: -Math.PI * 2, // Full rotation opposite way
+        rotation: -Math.PI * 2,
         duration: 400,
         ease: 'Quad.easeInOut',
         yoyo: true,
         onStart: () => {
-          // Second slash effect
           this.drawSlashEffect(scathachX + 25, scathachY, -0.3, 0xff8800);
         },
         onComplete: () => {
           this.scene.scathach.rotation = 0;
           this.scene.scathach.x = scathachX;
           this.scene.scathach.y = scathachY;
-          
-          // Clear slash effects and continue
-          this.scene.time.delayedCall(500, () => {
-            if (this.slashEffect) {
-              this.slashEffect.destroy();
-              this.slashEffect = null;
-            }
-            this.revealSpear3();
-          });
+
+          if (this.slashEffect) {
+            this.slashEffect.destroy();
+            this.slashEffect = null;
+          }
+
+          this.revealSpear4();
         }
       });
     }
   });
 }
+
+
+sliceMountain() {
+  // Draw the slice line
+  const sliceLine = this.scene.add.graphics();
+  sliceLine.setDepth(10);
+  sliceLine.lineStyle(2, 0xffffff, 0.8);
+  sliceLine.lineBetween(
+    0, 
+    this.scene.scale.height * 0.28, 
+    this.scene.scale.width, 
+    this.scene.scale.height * 0.28
+  );
+  
+  // Slide the top of the mountain down
+  this.scene.tweens.add({
+    targets: this.mountainTop,
+    y: this.mountainTop.y + 30,
+    x: this.mountainTop.x - 20,
+    angle: -5,
+    duration: 1500,
+    ease: 'Cubic.easeIn',
+    onComplete: () => {
+      // Fade out the mountain pieces
+      this.scene.tweens.add({
+        targets: [this.mountainTop, this.mountainBottom],
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          this.mountainTop.destroy();
+          this.mountainBottom.destroy();
+          this.mountainTop = null;
+          this.mountainBottom = null;
+        }
+      });
+    }
+  });
+  
+  this.scene.time.delayedCall(500, () => {
+    sliceLine.destroy();
+  });
+  
+  // REMOVED: No longer calls revealSpear4 here
+}
+
+
+
+
 
 drawSlashEffect(x, y, angleOffset, color) {
   const radius = 80;
@@ -475,21 +629,7 @@ drawSlashEffect(x, y, angleOffset, color) {
     ease: 'Power2'
   });
 }
-
-revealSpear3() {
-  this.scene.textPanel.show({
-    irish: 'Óllphéist na nairm í an tsleá.\nI fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',
-    english: 'The spear is the dragon among weapons.\nIn fury or restraint you will be known by your spear',
-    type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.spearKataFinal();
-    }
-  });
-}
-
-
-spearKataFinal() {
+spearKata4() {
   // THE DRAGON SEQUENCE
   const scathachX = this.scene.scathach.x;
   const scathachY = this.scene.scathach.y;
@@ -556,6 +696,9 @@ spearKataFinal() {
       this.executeThreeSlashes(scathachX, scathachY - 150);
     }
   });
+
+this.dragonKataComplete = true;
+
 }
 
 executeThreeSlashes(x, y) {
@@ -739,36 +882,36 @@ sliceMountain() {
     sliceLine.destroy();
   });
   
-  this.scene.time.delayedCall(2500, () => {
+  this.scene.time.delayedCall(4500, () => {
     this.revealSpear4();
   });
 }
 
+
 revealSpear4() {
-  // Calculate accuracy
-  const accuracy = this.totalHits > 0 ? Math.round((this.bullseyeHits / this.totalHits) * 100) : 0;
-  
-  let rewardText = '';
-  if (this.bullseyeHits === 0) {
-    rewardText = '\n\nTá obair le déanamh fós.';
-  } else if (this.bullseyeHits <= 2) {
-    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye. Toradh sách maith.`;
-  } else if (this.bullseyeHits <= 4) {
-    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye. Tá tú ag foghlaim go maith.`;
+  if (!this.dragonKataComplete) {
+    this.scene.textPanel.show({
+      irish: 'Óllphéist na nairm í an tsleá.\nI fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',
+      english: 'The spear is the dragon of weapons.\nIn fury or restraint you will be known by your spear',
+      type: 'dialogue',
+      speaker: 'Scáthach',
+      onDismiss: () => {
+        this.spearKata4();
+      }
+    });
   } else {
-    rewardText = `\n\nBhuail tú ${this.bullseyeHits} bullseye! Láimh iontach!`;
+    this.scene.textPanel.show({
+      irish: '…ach ní go fóil.',
+      english: '…but not yet.\nStand on the Hill of Alune.\nPledged your heart to battle.',
+      type: 'dialogue',
+      speaker: 'Scáthach',
+      onDismiss: () => {
+        this.grantMagicArrows(); // or whatever comes next
+      }
+    });
   }
-  
-  this.scene.textPanel.show({
-    irish: 'Ach ní go fóil.\nAr dtús, seas i scáil crann ársa,\nagus geall do chroí don chaith ós comhair na Fíanna.' + rewardText,
-    english: `But not yet. First you must stand with the Fenians and in the shadow of ancient trees pledged your heart to battle.\n\nYou hit ${this.bullseyeHits} bullseyes. Take these magic arrows.`,
-    type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.grantMagicArrows();
-    }
-  });
 }
+
 
 grantMagicArrows() {
   // Store the magic arrows count in the game registry for later
@@ -778,12 +921,12 @@ grantMagicArrows() {
   // Show a brief notification
   if (this.bullseyeHits > 0) {
     this.scene.textPanel.show({
-      irish: `Fuair tú ${this.bullseyeHits} saighead draíochta!`,
-      english: `You received ${this.bullseyeHits} magic arrows!`,
+      irish: `Bronadh ${this.bullseyeHits} saighead draíochta ort!`,
+      english: `You were presented with ${this.bullseyeHits} magic arrows!`,
       type: 'notification'
     });
     
-    this.scene.time.delayedCall(2000, () => {
+    this.scene.time.delayedCall(4000, () => {
       if (this.scene.showFarewell) {
         this.scene.showFarewell();
       }
@@ -838,18 +981,5 @@ cleanup() {
 
 
 
-  cleanup() {
-    if (this.darkTarget) {
-      this.darkTarget.destroy();
-      this.darkTarget = null;
-    }
-    
-    if (this.lightTarget) {
-      this.lightTarget.destroy();
-      this.lightTarget = null;
-    }
-    
-    this.isActive = false;
-  }
 }
 

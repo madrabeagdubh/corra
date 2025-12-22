@@ -4,6 +4,12 @@ font-face {
   src: url('assets/fonts/urchlo.ttf') format('truetype');
 }
 
+font-face {
+  font-family: 'Aonchlo';
+  src: url('assets/fonts/aonchlo.ttf') format('truetype');
+}
+
+
 
 
 

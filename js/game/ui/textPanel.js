@@ -37,9 +37,10 @@ export default class TextPanel {
         }
       });
     }
+const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
+ 
 
-    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
-    this.onDismiss = onDismiss;
+   this.onDismiss = onDismiss;
     this.irishFullText = irish;
     this.englishFullText = english;
 
@@ -52,15 +53,18 @@ export default class TextPanel {
     const screenWidth = this.scene.scale.width;
     const screenHeight = this.scene.scale.height;
 
-    if (type === 'dialogue') {
-      this.createDialoguePanel(irish, english, speaker, screenWidth, screenHeight);
-    } else if (type === 'examine') {
-      this.createExaminePanel(irish, english, screenWidth, screenHeight);
-    } else if (type === 'notification') {
-      this.createNotificationPanel(irish, english, screenWidth, screenHeight);
-    } else if (type === 'chat_options') {
-      this.createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight);
-    }
+
+if (type === 'dialogue') {
+    this.createDialoguePanel(irish, english, speaker, screenWidth, screenHeight);
+  } else if (type === 'examine') {
+    this.createExaminePanel(irish, english, screenWidth, screenHeight);
+  } else if (type === 'notification') {
+    this.createNotificationPanel(irish, english, screenWidth, screenHeight);
+  } else if (type === 'archery_prompt') {
+    this.createArcheryPromptPanel(irish, english, screenWidth, screenHeight);
+  } else if (type === 'chat_options') {
+    this.createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight);
+  }
 
     this.isVisible = true;
 
@@ -166,9 +170,7 @@ this.container.add(panelGraphics);
         optionY,
         screenWidth * 0.8,
         70,
-        0x3a2820,
-        1
-      );
+       0x1b2a1b,1      );
       buttonBg.setStrokeStyle(2, 0xd4af37);
       buttonBg.setInteractive({ useHandCursor: true });
       this.container.add(buttonBg);
@@ -229,6 +231,80 @@ this.container.add(panelGraphics);
       });
     });
   }
+
+
+
+
+createArcheryPromptPanel(irish, english, screenWidth, screenHeight) {
+  const panelWidth = screenWidth * 0.9;
+  const panelHeight = 100;
+  const panelX = screenWidth / 2;
+  const panelY = panelHeight / 2 + 20;
+
+  // Draw background with border
+  const panelGraphics = this.scene.add.graphics();
+  panelGraphics.fillStyle(0x1a2a3a, 0.95); // dark blue background
+  panelGraphics.lineStyle(4, 0xc0c0c0, 1); // silver border
+  panelGraphics.fillRoundedRect(
+    panelX - panelWidth/2, 
+    panelY - panelHeight/2, 
+    panelWidth, 
+    panelHeight, 
+    8
+  );
+  panelGraphics.strokeRoundedRect(
+    panelX - panelWidth/2, 
+    panelY - panelHeight/2, 
+    panelWidth, 
+    panelHeight, 
+    8
+  );
+  this.container.add(panelGraphics);
+
+  // Irish text - larger and centered
+  const irishText = this.scene.add.text(
+    screenWidth / 2,
+    35,
+    irish,
+    {
+      fontSize: '24px',
+      fontFamily: 'Aonchlo',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      wordWrap: { width: panelWidth * 0.9 }
+    }
+  ).setOrigin(0.5, 0);
+  this.container.add(irishText);
+
+  // English text below
+  
+  const englishText = this.scene.add.text(
+    screenWidth / 2,
+    35 + irishText.height + 8,
+    english,
+    {
+      fontSize: '18px',
+      fontFamily: 'monospace',
+      color: '#00ff00',
+      wordWrap: { width: panelWidth * 0.9 }
+    }
+  ).setOrigin(0.5, 0);
+  englishText.setAlpha(GameSettings.englishOpacity);
+  englishText.setData('isEnglish', true);
+  this.container.add(englishText);
+  
+  // Store reference so it can be updated
+  this.englishTextObject = englishText;
+
+  // NO auto-dismiss - this panel stays until manually hidden
+  // NO tap zone - controlled by the archery system
+}
+
+
+
+
+
+
 
   createExaminePanel(irish, english, screenWidth, screenHeight) {
 const panelWidth = screenWidth * 0.35;

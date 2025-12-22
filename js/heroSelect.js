@@ -69,7 +69,7 @@ function createStatPopup(statName, englishOpacity) {
   irishText.id = 'statPopupIrish';
   irishText.style.cssText = `
     font-size: 1.2rem;
-    color: #ffffff;
+    color: #ffff00;
     margin-bottom: 0.8rem;
     line-height: 1.5;
     font-family: monospace;

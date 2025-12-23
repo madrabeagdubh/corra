@@ -3,7 +3,7 @@ export default class AdvancedTraining {
   constructor(scene) {
     this.scene = scene;
 this.wordPairs =[
-  /*{ light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
+  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
   { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
   { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
   { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
@@ -31,7 +31,7 @@ this.wordPairs =[
   { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
   { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
   { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
- */ { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
+ { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
 ]
    
     this.currentPairIndex = 0;
@@ -901,7 +901,7 @@ revealSpear4() {
     });
   } else {
     this.scene.textPanel.show({
-      irish: '…ach ní go fóil.',
+      irish: '…ach ní go fóil.\n Seas ar cnoc Alúne. Geal do chroi chun troda',
       english: '…but not yet.\nStand on the Hill of Alune.\nPledged your heart to battle.',
       type: 'dialogue',
       speaker: 'Scáthach',

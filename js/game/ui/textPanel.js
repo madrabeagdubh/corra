@@ -10,6 +10,7 @@ export default class TextPanel {
     this.currentCharIndex = 0;
     this.irishTextObject = null;
     this.englishTextObject = null;
+  this.englishOptionTexts = [];
   }
 
   show(config) {
@@ -88,12 +89,17 @@ if (type === 'dialogue') {
     }
   }
 
-  createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
 
-const panelWidth = screenWidth * 0.9;
-const panelHeight = screenHeight * 0.5;
-const panelX = screenWidth / 2;
-const panelY = screenHeight - panelHeight / 2;
+createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
+  // Clear previous option texts
+  this.englishOptionTexts = [];
+
+  const panelWidth = screenWidth * 0.9;
+  const panelHeight = screenHeight * 0.5;
+  const panelX = screenWidth / 2;
+  const panelY = screenHeight - panelHeight / 2;
+
+
 
 const panelGraphics = this.scene.add.graphics();
 panelGraphics.fillStyle(0x1b2a1b, 0.95); // dark grey-green background
@@ -142,21 +148,23 @@ this.container.add(panelGraphics);
 
     // English text (shown immediately with opacity)
     const englishText = this.scene.add.text(
-      textX,
-      textY + irishText.height + 15,
-      english,
-      {
-        fontSize: '18px',
-        fontFamily: 'monospace',
-        color: '#00ff00',
-        wordWrap: { width: screenWidth * 0.8 },
-        lineSpacing: 6
-      }
-    ).setOrigin(0, 0);
-    englishText.setAlpha(GameSettings.englishOpacity);
-    englishText.setData('isEnglish', true);
-    this.container.add(englishText);
+  textX,
+  textY + irishText.height + 15,
+  english,
+  {
+    fontSize: '18px',
+    fontFamily: 'monospace',
+    color: '#00ff00',
+    wordWrap: { width: screenWidth * 0.8 },
+    lineSpacing: 6
+  }
+).setOrigin(0, 0);
+englishText.setAlpha(GameSettings.englishOpacity);
+englishText.setData('isEnglish', true);
+this.container.add(englishText);
 
+// Store reference so it can be updated by the slider
+this.englishTextObject = englishText;
     // Position for options (below the dialogue text with more spacing)
     const optionsStartY = textY + irishText.height + englishText.height + 60;
 
@@ -190,20 +198,27 @@ this.container.add(panelGraphics);
       this.container.add(optionIrishText);
 
       // English option text
-      const optionEnglishText = this.scene.add.text(
-        screenWidth / 2,
-        optionY + optionIrishText.height - 10,
-        option.english,
-        {
-          fontSize: '16px',
-          fontFamily: 'monospace',
-          color: '#00ff00',
-          wordWrap: { width: screenWidth * 0.7 }
-        }
-      ).setOrigin(0.5, 0);
-      optionEnglishText.setAlpha(GameSettings.englishOpacity);
-      optionEnglishText.setData('isEnglish', true);
-      this.container.add(optionEnglishText);
+
+
+// English option text
+    const optionEnglishText = this.scene.add.text(
+      screenWidth / 2,
+      optionY + optionIrishText.height - 10,
+      option.english,
+      {
+        fontSize: '16px',
+        fontFamily: 'monospace',
+        color: '#00ff00',
+        wordWrap: { width: screenWidth * 0.7 }
+      }
+    ).setOrigin(0.5, 0);
+    optionEnglishText.setAlpha(GameSettings.englishOpacity);
+    optionEnglishText.setData('isEnglish', true);
+    this.container.add(optionEnglishText);
+    
+    // Store reference for opacity updates
+    this.englishOptionTexts.push(optionEnglishText);
+
 // Hover effects
       buttonBg.on('pointerover', () => {
         buttonBg.setFillStyle(0x4a3830);
@@ -686,36 +701,49 @@ typeNextCharacter() {
     });
   }
 
-  updateEnglishOpacity() {
-    if (this.englishTextObject && !this.typewriterActive) {
-      this.englishTextObject.setAlpha(GameSettings.englishOpacity);
+
+
+updateEnglishOpacity() {
+  // Update main dialogue/examine English text
+  if (this.englishTextObject && !this.typewriterActive) {
+    this.englishTextObject.setAlpha(GameSettings.englishOpacity);
+  }
+  
+  // Update all option English texts
+  this.englishOptionTexts.forEach(optionText => {
+    if (optionText && optionText.active) {
+      optionText.setAlpha(GameSettings.englishOpacity);
     }
+  });
+}
+
+
+
+hide() {
+  if (!this.isVisible || !this.container) return;
+
+  this.typewriterActive = false;
+
+  // Destroy the tap zone
+  if (this.tapZone) {
+    this.tapZone.destroy();
+    this.tapZone = null;
   }
 
-  hide() {
-    if (!this.isVisible || !this.container) return;
-
-    this.typewriterActive = false;
-
-    // Destroy the tap zone
-    if (this.tapZone) {
-      this.tapZone.destroy();
-      this.tapZone = null;
-    }
-
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 0,
-      duration: 200,
-      ease: 'Power2',
-      onComplete: () => {
-        if (this.container) {
-          this.container.destroy();
-          this.container = null;
-          this.irishTextObject = null;
-          this.englishTextObject = null;
-        }
-        this.isVisible = false;
+  this.scene.tweens.add({
+    targets: this.container,
+    alpha: 0,
+    duration: 200,
+    ease: 'Power2',
+    onComplete: () => {
+      if (this.container) {
+        this.container.destroy();
+        this.container = null;
+        this.irishTextObject = null;
+        this.englishTextObject = null;
+        this.englishOptionTexts = []; // Add this line
+      }
+       this.isVisible = false;
 
         // Re-enable joystick when text is hidden
         if (this.scene.joystick) {

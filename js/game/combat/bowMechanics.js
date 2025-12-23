@@ -76,6 +76,38 @@ this.scene.sound.unlock();
     this.aimLine.fillCircle(px + dx, py + dy, 10);
   }
 
+
+predictLandingPoint() {
+  if (!this.isAiming || !this.aimLine) return null;
+
+  const px = this.player.sprite.x;
+  const py = this.player.sprite.y;
+
+  // Get current pointer position
+  const pointer = this.scene.input.activePointer;
+  
+  let dx = px - pointer.worldX;
+  let dy = py - pointer.worldY;
+
+  const dragDist = Math.sqrt(dx * dx + dy * dy);
+  if (dragDist < 20) return null;
+
+  // Calculate force and angle (same as shootArrow)
+  const clamped = Math.min(dragDist, this.maxDrawDistance);
+  const angle = Math.atan2(dy, dx);
+  const force = clamped / this.maxDrawDistance;
+
+  const travelDistance =
+    this.minDistance + force * (this.maxDistance - this.minDistance);
+
+  // Calculate final landing position
+  const groundX = px + Math.cos(angle) * travelDistance;
+  const groundY = py + Math.sin(angle) * travelDistance;
+
+  return { x: groundX, y: groundY };
+}
+
+
   shootArrow(pointer) {
     const px = this.player.sprite.x;
     const py = this.player.sprite.y;
@@ -336,29 +368,32 @@ const isInParryZone =
   });
 }
 
- checkHit(target, radius = 30) {
-     for (const arrow of this.arrows) {
-           if (!arrow.getData('hasLanded')) continue;
-	         if (arrow.getData('hitTarget')) continue; // ✅ prevents repeat
-       const d = Phaser.Math.Distance.Between(
-             arrow.x,
-              arrow.y,
-              target.x,
-              target.y
-             );
-	        if (d < radius) {
-	          arrow.setData('hitTarget', true); // ✅ consume arrow
-									           return {
-										      arrow,
-	    force: arrow.getData('force'),
-           distance: arrow.getData('travelDistance'),
-           landX: arrow.x,
-            landY: arrow.y
-             };
-									           }
-									       }
-								           return null;
-     }
+checkHit(target, radius = 30) {
+  for (const arrow of this.arrows) {
+    if (!arrow.getData('hasLanded')) continue;
+    if (arrow.getData('hitTarget')) continue;
+    
+    const d = Phaser.Math.Distance.Between(
+      arrow.x,
+      arrow.y,
+      target.x,
+      target.y
+    );
+    
+    if (d < radius) {
+      arrow.setData('hitTarget', true);
+      return {
+        arrow,
+        force: arrow.getData('force'),
+        distance: d,  
+        travelDistance: arrow.getData('travelDistance'),
+        landX: arrow.x,
+        landY: arrow.y
+      };
+    }
+  }
+  return null;
+} 
 
 
   destroy() {

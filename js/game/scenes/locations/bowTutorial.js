@@ -68,7 +68,7 @@ create() {  // <-- THIS WAS MISSING!
     // Track hits
     this.hitCount = 0;
     this.missCount = 0;
-
+this.bullseyeHits = 0;
     this.consecutiveHits = 0;
     this.consecutiveMisses = 0;
     this.NARRATIVE_THRESHOLD = 3;
@@ -88,13 +88,51 @@ create() {  // <-- THIS WAS MISSING!
 this.advancedTraining = new AdvancedTraining(this);
   
 
-
-
- console.log('BowTutorial: ready');
+// Create prediction dot (for testing/future spell)
+this.predictionDot = this.add.circle(0, 0, 5, 0xff0000, 0.8);
+this.predictionDot.setDepth(100);
+this.predictionDot.setVisible(false);
   }
 
 
-
+showBullseyeEffect(x, y) {
+  // Create a golden ring that expands outward
+  const ring = this.add.graphics();
+  ring.setDepth(101);
+  ring.lineStyle(3, 0xffd700, 1);
+  ring.strokeCircle(x, y, 10);
+  
+  this.tweens.add({
+    targets: ring,
+    alpha: 0,
+    duration: 600,
+    ease: 'Power2',
+    onUpdate: () => {
+      ring.clear();
+      ring.lineStyle(3, 0xffd700, ring.alpha);
+      ring.strokeCircle(x, y, 10 + (1 - ring.alpha) * 30);
+    },
+    onComplete: () => ring.destroy()
+  });
+  
+  // Add text popup
+  const bullseyeText = this.add.text(x, y - 30, 'SÚIL NA SPRICE!', {
+    fontSize: '16px',
+    fontFamily: 'monospace',
+    color: '#ffd700',
+    fontStyle: 'bold'
+  }).setOrigin(0.5);
+  bullseyeText.setDepth(102);
+  
+  this.tweens.add({
+    targets: bullseyeText,
+    y: y - 60,
+    alpha: 0,
+    duration: 800,
+    ease: 'Power2',
+    onComplete: () => bullseyeText.destroy()
+  });
+}
 
    showExposition() {
     const exposition = this.tutorialData.narrative.exposition;
@@ -246,13 +284,22 @@ this.cameras.main.once('camerafadeoutcomplete', () => {
 
 
 
-
-
-
-
 update(time, delta) {
+  // Update prediction dot while aiming
+  if (this.bowMechanics.isAiming && this.predictionDot) {
+    const prediction = this.bowMechanics.predictLandingPoint();
+    if (prediction) {
+      this.predictionDot.setPosition(prediction.x, prediction.y);
+      this.predictionDot.setVisible(true);
+    }
+  } else if (this.predictionDot) {
+    this.predictionDot.setVisible(false);
+  }
   // Update Scáthach hitbox to follow sprite position
   if (this.scathach && this.scathachHitbox) {
+
+
+
     this.scathachHitbox.x = this.scathach.x;
     this.scathachHitbox.y = this.scathach.y;
   }
@@ -261,8 +308,10 @@ update(time, delta) {
   this.bowMechanics.update(delta);
 
   // Check for arrow hit on target - ADD NULL CHECK
-  if (this.target && !this.target.getData('hit')) {
-    const hit = this.bowMechanics.checkHit(this.target, 35);
+    
+if (this.target && !this.hitLocked) {
+
+const hit = this.bowMechanics.checkHit(this.target, 35);
     if (hit) {
       this.onTargetHit(hit);
     }
@@ -318,65 +367,70 @@ update(time, delta) {
 }
 
 onTargetHit(hitData) {
-  this.target.setData('hit', true);
+  if (this.hitLocked) return;
+  this.hitLocked = true;
 
   this.hitCount++;
   this.consecutiveHits++;
   this.consecutiveMisses = 0;
 
-  // Visual feedback stays immediate
-  this.target.setFillStyle(0x00ff00, 0.9);
+  // Check if it's a bullseye (very close to center)
+  if (hitData.distance <= 5) {
+    this.bullseyeHits++;
+    console.log('BULLSEYE! Total:', this.bullseyeHits);
+    // Gold flash for bullseye
+    this.target.setFillStyle(0xffd700, 0.9);
+    this.showBullseyeEffect(this.target.x, this.target.y);
+  } else {
+    // Regular green flash
+    this.target.setFillStyle(0x00ff00, 0.9);
+  }
 
   // Check win condition first
   if (this.consecutiveHits >= 5 && !this.tutorialComplete) {
+    this.tutorialComplete = true;
     
-
-
-this.textPanel.show({
-  type: 'chat_options',
-  irish: 'Sin é.',
-  english: 'That\'s it.',
-  speaker: 'Scáthach', // optional
-  options: [
-    { 
-      irish: 'Ceacht eile?',
-      english: 'Another lesson?'
-    },
-    { 
-      irish: 'Fág slán',
-      english: 'Take your leavee'
-    }
-  ],
-  onChoice: (index, option) => {
-    console.log(`Player chose option ${index}:`, option);
-    // Handle the choice here
-    if (index === 0) {
-      // Player chose first option
-this.time.delayedCall(300, ()=>{
-	this.moreTraining();
-})
-    } else {
-    
-  this.time.delayedCall(300, () => {
-      this.showFarewell();
+    this.textPanel.show({
+      type: 'chat_options',
+      irish: 'Sin é.',
+      english: 'That\'s it.',
+      speaker: 'Scáthach',
+      options: [
+        {
+          irish: 'Ceacht eile?',
+          english: 'Another lesson?'
+        },
+        {
+          irish: 'Fág slán',
+          english: 'Take your leave'
+        }
+      ],
+      onChoice: (index, option) => {
+        console.log(`Player chose option ${index}:`, option);
+        if (index === 0) {
+          this.time.delayedCall(300, () => {
+            this.moreTraining();
+          });
+        } else {
+          this.time.delayedCall(300, () => {
+            this.showFarewell();
+          });
+        }
+      }
     });
-    }
-  }
-});
-
-//
-    return;
+    
+    return; // Exit early, don't move target
   }
 
-
-  // Show dialogue at 3 hits, but don't reset the counter
+  // Show dialogue at 3 hits
   if (this.consecutiveHits === this.NARRATIVE_THRESHOLD && !this.tutorialComplete) {
     this.showHitDialogue();
   }
 
-  this.time.delayedCall(2000, () => {
+  // Reset target and move to next after a short delay
+  this.time.delayedCall(1000, () => {
     this.target.setFillStyle(0xff0000, 0.7);
-    this.target.setData('hit', false);
+    this.hitLocked = false;
     this.moveTargetToNext();
   });
 
@@ -476,7 +530,7 @@ onScathachHit(arrow) {
   console.log('🗡️  PARRIED! Scáthach deflected the arrow!');
 }
 
-ining() {
+/*ining() {
   console.log('BowTutorial: starting more training');
   
   this.narrativeInProgress = true;
@@ -533,7 +587,7 @@ ining() {
       console.log('Ready for advanced training');
     }
   });
-}
+}*/
 
 
 moreTraining() {

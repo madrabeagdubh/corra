@@ -5,7 +5,7 @@ export default class AdvancedTraining {
 this.wordPairs =[
   { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
   { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
-  { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
+/*  { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
   { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
   { light: { irish: 'Beo', english: 'Alive' }, dark: { irish: 'Marbh', english: 'Dead' } },
   { light: { irish: 'Dearfach', english: 'Positive' }, dark: { irish: 'Diúltach', english: 'Negative' } },
@@ -30,7 +30,7 @@ this.wordPairs =[
   { light: { irish: 'Soirbh', english: 'Optimistic' }, dark: { irish: 'Doirbh', english: 'Pessimistic' } },
   { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
   { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
-  { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
+ */ { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
  { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }
 ]
    
@@ -407,8 +407,8 @@ complete() {
 
 revealSpear1() {
   this.scene.textPanel.show({
-    irish: 'Ní thuigenn an saighead ach an haon agus náid',
-    english: 'The arrow knows only loose and hold.',
+    irish: 'Sin fírinne an tsaighead.',
+    english: 'That\'s the arrow\'s truth.',
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
@@ -470,8 +470,8 @@ spearKataSimple() {
 
 revealSpear2() {
   this.scene.textPanel.show({
-    irish: 'Ach ní hionnan ríal an slea agus ríal an saighead.',
-    english: 'But the spear is not ruled as the arrow is ruled.',
+    irish: 'Ach ní hionnan an slea agus an saighead.',
+    english: 'But the spear and the arrow are not the same.',
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
@@ -498,8 +498,8 @@ spearKata2() {
 
 revealSpear3() {
   this.scene.textPanel.show({
-    irish: 'Is í an tslea bunús ár neart,\ncrá ár namhaid.',
-    english: 'The spear is the essence of our might, the bane of our foes.',
+    irish: 'Is í an sleá, úfás ár naimhead,  .',
+    english: 'The spear is the terror of our foes, the irreducible complexity of our poetry.',
     type: 'dialogue',
     speaker: 'Scáthach',
     onDismiss: () => {
@@ -629,33 +629,38 @@ drawSlashEffect(x, y, angleOffset, color) {
     ease: 'Power2'
   });
 }
+
 spearKata4() {
   // THE DRAGON SEQUENCE
   const scathachX = this.scene.scathach.x;
   const scathachY = this.scene.scathach.y;
-  
-  // Create placeholder mountain (two rectangles for top and bottom)
+
   const screenWidth = this.scene.scale.width;
   const screenHeight = this.scene.scale.height;
-  
-  this.mountainTop = this.scene.add.rectangle(
-    screenWidth / 2,
-    screenHeight * 0.15,
-    screenWidth * 0.4,
-    screenHeight * 0.3,
-    0x8b7355
+
+  // HIDE the original mountains from bowTutorial
+  if (this.scene.mountainTop) this.scene.mountainTop.setVisible(false);
+  if (this.scene.mountainBottom) this.scene.mountainBottom.setVisible(false);
+
+  // Create NEW mountain pieces for the animation
+  // The TOP piece (which will slide) uses skyeMountainBottom graphic
+  this.mountainTop = this.scene.add.image(
+    screenWidth / 2,           // ADD X position
+    screenHeight / 2,          // ADD Y position
+    'skyeMountainBottom'
   );
   this.mountainTop.setDepth(5);
-  
-  this.mountainBottom = this.scene.add.rectangle(
-    screenWidth / 2,
-    screenHeight * 0.35,
-    screenWidth * 0.5,
-    screenHeight * 0.2,
-    0x6b5345
+  this.mountainTop.setDisplaySize(screenWidth, screenHeight);
+
+  // The BOTTOM piece (which stays) uses skyeMountainTop graphic
+  this.mountainBottom = this.scene.add.image(
+    screenWidth / 2,           // ADD X position
+    screenHeight / 2,          // ADD Y position
+    'skyeMountainTop'
   );
   this.mountainBottom.setDepth(5);
-  
+  this.mountainBottom.setDisplaySize(screenWidth, screenHeight);
+
   // Darken the sky
   this.darkOverlay = this.scene.add.rectangle(
     screenWidth / 2,
@@ -665,6 +670,7 @@ spearKata4() {
     0x000000,
     0
   );
+  this.darkOverlay.setDepth(19);  // Darken the sky
   this.darkOverlay.setDepth(19);
   
   this.scene.tweens.add({
@@ -848,12 +854,12 @@ sliceMountain() {
   sliceLine.setDepth(10);
   sliceLine.lineStyle(2, 0xffffff, 0.8);
   sliceLine.lineBetween(
-    0, 
-    this.scene.scale.height * 0.28, 
-    this.scene.scale.width, 
+    0,
+    this.scene.scale.height * 0.28,
+    this.scene.scale.width,
     this.scene.scale.height * 0.28
   );
-  
+
   // Slide the top of the mountain down
   this.scene.tweens.add({
     targets: this.mountainTop,
@@ -862,26 +868,29 @@ sliceMountain() {
     angle: -5,
     duration: 1500,
     ease: 'Cubic.easeIn',
-    onComplete: () => {
-      // Fade out the mountain pieces
-      this.scene.tweens.add({
-        targets: [this.mountainTop, this.mountainBottom],
-        alpha: 0,
-        duration: 500,
-        onComplete: () => {
-          this.mountainTop.destroy();
-          this.mountainBottom.destroy();
-          this.mountainTop = null;
-          this.mountainBottom = null;
-        }
-      });
-    }
-  });
+   onComplete: () => {
+  // Destroy the OLD mountains from bowTutorial
+  console.log('Checking old mountains:', this.scene.mountainTop, this.scene.mountainBottom);
   
+  if (this.scene.mountainTop) {
+    console.log('Destroying scene.mountainTop');
+    this.scene.mountainTop.destroy();
+    this.scene.mountainTop = null;
+  }
+  if (this.scene.mountainBottom) {
+    console.log('Destroying scene.mountainBottom');
+    this.scene.mountainBottom.destroy();
+    this.scene.mountainBottom = null;
+  }
+} 
+  });
+
+  // Remove the slice line after a moment
   this.scene.time.delayedCall(500, () => {
     sliceLine.destroy();
   });
-  
+
+  // Continue to next part of the sequence
   this.scene.time.delayedCall(4500, () => {
     this.revealSpear4();
   });
@@ -892,7 +901,7 @@ revealSpear4() {
   if (!this.dragonKataComplete) {
     this.scene.textPanel.show({
       irish: 'Óllphéist na nairm í an tsleá.\nI fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',
-      english: 'The spear is the dragon of weapons.\nIn fury or restraint you will be known by your spear',
+      english: 'The dragon of weapons.\nIn fury or restraint you will be known by your spear',
       type: 'dialogue',
       speaker: 'Scáthach',
       onDismiss: () => {
@@ -901,8 +910,8 @@ revealSpear4() {
     });
   } else {
     this.scene.textPanel.show({
-      irish: '…ach ní go fóil.\n Seas ar cnoc Alúne. Geal do chroi chun troda',
-      english: '…but not yet.\nStand on the Hill of Alune.\nPledged your heart to battle.',
+      irish: '…ach ní go fóil.\nSeas ar cnoc Alúne.\nNuair atá do mionn tughta, thaispánfar dhuit mar a stiúrann an fhilíocht sleá na bhFiann',
+      english: '…but not yet.\nStand on the Hill of Alune.\nWhen you have taken the oath, I will reveal \nhow poetry guides the fenian spear.',
       type: 'dialogue',
       speaker: 'Scáthach',
       onDismiss: () => {

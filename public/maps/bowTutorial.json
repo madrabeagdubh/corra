@@ -22,8 +22,8 @@
         "english": "You're learning."
       },
       {
-        "irish": "Sin é. Ar dtús, scaoilimid  ón intinn.",
-        "english": "That's it. First, we release from the mind."
+        "irish": "Sin é.",
+        "english": "That's it."
       }
     ],
 
@@ -41,11 +41,7 @@
         "irish": "Arís, le do thoil.",
         "english": "Again, by your will."
       },
-      {
-        "irish": "Foighne",
-        "english": "Patience"
-      },
-      {
+           {
         "english": "Bíonn gach tús lag.",
         "irish": "Every beginning is weak."
       }

@@ -15,6 +15,12 @@ export default class BowTutorial extends Phaser.Scene {
 
 		       this.load.audio('parrySound', 'assets/sounds/parry.mp3');
     this.load.image('skyeBackground', 'assets/skye1.png');
+
+this.load.image('skyeMountainTop', 'assets/skye1.png');   
+this.load.image('skyeMountainBottom', 'assets/skye2.png');
+this.load.image('skyeClouds', 'assets/skye0.png');       
+
+
     this.load.image('cape', 'assets/cape.png');
     // Load champion spritesheet and atlas
     this.load.image('championSheet', 'assets/champions/champions-with-kit.png');
@@ -39,9 +45,31 @@ create() {  // <-- THIS WAS MISSING!
 
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
-    const bg = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeBackground');
-    bg.setDisplaySize(screenWidth, screenHeight); // Scale to fit screen
-    bg.setDepth(0); // Behind everything
+
+this.clouds1 = this.add.image(0, 0, 'skyeClouds');
+this.clouds1.setOrigin(0, 0); // Top-left origin
+this.clouds1.setDepth(-1); // Behind the mountains
+
+this.clouds2 = this.add.image(this.clouds1.width -1, 0, 'skyeClouds');
+this.clouds2.setOrigin(0, 0); // Top-left origin
+this.clouds2.setDepth(-1);
+
+this.mountainBottom = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainBottom');
+this.mountainBottom.setDisplaySize(screenWidth, screenHeight);
+this.mountainBottom.setDepth(0);
+
+this.mountainTop = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainTop');
+this.mountainTop.setDisplaySize(screenWidth, screenHeight);
+this.mountainTop.setDepth(0); 
+
+
+
+
+
+
+
+
+
 
     // Get champion
     const champion = this.registry.get('selectedChampion') ||
@@ -261,6 +289,8 @@ this.cameras.main.once('camerafadeoutcomplete', () => {
     this.target.setData('hit', false);
     this.bullseye1 = this.add.circle(targetX, targetY, 20, 0xff6600, 0.8);
     this.bullseye2 = this.add.circle(targetX, targetY, 10, 0xffff00, 0.9);
+this.bullseye1.setDepth(10);
+this.bullseye2.setDepth(10);
   }
 
   moveTargetToNext() {
@@ -285,7 +315,34 @@ this.cameras.main.once('camerafadeoutcomplete', () => {
 
 
 update(time, delta) {
-  // Update prediction dot while aiming
+  
+
+
+
+// Scroll clouds slowly
+  const scrollSpeed =  0.1 ; // Adjust speed here (pixels per frame)
+  
+  if (this.clouds1) {
+    this.clouds1.x -= scrollSpeed;
+    this.clouds2.x -= scrollSpeed;
+    
+    const cloudWidth = this.clouds1.width;
+    
+    // Loop clouds1
+    if (this.clouds1.x <= -cloudWidth) {
+      this.clouds1.x = this.clouds2.x + cloudWidth;
+    }
+    
+    // Loop clouds2
+    if (this.clouds2.x <= -cloudWidth) {
+      this.clouds2.x = this.clouds1.x + cloudWidth;
+    }
+  }
+
+
+
+
+// Update prediction dot while aiming
   if (this.bowMechanics.isAiming && this.predictionDot) {
     const prediction = this.bowMechanics.predictLandingPoint();
     if (prediction) {

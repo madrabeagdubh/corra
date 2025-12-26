@@ -510,7 +510,7 @@ export const champions = [
 
 },
   {
-    spriteKey: "094.png",
+    spriteKey: "031.png",
     monologueID: 1,
     gender: "m",
     nameGa: "Olcán",

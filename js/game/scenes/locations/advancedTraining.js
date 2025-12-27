@@ -417,19 +417,7 @@ revealSpear1() {
   });
 }
 
-spearKata1() {
-  const startY = this.scene.scathach.y;
 
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    y: startY - 12,
-    duration: 400,
-    ease: 'Sine.easeOut',
-    onComplete: () => {
-      this.revealSpear2();
-    }
-  });
-}
 
 // KATA 0 — assume stance / settle into position
 spearKata0() {
@@ -480,22 +468,6 @@ revealSpear2() {
   });
 }
 
-spearKata2() {
-  const startX = this.scene.scathach.x;
-
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    x: startX + 20,
-    duration: 250,
-    yoyo: true,
-    repeat: 1,
-    ease: 'Quad.easeInOut',
-    onComplete: () => {
-      this.revealSpear3();
-    }
-  });
-}
-
 revealSpear3() {
   this.scene.textPanel.show({
     irish: 'Is í an sleá, úfás ár naimhead,  .',
@@ -508,53 +480,7 @@ revealSpear3() {
   });
 }
 
-spearKata3() {
-  const scathachX = this.scene.scathach.x;
-  const scathachY = this.scene.scathach.y;
 
-  this.slashEffect = this.scene.add.graphics();
-  this.slashEffect.setDepth(25);
-
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    y: scathachY - 80,
-    rotation: Math.PI,
-    duration: 300,
-    ease: 'Quad.easeOut',
-    yoyo: true,
-    onStart: () => {
-      this.drawSlashEffect(scathachX, scathachY, 0.3, 0xff6600);
-    },
-    onComplete: () => {
-      this.scene.scathach.rotation = 0;
-
-      this.scene.tweens.add({
-        targets: this.scene.scathach,
-        y: scathachY - 100,
-        x: scathachX + 50,
-        rotation: -Math.PI * 2,
-        duration: 400,
-        ease: 'Quad.easeInOut',
-        yoyo: true,
-        onStart: () => {
-          this.drawSlashEffect(scathachX + 25, scathachY, -0.3, 0xff8800);
-        },
-        onComplete: () => {
-          this.scene.scathach.rotation = 0;
-          this.scene.scathach.x = scathachX;
-          this.scene.scathach.y = scathachY;
-
-          if (this.slashEffect) {
-            this.slashEffect.destroy();
-            this.slashEffect = null;
-          }
-
-          this.revealSpear4();
-        }
-      });
-    }
-  });
-}
 
 
 sliceMountain() {
@@ -920,6 +846,273 @@ revealSpear4() {
     });
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// KATA 1 — Walking entrance with spear held horizontally
+spearKata1() {
+  const startX = this.scene.scathach.x;
+  const startY = this.scene.scathach.y;
+  
+  // Flip to face direction of movement
+  this.scene.scathach.setFlipX(true);
+  
+  // Show text immediately
+  this.scene.textPanel.show({
+    irish: 'Sin fírinne an tsaighead.',
+    english: 'That\'s the arrow\'s truth.',
+    type: 'dialogue',
+    speaker: 'Scáthach',
+    onDismiss: () => {
+      this.revealSpear2();
+    }
+  });
+  
+  // Animation plays simultaneously
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    x: startX + 60,
+    y: startY - 5,
+    duration: 800,
+    ease: 'Sine.easeInOut',
+    onComplete: () => {
+      // Flip back to face forward
+      this.scene.scathach.setFlipX(false);
+    }
+  });
+}
+
+// KATA 2 — Spinning spear throw and catch
+revealSpear2() {
+  this.scene.textPanel.show({
+    irish: 'Ach ní hionann an slea agus an saighead.',
+    english: 'But the spear and the arrow are not the same.',
+    type: 'dialogue',
+    speaker: 'Scáthach',
+    onDismiss: () => {
+      this.revealSpear3();
+    }
+  });
+  
+  // Start kata 2 animation immediately
+  this.spearKata2();
+}
+spearKata2() {
+  const scathachX = this.scene.scathach.x;
+  const scathachY = this.scene.scathach.y;
+
+  // Create a container for the spear (shaft + blade)
+  const spear = this.scene.add.container(scathachX, scathachY);
+  spear.setDepth(this.scene.scathach.depth + 1);
+
+  // Brown wooden shaft
+  const shaft = this.scene.add.rectangle(0, 0, 50, 4, 0x8b4513);
+  
+  // Golden/bronze blade (triangle pointing right)
+  const blade = this.scene.add.triangle(
+    25,  // x position (at the end of shaft)
+    0,   // y position (centered)
+    0, -6,    // point 1 (left top)
+    0, 6,     // point 2 (left bottom)
+    12, 0,    // point 3 (right tip)
+    0xcd7f32  // bronze color
+  );
+
+  spear.add([shaft, blade]);
+
+  // Step 1: Hold spear parallel (horizontal stance)
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    y: scathachY - 10,
+    duration: 300,
+    ease: 'Back.easeOut',
+    onComplete: () => {
+
+      // Step 2: Throw spear spinning into the air
+      this.scene.tweens.add({
+        targets: spear,
+        y: scathachY - 200,
+        angle: 720, // Two full rotations
+        duration: 800,
+        ease: 'Quad.easeOut'
+      });
+
+      // Step 3: Scáthach backflip sequence
+      this.scene.time.delayedCall(100, () => {
+        this.scene.tweens.add({
+          targets: this.scene.scathach,
+          y: scathachY - 120,
+          angle: -360, // Full backflip
+          duration: 600,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            // Reset rotation
+            this.scene.scathach.angle = 0;
+
+            // Step 4: Land and prepare to catch
+            this.scene.tweens.add({
+              targets: this.scene.scathach,
+              y: scathachY,
+              duration: 300,
+              ease: 'Bounce.easeOut'
+            });
+          }
+        });
+      });
+
+      // Step 5: Catch the spear (timed with landing)
+      this.scene.time.delayedCall(700, () => {
+        this.scene.tweens.add({
+          targets: spear,
+          y: scathachY,
+          x: scathachX,
+          angle: 0,
+          duration: 200,
+          ease: 'Back.easeIn',
+          onComplete: () => {
+            // Spear caught! Quick spin effect
+            this.scene.tweens.add({
+              targets: spear,
+              angle: 180,
+              duration: 150,
+              yoyo: true,
+              onComplete: () => {
+                spear.destroy();  // This properly destroys the container and all children
+              }
+            });
+
+            // Camera shake on catch
+            this.scene.cameras.main.shake(100, 0.003);
+          }
+        });
+      });
+    }
+  });
+}
+
+// KATA 3 — Rapid spinning attack with multiple strikes
+revealSpear3() {
+  this.scene.textPanel.show({
+    irish: 'Is í an sleá, úfás ár naimhead.',
+    english: 'The spear is the terror of our foes, the irreducible complexity of our poetry.',
+    type: 'dialogue',
+    speaker: 'Scáthach',
+    onDismiss: () => {
+      this.revealSpear4();
+    }
+  });
+  
+  // Start kata 3 animation immediately
+  this.spearKata3();
+}
+
+spearKata3() {
+  const scathachX = this.scene.scathach.x;
+  const scathachY = this.scene.scathach.y;
+
+  this.slashEffect = this.scene.add.graphics();
+  this.slashEffect.setDepth(25);
+
+  // Strike 1: Dash forward with horizontal slash
+  this.scene.tweens.add({
+    targets: this.scene.scathach,
+    x: scathachX + 40,
+    duration: 200,
+    ease: 'Power2.easeOut',
+    onStart: () => {
+      this.drawSlashEffect(scathachX + 20, scathachY, 0, 0xff6600);
+      this.scene.cameras.main.shake(100, 0.004);
+    },
+    onComplete: () => {
+      
+      // Strike 2: Leap and vertical spin
+      this.scene.tweens.add({
+        targets: this.scene.scathach,
+        y: scathachY - 100,
+        angle: 360,
+        duration: 400,
+        ease: 'Sine.easeOut',
+        onStart: () => {
+          this.drawSlashEffect(scathachX + 40, scathachY - 50, Math.PI / 2, 0xff8800);
+          this.scene.cameras.main.shake(150, 0.005);
+        },
+        onComplete: () => {
+          
+          // Strike 3: Descending spiral attack
+          this.scene.tweens.add({
+            targets: this.scene.scathach,
+            y: scathachY,
+            x: scathachX,
+            angle: 720, // Double spin on descent
+            duration: 500,
+            ease: 'Power2.easeIn',
+            onStart: () => {
+              // Multiple slash trails during descent
+              this.drawSlashEffect(scathachX + 30, scathachY - 60, -Math.PI / 4, 0xffaa00);
+              this.scene.time.delayedCall(150, () => {
+                this.drawSlashEffect(scathachX + 20, scathachY - 30, Math.PI / 4, 0xffcc00);
+              });
+              this.scene.time.delayedCall(300, () => {
+                this.drawSlashEffect(scathachX, scathachY, 0, 0xffee00);
+              });
+            },
+            onComplete: () => {
+              // Reset rotation and clean up
+              this.scene.scathach.angle = 0;
+              this.scene.scathach.x = scathachX;
+              this.scene.scathach.y = scathachY;
+              
+              // Final impact shake
+              this.scene.cameras.main.shake(200, 0.008);
+              
+              if (this.slashEffect) {
+                this.slashEffect.destroy();
+                this.slashEffect = null;
+              }
+            }
+          });
+        }
+      });
+    }
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 grantMagicArrows() {

@@ -451,7 +451,7 @@ onTargetHit(hitData) {
   }
 
   // Check win condition first
-  if (this.consecutiveHits >= 1 && !this.tutorialComplete) {
+  if (this.consecutiveHits >= 4 && !this.tutorialComplete) {
     this.tutorialComplete = true;
     
     this.textPanel.show({

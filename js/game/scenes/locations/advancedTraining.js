@@ -1,38 +1,12 @@
 import Phaser from "phaser";
+import { wordPairs } from '/data/wordPairs';
 export default class AdvancedTraining {
   constructor(scene) {
     this.scene = scene;
-this.wordPairs =[
-  { light: { irish: 'Bán', english: 'White' }, dark: { irish: 'Dubh', english: 'Black' } },
- /*  { light: { irish: 'Lasta', english: 'On' }, dark: { irish: 'Múchta', english: 'Off' } },
- { light: { irish: 'Fíor', english: 'True' }, dark: { irish: 'Bréagach', english: 'False' } },
-  { light: { irish: 'A hAon', english: 'One' }, dark: { irish: 'A Náid', english: 'Zero' } },
-  { light: { irish: 'Beo', english: 'Alive' }, dark: { irish: 'Marbh', english: 'Dead' } },
-  { light: { irish: 'Dearfach', english: 'Positive' }, dark: { irish: 'Diúltach', english: 'Negative' } },
-  { light: { irish: 'Lá', english: 'Day' }, dark: { irish: 'Oíche', english: 'Night' } },
-  { light: { irish: 'Ceart', english: 'Right' }, dark: { irish: 'Mícheart', english: 'Wrong' } },
-  { light: { irish: 'Láidir', english: 'Strong' }, dark: { irish: 'Lag', english: 'Weak' } },
-  { light: { irish: 'Maith', english: 'Good' }, dark: { irish: 'Olc', english: 'Bad' } },
-  { light: { irish: 'Geal', english: 'Light' }, dark: { irish: 'Dorcha', english: 'Dark' } },
-  { light: { irish: 'Suas', english: 'Up' }, dark: { irish: 'Síos', english: 'Down' } },
-  { light: { irish: 'Lán', english: 'Full' }, dark: { irish: 'Folamh', english: 'Empty' } },
-  { light: { irish: 'Te', english: 'Hot' }, dark: { irish: 'Fuar', english: 'Cold' } },
-  { light: { irish: 'Buaigh', english: 'Win' }, dark: { irish: 'Caill', english: 'Lose' } },
-  { light: { irish: 'Rath', english: 'Success' }, dark: { irish: 'Teip', english: 'Failure' } },
-  { light: { irish: 'Grá', english: 'Love' }, dark: { irish: 'Fuath', english: 'Hate' } },
-  { light: { irish: 'Cara', english: 'Friend' }, dark: { irish: 'Neamhaid', english: 'Enemy' } },
-  { light: { irish: 'Dóchas', english: 'Hope' }, dark: { irish: 'Éadóchas', english: 'Despair' } },
-  { light: { irish: 'Flaithiúil', english: 'Generous' }, dark: { irish: 'Cíocrach', english: 'Greedy' } },
-  { light: { irish: 'Tús', english: 'Start' }, dark: { irish: 'Deireadh', english: 'End' } },
-  { light: { irish: 'Cliste', english: 'Smart' }, dark: { irish: 'Amaideach', english: 'Stupid' } },
-  { light: { irish: 'Álainn', english: 'Beautiful' }, dark: { irish: 'Gránna', english: 'Ugly' } },
-  { light: { irish: 'Sonas', english: 'Joy' }, dark: { irish: 'Brón', english: 'Sorrow' } },
-  { light: { irish: 'Soirbh', english: 'Optimistic' }, dark: { irish: 'Doirbh', english: 'Pessimistic' } },
-  { light: { irish: 'Sásta', english: 'Happy' }, dark: { irish: 'Gruama', english: 'Sad' } },
-  { light: { irish: 'Laoch', english: 'Hero' }, dark: { irish: 'Crochaire', english: 'Villain' } },
- { light: { irish: 'Cróga', english: 'Brave' }, dark: { irish: 'Meathtach', english: 'Cowardly' } },
- { light: { irish: 'Macánta', english: 'Honest' }, dark: { irish: 'Mí-mhacánta', english: 'Dishonest' } }*/ 
-]
+
+    // Select 10 random word pairs with Bán/Dubh always first
+        this.wordPairs = this.selectWordPairs();
+	    this.currentPairIndex = 0;
    
     this.currentPairIndex = 0;
     this.isActive = false;
@@ -169,25 +143,46 @@ this.bullseyeHits = 0;
   }
 
 
-showNextWord() {
-  if (this.currentPairIndex >= this.wordPairs.length) {
-    this.complete();
-    return;
-  }
-  
-  const pair = this.wordPairs[this.currentPairIndex];
-  const showLight = Math.random() > 0.5;
-  const wordToShow = showLight ? pair.light : pair.dark;
-  
-  this.currentTargetType = showLight ? 'light' : 'dark';
-  
-  // Use archery_prompt type instead of notification
-  this.scene.textPanel.show({
-    irish: wordToShow.irish,
-    english: wordToShow.english,
-    type: 'archery_prompt'
-  });
-}
+selectWordPairs() {
+    // Find the Bán/Dubh pair (White/Black)
+        const banDubhPair = wordPairs.find(pair => 
+	      pair.light.irish === 'Bán' && pair.dark.irish === 'Dubh'
+	          );
+
+		      // Get all other pairs
+		          const otherPairs = wordPairs.filter(pair => 
+			        !(pair.light.irish === 'Bán' && pair.dark.irish === 'Dubh')
+				    );
+
+				        // Shuffle the other pairs using Phaser's array shuffle
+					    const shuffled = Phaser.Utils.Array.Shuffle([...otherPairs]);
+
+					        // Take the first 9 from the shuffled array
+						    const selectedPairs = shuffled.slice(0, 9);
+
+						        // Return Bán/Dubh first, then the 9 random pairs
+							    return [banDubhPair, ...selectedPairs];
+							      }
+
+							        showNextWord() {
+								    if (this.currentPairIndex >= this.wordPairs.length) {
+								          this.complete();
+									        return;
+										    }
+
+										        const pair = this.wordPairs[this.currentPairIndex];
+											    const showLight = Math.random() > 0.5;
+											        const wordToShow = showLight ? pair.light : pair.dark;
+
+												    this.currentTargetType = showLight ? 'light' : 'dark';
+
+												        // Use archery_prompt type instead of notification
+													    this.scene.textPanel.show({
+													          irish: wordToShow.irish,
+														        english: wordToShow.english,
+															      type: 'archery_prompt'
+															          });
+																    }
 
 
   update() {

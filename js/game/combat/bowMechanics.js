@@ -47,7 +47,7 @@ export default class BowMechanics {
     console.log(this.scene.sound.context.state);
     
     // Play creak sound when starting to aim
-    this.creakSound = this.scene.sound.play('creak1', { volume: 0.6 });
+    this.creakSound = this.scene.sound.play('creak1', { volume: 2 });
     
     this.aimLine = this.scene.add.graphics();
     this.aimLine.setDepth(100);
@@ -137,7 +137,7 @@ export default class BowMechanics {
     // Play random arrow shoot sound
     const shootSounds = ['arrowShoot1', 'arrowShoot2', 'arrowShoot3'];
     const randomShoot = Phaser.Math.RND.pick(shootSounds);
-    this.scene.sound.play(randomShoot, { volume: 0.7 });
+    this.scene.sound.play(randomShoot, { volume: 1 });
 
     this.createArrow(px, py, angle, force, travelDistance);
     this.cancelAiming();
@@ -400,7 +400,7 @@ export default class BowMechanics {
         arrow.setData('hitTarget', true);
         
         // Play pumpkin break sound on target hit
-        this.scene.sound.play('pumpkin_break_01', { volume: 0.8 });
+        this.scene.sound.play('pumpkin_break_01', { volume: 1 });
         
         return {
           arrow,

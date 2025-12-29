@@ -442,20 +442,31 @@ this.container.add(panelGraphics);
       textY += 35;
     }
 
-    // Irish text (will be filled by typewriter) - ANCHORED LEFT
-    this.irishTextObject = this.scene.add.text(
-      textX,
-      textY,
-      '',
-      {
-        fontSize: '22px',
-        fontFamily: 'Urchlo',
-        color: '#ffffff',
-        wordWrap: { width: screenWidth * 0.8 },
-        lineSpacing: 8
-      }
-    ).setOrigin(0, 0);
-    this.container.add(this.irishTextObject);
+// Also update the Irish text creation in createDialoguePanel to have the initial style:
+// Replace lines 446-458 with:
+
+// Irish text (will be filled by typewriter) - ANCHORED LEFT
+this.irishTextObject = this.scene.add.text(
+  textX,
+  textY,
+  '',
+  {
+    fontSize: '22px',
+    fontFamily: 'Urchlo',
+    color: '#ffffff',
+    wordWrap: { width: screenWidth * 0.8 },
+    lineSpacing: 8,
+    shadow: {
+      offsetX: 0,
+      offsetY: 0,
+      color: '#e6f3ff',
+      blur: 6,
+      stroke: false,
+      fill: true
+    }
+  }
+).setOrigin(0, 0);
+this.container.add(this.irishTextObject); 
 
     // English text (will fade in after typewriter) - ANCHORED LEFT
     this.englishTextObject = this.scene.add.text(
@@ -599,21 +610,23 @@ createNotificationPanel(irish, english, screenWidth, screenHeight) {
     this.typeNextCharacter();
   }
 
+// Replace the typeNextCharacter method in TextPanel.js
+
 typeNextCharacter() {
   if (!this.typewriterActive || !this.irishTextObject) return;
 
   if (this.currentCharIndex < this.irishFullText.length) {
     const char = this.irishFullText[this.currentCharIndex];
     const currentText = this.irishTextObject.text;
-    
+
     // Check if we're at a space (end of word) or if next chars form a word that might wrap
     let textToAdd = char;
-    
+
     // If we're adding a non-space character, look ahead to get the full word
     if (char !== ' ' && char !== '\n') {
       let lookAhead = '';
       let tempIndex = this.currentCharIndex;
-      
+
       // Gather the rest of the current word
       while (tempIndex < this.irishFullText.length) {
         const nextChar = this.irishFullText[tempIndex];
@@ -621,17 +634,17 @@ typeNextCharacter() {
         lookAhead += nextChar;
         tempIndex++;
       }
-      
+
       // Test if adding just this character would cause the word to wrap
       const testText = currentText + char;
       this.irishTextObject.setText(testText);
       const heightBefore = this.irishTextObject.height;
-      
+
       // Now test with the full word
       const testWithWord = currentText + lookAhead;
       this.irishTextObject.setText(testWithWord);
       const heightAfter = this.irishTextObject.height;
-      
+
       // If the word causes wrapping, add the whole word at once
       if (heightAfter > heightBefore) {
         textToAdd = lookAhead;
@@ -642,25 +655,24 @@ typeNextCharacter() {
       }
     }
 
-    // Add character(s) with glow effect
+    // Add character(s) with elegant, consistent styling
     const newText = currentText + textToAdd;
     this.irishTextObject.setText(newText);
 
-    // Add temporary glow to the whole text
+    // Apply a subtle, constant glow that doesn't flicker
     this.irishTextObject.setStyle({
+      fontSize: '22px',
+      fontFamily: 'Urchlo',
+      color: '#ffffff',
+      wordWrap: { width: this.irishTextObject.style.wordWrapWidth },
+      lineSpacing: 8,
       shadow: {
         offsetX: 0,
         offsetY: 0,
-        color: '#ffffff',
-        blur: 8,
+        color: '#e6f3ff',  // Soft white-blue glow
+        blur: 6,
+        stroke: false,
         fill: true
-      }
-    });
-
-    // Remove glow after brief moment
-    this.scene.time.delayedCall(100, () => {
-      if (this.irishTextObject) {
-        this.irishTextObject.setStyle({ shadow: { blur: 0 } });
       }
     });
 
@@ -670,12 +682,29 @@ typeNextCharacter() {
     const speed = 40; // milliseconds per character
     this.scene.time.delayedCall(speed, () => this.typeNextCharacter());
   } else {
-    // Typewriter complete
+    // Typewriter complete - enhance the final appearance
     this.typewriterActive = false;
+    
+    // Apply a slightly stronger glow for the completed text
+    this.irishTextObject.setStyle({
+      fontSize: '22px',
+      fontFamily: 'Urchlo',
+      color: '#ffffff',
+      wordWrap: { width: this.irishTextObject.style.wordWrapWidth },
+      lineSpacing: 8,
+      shadow: {
+        offsetX: 0,
+        offsetY: 1,
+        color: '#c8e0ff',  // Slightly stronger glow when complete
+        blur: 8,
+        stroke: false,
+        fill: true
+      }
+    });
+    
     this.showEnglishText();
   }
-} 
-
+}
   skipTypewriter() {
     this.typewriterActive = false;
     if (this.irishTextObject) {

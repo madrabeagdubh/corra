@@ -13,7 +13,14 @@ export default class BowTutorial extends Phaser.Scene {
 		      // Load parry sound
 		       //this.load.audio('parrySound', 'assets/sounds/parry.ogg');
 
-		       this.load.audio('parrySound', 'assets/sounds/parry.mp3');
+
+                       // Load bow sounds
+    this.load.audio('creak1', 'assets/sounds/creak1.wav');
+    this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');
+ this.load.audio('arrowShoot2', 'assets/sounds/arrowShoot2.wav');
+  this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav');
+  this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg');
+   this.load.audio('parrySound', 'assets/sounds/parry.mp3');
     this.load.image('skyeBackground', 'assets/skye1.png');
 
 this.load.image('skyeMountainTop', 'assets/skye1.png');   

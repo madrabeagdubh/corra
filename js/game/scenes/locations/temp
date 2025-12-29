@@ -779,28 +779,14 @@ createMountainSlash(x, y) {
   );
   flash.setDepth(30);
 
-
-
-
-this.scene.tweens.add({
-  targets: flash,
+  this.scene.tweens.add({
+    targets: flash,
     alpha: 1,
-      duration: 100,
-        yoyo: true,
-	  onComplete: () => {                  // <-- Add opening brace
-	      flash.destroy();                   // <-- Add semicolon
-	          this.showDragonSilhouette(x, y);   // <-- Now inside callback
-		    }                                    // <-- Add closing brace
-		    });
-
-
-
-
-
-
-
-
-  ;
+    duration: 100,
+    yoyo: true,
+    onComplete: () => flash.destroy()
+	  this.showDragonSilhouette(x,y)
+  });
 
   // Diagonal slash line (steeper angle, higher up, right side higher)
   const sliceLine = this.scene.add.graphics();
@@ -1047,7 +1033,7 @@ sliceMountain() {
   });
 }
 
-revealSpear4() {
+/*revealSpear4() {
   if (!this.dragonKataComplete) {
     this.scene.textPanel.show({
       irish: 'I fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',
@@ -1069,7 +1055,16 @@ revealSpear4() {
       }
     });
   }
-} 
+} */
+
+
+                                                                                            revealSpear4() {                                if (!this.dragonKataComplete) {                 this.scene.textPanel.show({                     irish: 'I fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',                          english: 'In fury or restraint you will be known by your spear',                            type: 'dialogue',                             speaker: 'Scáthach',                          onDismiss: () => {                              this.spearKata4();                          }                                           });                                         } else {                                        this.scene.textPanel.show({                     irish: '…ach ní go fóil.\nLean ort leis an saighead. Casfaidh muid ar a chéile ars.”'        english: '…but not yet.\nContinue with the arrow for now.',                                 type: 'dialogue',                             speaker: 'Scáthach',                          onDismiss: () => {                              this.grantMagicArrows(); // or whatever comes next                                        }                                           });                                         }                                           }
+
+
+
+
+
+
 
 
 

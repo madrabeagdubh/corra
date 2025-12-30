@@ -354,7 +354,7 @@ update(time, delta) {
     const prediction = this.bowMechanics.predictLandingPoint();
     if (prediction) {
       this.predictionDot.setPosition(prediction.x, prediction.y);
-      this.predictionDot.setVisible(true);
+      this.predictionDot.setVisible(false);
     }
   } else if (this.predictionDot) {
     this.predictionDot.setVisible(false);

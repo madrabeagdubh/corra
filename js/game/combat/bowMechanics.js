@@ -13,6 +13,7 @@ export default class BowMechanics {
     this.aimLine = null;
     this.arrows = [];
     this.creakSound = null; // Track the creak sound
+    this.creakIsPlaying = false; // Track if creak is playing
 
     this.maxDrawDistance = 250;
     this.minDistance = 80;
@@ -46,8 +47,7 @@ export default class BowMechanics {
     this.scene.sound.unlock();
     console.log(this.scene.sound.context.state);
     
-    // Play creak sound when starting to aim
-    this.creakSound = this.scene.sound.play('creak1', { volume: 2 });
+    // Don't play creak sound immediately - it will start in updateAimLine when draw is strong enough
     
     this.aimLine = this.scene.add.graphics();
     this.aimLine.setDepth(100);
@@ -67,6 +67,16 @@ export default class BowMechanics {
       const s = this.maxDrawDistance / dist;
       dx *= s;
       dy *= s;
+    }
+
+    // Start creak sound when draw reaches 50% strength
+    const drawStrength = Math.min(dist / this.maxDrawDistance, 1);
+    if (drawStrength >= 0.7 && !this.creakIsPlaying) {
+      console.log('Starting creak sound at', drawStrength, 'strength');
+      this.creakSound = this.scene.sound.add('creak1');
+      this.creakSound.play({ volume: 0.6 });
+      this.creakIsPlaying = true;
+      console.log('Creak sound playing:', this.creakSound.isPlaying);
     }
 
     this.aimLine.clear();
@@ -128,16 +138,20 @@ export default class BowMechanics {
     const travelDistance =
       this.minDistance + force * (this.maxDistance - this.minDistance);
 
-    // Stop creak sound and play random arrow shoot sound
-    if (this.creakSound && this.creakSound.isPlaying) {
+    // Stop creak sound immediately
+    if (this.creakSound && this.creakIsPlaying) {
+      console.log('Stopping creak sound');
       this.creakSound.stop();
+      this.creakSound.destroy();
+      this.creakSound = null;
+      this.creakIsPlaying = false;
     }
-    this.creakSound = null;
 
     // Play random arrow shoot sound
     const shootSounds = ['arrowShoot1', 'arrowShoot2', 'arrowShoot3'];
     const randomShoot = Phaser.Math.RND.pick(shootSounds);
-    this.scene.sound.play(randomShoot, { volume: 1 });
+    console.log('Playing arrow shoot sound:', randomShoot);
+    this.scene.sound.play(randomShoot, { volume: 0.7 });
 
     this.createArrow(px, py, angle, force, travelDistance);
     this.cancelAiming();
@@ -400,7 +414,7 @@ export default class BowMechanics {
         arrow.setData('hitTarget', true);
         
         // Play pumpkin break sound on target hit
-        this.scene.sound.play('pumpkin_break_01', { volume: 1 });
+        this.scene.sound.play('pumpkin_break_01', { volume: 0.8 });
         
         return {
           arrow,

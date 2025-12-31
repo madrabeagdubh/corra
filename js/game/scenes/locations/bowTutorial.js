@@ -13,7 +13,7 @@ export default class BowTutorial extends Phaser.Scene {
 		      // Load parry sound
 		       //this.load.audio('parrySound', 'assets/sounds/parry.ogg');
 
-
+this.load.image('glowCursor', 'assets/glowCursor.png');
                        // Load bow sounds
     this.load.audio('creak1', 'assets/sounds/creak1.wav');
     this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');
@@ -323,7 +323,9 @@ this.bullseye2.setDepth(10);
 
 update(time, delta) {
   
-
+  if (this.textPanel) {
+    this.textPanel.update(time, delta);
+  }
 
 
 // Scroll clouds slowly

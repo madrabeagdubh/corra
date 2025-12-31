@@ -529,12 +529,48 @@ function initHeroSelect() {
       scrollContainer.appendChild(heroDiv);
     });
 
-    // Start at a random champion in the middle set
-    const randomIndex = Math.floor(Math.random() * validChampions.length);
-    scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
-    currentChampionIndex = randomIndex;
 
-    initSwipe(scrollContainer, validChampions.length);
+
+
+
+// Start at a random champion in the middle set
+const randomIndex = Math.floor(Math.random() * validChampions.length);
+scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
+currentChampionIndex = randomIndex;
+
+// Initialize swipe first
+initSwipe(scrollContainer, validChampions.length);
+
+setTimeout(() => {
+  const nudgeDistance = window.innerWidth * 0.15;
+  const startScroll = scrollContainer.scrollLeft;
+  
+  // Temporarily disable snap
+  scrollContainer.style.scrollSnapType = 'none';
+  scrollContainer.style.scrollBehavior = 'smooth';
+  
+  // Nudge left
+  scrollContainer.scrollLeft = startScroll - nudgeDistance;
+  
+  // Then nudge right
+  setTimeout(() => {
+    scrollContainer.scrollLeft = startScroll + nudgeDistance;
+    
+    // Then back to center
+    setTimeout(() => {
+      scrollContainer.scrollLeft = startScroll;
+      
+      // Restore snap after animation
+      setTimeout(() => {
+        scrollContainer.style.scrollSnapType = 'x mandatory';
+      }, 400);
+    }, 400);
+  }, 400);
+}, 800);
+
+
+
+
   }
 
   function initSwipe(container, championsLength) {

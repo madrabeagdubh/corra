@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import BaseLocationScene from './baseLocationScene.js';
 import { GameSettings } from '../../settings/gameSettings.js';
+import BowMechanics from '../../combat/bowMechanics.js';
 
 export default class BogMeadow extends BaseLocationScene {
   constructor() {
@@ -14,7 +15,7 @@ export default class BogMeadow extends BaseLocationScene {
 
     // Load the spritesheet
     this.load.spritesheet('bogTiles', '/assets/13.png', {
-      frameWidth: 32,  // adjust to your actual tile size
+      frameWidth: 32,
       frameHeight: 32
     });
 
@@ -62,6 +63,10 @@ export default class BogMeadow extends BaseLocationScene {
     // Initialize common location features (player, joystick, NPCs, objects)
     this.initializeLocation();
 
+    // Initialize bow mechanics
+    this.bowMechanics = new BowMechanics(this, this.player);
+    console.log('BowMechanics initialized');
+
     // DEBUG: Check player sprite
     console.log('Player sprite exists?', !!this.player.sprite);
     console.log('Player sprite position:', this.player.sprite.x, this.player.sprite.y);
@@ -71,96 +76,42 @@ export default class BogMeadow extends BaseLocationScene {
 
     // Add settings slider (temporary UI)
     this.addSettingsSlider();
-
-this.showIntroNarrative();
-    console.log('BogMeadow: scene created successfully');
   }
 
-  drawTilemap() {
-    const tiles = this.mapData.tiles;
-    const tileSize = this.tileSize;
+  showNarrative(entries) {
+    this.narrativeQueue = [...entries];
 
-    for (let y = 0; y < tiles.length; y++) {
-      for (let x = 0; x < tiles[y].length; x++) {
-        const tileType = tiles[y][x];
-        const pixelX = x * tileSize;
-        const pixelY = y * tileSize;
-
-        // Use sprite from spritesheet instead of colored rectangle
-        // tileType is the frame index in your spritesheet
-        this.add.image(pixelX, pixelY, 'bogTiles', tileType)
-          .setOrigin(0, 0)  // align to top-left
-          .setDisplaySize(tileSize, tileSize)
-          .setPipeline('Light2D');  // Make tiles respond to lighting
+    const showNext = () => {
+      if (this.narrativeQueue.length === 0) {
+        console.log('All narrative shown');
+        return;
       }
-    }
+
+      const entry = this.narrativeQueue.shift();
+      console.log('Showing narrative entry, remaining:', this.narrativeQueue.length);
+
+      this.textPanel.show({
+        irish: entry.irish,
+        english: entry.english,
+        type: 'dialogue',
+        onDismiss: () => {
+          this.time.delayedCall(300, showNext);
+        }
+      });
+    };
+
+    showNext();
   }
 
- setupLighting() {
-  // Enable lighting pipeline
-  this.lights.enable();
-  
-  // Set a much brighter ambient light for daytime bog
-  // Higher values = brighter (0xaaaaaa is pretty bright)
-  this.lights.setAmbientColor(0x999999);
-  
-  // Softer player light - just a subtle glow
-  this.playerLight = this.lights.addLight(0, 0, 120)
-    .setIntensity(0.8);
-  
-  // Very subtle will-o'-the-wisp lights
-  this.lights.addLight(400, 300, 100, 0x99ff99, 0.5); // Soft green
-  this.lights.addLight(800, 600, 100, 0x99ff99, 0.5);
-  this.lights.addLight(1200, 400, 100, 0x99ff99, 0.5);
-
-  console.log('BogMeadow: lighting setup complete');
-} 
-
-showIntroNarrative() {
-  const champion = this.registry.get('selectedChampion');
-  const narrativeKey = `bog_intro_seen_${champion.id}`;
-
-  if (localStorage.getItem(narrativeKey)) {
-    console.log('BogMeadow: intro already seen');
-    return;
-  }
-
-  const narrative = this.mapData.introNarrative;
-  if (!narrative || narrative.length === 0) return;
-
-  this.narrativeInProgress = true;
-  this.narrativeQueue = [...narrative];
-
-  const showNext = () => {
-    if (this.narrativeQueue.length === 0) {
-      // All done
-      localStorage.setItem(narrativeKey, 'true');
-      this.narrativeInProgress = false;
-      console.log('BogMeadow: intro narrative complete');
-      return;
-    }
-
-    const entry = this.narrativeQueue.shift();
-    console.log('Showing narrative entry, remaining:', this.narrativeQueue.length);
-
-    this.textPanel.show({
-      irish: entry.irish,
-      english: entry.english,
-      type: 'dialogue',
-      onDismiss: () => {
-        // Small delay before next
-        this.time.delayedCall(300, showNext);
-      }
-    });
-  };
-
-  // Start showing
-  showNext();
-}
   update() {
     // Call parent update for player movement, collision, etc.
     super.update();
-    
+
+    // Update bow mechanics
+    if (this.bowMechanics) {
+      this.bowMechanics.update(this.game.loop.delta);
+    }
+
     // Update player light position to follow player
     if (this.playerLight && this.player && this.player.sprite) {
       this.playerLight.setPosition(this.player.sprite.x, this.player.sprite.y);
@@ -218,5 +169,15 @@ showIntroNarrative() {
         }
       }
     });
+  }
+
+  shutdown() {
+    // Clean up bow mechanics
+    if (this.bowMechanics) {
+      this.bowMechanics.destroy();
+      this.bowMechanics = null;
+    }
+    
+    super.shutdown();
   }
 }

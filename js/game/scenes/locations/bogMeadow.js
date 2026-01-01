@@ -10,85 +10,106 @@ export default class BogMeadow extends BaseLocationScene {
 
   preload() {
     super.preload();
-    console.log('BogMeadow: preload starting');
+
     this.load.json('bogMeadowMap', '/maps/bogMap10.json?v=' + Date.now());
 
-    // Load the spritesheet
     this.load.spritesheet('bogTiles', '/assets/13.png', {
       frameWidth: 32,
       frameHeight: 32
     });
-
-    this.load.on('complete', () => {
-      console.log('BogMeadow: assets loaded');
-    });
-
-    this.load.on('loaderror', (file) => {
-      console.error('BogMeadow: load error', file.src);
-    });
   }
 
   create() {
-    console.log('BogMeadow: create starting');
+    console.log('BogMeadow: create');
 
-    // Load map data
     this.mapData = this.cache.json.get('bogMeadowMap');
+    if (!this.mapData) return;
 
-    if (!this.mapData) {
-      console.error('BogMeadow: Map data not found!');
-      return;
-    }
-
-    // Set dimensions
     this.tileSize = this.mapData.tileSize;
     this.mapWidth = this.mapData.width * this.tileSize;
     this.mapHeight = this.mapData.height * this.tileSize;
 
-    console.log('BogMeadow: map size', this.mapWidth, 'x', this.mapHeight);
+    // --- ENABLE LIGHTING ---
+    this.lights.enable();
 
-    // Draw the tilemap
+    // Daytime bog ambience: slightly muted, not dark
+    this.lights.setAmbientColor(0xb0b8a8);
+    // (Think grey-green overcast daylight)
+
     this.drawTilemap();
 
-    // Setup dynamic lighting
-    this.setupLighting();
-
-    // DEBUG: Check what's in the cache
-    console.log('=== CACHE DEBUG ===');
-    console.log('Cache has championAtlas?', this.cache.json.has('championAtlas'));
-    console.log('Cache has championSheet?', this.textures.exists('championSheet'));
-    console.log('All JSON keys:', this.cache.json.getKeys());
-    console.log('All texture keys:', this.textures.getTextureKeys());
-    console.log('===================');
-
-    // Initialize common location features (player, joystick, NPCs, objects)
     this.initializeLocation();
 
-    // Initialize bow mechanics
+    // --- PLAYER LIGHT (subtle presence, not a torch) ---
+    this.playerLight = this.lights.addLight(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      180
+    );
+
+    this.playerLight
+      .setIntensity(0.6)
+      .setColor(0xffddaa);
+
+    // Bow mechanics
     this.bowMechanics = new BowMechanics(this, this.player);
-    console.log('BowMechanics initialized');
 
-    // DEBUG: Check player sprite
-    console.log('Player sprite exists?', !!this.player.sprite);
-    console.log('Player sprite position:', this.player.sprite.x, this.player.sprite.y);
-    console.log('Player sprite texture:', this.player.sprite.texture.key);
-    console.log('Player sprite depth:', this.player.sprite.depth);
-    console.log('Player sprite visible?', this.player.sprite.visible);
-
-    // Add settings slider (temporary UI)
     this.addSettingsSlider();
+
+    if (this.mapData.introNarrative?.length) {
+      this.time.delayedCall(500, () => {
+        this.showNarrative(this.mapData.introNarrative);
+      });
+    }
+  }
+
+  drawTilemap() {
+    if (!this.mapData?.tiles) return;
+
+    for (let y = 0; y < this.mapData.tiles.length; y++) {
+      for (let x = 0; x < this.mapData.tiles[y].length; x++) {
+        const tileIndex = this.mapData.tiles[y][x];
+        if (!tileIndex || tileIndex <= 0) continue;
+
+        const tile = this.add.sprite(
+          x * this.tileSize + this.tileSize / 2,
+          y * this.tileSize + this.tileSize / 2,
+          'bogTiles',
+          tileIndex - 1
+        );
+
+        tile.setOrigin(0.5);
+        tile.setDepth(0);
+
+        // ⭐ REQUIRED FOR LIGHTING ⭐
+        tile.setPipeline('Light2D');
+      }
+    }
+
+    this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight);
+  }
+
+  update() {
+    super.update();
+
+    if (this.bowMechanics) {
+      this.bowMechanics.update(this.game.loop.delta);
+    }
+
+    // Follow player with light
+    if (this.playerLight && this.player?.sprite) {
+      this.playerLight.x = this.player.sprite.x;
+      this.playerLight.y = this.player.sprite.y;
+    }
   }
 
   showNarrative(entries) {
     this.narrativeQueue = [...entries];
 
     const showNext = () => {
-      if (this.narrativeQueue.length === 0) {
-        console.log('All narrative shown');
-        return;
-      }
+      if (!this.narrativeQueue.length) return;
 
       const entry = this.narrativeQueue.shift();
-      console.log('Showing narrative entry, remaining:', this.narrativeQueue.length);
 
       this.textPanel.show({
         irish: entry.irish,
@@ -103,28 +124,12 @@ export default class BogMeadow extends BaseLocationScene {
     showNext();
   }
 
-  update() {
-    // Call parent update for player movement, collision, etc.
-    super.update();
-
-    // Update bow mechanics
-    if (this.bowMechanics) {
-      this.bowMechanics.update(this.game.loop.delta);
-    }
-
-    // Update player light position to follow player
-    if (this.playerLight && this.player && this.player.sprite) {
-      this.playerLight.setPosition(this.player.sprite.x, this.player.sprite.y);
-    }
-  }
-
   addSettingsSlider() {
     const sliderWidth = 200;
     const sliderHeight = 8;
     const sliderX = this.scale.width / 2 - sliderWidth / 2;
     const sliderY = 20;
 
-    // Create background track (dark part)
     const trackBg = this.add.rectangle(
       sliderX + sliderWidth / 2,
       sliderY,
@@ -133,7 +138,6 @@ export default class BogMeadow extends BaseLocationScene {
       0x444444
     ).setScrollFactor(0).setDepth(1500);
 
-    // Create golden fill (updates based on opacity)
     const trackFill = this.add.rectangle(
       sliderX,
       sliderY,
@@ -142,7 +146,6 @@ export default class BogMeadow extends BaseLocationScene {
       0xd4af37
     ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1501);
 
-    // Create draggable thumb
     const thumb = this.add.circle(
       sliderX + (sliderWidth * GameSettings.englishOpacity),
       sliderY,
@@ -153,31 +156,28 @@ export default class BogMeadow extends BaseLocationScene {
     this.input.setDraggable(thumb);
 
     this.input.on('drag', (pointer, gameObject, dragX) => {
-      if (gameObject === thumb) {
-        const clampedX = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth);
-        thumb.x = clampedX;
+      if (gameObject !== thumb) return;
 
-        const opacity = (clampedX - sliderX) / sliderWidth;
-        GameSettings.setEnglishOpacity(opacity);
+      const clampedX = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth);
+      thumb.x = clampedX;
 
-        // Update golden fill width
-        trackFill.width = sliderWidth * opacity;
+      const opacity = (clampedX - sliderX) / sliderWidth;
+      GameSettings.setEnglishOpacity(opacity);
 
-        // Update any visible English text in real-time
-        if (this.textPanel) {
-          this.textPanel.updateEnglishOpacity();
-        }
+      trackFill.width = sliderWidth * opacity;
+
+      if (this.textPanel) {
+        this.textPanel.updateEnglishOpacity();
       }
     });
   }
 
   shutdown() {
-    // Clean up bow mechanics
     if (this.bowMechanics) {
       this.bowMechanics.destroy();
       this.bowMechanics = null;
     }
-    
+
     super.shutdown();
   }
 }

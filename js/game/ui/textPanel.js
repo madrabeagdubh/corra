@@ -587,41 +587,45 @@ updateReadingCursor() {
     const textX = this.irishTextObject.x;
     const textY = this.irishTextObject.y;
 
+    // Measure the width of the last line
     const lastLineWidth = this.irishTextObject.context.measureText(lastLine).width;
 
     // Base position
     const baseX = textX + lastLineWidth;
     const baseY = textY + lastLineIndex * lineHeight + lineHeight * 0.6;
 
-    this.cursorTime += 0.016;
-
-    // Ghostlike orbit with slight jitter
-    const orbitRadiusX = 5 + Math.sin(this.cursorTime * 2) * 2;
-    const orbitRadiusY = 4 + Math.cos(this.cursorTime * 2.3) * 2;
-    const noiseX = (Math.random() - 0.5) * 1.5;
-    const noiseY = (Math.random() - 0.5) * 1.2;
+    this.cursorTime += 0.016; // increment for animation
 
     this.cursorAnchor.x = baseX;
     this.cursorAnchor.y = baseY;
 
-    const cursorX = this.cursorAnchor.x + Math.sin(this.cursorTime * 3) * orbitRadiusX + noiseX;
-    const cursorY = this.cursorAnchor.y + Math.cos(this.cursorTime * 3.7) * orbitRadiusY + noiseY;
+    // Ghostly orbit + jitter
+    const orbitX = Math.sin(this.cursorTime * 2.5) * (3 + Math.random() * 1.5);
+    const orbitY = Math.cos(this.cursorTime * 3.2) * (2 + Math.random()*1.5);
+    const cursorX = this.cursorAnchor.x + orbitX;
+    const cursorY = this.cursorAnchor.y + orbitY;
 
-    // Use sprite instead of circle
     if (!this.readingCursor) {
-        // 'glowCursor' is the key for your loaded PNG
         this.readingCursor = this.scene.add.sprite(cursorX, cursorY, 'glowCursor');
         this.readingCursor.setDepth(2500);
         this.readingCursor.setOrigin(0.5);
-        this.readingCursor.setScale(0.5); // adjust size as needed
         this.container.add(this.readingCursor);
 
-        // Pulse tween for ghostly effect
+        // Continuous ghostly rotation
         this.scene.tweens.add({
             targets: this.readingCursor,
-            scale: { from: 0.45, to: 0.55 },
-            alpha: { from: 0.5, to: 0.8 },
-            duration: 800,
+            angle: 360,
+            duration: 4000,
+            repeat: -1,
+            ease: 'Linear'
+        });
+
+        // Pulse for flickering glow
+        this.scene.tweens.add({
+            targets: this.readingCursor,
+            scale: { from: 0.25, to: 0.35 },
+            alpha: { from: 0.6, to: 1 },
+            duration: 2000,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.easeInOut'
@@ -630,28 +634,28 @@ updateReadingCursor() {
         this.readingCursor.setPosition(cursorX, cursorY);
     }
 
-    // Optional sparkles (still circles, could swap for mini sprites)
-    if (Math.random() < 0.2) {
-        const sparkle = this.scene.add.circle(
-            cursorX + (Math.random() - 0.5) * 6,
-            cursorY + (Math.random() - 0.5) * 6,
-            3,
-            0xffffee,
-            0.5
+    // Trail effect (soft fading sparks)
+    if (Math.random() < 0.15) {
+        const trail = this.scene.add.circle(
+            cursorX + (Math.random() - 0.5) * 8,
+            cursorY + (Math.random() - 0.5) * 8,
+            3 + Math.random() * 2,
+            0xffffaa,
+            0.4
         );
-        sparkle.setDepth(2499);
-        this.container.add(sparkle);
-        this.cursorParticles.push(sparkle);
+        trail.setDepth(2499);
+        this.container.add(trail);
+        this.cursorParticles.push(trail);
 
         this.scene.tweens.add({
-            targets: sparkle,
+            targets: trail,
             alpha: 0,
-            scale: 0.2,
-            duration: 400 + Math.random() * 200,
+            scale: 0.1,
+            duration: 600 + Math.random() * 300,
             ease: 'Sine.easeOut',
             onComplete: () => {
-                sparkle.destroy();
-                const idx = this.cursorParticles.indexOf(sparkle);
+                trail.destroy();
+                const idx = this.cursorParticles.indexOf(trail);
                 if (idx > -1) this.cursorParticles.splice(idx, 1);
             }
         });

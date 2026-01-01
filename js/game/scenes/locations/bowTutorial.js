@@ -10,8 +10,6 @@ export default class BowTutorial extends Phaser.Scene {
 		    }
 
 	  preload() {
-		      // Load parry sound
-		       //this.load.audio('parrySound', 'assets/sounds/parry.ogg');
 
 this.load.image('glowCursor', 'assets/glowCursor.png');
                        // Load bow sounds

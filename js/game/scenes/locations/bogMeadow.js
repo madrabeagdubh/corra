@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import BaseLocationScene from './baseLocationScene.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import BowMechanics from '../../combat/bowMechanics.js';
+import WorldButton from '../../ui/worldButton.js';
+import WorldMenu from '../../ui/worldMenu.js';
 
 export default class BogMeadow extends BaseLocationScene {
   constructor() {
@@ -10,57 +12,90 @@ export default class BogMeadow extends BaseLocationScene {
 
   preload() {
     super.preload();
-
+    console.log('BogMeadow: preload starting');
+    
     this.load.json('bogMeadowMap', '/maps/bogMap10.json?v=' + Date.now());
-
     this.load.spritesheet('bogTiles', '/assets/13.png', {
       frameWidth: 32,
       frameHeight: 32
     });
+
+    this.load.on('complete', () => {
+      console.log('BogMeadow: assets loaded');
+    });
+
+    this.load.on('loaderror', (file) => {
+      console.error('BogMeadow: load error', file.src);
+    });
   }
 
   create() {
-    console.log('BogMeadow: create');
+    console.log('BogMeadow: create starting');
 
+    // Load map data
     this.mapData = this.cache.json.get('bogMeadowMap');
-    if (!this.mapData) return;
+    if (!this.mapData) {
+      console.error('BogMeadow: Map data not found!');
+      return;
+    }
 
+    // Set dimensions
     this.tileSize = this.mapData.tileSize;
     this.mapWidth = this.mapData.width * this.tileSize;
     this.mapHeight = this.mapData.height * this.tileSize;
 
-    // --- ENABLE LIGHTING ---
+    console.log('BogMeadow: map size', this.mapWidth, 'x', this.mapHeight);
+
+    // --- LIGHTING ---
     this.lights.enable();
+    this.lights.setAmbientColor(0x999999); // Bright daytime ambient
 
-    // Daytime bog ambience: slightly muted, not dark
-    this.lights.setAmbientColor(0xb0b8a8);
-    // (Think grey-green overcast daylight)
-
+    // Draw the tilemap
     this.drawTilemap();
 
+    // --- COMMON LOCATION SETUP ---
     this.initializeLocation();
 
-    // --- PLAYER LIGHT (subtle presence, not a torch) ---
+    // Player light - using Light2D for soft realistic lighting
     this.playerLight = this.lights.addLight(
       this.player.sprite.x,
       this.player.sprite.y,
-      180
+      170  // radius
     );
+    this.playerLight.setIntensity(0.8);
+    this.playerLight.setColor(0xfff2cc);
 
-    this.playerLight
-      .setIntensity(0.6)
-      .setColor(0xffddaa);
+    // Optional: Subtle will-o'-the-wisp lights
+    this.lights.addLight(400, 300, 100, 0x99ff99, 0.5);
+    this.lights.addLight(800, 600, 100, 0x99ff99, 0.5);
+    this.lights.addLight(1200, 400, 100, 0x99ff99, 0.5);
 
-    // Bow mechanics
+    // --- BOW MECHANICS ---
     this.bowMechanics = new BowMechanics(this, this.player);
 
+    // --- WORLD MENU ---
+    this.worldMenu = new WorldMenu(this, { player: this.player });
+
+    this.worldButton = new WorldButton(this, {
+      x: this.scale.width - 50,
+      y: 100,  // Moved down to avoid slider
+      size: 56,
+      onClick: () => {
+        if (this.worldMenu.isOpen) {
+          this.worldMenu.close();
+        } else {
+          this.worldMenu.open();
+        }
+      }
+    });
+
+    // --- SETTINGS SLIDER (on top) ---
     this.addSettingsSlider();
 
-    if (this.mapData.introNarrative?.length) {
-      this.time.delayedCall(500, () => {
-        this.showNarrative(this.mapData.introNarrative);
-      });
-    }
+    // --- INTRO NARRATIVE ---
+    this.showIntroNarrative();
+
+    console.log('BogMeadow: scene created successfully');
   }
 
   drawTilemap() {
@@ -80,8 +115,6 @@ export default class BogMeadow extends BaseLocationScene {
 
         tile.setOrigin(0.5);
         tile.setDepth(0);
-
-        // ⭐ REQUIRED FOR LIGHTING ⭐
         tile.setPipeline('Light2D');
       }
     }
@@ -89,27 +122,31 @@ export default class BogMeadow extends BaseLocationScene {
     this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight);
   }
 
-  update() {
-    super.update();
+  showIntroNarrative() {
+    const champion = this.registry.get('selectedChampion');
+    const narrativeKey = `bog_intro_seen_${champion.id}`;
 
-    if (this.bowMechanics) {
-      this.bowMechanics.update(this.game.loop.delta);
+    if (localStorage.getItem(narrativeKey)) {
+      console.log('BogMeadow: intro already seen');
+      return;
     }
 
-    // Follow player with light
-    if (this.playerLight && this.player?.sprite) {
-      this.playerLight.x = this.player.sprite.x;
-      this.playerLight.y = this.player.sprite.y;
-    }
-  }
+    const narrative = this.mapData.introNarrative;
+    if (!narrative || narrative.length === 0) return;
 
-  showNarrative(entries) {
-    this.narrativeQueue = [...entries];
+    this.narrativeInProgress = true;
+    this.narrativeQueue = [...narrative];
 
     const showNext = () => {
-      if (!this.narrativeQueue.length) return;
+      if (this.narrativeQueue.length === 0) {
+        localStorage.setItem(narrativeKey, 'true');
+        this.narrativeInProgress = false;
+        console.log('BogMeadow: intro narrative complete');
+        return;
+      }
 
       const entry = this.narrativeQueue.shift();
+      console.log('Showing narrative entry, remaining:', this.narrativeQueue.length);
 
       this.textPanel.show({
         irish: entry.irish,
@@ -124,10 +161,28 @@ export default class BogMeadow extends BaseLocationScene {
     showNext();
   }
 
+  update(time, delta) {
+    super.update(time, delta);
+
+    // Bow mechanics
+    if (this.bowMechanics) {
+      this.bowMechanics.update(delta);
+    }
+
+    // Update player light position
+    if (this.playerLight && this.player?.sprite) {
+      this.playerLight.setPosition(
+        this.player.sprite.x,
+        this.player.sprite.y
+      );
+    }
+  }
+
   addSettingsSlider() {
-    const sliderWidth = 200;
+    const padding = 40; // Edge padding
+    const sliderWidth = this.scale.width - (padding * 2); // Almost edge-to-edge
     const sliderHeight = 8;
-    const sliderX = this.scale.width / 2 - sliderWidth / 2;
+    const sliderX = padding;
     const sliderY = 20;
 
     const trackBg = this.add.rectangle(
@@ -147,7 +202,7 @@ export default class BogMeadow extends BaseLocationScene {
     ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1501);
 
     const thumb = this.add.circle(
-      sliderX + (sliderWidth * GameSettings.englishOpacity),
+      sliderX + sliderWidth * GameSettings.englishOpacity,
       sliderY,
       15,
       0xffd700
@@ -158,7 +213,12 @@ export default class BogMeadow extends BaseLocationScene {
     this.input.on('drag', (pointer, gameObject, dragX) => {
       if (gameObject !== thumb) return;
 
-      const clampedX = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth);
+      const clampedX = Phaser.Math.Clamp(
+        dragX,
+        sliderX,
+        sliderX + sliderWidth
+      );
+
       thumb.x = clampedX;
 
       const opacity = (clampedX - sliderX) / sliderWidth;

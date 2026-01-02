@@ -12,7 +12,8 @@ const config = {
   height: window.innerHeight,
   backgroundColor: '#222222',
   parent: 'gameContainer',
-  scene: [WorldScene, BowTutorial,BogMeadow],
+  scene: [WorldScene, BogMeadow, BowTutorial],
+  //scene: [WorldScene, BowTutorial,BogMeadow],
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH

@@ -637,8 +637,8 @@ updateReadingCursor() {
     // Trail effect (soft fading sparks)
     if (Math.random() < 0.15) {
         const trail = this.scene.add.circle(
-            cursorX + (Math.random() - 0.5) * 8,
-            cursorY + (Math.random() - 0.5) * 8,
+            cursorX + (Math.random() - 0.5) * 18,
+            cursorY + (Math.random() - 0.5) * 18,
             3 + Math.random() * 2,
             0xffffaa,
             0.4

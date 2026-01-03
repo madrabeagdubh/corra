@@ -37,12 +37,185 @@ this.load.image('skyeClouds', 'assets/skye0.png');
     this.load.json('bowTutorialData', '/maps/bowTutorial.json?v=' + Date.now());
   }
 
+
+
+resetHitTracker() {
+  if (!this.hitTrackerCircles) return;
+
+  this.hitTrackerCircles.forEach((circle, index) => {
+    // Kill any running tweens on these objects
+    this.tweens.killTweensOf(circle.inner);
+    this.tweens.killTweensOf(circle.outer);
+
+    // Hard reset visual state
+    circle.filled = false;
+    circle.inner.setVisible(false);
+    circle.inner.setAlpha(0);
+    circle.inner.setScale(1);
+    circle.outer.setAlpha(1);
+  });
+}
+
+createHitTracker() {
+  const screenWidth = this.scale.width;
+  const screenHeight = this.scale.height;
+
+  // Position in top-right corner
+  const startX = screenWidth - 180;
+  const startY = 80;
+  const spacing = 40;
+
+  this.hitTrackerCircles = [];
+
+  for (let i = 0; i < 4; i++) {
+    const x = startX + (i * spacing);
+    const y = startY;
+
+    // Outer circle (border)
+    const outer = this.add.circle(x, y, 15, 0xffffff, 0);
+    outer.setStrokeStyle(3, 0xd4af37);
+    outer.setDepth(3000);
+    outer.setScrollFactor(0);
+
+    // Inner fill circle (starts invisible) - make sure it's actually a filled circle
+    const inner = this.add.circle(x, y, 12, 0xffd700, 1); // Set alpha to 1 initially for testing
+    inner.setDepth(3001);
+    inner.setScrollFactor(0);
+    inner.setVisible(false); // Start hidden, we'll show it with the tween
+
+    this.hitTrackerCircles.push({ outer, inner, filled: false });
+  }
+}
+
+// 3. Add this method (replace your existing updateHitTracker):
+updateHitTracker(consecutiveHits) {
+
+  if (this.hitTrackerComplete) return
+  console.log('updateHitTracker called with:', consecutiveHits);
+  
+  if (!this.hitTrackerCircles) {
+    console.error('hitTrackerCircles not initialized!');
+    return;
+  }
+  
+  this.hitTrackerCircles.forEach((circle, index) => {
+    if (index < consecutiveHits && !circle.filled) {
+      console.log(`FILLING circle ${index}`);
+      // Fill this circle with animation
+      circle.filled = true;
+      
+      // Make visible and animate
+      circle.inner.setVisible(true);
+      circle.inner.setAlpha(0);
+      circle.inner.setScale(1);
+
+      this.tweens.add({
+        targets: circle.inner,
+        alpha: 1,
+        scale: 1.3,
+        duration: 200,
+        ease: 'Back.easeOut',
+        onStart: () => {
+          console.log(`Tween started for circle ${index}, inner visible: ${circle.inner.visible}`);
+        },
+        onComplete: () => {
+          console.log(`Tween complete for circle ${index}, alpha: ${circle.inner.alpha}`);
+          this.tweens.add({
+            targets: circle.inner,
+            scale: 1,
+            duration: 150,
+            ease: 'Power2'
+          });
+        }
+      });
+
+      // Flash the outer ring
+      this.tweens.add({
+        targets: circle.outer,
+        alpha: 1,
+        duration: 100,
+        yoyo: true,
+        repeat: 2
+      });
+
+    } else if (index >= consecutiveHits && circle.filled) {
+      console.log(`EMPTYING circle ${index}`);
+      // Empty this circle (on miss)
+      circle.filled = false;
+
+      this.tweens.add({
+        targets: circle.inner,
+        alpha: 0,
+        scale: 0.5,
+        duration: 200,
+        ease: 'Power2',
+        onComplete: () => {
+          circle.inner.setVisible(false);
+        }
+      });
+    }
+  });// Completion check
+  if (consecutiveHits >= this.hitTrackerCircles.length) {
+    this.completeHitTracker();
+  
+}
+}
+
+completeHitTracker() {
+  if (this.hitTrackerComplete) return;
+
+  this.hitTrackerComplete = true;
+
+  // Kill all running tweens to avoid interference
+  this.hitTrackerCircles.forEach(circle => {
+    this.tweens.killTweensOf(circle.inner);
+    this.tweens.killTweensOf(circle.outer);
+  });
+
+  // FLASH FLASH
+  this.hitTrackerCircles.forEach(circle => {
+    this.tweens.add({
+      targets: [circle.inner, circle.outer],
+      alpha: 0,
+      duration: 120,
+      yoyo: true,
+      repeat: 3, // flash–flash
+      ease: 'Linear'
+    });
+  });
+
+  // After flash + pause, fade out and hide
+  this.time.delayedCall(2000, () => {
+    this.hitTrackerCircles.forEach(circle => {
+      this.tweens.add({
+        targets: [circle.inner, circle.outer],
+        alpha: 0,
+        duration: 400,
+        ease: 'Power2',
+        onComplete: () => {
+          circle.inner.setVisible(false);
+          circle.outer.setVisible(false);
+        }
+      });
+    });
+  });
+}
+
+
+
+
+
+
+
+
+
+
 create() {  // <-- THIS WAS MISSING!
     console.log('BowTutorial: starting');
     this.hitLocked = false;
     // Load tutorial data
     this.tutorialData = this.cache.json.get('bowTutorialData');
-
+this.hitTrackerComplete = false;
     if (!this.tutorialData) {
       console.error('BowTutorial: Tutorial data not found!');
       return;
@@ -125,6 +298,11 @@ this.advancedTraining = new AdvancedTraining(this);
 this.predictionDot = this.add.circle(0, 0, 5, 0xff0000, 0.8);
 this.predictionDot.setDepth(100);
 this.predictionDot.setVisible(false);
+
+
+this.createHitTracker()
+
+
   }
 
 
@@ -438,6 +616,7 @@ onTargetHit(hitData) {
   this.consecutiveHits++;
   this.consecutiveMisses = 0;
 
+  this.updateHitTracker(this.consecutiveHits);
   // Check if it's a bullseye (very close to center)
   if (hitData.distance <= 5) {
     this.bullseyeHits++;
@@ -504,6 +683,7 @@ onTargetHit(hitData) {
 }
 
 onMiss() {
+this.resetHitTracker()
   this.consecutiveHits = 0;
   this.consecutiveMisses++;
 
@@ -515,8 +695,6 @@ onMiss() {
     this.consecutiveMisses = 0;
   }
 }
-
-
 onScathachHit(arrow) {
   // Mark the original arrow
   arrow.setData('parried', true);
@@ -594,76 +772,12 @@ onScathachHit(arrow) {
   console.log('🗡️  PARRIED! Scáthach deflected the arrow!');
 }
 
-/*ining() {
-  console.log('BowTutorial: starting more training');
-  
-  this.narrativeInProgress = true;
-  
-  // Remove Scáthach
-  if (this.scathach) {
-    this.scathach.destroy();
-    this.scathach = null;
-  }
-  
-  // Remove the original target
-  if (this.target) {
-    this.target.destroy();
-    this.target = null;
-  }
-  
-  // Get player position
-  const playerX = this.player.x;
-  const playerY = this.player.y;
-  
-  // Create dark-themed target to the north-west
-  const darkTarget = this.add.sprite(
-    playerX - 150,  // West
-    playerY - 150,  // North
-    'target'  // Use your target sprite key
-  );
-  darkTarget.setTint(0x4a2860);  // Dark purple tint
-  darkTarget.setScale(1);
-  darkTarget.setDepth(10);
-  
-  // Create light-themed target to the north-east
-  const lightTarget = this.add.sprite(
-    playerX + 150,  // East
-    playerY - 150,  // North
-    'target'  // Use your target sprite key
-  );
-  lightTarget.setTint(0xffd700);  // Golden/light tint
-  lightTarget.setScale(1);
-  lightTarget.setDepth(10);
-  
-  // Store references
-  this.darkTarget = darkTarget;
-  this.lightTarget = lightTarget;
-  
-  this.narrativeInProgress = false;
-  
-  // Maybe show some dialogue explaining the new challenge?
-  this.textPanel.show({
-    irish: 'Anois, déan iarracht ar an dá sprioc seo!',
-    english: 'Now, try hitting both of these targets!',
-    type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      console.log('Ready for advanced training');
-    }
-  });
-}*/
-
 
 moreTraining() {
   this.time.delayedCall(300, () => {
     this.advancedTraining.start();
   });
 }
-
-
-
-
-
 createScathach() {
   const screenWidth = this.scale.width;
   const screenHeight = this.scale.height;

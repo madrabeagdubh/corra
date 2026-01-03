@@ -1,4 +1,5 @@
 import Phaser from "phaser"
+
 import Joystick from "../input/joystick.js"
 import Player from "../player/player.js"
 import BogScene from "./locations/bogMeadow.js"
@@ -15,8 +16,8 @@ export default class WorldScene extends Phaser.Scene {
 
     // Launch the tutorial scene
     // To switch back to bog, uncomment next line and comment out the BowTutorial line
-     this.scene.start("BogMeadow");
-//    this.scene.start("BowTutorial");
+    // this.scene.start("BogMeadow");
+   this.scene.start("BowTutorial");
 
     window.hideLoader();
   }

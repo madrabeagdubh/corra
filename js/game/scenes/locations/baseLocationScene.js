@@ -19,6 +19,11 @@ preload() {
   this.load.image('championSheet', 'assets/champions/champions-with-kit.png');
   this.load.json('championAtlas', 'assets/champions/champions0.json');
 
+
+
+this.load.image('glowCursor', 'assets/glowCurs    or.png');                                       this.load.audio('creak1', 'assets/sounds/creak1.wav');                                   this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');                          this.load.audio('arrowShoot2', 'assets/sounds/arrowShoot2.wav');                            this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav');                            this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg');   this.load.audio('parrySound', 'assets/sounds/parry.mp3');
+
+
   // Add this to check if files loaded
   this.load.on('filecomplete', (key, type, data) => {
     console.log('File loaded:', key, type);

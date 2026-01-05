@@ -122,7 +122,7 @@ export default class TextPanel {
       fontFamily: 'Urchlo',
       color: '#ffffff',
       wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 8
+      lineSpacing: 4
     }).setOrigin(0, 0);
     this.container.add(irishText);
 
@@ -131,7 +131,7 @@ export default class TextPanel {
       fontFamily: 'monospace',
       color: '#00ff00',
       wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 6
+      lineSpacing: 4
     }).setOrigin(0, 0);
     englishText.setAlpha(GameSettings.englishOpacity);
     englishText.setData('isEnglish', true);
@@ -209,7 +209,7 @@ export default class TextPanel {
       fontFamily: 'Aonchlo',
       color: '#ffffff',
       fontStyle: 'bold',
-      wordWrap: { width: panelWidth * 0.9 }
+      wordWrap: { width: panelWidth * 0.7 }
     }).setOrigin(0.5, 0);
     this.container.add(irishText);
 
@@ -217,7 +217,7 @@ export default class TextPanel {
       fontSize: '18px',
       fontFamily: 'monospace',
       color: '#00ff00',
-      wordWrap: { width: panelWidth * 0.9 }
+      wordWrap: { width: panelWidth * 0.7 }
     }).setOrigin(0.5, 0);
     englishText.setAlpha(GameSettings.englishOpacity);
     englishText.setData('isEnglish', true);
@@ -227,11 +227,14 @@ export default class TextPanel {
   }
 
   createExaminePanel(irish, english, screenWidth, screenHeight) {
-    const panelWidth = screenWidth * 0.35;
+   const panelWidth = screenWidth * 0.9;
     const panelHeight = screenHeight * 0.5;
     const panelX = screenWidth / 2;
+ const panelLeft = panelX - panelWidth / 2;
     const panelY = screenHeight - panelHeight / 2;
-
+const panelTop  = panelY - panelHeight / 2;
+const padding = 24;
+const textWidth = panelWidth - padding * 2;
     const panelGraphics = this.scene.add.graphics();
     panelGraphics.fillStyle(0x1b2a1b, 0.95);
     panelGraphics.lineStyle(4, 0xc0c0c0, 1);
@@ -239,16 +242,17 @@ export default class TextPanel {
     panelGraphics.strokeRoundedRect(panelX - panelWidth/2, panelY - panelHeight/2, panelWidth, panelHeight, 8);
 
     this.container.add(panelGraphics);
-
-    const textY = screenHeight - panelHeight + 25;
-    const textX = screenWidth * 0.05;
+const textX = panelLeft + padding;
+const textY = panelTop + padding;
 
     this.irishTextObject = this.scene.add.text(textX, textY, '', {
       fontSize: '20px',
       fontFamily: 'Urchlo',
       color: '#ffffff',
-      wordWrap: { width: screenWidth * 0.9 },
-      lineSpacing: 6
+
+wordWrap: { width: textWidth },
+  fixedWidth: textWidth,
+      lineSpacing: 4
     }).setOrigin(0, 0);
     this.container.add(this.irishTextObject);
 
@@ -256,8 +260,9 @@ export default class TextPanel {
       fontSize: '16px',
       fontFamily: 'monospace',
       color: '#00ff00',
-      wordWrap: { width: screenWidth * 0.9 },
-      lineSpacing: 4
+wordWrap: { width: textWidth },
+  fixedWidth: textWidth,      
+lineSpacing: 4
     }).setOrigin(0, 0);
     this.englishTextObject.setAlpha(0);
     this.englishTextObject.setData('isEnglish', true);
@@ -315,7 +320,7 @@ export default class TextPanel {
       fontFamily: 'Urchlo',
       color: '#ffffff',
       wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 8,
+      lineSpacing: 4,
       shadow: {
         offsetX: 0,
         offsetY: 0,
@@ -332,7 +337,7 @@ export default class TextPanel {
       fontFamily: 'monospace',
       color: '#00ff00',
       wordWrap: { width: screenWidth * 0.8 },
-      lineSpacing: 6
+      lineSpacing: 4
     }).setOrigin(0, 0);
     this.englishTextObject.setAlpha(0);
     this.englishTextObject.setData('isEnglish', true);
@@ -480,7 +485,7 @@ export default class TextPanel {
         fontFamily: 'Urchlo',
         color: '#ffffff',
         wordWrap: { width: this.irishTextObject.style.wordWrapWidth },
-        lineSpacing: 8,
+        lineSpacing: 4,
         shadow: {
           offsetX: 0,
           offsetY: 0,
@@ -523,7 +528,7 @@ export default class TextPanel {
         fontFamily: 'Urchlo',
         color: '#ffffff',
         wordWrap: { width: this.irishTextObject.style.wordWrapWidth },
-        lineSpacing: 8,
+        lineSpacing: 4,
         shadow: {
           offsetX: 0,
           offsetY: 1,
@@ -563,7 +568,7 @@ update(time, delta) {
   this.readingCursor.y = this.cursorAnchor.y + offsetY;
 
   this.readingCursor.setAlpha(glowPulse);
-  this.readingCursor.setScale(1 + glowPulse * 0.15);
+  this.readingCursor.setScale(0.4 + glowPulse * 0.15);
 }
 
 

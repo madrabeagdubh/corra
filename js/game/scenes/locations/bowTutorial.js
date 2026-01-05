@@ -120,12 +120,29 @@ updateHitTracker(consecutiveHits) {
         },
         onComplete: () => {
           console.log(`Tween complete for circle ${index}, alpha: ${circle.inner.alpha}`);
-          this.tweens.add({
-            targets: circle.inner,
-            scale: 1,
-            duration: 150,
-            ease: 'Power2'
-          });
+         this.tweens.add({
+  targets: circle.inner,
+  alpha: 1,
+  scale: 1.3,
+  duration: 200,
+  ease: 'Back.easeOut',
+  onComplete: () => {
+    this.tweens.add({
+      targets: circle.inner,
+      scale: 1,
+      duration: 150,
+      ease: 'Power2'
+    });
+
+    // ✅ COMPLETION TRIGGER — only when last circle fills
+    if (
+      index === this.hitTrackerCircles.length - 1 &&
+      !this.hitTrackerComplete
+    ) {
+      this.completeHitTracker();
+    }
+  }
+}); 
         }
       });
 
@@ -154,11 +171,7 @@ updateHitTracker(consecutiveHits) {
         }
       });
     }
-  });// Completion check
-  if (consecutiveHits >= this.hitTrackerCircles.length) {
-    this.completeHitTracker();
-  
-}
+  });
 }
 
 completeHitTracker() {

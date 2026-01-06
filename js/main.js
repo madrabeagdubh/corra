@@ -23,7 +23,14 @@ const config = {
   },
   physics: {
     default: 'arcade'  // If you need it later
+  },
+
+ input: {
+    touch: {
+      capture: true  // Enable touch events
+    }
   }
+
 };
 
 export function startGame(selectedChampion) {

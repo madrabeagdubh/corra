@@ -191,7 +191,7 @@ export default class BogMeadow extends BaseLocationScene {
       sliderWidth,
       sliderHeight,
       0x444444
-    ).setScrollFactor(0).setDepth(1500);
+    ).setScrollFactor(0).setDepth(9500);
 
     const trackFill = this.add.rectangle(
       sliderX,
@@ -199,14 +199,14 @@ export default class BogMeadow extends BaseLocationScene {
       sliderWidth * GameSettings.englishOpacity,
       sliderHeight,
       0xd4af37
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1501);
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(9501);
 
     const thumb = this.add.circle(
       sliderX + sliderWidth * GameSettings.englishOpacity,
       sliderY,
       15,
       0xffd700
-    ).setScrollFactor(0).setDepth(1502).setInteractive();
+    ).setScrollFactor(0).setDepth(9502).setInteractive();
 
     this.input.setDraggable(thumb);
 

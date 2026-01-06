@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+// js/game/ui/inventory/inventoryGrid.js
 export default class InventoryGrid {
   constructor(scene, {
     x = 0,
@@ -13,41 +13,53 @@ export default class InventoryGrid {
     this.cols = cols;
     this.size = size;
     this.onSlotSelected = onSlotSelected;
-
-    this.container = scene.add.container(x, y)
-      .setDepth(1902)
-      .setScrollFactor(0)  // ← ADD THIS LINE
-      .setVisible(false);
+    this.gridX = x;
+    this.gridY = y;
 
     this.squares = [];
+    this.itemSprites = [];
 
     const squareSize = size / cols;
-    const startX = -size / 2 + squareSize / 2;
-    const startY = -size / 2 + squareSize / 2;
+    const startX = x - size / 2 + squareSize / 2;
+    const startY = y - size / 2 + squareSize / 2;
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const index = row * cols + col;
         const isEquipSlot = row === 0;
 
-        const color = isEquipSlot ? 0xff5555 : 0xffff00;
+        const squareX = startX + col * squareSize;
+        const squareY = startY + row * squareSize;
 
-        const square = scene.add.rectangle(
-          startX + col * squareSize,
-          startY + row * squareSize,
-          squareSize - 4,
-          squareSize - 4,
-          color
-        )
-          .setStrokeStyle(2, 0x000000)
-          .setInteractive({ useHandCursor: true });
+        let square;
+        const slotTexture = isEquipSlot ? 'slot_equipped' : 'slot_inventory';
+        
+        if (scene.textures.exists(slotTexture)) {
+          square = scene.add.sprite(squareX, squareY, slotTexture);
+          square.setDisplaySize(squareSize - 4, squareSize - 4);
+        } else {
+          const color = isEquipSlot ? 0x555555 : 0x777777;
+          square = scene.add.rectangle(squareX, squareY, squareSize - 4, squareSize - 4, color);
+          square.setStrokeStyle(2, 0x000000);
+        }
+
+        square.setDepth(1902);
+        square.setScrollFactor(0);
+        square.setVisible(false);
+
+        // Use default hit area - Phaser will automatically create it based on the bounds
+        square.setInteractive();
+        
+        // Debug: log when hit area is created
+        console.log('Square', index, 'at', squareX, squareY, 'hit area:', square.input.hitArea);
 
         square.slotIndex = index;
         square.row = row;
         square.col = col;
         square.isEquipSlot = isEquipSlot;
+        square.squareSize = squareSize;
 
-        square.on('pointerup', () => {
+        square.on('pointerdown', () => {
           this.highlightSquare(square);
 
           if (this.onSlotSelected) {
@@ -60,29 +72,109 @@ export default class InventoryGrid {
           }
         });
 
-        this.container.add(square);
         this.squares.push(square);
+        this.itemSprites.push(null);
       }
     }
+
+    this.lastSelected = null;
   }
 
   highlightSquare(activeSquare) {
     this.squares.forEach(square => {
-      square.setStrokeStyle(2, 0x000000);
+      if (square.type === 'Rectangle') {
+        square.setStrokeStyle(2, 0x000000);
+      } else {
+        square.setTint(0xffffff);
+      }
     });
 
-    activeSquare.setStrokeStyle(3, 0xffffff);
+    if (activeSquare.type === 'Rectangle') {
+      activeSquare.setStrokeStyle(3, 0xffffff);
+    } else {
+      activeSquare.setTint(0xffff99);
+    }
+    
+    this.lastSelected = activeSquare;
+  }
+
+  updateSlot(index, item) {
+    if (index < 0 || index >= this.squares.length) {
+      return;
+    }
+
+    const square = this.squares[index];
+    
+    if (this.itemSprites[index]) {
+      this.itemSprites[index].destroy();
+      this.itemSprites[index] = null;
+    }
+
+    if (item) {
+      console.log('UpdateSlot', index, '- Item:', item.nameEn, 'Color:', item.color);
+      
+      const textureKey = 'item_' + item.id;
+      
+      if (this.scene.textures.exists(textureKey)) {
+        console.log('Using texture:', textureKey);
+        const itemSprite = this.scene.add.sprite(square.x, square.y, textureKey);
+        itemSprite.setDisplaySize(square.squareSize * 0.7, square.squareSize * 0.7);
+        itemSprite.setDepth(1903);
+        itemSprite.setScrollFactor(0);
+        itemSprite.setVisible(square.visible);
+        // CRITICAL: Disable input completely
+        itemSprite.disableInteractive();
+        itemSprite.input = null;
+
+        this.itemSprites[index] = itemSprite;
+      } else {
+        console.log('Using colored rectangle for:', item.nameEn);
+        const itemRect = this.scene.add.rectangle(
+          square.x, 
+          square.y, 
+          square.squareSize * 0.6, 
+          square.squareSize * 0.6,
+          item.color
+        );
+        itemRect.setDepth(1903);
+        itemRect.setScrollFactor(0);
+        itemRect.setVisible(square.visible);
+        // Make sure rectangles also don't capture input
+        itemRect.input = null;
+
+        this.itemSprites[index] = itemRect;
+      }
+    }
   }
 
   show() {
-    this.container.setVisible(true);
+    this.squares.forEach((square, index) => {
+      square.setVisible(true);
+      if (this.itemSprites[index]) {
+        this.itemSprites[index].setVisible(true);
+      }
+    });
   }
 
   hide() {
-    this.container.setVisible(false);
+    this.squares.forEach((square, index) => {
+      square.setVisible(false);
+      if (this.itemSprites[index]) {
+        this.itemSprites[index].setVisible(false);
+      }
+    });
   }
 
   destroy() {
-    this.container.destroy(true);
+    this.squares.forEach(square => {
+      square.destroy();
+    });
+    this.itemSprites.forEach(sprite => {
+      if (sprite) {
+        sprite.destroy();
+      }
+    });
+    this.squares = [];
+    this.itemSprites = [];
   }
 }

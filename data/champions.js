@@ -2451,7 +2451,7 @@ charBioGa:
 
 },
   {
-    spriteKey: "244.png",
+    spriteKey: "144.png",
     monologueID: 1,
     gender: "m",
     nameGa: "Lughaidh",

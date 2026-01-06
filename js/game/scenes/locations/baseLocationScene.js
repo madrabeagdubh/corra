@@ -20,8 +20,18 @@ preload() {
   this.load.json('championAtlas', 'assets/champions/champions0.json');
 
 
+// Slot backgrounds
+  this.load.image('slot_equipped', 'public/images/ui/inventory/slot_equipped.png');
+  this.load.image('slot_inventory', 'public/images/ui/inventory/slot_inventory.png');
+  this.load.image('panel_stone', 'public/images/ui/inventory/panel_stone.png');
+  
+  // Items (use the item IDs from itemDefinitions.js)
+  this.load.image('item_leather_armor', 'assets/inventory/arrow.png');
+  this.load.image('item_simple_bow', 'assets/inventory/arrow.png');
+  this.load.image('item_healing_potion', 'assets/inventory/arrow.png');
+  this.load.image('item_arrows', 'assets/inventory/arrow.png');
 
-this.load.image('glowCursor', 'assets/glowCurs    or.png');                                       this.load.audio('creak1', 'assets/sounds/creak1.wav');                                   this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');                          this.load.audio('arrowShoot2', 'assets/sounds/arrowShoot2.wav');                            this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav');                            this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg');   this.load.audio('parrySound', 'assets/sounds/parry.mp3');
+this.load.image('glowCursor', 'assets/glowCursor.png');                                       this.load.audio('creak1', 'assets/sounds/creak1.wav');                                   this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');                          this.load.audio('arrowShoot2', 'assets/sounds/arrowShoot2.wav');                            this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav');                            this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg');   this.load.audio('parrySound', 'assets/sounds/parry.mp3');
 
 
   // Add this to check if files loaded

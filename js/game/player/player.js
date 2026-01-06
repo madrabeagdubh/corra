@@ -1,4 +1,8 @@
- export default class Player {
+// js/game/player/player.js
+import Inventory from '../ui/inventory/inventory.js';
+import { createItem } from '../ui/inventory/itemDefinitions.js';
+
+export default class Player {
 
   constructor(scene, x, y, champion) {
     if (!champion) {
@@ -7,15 +11,22 @@
       this.sprite = scene.add.rectangle(x, y, this.tileSize, this.tileSize, 0xff0000);
       this.nameGa = 'Unknown';
       this.stats = { health: 5, attack: 5, defense: 5 };
+      this.baseStats = { ...this.stats };
+      
+      // Initialize inventory even for fallback player
+      this.initializeInventory();
       return;
     }
 
     this.champion = champion;
     this.scene = scene;
-    this.tileSize = 32
+    this.tileSize = 32;
 
     this.nameGa = champion.nameGa;
     this.stats = champion.stats;
+    
+    // Store base stats (before equipment bonuses)
+    this.baseStats = { ...champion.stats };
 
     this.createSprite(x, y);
 
@@ -29,52 +40,81 @@
     this.startX = x;
     this.startY = y;
     this.moveProgress = 0;
+    
+    // Initialize inventory with starting items
+    this.initializeInventory();
   }
 
-
-
-createSprite(x, y) {
-  try {
-    console.log('=== createSprite: starting ===');
+  initializeInventory() {
+    // Create inventory system (5x5 grid)
+    this.inventory = new Inventory({ rows: 5, cols: 5 });
     
-    const atlas = this.scene.cache.json.get('championAtlas');
+    // Add starting items
+    // Equipment slots (indices 0-4)
+    this.inventory.setItem(0, createItem('simple_bow'));      // Right hand
+    this.inventory.setItem(1, null);                          // Left hand (empty)
+    this.inventory.setItem(2, createItem('leather_armor'));   // Armor
+    this.inventory.setItem(3, null);                          // Accessory 1 (empty)
+    this.inventory.setItem(4, null);                          // Accessory 2 (empty)
     
-    if (!atlas) {
-      console.warn('Champion atlas not loaded');
+    // Inventory slots (indices 5+)
+    this.inventory.setItem(5, createItem('healing_potion'));
+    this.inventory.setItem(6, createItem('arrows', 30));
+    
+    // Apply initial equipment bonuses
+    this.updateStatsFromEquipment();
+  }
+
+  updateStatsFromEquipment() {
+    // Get bonuses from equipped items
+    const equippedStats = this.inventory.calculateEquippedStats();
+    
+    // Reset to base stats then add equipment bonuses
+    this.stats = { ...this.baseStats };
+    
+    // Add equipment bonuses
+    this.stats.defense = (this.stats.defense || 0) + (equippedStats.defense || 0);
+    this.stats.attack = (this.stats.attack || 0) + (equippedStats.attack || 0);
+    this.stats.health = (this.stats.health || 0) + (equippedStats.health || 0);
+    
+    console.log('Player stats updated:', this.stats);
+  }
+
+  createSprite(x, y) {
+    try {
+      console.log('=== createSprite: starting ===');
+
+      const atlas = this.scene.cache.json.get('championAtlas');
+
+      if (!atlas) {
+        console.warn('Champion atlas not loaded');
+        this.sprite = this.scene.add.rectangle(x, y, this.tileSize, this.tileSize, 0x00ff00);
+        return;
+      }
+
+      const frameName = this.champion.spriteKey.endsWith('.png')
+        ? this.champion.spriteKey
+        : `${this.champion.spriteKey}.png`;
+
+      // Add the atlas frames to the texture manager if not already done
+      if (!this.scene.textures.exists('championAtlas_texture')) {
+        this.scene.textures.addAtlas('championAtlas_texture',
+          this.scene.textures.get('championSheet').getSourceImage(),
+          atlas);
+      }
+
+      // Create sprite directly from atlas frame
+      this.sprite = this.scene.add.image(x, y, 'championAtlas_texture', frameName);
+      this.sprite.setDisplaySize(this.tileSize * 2, this.tileSize * 2);
+      this.sprite.setDepth(100);
+
+      console.log('=== Sprite created from atlas! ===');
+
+    } catch (error) {
+      console.error('Error in createSprite:', error);
       this.sprite = this.scene.add.rectangle(x, y, this.tileSize, this.tileSize, 0x00ff00);
-      return;
     }
-
-    const frameName = this.champion.spriteKey.endsWith('.png')
-      ? this.champion.spriteKey
-      : `${this.champion.spriteKey}.png`;
-
-    // Add the atlas frames to the texture manager if not already done
-    if (!this.scene.textures.exists('championAtlas_texture')) {
-      this.scene.textures.addAtlas('championAtlas_texture', 
-        this.scene.textures.get('championSheet').getSourceImage(), 
-        atlas);
-    }
-
-    // Create sprite directly from atlas frame
-    this.sprite = this.scene.add.image(x, y, 'championAtlas_texture', frameName);
-    this.sprite.setDisplaySize(this.tileSize * 2, this.tileSize * 2 );
-    this.sprite.setDepth(100);
-    
-    console.log('=== Sprite created from atlas! ===');
-
-  } catch (error) {
-    console.error('Error in createSprite:', error);
-    this.sprite = this.scene.add.rectangle(x, y, this.tileSize, this.tileSize, 0x00ff00);
   }
-}
-
-
-
-
-
-
-
 
   update(joystick) {
     if (!joystick) return;

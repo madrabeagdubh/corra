@@ -1,4 +1,6 @@
-// inventory/ItemDetailPanel.js
+// js/game/ui/inventory/ItemDetailPanel.js
+import { GameSettings } from '../../settings/gameSettings.js';
+
 export default class ItemDetailPanel {
   constructor(scene, { x, y, width, height, onAction }) {
     this.scene = scene;
@@ -17,46 +19,65 @@ export default class ItemDetailPanel {
       .setStrokeStyle(2, 0xffffff);
     this.container.add(this.bg);
 
-    // Item name (English)
-    this.nameText = scene.add.text(0, -height / 2 + 20, '', {
+    const topY = -height / 2 + 20;
+
+    // ─────────────────────────
+    // ITEM NAME
+    // ─────────────────────────
+
+    // Irish name (primary)
+    this.nameTextGa = scene.add.text(0, topY, '', {
       fontSize: '18px',
-      fontFamily: 'Arial',
+      fontFamily: 'urchlo',
       color: '#ffffff',
       fontStyle: 'bold',
       align: 'center'
-    }).setOrigin(0.5, 0);
-    this.container.add(this.nameText);
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(1);
+    this.container.add(this.nameTextGa);
 
-    // Item name (Irish)
-    this.nameGaText = scene.add.text(0, -height / 2 + 45, '', {
+    // English name (secondary, fades)
+    this.nameTextEn = scene.add.text(0, topY + 22, '', {
       fontSize: '14px',
       fontFamily: 'Arial',
-      color: '#aaaaaa',
-      fontStyle: 'italic',
+      color: '#dddddd',
+      fontStyle: 'bold',
       align: 'center'
-    }).setOrigin(0.5, 0);
-    this.container.add(this.nameGaText);
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(GameSettings.englishOpacity);
+    this.container.add(this.nameTextEn);
 
-    // Description (English)
-    this.descText = scene.add.text(0, -height / 2 + 75, '', {
+    // ─────────────────────────
+    // DESCRIPTION
+    // ─────────────────────────
+
+    const descY = topY + 50;
+
+    // Irish description
+    this.descTextGa = scene.add.text(0, descY, '', {
       fontSize: '12px',
-      fontFamily: 'Arial',
+      fontFamily: 'urchlo',
       color: '#cccccc',
       align: 'center',
       wordWrap: { width: width - 40 }
-    }).setOrigin(0.5, 0);
-    this.container.add(this.descText);
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(1);
+    this.container.add(this.descTextGa);
 
-    // Description (Irish)
-    this.descGaText = scene.add.text(0, -height / 2 + 110, '', {
+    // English description (below Irish, fades)
+    this.descTextEn = scene.add.text(0, descY + 36, '', {
       fontSize: '11px',
       fontFamily: 'Arial',
-      color: '#999999',
+      color: '#bbbbbb',
       align: 'center',
-      wordWrap: { width: width - 40 },
-      fontStyle: 'italic'
-    }).setOrigin(0.5, 0);
-    this.container.add(this.descGaText);
+      wordWrap: { width: width - 40 }
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(GameSettings.englishOpacity);
+    this.container.add(this.descTextEn);
 
     // Action buttons
     this.buttons = [];
@@ -69,44 +90,58 @@ export default class ItemDetailPanel {
     const buttonY = height / 2 - 50;
     const spacing = buttonWidth + 10;
 
-    // Button configs: [action, label, x-offset]
     const buttonConfigs = [
-      ['equip', 'Equip', -spacing],
-      ['drop', 'Drop', 0],
-      ['throw', 'Throw', spacing]
+      ['equip', 'Use', 'Úsáid', -spacing],
+      ['drop', 'Drop', 'Scaoil', 0],
+      ['throw', 'Throw', 'Caith', spacing]
     ];
 
-    buttonConfigs.forEach(([action, label, xOffset]) => {
-      const btn = this.createButton(xOffset, buttonY, buttonWidth, buttonHeight, label, action);
+    buttonConfigs.forEach(([action, labelEn, labelGa, xOffset]) => {
+      const btn = this.createButton(
+        xOffset,
+        buttonY,
+        buttonWidth,
+        buttonHeight,
+        labelEn,
+        labelGa,
+        action
+      );
       this.buttons.push(btn);
     });
   }
 
-  createButton(x, y, width, height, label, action) {
+  createButton(x, y, width, height, labelEn, labelGa, action) {
     const btnContainer = this.scene.add.container(x, y);
 
     const bg = this.scene.add.rectangle(0, 0, width, height, 0x666666)
       .setStrokeStyle(2, 0x999999)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.scene.add.text(0, 0, label, {
+    // English label (fades)
+    const textEn = this.scene.add.text(0, 0, labelEn, {
       fontSize: '14px',
       fontFamily: 'Arial',
       color: '#ffffff',
       fontStyle: 'bold'
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setAlpha(GameSettings.englishOpacity);
 
-    btnContainer.add([bg, text]);
+    // Irish label (inverse fade)
+    const textGa = this.scene.add.text(0, 0, labelGa, {
+      fontSize: '14px',
+      fontFamily: 'Urchlo',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    })
+      .setOrigin(0.5)
+      .setAlpha(1 - GameSettings.englishOpacity);
+
+    btnContainer.add([bg, textEn, textGa]);
     this.container.add(btnContainer);
 
-    // Hover effects
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x888888);
-    });
-
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x666666);
-    });
+    bg.on('pointerover', () => bg.setFillStyle(0x888888));
+    bg.on('pointerout', () => bg.setFillStyle(0x666666));
 
     bg.on('pointerup', () => {
       if (this.onAction && this.currentItem && this.currentSlot !== null) {
@@ -114,7 +149,7 @@ export default class ItemDetailPanel {
       }
     });
 
-    return { container: btnContainer, bg, text, action };
+    return { container: btnContainer, bg, textEn, textGa, action };
   }
 
   show(item, slotInfo) {
@@ -126,28 +161,40 @@ export default class ItemDetailPanel {
       return;
     }
 
-    // Update text content
-    this.nameText.setText(item.nameEn || 'Unknown Item');
-    this.nameGaText.setText(item.nameGa || '');
-    this.descText.setText(item.descEn || '');
-    this.descGaText.setText(item.descGa || '');
+    this.nameTextGa.setText(item.nameGa || '');
+    this.nameTextEn.setText(item.nameEn || '');
+    this.descTextGa.setText(item.descGa || '');
+    this.descTextEn.setText(item.descEn || '');
 
-    // Show/hide buttons based on item and slot
+    this.updateLanguageOpacity();
     this.updateButtonVisibility(item, slotInfo);
 
     this.container.setVisible(true);
   }
 
+  updateLanguageOpacity() {
+    const enOpacity = GameSettings.englishOpacity;
+
+    // Item text
+    this.nameTextEn.setAlpha(enOpacity);
+    this.descTextEn.setAlpha(enOpacity);
+    this.nameTextGa.setAlpha(1);
+    this.descTextGa.setAlpha(1);
+
+    // Buttons crossfade
+    const gaOpacity = 1 - enOpacity;
+    this.buttons.forEach(btn => {
+      btn.textEn.setAlpha(enOpacity);
+      btn.textGa.setAlpha(gaOpacity);
+    });
+  }
+
   updateButtonVisibility(item, slotInfo) {
-    // Equip button: only show if item is equippable and in inventory (not already equipped)
     const equipBtn = this.buttons.find(b => b.action === 'equip');
     if (equipBtn) {
       const canEquip = item.equipSlot && !slotInfo.isEquipSlot;
       equipBtn.container.setVisible(canEquip);
     }
-
-    // Drop/Throw always available (you can implement logic later)
-    // For now, show all
   }
 
   hide() {

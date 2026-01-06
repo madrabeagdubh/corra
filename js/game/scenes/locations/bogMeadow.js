@@ -178,59 +178,70 @@ export default class BogMeadow extends BaseLocationScene {
     }
   }
 
-  addSettingsSlider() {
-    const padding = 40; // Edge padding
-    const sliderWidth = this.scale.width - (padding * 2); // Almost edge-to-edge
-    const sliderHeight = 8;
-    const sliderX = padding;
-    const sliderY = 20;
+// In your BogMeadow.js (or wherever you have addSettingsSlider)
 
-    const trackBg = this.add.rectangle(
-      sliderX + sliderWidth / 2,
-      sliderY,
-      sliderWidth,
-      sliderHeight,
-      0x444444
-    ).setScrollFactor(0).setDepth(9500);
+addSettingsSlider() {
+  const padding = 40;
+  const sliderWidth = this.scale.width - (padding * 2);
+  const sliderHeight = 8;
+  const sliderX = padding;
+  const sliderY = 20;
 
-    const trackFill = this.add.rectangle(
+  const trackBg = this.add.rectangle(
+    sliderX + sliderWidth / 2,
+    sliderY,
+    sliderWidth,
+    sliderHeight,
+    0x444444
+  ).setScrollFactor(0).setDepth(5000); // Updated depth
+
+  const trackFill = this.add.rectangle(
+    sliderX,
+    sliderY,
+    sliderWidth * GameSettings.englishOpacity,
+    sliderHeight,
+    0xd4af37
+  ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(5001); // Updated depth
+
+  const thumb = this.add.circle(
+    sliderX + sliderWidth * GameSettings.englishOpacity,
+    sliderY,
+    15,
+    0xffd700
+  ).setScrollFactor(0).setDepth(5002).setInteractive(); // Updated depth
+
+  this.input.setDraggable(thumb);
+
+  this.input.on('drag', (pointer, gameObject, dragX) => {
+    if (gameObject !== thumb) return;
+
+    const clampedX = Phaser.Math.Clamp(
+      dragX,
       sliderX,
-      sliderY,
-      sliderWidth * GameSettings.englishOpacity,
-      sliderHeight,
-      0xd4af37
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(9501);
+      sliderX + sliderWidth
+    );
 
-    const thumb = this.add.circle(
-      sliderX + sliderWidth * GameSettings.englishOpacity,
-      sliderY,
-      15,
-      0xffd700
-    ).setScrollFactor(0).setDepth(9502).setInteractive();
+    thumb.x = clampedX;
 
-    this.input.setDraggable(thumb);
+    const opacity = (clampedX - sliderX) / sliderWidth;
+    GameSettings.setEnglishOpacity(opacity);
 
-    this.input.on('drag', (pointer, gameObject, dragX) => {
-      if (gameObject !== thumb) return;
+    trackFill.width = sliderWidth * opacity;
 
-      const clampedX = Phaser.Math.Clamp(
-        dragX,
-        sliderX,
-        sliderX + sliderWidth
-      );
+    // Update text panel
+    if (this.textPanel) {
+      this.textPanel.updateEnglishOpacity();
+    }
 
-      thumb.x = clampedX;
+    // NEW: Update item detail panel in worldMenu
+    if (this.worldMenu && this.worldMenu.itemDetailPanel) {
+      this.worldMenu.itemDetailPanel.updateLanguageOpacity();
+    }
+  });
+}
 
-      const opacity = (clampedX - sliderX) / sliderWidth;
-      GameSettings.setEnglishOpacity(opacity);
 
-      trackFill.width = sliderWidth * opacity;
 
-      if (this.textPanel) {
-        this.textPanel.updateEnglishOpacity();
-      }
-    });
-  }
 
   shutdown() {
     if (this.bowMechanics) {

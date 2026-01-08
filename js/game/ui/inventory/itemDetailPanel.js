@@ -5,205 +5,177 @@ export default class ItemDetailPanel {
   constructor(scene, { x, y, width, height, onAction }) {
     this.scene = scene;
     this.onAction = onAction;
-    this.currentItem = null;
-    this.currentSlot = null;
+    this.width = width;
+    this.height = height;
 
-    // Container for the whole panel
+    // 1. Root container
     this.container = scene.add.container(x, y)
-      .setDepth(1903)
+      .setDepth(2000)
       .setScrollFactor(0)
       .setVisible(false);
 
-    // Background
-    this.bg = scene.add.rectangle(0, 0, width, height, 0x444444)
-      .setStrokeStyle(2, 0xffffff);
+    // 2. Background
+    this.bg = scene.add.rectangle(0, 0, width, height, 0x2a1810, 0.95)
+      .setStrokeStyle(3, 0x888888);
     this.container.add(this.bg);
 
-    const topY = -height / 2 + 20;
+    // 3. Layout Constants
+    const titleY = -height / 2 + 30;
+    this.textAreaTop = titleY + 85;
+    this.textAreaHeight = height - 190;
+    this.textAreaWidth = width - 60;
+    
+    // 4. Header
+    this.nameTextGa = scene.add.text(0, titleY, '', { 
+        fontSize: '24px', color: '#ffffff', fontStyle: 'bold' 
+    }).setOrigin(0.5, 0);
+    this.nameTextEn = scene.add.text(0, titleY + 35, '', { 
+        fontSize: '18px', color: '#00ff00' 
+    }).setOrigin(0.5, 0);
+    this.container.add([this.nameTextGa, this.nameTextEn]);
 
-    // ─────────────────────────
-    // ITEM NAME
-    // ─────────────────────────
-
-    // Irish name (primary)
-    this.nameTextGa = scene.add.text(0, topY, '', {
-      fontSize: '18px',
-      fontFamily: 'urchlo',
-      color: '#ffffff',
-      fontStyle: 'bold',
-      align: 'center'
-    })
-      .setOrigin(0.5, 0)
-      .setAlpha(1);
-    this.container.add(this.nameTextGa);
-
-    // English name (secondary, fades)
-    this.nameTextEn = scene.add.text(0, topY + 22, '', {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#dddddd',
-      fontStyle: 'bold',
-      align: 'center'
-    })
-      .setOrigin(0.5, 0)
-      .setAlpha(GameSettings.englishOpacity);
-    this.container.add(this.nameTextEn);
-
-    // ─────────────────────────
-    // DESCRIPTION
-    // ─────────────────────────
-
-    const descY = topY + 50;
-
-    // Irish description
-    this.descTextGa = scene.add.text(0, descY, '', {
-      fontSize: '12px',
-      fontFamily: 'urchlo',
-      color: '#cccccc',
-      align: 'center',
-      wordWrap: { width: width - 40 }
-    })
-      .setOrigin(0.5, 0)
-      .setAlpha(1);
-    this.container.add(this.descTextGa);
-
-    // English description (below Irish, fades)
-    this.descTextEn = scene.add.text(0, descY + 36, '', {
-      fontSize: '11px',
-      fontFamily: 'Arial',
-      color: '#bbbbbb',
-      align: 'center',
-      wordWrap: { width: width - 40 }
-    })
-      .setOrigin(0.5, 0)
-      .setAlpha(GameSettings.englishOpacity);
-    this.container.add(this.descTextEn);
-
-    // Action buttons
-    this.buttons = [];
-    this.createButtons(width, height);
-  }
-
-  createButtons(width, height) {
-    const buttonWidth = width * 0.28;
-    const buttonHeight = 35;
-    const buttonY = height / 2 - 50;
-    const spacing = buttonWidth + 10;
-
-    const buttonConfigs = [
-      ['equip', 'Use', 'Úsáid', -spacing],
-      ['drop', 'Drop', 'Scaoil', 0],
-      ['throw', 'Throw', 'Caith', spacing]
-    ];
-
-    buttonConfigs.forEach(([action, labelEn, labelGa, xOffset]) => {
-      const btn = this.createButton(
-        xOffset,
-        buttonY,
-        buttonWidth,
-        buttonHeight,
-        labelEn,
-        labelGa,
-        action
-      );
-      this.buttons.push(btn);
-    });
-  }
-
-  createButton(x, y, width, height, labelEn, labelGa, action) {
-    const btnContainer = this.scene.add.container(x, y);
-
-    const bg = this.scene.add.rectangle(0, 0, width, height, 0x666666)
-      .setStrokeStyle(2, 0x999999)
-      .setInteractive({ useHandCursor: true });
-
-    // English label (fades)
-    const textEn = this.scene.add.text(0, 0, labelEn, {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    })
-      .setOrigin(0.5)
-      .setAlpha(GameSettings.englishOpacity);
-
-    // Irish label (inverse fade)
-    const textGa = this.scene.add.text(0, 0, labelGa, {
-      fontSize: '14px',
-      fontFamily: 'Urchlo',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    })
-      .setOrigin(0.5)
-      .setAlpha(1 - GameSettings.englishOpacity);
-
-    btnContainer.add([bg, textEn, textGa]);
-    this.container.add(btnContainer);
-
-    bg.on('pointerover', () => bg.setFillStyle(0x888888));
-    bg.on('pointerout', () => bg.setFillStyle(0x666666));
-
-    bg.on('pointerup', () => {
-      if (this.onAction && this.currentItem && this.currentSlot !== null) {
-        this.onAction(action, this.currentItem, this.currentSlot);
-      }
-    });
-
-    return { container: btnContainer, bg, textEn, textGa, action };
+    // 5. Array to track our dynamic lines
+    this.textLines = [];
+    
+    this.setupScrolling();
+    this.createButtons();
   }
 
   show(item, slotInfo) {
+    if (!item) return this.hide();
     this.currentItem = item;
     this.currentSlot = slotInfo;
 
-    if (!item) {
-      this.hide();
-      return;
+    // Set Header
+    this.nameTextGa.setText(item.nameGa || 'Gan ainm');
+    this.nameTextEn.setText(item.nameEn || 'Unknown');
+
+    // 1. DESTROY old lines
+    this.textLines.forEach(entry => entry.text.destroy());
+    this.textLines = [];
+
+    // 2. Data Check: Ensure we have strings to work with
+    const rawGa = item.descGa || "Gan cur síos ar fáil.";
+    const rawEn = item.descEn || "No description available.";
+
+    // 3. Split by newline
+    const gaParts = rawGa.split('\n');
+    const enParts = rawEn.split('\n');
+    const maxLines = Math.max(gaParts.length, enParts.length);
+    const textX = -this.textAreaWidth / 2;
+
+    // 4. CREATE lines
+    for (let i = 0; i < maxLines; i++) {
+      if (gaParts[i]) {
+        const tGa = this.scene.add.text(textX, 0, gaParts[i], {
+          fontSize: '16px', color: '#ffffff', wordWrap: { width: this.textAreaWidth }
+        }).setOrigin(0, 0);
+        this.container.add(tGa);
+        this.textLines.push({ text: tGa, type: 'ga' });
+      }
+
+      if (enParts[i]) {
+        const tEn = this.scene.add.text(textX, 0, enParts[i], {
+          fontSize: '15px', color: '#00ff00', fontStyle: 'italic', wordWrap: { width: this.textAreaWidth }
+        }).setOrigin(0, 0);
+        this.container.add(tEn);
+        this.textLines.push({ text: tEn, type: 'en' });
+      }
     }
 
-    this.nameTextGa.setText(item.nameGa || '');
-    this.nameTextEn.setText(item.nameEn || '');
-    this.descTextGa.setText(item.descGa || '');
-    this.descTextEn.setText(item.descEn || '');
-
+    // 5. Initial Visibility
+    this.scrollY = 0;
     this.updateLanguageOpacity();
-    this.updateButtonVisibility(item, slotInfo);
-
     this.container.setVisible(true);
-  }
 
-  updateLanguageOpacity() {
-    const enOpacity = GameSettings.englishOpacity;
-
-    // Item text
-    this.nameTextEn.setAlpha(enOpacity);
-    this.descTextEn.setAlpha(enOpacity);
-    this.nameTextGa.setAlpha(1);
-    this.descTextGa.setAlpha(1);
-
-    // Buttons crossfade
-    const gaOpacity = 1 - enOpacity;
-    this.buttons.forEach(btn => {
-      btn.textEn.setAlpha(enOpacity);
-      btn.textGa.setAlpha(gaOpacity);
+    // 6. POSITIONING (Delayed slightly for word-wrap calculation)
+    this.scene.time.delayedCall(20, () => {
+        this.updateTextPositions();
     });
   }
 
-  updateButtonVisibility(item, slotInfo) {
-    const equipBtn = this.buttons.find(b => b.action === 'equip');
-    if (equipBtn) {
-      const canEquip = item.equipSlot && !slotInfo.isEquipSlot;
-      equipBtn.container.setVisible(canEquip);
+  updateTextPositions() {
+    let currentY = this.textAreaTop + this.scrollY;
+    const interLineSpacing = 4; // Space between Ga and its En
+    const pairSpacing = 16;      // Space between pairs
+
+    this.textLines.forEach((entry, index) => {
+      entry.text.y = currentY;
+      
+      const isNextLineEn = (this.textLines[index+1] && this.textLines[index+1].type === 'en');
+      currentY += entry.text.displayHeight + (isNextLineEn ? interLineSpacing : pairSpacing);
+    });
+
+    const totalHeight = currentY - (this.textAreaTop + this.scrollY);
+    this.maxScrollY = Math.max(0, totalHeight - this.textAreaHeight);
+  }
+
+  updateLanguageOpacity() {
+    const enAlpha = GameSettings.englishOpacity;
+    this.nameTextEn.setAlpha(enAlpha);
+    
+    this.textLines.forEach(entry => {
+      if (entry.type === 'en') {
+        entry.text.setAlpha(enAlpha);
+      } else {
+        entry.text.setAlpha(1); // Irish is always visible
+      }
+    });
+
+    if (this.buttons) {
+      this.buttons.forEach(b => {
+        b.textEn.setAlpha(enAlpha);
+        b.textGa.setAlpha(1 - enAlpha);
+      });
     }
   }
 
-  hide() {
-    this.container.setVisible(false);
-    this.currentItem = null;
-    this.currentSlot = null;
+  setupScrolling() {
+    this.scrollY = 0;
+    this.isDragging = false;
+    // Transparent hit area for mouse/touch
+    const hitArea = this.scene.add.rectangle(0, this.textAreaTop + this.textAreaHeight/2, this.textAreaWidth, this.textAreaHeight, 0, 0).setInteractive();
+    this.container.add(hitArea);
+
+    hitArea.on('pointerdown', p => { this.isDragging = true; this.lastPointerY = p.y; });
+    this.scene.input.on('pointermove', p => {
+      if (!this.isDragging || !this.container.visible) return;
+      const delta = p.y - this.lastPointerY;
+      this.scrollY = Phaser.Math.Clamp(this.scrollY + delta, -this.maxScrollY, 0);
+      this.updateTextPositions();
+      this.lastPointerY = p.y;
+    });
+    this.scene.input.on('pointerup', () => this.isDragging = false);
   }
 
-  destroy() {
-    this.container.destroy(true);
+  createButtons() {
+    const buttonY = this.height / 2 - 50;
+    const configs = [
+        {a: 'equip', en: 'Equip', ga: 'Feisteáil', x: -100},
+        {a: 'drop', en: 'Drop', ga: 'Scaoil', x: 0},
+        {a: 'close', en: 'Close', ga: 'Siar', x: 100}
+    ];
+
+    this.buttons = configs.map(l => {
+      const btnCont = this.scene.add.container(l.x, buttonY);
+      const bg = this.scene.add.rectangle(0, 0, 90, 40, 0x4a3020).setStrokeStyle(2, 0x888888).setInteractive();
+      const tGa = this.scene.add.text(0, 0, l.ga, { fontSize: '14px' }).setOrigin(0.5);
+      const tEn = this.scene.add.text(0, 0, l.en, { fontSize: '14px' }).setOrigin(0.5);
+      
+      btnCont.add([bg, tGa, tEn]);
+      this.container.add(btnCont);
+
+      bg.on('pointerdown', () => {
+        if (l.a === 'close') this.hide();
+        else this.onAction?.(l.a, this.currentItem, this.currentSlot);
+      });
+
+      return { textEn: tEn, textGa: tGa };
+    });
+  }
+
+  hide() { 
+    this.container.setVisible(false); 
+    this.isDragging = false;
   }
 }

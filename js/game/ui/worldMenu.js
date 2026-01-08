@@ -67,9 +67,9 @@ export default class WorldMenu {
 
     // No close button needed anymore
 
-    // --- Inventory Grid (moved up to make room for detail panel) ---
+    // --- Inventory Grid (centered, no need to move for detail panel) ---
     const gridSize = panelWidth * 0.85;
-    const gridY = height / 2 - panelHeight * 0.15; // Move grid up
+    const gridY = height / 2; // Centered
 
     this.inventoryGrid = new InventoryGrid(scene, {
       x: width / 2,
@@ -82,15 +82,12 @@ export default class WorldMenu {
 
     this.inventoryGrid.hide();
 
-    // --- Item Detail Panel (bottom area) ---
-    const detailHeight = panelHeight * 0.3;
-    const detailY = height / 2 + panelHeight * 0.25;
-
+    // --- Item Detail Panel (full-screen overlay, appears on top) ---
     this.itemDetailPanel = new ItemDetailPanel(scene, {
       x: width / 2,
-      y: detailY,
-      width: panelWidth * 0.9,
-      height: detailHeight,
+      y: height / 2,
+      width: panelWidth * 0.95,
+      height: panelHeight * 0.95,
       onAction: (action, item, slotInfo) => this.handleItemAction(action, item, slotInfo)
     });
 

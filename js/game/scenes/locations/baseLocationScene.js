@@ -315,10 +315,14 @@ checkProximityInteractions() {
       for (const [direction, exitData] of Object.entries(this.mapData.exits)) {
         const isOnExit = exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY);
         if (isOnExit) {
-          console.log(`Transitioning to ${exitData.destination}`);
-          this.scene.start(exitData.destination, { 
-            entryPoint: exitData.entryPoint 
-          });
+
+
+this.scene.start(exitData.destination, {
+  entryEdge: exitData.entryPoint,
+  sourceTile: { x: tileX, y: tileY }
+});
+
+
           return;
         }
       }

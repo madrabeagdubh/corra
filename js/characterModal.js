@@ -1,3 +1,14 @@
+
+function ensureFontsLoaded(callback) {
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(callback);
+  } else {
+    // Fallback: wait a bit
+    setTimeout(callback, 100);
+  }
+}
+
+
 const statDescriptions = {
     attack: {
         irish: "Ionsaigh",
@@ -78,7 +89,7 @@ function createStatPopup(statName, englishOpacity) {
         color: #ffffff;
         margin-bottom: 0.8rem;
         line-height: 1.5;
-        font-family: monospace;
+        font-family: Aonchlo;
         text-align: center;
         min-height: 1.8rem;
     `;
@@ -217,7 +228,10 @@ function createStatPopup(statName, englishOpacity) {
 }
 
 export function showCharacterModal(champion) {
-    let modal = document.getElementById('characterModal');
+   
+ensureFontsLoaded(() => {
+
+ let modal = document.getElementById('characterModal');
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'characterModal';
@@ -299,14 +313,14 @@ export function showCharacterModal(champion) {
         text-align: center !important;
         font-size: 28px !important;
         margin: 0 0 10px 0 !important;
-        font-family: monospace !important;
+        font-family: Aonchlo !important;
         pointer-events: none !important;
     `;
     modal.insertBefore(nameHeader, content);
 
     content.innerHTML = `
         <div style="flex: 0 0 auto;">
-            <p id="bioGaText" style="color: white; font-size: 20px; line-height: 1.6; min-height: 3em; margin-top: 0;"></p>
+            <p id="bioGaText" style="color: white; font-family:Urchlo !important; font-size: 20px; line-height: 1.6; min-height: 3em; margin-top: 0;"></p>
             <p id="bioEnText" class="modal-bio-en" style="color: #00ff00; font-size: 20px; line-height: 1.6; opacity: 0; transition: opacity 0.8s ease;"></p>
         </div>
         <div style="flex: 1 1 auto;"></div>
@@ -324,7 +338,7 @@ export function showCharacterModal(champion) {
                     border-radius: 8px;
                     cursor: pointer;
                     font-weight: bold;
-                    font-family: monospace;
+                    font-family: Aonchlo;
                 ">Siar</button>
             </div>
         </div>
@@ -435,4 +449,4 @@ export function showCharacterModal(champion) {
     closeBtn.addEventListener('mouseleave', () => {
         closeBtn.style.backgroundColor = '#4a3020';
     });
-}
+})}

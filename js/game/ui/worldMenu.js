@@ -182,6 +182,26 @@ export default class WorldMenu {
     });
   }
 
+
+toggle() {
+    // If the Detail Panel is open, close ONLY that
+    if (this.itemDetailPanel && this.itemDetailPanel.isVisible) {
+        console.log("WorldButton: Closing Item Detail Panel");
+        this.itemDetailPanel.hide();
+        return; // Stop here so the rest of the menu stays open
+    }
+
+    // Otherwise, toggle the whole menu like normal
+    if (this.isOpen) {
+        this.close();
+    } else {
+        this.open();
+    }
+}
+
+
+
+
   open() {
     this.bg.setVisible(true);
     this.panel.setVisible(true);

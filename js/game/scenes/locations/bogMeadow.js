@@ -76,18 +76,18 @@ export default class BogMeadow extends BaseLocationScene {
     // --- WORLD MENU ---
     this.worldMenu = new WorldMenu(this, { player: this.player });
 
-    this.worldButton = new WorldButton(this, {
-      x: this.scale.width - 50,
-      y: 100,  // Moved down to avoid slider
-      size: 56,
-      onClick: () => {
-        if (this.worldMenu.isOpen) {
-          this.worldMenu.close();
-        } else {
-          this.worldMenu.open();
-        }
-      }
-    });
+    
+this.worldButton = new WorldButton(this, {
+    x: this.scale.width - 50,
+    y: 100, // Moved down to avoid slider
+    size: 56,
+    onClick: () => {
+        // Just call the smart toggle
+        this.worldMenu.toggle();
+    }
+});
+
+
 
     // --- SETTINGS SLIDER (on top) ---
     this.addSettingsSlider();

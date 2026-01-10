@@ -1,14 +1,26 @@
 
 font-face {
   font-family: 'Urchlo';
-  src: url('assets/fonts/urchlo.ttf') format('truetype');
+
+
+    src: url('../public/assets/fonts/urchlo.ttf');
 }
 
-font-face {
-  font-family: 'Aonchlo';
-  src: url('assets/fonts/aonchlo.ttf') format('truetype');
+@font-face {
+    font-family: 'Aonchlo';
+    src: url('../public/assets/fonts/aonchlo.ttf');
+    font-weight: normal;
+    font-style: normal;
 }
-
+                                        
+@font-face {                                   font-family: 'IrishPenny';                 src: url('../public/assets/fonts/IrishPenny.ttf')     format('truetype');                            }
+/* This hidden class forces the browser to load the font immediately */
+.font-loader {
+    font-family: 'Aonchlo';
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
 
 
 

@@ -72,7 +72,7 @@ function createStatPopup(statName, englishOpacity) {
     color: #ffff00;
     margin-bottom: 0.8rem;
     line-height: 1.5;
-    font-family: monospace;
+    font-family: Aonchlo !important;
     text-align: center;
     min-height: 1.8rem;
   `;
@@ -365,6 +365,7 @@ function initHeroSelect() {
   chooseButton.className = 'champion-choose-button';
   chooseButton.textContent = 'Ar Aghaidh';
   chooseButton.style.cssText = `
+    font-family: Aonchlo !important;
     width: 100% !important;
     padding: 1.2rem !important;
     font-size: 1.3rem !important;

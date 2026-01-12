@@ -19,73 +19,70 @@ export default class TextPanel {
   this.cursorTime = 0;
 } 
 
+
+
+
   show(config) {
+    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
+
+    // --- RECYCLE LOGIC ---
+    // If dialogue is already showing, just swap the text content
+    if (this.isVisible && this.container && type === 'dialogue') {
+      this.onDismiss = onDismiss;
+      this.irishFullText = irish;
+      this.englishFullText = english;
+
+      // Hide English immediately so it can fade in fresh for the new line
+      if (this.englishTextObject) {
+        this.englishTextObject.setAlpha(0);
+        this.englishTextObject.setText('');
+      }
+      
+      this.startTypewriter();
+      return; 
+    }
+    // --- END RECYCLE ---
+
+    // If a different type of panel was open, destroy it first
     if (this.isVisible && this.container) {
       const oldContainer = this.container;
-      const oldTapZone = this.tapZone;
-      
-      this.typewriterActive = false;
-      this.container = null;
-      this.tapZone = null;
-      this.irishTextObject = null;
-      this.englishTextObject = null;
-
-      oldContainer.setDepth(1999);
       this.scene.tweens.add({
         targets: oldContainer,
         alpha: 0,
         duration: 200,
-        ease: 'Power2',
-        onComplete: () => {
-          oldContainer.destroy();
-          if (oldTapZone) oldTapZone.destroy();
-        }
+        onComplete: () => oldContainer.destroy()
       });
     }
-
-    const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
 
     this.onDismiss = onDismiss;
     this.irishFullText = irish;
     this.englishFullText = english;
-
-    this.container = this.scene.add.container(0, 0);
-    this.container.setDepth(2000);
-    this.container.setScrollFactor(0);
-    this.container.alpha = 1;
-
-    const screenWidth = this.scene.scale.width;
-    const screenHeight = this.scene.scale.height;
-
-    if (type === 'dialogue') {
-      this.createDialoguePanel(irish, english, speaker, screenWidth, screenHeight);
-    } else if (type === 'examine') {
-      this.createExaminePanel(irish, english, screenWidth, screenHeight);
-    } else if (type === 'notification') {
-      this.createNotificationPanel(irish, english, screenWidth, screenHeight);
-    } else if (type === 'archery_prompt') {
-      this.createArcheryPromptPanel(irish, english, screenWidth, screenHeight);
-    } else if (type === 'chat_options') {
-      this.createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight);
-    }
-
     this.isVisible = true;
 
+    this.container = this.scene.add.container(0, 0).setDepth(2000).setScrollFactor(0);
+
+    const sw = this.scene.scale.width;
+    const sh = this.scene.scale.height;
+
+    // Call appropriate builder
+    if (type === 'dialogue') this.createDialoguePanel(irish, english, speaker, sw, sh);
+    else if (type === 'examine') this.createExaminePanel(irish, english, sw, sh);
+    else if (type === 'notification') this.createNotificationPanel(irish, english, sw, sh);
+    else if (type === 'chat_options') this.createChatOptionsPanel(irish, english, options, onChoice, speaker, sw, sh);
+
+    // Disable Joystick
     if (this.scene.joystick) {
       this.scene.joystick.base.disableInteractive();
       this.scene.joystick.thumb.disableInteractive();
-
-      Object.values(this.scene.joystick.buttons).forEach(button => {
-        button.disableInteractive();
-      });
-
-      this.scene.input.setDraggable(this.scene.joystick.thumb, false);
     }
 
-    if (type === 'dialogue' || type === 'examine') {
-      this.startTypewriter();
-    }
+    if (type === 'dialogue' || type === 'examine') this.startTypewriter();
   }
+
+
+
+
+
 
   createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
     this.englishOptionTexts = [];
@@ -361,19 +358,29 @@ lineSpacing: 4
       this.dismissWithCooldown();
     });
   }
-
   dismissWithCooldown() {
-    console.log('dismissWithCooldown called, typewriterActive:', this.typewriterActive);
     if (this.typewriterActive) {
       this.skipTypewriter();
+      return;
+    }
+
+    if (this.onDismiss) {
+      const callback = this.onDismiss;
+      this.onDismiss = null;
+      callback(); 
+      // No cooldown here, so lines flow fast
     } else {
+      // LAST LINE OF DIALOGUE
       this.hide();
+      
+      // Global cooldown to let player walk away
       this.scene.textPanelCooldown = true;
-      this.scene.time.delayedCall(2000, () => {
+      this.scene.time.delayedCall(1000, () => {
         this.scene.textPanelCooldown = false;
       });
     }
   }
+
 
   createNotificationPanel(irish, english, screenWidth, screenHeight) {
     const panelPadding = 10;
@@ -435,11 +442,17 @@ lineSpacing: 4
     });
   }
 
-  startTypewriter() {
+   startTypewriter() {
     this.typewriterActive = true;
     this.currentCharIndex = 0;
+    
+    if (this.irishTextObject) {
+      this.irishTextObject.setText('');
+    }
+    
     this.typeNextCharacter();
   }
+ 
 
   typeNextCharacter() {
     if (!this.typewriterActive || !this.irishTextObject) return;
@@ -687,10 +700,15 @@ updateReadingCursor() {
   }
 
   showEnglishText() {
-    if (!this.englishTextObject) return;
+    if (!this.englishTextObject || !this.irishTextObject) return;
 
-    const irishHeight = this.irishTextObject.height;
-    this.englishTextObject.y = this.irishTextObject.y + irishHeight + 20;
+    // Force a text update to get the correct height after wrapping
+    this.irishTextObject.updateText();
+    
+    const spacing = 20;
+    const newY = this.irishTextObject.y + this.irishTextObject.displayHeight + spacing;
+    
+    this.englishTextObject.setPosition(this.irishTextObject.x, newY);
     this.englishTextObject.setText(this.englishFullText);
 
     this.scene.tweens.add({
@@ -700,6 +718,7 @@ updateReadingCursor() {
       ease: 'Power2'
     });
   }
+
 
   updateEnglishOpacity() {
     if (this.englishTextObject && !this.typewriterActive) {

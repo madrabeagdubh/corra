@@ -510,7 +510,7 @@ export const champions = [
 
 },
   {
-    spriteKey: "031.png",
+    spriteKey: "039.png",
     monologueID: 1,
     gender: "m",
     nameGa: "Olcán",
@@ -2181,7 +2181,7 @@ charBioGa:
     nameGa: "Éanna",
     nameEn: "birdlike",
     charBioEn: "I was Enna Ceinnseallach, whose son Eochaidh slew Niall of the Nine Hostages, as recorded in M405.1.",
-    charBioGa: "Enna Ceinnseallach a bhí orm, a raibh a mhac Eochaidh a mharaigh Niall Naoighiallach, mar atá taifeadta i M405.1."
+    charBioGa: "Enna Ceinnseallach a bhí orm, mo mhac Eochaidh a mharaigh Niall Naoighiallach, mar atá taifeadta i M405.1."
    
 , stats: {health: 6, attack: 4,  defense: 8,speed: 4, magic: 5,  luck: 3 }
 
@@ -2223,7 +2223,7 @@ charBioGa:
 
 },
   {
-    spriteKey: "225.png",
+    spriteKey: "125.png",
     monologueID: 1,
     gender: "m",
     nameGa: "Olcán",

@@ -20,14 +20,20 @@
 
 
 
-
+.champion-name-en {
+	    /* Define your green here, but use a variable for the opacity */
+	    color: rgba(0, 255, 127, var(--en-opacity, 0.15)); 
+	        font-family: monospace;
+		    font-size: 1.2rem;
+		        transition: color 0.1s ease; /* Smooths the slider movement */
+		}
 
 
 
  .champion-name-en{
 
   font-family: monospace !important;
-  
+color:green;  
 }
 
 .champion-name-ga{

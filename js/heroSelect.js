@@ -27,10 +27,65 @@ const statIcons = {
   health: '❤️'
 };
 
-// Create popup overlay
+
+function createStatsDisplay(champion, currentOpacity) {
+    if (!champion || !champion.stats) return null;
+
+    const statsContainer = document.createElement('div');
+    statsContainer.id = 'global-stats-bar';
+    statsContainer.style.cssText = `
+        position: fixed !important;
+        bottom: 120px !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: rgba(42, 24, 16, 0.95) !important;
+        border-top: 2px solid #d4af37 !important;
+        z-index: 499 !important;
+        padding: 15px !important;
+        display: flex !important;
+        justify-content: center !important;
+        gap: 40px !important;
+        pointer-events: none;
+    `;
+
+    const statIcons = { attack: '⚔️', defense: '🛡️ ', health: '❤️' };
+
+    ['attack', 'defense', 'health'].forEach(statName => {
+        if (champion.stats[statName] !== undefined) {
+            const item = document.createElement('div');
+            item.style.cssText = `
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                cursor: pointer !important;
+                pointer-events: auto;
+            `;
+
+            item.innerHTML = `
+                <span style="font-size: 2.5rem; margin-bottom: 5px;">${statIcons[statName]}</span>
+                <span style="color: #d4af37; font-family: monospace; font-weight: bold; font-size: 1.3rem;">
+                    ${champion.stats[statName]}
+                </span>
+            `;
+
+            item.onclick = (e) => {
+                e.stopPropagation();
+                // Pass currentOpacity here since it's defined in initHeroSelect
+                createStatPopup(statName, currentOpacity);
+            };
+
+            statsContainer.appendChild(item);
+        }
+    });
+
+    return statsContainer;
+}
+
+
+
 function createStatPopup(statName, englishOpacity) {
   console.log('Creating stat popup for:', statName, 'opacity:', englishOpacity);
-  
+
   // Remove any existing popup
   const existing = document.getElementById('statPopup');
   if (existing) existing.remove();
@@ -47,7 +102,7 @@ function createStatPopup(statName, englishOpacity) {
     border-radius: 15px;
     padding: 1.5rem;
     width: 100%;
-    max-width: 100%;
+    max-width: 90%;
     min-height: 180px;
     height: auto;
     z-index: 10000;
@@ -56,19 +111,16 @@ function createStatPopup(statName, englishOpacity) {
     cursor: pointer;
   `;
 
-  // Large icon at top center
+  // Icon
   const iconElement = document.createElement('div');
-  iconElement.style.cssText = `
-    font-size: 3rem;
-    text-align: center;
-    margin-bottom: 1rem;
-  `;
+  iconElement.style.cssText = `font-size: 3rem; text-align: center; margin-bottom: 1rem;`;
   iconElement.textContent = statIcons[statName];
 
+  // Irish Text
   const irishText = document.createElement('div');
   irishText.id = 'statPopupIrish';
   irishText.style.cssText = `
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     color: #ffff00;
     margin-bottom: 0.8rem;
     line-height: 1.5;
@@ -76,140 +128,131 @@ function createStatPopup(statName, englishOpacity) {
     text-align: center;
     min-height: 1.8rem;
   `;
+  irishText.textContent = '';
 
+  // English Text (Fixed to Green with Opacity)
   const englishText = document.createElement('div');
   englishText.id = 'statPopupEnglish';
+  
+  // Get live slider value immediately
+  const slider = document.querySelector('.champion-slider');
+  const liveOpacity = slider ? parseFloat(slider.value) : englishOpacity;
+
   englishText.style.cssText = `
-    font-size: 1rem;
-    color: rgba(0, 255, 0, ${englishOpacity});
+    font-size: 1.1rem;
+    color: rgba(0, 255, 0, ${liveOpacity});
     line-height: 1.5;
     font-family: monospace;
     text-align: center;
-    opacity: 0;
-    transition: opacity 0.8s ease;
+    opacity: 0; 
+    transition: opacity 0.5s ease;
   `;
 
   popup.appendChild(iconElement);
   popup.appendChild(irishText);
   popup.appendChild(englishText);
 
-  // Add CSS animation
+  // Animation Styles
   if (!document.getElementById('statPopupStyle')) {
     const style = document.createElement('style');
     style.id = 'statPopupStyle';
     style.textContent = `
-      @keyframes popupFadeIn {
-        from {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.9);
-        }
-        to {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-        }
-      }
-      @keyframes popupFadeOut {
-        from {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-        }
-        to {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.9);
-        }
-      }
-      @keyframes letterGlow {
-        0% {
-          opacity: 0;
-          transform: scale(1.3);
-          text-shadow: 0 0 15px rgba(255, 200, 100, 1);
-        }
-        50% {
-          transform: scale(1.1);
-        }
-        100% {
-          opacity: 1;
-          transform: scale(1);
-          text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-        }
+      @keyframes popupFadeIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+      @keyframes popupFadeOut { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
+      @keyframes letterGlow { 
+        0% { opacity: 0; transform: scale(1.3); text-shadow: 0 0 15px rgba(255, 200, 100, 1); } 
+        100% { opacity: 1; transform: scale(1); text-shadow: none; } 
       }
     `;
     document.head.appendChild(style);
   }
 
   let autoCloseTimer = null;
-
-  // Close function
   const closePopup = () => {
     if (autoCloseTimer) clearTimeout(autoCloseTimer);
     popup.style.animation = 'popupFadeOut 0.2s ease-in';
-    setTimeout(() => {
-      if (popup.parentNode) popup.remove();
-    }, 200);
+    setTimeout(() => { if (popup.parentNode) popup.remove(); }, 200);
   };
 
-  // Close on tap
   popup.addEventListener('click', closePopup);
-
   document.body.appendChild(popup);
-  console.log('Popup added to body');
 
-  // Typewriter effect for Irish text
+  // Typewriter effect logic
   const irishString = statDescriptions[statName].irish;
   const englishString = statDescriptions[statName].english;
   let charIndex = 0;
-  const typeSpeed = 40;
 
   function typeNextChar() {
     if (charIndex < irishString.length) {
-      const char = irishString[charIndex];
       const span = document.createElement('span');
-      span.textContent = char;
-      span.style.cssText = `
-        display: inline;
-        animation: letterGlow 0.4s ease;
-      `;
-      
+      span.textContent = irishString[charIndex];
+      span.style.cssText = `display: inline; animation: letterGlow 0.4s ease;`;
       irishText.appendChild(span);
-
-      // Remove glow after animation
-      setTimeout(() => {
-        span.style.textShadow = 'none';
-      }, 400);
-
       charIndex++;
-      setTimeout(typeNextChar, typeSpeed);
+      setTimeout(typeNextChar, 400 / irishString.length + 20);
     } else {
-      // Irish complete, show English
+      // Show English text once Irish finishes
       setTimeout(() => {
         englishText.textContent = englishString;
-        
-        // Get current slider value
-        const slider = document.querySelector('.champion-slider');
-        const currentOpacity = slider ? parseFloat(slider.value) : englishOpacity;
-        englishText.style.opacity = currentOpacity;
+        englishText.style.opacity = "1"; // Fade the element in
 
-        // Update opacity when slider changes
+        // Slider Listener to update color live
         if (slider) {
-          const updateOpacity = () => {
-            englishText.style.opacity = slider.value;
+          const updatePopupColor = () => {
+            englishText.style.color = `rgba(0, 255, 0, ${slider.value})`;
           };
-          slider.addEventListener('input', updateOpacity);
-          
-          // Clean up listener when popup closes
-          popup.addEventListener('remove', () => {
-            slider.removeEventListener('input', updateOpacity);
+          slider.addEventListener('input', updatePopupColor);
+
+          // Cleanup listener when popup is removed
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+              mutation.removedNodes.forEach(node => {
+                if (node === popup) {
+                  slider.removeEventListener('input', updatePopupColor);
+                  observer.disconnect();
+                }
+              });
+            });
           });
+          observer.observe(document.body, { childList: true });
         }
 
-        // Start auto-close timer after English appears
         autoCloseTimer = setTimeout(closePopup, 4000);
-      }, 600);
+      }, 500);
     }
   }
 
   typeNextChar();
 }
+
+// --- Global Stats Logic ---
+let globalStatsBar = null;
+
+function updateGlobalStats(champion) {
+    if (globalStatsBar) globalStatsBar.remove();
+    
+    const slider = document.querySelector('.champion-slider');
+    const currentOpacity = slider ? parseFloat(slider.value) : 0.15;
+    
+    globalStatsBar = createStatsDisplay(champion, currentOpacity);
+    
+    if (globalStatsBar) {
+        document.body.appendChild(globalStatsBar);
+
+        // Target the span elements that hold the numbers
+        const statValues = globalStatsBar.querySelectorAll('span:last-child');
+        statValues.forEach((val, index) => {
+            // Slight delay for each stat to create a "wave" effect (optional)
+            setTimeout(() => {
+                val.classList.add('stat-animate');
+            }, index * 50);
+        });
+    }
+}
+
+
+
+
 
 function initHeroSelect() {
     if (initialized) return;
@@ -224,7 +267,7 @@ function initHeroSelect() {
     let currentChampionIndex = 0;
     let atlasData = null;
     let sheetLoaded = false;
-
+//let globalStatsBar = null
     const sheet = new Image();
     sheet.src = 'assets/champions/champions-with-kit.png';
 
@@ -243,33 +286,141 @@ function initHeroSelect() {
     // --- 2. GLOBAL STYLES (Added back for layout fix) ---
     const layoutStyle = document.createElement('style');
     layoutStyle.textContent = `
+@keyframes statPulse {
+    0% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(1.2); filter: brightness(1.8) drop-shadow(0 0 10px #d4af37); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.stat-animate {
+    animation: statPulse 0.4s ease-out;
+}
+
+
+
+
+
+
         .hero-select-container {
             display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden;
             background: #000; position: relative;
         }
-        .champion-scroll {
-            flex: 1; display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-            scrollbar-width: none; -ms-overflow-style: none;
-        }
+      .champion-scroll {
+    flex: 1; 
+    display: flex; 
+    overflow-x: auto; 
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+    overflow-y: visible !important;  /* Add this */
+} 
         .champion-scroll::-webkit-scrollbar { display: none; }
         
-        .champion-card {
-            min-width: 100vw; height: 100%; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; scroll-snap-align: start;
-            padding: 20px; box-sizing: border-box; text-align: center;
+        
+
+
+.champion-card {
+    min-width: 100vw;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Changed back to center to pull graphic/names to middle */
+    justify-content: center !important; 
+    scroll-snap-align: start;
+    box-sizing: border-box;
+    text-align: center;
+    /* Padding-bottom ensures the names don't get hidden behind the stats bar */
+    padding-bottom: 180px; 
+}
+
+.champion-canvas {
+    /* Scale this up slightly if the character looks too small in the center */
+    max-width: 85%; 
+    max-height: 55vh; 
+    object-fit: contain; 
+    margin-bottom: 20px;
+    /* Optional: adds a slight drop shadow to make the hero pop */
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+}
+
+.champion-name-ga {
+    font-family: Aonchlo, serif; 
+    font-size: 3rem; /* Slightly larger for impact */
+    color: #d4af37; 
+    margin: 10px 0 5px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+
+.champion-name-en {
+    font-family: monospace; 
+    font-size: 1.4rem; 
+    margin-bottom: 20px;
+}
+        .champion-top-panel { 
+            padding: 20px; 
+            z-index: 10; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .champion-canvas {
-            max-width: 80%; max-height: 50vh; object-fit: contain; margin-bottom: 10px;
-        }
-        .champion-name-ga {
-            font-family: Aonchlo, serif; font-size: 2.5rem; color: #d4af37; margin: 5px 0;
-        }
-        .champion-name-en {
-            font-family: monospace; font-size: 1.2rem; transition: color 0.2s ease; margin-bottom: 15px;
-        }
-        .champion-top-panel { padding: 20px; z-index: 10; }
+
+
         .champion-bottom-panel { padding: 20px; z-index: 10; }
-    `;
+ 
+
+
+
+
+
+
+
+.champion-stats {
+        display: block !important;
+        width: 100% !important;
+        margin-top: 20px !important;
+        padding: 20px !important;
+        background: red !important;
+        min-height: 100px !important;
+    }
+    .stat-item {
+        display: inline-block !important;
+        margin: 0 15px !important;
+        background: lime !important;
+        padding: 20px !important;
+        font-size: 3rem !important;
+    }
+    .stat-icon {
+        font-size: 4rem !important;
+        display: block !important;
+        background: blue !important;
+    }
+    .stat-value {
+        color: white !important;
+        font-family: monospace !important;
+        font-weight: bold !important;
+        font-size: 3rem !important;
+        display: block !important;
+        background: orange !important;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   `;
     document.head.appendChild(layoutStyle);
 
     // --- 3. UI CONSTRUCTION ---
@@ -288,15 +439,36 @@ function initHeroSelect() {
     const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
     sliderStyle.textContent = `
+       
+
+
         .champion-slider {
-            width: 100% !important; height: 8px !important; border-radius: 5px !important;
-            outline: none !important; -webkit-appearance: none !important; cursor: pointer !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            width: 90% !important; /* Fixed percentage for consistent margins */
+            height: 10px !important;
+            background: #444 !important;
+            border-radius: 5px !important;
+            outline: none !important;
+            margin: 0 !important; /* Let the parent flexbox handle centering */
+            padding: 0 !important;
         }
-        .champion-slider::-webkit-slider-thumb {
-            -webkit-appearance: none !important; appearance: none !important;
-            width: 30px !important; height: 30px !important; border-radius: 50% !important;
-            background: #ffd700 !important; cursor: pointer !important;
-            display: flex !important; align-items: center !important; justify-content: center !important;
+
+.champion-slider::-webkit-slider-thumb {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            width: 44px !important;  /* Increased from 30px for better ergonomics */
+            height: 44px !important; /* Increased from 30px */
+            border-radius: 50% !important;
+            background: #ffd700 !important;
+            cursor: pointer !important;
+            border: 8px solid rgba(255, 215, 0, 0.3) !important; /* Semi-transparent outer ring */
+            background-clip: padding-box !important; /* Keeps the color inside the border */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
+        }
             content: '☀️' !important; font-size: 20px !important;
         }
     `;
@@ -304,11 +476,14 @@ function initHeroSelect() {
 
     slider.oninput = e => {
         englishOpacity = Number(e.target.value);
+       
         document.querySelectorAll('.champion-name-en').forEach(el => {
-            el.style.color = `rgba(255,255,255,${englishOpacity})`;
-        });
+		            el.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+		        });
 
-        if (chooseButton) {
+
+
+	    if (chooseButton) {
             if (englishOpacity > 0.5) {
                 chooseButton.textContent = 'Continue';
                 chooseButton.style.fontFamily = '"Courier New", Courier, monospace';
@@ -352,71 +527,63 @@ function initHeroSelect() {
         if (atlasData && sheetLoaded && champions.length > 0) renderChampions();
     }
 
-    function createStatsDisplay(champion) {
-        const statsContainer = document.createElement('div');
-        statsContainer.className = 'champion-stats';
-        if (!champion || !champion.stats) return statsContainer;
+  
 
-        const statIcons = { attack: '⚔️', defense: '🛡️', health: '❤️' };
-        ['attack', 'defense', 'health'].forEach(statName => {
-            if (champion.stats[statName] !== undefined) {
-                const item = document.createElement('div');
-                item.className = 'stat-item';
-                item.dataset.stat = statName;
-                item.innerHTML = `<span class="stat-icon">${statIcons[statName]}</span><span class="stat-value">${champion.stats[statName]}</span>`;
-                item.onclick = (e) => {
-                    e.stopPropagation();
-                    if (typeof createStatPopup === 'function') createStatPopup(statName, englishOpacity);
-                };
-                statsContainer.appendChild(item);
-            }
-        });
-        return statsContainer;
-    }
 
-    function renderChampions() {
-        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-        const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
+function renderChampions() {
+    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    // Triple the array for the infinite scroll effect
+    const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
 
-        infiniteChampions.forEach((champ, i) => {
-            const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
-            const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
-            if (!frameData) return;
+    infiniteChampions.forEach((champ, i) => {
+        const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
+        const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
+        if (!frameData) return;
 
-            const card = document.createElement('div');
-            card.className = 'champion-card';
-            card.onclick = (e) => { if (!e.target.closest('.stat-item')) showCharacterModal(champ); };
+        const card = document.createElement('div');
+        card.className = 'champion-card';
+        // Simplified click: just open the modal
+        card.onclick = () => showCharacterModal(champ);
 
-            const canvas = document.createElement('canvas');
-            canvas.className = 'champion-canvas';
-            canvas.width = frameData.frame.w; canvas.height = frameData.frame.h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
+        const canvas = document.createElement('canvas');
+        canvas.className = 'champion-canvas';
+        canvas.width = frameData.frame.w; 
+        canvas.height = frameData.frame.h;
+        const ctx = canvas.getContext('2d');
 
-            const nameGa = document.createElement('div');
-            nameGa.className = 'champion-name-ga';
-            nameGa.textContent = champ.nameGa;
+        ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
 
-            const nameEn = document.createElement('div');
-            nameEn.className = 'champion-name-en';
-            nameEn.textContent = champ.nameEn;
-            nameEn.style.color = `rgba(255,255,255,${englishOpacity})`;
+        const nameGa = document.createElement('div');
+        nameGa.className = 'champion-name-ga';
+        nameGa.textContent = champ.nameGa;
 
-            card.appendChild(canvas);
-            card.appendChild(nameGa);
-            card.appendChild(nameEn);
-            card.appendChild(createStatsDisplay(champ));
-            scrollContainer.appendChild(card);
-        });
+        const nameEn = document.createElement('div');
+        nameEn.className = 'champion-name-en';
+        nameEn.textContent = champ.nameEn;
+        nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
 
-        const randomIndex = Math.floor(Math.random() * validChampions.length);
-        scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
-        currentChampionIndex = randomIndex;
+        card.appendChild(canvas);
+        card.appendChild(nameGa);
+        card.appendChild(nameEn);
+        
+        // --- REMOVED: card.appendChild(createStatsDisplay(champ)) ---
+        
+        scrollContainer.appendChild(card);
+    });
 
-        initSwipe(scrollContainer, validChampions.length);
-        runOnboarding();
-        window.hideLoader();
-    }
+    // Set initial scroll position
+    const randomIndex = Math.floor(Math.random() * validChampions.length);
+    scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
+    currentChampionIndex = randomIndex;
+
+    initSwipe(scrollContainer, validChampions.length);
+    runOnboarding();
+    window.hideLoader();
+    
+    // Initialize the SINGLE global bar for the first time
+    updateGlobalStats(validChampions[randomIndex]);
+}
+
 
     // --- 5. ANIMATION SEQUENCES ---
     function runOnboarding() {
@@ -458,49 +625,82 @@ function initHeroSelect() {
         }, delay + 200);
     }
 
-    // --- 6. INTERACTION & FINALIZE ---
-    function initSwipe(container, len) {
-        let isDragging = false, startX, scrollL, velocity = 0, lastX, lastT, animID;
-        container.ontouchstart = e => {
-            isDragging = true; startX = e.touches[0].pageX; scrollL = container.scrollLeft;
-            lastX = startX; lastT = performance.now();
-            if (animID) cancelAnimationFrame(animID);
-            container.style.scrollSnapType = 'none'; container.style.scrollBehavior = 'auto';
+
+
+
+
+
+// --- 6. INTERACTION & FINALIZE ---
+function initSwipe(container, len) {
+    let isDragging = false, startX, scrollL, velocity = 0, lastX, lastT, animID;
+    
+    // Get reference to validChampions
+    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    
+    container.ontouchstart = e => {
+        isDragging = true; 
+        startX = e.touches[0].pageX; 
+        scrollL = container.scrollLeft;
+        lastX = startX; 
+        lastT = performance.now();
+        if (animID) cancelAnimationFrame(animID);
+        container.style.scrollSnapType = 'none'; 
+        container.style.scrollBehavior = 'auto';
+    };
+    
+    container.ontouchmove = e => {
+        if (!isDragging) return;
+        const x = e.touches[0].pageX;
+        container.scrollLeft = scrollL - (x - startX);
+        const now = performance.now();
+        const dt = now - lastT;
+        if (dt > 0) velocity = (lastX - x) / dt * 16;
+        lastX = x; 
+        lastT = now;
+    };
+    
+    container.ontouchend = () => {
+        isDragging = false; 
+        velocity *= 2.5;
+        const decay = () => {
+            container.scrollLeft += velocity; 
+            velocity *= 0.95;
+            if (Math.abs(velocity) > 0.1) { 
+                animID = requestAnimationFrame(decay); 
+                return; 
+            }
+            const w = window.innerWidth;
+            const target = Math.round(container.scrollLeft / w);
+            container.style.scrollBehavior = 'smooth';
+            container.scrollTo({ left: target * w, behavior: 'smooth' });
+            setTimeout(() => {
+                container.style.scrollSnapType = 'x mandatory';
+                const realIndex = (target % len + len) % len;
+                currentChampionIndex = realIndex;
+                updateGlobalStats(validChampions[realIndex]); // UPDATE STATS HERE
+                container.scrollLeft = (len + realIndex) * w;
+            }, 350);
         };
-        container.ontouchmove = e => {
-            if (!isDragging) return;
-            const x = e.touches[0].pageX;
-            container.scrollLeft = scrollL - (x - startX);
-            const now = performance.now();
-            const dt = now - lastT;
-            if (dt > 0) velocity = (lastX - x) / dt * 16;
-            lastX = x; lastT = now;
-        };
-        container.ontouchend = () => {
-            isDragging = false; velocity *= 2.5;
-            const decay = () => {
-                container.scrollLeft += velocity; velocity *= 0.95;
-                if (Math.abs(velocity) > 0.1) { animID = requestAnimationFrame(decay); return; }
-                const w = window.innerWidth;
-                const target = Math.round(container.scrollLeft / w);
-                container.style.scrollBehavior = 'smooth';
-                container.scrollTo({ left: target * w, behavior: 'smooth' });
-                setTimeout(() => {
-                    container.style.scrollSnapType = 'x mandatory';
-                    const realIndex = (target % len + len) % len;
-                    currentChampionIndex = realIndex;
-                    container.scrollLeft = (len + realIndex) * w;
-                }, 350);
-            };
-            decay();
-        };
+        decay();
+    };
+}
+function finalize(champ) {
+    window.showLoader();
+    
+    // 1. Remove the global stats bar from the body
+    if (globalStatsBar) {
+        globalStatsBar.remove();
+        globalStatsBar = null; // Clear the reference
     }
 
-    function finalize(champ) {
-        window.showLoader();
-        container.remove();
-        if (window.startGame) window.startGame(champ);
-    }
+    // 2. Remove the hero select container
+    const container = document.querySelector('.hero-select-container');
+    if (container) container.remove();
+    
+    // 3. Start the game
+    if (window.startGame) window.startGame(champ);
+}
+ 
 }
 
 // Initialize after function is defined

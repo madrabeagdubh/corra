@@ -3,7 +3,6 @@ import InventoryGrid from './inventory/inventoryGrid.js';
 import ItemDetailPanel from './inventory/itemDetailPanel.js';
 
 export default class WorldMenu {
-
   constructor(scene, { player }) {
     this.scene = scene;
     this.player = player;
@@ -117,9 +116,7 @@ export default class WorldMenu {
       }
     });
   }
-create(){
-this.input.setTopOnly(true);
-}
+
   handleInventorySlot(slot) {
     const item = this.player.inventory.getItem(slot.index);
     if (item) {
@@ -150,7 +147,28 @@ this.input.setTopOnly(true);
   }
 
   equipItem(item, slotInfo) {
+    console.log('equipItem called - slotInfo:', slotInfo);
+    
     if (!item.equipSlot) return;
+
+    // Don't try to equip if already equipped
+    if (slotInfo.isEquipSlot) {
+      console.warn('Item is already equipped, use unequip instead');
+      return;
+    }
+
+    // Special case: Bow takes up both hands
+    if (item.subtype === 'bow') {
+      // Lock the left hand (Slot 1) with a placeholder
+      this.player.inventory.setItem(this.player.inventory.equipSlots['leftHand'], {
+        id: 'occupied',
+        nameGa: '(In úsáid)',
+        nameEn: '(In use)',
+        spriteKey: null,
+        type: 'placeholder'
+      });
+    }
+
     const success = this.player.inventory.equipItem(slotInfo.index, item.equipSlot);
     if (success) {
       this.player.updateStatsFromEquipment();
@@ -160,8 +178,14 @@ this.input.setTopOnly(true);
   }
 
   unequipItem(item, slotInfo) {
-    const success = this.player.inventory.unequipItem(slotInfo.index);
+    const success = this.player.inventory.unequipItem(item.equipSlot);
     if (success) {
+      // Special case: If unequipping a bow, clear the left hand placeholder
+      if (item.subtype === 'bow') {
+        this.player.inventory.setItem(this.player.inventory.equipSlots['leftHand'], null);
+      }
+
+      console.log(`Unequipped ${item.nameEn}`);
       this.player.updateStatsFromEquipment();
       this.refreshGridDisplay();
       this.itemDetailPanel.hide();
@@ -222,4 +246,4 @@ this.input.setTopOnly(true);
     this.inventoryGrid.destroy();
     this.itemDetailPanel.destroy();
   }
- } 
+} 

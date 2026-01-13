@@ -62,49 +62,134 @@ export default class Inventory {
     return item;
   }
 
-  // Equip an item from inventory to equipment slot
-  equipItem(item, slotInfo) {
-    if (!item.equipSlot) return;
-
-    // Check if the Bow is going into the right hand
-    if (item.subtype === 'bow') {
-       // Lock the left hand (Slot 1)
-       this.player.inventory.setItem(1, { 
-         id: 'occupied', 
-         nameGa: '(In úsáid)', 
-         nameEn: '(In use)', 
-         spriteKey: null 
-       });
-    }
-
-    const success = this.player.inventory.equipItem(slotInfo.index, item.equipSlot);
-
-    if (success) {
-      this.player.updateStatsFromEquipment();
-      this.refreshGridDisplay();
-      this.itemDetailPanel.hide();
-    }
-  }
  
 
-  // Unequip item to inventory
-  unequipItem(item, slotInfo) {
-    // 1. Ask inventory to move item to backpack
-    // Note: We use slotInfo.isEquipSlot logic or specific mapping here
-    const success = this.player.inventory.unequipItem(item.equipSlot);
 
-    if (success) {
-      // 2. SPECIAL: If it's a Bow, we must manually clear the "Occupied" slot in the Left Hand (Slot 1)
-      if (item.subtype === 'bow') {
-        this.player.inventory.setItem(1, null); 
-      }
 
-      console.log(`Unequipped ${item.nameEn}`);
-      this.player.updateStatsFromEquipment();
-      this.refreshGridDisplay();
-      this.itemDetailPanel.hide();
-    }
+
+// Add these methods to your Inventory class
+
+// Equipment slot mapping (you already have this)
+// equipSlots = {
+//   'rightHand': 0,
+//   'leftHand': 1,
+//   'head': 2,
+//   'body': 3,
+//   'feet': 4
+// }
+
+/**
+ * Equip an item from inventory slot to equipment slot
+ * @param {number} inventorySlotIndex - The inventory slot containing the item
+ * @param {string} equipSlotName - The equipment slot name (e.g., 'rightHand', 'body')
+ * @returns {boolean} - Success status
+ */
+equipItem(inventorySlotIndex, equipSlotName) {
+  // Get the item from inventory
+  const item = this.slots[inventorySlotIndex];
+  if (!item) {
+    console.warn('No item in slot', inventorySlotIndex);
+    return false;
   }
+
+  // Verify item can be equipped in this slot
+  if (item.equipSlot !== equipSlotName) {
+    console.warn(`Item ${item.nameEn} cannot be equipped in ${equipSlotName}`);
+    return false;
+  }
+
+  // Get the equipment slot index
+  const equipSlotIndex = this.equipSlots[equipSlotName];
+  if (equipSlotIndex === undefined) {
+    console.warn('Invalid equipment slot:', equipSlotName);
+    return false;
+  }
+
+  // Check if equipment slot is already occupied
+  const currentlyEquipped = this.slots[equipSlotIndex];
+  
+  if (currentlyEquipped) {
+    // Swap: move currently equipped item to the inventory slot
+    this.slots[inventorySlotIndex] = currentlyEquipped;
+    console.log(`Swapped ${currentlyEquipped.nameEn} with ${item.nameEn}`);
+  } else {
+    // Clear the inventory slot
+    this.slots[inventorySlotIndex] = null;
+  }
+
+  // Equip the new item
+  this.slots[equipSlotIndex] = item;
+  console.log(`Equipped ${item.nameEn} to ${equipSlotName}`);
+
+  return true;
+}
+
+/**
+ * Unequip an item from equipment slot back to inventory
+ * @param {string} equipSlotName - The equipment slot name (e.g., 'rightHand')
+ * @returns {boolean} - Success status
+ */
+unequipItem(equipSlotName) {
+  // Get the equipment slot index
+  const equipSlotIndex = this.equipSlots[equipSlotName];
+  if (equipSlotIndex === undefined) {
+    console.warn('Invalid equipment slot:', equipSlotName);
+    return false;
+  }
+
+  // Get the equipped item
+  const item = this.slots[equipSlotIndex];
+  if (!item) {
+    console.warn('No item equipped in', equipSlotName);
+    return false;
+  }
+
+  // Find an empty inventory slot
+  const emptySlot = this.findEmptyInventorySlot();
+  if (emptySlot === -1) {
+    console.warn('Inventory full! Cannot unequip.');
+    return false;
+  }
+
+  // Move item to inventory
+  this.slots[emptySlot] = item;
+  this.slots[equipSlotIndex] = null;
+  
+  console.log(`Unequipped ${item.nameEn} from ${equipSlotName} to slot ${emptySlot}`);
+  return true;
+}
+
+/**
+ * Check if an item is currently equipped
+ * @param {string} equipSlotName - The equipment slot name
+ * @returns {boolean}
+ */
+isEquipped(equipSlotName) {
+  const equipSlotIndex = this.equipSlots[equipSlotName];
+  return this.slots[equipSlotIndex] !== null && this.slots[equipSlotIndex] !== undefined;
+}
+
+/**
+ * Get the item in a specific equipment slot
+ * @param {string} equipSlotName - The equipment slot name
+ * @returns {Item|null}
+ */
+getEquippedItem(equipSlotName) {
+  const equipSlotIndex = this.equipSlots[equipSlotName];
+  return this.slots[equipSlotIndex] || null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
   usePotion(item, slotInfo) {
     console.log(`Drinking ${item.nameEn}`);

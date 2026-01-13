@@ -63,47 +63,62 @@ export default class Inventory {
   }
 
   // Equip an item from inventory to equipment slot
-  equipItem(fromIndex, toSlot) {
-    const item = this.getItem(fromIndex);
-    if (!item || !item.equipSlot) return false;
+  equipItem(item, slotInfo) {
+    if (!item.equipSlot) return;
 
-    // Get the equipment slot index
-    const equipIndex = this.equipSlots[toSlot];
-    if (equipIndex === undefined) return false;
-
-    // Swap: if something already equipped, move it to inventory
-    const currentlyEquipped = this.slots[equipIndex];
-    
-    // Move new item to equipment slot
-    this.slots[equipIndex] = item;
-    this.slots[fromIndex] = null;
-
-    // If there was something equipped, put it where the new item came from
-    if (currentlyEquipped) {
-      this.slots[fromIndex] = currentlyEquipped;
+    // Check if the Bow is going into the right hand
+    if (item.subtype === 'bow') {
+       // Lock the left hand (Slot 1)
+       this.player.inventory.setItem(1, { 
+         id: 'occupied', 
+         nameGa: '(In úsáid)', 
+         nameEn: '(In use)', 
+         spriteKey: null 
+       });
     }
 
-    return true;
+    const success = this.player.inventory.equipItem(slotInfo.index, item.equipSlot);
+
+    if (success) {
+      this.player.updateStatsFromEquipment();
+      this.refreshGridDisplay();
+      this.itemDetailPanel.hide();
+    }
   }
+ 
 
   // Unequip item to inventory
-  unequipItem(equipSlot) {
-    const equipIndex = this.equipSlots[equipSlot];
-    if (equipIndex === undefined) return false;
+  unequipItem(item, slotInfo) {
+    // 1. Ask inventory to move item to backpack
+    // Note: We use slotInfo.isEquipSlot logic or specific mapping here
+    const success = this.player.inventory.unequipItem(item.equipSlot);
 
-    const item = this.slots[equipIndex];
-    if (!item) return false;
+    if (success) {
+      // 2. SPECIAL: If it's a Bow, we must manually clear the "Occupied" slot in the Left Hand (Slot 1)
+      if (item.subtype === 'bow') {
+        this.player.inventory.setItem(1, null); 
+      }
 
-    const emptySlot = this.findEmptyInventorySlot();
-    if (emptySlot === -1) {
-      console.warn('No room to unequip!');
-      return false;
+      console.log(`Unequipped ${item.nameEn}`);
+      this.player.updateStatsFromEquipment();
+      this.refreshGridDisplay();
+      this.itemDetailPanel.hide();
     }
-
-    this.slots[emptySlot] = item;
-    this.slots[equipIndex] = null;
-    return true;
   }
+
+  usePotion(item, slotInfo) {
+    console.log(`Drinking ${item.nameEn}`);
+    // Apply healing logic to player
+    if (item.stats && item.stats.healAmount) {
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.healAmount);
+    }
+    
+    // Remove one from stack or remove item
+    this.player.inventory.removeItem(slotInfo.index);
+    this.refreshGridDisplay();
+    this.itemDetailPanel.hide();
+  }
+  
 
   // Get all equipped items
   getEquippedItems() {

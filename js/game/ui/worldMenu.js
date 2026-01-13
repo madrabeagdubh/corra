@@ -1,9 +1,9 @@
-// js/game/ui/worldMenu.js
 import Phaser from 'phaser';
 import InventoryGrid from './inventory/inventoryGrid.js';
 import ItemDetailPanel from './inventory/itemDetailPanel.js';
 
 export default class WorldMenu {
+
   constructor(scene, { player }) {
     this.scene = scene;
     this.player = player;
@@ -15,12 +15,23 @@ export default class WorldMenu {
     this.bg = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
       .setScrollFactor(0)
       .setDepth(1900)
-      .setInteractive()
+      .setInteractive({ priorityID: 0 }) 
       .setVisible(false);
 
-    // Re-enable tap-to-close outside panel area
-    this.bg.on('pointerdown', (pointer) => {
-      // Calculate if tap is outside the panel bounds
+    // Track if pointer started inside detail panel
+    this.pointerStartedInDetailPanel = false;
+
+    // Listen for pointer down to track where gestures start
+    this.bg.on('pointerdown', (pointer, localX, localY, event) => {
+      // Check if detail panel is open and visible
+      if (this.itemDetailPanel && this.itemDetailPanel.isVisible) {
+        this.pointerStartedInDetailPanel = true;
+        return;
+      }
+
+      this.pointerStartedInDetailPanel = false;
+
+      // Check if we tapped outside the main inventory panel to close menu
       const panelHeight = height * 0.8;
       const panelWidth = Math.min(panelHeight, width * 0.9);
       const panelLeft = width / 2 - panelWidth / 2;
@@ -28,7 +39,7 @@ export default class WorldMenu {
       const panelTop = height / 2 - panelHeight / 2;
       const panelBottom = height / 2 + panelHeight / 2;
 
-      const isOutside = pointer.x < panelLeft || pointer.x > panelRight ||
+      const isOutside = pointer.x < panelLeft || pointer.x > panelRight || 
                         pointer.y < panelTop || pointer.y > panelBottom;
 
       if (isOutside) {
@@ -37,27 +48,32 @@ export default class WorldMenu {
       }
     });
 
+    // Only close on pointerup if we didn't start in the detail panel
+    this.bg.on('pointerup', (pointer) => {
+      if (this.pointerStartedInDetailPanel) {
+        this.pointerStartedInDetailPanel = false;
+        return;
+      }
+    });
+
     // --- Main inventory panel ---
     const panelHeight = height * 0.8;
     const panelWidth = Math.min(panelHeight, width * 0.9);
 
-    // Use stone texture if available, fallback to grey rectangle
     if (scene.textures.exists('panel_stone')) {
       this.panel = scene.add.sprite(width / 2, height / 2, 'panel_stone')
         .setDisplaySize(panelWidth, panelHeight)
         .setScrollFactor(0)
         .setDepth(1901)
         .setVisible(false);
-      
-      // Add border
+
       this.panelBorder = scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight)
         .setStrokeStyle(3, 0xffffff)
-        .setFillStyle(0x000000, 0) // Transparent fill
+        .setFillStyle(0x000000, 0)
         .setScrollFactor(0)
         .setDepth(1901)
         .setVisible(false);
     } else {
-      // Fallback to rectangle
       this.panel = scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x888888)
         .setScrollFactor(0)
         .setDepth(1901)
@@ -65,24 +81,19 @@ export default class WorldMenu {
         .setVisible(false);
     }
 
-    // No close button needed anymore
-
-    // --- Inventory Grid (centered, no need to move for detail panel) ---
+    // --- Inventory Grid ---
     const gridSize = panelWidth * 0.85;
-    const gridY = height / 2; // Centered
-
     this.inventoryGrid = new InventoryGrid(scene, {
       x: width / 2,
-      y: gridY,
+      y: height / 2,
       size: gridSize,
       rows: 5,
       cols: 5,
       onSlotSelected: (slot) => this.handleInventorySlot(slot)
     });
-
     this.inventoryGrid.hide();
 
-    // --- Item Detail Panel (full-screen overlay, appears on top) ---
+    // --- Item Detail Panel ---
     this.itemDetailPanel = new ItemDetailPanel(scene, {
       x: width / 2,
       y: height / 2,
@@ -91,39 +102,47 @@ export default class WorldMenu {
       onAction: (action, item, slotInfo) => this.handleItemAction(action, item, slotInfo)
     });
 
-    console.log('ItemDetailPanel created:', this.itemDetailPanel);
-    console.log('ItemDetailPanel container:', this.itemDetailPanel.container);
+    // --- Global Touch Sniffer (Debug only) ---
+    this.scene.input.on('pointerdown', (pointer, gameObjects) => {
+      if (!this.isOpen) return;
+      console.log('--- Touch Report ---');
+      console.log(`Position: ${Math.floor(pointer.x)}, ${Math.floor(pointer.y)}`);
+      if (gameObjects.length > 0) {
+        gameObjects.forEach((obj, i) => {
+          const key = obj.texture?.key || 'no-texture';
+          console.log(`[${i}] Type: ${obj.type} | Key: ${key} | Depth: ${obj.depth}`);
+        });
+      } else {
+        console.log('Result: Hit nothing');
+      }
+    });
   }
-
+create(){
+this.input.setTopOnly(true);
+}
   handleInventorySlot(slot) {
-    console.log('=== handleInventorySlot called ===');
-    console.log('Selected slot:', slot);
-
-    // Get the item from player's inventory
     const item = this.player.inventory.getItem(slot.index);
-    console.log('Item found:', item);
-
     if (item) {
       console.log('Showing detail panel for:', item.nameEn);
-      // Show item details
       this.itemDetailPanel.show(item, slot);
     } else {
-      console.log('Empty slot - hiding detail panel');
-      // Empty slot - hide detail panel
       this.itemDetailPanel.hide();
     }
   }
 
   handleItemAction(action, item, slotInfo) {
-    console.log('Action:', action, 'Item:', item.nameEn, 'Slot:', slotInfo.index);
-
+    console.log('Action:', action, 'Item:', item.nameEn);
     switch (action) {
       case 'equip':
         this.equipItem(item, slotInfo);
         break;
-      case 'drop':
-        this.dropItem(item, slotInfo);
+      case 'unequip':
+        this.unequipItem(item, slotInfo);
         break;
+      case 'drink':
+        this.usePotion(item, slotInfo);
+        break;
+      case 'drop':
       case 'throw':
         this.throwItem(item, slotInfo);
         break;
@@ -131,76 +150,52 @@ export default class WorldMenu {
   }
 
   equipItem(item, slotInfo) {
-    if (!item.equipSlot) {
-      console.warn('Item is not equippable');
-      return;
-    }
-
-    // Move item from inventory to equipment slot
+    if (!item.equipSlot) return;
     const success = this.player.inventory.equipItem(slotInfo.index, item.equipSlot);
-    
     if (success) {
-      console.log(`Equipped ${item.nameEn} to ${item.equipSlot}`);
-      
-      // Update player stats
       this.player.updateStatsFromEquipment();
-      
-      // Refresh the grid display
       this.refreshGridDisplay();
-      
-      // Hide detail panel after equipping
       this.itemDetailPanel.hide();
     }
   }
 
-  dropItem(item, slotInfo) {
-    // Remove from inventory
+  unequipItem(item, slotInfo) {
+    const success = this.player.inventory.unequipItem(slotInfo.index);
+    if (success) {
+      this.player.updateStatsFromEquipment();
+      this.refreshGridDisplay();
+      this.itemDetailPanel.hide();
+    }
+  }
+
+  usePotion(item, slotInfo) {
+    console.log(`Used ${item.nameEn}`);
+    // Add your potion use logic here
     this.player.inventory.removeItem(slotInfo.index);
-    
-    // Create dropped item at player's current position
-    this.scene.events.emit('dropItem', item, this.player.sprite.x, this.player.sprite.y);
-    
-    console.log(`Dropped ${item.nameEn} at player position`);
-    
-    // Close menu after dropping
-    this.close();
+    this.refreshGridDisplay();
+    this.itemDetailPanel.hide();
   }
 
   throwItem(item, slotInfo) {
-    // TODO: Implement throw mechanic
     console.log(`Threw ${item.nameEn}`);
     this.close();
   }
 
   refreshGridDisplay() {
-    // Update grid visuals to show which slots have items
     const inventory = this.player.inventory;
-    
     this.inventoryGrid.squares.forEach((square, index) => {
       const item = inventory.getItem(index);
       this.inventoryGrid.updateSlot(index, item);
     });
   }
 
-
-toggle() {
-    // If the Detail Panel is open, close ONLY that
+  toggle() {
     if (this.itemDetailPanel && this.itemDetailPanel.isVisible) {
-        console.log("WorldButton: Closing Item Detail Panel");
-        this.itemDetailPanel.hide();
-        return; // Stop here so the rest of the menu stays open
+      this.itemDetailPanel.hide();
+      return;
     }
-
-    // Otherwise, toggle the whole menu like normal
-    if (this.isOpen) {
-        this.close();
-    } else {
-        this.open();
-    }
-}
-
-
-
+    this.isOpen ? this.close() : this.open();
+  }
 
   open() {
     this.bg.setVisible(true);
@@ -227,4 +222,4 @@ toggle() {
     this.inventoryGrid.destroy();
     this.itemDetailPanel.destroy();
   }
-} 
+ } 

@@ -40,87 +40,100 @@ export default class ButtonBar {
 
     this.updateOpacity();
   }
+createButton(localX, actionKey, labels) {
+  // We'll position these when updatePositions() is called
+  const btnCont = this.scene.add.container(localX, 0);
+  this.container.add(btnCont);
 
-  createButton(localX, actionKey, labels) {
-    // We'll position these when updatePositions() is called
-    const btnCont = this.scene.add.container(localX, 0);
-    this.container.add(btnCont);
+  // Create button background DIRECTLY in scene, not in any container
+  const bg = this.scene.add.rectangle(0, 0, 92, 40, 0x4a3020)
+    .setStrokeStyle(2, 0x888888)
+    .setDepth(3100)
+    .setScrollFactor(0)
+    .setInteractive({
+      useHandCursor: true,
+      priorityID: 99999
+    })
+    .setVisible(false); // Start hidden
 
-    // Create button background DIRECTLY in scene, not in any container
-    const bg = this.scene.add.rectangle(0, 0, 92, 40, 0x4a3020)
-      .setStrokeStyle(2, 0x888888)
-      .setDepth(3100)
-      .setScrollFactor(0)
-      .setInteractive({
-        useHandCursor: true,
-        priorityID: 99999
-      })
-      .setVisible(false); // Start hidden
+  const tGa = this.scene.add.text(0, 0, labels.ga, {
+    fontSize: '16px',
+    fontFamily: 'Aonchlo',
+    color: '#ffffff'
+  }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
 
-    const tGa = this.scene.add.text(0, -2, labels.ga, {
-      fontSize: '16px',
-      fontFamily: 'Aonchlo',
-      color: '#ffffff'
-    }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
+  const tEn = this.scene.add.text(0, 0, labels.en, {
+    fontSize: '16px',  // Match Irish size
+    fontFamily: 'Arial',  // You might want to keep a sans-serif font
+    color: '#00ff00'  // Match Irish color
+  }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
 
-    const tEn = this.scene.add.text(0, 12, labels.en, {
-      fontSize: '11px',
-      fontStyle: 'italic',
-      color: '#00ff00'
-    }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
+  // Track for cleanup and positioning
+  this.absoluteButtons.push(bg, tGa, tEn);
 
-    // Track for cleanup and positioning
-    this.absoluteButtons.push(bg, tGa, tEn);
+  // Pointer events
+  bg.on('pointerdown', (pointer, localX, localY, event) => {
+    if (event) event.stopPropagation();
 
-    // Pointer events
-    bg.on('pointerdown', (pointer, localX, localY, event) => {
-      if (event) event.stopPropagation();
+    console.log(`!!! BUTTON HIT DETECTED: ${actionKey} !!!`);
 
-      console.log(`!!! BUTTON HIT DETECTED: ${actionKey} !!!`);
-
-      // Visual feedback for touch
-      bg.setFillStyle(0x7a5040);
-      this.scene.time.delayedCall(100, () => {
-        if (bg && bg.active) bg.setFillStyle(0x4a3020);
-      });
-
-      this.onAction(actionKey);
+    // Visual feedback for touch
+    bg.setFillStyle(0x7a5040);
+    this.scene.time.delayedCall(100, () => {
+      if (bg && bg.active) bg.setFillStyle(0x4a3020);
     });
 
-    return { bg: bg, textGa: tGa, textEn: tEn, localX: localX, container: btnCont };
-  }
+    this.onAction(actionKey);
+  });
 
-  updatePositions() {
-    // Get the absolute screen position of the container
-    const containerX = this.container.x + this.container.parentContainer.x;
-    const containerY = this.container.y + this.container.parentContainer.y;
+  return { bg: bg, textGa: tGa, textEn: tEn, localX: localX, container: btnCont };
+}
 
-    console.log('ButtonBar container position:', containerX, containerY);
 
-    this.buttons.forEach((btn, index) => {
-      const absX = containerX + btn.localX;
-      const absY = containerY;
-      
-      console.log(`Button ${index} at localX=${btn.localX} -> absX=${absX}, absY=${absY}`);
-      
-      btn.bg.setPosition(absX, absY).setVisible(true);
-      btn.textGa.setPosition(absX, absY - 2).setVisible(true);
-      btn.textEn.setPosition(absX, absY + 12).setVisible(true);
-    });
-  }
+
+
+
+updatePositions() {
+  // Get the absolute screen position of the container
+  const containerX = this.container.x + this.container.parentContainer.x;
+  const containerY = this.container.y + this.container.parentContainer.y;
+
+  console.log('ButtonBar container position:', containerX, containerY);
+
+  this.buttons.forEach((btn, index) => {
+    const absX = containerX + btn.localX;
+    const absY = containerY;
+    
+    console.log(`Button ${index} at localX=${btn.localX} -> absX=${absX}, absY=${absY}`);
+    
+    btn.bg.setPosition(absX, absY).setVisible(true);
+    btn.textGa.setPosition(absX, absY).setVisible(true);  // Centered
+    btn.textEn.setPosition(absX, absY).setVisible(true);  // Centered
+  });
+}
 
   hide() {
     this.absoluteButtons.forEach(el => el.setVisible(false));
   }
 
-  updateOpacity() {
-    const enAlpha = GameSettings.englishOpacity;
-    this.buttons.forEach(btn => {
-      if (btn.textEn) btn.textEn.setAlpha(enAlpha);
-    });
-  }
 
-  destroy() {
+updateOpacity() {
+  const showEnglish = GameSettings.englishOpacity >= 0.5;
+  
+  this.buttons.forEach(btn => {
+    if (showEnglish) {
+      // Show English, hide Irish
+      btn.textEn.setVisible(true).setAlpha(1);
+      btn.textGa.setVisible(false);
+    } else {
+      // Show Irish, hide English
+      btn.textGa.setVisible(true).setAlpha(1);
+      btn.textEn.setVisible(false);
+    }
+  });
+}
+
+ destroy() {
     this.container.destroy();
     this.absoluteButtons.forEach(el => el.destroy());
     this.absoluteButtons = [];

@@ -246,4 +246,85 @@ export default class WorldMenu {
     this.inventoryGrid.destroy();
     this.itemDetailPanel.destroy();
   }
-} 
+
+
+throwItem(item, slotInfo) {
+  console.log(`Dropped ${item.nameEn}`);
+  
+  // Remove from inventory
+  this.player.inventory.removeItem(slotInfo.index);
+  
+  // Spawn the item on the map near the player
+  this.spawnItemOnMap(item);
+  
+  // Refresh and close
+  this.refreshGridDisplay();
+  this.close();
+}
+
+spawnItemOnMap(item) {
+  // Get player position - drop slightly in front based on facing direction
+  const dropX = this.player.sprite.x;
+  const dropY = this.player.sprite.y + 32; // Slightly below player
+  
+  // Create the dropped item sprite
+  const droppedItem = this.scene.physics.add.sprite(dropX, dropY, item.spriteKey)
+    .setScale(1.0)
+    .setDepth(this.player.sprite.depth - 1); // Below player so they can walk over it
+  
+  // Make sure the body exists and configure it
+  if (droppedItem.body) {
+    droppedItem.body.setSize(32, 32); // Adjust size as needed
+    droppedItem.body.setAllowGravity(false); // Prevent it from falling if you have gravity
+    droppedItem.body.immovable = true; // Item doesn't move when player touches it
+  } else {
+    console.error('Failed to create physics body for dropped item!');
+  }
+  
+  // Store the full item data on the sprite for pickup
+  droppedItem.itemData = item.clone();
+  
+ }
+tryPickupItem(droppedItem, collider) {
+  // Check if player just dropped this item (prevent immediate pickup)
+  if (droppedItem.justDropped) {
+    return;
+  }
+  
+  // Find empty slot
+  const emptySlot = this.player.inventory.findEmptyInventorySlot();
+  
+  if (emptySlot === -1) {
+    console.log('Inventory full! Cannot pick up.');
+    // Could show a UI message here
+    return;
+  }
+  
+  // Add back to inventory
+  this.player.inventory.setItem(emptySlot, droppedItem.itemData);
+  
+  // Remove from dropped items array
+  const index = this.scene.droppedItems.indexOf(droppedItem);
+  if (index > -1) {
+    this.scene.droppedItems.splice(index, 1);
+  }
+  
+  // Destroy the collider and sprite
+  if (collider) {
+    collider.destroy();
+  }
+  droppedItem.destroy();
+  
+  console.log(`Picked up ${droppedItem.itemData.nameEn} into slot ${emptySlot}`);
+  
+  // Refresh grid if menu is open
+  if (this.isOpen) {
+    this.refreshGridDisplay();
+  }
+}
+
+
+
+
+
+}  

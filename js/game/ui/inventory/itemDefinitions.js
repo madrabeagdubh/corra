@@ -32,7 +32,7 @@ export const ITEM_DEFS = {
     nameEn: 'Bow',
     nameGa: 'Bogha',
     descEn: 'Behold the wooden bow! \nof yew-tree fair,\nCrafted by hands skilled in war\'s dire art,\nA weapon of old,\nof doom and destiny.',
-    descGa: 'Féach an bogha adhmaid! \nd’iúr ghlan,\nceaptha ag lámh i ndán an chogaidh,\narm an tsean-aimsir,,\nde uafáis agus fáil.',
+    descGa: 'Féach an bogha adhmaid! \nd’iúr ghlan,\nceaptha ag lámh i ndán an chogaidh,\narm an tsean-aimsir,\nde uafáis agus fáil.',
     stats: { attack: 4, range: 5 },
     equipSlot: 'rightHand',
     allowedSlots: [0], // Primary hand (will lock slot 1 in logic)
@@ -53,7 +53,7 @@ export const ITEM_DEFS = {
     quantity: 30,
     allowedSlots: [], // Stays in inventory/backpack
     actions: ['drop', 'throw'],
-    spriteKey: 'ammo_arrow',
+    spriteKey: 'item_arrows',
     color: 0xFF0000
   },
 
@@ -70,7 +70,7 @@ export const ITEM_DEFS = {
     quantity: 1,
     allowedSlots: [], // Never equipped to a person
     actions: ['drink', 'drop', 'throw'],
-    spriteKey: 'potion_health',
+    spriteKey: 'item_healing_potion',
     color: 0xFF0000
   }
 };

@@ -12,8 +12,6 @@ export default class Player {
       this.nameGa = 'Unknown';
       this.stats = { health: 5, attack: 5, defense: 5 };
       this.baseStats = { ...this.stats };
-      
-      // Initialize inventory even for fallback player
       this.initializeInventory();
       return;
     }
@@ -24,8 +22,6 @@ export default class Player {
 
     this.nameGa = champion.nameGa;
     this.stats = champion.stats;
-    
-    // Store base stats (before equipment bonuses)
     this.baseStats = { ...champion.stats };
 
     this.createSprite(x, y);
@@ -36,54 +32,45 @@ export default class Player {
 
     this.targetX = x;
     this.targetY = y;
-
     this.startX = x;
     this.startY = y;
     this.moveProgress = 0;
-    
-    // Initialize inventory with starting items
+
     this.initializeInventory();
   }
 
   initializeInventory() {
-    // Create inventory system (5x5 grid)
     this.inventory = new Inventory({ rows: 5, cols: 5 });
-    
-    // Add starting items
-    // Equipment slots (indices 0-4)
     this.inventory.setItem(0, createItem('simple_bow'));      // Right hand
-    this.inventory.setItem(1, null);                          // Left hand (empty)
-    this.inventory.setItem(2, createItem('leather_armor'));   // Armor
-    this.inventory.setItem(3, null);                          // Accessory 1 (empty)
-    this.inventory.setItem(4, null);                          // Accessory 2 (empty)
-    
-    // Inventory slots (indices 5+)
+    this.inventory.setItem(1, null);
+    this.inventory.setItem(2, createItem('leather_armor'));
+    this.inventory.setItem(3, null);
+    this.inventory.setItem(4, null);
+
     this.inventory.setItem(5, createItem('healing_potion'));
     this.inventory.setItem(6, createItem('arrows', 30));
-    
-    // Apply initial equipment bonuses
+
     this.updateStatsFromEquipment();
   }
 
   updateStatsFromEquipment() {
-    // Get bonuses from equipped items
     const equippedStats = this.inventory.calculateEquippedStats();
-    
-    // Reset to base stats then add equipment bonuses
     this.stats = { ...this.baseStats };
-    
-    // Add equipment bonuses
+
     this.stats.defense = (this.stats.defense || 0) + (equippedStats.defense || 0);
     this.stats.attack = (this.stats.attack || 0) + (equippedStats.attack || 0);
     this.stats.health = (this.stats.health || 0) + (equippedStats.health || 0);
-    
+
+    // Visual Check: Update equipment overlays based on current inventory
+    const weapon = this.inventory.getItem(0); // Right Hand slot
+    this.setEquipmentVisible('weapon', !!(weapon && weapon.id === 'simple_bow'));
+
     console.log('Player stats updated:', this.stats);
   }
 
   createSprite(x, y) {
     try {
       console.log('=== createSprite: starting ===');
-
       const atlas = this.scene.cache.json.get('championAtlas');
 
       if (!atlas) {
@@ -96,23 +83,35 @@ export default class Player {
         ? this.champion.spriteKey
         : `${this.champion.spriteKey}.png`;
 
-      // Add the atlas frames to the texture manager if not already done
       if (!this.scene.textures.exists('championAtlas_texture')) {
         this.scene.textures.addAtlas('championAtlas_texture',
           this.scene.textures.get('championSheet').getSourceImage(),
           atlas);
       }
 
-      // Create sprite directly from atlas frame
       this.sprite = this.scene.add.image(x, y, 'championAtlas_texture', frameName);
       this.sprite.setDisplaySize(this.tileSize * 2, this.tileSize * 2);
       this.sprite.setDepth(100);
 
-      console.log('=== Sprite created from atlas! ===');
+      // --- ADDED: Bow Overlay ---
+      this.bowOverlay = this.scene.add.image(x, y, 'item_simple_bow')
+        .setOrigin(0.5)
+        .setDisplaySize(this.tileSize * 1.2, this.tileSize * 1.2)
+        .setDepth(101) // Just above player
+        .setVisible(false);
+
+      console.log('=== Sprite and Equipment Overlays created! ===');
 
     } catch (error) {
       console.error('Error in createSprite:', error);
       this.sprite = this.scene.add.rectangle(x, y, this.tileSize, this.tileSize, 0x00ff00);
+    }
+  }
+
+  // --- ADDED: Toggle visibility ---
+  setEquipmentVisible(slot, isVisible) {
+    if (slot === 'weapon' && this.bowOverlay) {
+        this.bowOverlay.setVisible(isVisible);
     }
   }
 
@@ -133,17 +132,20 @@ export default class Player {
         if (force > 10) {
           this.startNewStep(joystick);
         }
-
       } else {
         this.sprite.x = this.startX + (this.targetX - this.startX) * this.moveProgress;
         this.sprite.y = this.startY + (this.targetY - this.startY) * this.moveProgress;
       }
-
-      return;
+    } else if (force > 10) {
+      this.startNewStep(joystick);
     }
 
-    if (force > 10) {
-      this.startNewStep(joystick);
+    // --- ADDED: Sync Bow Position ---
+    if (this.bowOverlay && this.bowOverlay.visible) {
+        this.bowOverlay.setPosition(this.sprite.x, this.sprite.y);
+        // Basic flip: if moving left, flip the bow
+        if (this.moveDirection.x < 0) this.bowOverlay.setFlipX(true);
+        if (this.moveDirection.x > 0) this.bowOverlay.setFlipX(false);
     }
   }
 
@@ -151,23 +153,14 @@ export default class Player {
     const angle = joystick.angle;
     let dx = 0, dy = 0;
 
-    if (angle >= -22.5 && angle < 22.5) {
-      dx = 1;
-    } else if (angle >= 22.5 && angle < 67.5) {
-      dx = 1; dy = 1;
-    } else if (angle >= 67.5 && angle < 112.5) {
-      dy = 1;
-    } else if (angle >= 112.5 && angle < 157.5) {
-      dx = -1; dy = 1;
-    } else if (angle >= 157.5 || angle < -157.5) {
-      dx = -1;
-    } else if (angle >= -157.5 && angle < -112.5) {
-      dx = -1; dy = -1;
-    } else if (angle >= -112.5 && angle < -67.5) {
-      dy = -1;
-    } else if (angle >= -67.5 && angle < -22.5) {
-      dx = 1; dy = -1;
-    }
+    if (angle >= -22.5 && angle < 22.5) { dx = 1; }
+    else if (angle >= 22.5 && angle < 67.5) { dx = 1; dy = 1; }
+    else if (angle >= 67.5 && angle < 112.5) { dy = 1; }
+    else if (angle >= 112.5 && angle < 157.5) { dx = -1; dy = 1; }
+    else if (angle >= 157.5 || angle < -157.5) { dx = -1; }
+    else if (angle >= -157.5 && angle < -112.5) { dx = -1; dy = -1; }
+    else if (angle >= -112.5 && angle < -67.5) { dy = -1; }
+    else if (angle >= -67.5 && angle < -22.5) { dx = 1; dy = -1; }
 
     this.startX = Math.round(this.sprite.x / this.tileSize) * this.tileSize;
     this.startY = Math.round(this.sprite.y / this.tileSize) * this.tileSize;
@@ -182,9 +175,7 @@ export default class Player {
     this.moveDirection = { x: dx, y: dy };
   }
 
-  canMoveTo(x, y) {
-    return true;
-  }
+  canMoveTo(x, y) { return true; }
 
   cancelMove() {
     this.sprite.x = this.startX;
@@ -195,3 +186,4 @@ export default class Player {
     this.moveProgress = 0;
   }
 }
+

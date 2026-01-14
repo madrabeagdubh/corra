@@ -145,7 +145,23 @@ export default class WorldMenu {
         break;
     }
   }
-
+throwItem(item, slotInfo) {
+  console.log(`Dropping ${item.nameEn}`);
+  
+  // Remove from inventory
+  this.player.inventory.removeItem(slotInfo.index);
+  
+  // Calculate drop position
+  const dropX = this.player.sprite.x;
+  const dropY = this.player.sprite.y + 32;
+  
+  // Use scene's spawn method
+  this.scene.spawnItemOnMap(item, dropX, dropY);
+  
+  // Refresh and close
+  this.refreshGridDisplay();
+  this.close();
+}
   equipItem(item, slotInfo) {
     console.log('equipItem called - slotInfo:', slotInfo);
     
@@ -201,8 +217,115 @@ export default class WorldMenu {
   }
 
   throwItem(item, slotInfo) {
-    console.log(`Threw ${item.nameEn}`);
+    console.log(`Dropped ${item.nameEn}`);
+    
+    // Remove from inventory
+    this.player.inventory.removeItem(slotInfo.index);
+    
+    // Spawn the item on the map near the player
+    this.spawnItemOnMap(item);
+    
+    // Refresh and close
+    this.refreshGridDisplay();
     this.close();
+  }
+
+  spawnItemOnMap(item) {
+    // Get player position - drop slightly in front based on facing direction
+    const dropX = this.player.sprite.x;
+    const dropY = this.player.sprite.y + 32; // Slightly below player
+    
+    // Create the dropped item sprite
+    const droppedItem = this.scene.physics.add.sprite(dropX, dropY, item.spriteKey)
+      .setScale(1.0)
+      .setDepth(this.player.sprite.depth - 1); // Below player so they can walk over it
+    
+    // DEBUG: Check physics body
+    console.log('Dropped item body:', droppedItem.body);
+    console.log('Player body:', this.player.sprite.body);
+    
+    // Configure the body
+    if (droppedItem.body) {
+      droppedItem.body.setSize(32, 32);
+      droppedItem.body.setAllowGravity(false);
+      droppedItem.body.immovable = true;
+      console.log('Physics body configured successfully');
+    } else {
+      console.error('NO PHYSICS BODY CREATED!');
+    }
+    
+    // Store the full item data on the sprite for pickup
+    droppedItem.itemData = item.clone(); // Use clone to preserve all properties
+    
+    // Mark as just dropped to prevent immediate pickup
+    droppedItem.justDropped = true;
+    
+    // Clear the flag after a short delay
+    this.scene.time.delayedCall(500, () => {
+      if (droppedItem && droppedItem.active) {
+        droppedItem.justDropped = false;
+        console.log('Item ready for pickup');
+      }
+    });
+    
+    // Initialize dropped items array if needed
+    if (!this.scene.droppedItems) {
+      this.scene.droppedItems = [];
+    }
+    this.scene.droppedItems.push(droppedItem);
+    
+    // Set up pickup collision
+    const pickupCollider = this.scene.physics.add.overlap(
+      this.player.sprite,
+      droppedItem,
+      () => this.tryPickupItem(droppedItem, pickupCollider)
+    );
+    
+    // Store the collider reference so we can destroy it later
+    droppedItem.pickupCollider = pickupCollider;
+    
+    console.log(`Spawned ${item.nameEn} at ${dropX}, ${dropY}`);
+  }
+
+  tryPickupItem(droppedItem, collider) {
+    console.log('🎯 OVERLAP DETECTED!', 'justDropped:', droppedItem.justDropped);
+    
+    // Check if player just dropped this item (prevent immediate pickup)
+    if (droppedItem.justDropped) {
+      console.log('Item still marked as justDropped, skipping pickup');
+      return;
+    }
+    
+    // Find empty slot
+    const emptySlot = this.player.inventory.findEmptyInventorySlot();
+    
+    if (emptySlot === -1) {
+      console.log('Inventory full! Cannot pick up.');
+      // Could show a UI message here
+      return;
+    }
+    
+    // Add back to inventory
+    this.player.inventory.setItem(emptySlot, droppedItem.itemData);
+    
+    // Remove from dropped items array
+    const index = this.scene.droppedItems.indexOf(droppedItem);
+    if (index > -1) {
+      this.scene.droppedItems.splice(index, 1);
+    }
+    
+    // Destroy the collider and sprite
+    if (collider) {
+      collider.destroy();
+    }
+    droppedItem.destroy();
+    
+    console.log(`Picked up ${droppedItem.itemData.nameEn} into slot ${emptySlot}`);
+    
+    // Refresh grid if menu is open
+    if (this.isOpen) {
+      this.refreshGridDisplay();
+    }
   }
 
   refreshGridDisplay() {
@@ -246,85 +369,4 @@ export default class WorldMenu {
     this.inventoryGrid.destroy();
     this.itemDetailPanel.destroy();
   }
-
-
-throwItem(item, slotInfo) {
-  console.log(`Dropped ${item.nameEn}`);
-  
-  // Remove from inventory
-  this.player.inventory.removeItem(slotInfo.index);
-  
-  // Spawn the item on the map near the player
-  this.spawnItemOnMap(item);
-  
-  // Refresh and close
-  this.refreshGridDisplay();
-  this.close();
-}
-
-spawnItemOnMap(item) {
-  // Get player position - drop slightly in front based on facing direction
-  const dropX = this.player.sprite.x;
-  const dropY = this.player.sprite.y + 32; // Slightly below player
-  
-  // Create the dropped item sprite
-  const droppedItem = this.scene.physics.add.sprite(dropX, dropY, item.spriteKey)
-    .setScale(1.0)
-    .setDepth(this.player.sprite.depth - 1); // Below player so they can walk over it
-  
-  // Make sure the body exists and configure it
-  if (droppedItem.body) {
-    droppedItem.body.setSize(32, 32); // Adjust size as needed
-    droppedItem.body.setAllowGravity(false); // Prevent it from falling if you have gravity
-    droppedItem.body.immovable = true; // Item doesn't move when player touches it
-  } else {
-    console.error('Failed to create physics body for dropped item!');
-  }
-  
-  // Store the full item data on the sprite for pickup
-  droppedItem.itemData = item.clone();
-  
- }
-tryPickupItem(droppedItem, collider) {
-  // Check if player just dropped this item (prevent immediate pickup)
-  if (droppedItem.justDropped) {
-    return;
-  }
-  
-  // Find empty slot
-  const emptySlot = this.player.inventory.findEmptyInventorySlot();
-  
-  if (emptySlot === -1) {
-    console.log('Inventory full! Cannot pick up.');
-    // Could show a UI message here
-    return;
-  }
-  
-  // Add back to inventory
-  this.player.inventory.setItem(emptySlot, droppedItem.itemData);
-  
-  // Remove from dropped items array
-  const index = this.scene.droppedItems.indexOf(droppedItem);
-  if (index > -1) {
-    this.scene.droppedItems.splice(index, 1);
-  }
-  
-  // Destroy the collider and sprite
-  if (collider) {
-    collider.destroy();
-  }
-  droppedItem.destroy();
-  
-  console.log(`Picked up ${droppedItem.itemData.nameEn} into slot ${emptySlot}`);
-  
-  // Refresh grid if menu is open
-  if (this.isOpen) {
-    this.refreshGridDisplay();
-  }
-}
-
-
-
-
-
 }  

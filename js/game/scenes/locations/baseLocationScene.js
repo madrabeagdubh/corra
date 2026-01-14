@@ -148,7 +148,88 @@ update() {
     // Check for exits
     this.checkExits();
   }
+
+
+this.checkItemPickups()
+
 }
+
+
+
+
+
+checkItemPickups() {
+  if (!this.droppedItems || this.droppedItems.length === 0) return;
+  
+  const playerX = this.player.sprite.x;
+  const playerY = this.player.sprite.y;
+  
+  // Check each dropped item
+  for (let i = this.droppedItems.length - 1; i >= 0; i--) {
+    const droppedItem = this.droppedItems[i];
+    
+    // Skip if just dropped
+    if (droppedItem.justDropped) continue;
+    
+    // Calculate distance
+    const distance = Phaser.Math.Distance.Between(
+      playerX, playerY,
+      droppedItem.x, droppedItem.y
+    );
+    
+    // If close enough, pick it up
+    if (distance < 30) {
+      console.log('🎯 Player close to item, picking up!');
+      
+      const emptySlot = this.player.inventory.findEmptyInventorySlot();
+      
+      if (emptySlot === -1) {
+        console.log('❌ Inventory full!');
+        
+        // Show "inventory full" notification
+        if (this.textPanel) {
+          this.textPanel.show({
+            irish: 'Tásc lán!',
+            english: 'Inventory full!',
+            type: 'notification'
+          });
+        }
+        continue;
+      }
+      
+      // Add to inventory
+      this.player.inventory.setItem(emptySlot, droppedItem.itemData);
+      
+      // Show pickup notification
+      if (this.textPanel) {
+        this.textPanel.show({
+          irish: `Fuair mé ${droppedItem.itemData.nameGa}`,
+          english: `I got the ${droppedItem.itemData.nameEn}`,
+          type: 'notification'
+        });
+      }
+      
+      // Clean up
+      this.droppedItems.splice(i, 1);
+      if (droppedItem.pickupCollider) {
+        droppedItem.pickupCollider.destroy();
+      }
+      droppedItem.destroy();
+      
+      console.log('✅ Picked up:', droppedItem.itemData.nameEn);
+      
+      // Refresh inventory UI if open
+      if (this.worldMenu && this.worldMenu.isOpen) {
+        this.worldMenu.refreshGridDisplay();
+      }
+    }
+  }
+}
+
+
+
+
+
 
   /**
    * Override this in child scenes for custom collision logic
@@ -335,4 +416,113 @@ this.scene.start(exitData.destination, {
       }
     }
   }
+
+
+
+
+
+spawnItemOnMap(item, x, y) {
+  console.log('Spawning item:', item.nameEn, 'at', x, y);
+  
+  // Create the dropped item sprite
+  const droppedItem = this.physics.add.sprite(x, y, item.spriteKey)
+    .setScale(1.0)
+    .setDepth(5); // Above tiles, below UI
+  
+  // Configure physics body
+  if (droppedItem.body) {
+    droppedItem.body.setSize(32, 32);
+    droppedItem.body.setAllowGravity(false);
+    droppedItem.body.immovable = true;
+  }
+  
+  // Store item data
+  droppedItem.itemData = item.clone();
+  droppedItem.justDropped = true;
+  
+  // Initialize dropped items array
+  if (!this.droppedItems) {
+    this.droppedItems = [];
+  }
+  this.droppedItems.push(droppedItem);
+  
+  // Clear justDropped flag
+  this.time.delayedCall(500, () => {
+    if (droppedItem && droppedItem.active) {
+      droppedItem.justDropped = false;
+      console.log('✅ Item ready for pickup:', item.nameEn);
+    }
+  });
+  
+  // Set up pickup collision
+  const pickupCollider = this.physics.add.overlap(
+    this.player.sprite,
+    droppedItem,
+    () => this.tryPickupItem(droppedItem, pickupCollider),
+    null,
+    this
+  );
+  
+  droppedItem.pickupCollider = pickupCollider;
+}
+
+tryPickupItem(droppedItem, collider) {
+  console.log('🎯 Overlap fired! justDropped:', droppedItem.justDropped);
+  
+  if (droppedItem.justDropped) {
+    console.log('⏸️ Skipping - item just dropped');
+    return;
+  }
+  
+  // Find empty slot
+  const emptySlot = this.player.inventory.findEmptyInventorySlot();
+  
+  if (emptySlot === -1) {
+    console.log('❌ Inventory full!');
+    return;
+  }
+  
+  // Add to inventory
+  this.player.inventory.setItem(emptySlot, droppedItem.itemData);
+  
+  // Clean up
+  const index = this.droppedItems.indexOf(droppedItem);
+  if (index > -1) {
+    this.droppedItems.splice(index, 1);
+  }
+  
+  if (collider) {
+    collider.destroy();
+  }
+  droppedItem.destroy();
+  
+  console.log('✅ Picked up:', droppedItem.itemData.nameEn, 'into slot', emptySlot);
+  
+  // Refresh inventory UI if open
+  if (this.worldMenu && this.worldMenu.isOpen) {
+    this.worldMenu.refreshGridDisplay();
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

@@ -11,7 +11,11 @@ export default class BowTutorial extends Phaser.Scene {
 
 	  preload() {
 
-this.load.image('glowCursor', 'assets/glowCursor.png');
+
+
+this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png');
+
+		  this.load.image('glowCursor', 'assets/glowCursor.png');
                        // Load bow sounds
     this.load.audio('creak1', 'assets/sounds/creak1.wav');
     this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav');

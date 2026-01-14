@@ -38,20 +38,32 @@ export default class BowMechanics {
       if (this.isAiming) this.shootArrow(pointer);
     });
   }
-
   startAiming(pointer) {
+    // 1. Equipment Check: 
+    // We check if the bowOverlay exists and is currently visible on the player.
+    const isBowEquipped = !!(this.player.bowOverlay && this.player.bowOverlay.visible);
+    
+    if (!isBowEquipped) {
+      // Logic exits here if the player hasn't toggled the bow on.
+      console.log("Archery blocked: Bow not equipped.");
+      return; 
+    }
+
+    // 2. Initialize Aiming State
     this.isAiming = true;
     this.aimStartX = this.player.sprite.x;
     this.aimStartY = this.player.sprite.y;
     
+    // Unlock audio context for mobile/browser compatibility
     this.scene.sound.unlock();
-    console.log(this.scene.sound.context.state);
     
-    // Don't play creak sound immediately - it will start in updateAimLine when draw is strong enough
-    
+    // 3. Create the Graphics object for the aim line
     this.aimLine = this.scene.add.graphics();
     this.aimLine.setDepth(100);
   }
+
+
+
 
   updateAimLine(pointer) {
     if (!this.aimLine) return;
@@ -62,34 +74,95 @@ export default class BowMechanics {
     let dx = pointer.worldX - px;
     let dy = pointer.worldY - py;
 
+    // 1. Aiming Rotation with the -45 degree offset for the top-down grip
+    if (this.player.bowOverlay) {
+      const angle = Math.atan2(dy, dx);
+      // Math.PI / 2 aligns the sprite vertically, 
+      // - Math.PI / 4 applies the 45-degree isometric tilt
+      this.player.bowOverlay.rotation = angle + (Math.PI / 2) - (Math.PI / 4);
+    }
+
     const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Clamp the aim line length to max draw distance
     if (dist > this.maxDrawDistance) {
       const s = this.maxDrawDistance / dist;
       dx *= s;
       dy *= s;
     }
 
-    // Start creak sound when draw reaches 50% strength
     const drawStrength = Math.min(dist / this.maxDrawDistance, 1);
+    
+    // 2. Play creak sound at high draw (only triggers once per pull)
     if (drawStrength >= 0.7 && !this.creakIsPlaying) {
-      console.log('Starting creak sound at', drawStrength, 'strength');
       this.creakSound = this.scene.sound.add('creak1');
       this.creakSound.play({ volume: 0.6 });
       this.creakIsPlaying = true;
-      console.log('Creak sound playing:', this.creakSound.isPlaying);
     }
 
+    // 3. Render the visual Aim Line
     this.aimLine.clear();
-    this.aimLine.lineStyle(4, 0xffff00, 0.8);
+    this.aimLine.lineStyle(4, 0xffff00, 0.8); // Yellow line
     this.aimLine.beginPath();
     this.aimLine.moveTo(px, py);
     this.aimLine.lineTo(px + dx, py + dy);
     this.aimLine.strokePath();
 
-    const alpha = Math.min(dist / this.maxDrawDistance, 1);
-    this.aimLine.fillStyle(0xff0000, alpha * 0.5);
-    this.aimLine.fillCircle(px + dx, py + dy, 10);
+    // 4. Visual feedback for landing prediction (The landing circle)
+    const landing = this.predictLandingPoint();
+    if (landing) {
+      this.aimLine.lineStyle(2, 0xff0000, 0.5); // Faded red circle at landing spot
+      this.aimLine.strokeCircle(landing.x, landing.y, 15);
+    }
   }
+
+
+
+
+
+  updateAimLine(pointer) {
+    if (!this.aimLine) return;
+
+    const px = this.player.sprite.x;
+    const py = this.player.sprite.y;
+
+    let dx = pointer.worldX - px;
+    let dy = pointer.worldY - py;
+
+    // 1. Aiming Rotation with the -45 degree offset for the top-down grip
+    if (this.player.bowOverlay) {
+      const angle = Math.atan2(dy, dx);
+      this.player.bowOverlay.rotation = angle + (Math.PI / 2) - (Math.PI / 4);
+    }
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Clamp the aim line length to max draw distance
+    if (dist > this.maxDrawDistance) {
+      const s = this.maxDrawDistance / dist;
+      dx *= s;
+      dy *= s;
+    }
+
+    const drawStrength = Math.min(dist / this.maxDrawDistance, 1);
+    
+    // 2. Play creak sound at high draw
+    if (drawStrength >= 0.7 && !this.creakIsPlaying) {
+      this.creakSound = this.scene.sound.add('creak1');
+      this.creakSound.play({ volume: 0.6 });
+      this.creakIsPlaying = true;
+    }
+
+    // 3. Render the visual Aim Line (Yellow only)
+    this.aimLine.clear();
+    this.aimLine.lineStyle(4, 0xffff00, 0.8); 
+    this.aimLine.beginPath();
+    this.aimLine.moveTo(px, py);
+    this.aimLine.lineTo(px + dx, py + dy);
+    this.aimLine.strokePath();
+  }
+
+
 
   predictLandingPoint() {
     if (!this.isAiming || !this.aimLine) return null;
@@ -204,20 +277,35 @@ export default class BowMechanics {
     });
   }
 
-  cancelAiming() {
+   cancelAiming() {
     this.isAiming = false;
-    
-    // Stop creak sound if aiming is cancelled
-    if (this.creakSound && this.creakSound.isPlaying) {
+
+    // 1. Reset Bow Visuals
+    if (this.player.bowOverlay) {
+      // Snap rotation back to 0 (or your neutral frame)
+      this.player.bowOverlay.rotation = 0;
+      
+      // Ensure it stays pinned to the player's current position
+      this.player.bowOverlay.setPosition(
+        this.player.sprite.x, 
+        this.player.sprite.y
+      );
+    }
+
+    // 2. Sound Cleanup
+    if (this.creakSound) {
       this.creakSound.stop();
     }
     this.creakSound = null;
+    this.creakIsPlaying = false;
     
+    // 3. UI Cleanup
     if (this.aimLine) {
       this.aimLine.destroy();
       this.aimLine = null;
     }
   }
+ 
 
   destroyArrow(arrow) {
     const i = this.arrows.indexOf(arrow);

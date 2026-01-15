@@ -2,8 +2,7 @@ import Phaser from 'phaser';
 
 /**
  * BowMechanics - Handles bow and arrow shooting mechanics
- * Touch player -> drag away -> release to shoot
- * Arrows follow parabolic arcs based on draw strength
+ * Now checks for arrows in inventory before firing
  */
 export default class BowMechanics {
   constructor(scene, player) {
@@ -12,8 +11,8 @@ export default class BowMechanics {
     this.isAiming = false;
     this.aimLine = null;
     this.arrows = [];
-    this.creakSound = null; // Track the creak sound
-    this.creakIsPlaying = false; // Track if creak is playing
+    this.creakSound = null;
+    this.creakIsPlaying = false;
 
     this.maxDrawDistance = 250;
     this.minDistance = 80;
@@ -38,33 +37,76 @@ export default class BowMechanics {
       if (this.isAiming) this.shootArrow(pointer);
     });
   }
+
+  /**
+   * Check if player has arrows in inventory
+   */
+  hasArrows() {
+    const inventory = this.player.inventory;
+    for (let i = 0; i < inventory.totalSlots; i++) {
+      const item = inventory.getItem(i);
+      if (item && item.id === 'arrows' && item.quantity > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Consume one arrow from inventory
+   */
+  consumeArrow() {
+    const inventory = this.player.inventory;
+    for (let i = 0; i < inventory.totalSlots; i++) {
+      const item = inventory.getItem(i);
+      if (item && item.id === 'arrows' && item.quantity > 0) {
+        item.quantity--;
+        
+        // Remove item if quantity reaches 0
+        if (item.quantity <= 0) {
+          inventory.removeItem(i);
+        }
+        
+        console.log(`Arrow consumed. Remaining: ${item.quantity || 0}`);
+        
+        // Update UI if menu is open
+        if (this.scene.worldMenu && this.scene.worldMenu.isOpen) {
+          this.scene.worldMenu.refreshGridDisplay();
+        }
+        
+        return true;
+      }
+    }
+    return false;
+  }
+
   startAiming(pointer) {
-    // 1. Equipment Check: 
-    // We check if the bowOverlay exists and is currently visible on the player.
+    // 1. Equipment Check: Bow must be equipped
     const isBowEquipped = !!(this.player.bowOverlay && this.player.bowOverlay.visible);
     
     if (!isBowEquipped) {
-      // Logic exits here if the player hasn't toggled the bow on.
       console.log("Archery blocked: Bow not equipped.");
       return; 
     }
 
-    // 2. Initialize Aiming State
+    // 2. Arrow Check: Must have arrows
+    if (!this.hasArrows()) {
+      console.log("Archery blocked: No arrows in inventory!");
+      // Optional: Play a "click" or "empty" sound here
+      return;
+    }
+
+    // 3. Initialize Aiming State
     this.isAiming = true;
     this.aimStartX = this.player.sprite.x;
     this.aimStartY = this.player.sprite.y;
     
-    // Unlock audio context for mobile/browser compatibility
     this.scene.sound.unlock();
     
-    // 3. Create the Graphics object for the aim line
     this.aimLine = this.scene.add.graphics();
     this.aimLine.setDepth(100);
   }
 
-
-
-
   updateAimLine(pointer) {
     if (!this.aimLine) return;
 
@@ -74,17 +116,14 @@ export default class BowMechanics {
     let dx = pointer.worldX - px;
     let dy = pointer.worldY - py;
 
-    // 1. Aiming Rotation with the -45 degree offset for the top-down grip
+    // Aiming Rotation with the -45 degree offset
     if (this.player.bowOverlay) {
       const angle = Math.atan2(dy, dx);
-      // Math.PI / 2 aligns the sprite vertically, 
-      // - Math.PI / 4 applies the 45-degree isometric tilt
       this.player.bowOverlay.rotation = angle + (Math.PI / 2) - (Math.PI / 4);
     }
 
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Clamp the aim line length to max draw distance
     if (dist > this.maxDrawDistance) {
       const s = this.maxDrawDistance / dist;
       dx *= s;
@@ -93,83 +132,27 @@ export default class BowMechanics {
 
     const drawStrength = Math.min(dist / this.maxDrawDistance, 1);
     
-    // 2. Play creak sound at high draw (only triggers once per pull)
+    // Play creak sound at high draw
     if (drawStrength >= 0.7 && !this.creakIsPlaying) {
       this.creakSound = this.scene.sound.add('creak1');
       this.creakSound.play({ volume: 0.6 });
       this.creakIsPlaying = true;
     }
 
-    // 3. Render the visual Aim Line
+    // Render the visual Aim Line
     this.aimLine.clear();
-    this.aimLine.lineStyle(4, 0xffff00, 0.8); // Yellow line
-    this.aimLine.beginPath();
-    this.aimLine.moveTo(px, py);
-    this.aimLine.lineTo(px + dx, py + dy);
-    this.aimLine.strokePath();
-
-    // 4. Visual feedback for landing prediction (The landing circle)
-    const landing = this.predictLandingPoint();
-    if (landing) {
-      this.aimLine.lineStyle(2, 0xff0000, 0.5); // Faded red circle at landing spot
-      this.aimLine.strokeCircle(landing.x, landing.y, 15);
-    }
-  }
-
-
-
-
-
-  updateAimLine(pointer) {
-    if (!this.aimLine) return;
-
-    const px = this.player.sprite.x;
-    const py = this.player.sprite.y;
-
-    let dx = pointer.worldX - px;
-    let dy = pointer.worldY - py;
-
-    // 1. Aiming Rotation with the -45 degree offset for the top-down grip
-    if (this.player.bowOverlay) {
-      const angle = Math.atan2(dy, dx);
-      this.player.bowOverlay.rotation = angle + (Math.PI / 2) - (Math.PI / 4);
-    }
-
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Clamp the aim line length to max draw distance
-    if (dist > this.maxDrawDistance) {
-      const s = this.maxDrawDistance / dist;
-      dx *= s;
-      dy *= s;
-    }
-
-    const drawStrength = Math.min(dist / this.maxDrawDistance, 1);
-    
-    // 2. Play creak sound at high draw
-    if (drawStrength >= 0.7 && !this.creakIsPlaying) {
-      this.creakSound = this.scene.sound.add('creak1');
-      this.creakSound.play({ volume: 0.6 });
-      this.creakIsPlaying = true;
-    }
-
-    // 3. Render the visual Aim Line (Yellow only)
-    this.aimLine.clear();
-    this.aimLine.lineStyle(4, 0xffff00, 0.8); 
+    this.aimLine.lineStyle(4, 0xffff00, 0.8);
     this.aimLine.beginPath();
     this.aimLine.moveTo(px, py);
     this.aimLine.lineTo(px + dx, py + dy);
     this.aimLine.strokePath();
   }
-
-
 
   predictLandingPoint() {
     if (!this.isAiming || !this.aimLine) return null;
 
     const px = this.player.sprite.x;
     const py = this.player.sprite.y;
-
     const pointer = this.scene.input.activePointer;
 
     let dx = px - pointer.worldX;
@@ -182,9 +165,7 @@ export default class BowMechanics {
     const angle = Math.atan2(dy, dx);
     const force = clamped / this.maxDrawDistance;
 
-    const travelDistance =
-      this.minDistance + force * (this.maxDistance - this.minDistance);
-
+    const travelDistance = this.minDistance + force * (this.maxDistance - this.minDistance);
     const groundX = px + Math.cos(angle) * travelDistance;
     const groundY = py + Math.sin(angle) * travelDistance;
 
@@ -204,16 +185,21 @@ export default class BowMechanics {
       return;
     }
 
+    // Consume arrow before shooting
+    if (!this.consumeArrow()) {
+      console.log("No arrows to shoot!");
+      this.cancelAiming();
+      return;
+    }
+
     const clamped = Math.min(dragDist, this.maxDrawDistance);
     const angle = Math.atan2(dy, dx);
     const force = clamped / this.maxDrawDistance;
 
-    const travelDistance =
-      this.minDistance + force * (this.maxDistance - this.minDistance);
+    const travelDistance = this.minDistance + force * (this.maxDistance - this.minDistance);
 
-    // Stop creak sound immediately
+    // Stop creak sound
     if (this.creakSound && this.creakIsPlaying) {
-      console.log('Stopping creak sound');
       this.creakSound.stop();
       this.creakSound.destroy();
       this.creakSound = null;
@@ -223,7 +209,6 @@ export default class BowMechanics {
     // Play random arrow shoot sound
     const shootSounds = ['arrowShoot1', 'arrowShoot2', 'arrowShoot3'];
     const randomShoot = Phaser.Math.RND.pick(shootSounds);
-    console.log('Playing arrow shoot sound:', randomShoot);
     this.scene.sound.play(randomShoot, { volume: 0.7 });
 
     this.createArrow(px, py, angle, force, travelDistance);
@@ -242,11 +227,9 @@ export default class BowMechanics {
     const flightRotation = angle;
     arrow.setData('flightRotation', flightRotation);
 
-    // Create shadow on ground
     const shadow = this.scene.add.ellipse(x, y, 20, 10, 0x000000, 0.4);
     shadow.setDepth(5);
 
-    // Create elegant vapor trail - stored positions for afterimages
     const trailGraphics = this.scene.add.graphics();
     trailGraphics.setDepth(45);
 
@@ -277,35 +260,25 @@ export default class BowMechanics {
     });
   }
 
-   cancelAiming() {
+  cancelAiming() {
     this.isAiming = false;
 
-    // 1. Reset Bow Visuals
     if (this.player.bowOverlay) {
-      // Snap rotation back to 0 (or your neutral frame)
       this.player.bowOverlay.rotation = 0;
-      
-      // Ensure it stays pinned to the player's current position
-      this.player.bowOverlay.setPosition(
-        this.player.sprite.x, 
-        this.player.sprite.y
-      );
+      this.player.bowOverlay.setPosition(this.player.sprite.x, this.player.sprite.y);
     }
 
-    // 2. Sound Cleanup
     if (this.creakSound) {
       this.creakSound.stop();
     }
     this.creakSound = null;
     this.creakIsPlaying = false;
     
-    // 3. UI Cleanup
     if (this.aimLine) {
       this.aimLine.destroy();
       this.aimLine = null;
     }
   }
- 
 
   destroyArrow(arrow) {
     const i = this.arrows.indexOf(arrow);
@@ -321,7 +294,6 @@ export default class BowMechanics {
   }
 
   createImpactEffect(x, y, force) {
-    // Multiple expanding rings
     const ringCount = force > 0.7 ? 3 : 2;
 
     for (let i = 0; i < ringCount; i++) {
@@ -340,7 +312,6 @@ export default class BowMechanics {
       });
     }
 
-    // Central flash
     const flash = this.scene.add.circle(x, y, 8, 0xFFFFFF, 0.9);
     flash.setDepth(100);
     this.scene.tweens.add({
@@ -380,7 +351,6 @@ export default class BowMechanics {
       arrow.x = groundX;
       arrow.y = groundY - arc;
 
-      // Arrow rotation based on movement
       const deltaX = arrow.x - prevX;
       const deltaY = arrow.y - prevY;
       if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
@@ -410,11 +380,9 @@ export default class BowMechanics {
         }
       }
 
-      // Subtle scale modulation
       const base = arrow.getData('baseScale');
       arrow.setScale(base + Math.sin(progress * Math.PI) * 0.02);
 
-      // Shadow follow
       const shadow = arrow.getData('shadow');
       if (shadow) {
         shadow.x = groundX;
@@ -423,19 +391,12 @@ export default class BowMechanics {
         shadow.setAlpha(0.5 - (arc / dynamicArcHeight) * 0.3);
       }
 
-      // === Parry logic ===
+      // Parry logic
       const scathach = this.scene.scathach;
       if (scathach && !arrow.getData('parried')) {
-        const arrowY = arrow.y;
-        const parryZoneHeight = 50;
-
-        // Get her sprite bounds
         const scathachBounds = scathach.getBounds();
-
-        // Check if arrow intersects her bounds
         const arrowX = arrow.x;
-
-        // Optional margin if you want the parry zone slightly bigger
+        const arrowY = arrow.y;
         const margin = 5;
 
         const isInParryZone =
@@ -444,16 +405,15 @@ export default class BowMechanics {
           arrowY > scathachBounds.top - margin &&
           arrowY < scathachBounds.bottom + margin;
 
-        // Only parry if arrow hasn't passed target yet
         const target = this.scene.target;
         const hasPassedTarget = target && arrow.y < target.y;
         if (isInParryZone && !hasPassedTarget) {
           this.scene.onScathachHit(arrow);
-          return; // Arrow is parried, skip further processing
+          return;
         }
       }
 
-      // === Landing / impact ===
+      // Landing / impact
       if (progress >= 1 && !arrow.getData('hasLanded')) {
         arrow.setData('hasLanded', true);
         arrow.setData('active', false);
@@ -491,17 +451,10 @@ export default class BowMechanics {
       if (!arrow.getData('hasLanded')) continue;
       if (arrow.getData('hitTarget')) continue;
 
-      const d = Phaser.Math.Distance.Between(
-        arrow.x,
-        arrow.y,
-        target.x,
-        target.y
-      );
+      const d = Phaser.Math.Distance.Between(arrow.x, arrow.y, target.x, target.y);
 
       if (d < radius) {
         arrow.setData('hitTarget', true);
-        
-        // Play pumpkin break sound on target hit
         this.scene.sound.play('pumpkin_break_01', { volume: 0.8 });
         
         return {

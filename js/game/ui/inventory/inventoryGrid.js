@@ -18,6 +18,7 @@ export default class InventoryGrid {
 
     this.squares = [];
     this.itemSprites = [];
+    this.quantityTexts = []; // NEW: Store quantity text objects
 
     const squareSize = size / cols;
     const startX = x - size / 2 + squareSize / 2;
@@ -46,12 +47,7 @@ export default class InventoryGrid {
         square.setDepth(1902);
         square.setScrollFactor(0);
         square.setVisible(false);
-
-        // Use default hit area - Phaser will automatically create it based on the bounds
         square.setInteractive();
-        
-        // Debug: log when hit area is created
-        console.log('Square', index, 'at', squareX, squareY, 'hit area:', square.input.hitArea);
 
         square.slotIndex = index;
         square.row = row;
@@ -74,6 +70,7 @@ export default class InventoryGrid {
 
         this.squares.push(square);
         this.itemSprites.push(null);
+        this.quantityTexts.push(null); // NEW: Initialize quantity text array
       }
     }
 
@@ -105,30 +102,34 @@ export default class InventoryGrid {
 
     const square = this.squares[index];
     
+    // Clean up existing item sprite
     if (this.itemSprites[index]) {
       this.itemSprites[index].destroy();
       this.itemSprites[index] = null;
     }
 
+    // Clean up existing quantity text
+    if (this.quantityTexts[index]) {
+      this.quantityTexts[index].destroy();
+      this.quantityTexts[index] = null;
+    }
+
     if (item) {
-      console.log('UpdateSlot', index, '- Item:', item.nameEn, 'Color:', item.color);
+      console.log('UpdateSlot', index, '- Item:', item.nameEn, 'Quantity:', item.quantity);
       
       const textureKey = 'item_' + item.id;
       
+      // Create item sprite
       if (this.scene.textures.exists(textureKey)) {
-        console.log('Using texture:', textureKey);
         const itemSprite = this.scene.add.sprite(square.x, square.y, textureKey);
         itemSprite.setDisplaySize(square.squareSize * 0.7, square.squareSize * 0.7);
         itemSprite.setDepth(1903);
         itemSprite.setScrollFactor(0);
         itemSprite.setVisible(square.visible);
-        // CRITICAL: Disable input completely
         itemSprite.disableInteractive();
         itemSprite.input = null;
-
         this.itemSprites[index] = itemSprite;
       } else {
-        console.log('Using colored rectangle for:', item.nameEn);
         const itemRect = this.scene.add.rectangle(
           square.x, 
           square.y, 
@@ -139,10 +140,34 @@ export default class InventoryGrid {
         itemRect.setDepth(1903);
         itemRect.setScrollFactor(0);
         itemRect.setVisible(square.visible);
-        // Make sure rectangles also don't capture input
         itemRect.input = null;
-
         this.itemSprites[index] = itemRect;
+      }
+
+      // NEW: Add quantity text for stackable items
+      if (item.stackable && item.quantity !== undefined) {
+        const fontSize = Math.max(12, Math.floor(square.squareSize * 0.25));
+        
+        const quantityText = this.scene.add.text(
+          square.x + square.squareSize * 0.3,
+          square.y + square.squareSize * 0.3,
+          item.quantity.toString(),
+          {
+            fontSize: `${fontSize}px`,
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            fontStyle: 'bold'
+          }
+        );
+        
+        quantityText.setOrigin(1, 1); // Bottom-right alignment
+        quantityText.setDepth(1904); // Above item sprite
+        quantityText.setScrollFactor(0);
+        quantityText.setVisible(square.visible);
+        
+        this.quantityTexts[index] = quantityText;
       }
     }
   }
@@ -153,6 +178,9 @@ export default class InventoryGrid {
       if (this.itemSprites[index]) {
         this.itemSprites[index].setVisible(true);
       }
+      if (this.quantityTexts[index]) {
+        this.quantityTexts[index].setVisible(true);
+      }
     });
   }
 
@@ -161,6 +189,9 @@ export default class InventoryGrid {
       square.setVisible(false);
       if (this.itemSprites[index]) {
         this.itemSprites[index].setVisible(false);
+      }
+      if (this.quantityTexts[index]) {
+        this.quantityTexts[index].setVisible(false);
       }
     });
   }
@@ -174,7 +205,13 @@ export default class InventoryGrid {
         sprite.destroy();
       }
     });
+    this.quantityTexts.forEach(text => {
+      if (text) {
+        text.destroy();
+      }
+    });
     this.squares = [];
     this.itemSprites = [];
+    this.quantityTexts = [];
   }
 }

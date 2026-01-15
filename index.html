@@ -12,6 +12,30 @@
 
 
   <style>
+
+
+     /* Hidden by default (mobile-first) */
+  #desktop-only {
+    display: none;
+  }
+
+  /* Desktop and larger */
+  @media (min-width: 1024px) {
+    #desktop-only {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+background: rgba(0, 0, 0, 0.8);
+color:green;
+  
+
+  }
+  }
+
     body {
       margin: 0;
       padding: 0;
@@ -203,6 +227,12 @@
     window.addEventListener('resize', resizeGame);
     window.addEventListener('orientationchange', resizeGame);
   </script>
+
+<div id="desktop-only">
+Mobile devices only --
+Ar aghaidh le fón póca
+</div>
+
 </body>
 </html>
 

@@ -20,7 +20,7 @@ export const ITEM_DEFS = {
     descGa: 'Caith éidigh na fíanna, \ngach píosa mar shárshaothar, \nscil an aimsir óg.\nAgus ar an clogaid, scríobhadh snaimanna ainmhithe \n comhartha neart comhartha cleasacht,\ncosaint i gcoinne gach mí-ádh.\nAgus é orm, tagann faoiseamh ar mo éadan\ncosaint é i gcoinne claimhte naimheadach\nThar mo ghuailainn, pauldróin móra.\nSeo an lúireach, a cheilteann mo chliabh le neart dochloíte.\nDún dom croí. \nJambeau! daingean ina gcuspóir.',
     stats: { defense: 3 },
     equipSlot: 'armor',
-    allowedSlots: [2], // Strictly Armor slot
+    allowedSlots: [2],
     actions: ['equip', 'drop', 'throw'],
     color: 0x8B4513
   },
@@ -32,10 +32,10 @@ export const ITEM_DEFS = {
     nameEn: 'Bow',
     nameGa: 'Bogha',
     descEn: 'Behold the wooden bow! \nof yew-tree fair,\nCrafted by hands skilled in war\'s dire art,\nA weapon of old,\nof doom and destiny.',
-    descGa: 'Féach an bogha adhmaid! \nd’iúr ghlan,\nceaptha ag lámh i ndán an chogaidh,\narm an tsean-aimsir,\nde uafáis agus fáil.',
+    descGa: 'Féach an bogha adhmaid! \nd\'iúr ghlan,\nceaptha ag lámh i ndán an chogaidh,\narm an tsean-aimsir,\nde uafáis agus fáil.',
     stats: { attack: 4, range: 5 },
     equipSlot: 'rightHand',
-    allowedSlots: [0], // Primary hand (will lock slot 1 in logic)
+    allowedSlots: [0],
     actions: ['equip', 'drop', 'throw'],
     spriteKey: 'item_simple_bow',
     color: 0x8B4513
@@ -50,11 +50,12 @@ export const ITEM_DEFS = {
     descEn: 'Behold the arrow of the Gael!\na harbinger of woe,\nWith a tip that gleams like the morning star,\nA shaft crafted by the hand of the skilled,\nIts fletching the feathers of the raven,\nDark as the storm-clouds gathering o\'er the plains,\nA draught of sorrow for the clans.',
     descGa: 'Féach ar tsaighead na nGael!\ntuar bás, brón.\na ceann mar réalt an maidin,\nó láimh cheardaí oilte a ghas,\na cleite de chleiteacha an fhithich,\ndorchadas scamaill stoirm na machairí intí,\ndeoch bhróin do na treabh í.',
     stackable: true,
+    maxStack: 30,
     quantity: 30,
-    allowedSlots: [], // Stays in inventory/backpack
+    allowedSlots: [],
     actions: ['drop', 'throw'],
     spriteKey: 'item_arrows',
-    color: 0xFF0000
+    color: 0xA0522D
   },
 
   healing_potion: {
@@ -67,8 +68,9 @@ export const ITEM_DEFS = {
     descGa: 'Chaith síar an deoch laigheas seo!\nLig di sreabhadh ionat mar shruth na habhann trí ghleann na mbeo, \nag iompar neart agus síochána.',
     stats: { healAmount: 20 },
     stackable: true,
+    maxStack: 10,
     quantity: 1,
-    allowedSlots: [], // Never equipped to a person
+    allowedSlots: [],
     actions: ['drink', 'drop', 'throw'],
     spriteKey: 'item_healing_potion',
     color: 0xFF0000
@@ -85,10 +87,8 @@ export function createItem(itemId, quantity = null) {
     return null;
   }
 
-  // Create a deep copy of the template
   const itemData = JSON.parse(JSON.stringify(def));
   
-  // Override quantity if specified, otherwise use default
   if (quantity !== null) {
     itemData.quantity = quantity;
   }
@@ -110,4 +110,3 @@ export function createStartingInventory() {
     createItem('arrows', 30),     // Slot 6
   ];
 }
-

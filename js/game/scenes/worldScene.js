@@ -14,8 +14,8 @@ export default class WorldScene extends Phaser.Scene {
     console.log('WorldScene - game config:', this.game.config);
     console.log('WorldScene - selectedChampion:', this.game.config.selectedChampion);
 
-//     this.scene.start("BogMeadow");
-   this.scene.start("BowTutorial");
+     this.scene.start("BogMeadow");
+//   this.scene.start("BowTutorial");
 
     window.hideLoader();
   }

@@ -1,3 +1,6 @@
+
+
+
 import Phaser from 'phaser';
 import { GameSettings } from '../settings/gameSettings.js';
 
@@ -13,21 +16,19 @@ export default class TextPanel {
   this.englishOptionTexts = [];
   this.readingCursor = null;
   this.cursorParticles = [];
+  this.currentPanelType = null; // Track current panel type
 
   // Add this:
   this.cursorAnchor = { x: 0, y: 0 };
   this.cursorTime = 0;
 } 
 
-
-
-
   show(config) {
     const { irish, english, type = 'dialogue', speaker = null, onDismiss = null, options = null, onChoice = null } = config;
 
     // --- RECYCLE LOGIC ---
-    // If dialogue is already showing, just swap the text content
-    if (this.isVisible && this.container && type === 'dialogue') {
+    // Only recycle if SAME type of dialogue is showing
+    if (this.isVisible && this.container && type === 'dialogue' && this.currentPanelType === 'dialogue') {
       this.onDismiss = onDismiss;
       this.irishFullText = irish;
       this.englishFullText = english;
@@ -69,6 +70,10 @@ export default class TextPanel {
     else if (type === 'examine') this.createExaminePanel(irish, english, sw, sh);
     else if (type === 'notification') this.createNotificationPanel(irish, english, sw, sh);
     else if (type === 'chat_options') this.createChatOptionsPanel(irish, english, options, onChoice, speaker, sw, sh);
+    else if (type === 'archery_prompt') this.createArcheryPromptPanel(irish, english, sw, sh);
+
+    // Track current panel type
+    this.currentPanelType = type;
 
     // Disable Joystick
     if (this.scene.joystick) {
@@ -78,11 +83,6 @@ export default class TextPanel {
 
     if (type === 'dialogue' || type === 'examine') this.startTypewriter();
   }
-
-
-
-
-
 
   createChatOptionsPanel(irish, english, options, onChoice, speaker, screenWidth, screenHeight) {
     this.englishOptionTexts = [];
@@ -358,6 +358,7 @@ lineSpacing: 4
       this.dismissWithCooldown();
     });
   }
+  
   dismissWithCooldown() {
     if (this.typewriterActive) {
       this.skipTypewriter();
@@ -380,7 +381,6 @@ lineSpacing: 4
       });
     }
   }
-
 
   createNotificationPanel(irish, english, screenWidth, screenHeight) {
     const panelPadding = 10;
@@ -584,7 +584,6 @@ update(time, delta) {
   this.readingCursor.setScale(0.4 + glowPulse * 0.15);
 }
 
-
 updateReadingCursor() {
     if (!this.irishTextObject) return;
 
@@ -680,9 +679,6 @@ updateReadingCursor() {
     }
 }
 
-
- 
-
   skipTypewriter() {
     this.typewriterActive = false;
     if (this.irishTextObject) {
@@ -719,7 +715,6 @@ updateReadingCursor() {
     });
   }
 
-
   updateEnglishOpacity() {
     if (this.englishTextObject && !this.typewriterActive) {
       this.englishTextObject.setAlpha(GameSettings.englishOpacity);
@@ -731,8 +726,7 @@ updateReadingCursor() {
       }
     });
   }
-
-  hide() {
+hide() {
     if (!this.isVisible || !this.container) return;
 
     this.typewriterActive = false;

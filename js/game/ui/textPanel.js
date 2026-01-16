@@ -1,6 +1,3 @@
-
-
-
 import Phaser from 'phaser';
 import { GameSettings } from '../settings/gameSettings.js';
 
@@ -555,6 +552,9 @@ lineSpacing: 4
       this.showEnglishText();
     }
   }
+
+
+
 
 update(time, delta) {
   if (!this.readingCursor) return;

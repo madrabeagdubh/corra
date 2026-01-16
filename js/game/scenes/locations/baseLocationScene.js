@@ -3,6 +3,8 @@ import Player from '../../player/player.js';
 import Joystick from '../../input/joystick.js';
 import TextPanel from '../../ui/textPanel.js';
 
+import TerrainManager from '../../systems/terrainManager.js'
+import HPDisplay from  '../../ui/HPDisplay.js'
 /**
  * Base class for all location scenes
  * Handles common functionality like player movement, collision, NPCs, objects
@@ -54,62 +56,76 @@ this.load.image('glowCursor', 'assets/glowCursor.png');                         
 
 
 
+
+// 2. UPDATE initializeLocation() method
 initializeLocation() {
   // Try multiple ways to get the champion
-  let champion = this.registry.get('selectedChampion') || 
-                 window.selectedChampion || 
+  let champion = this.registry.get('selectedChampion') ||
+                 window.selectedChampion ||
                  this.game.config.selectedChampion;
-  
+
   console.log('Champion retrieved:', champion);
-  
+
   if (!champion) {
     console.error('Champion is undefined! Check if startGame was called properly');
     return;
   }
 
-
- 
   console.log('Champion loaded:', champion.nameGa);
-  
+
   // Create player at spawn point
   const spawn = this.mapData.spawns.player;
   const playerX = spawn.x * this.tileSize + this.tileSize / 2;
   const playerY = spawn.y * this.tileSize + this.tileSize / 2;
 
   this.player = new Player(this, playerX, playerY, champion);
-  
 
-  
+  // === NEW: Create HP Display ===
+  this.hpDisplay = new HPDisplay(this, { x: 20, y: 50 });
+  this.hpDisplay.updateDisplay(this.player.currentHP, this.player.maxHP);
 
-    
-    // Set up camera
-    this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
-    
-    // Create joystick
-    this.joystick = new Joystick(this, {
-      x: 100,
-      y: this.scale.height - 100,
-      radius: 60
-    });
-    
-    // Initialize text panel system
-    this.textPanel = new TextPanel(this);
-    
-    // Load objects and NPCs from map data
-    this.createObjects();
-    this.createNPCs();
-    
-    console.log(this.scene.key + ': initialized');
-  }
+  // === NEW: Create Terrain Manager ===
+  this.terrainManager = new TerrainManager(this, this.player);
+
+  // Set up camera
+  this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+  this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
+
+  // Create joystick
+  this.joystick = new Joystick(this, {
+    x: 100,
+    y: this.scale.height - 100,
+    radius: 60
+  });
+
+  // Initialize text panel system
+  this.textPanel = new TextPanel(this);
+
+  // Load objects and NPCs from map data
+  this.createObjects();
+  this.createNPCs();
+
+  console.log(this.scene.key + ': initialized');
+}
 
   /**
    * Standard update loop - handles player movement and collision
    */
 
+
+
 update() {
   if (this.player && this.joystick) {
-    // ALWAYS check collision before any movement (remove the !this.player.isMoving condition)
+    // NEW: Don't process movement if text panel is visible
+    if (this.textPanel && this.textPanel.isVisible) {
+      // Still update terrain manager even when text is showing
+      if (this.terrainManager) {
+        this.terrainManager.update();
+      }
+      return; // Block all movement during dialogue/notifications
+    }
+
+    // ALWAYS check collision before any movement
     if (this.joystick.force > 10) {
       // Player wants to move - check if target is valid
       const angle = this.joystick.angle;
@@ -143,6 +159,11 @@ update() {
 
     this.player.update(this.joystick);
 
+    // Update terrain manager
+    if (this.terrainManager) {
+      this.terrainManager.update();
+    }
+
     // Check for nearby interactable objects
     this.checkProximityInteractions();
 
@@ -150,10 +171,10 @@ update() {
     this.checkExits();
   }
 
-
-this.checkItemPickups()
-
+  this.checkItemPickups();
 }
+
+
 
 
 
@@ -237,6 +258,7 @@ checkItemPickups() {
    */
 
 
+// In BaseLocationScene.js - UPDATE isColliding()
 isColliding(x, y) {
   const tileX = Math.floor(x / this.tileSize);
   const tileY = Math.floor(y / this.tileSize);
@@ -247,8 +269,18 @@ isColliding(x, y) {
     return true;
   }
 
-  // Check if tile is unwalkable (using map's unwalkableTiles array)
   const tileType = this.mapData.tiles[tileY][tileX];
+  
+  // Deep bog tiles are walkable (terrain manager handles effects)
+  const deepBogTiles = [83, 84, 99, 100, 101, 102, 115, 116, 145, 146, 147, 148, 149, 150,
+                        177, 182, 214, 215, 248, 249, 281, 722, 723, 724, 752, 753, 754,
+                        784, 785, 817];
+  
+  if (deepBogTiles.includes(tileType)) {
+    return false; // Allow walking, terrain manager handles effects
+  }
+
+  // Check regular unwalkable tiles
   return this.mapData.unwalkableTiles && this.mapData.unwalkableTiles.includes(tileType);
 }
 

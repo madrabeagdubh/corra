@@ -1,4 +1,3 @@
-// js/game/player/player.js
 import Inventory from '../ui/inventory/inventory.js';
 import { createItem } from '../ui/inventory/itemDefinitions.js';
 
@@ -65,6 +64,10 @@ export default class Player {
     const weapon = this.inventory.getItem(0); // Right Hand slot
     this.setEquipmentVisible('weapon', !!(weapon && weapon.id === 'simple_bow'));
 
+    // UPDATE ARMOR VISUAL
+    const armor = this.inventory.getItem(2); // Armor slot
+    this.setArmorVisible(!!(armor && armor.type === 'armor'));
+
     console.log('Player stats updated:', this.stats);
   }
 
@@ -83,17 +86,28 @@ export default class Player {
         ? this.champion.spriteKey
         : `${this.champion.spriteKey}.png`;
 
-      if (!this.scene.textures.exists('championAtlas_texture')) {
-        this.scene.textures.addAtlas('championAtlas_texture',
-          this.scene.textures.get('championSheet').getSourceImage(),
+      // Create BOTH texture atlases
+      if (!this.scene.textures.exists('championAtlas_armored')) {
+        this.scene.textures.addAtlas('championAtlas_armored',
+          this.scene.textures.get('championSheet_armored').getSourceImage(),
           atlas);
       }
 
-      this.sprite = this.scene.add.image(x, y, 'championAtlas_texture', frameName);
+      if (!this.scene.textures.exists('championAtlas_unarmored')) {
+        this.scene.textures.addAtlas('championAtlas_unarmored',
+          this.scene.textures.get('championSheet_unarmored').getSourceImage(),
+          atlas);
+      }
+
+      // Start with armored texture (since they begin with armor equipped)
+      this.sprite = this.scene.add.image(x, y, 'championAtlas_armored', frameName);
       this.sprite.setDisplaySize(this.tileSize * 2, this.tileSize * 2);
       this.sprite.setDepth(100);
 
-      // --- ADDED: Bow Overlay ---
+      // Store the frame name for texture swapping
+      this.currentFrameName = frameName;
+
+      // --- Bow Overlay ---
       this.bowOverlay = this.scene.add.image(x, y, 'item_simple_bow')
         .setOrigin(0.5)
         .setDisplaySize(this.tileSize * 1.2, this.tileSize * 1.2)
@@ -108,10 +122,24 @@ export default class Player {
     }
   }
 
-  // --- ADDED: Toggle visibility ---
+  /**
+   * Set armor visibility - swaps between armored/unarmored textures
+   */
+  setArmorVisible(isVisible) {
+    if (!this.sprite || !this.currentFrameName) return;
+
+    const textureKey = isVisible ? 'championAtlas_armored' : 'championAtlas_unarmored';
+    
+    console.log(`Swapping to ${isVisible ? 'armored' : 'unarmored'} texture`);
+    
+    // Swap the texture while keeping the same frame
+    this.sprite.setTexture(textureKey, this.currentFrameName);
+  }
+
+  // --- Toggle visibility for equipment overlays ---
   setEquipmentVisible(slot, isVisible) {
     if (slot === 'weapon' && this.bowOverlay) {
-        this.bowOverlay.setVisible(isVisible);
+      this.bowOverlay.setVisible(isVisible);
     }
   }
 
@@ -140,12 +168,12 @@ export default class Player {
       this.startNewStep(joystick);
     }
 
-    // --- ADDED: Sync Bow Position ---
+    // --- Sync Bow Position ---
     if (this.bowOverlay && this.bowOverlay.visible) {
-        this.bowOverlay.setPosition(this.sprite.x, this.sprite.y);
-        // Basic flip: if moving left, flip the bow
-        if (this.moveDirection.x < 0) this.bowOverlay.setFlipX(true);
-        if (this.moveDirection.x > 0) this.bowOverlay.setFlipX(false);
+      this.bowOverlay.setPosition(this.sprite.x, this.sprite.y);
+      // Basic flip: if moving left, flip the bow
+      if (this.moveDirection.x < 0) this.bowOverlay.setFlipX(true);
+      if (this.moveDirection.x > 0) this.bowOverlay.setFlipX(false);
     }
   }
 
@@ -185,5 +213,4 @@ export default class Player {
     this.isMoving = false;
     this.moveProgress = 0;
   }
-}
-
+} 

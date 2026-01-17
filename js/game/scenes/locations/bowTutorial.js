@@ -32,7 +32,8 @@ this.load.image('skyeClouds', 'assets/skye0.png');
 
     this.load.image('cape', 'assets/cape.png');
     // Load champion spritesheet and atlas
-    this.load.image('championSheet', 'assets/champions/champions-with-kit.png');
+    this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png');
+    this.load.image('championSheet_armored', 'assets/champions/champions-with-kit.png');
     this.load.image('arrowTexture', 'assets/arrow1.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
 

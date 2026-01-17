@@ -1,20 +1,21 @@
-
-
-
-   font-face {
+ @font-face {  
+     font-family: 'CourierPrime';  
+     src: url('../public/assets/fonts/courierPrime.ttf') format('truetype')
+     }   
+@font-face {
      font-family: 'Urchlo'; 
-     src: url('assets/fonts/urchlo.ttf') format('truetype');
+     src: url('../public/assets/fonts/urchlo.ttf') format('truetype');
    }
   
 
-   font-face {
+   @font-face {
      font-family: 'Aonchlo';
-     src: url('assets/fonts/aonchlo.ttf') format('truetype');
+     src: url('../public/assets/fonts/aonchlo.ttf') format('truetype');
    }
   
-   font-face {
+   @font-face {
      font-family: 'IrishPenny';
-     src: url('assets/fonts/IrishPenny.ttf') format('truetype');
+     src: url('../public/assets/fonts/IrishPenny.ttf') format('truetype');
    }
   
 

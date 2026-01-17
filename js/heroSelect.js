@@ -142,7 +142,7 @@ function createStatPopup(statName, englishOpacity) {
     font-size: 1.1rem;
     color: rgba(0, 255, 0, ${liveOpacity});
     line-height: 1.5;
-    font-family: monospace;
+    font-family: CourierPrime !important;
     text-align: center;
     opacity: 0; 
     transition: opacity 0.5s ease;
@@ -353,7 +353,7 @@ function initHeroSelect() {
 }
 
 .champion-name-en {
-    font-family: monospace; 
+    font-family: Dumble; 
     font-size: 1.4rem; 
     margin-bottom: 20px;
 }

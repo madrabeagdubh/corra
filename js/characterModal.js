@@ -100,7 +100,7 @@ function createStatPopup(statName, englishOpacity) {
         font-size: 1rem;
         color: rgba(0, 255, 0, ${englishOpacity});
         line-height: 1.5;
-        font-family: monospace;
+        font-family: CourierPrime;
         text-align: center;
         opacity: 0;
         transition: opacity 0.8s ease;
@@ -265,7 +265,7 @@ ensureFontsLoaded(() => {
             height: 90% !important;
             overflow-y: auto !important;
             position: relative !important;
-            font-family: monospace !important;
+            font-family: Aonchlo !important;
             pointer-events: auto !important;
             display: flex !important;
             flex-direction: column !important;
@@ -320,8 +320,8 @@ ensureFontsLoaded(() => {
 
     content.innerHTML = `
         <div style="flex: 0 0 auto;">
-            <p id="bioGaText" style="color: white; font-family:Urchlo !important; font-size: 20px; line-height: 1.6; min-height: 3em; margin-top: 0;"></p>
-            <p id="bioEnText" class="modal-bio-en" style="color: #00ff00; font-size: 20px; line-height: 1.6; opacity: 0; transition: opacity 0.8s ease;"></p>
+            <p id="bioGaText" style="color: white; font-family:Aonchlo !important; font-size: 20px; line-height: 1.6; min-height: 3em; margin-top: 0;"></p>
+            <p id="bioEnText" class="modal-bio-en" style="color: #00ff00; font-size: 20px; line-height: 1.6; opacity: 0; font-family: Anaphora !important; transition: opacity 0.8s ease;"></p>
         </div>
         <div style="flex: 1 1 auto;"></div>
         <div style="flex: 0 0 auto;">

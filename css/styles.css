@@ -1,10 +1,12 @@
 
-font-face {
+@font-face {
   font-family: 'Urchlo';
-
-
     src: url('../public/assets/fonts/urchlo.ttf');
 }
+
+@font-face {   font-family: 'CourierPrime'; 
+  src: url('../public/assets/fonts/courierPrime.ttf') format('truetype')
+        }
 
 @font-face {
     font-family: 'Aonchlo';

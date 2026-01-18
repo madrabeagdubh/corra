@@ -2,8 +2,12 @@ import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 
+import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
+import { keshJig } from './game/systems/music/keshJig.js';
 // Prevent double initialization
 let initialized = false;
+let musicPlayer = null;
+let musicStarted = false;
 
 // Stat descriptions
 const statDescriptions = {
@@ -258,10 +262,22 @@ function initHeroSelect() {
     if (initialized) return;
 
     const container = document.getElementById('heroSelect');
+
+if (!container) return;
+container.addEventListener('pointerdown', () => {
+  if (musicStarted) return;
+
+  musicStarted = true;
+  musicPlayer.play(keshJig);
+
+  console.log('[music] hero select tune started');
+}, { once: true });
+
     if (!container) return;
 
     initialized = true;
-
+// --- MUSIC INIT (idle background tune) ---
+musicPlayer = new AbcChipPlayer();
     // --- 1. STATE & ASSETS ---
     let englishOpacity = 0.15;
     let currentChampionIndex = 0;
@@ -636,18 +652,39 @@ function initSwipe(container, len) {
     
     // Get reference to validChampions
     const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-    
-    container.ontouchstart = e => {
-        isDragging = true; 
-        startX = e.touches[0].pageX; 
-        scrollL = container.scrollLeft;
-        lastX = startX; 
-        lastT = performance.now();
-        if (animID) cancelAnimationFrame(animID);
-        container.style.scrollSnapType = 'none'; 
-        container.style.scrollBehavior = 'auto';
-    };
-    
+   
+
+
+container.ontouchstart = async e => {
+    if (!musicStarted && musicPlayer) {
+        musicStarted = true;
+
+        // Resume AudioContext
+        if (musicPlayer.synth.audioCtx?.state !== 'running') {
+            await musicPlayer.synth.audioCtx.resume();
+            console.log('[chipSynth] ctx resumed');
+        }
+
+        console.log("[music] hero select tune started (ontouch)");
+
+        // Tiny delay to let the context settle
+        setTimeout(() => {
+            musicPlayer.play(keshJig);
+        }, 50); // 50ms usually works on mobile/Safari
+    }
+
+    // Swipe logic
+    isDragging = true;
+    startX = e.touches[0].pageX;
+    scrollL = container.scrollLeft;
+    lastX = startX;
+    lastT = performance.now();
+    if (animID) cancelAnimationFrame(animID);
+    container.style.scrollSnapType = 'none';
+    container.style.scrollBehavior = 'auto';
+};
+
+   
     container.ontouchmove = e => {
         if (!isDragging) return;
         const x = e.touches[0].pageX;

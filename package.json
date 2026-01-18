@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "http-server -p 8080"
-,    "build": "vite build"
+    "start": "http-server -p 8080",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +16,7 @@
     "vite": "^7.2.2"
   },
   "dependencies": {
+    "abcjs": "^6.6.0",
     "phaser": "^3.90.0"
   }
 }

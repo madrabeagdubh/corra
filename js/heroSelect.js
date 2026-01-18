@@ -4,6 +4,7 @@ import '../css/heroSelect.css'
 
 import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
 import { keshJig } from './game/systems/music/keshJig.js';
+
 // Prevent double initialization
 let initialized = false;
 let musicPlayer = null;
@@ -74,7 +75,6 @@ function createStatsDisplay(champion, currentOpacity) {
 
             item.onclick = (e) => {
                 e.stopPropagation();
-                // Pass currentOpacity here since it's defined in initHeroSelect
                 createStatPopup(statName, currentOpacity);
             };
 
@@ -262,28 +262,57 @@ function initHeroSelect() {
     if (initialized) return;
 
     const container = document.getElementById('heroSelect');
-
-if (!container) return;
-container.addEventListener('pointerdown', () => {
-  if (musicStarted) return;
-
-  musicStarted = true;
-  musicPlayer.play(keshJig);
-
-  console.log('[music] hero select tune started');
-}, { once: true });
-
     if (!container) return;
 
     initialized = true;
-// --- MUSIC INIT (idle background tune) ---
-musicPlayer = new AbcChipPlayer();
-    // --- 1. STATE & ASSETS ---
+
+    // --- MUSIC INIT (idle background tune) ---
+    musicPlayer = new AbcChipPlayer();
+const unlockAudio = () => {
+    if (musicStarted || !musicPlayer) return;
+
+    console.log('[music] unlocking audio (sync)');
+    musicStarted = true;
+
+    const ctx = musicPlayer.synth.ctx;
+    if (ctx && ctx.state !== 'running') {
+        ctx.resume(); // 🚨 NO await
+    }
+};
+container.addEventListener(
+    'touchstart',
+    unlockAudio,
+    { passive: true, once: true }
+);
+ 
+    // Global music starter - catches ANY interaction
+    const startMusic = async () => {
+        if (musicStarted) return;
+        
+        console.log('[music] Attempting to start...');
+        musicStarted = true;
+        
+        try {
+            if (musicPlayer.synth.ctx?.state !== 'running') {
+                await musicPlayer.synth.ctx.resume();
+                console.log('[chipSynth] ctx resumed');
+            }
+            
+            await musicPlayer.play(keshJig);
+            console.log('[music] ✓ Hero select tune started!');
+        } catch (err) {
+            console.error('[music] Failed to start:', err);
+            musicStarted = false; // Allow retry
+        }
+    };
+
+
+   // --- 1. STATE & ASSETS ---
     let englishOpacity = 0.15;
     let currentChampionIndex = 0;
     let atlasData = null;
     let sheetLoaded = false;
-//let globalStatsBar = null
+
     const sheet = new Image();
     sheet.src = 'assets/champions/champions-with-kit.png';
 
@@ -312,11 +341,6 @@ musicPlayer = new AbcChipPlayer();
     animation: statPulse 0.4s ease-out;
 }
 
-
-
-
-
-
         .hero-select-container {
             display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden;
             background: #000; position: relative;
@@ -328,12 +352,9 @@ musicPlayer = new AbcChipPlayer();
     scroll-snap-type: x mandatory;
     scrollbar-width: none; 
     -ms-overflow-style: none;
-    overflow-y: visible !important;  /* Add this */
+    overflow-y: visible !important;
 } 
         .champion-scroll::-webkit-scrollbar { display: none; }
-        
-        
-
 
 .champion-card {
     min-width: 100vw;
@@ -341,28 +362,24 @@ musicPlayer = new AbcChipPlayer();
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Changed back to center to pull graphic/names to middle */
     justify-content: center !important; 
     scroll-snap-align: start;
     box-sizing: border-box;
     text-align: center;
-    /* Padding-bottom ensures the names don't get hidden behind the stats bar */
     padding-bottom: 180px; 
 }
 
 .champion-canvas {
-    /* Scale this up slightly if the character looks too small in the center */
     max-width: 85%; 
     max-height: 55vh; 
     object-fit: contain; 
     margin-bottom: 20px;
-    /* Optional: adds a slight drop shadow to make the hero pop */
     filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
 }
 
 .champion-name-ga {
     font-family: Aonchlo, serif; 
-    font-size: 3rem; /* Slightly larger for impact */
+    font-size: 3rem;
     color: #d4af37; 
     margin: 10px 0 5px 0;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
@@ -383,15 +400,7 @@ musicPlayer = new AbcChipPlayer();
             box-sizing: border-box;
         }
 
-
         .champion-bottom-panel { padding: 20px; z-index: 10; }
- 
-
-
-
-
-
-
 
 .champion-stats {
         display: block !important;
@@ -421,21 +430,6 @@ musicPlayer = new AbcChipPlayer();
         display: block !important;
         background: orange !important;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
    `;
     document.head.appendChild(layoutStyle);
 
@@ -455,31 +449,28 @@ musicPlayer = new AbcChipPlayer();
     const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
     sliderStyle.textContent = `
-       
-
-
         .champion-slider {
             -webkit-appearance: none !important;
             appearance: none !important;
-            width: 90% !important; /* Fixed percentage for consistent margins */
+            width: 90% !important;
             height: 10px !important;
             background: #444 !important;
             border-radius: 5px !important;
             outline: none !important;
-            margin: 0 !important; /* Let the parent flexbox handle centering */
+            margin: 0 !important;
             padding: 0 !important;
         }
 
 .champion-slider::-webkit-slider-thumb {
             -webkit-appearance: none !important;
             appearance: none !important;
-            width: 44px !important;  /* Increased from 30px for better ergonomics */
-            height: 44px !important; /* Increased from 30px */
+            width: 44px !important;
+            height: 44px !important;
             border-radius: 50% !important;
             background: #ffd700 !important;
             cursor: pointer !important;
-            border: 8px solid rgba(255, 215, 0, 0.3) !important; /* Semi-transparent outer ring */
-            background-clip: padding-box !important; /* Keeps the color inside the border */
+            border: 8px solid rgba(255, 215, 0, 0.3) !important;
+            background-clip: padding-box !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -494,12 +485,10 @@ musicPlayer = new AbcChipPlayer();
         englishOpacity = Number(e.target.value);
        
         document.querySelectorAll('.champion-name-en').forEach(el => {
-		            el.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
-		        });
+            el.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+        });
 
-
-
-	    if (chooseButton) {
+        if (chooseButton) {
             if (englishOpacity > 0.5) {
                 chooseButton.textContent = 'Continue';
                 chooseButton.style.fontFamily = '"Courier New", Courier, monospace';
@@ -543,9 +532,6 @@ musicPlayer = new AbcChipPlayer();
         if (atlasData && sheetLoaded && champions.length > 0) renderChampions();
     }
 
-  
-
-
 function renderChampions() {
     const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
     // Triple the array for the infinite scroll effect
@@ -558,7 +544,6 @@ function renderChampions() {
 
         const card = document.createElement('div');
         card.className = 'champion-card';
-        // Simplified click: just open the modal
         card.onclick = () => showCharacterModal(champ);
 
         const canvas = document.createElement('canvas');
@@ -582,8 +567,6 @@ function renderChampions() {
         card.appendChild(nameGa);
         card.appendChild(nameEn);
         
-        // --- REMOVED: card.appendChild(createStatsDisplay(champ)) ---
-        
         scrollContainer.appendChild(card);
     });
 
@@ -599,7 +582,6 @@ function renderChampions() {
     // Initialize the SINGLE global bar for the first time
     updateGlobalStats(validChampions[randomIndex]);
 }
-
 
     // --- 5. ANIMATION SEQUENCES ---
     function runOnboarding() {
@@ -641,53 +623,65 @@ function renderChampions() {
         }, delay + 200);
     }
 
-
-
-
-
-
 // --- 6. INTERACTION & FINALIZE ---
 function initSwipe(container, len) {
-    let isDragging = false, startX, scrollL, velocity = 0, lastX, lastT, animID;
-    
-    // Get reference to validChampions
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
    
 
+const tryStartMusic = async () => {
+    if (musicStarted || !musicPlayer) return;
 
-container.ontouchstart = async e => {
-    if (!musicStarted && musicPlayer) {
-        musicStarted = true;
+    console.log('[music] Starting from swipe (android-safe)');
+    musicStarted = true;
 
-        // Resume AudioContext
-        if (musicPlayer.synth.audioCtx?.state !== 'running') {
-            await musicPlayer.synth.audioCtx.resume();
+    try {
+        if (musicPlayer.synth.ctx?.state !== 'running') {
+            await musicPlayer.synth.ctx.resume();
             console.log('[chipSynth] ctx resumed');
         }
 
-        console.log("[music] hero select tune started (ontouch)");
-
-        // Tiny delay to let the context settle
-        setTimeout(() => {
-            musicPlayer.play(keshJig);
-        }, 50); // 50ms usually works on mobile/Safari
+        await musicPlayer.play(keshJig);
+        console.log('[music] ✓ Started from swipe!');
+    } catch (err) {
+        console.error('[music] Failed:', err);
+        musicStarted = false;
     }
-
-    // Swipe logic
-    isDragging = true;
-    startX = e.touches[0].pageX;
-    scrollL = container.scrollLeft;
-    lastX = startX;
-    lastT = performance.now();
-    if (animID) cancelAnimationFrame(animID);
-    container.style.scrollSnapType = 'none';
-    container.style.scrollBehavior = 'auto';
 };
 
+
+ let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
+    let hasMoved = false;
+    
+    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+   
+    container.ontouchstart = e => {
+        isDragging = true;
+        hasMoved = false;
+        startX = e.touches[0].pageX;
+        startY = e.touches[0].pageY;
+        scrollL = container.scrollLeft;
+        lastX = startX;
+        lastT = performance.now();
+        if (animID) cancelAnimationFrame(animID);
+        container.style.scrollSnapType = 'none';
+        container.style.scrollBehavior = 'auto';
+    };
    
     container.ontouchmove = e => {
         if (!isDragging) return;
+        
         const x = e.touches[0].pageX;
+        const y = e.touches[0].pageY;
+        
+        const deltaX = Math.abs(x - startX);
+        const deltaY = Math.abs(y - startY);
+
+if (!hasMoved && (deltaX > 10 || deltaY > 10)) {
+    hasMoved = true;
+
+    // 🔥 ANDROID-SAFE MUSIC START
+    tryStartMusic();
+}
+        
         container.scrollLeft = scrollL - (x - startX);
         const now = performance.now();
         const dt = now - lastT;
@@ -695,39 +689,100 @@ container.ontouchstart = async e => {
         lastX = x; 
         lastT = now;
     };
-    
-    container.ontouchend = () => {
-        isDragging = false; 
-        velocity *= 2.5;
-        const decay = () => {
-            container.scrollLeft += velocity; 
-            velocity *= 0.95;
-            if (Math.abs(velocity) > 0.1) { 
-                animID = requestAnimationFrame(decay); 
-                return; 
+  
+
+
+container.ontouchend = async (e) => {
+    // Start music on swipe or tap
+    if (!musicStarted && musicPlayer) {
+        console.log('[music] Interaction detected, starting music...');
+        musicStarted = true;
+
+        try {
+            if (musicPlayer.synth.ctx?.state !== 'running') {
+                await musicPlayer.synth.ctx.resume();
+                console.log('[chipSynth] ctx resumed on interaction');
             }
-            const w = window.innerWidth;
-            const target = Math.round(container.scrollLeft / w);
-            container.style.scrollBehavior = 'smooth';
-            container.scrollTo({ left: target * w, behavior: 'smooth' });
-            setTimeout(() => {
-                container.style.scrollSnapType = 'x mandatory';
-                const realIndex = (target % len + len) % len;
-                currentChampionIndex = realIndex;
-                updateGlobalStats(validChampions[realIndex]); // UPDATE STATS HERE
-                container.scrollLeft = (len + realIndex) * w;
-            }, 350);
-        };
-        decay();
+
+            await musicPlayer.play(keshJig);
+            console.log('[music] ✓ Started from swipe/tap!');
+        } catch (err) {
+            console.error('[music] Failed:', err);
+            musicStarted = false;
+        }
+    }
+
+    isDragging = false; 
+    velocity *= 2.5;
+    const decay = () => {
+        container.scrollLeft += velocity; 
+        velocity *= 0.95;
+        if (Math.abs(velocity) > 0.1) { 
+            animID = requestAnimationFrame(decay); 
+            return; 
+        }
+        const w = window.innerWidth;
+        const target = Math.round(container.scrollLeft / w);
+        container.style.scrollBehavior = 'smooth';
+        container.scrollTo({ left: target * w, behavior: 'smooth' });
+        setTimeout(() => {
+            container.style.scrollSnapType = 'x mandatory';
+            const realIndex = (target % len + len) % len;
+            currentChampionIndex = realIndex;
+            updateGlobalStats(validChampions[realIndex]);
+            container.scrollLeft = (len + realIndex) * w;
+        }, 350);
     };
+    decay();
+};
+
+;;
 }
+
+// Show a subtle prompt if music needs another tap
+function showTapPrompt() {
+    const prompt = document.createElement('div');
+    prompt.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: #d4af37;
+        padding: 20px 40px;
+        border-radius: 10px;
+        font-family: Aonchlo, serif;
+        font-size: 1.2rem;
+        z-index: 10000;
+        text-align: center;
+        animation: fadeIn 0.3s ease;
+        pointer-events: none;
+    `;
+    prompt.textContent = '🎵 Tap to start music';
+    
+    const style = document.createElement('style');
+    style.textContent = '@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }';
+    document.head.appendChild(style);
+    
+    document.body.appendChild(prompt);
+    
+    // Remove after showing briefly
+    setTimeout(() => {
+        prompt.style.animation = 'fadeIn 0.3s ease reverse';
+        setTimeout(() => prompt.remove(), 300);
+    }, 2000);
+    
+    // Allow one more try
+    musicStarted = false;
+}
+
 function finalize(champ) {
     window.showLoader();
     
     // 1. Remove the global stats bar from the body
     if (globalStatsBar) {
         globalStatsBar.remove();
-        globalStatsBar = null; // Clear the reference
+        globalStatsBar = null;
     }
 
     // 2. Remove the hero select container

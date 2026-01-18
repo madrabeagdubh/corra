@@ -1,5 +1,5 @@
 export const champions = [
-{spriteKey:'001.png', monologueID:1,gender:"", nameGa: 'Tassach',  nameEn: 'idle; inactive', charBioEn: "I was Tassach, one of Saint Patrick's 'three artificers, of exceptional skill,' as recorded in M448.2.", charBioGa: "Ba mise Tassach, duine de 'thrí ealaíontóirí Naomh Pádraig, le scil eisceachtúil,' mar a taifeadadh i M448.2." 
+{spriteKey:'001.png', monologueID:1,gender:"", nameGa: 'Tassach',  nameEn: 'idle; inactive', charBioEn: "I was Tassach, one of Saint Patrick's 'three artificers, of exceptional skill,' as recorded in M448.2.", charBioGa: "Ba mise Tassach, duine de thrí ealaíontóirí eisceachtúi Nlaomh Pádraig, mar a taifeadadh i M448.2." 
 , stats: {health: 6, attack: 3,  defense: 9,speed: 6, magic: 5,  luck: 1 }
 
 }
@@ -35,7 +35,7 @@ export const champions = [
 ,{spriteKey:'009.png', monologueID:1,gender:"m", nameGa: 'Rós', nameEn: 'rose or horse', charBioEn: "I was Ross, one of the 'three antiquaries' and 'nine supporting props' who helped purify and write the Seanchus and Feinechus of Ireland, as recorded in M438.2.", charBioGa: "Ba mise Rós , duine de na 'trí sheanachaithe' agus na 'naoi follamhain tacaíochta' a chabhraigh leis an Seanchas agus an Féineachas a ainiceadh agus a scríobh, mar a taifeadadh i M438.2." 
 , stats: {health: 7, attack: 8,  defense: 6,speed: 5, magic: 4,  luck: 5 }
 },
-,{spriteKey:'010.png', monologueID:1 ,gender:"f", nameGa: 'Scothnait', nameEn: 'blossom, bloom', charBioEn: "I was Scothnait, daughter of a foreign King, who died defending the weak as recorded in M871.12.", charBioGa: "Ba mise Scothnait, iníon Rí na nGall, a fuair bás ag cosaint íad a bhí lag, mar a taifeadadh i M871.12." 
+,{spriteKey:'010.png', monologueID:1 ,gender:"f", nameGa: 'Scothnait', nameEn: 'blossom, bloom', charBioEn: "I was Scothnait, daughter of a foreign King, who died defending the weak as recorded in M871.12.", charBioGa: "Ba mise Scothnait, iníon Rí galda, a fuair bás ag cosaint na lag, mar a taifeadadh i M871.12." 
 , stats: {health: 6, attack: 6,  defense: 6,speed: 5, magic: 5,  luck: 2 }
 
 },

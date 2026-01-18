@@ -90,7 +90,6 @@ function createStatsDisplay(champion, currentOpacity) {
 function createStatPopup(statName, englishOpacity) {
   console.log('Creating stat popup for:', statName, 'opacity:', englishOpacity);
 
-  // Remove any existing popup
   const existing = document.getElementById('statPopup');
   if (existing) existing.remove();
 
@@ -115,12 +114,10 @@ function createStatPopup(statName, englishOpacity) {
     cursor: pointer;
   `;
 
-  // Icon
   const iconElement = document.createElement('div');
   iconElement.style.cssText = `font-size: 3rem; text-align: center; margin-bottom: 1rem;`;
   iconElement.textContent = statIcons[statName];
 
-  // Irish Text
   const irishText = document.createElement('div');
   irishText.id = 'statPopupIrish';
   irishText.style.cssText = `
@@ -134,11 +131,9 @@ function createStatPopup(statName, englishOpacity) {
   `;
   irishText.textContent = '';
 
-  // English Text (Fixed to Green with Opacity)
   const englishText = document.createElement('div');
   englishText.id = 'statPopupEnglish';
   
-  // Get live slider value immediately
   const slider = document.querySelector('.champion-slider');
   const liveOpacity = slider ? parseFloat(slider.value) : englishOpacity;
 
@@ -156,7 +151,6 @@ function createStatPopup(statName, englishOpacity) {
   popup.appendChild(irishText);
   popup.appendChild(englishText);
 
-  // Animation Styles
   if (!document.getElementById('statPopupStyle')) {
     const style = document.createElement('style');
     style.id = 'statPopupStyle';
@@ -181,7 +175,6 @@ function createStatPopup(statName, englishOpacity) {
   popup.addEventListener('click', closePopup);
   document.body.appendChild(popup);
 
-  // Typewriter effect logic
   const irishString = statDescriptions[statName].irish;
   const englishString = statDescriptions[statName].english;
   let charIndex = 0;
@@ -195,19 +188,16 @@ function createStatPopup(statName, englishOpacity) {
       charIndex++;
       setTimeout(typeNextChar, 400 / irishString.length + 20);
     } else {
-      // Show English text once Irish finishes
       setTimeout(() => {
         englishText.textContent = englishString;
-        englishText.style.opacity = "1"; // Fade the element in
+        englishText.style.opacity = "1";
 
-        // Slider Listener to update color live
         if (slider) {
           const updatePopupColor = () => {
             englishText.style.color = `rgba(0, 255, 0, ${slider.value})`;
           };
           slider.addEventListener('input', updatePopupColor);
 
-          // Cleanup listener when popup is removed
           const observer = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
               mutation.removedNodes.forEach(node => {
@@ -229,7 +219,6 @@ function createStatPopup(statName, englishOpacity) {
   typeNextChar();
 }
 
-// --- Global Stats Logic ---
 let globalStatsBar = null;
 
 function updateGlobalStats(champion) {
@@ -243,20 +232,14 @@ function updateGlobalStats(champion) {
     if (globalStatsBar) {
         document.body.appendChild(globalStatsBar);
 
-        // Target the span elements that hold the numbers
         const statValues = globalStatsBar.querySelectorAll('span:last-child');
         statValues.forEach((val, index) => {
-            // Slight delay for each stat to create a "wave" effect (optional)
             setTimeout(() => {
                 val.classList.add('stat-animate');
             }, index * 50);
         });
     }
 }
-
-
-
-
 
 function initHeroSelect() {
     if (initialized) return;
@@ -266,48 +249,9 @@ function initHeroSelect() {
 
     initialized = true;
 
-    // --- MUSIC INIT (idle background tune) ---
+    // --- MUSIC INIT ---
     musicPlayer = new AbcChipPlayer();
-const unlockAudio = () => {
-    if (musicStarted || !musicPlayer) return;
 
-    console.log('[music] unlocking audio (sync)');
-    musicStarted = true;
-
-    const ctx = musicPlayer.synth.ctx;
-    if (ctx && ctx.state !== 'running') {
-        ctx.resume(); // 🚨 NO await
-    }
-};
-container.addEventListener(
-    'touchstart',
-    unlockAudio,
-    { passive: true, once: true }
-);
- 
-    // Global music starter - catches ANY interaction
-    const startMusic = async () => {
-        if (musicStarted) return;
-        
-        console.log('[music] Attempting to start...');
-        musicStarted = true;
-        
-        try {
-            if (musicPlayer.synth.ctx?.state !== 'running') {
-                await musicPlayer.synth.ctx.resume();
-                console.log('[chipSynth] ctx resumed');
-            }
-            
-            await musicPlayer.play(keshJig);
-            console.log('[music] ✓ Hero select tune started!');
-        } catch (err) {
-            console.error('[music] Failed to start:', err);
-            musicStarted = false; // Allow retry
-        }
-    };
-
-
-   // --- 1. STATE & ASSETS ---
     let englishOpacity = 0.15;
     let currentChampionIndex = 0;
     let atlasData = null;
@@ -328,7 +272,6 @@ container.addEventListener(
         tryRender();
     };
 
-    // --- 2. GLOBAL STYLES (Added back for layout fix) ---
     const layoutStyle = document.createElement('style');
     layoutStyle.textContent = `
 @keyframes statPulse {
@@ -341,11 +284,12 @@ container.addEventListener(
     animation: statPulse 0.4s ease-out;
 }
 
-        .hero-select-container {
-            display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden;
-            background: #000; position: relative;
-        }
-      .champion-scroll {
+.hero-select-container {
+    display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden;
+    background: #000; position: relative;
+}
+
+.champion-scroll {
     flex: 1; 
     display: flex; 
     overflow-x: auto; 
@@ -354,7 +298,8 @@ container.addEventListener(
     -ms-overflow-style: none;
     overflow-y: visible !important;
 } 
-        .champion-scroll::-webkit-scrollbar { display: none; }
+
+.champion-scroll::-webkit-scrollbar { display: none; }
 
 .champion-card {
     min-width: 100vw;
@@ -390,50 +335,21 @@ container.addEventListener(
     font-size: 1.4rem; 
     margin-bottom: 20px;
 }
-        .champion-top-panel { 
-            padding: 20px; 
-            z-index: 10; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            width: 100%;
-            box-sizing: border-box;
-        }
 
-        .champion-bottom-panel { padding: 20px; z-index: 10; }
+.champion-top-panel { 
+    padding: 20px; 
+    z-index: 10; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+}
 
-.champion-stats {
-        display: block !important;
-        width: 100% !important;
-        margin-top: 20px !important;
-        padding: 20px !important;
-        background: red !important;
-        min-height: 100px !important;
-    }
-    .stat-item {
-        display: inline-block !important;
-        margin: 0 15px !important;
-        background: lime !important;
-        padding: 20px !important;
-        font-size: 3rem !important;
-    }
-    .stat-icon {
-        font-size: 4rem !important;
-        display: block !important;
-        background: blue !important;
-    }
-    .stat-value {
-        color: white !important;
-        font-family: monospace !important;
-        font-weight: bold !important;
-        font-size: 3rem !important;
-        display: block !important;
-        background: orange !important;
-    }
+.champion-bottom-panel { padding: 20px; z-index: 10; }
    `;
     document.head.appendChild(layoutStyle);
 
-    // --- 3. UI CONSTRUCTION ---
     container.className = 'hero-select-container';
     const scrollContainer = document.createElement('div');
     scrollContainer.className = 'champion-scroll';
@@ -461,7 +377,7 @@ container.addEventListener(
             padding: 0 !important;
         }
 
-.champion-slider::-webkit-slider-thumb {
+        .champion-slider::-webkit-slider-thumb {
             -webkit-appearance: none !important;
             appearance: none !important;
             width: 44px !important;
@@ -475,8 +391,6 @@ container.addEventListener(
             align-items: center !important;
             justify-content: center !important;
             box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-        }
-            content: '☀️' !important; font-size: 20px !important;
         }
     `;
     if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
@@ -527,63 +441,58 @@ container.addEventListener(
     bottomPanel.appendChild(chooseButton);
     container.appendChild(bottomPanel);
 
-    // --- 4. RENDERING ---
     function tryRender() {
         if (atlasData && sheetLoaded && champions.length > 0) renderChampions();
     }
 
-function renderChampions() {
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-    // Triple the array for the infinite scroll effect
-    const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
+    function renderChampions() {
+        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+        const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
 
-    infiniteChampions.forEach((champ, i) => {
-        const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
-        const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
-        if (!frameData) return;
+        infiniteChampions.forEach((champ, i) => {
+            const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
+            const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
+            if (!frameData) return;
 
-        const card = document.createElement('div');
-        card.className = 'champion-card';
-        card.onclick = () => showCharacterModal(champ);
+            const card = document.createElement('div');
+            card.className = 'champion-card';
+            card.onclick = () => showCharacterModal(champ);
 
-        const canvas = document.createElement('canvas');
-        canvas.className = 'champion-canvas';
-        canvas.width = frameData.frame.w; 
-        canvas.height = frameData.frame.h;
-        const ctx = canvas.getContext('2d');
+            const canvas = document.createElement('canvas');
+            canvas.className = 'champion-canvas';
+            canvas.width = frameData.frame.w; 
+            canvas.height = frameData.frame.h;
+            const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
+            ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
 
-        const nameGa = document.createElement('div');
-        nameGa.className = 'champion-name-ga';
-        nameGa.textContent = champ.nameGa;
+            const nameGa = document.createElement('div');
+            nameGa.className = 'champion-name-ga';
+            nameGa.textContent = champ.nameGa;
 
-        const nameEn = document.createElement('div');
-        nameEn.className = 'champion-name-en';
-        nameEn.textContent = champ.nameEn;
-        nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+            const nameEn = document.createElement('div');
+            nameEn.className = 'champion-name-en';
+            nameEn.textContent = champ.nameEn;
+            nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
 
-        card.appendChild(canvas);
-        card.appendChild(nameGa);
-        card.appendChild(nameEn);
+            card.appendChild(canvas);
+            card.appendChild(nameGa);
+            card.appendChild(nameEn);
+            
+            scrollContainer.appendChild(card);
+        });
+
+        const randomIndex = Math.floor(Math.random() * validChampions.length);
+        scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
+        currentChampionIndex = randomIndex;
+
+        initSwipe(scrollContainer, validChampions.length);
+        runOnboarding();
+        window.hideLoader();
         
-        scrollContainer.appendChild(card);
-    });
+        updateGlobalStats(validChampions[randomIndex]);
+    }
 
-    // Set initial scroll position
-    const randomIndex = Math.floor(Math.random() * validChampions.length);
-    scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
-    currentChampionIndex = randomIndex;
-
-    initSwipe(scrollContainer, validChampions.length);
-    runOnboarding();
-    window.hideLoader();
-    
-    // Initialize the SINGLE global bar for the first time
-    updateGlobalStats(validChampions[randomIndex]);
-}
-
-    // --- 5. ANIMATION SEQUENCES ---
     function runOnboarding() {
         setTimeout(() => {
             nudgeSlider(slider, () => {
@@ -623,182 +532,153 @@ function renderChampions() {
         }, delay + 200);
     }
 
-// --- 6. INTERACTION & FINALIZE ---
-function initSwipe(container, len) {
-   
-
-const tryStartMusic = async () => {
-    if (musicStarted || !musicPlayer) return;
-
-    console.log('[music] Starting from swipe (android-safe)');
-    musicStarted = true;
-
-    try {
-        if (musicPlayer.synth.ctx?.state !== 'running') {
-            await musicPlayer.synth.ctx.resume();
-            console.log('[chipSynth] ctx resumed');
-        }
-
-        await musicPlayer.play(keshJig);
-        console.log('[music] ✓ Started from swipe!');
-    } catch (err) {
-        console.error('[music] Failed:', err);
-        musicStarted = false;
-    }
-};
-
-
- let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
-    let hasMoved = false;
-    
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-   
-    container.ontouchstart = e => {
-        isDragging = true;
-        hasMoved = false;
-        startX = e.touches[0].pageX;
-        startY = e.touches[0].pageY;
-        scrollL = container.scrollLeft;
-        lastX = startX;
-        lastT = performance.now();
-        if (animID) cancelAnimationFrame(animID);
-        container.style.scrollSnapType = 'none';
-        container.style.scrollBehavior = 'auto';
-    };
-   
-    container.ontouchmove = e => {
-        if (!isDragging) return;
+    function initSwipe(container, len) {
+        let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
+        let currentSwipeDetected = false;
         
-        const x = e.touches[0].pageX;
-        const y = e.touches[0].pageY;
-        
-        const deltaX = Math.abs(x - startX);
-        const deltaY = Math.abs(y - startY);
+        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+       
+        const handleTouchStart = (e) => {
+            console.log('[swipe] touchstart on', e.target.className);
+            
+            isDragging = true;
+            currentSwipeDetected = false;
+            startX = e.touches[0].pageX;
+            startY = e.touches[0].pageY;
+            scrollL = container.scrollLeft;
+            lastX = startX;
+            lastT = performance.now();
+            
+            if (animID) cancelAnimationFrame(animID);
+            container.style.scrollSnapType = 'none';
+            container.style.scrollBehavior = 'auto';
 
-if (!hasMoved && (deltaX > 10 || deltaY > 10)) {
-    hasMoved = true;
-
-    // 🔥 ANDROID-SAFE MUSIC START
-    tryStartMusic();
-}
-        
-        container.scrollLeft = scrollL - (x - startX);
-        const now = performance.now();
-        const dt = now - lastT;
-        if (dt > 0) velocity = (lastX - x) / dt * 16;
-        lastX = x; 
-        lastT = now;
-    };
-  
-
-
-container.ontouchend = async (e) => {
-    // Start music on swipe or tap
-    if (!musicStarted && musicPlayer) {
-        console.log('[music] Interaction detected, starting music...');
-        musicStarted = true;
-
-        try {
-            if (musicPlayer.synth.ctx?.state !== 'running') {
-                await musicPlayer.synth.ctx.resume();
-                console.log('[chipSynth] ctx resumed on interaction');
+            // Create context, play silent sound, AND call resume - all synchronously
+            if (musicPlayer && !musicPlayer.synth.ctx) {
+                const ctx = musicPlayer.synth.ensureContext();
+                console.log('[music] Context created, state:', ctx.state);
+                
+                // Play silent sound
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                gain.gain.value = 0;
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.001);
+                
+                // Call resume (don't await)
+                ctx.resume().then(() => {
+                    console.log('[music] ✓ Context resumed! State:', ctx.state);
+                }).catch(err => {
+                    console.error('[music] Resume error:', err);
+                });
             }
-
-            await musicPlayer.play(keshJig);
-            console.log('[music] ✓ Started from swipe/tap!');
-        } catch (err) {
-            console.error('[music] Failed:', err);
-            musicStarted = false;
-        }
+        };
+       
+        const handleTouchMove = (e) => {
+            if (!isDragging) return;
+            
+            const x = e.touches[0].pageX;
+            
+            const deltaX = Math.abs(x - startX);
+            
+            // Detect swipe
+            if (!currentSwipeDetected && deltaX > 15) {
+                currentSwipeDetected = true;
+                console.log('[swipe] Swipe detected! deltaX:', deltaX);
+            }
+            
+            container.scrollLeft = scrollL - (x - startX);
+            const now = performance.now();
+            const dt = now - lastT;
+            if (dt > 0) velocity = (lastX - x) / dt * 16;
+            lastX = x; 
+            lastT = now;
+        };
+      
+        const handleTouchEnd = () => {
+            console.log('[swipe] touchend - swipe detected:', currentSwipeDetected, 'music started:', musicStarted);
+            
+            // Play music on touchend after swipe
+            if (currentSwipeDetected && !musicStarted && musicPlayer) {
+                musicPlayer.synth.ensureContext(); // Make sure context exists
+                const ctx = musicPlayer.synth.ctx;
+                console.log('[music] touchend - context state:', ctx.state);
+                
+                // Context should be 'running' if created during user gesture
+                musicStarted = true;
+                console.log('[music] Playing from touchend...');
+                musicPlayer.play(keshJig)
+                    .then(() => console.log('[music] ✓ Music playing!'))
+                    .catch(err => {
+                        console.error('[music] Play error:', err);
+                        musicStarted = false;
+                    });
+            }
+            
+            isDragging = false; 
+            velocity *= 2.5;
+            const decay = () => {
+                container.scrollLeft += velocity; 
+                velocity *= 0.95;
+                if (Math.abs(velocity) > 0.1) { 
+                    animID = requestAnimationFrame(decay); 
+                    return; 
+                }
+                const w = window.innerWidth;
+                const target = Math.round(container.scrollLeft / w);
+                container.style.scrollBehavior = 'smooth';
+                container.scrollTo({ left: target * w, behavior: 'smooth' });
+                setTimeout(() => {
+                    container.style.scrollSnapType = 'x mandatory';
+                    const realIndex = (target % len + len) % len;
+                    currentChampionIndex = realIndex;
+                    updateGlobalStats(validChampions[realIndex]);
+                    container.scrollLeft = (len + realIndex) * w;
+                }, 350);
+            };
+            decay();
+        };
+        
+        container.addEventListener('touchstart', handleTouchStart);
+        container.addEventListener('touchmove', handleTouchMove);
+        container.addEventListener('touchend', handleTouchEnd);
+        
+        // Desktop click fallback
+        container.addEventListener('click', () => {
+            if (!musicStarted && musicPlayer) {
+                const ctx = musicPlayer.synth.ctx;
+                
+                ctx.resume().then(() => {
+                    if (ctx.state === 'running') {
+                        musicStarted = true;
+                        musicPlayer.play(keshJig)
+                            .then(() => console.log('[music] ✓ Playing from click!'))
+                            .catch(err => console.error('[music] Click failed:', err));
+                    }
+                });
+            }
+        }, { once: true });
     }
 
-    isDragging = false; 
-    velocity *= 2.5;
-    const decay = () => {
-        container.scrollLeft += velocity; 
-        velocity *= 0.95;
-        if (Math.abs(velocity) > 0.1) { 
-            animID = requestAnimationFrame(decay); 
-            return; 
+    function finalize(champ) {
+        window.showLoader();
+        
+        if (globalStatsBar) {
+            globalStatsBar.remove();
+            globalStatsBar = null;
         }
-        const w = window.innerWidth;
-        const target = Math.round(container.scrollLeft / w);
-        container.style.scrollBehavior = 'smooth';
-        container.scrollTo({ left: target * w, behavior: 'smooth' });
-        setTimeout(() => {
-            container.style.scrollSnapType = 'x mandatory';
-            const realIndex = (target % len + len) % len;
-            currentChampionIndex = realIndex;
-            updateGlobalStats(validChampions[realIndex]);
-            container.scrollLeft = (len + realIndex) * w;
-        }, 350);
-    };
-    decay();
-};
 
-;;
-}
-
-// Show a subtle prompt if music needs another tap
-function showTapPrompt() {
-    const prompt = document.createElement('div');
-    prompt.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: #d4af37;
-        padding: 20px 40px;
-        border-radius: 10px;
-        font-family: Aonchlo, serif;
-        font-size: 1.2rem;
-        z-index: 10000;
-        text-align: center;
-        animation: fadeIn 0.3s ease;
-        pointer-events: none;
-    `;
-    prompt.textContent = '🎵 Tap to start music';
-    
-    const style = document.createElement('style');
-    style.textContent = '@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }';
-    document.head.appendChild(style);
-    
-    document.body.appendChild(prompt);
-    
-    // Remove after showing briefly
-    setTimeout(() => {
-        prompt.style.animation = 'fadeIn 0.3s ease reverse';
-        setTimeout(() => prompt.remove(), 300);
-    }, 2000);
-    
-    // Allow one more try
-    musicStarted = false;
-}
-
-function finalize(champ) {
-    window.showLoader();
-    
-    // 1. Remove the global stats bar from the body
-    if (globalStatsBar) {
-        globalStatsBar.remove();
-        globalStatsBar = null;
+        const container = document.querySelector('.hero-select-container');
+        if (container) container.remove();
+        
+        if (window.startGame) window.startGame(champ);
     }
-
-    // 2. Remove the hero select container
-    const container = document.querySelector('.hero-select-container');
-    if (container) container.remove();
-    
-    // 3. Start the game
-    if (window.startGame) window.startGame(champ);
-}
- 
 }
 
-// Initialize after function is defined
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 
-// Also run immediately if DOM is already loaded
 if (document.readyState !== 'loading') {
   console.log('DOM already loaded, initializing...');
   initHeroSelect();

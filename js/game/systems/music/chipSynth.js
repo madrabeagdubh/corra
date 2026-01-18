@@ -1,24 +1,27 @@
 export default class ChipSynth {
  
   constructor() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    console.log("[chipSynth] ctx state:", this.ctx.state);
-    
-    // Auto-resume on any user interaction
-    document.body.addEventListener("click", () => {
-      if (this.ctx.state !== "running") {
-        this.ctx.resume();
-        console.log("[chipSynth] ctx resumed");
-      }
-    }, { once: true });
-    
-    this.master = this.ctx.createGain();
-    this.master.gain.value = 0.2;
-    this.master.connect(this.ctx.destination);
+    // Don't create context in constructor - wait for user interaction
+    this.ctx = null;
+    this.master = null;
+    console.log("[chipSynth] Initialized (context will be created on first interaction)");
+  }
+  
+  ensureContext() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      console.log("[chipSynth] Context created, state:", this.ctx.state);
+      
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.4;
+      this.master.connect(this.ctx.destination);
+    }
+    return this.ctx;
   }
  
   play(freq, start, duration) {
+    this.ensureContext();
+    
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     
@@ -31,13 +34,15 @@ export default class ChipSynth {
     gain.gain.linearRampToValueAtTime(0, start + duration);
     
     osc.connect(gain);
-    gain.connect(this.master);  // ← FIXED: Connect to master, not destination
+    gain.connect(this.master);
     
     osc.start(start);
     osc.stop(start + duration);
   }
   
   testBeep() {
+    this.ensureContext();
+    
     const osc = this.ctx.createOscillator();
     osc.type = "square";
     osc.frequency.value = 440;

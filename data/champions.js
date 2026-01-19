@@ -2960,8 +2960,8 @@ charBioGa:
     gender: "f",
     nameGa: "Éabha",
     nameEn: "Life",
-    charBioEn: "I was Eabha, daughter of Concobhar, who died, as recorded in M1157.9.",
-    charBioGa: "Eabha ab ainm dom, iníon Choncobhair, a fuair bás, mar atá taifeadta i M1157.9."
+    charBioEn: "Brave Eabha, clever Eabha, Eabha of the dirty sleeves, shining eyes, Eabha beloved champion",
+    charBioGa: "Eabha cróga, Éabha cliste, Éabha muinchillí salacha, súile lasta, Éabha na gaiscí"
 , stats: {health: 6, attack: 3,  defense: 8,speed: 7, magic: 5,  luck: 1 }
    
 

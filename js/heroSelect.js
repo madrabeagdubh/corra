@@ -538,27 +538,29 @@ function initHeroSelect() {
         
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
        
-        const handleTouchStart = (e) => {
-            console.log('[swipe] touchstart on', e.target.className);
-            
-            isDragging = true;
-            currentSwipeDetected = false;
-            startX = e.touches[0].pageX;
-            startY = e.touches[0].pageY;
-            scrollL = container.scrollLeft;
-            lastX = startX;
-            lastT = performance.now();
-            
-            if (animID) cancelAnimationFrame(animID);
-            container.style.scrollSnapType = 'none';
-            container.style.scrollBehavior = 'auto';
+       
+const handleTouchStart = (e) => {
+    console.log('[swipe] touchstart on', e.target.className);
 
-            // Create context, play silent sound, AND call resume - all synchronously
-            if (musicPlayer && !musicPlayer.synth.ctx) {
-                const ctx = musicPlayer.synth.ensureContext();
-                console.log('[music] Context created, state:', ctx.state);
-                
-                // Play silent sound
+    isDragging = true;
+    currentSwipeDetected = false;
+    startX = e.touches[0].pageX;
+    startY = e.touches[0].pageY;
+    scrollL = container.scrollLeft;
+    lastX = startX;
+    lastT = performance.now();
+
+    if (animID) cancelAnimationFrame(animID);
+    container.style.scrollSnapType = 'none';
+    container.style.scrollBehavior = 'auto';
+
+    // Ensure AudioContext is resumed immediately on gesture
+    if (musicPlayer) {
+        const ctx = musicPlayer.synth.ensureContext();
+        if (ctx.state !== 'running') {
+            ctx.resume().then(() => {
+                console.log('[music] ✓ AudioContext resumed on touchstart', ctx.state);
+                // Play a micro-beep to unlock context
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 gain.gain.value = 0;
@@ -566,15 +568,12 @@ function initHeroSelect() {
                 gain.connect(ctx.destination);
                 osc.start(ctx.currentTime);
                 osc.stop(ctx.currentTime + 0.001);
-                
-                // Call resume (don't await)
-                ctx.resume().then(() => {
-                    console.log('[music] ✓ Context resumed! State:', ctx.state);
-                }).catch(err => {
-                    console.error('[music] Resume error:', err);
-                });
-            }
-        };
+            });
+        }
+    }
+};
+
+;;
        
         const handleTouchMove = (e) => {
             if (!isDragging) return;
@@ -597,50 +596,67 @@ function initHeroSelect() {
             lastT = now;
         };
       
-        const handleTouchEnd = () => {
-            console.log('[swipe] touchend - swipe detected:', currentSwipeDetected, 'music started:', musicStarted);
-            
-            // Play music on touchend after swipe
-            if (currentSwipeDetected && !musicStarted && musicPlayer) {
-                musicPlayer.synth.ensureContext(); // Make sure context exists
-                const ctx = musicPlayer.synth.ctx;
-                console.log('[music] touchend - context state:', ctx.state);
-                
-                // Context should be 'running' if created during user gesture
-                musicStarted = true;
-                console.log('[music] Playing from touchend...');
-                musicPlayer.play(foggyDew)
-                    .then(() => console.log('[music] ✓ Music playing!'))
-                    .catch(err => {
-                        console.error('[music] Play error:', err);
-                        musicStarted = false;
-                    });
-            }
-            
-            isDragging = false; 
-            velocity *= 2.5;
-            const decay = () => {
-                container.scrollLeft += velocity; 
-                velocity *= 0.95;
-                if (Math.abs(velocity) > 0.1) { 
-                    animID = requestAnimationFrame(decay); 
-                    return; 
+       const handleTouchEnd = () => {
+    console.log('[swipe] touchend - swipe detected:', currentSwipeDetected, 'music started:', musicStarted);
+
+    // Play music on touchend after swipe
+    if (currentSwipeDetected && !musicStarted && musicPlayer) {
+        const ctx = musicPlayer.synth.ensureContext(); // Make sure context exists
+
+        // Resume context if needed
+        if (ctx.state !== 'running') {
+            ctx.resume().then(() => {
+                console.log('[music] AudioContext resumed on touchend:', ctx.state);
+                try {
+                    musicPlayer.play(foggyDew);
+                    musicStarted = true;
+                    console.log('[music] ✓ Music playing!');
+                } catch (err) {
+                    console.error('[music] Play error:', err);
+                    musicStarted = false;
                 }
-                const w = window.innerWidth;
-                const target = Math.round(container.scrollLeft / w);
-                container.style.scrollBehavior = 'smooth';
-                container.scrollTo({ left: target * w, behavior: 'smooth' });
-                setTimeout(() => {
-                    container.style.scrollSnapType = 'x mandatory';
-                    const realIndex = (target % len + len) % len;
-                    currentChampionIndex = realIndex;
-                    updateGlobalStats(validChampions[realIndex]);
-                    container.scrollLeft = (len + realIndex) * w;
-                }, 350);
-            };
-            decay();
-        };
-        
+            }).catch(err => {
+                console.error('[music] Context resume failed:', err);
+                musicStarted = false;
+            });
+        } else {
+            // Context already running, just play
+            try {
+                musicPlayer.play(foggyDew);
+                musicStarted = true;
+                console.log('[music] ✓ Music playing!');
+            } catch (err) {
+                console.error('[music] Play error:', err);
+                musicStarted = false;
+            }
+        }
+    }
+
+    isDragging = false;
+    velocity *= 2.5;
+
+    const decay = () => {
+        container.scrollLeft += velocity;
+        velocity *= 0.95;
+        if (Math.abs(velocity) > 0.1) {
+            animID = requestAnimationFrame(decay);
+            return;
+        }
+        const w = window.innerWidth;
+        const target = Math.round(container.scrollLeft / w);
+        container.style.scrollBehavior = 'smooth';
+        container.scrollTo({ left: target * w, behavior: 'smooth' });
+        setTimeout(() => {
+            container.style.scrollSnapType = 'x mandatory';
+            const realIndex = (target % len + len) % len;
+            currentChampionIndex = realIndex;
+            updateGlobalStats(validChampions[realIndex]);
+            container.scrollLeft = (len + realIndex) * w;
+        }, 350);
+    };
+
+    decay();
+}; 
         container.addEventListener('touchstart', handleTouchStart);
         container.addEventListener('touchmove', handleTouchMove);
         container.addEventListener('touchend', handleTouchEnd);

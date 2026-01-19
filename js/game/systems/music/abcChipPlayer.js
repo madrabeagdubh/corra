@@ -1,3 +1,4 @@
+// AbcChipPlayer.js
 import ABCJS from "abcjs";
 import ChipSynth from "./chipSynth";
 
@@ -7,112 +8,114 @@ export default class AbcChipPlayer {
     this.isPlaying = false;
   }
 
-  async play(abc) {
-    // Ensure context is running
-    if (this.synth.ctx.state !== 'running') {
-      await this.synth.ctx.resume();
-      console.log('[abcChipPlayer] resumed audio context');
-    }
 
-    // Ensure hidden render target exists
-    let container = document.getElementById("abc-hidden");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "abc-hidden";
-      container.style.display = "none";
-      document.body.appendChild(container);
-    }
 
-    // Clear previous render
-    container.innerHTML = '';
 
-    // Render ABC notation (required for timing)
-    const visualObjs = ABCJS.renderAbc(container, abc, {
-      add_classes: true,
-      responsive: false
+async play(abc) {
+  // Ensure AudioContext is running
+  await this.synth.ctx.resume();
+
+  // Hidden container for ABCJS render
+  let container = document.getElementById("abc-hidden");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "abc-hidden";
+    container.style.display = "none";
+    document.body.appendChild(container);
+  }
+  container.innerHTML = "";
+
+  // Render ABC notation (needed for timing)
+  const visualObjs = ABCJS.renderAbc(container, abc, { add_classes: true });
+  if (!visualObjs || visualObjs.length === 0) return;
+
+  const tune = visualObjs[0];
+  console.log("[AbcChipPlayer] Tune loaded:", tune.title || "Untitled");
+
+  // Modern ABCJS synth
+  const synth = new ABCJS.synth.CreateSynth();
+  try {
+    await synth.init({ visualObj: tune, options: { soundFontUrl: null } });
+  } catch (err) {
+    console.error("[AbcChipPlayer] Synth init failed:", err);
+    return;
+  }
+
+  const events = synth.getSequence();
+  if (!events || !events.length) {
+    console.warn("[AbcChipPlayer] No events generated");
+    return;
+  }
+
+  const now = this.synth.ctx.currentTime;
+
+  events.forEach(ev => {
+    if (!ev.midiPitches) return;
+
+    ev.midiPitches.forEach(mp => {
+      const freq = 440 * Math.pow(2, (mp - 69) / 12);
+      this.synth.play(freq, now + ev.time, ev.duration);
     });
+  });
 
-    if (!visualObjs || visualObjs.length === 0) {
-      console.error('[abcChipPlayer] No visual objects rendered');
+  const totalDuration = events[events.length - 1].time + events[events.length - 1].duration;
+  this.isPlaying = true;
+
+  setTimeout(() => {
+    this.isPlaying = false;
+    console.log("[AbcChipPlayer] Playback finished");
+  }, totalDuration * 1000 + 200);
+}
+
+
+
+
+
+
+
+
+  scheduleWithSynthSequence(tune) {
+    const now = this.synth.ctx.currentTime;
+
+    // ABCJS SynthSequence handles note timing, duration, tempo
+    const seq = new ABCJS.synth.SynthSequence();
+    try {
+      seq.init({ visualObj: tune, millisecondsPerMeasure: null });
+    } catch (err) {
+      console.error("[AbcChipPlayer] SynthSequence init failed:", err);
       return;
     }
 
-    const tune = visualObjs[0];
-    console.log('[abcChipPlayer] Tune loaded:', tune);
-    
-    // Debug: Show the key signature and time signature
-    if (tune.metaText) {
-      console.log('[abcChipPlayer] Key:', tune.metaText.key);
-      console.log('[abcChipPlayer] Meter:', tune.metaText.meter);
-      console.log('[abcChipPlayer] Rhythm:', tune.metaText.rhythm);
+    const events = seq.getSequence();
+    if (!events || !events.length) {
+      console.warn("[AbcChipPlayer] No synth events generated");
+      return;
     }
 
-    // Extract notes from the tune structure
-    this.scheduleNotes(tune);
-  }
+    events.forEach(ev => {
+      if (!ev.midiPitches) return;
 
-  scheduleNotes(tune) {
-    const now = this.synth.ctx.currentTime;
-    let currentTime = 0;
-    const beatDuration = 0.5; // Half note = 0.5s (slower, more stately for march tempo)
-
-    console.log('[abcChipPlayer] Scheduling notes...');
-
-    if (tune.lines) {
-      tune.lines.forEach(line => {
-        if (line.staff) {
-          line.staff.forEach(staff => {
-            if (staff.voices) {
-              staff.voices.forEach(voice => {
-                voice.forEach(element => {
-                  // Handle notes
-                  if (element.el_type === 'note' && element.pitches) {
-                    // Calculate duration based on the note's duration value
-                    const duration = (element.duration || 0.125) * beatDuration * 4;
-                    
-                    element.pitches.forEach(pitch => {
-                      if (pitch.pitch !== undefined) {
-                        // The pitch value from ABCJS is relative to C (middle C = 0)
-                        // Convert to MIDI: middle C (C4) = MIDI 60
-                        const midiPitch = pitch.pitch + 60;
-                        const freq = 440 * Math.pow(2, (midiPitch - 69) / 12);
-                        
-                        console.log(`[abcChipPlayer] Note: ${freq.toFixed(1)}Hz (MIDI ${midiPitch}) at ${currentTime.toFixed(3)}s for ${duration.toFixed(3)}s`);
-                        this.synth.play(freq, now + currentTime, duration);
-                      }
-                    });
-                    
-                    currentTime += duration;
-                  }
-                  // Handle rests
-                  else if (element.el_type === 'rest') {
-                    const duration = (element.duration || 0.125) * beatDuration * 4;
-                    currentTime += duration;
-                  }
-                  // Handle bar lines (just for logging)
-                  else if (element.el_type === 'bar') {
-                    console.log(`[abcChipPlayer] --- Bar line at ${currentTime.toFixed(3)}s ---`);
-                  }
-                });
-              });
-            }
-          });
-        }
+      ev.midiPitches.forEach(mp => {
+        const freq = 440 * Math.pow(2, (mp - 69) / 12);
+        // Play each note via ChipSynth
+        this.synth.play(freq, now + ev.time, ev.duration);
       });
-    }
+    });
 
-    console.log(`[abcChipPlayer] Scheduled ${currentTime.toFixed(2)}s of music`);
+    const totalDuration = events[events.length - 1].time + events[events.length - 1].duration;
     this.isPlaying = true;
-    
-    // Auto-stop after tune finishes
+
+    console.log(`[AbcChipPlayer] Scheduled ${totalDuration.toFixed(2)}s of music`);
+
     setTimeout(() => {
       this.isPlaying = false;
-      console.log('[abcChipPlayer] Playback finished');
-    }, currentTime * 1000 + 500);
+      console.log("[AbcChipPlayer] Playback finished");
+    }, totalDuration * 1000 + 200);
   }
 
   stop() {
     this.isPlaying = false;
-    console.log('[abcChipPlayer] Stopped');
+    this.synth.stopAll();
+    console.log("[AbcChipPlayer] Stopped");
   }
 }

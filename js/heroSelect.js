@@ -596,41 +596,26 @@ const handleTouchStart = (e) => {
             lastT = now;
         };
       
-       const handleTouchEnd = () => {
+     const handleTouchEnd = () => {
     console.log('[swipe] touchend - swipe detected:', currentSwipeDetected, 'music started:', musicStarted);
 
     // Play music on touchend after swipe
     if (currentSwipeDetected && !musicStarted && musicPlayer) {
-        const ctx = musicPlayer.synth.ensureContext(); // Make sure context exists
+        // 1. Ensure context exists
+        const ctx = musicPlayer.synth.ensureContext(); 
 
-        // Resume context if needed
-        if (ctx.state !== 'running') {
-            ctx.resume().then(() => {
-                console.log('[music] AudioContext resumed on touchend:', ctx.state);
-                try {
-                    musicPlayer.play(foggyDew);
-                    musicStarted = true;
-                    console.log('[music] ✓ Music playing!');
-                } catch (err) {
-                    console.error('[music] Play error:', err);
-                    musicStarted = false;
-                }
-            }).catch(err => {
-                console.error('[music] Context resume failed:', err);
-                musicStarted = false;
-            });
-        } else {
-            // Context already running, just play
-            try {
+        // 2. Resume and Play
+        ctx.resume().then(() => {
+            console.log('[music] AudioContext state:', ctx.state);
+            if (ctx.state === 'running') {
                 musicPlayer.play(foggyDew);
                 musicStarted = true;
-                console.log('[music] ✓ Music playing!');
-            } catch (err) {
-                console.error('[music] Play error:', err);
-                musicStarted = false;
             }
-        }
+        }).catch(err => {
+            console.error('[music] Interaction failed:', err);
+        });
     }
+
 
     isDragging = false;
     velocity *= 2.5;
@@ -661,21 +646,25 @@ const handleTouchStart = (e) => {
         container.addEventListener('touchmove', handleTouchMove);
         container.addEventListener('touchend', handleTouchEnd);
         
-        // Desktop click fallback
-        container.addEventListener('click', () => {
-            if (!musicStarted && musicPlayer) {
-                const ctx = musicPlayer.synth.ctx;
-                
-                ctx.resume().then(() => {
-                    if (ctx.state === 'running') {
-                        musicStarted = true;
-                        musicPlayer.play(foggyDew)
-                            .then(() => console.log('[music] ✓ Playing from click!'))
-                            .catch(err => console.error('[music] Click failed:', err));
-                    }
-                });
+
+
+// Desktop click fallback (at the bottom of initSwipe)
+container.addEventListener('click', () => {
+    if (!musicStarted && musicPlayer) {
+        const ctx = musicPlayer.synth.ensureContext(); // FIX: Initialize context before accessing state
+        
+        ctx.resume().then(() => {
+            if (ctx.state === 'running') {
+                musicStarted = true;
+                musicPlayer.play(foggyDew);
+                console.log('[music] ✓ Playing from click!');
             }
-        }, { once: true });
+        }).catch(err => console.error('[music] Click play failed:', err));
+    }
+}, { once: true });
+
+
+
     }
 
     function finalize(champ) {

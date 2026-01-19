@@ -39,6 +39,13 @@ export default class AbcChipPlayer {
 
     const tune = visualObjs[0];
     console.log('[abcChipPlayer] Tune loaded:', tune);
+    
+    // Debug: Show the key signature and time signature
+    if (tune.metaText) {
+      console.log('[abcChipPlayer] Key:', tune.metaText.key);
+      console.log('[abcChipPlayer] Meter:', tune.metaText.meter);
+      console.log('[abcChipPlayer] Rhythm:', tune.metaText.rhythm);
+    }
 
     // Extract notes from the tune structure
     this.scheduleNotes(tune);
@@ -47,11 +54,10 @@ export default class AbcChipPlayer {
   scheduleNotes(tune) {
     const now = this.synth.ctx.currentTime;
     let currentTime = 0;
-    const beatDuration = 0.25; // Quarter note duration in seconds
+    const beatDuration = 0.5; // Half note = 0.5s (slower, more stately for march tempo)
 
     console.log('[abcChipPlayer] Scheduling notes...');
 
-    // Walk through the tune structure
     if (tune.lines) {
       tune.lines.forEach(line => {
         if (line.staff) {
@@ -59,16 +65,19 @@ export default class AbcChipPlayer {
             if (staff.voices) {
               staff.voices.forEach(voice => {
                 voice.forEach(element => {
-                  // Check if this is a note element
+                  // Handle notes
                   if (element.el_type === 'note' && element.pitches) {
+                    // Calculate duration based on the note's duration value
                     const duration = (element.duration || 0.125) * beatDuration * 4;
                     
                     element.pitches.forEach(pitch => {
                       if (pitch.pitch !== undefined) {
-                        const midiPitch = pitch.pitch + 60; // Convert to MIDI
+                        // The pitch value from ABCJS is relative to C (middle C = 0)
+                        // Convert to MIDI: middle C (C4) = MIDI 60
+                        const midiPitch = pitch.pitch + 60;
                         const freq = 440 * Math.pow(2, (midiPitch - 69) / 12);
                         
-                        console.log(`[abcChipPlayer] Note: ${freq.toFixed(1)}Hz at ${currentTime.toFixed(3)}s for ${duration.toFixed(3)}s`);
+                        console.log(`[abcChipPlayer] Note: ${freq.toFixed(1)}Hz (MIDI ${midiPitch}) at ${currentTime.toFixed(3)}s for ${duration.toFixed(3)}s`);
                         this.synth.play(freq, now + currentTime, duration);
                       }
                     });
@@ -79,6 +88,10 @@ export default class AbcChipPlayer {
                   else if (element.el_type === 'rest') {
                     const duration = (element.duration || 0.125) * beatDuration * 4;
                     currentTime += duration;
+                  }
+                  // Handle bar lines (just for logging)
+                  else if (element.el_type === 'bar') {
+                    console.log(`[abcChipPlayer] --- Bar line at ${currentTime.toFixed(3)}s ---`);
                   }
                 });
               });

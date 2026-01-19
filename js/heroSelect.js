@@ -3,7 +3,7 @@ import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 
 import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
-import { keshJig } from './game/systems/music/keshJig.js';
+import { foggyDew } from './game/systems/music/foggyDew.js';
 
 // Prevent double initialization
 let initialized = false;
@@ -609,7 +609,7 @@ function initHeroSelect() {
                 // Context should be 'running' if created during user gesture
                 musicStarted = true;
                 console.log('[music] Playing from touchend...');
-                musicPlayer.play(keshJig)
+                musicPlayer.play(foggyDew)
                     .then(() => console.log('[music] ✓ Music playing!'))
                     .catch(err => {
                         console.error('[music] Play error:', err);
@@ -653,7 +653,7 @@ function initHeroSelect() {
                 ctx.resume().then(() => {
                     if (ctx.state === 'running') {
                         musicStarted = true;
-                        musicPlayer.play(keshJig)
+                        musicPlayer.play(foggyDew)
                             .then(() => console.log('[music] ✓ Playing from click!'))
                             .catch(err => console.error('[music] Click failed:', err));
                     }

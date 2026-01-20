@@ -4,6 +4,54 @@ import '../css/heroSelect.css'
 
 import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
 import { foggyDew } from './game/systems/music/foggyDew.js';
+import ChipSynth from "./game/systems/music/chipSynth.js";
+
+export function testMultiVoice() {
+    const synth = new ChipSynth();
+    const ctx = synth.ensureContext();
+    const now = ctx.currentTime + 0.1;
+    
+    console.log("[MultiVoice Test] Starting...");
+    
+    // Play a simple C major scale with all voices
+    const notes = [
+        { freq: 261.63, time: 0.0 },  // C
+        { freq: 293.66, time: 0.5 },  // D
+        { freq: 329.63, time: 1.0 },  // E
+        { freq: 349.23, time: 1.5 },  // F
+        { freq: 392.00, time: 2.0 },  // G
+    ];
+    
+    notes.forEach(note => {
+        // Melody
+        synth.playMelody(note.freq, now + note.time, 0.4);
+        
+        // Harmony (third above)
+        synth.playHarmony(note.freq, now + note.time, 0.4, 4);
+        
+        // Bass (every other note)
+        if (note.time % 1.0 === 0) {
+            synth.playBass(note.freq, now + note.time, 0.9);
+        }
+    });
+    
+    // Drums
+    for (let i = 0; i < 5; i++) {
+        const time = now + i * 0.5;
+        
+        // Kick on beats 1, 3, 5
+        if (i % 2 === 0) {
+            synth.playDrum('kick', time);
+        } else {
+            synth.playDrum('snare', time);
+        }
+        
+        // Hi-hat every beat
+        synth.playDrum('hihat', time);
+    }
+    
+    console.log("[MultiVoice Test] Scheduled 5 melody + 5 harmony + 3 bass + 10 drums");
+}
 
 // Prevent double initialization
 let initialized = false;
@@ -609,6 +657,12 @@ const handleTouchStart = (e) => {
             console.log('[music] AudioContext state:', ctx.state);
             if (ctx.state === 'running') {
                 musicPlayer.play(foggyDew);
+
+// Call this in your game code:
+ testMultiVoice();
+
+
+
                 musicStarted = true;
             }
         }).catch(err => {

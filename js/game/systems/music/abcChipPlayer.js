@@ -1,147 +1,225 @@
-// AbcChipPlayer.js
 import ABCJS from "abcjs";
 import ChipSynth from "./chipSynth";
 
 export default class AbcChipPlayer {
-  constructor() {
-    this.synth = new ChipSynth();
-    this.isPlaying = false;
-  }
-
-  async play(abc) {
-    // Ensure AudioContext is running
-    this.synth.ensureContext();
-    await this.synth.ctx.resume();
-
-    // Hidden container for ABCJS render
-    let container = document.getElementById("abc-hidden");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "abc-hidden";
-      container.style.display = "none";
-      document.body.appendChild(container);
-    }
-    container.innerHTML = "";
-
-    // Render ABC notation (needed for timing)
-    const visualObjs = ABCJS.renderAbc(container, abc, { add_classes: true });
-    if (!visualObjs || visualObjs.length === 0) {
-      console.warn("[AbcChipPlayer] No visual objects rendered");
-      return;
+    constructor() {
+        this.synth = new ChipSynth();
+        this.ctx = null;
     }
 
-    const tune = visualObjs[0];
-    console.log("[AbcChipPlayer] Tune loaded:", tune.title || "Untitled");
+    async play(abc) {
+        // 1. Ensure audio context is ready
+        this.ctx = this.synth.ensureContext();
+        if (this.ctx.state === 'suspended') {
+            await this.ctx.resume();
+        }
 
-    // Extract notes directly from the tune structure
-    const events = this.extractNotes(tune);
-    
-    if (!events || events.length === 0) {
-      console.warn("[AbcChipPlayer] No notes found in tune");
-      return;
-    }
-
-    const now = this.synth.ctx.currentTime;
-
-    events.forEach(ev => {
-      const freq = 440 * Math.pow(2, (ev.midi - 69) / 12);
-      this.synth.play(freq, now + ev.time, ev.duration);
-    });
-
-    const totalDuration = events[events.length - 1].time + events[events.length - 1].duration;
-    this.isPlaying = true;
-
-    console.log(`[AbcChipPlayer] Scheduled ${events.length} notes, ${totalDuration.toFixed(2)}s total`);
-
-    setTimeout(() => {
-      this.isPlaying = false;
-      console.log("[AbcChipPlayer] Playback finished");
-    }, totalDuration * 1000 + 200);
-  }
-
-  extractNotes(tune) {
-    const events = [];
-    let currentTime = 0;
-    
-    // Try to get tempo from metaText
-    let tempo = 120; // default
-    if (tune.metaText && tune.metaText.tempo) {
-      tempo = tune.metaText.tempo.bpm || 120;
-    }
-    
-    const beatDuration = 60 / tempo; // Duration of one quarter note in seconds
-    
-    // Note name to semitone offset from C
-    const noteToSemitone = {
-      'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11,
-      'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11
-    };
-    
-    // Parse through all lines and voices
-    if (!tune.lines) {
-      console.warn("[AbcChipPlayer] No lines found in tune");
-      return events;
-    }
-
-    tune.lines.forEach((line) => {
-      if (!line.staff) return;
-      
-      line.staff.forEach((staff) => {
-        if (!staff.voices) return;
+        // 2. Parse ABC notation (invisible render)
+        const visualObj = ABCJS.renderAbc(document.createElement("div"), abc)[0];
         
-        staff.voices.forEach((voice) => {
-          voice.forEach((element) => {
-            // Handle notes
-            if (element.el_type === "note") {
-              if (element.pitches && element.pitches.length > 0) {
-                element.pitches.forEach(pitch => {
-                  // Use the note name to get the correct MIDI note
-                  const noteName = pitch.name;
-                  
-                  if (!noteName || !(noteName in noteToSemitone)) {
-                    console.warn("[AbcChipPlayer] Unknown note name:", noteName);
-                    return;
-                  }
-                  
-                  // Determine octave from case (lowercase = higher octave in ABC)
-                  const isLowerCase = noteName === noteName.toLowerCase();
-                  const baseOctave = isLowerCase ? 5 : 4; // e = E5, E = E4
-                  
-                  // Get semitone offset from C
-                  const semitoneOffset = noteToSemitone[noteName];
-                  
-                  // Calculate MIDI note (C4 = 60)
-                  const midiNote = (baseOctave * 12) + semitoneOffset + (pitch.accidental || 0);
-                  
-                  const duration = element.duration * beatDuration * 4;
-                  
-                  console.log(`[AbcChipPlayer] Note: ${noteName} -> MIDI ${midiNote}`);
-                  
-                  events.push({
-                    midi: midiNote,
-                    time: currentTime,
-                    duration: duration
-                  });
-                });
-              }
-              // Advance time by note duration
-              currentTime += element.duration * beatDuration * 4;
+        if (!visualObj) {
+            console.error("Failed to parse ABC notation");
+            return;
+        }
+
+        // 3. Extract tempo from ABC or use default
+        let bpm = 70;
+        const tempoMatch = abc.match(/Q:\s*(\d+)/);
+        if (tempoMatch) {
+            bpm = parseInt(tempoMatch[1]);
+        }
+        
+        const secondsPerQuarterNote = 60 / bpm;
+        console.log(`[AbcChipPlayer] Tempo: ${bpm} BPM = ${secondsPerQuarterNote.toFixed(3)}s per quarter note`);
+
+        // 4. Extract notes
+        const notes = this.extractNotes(visualObj, secondsPerQuarterNote);
+        console.log(`[AbcChipPlayer] Extracted ${notes.length} notes`);
+
+        // 5. Schedule everything with multi-voice arrangement
+        const now = this.ctx.currentTime + 0.1;
+        
+        // Get meter for drum pattern
+        const meter = this.extractMeter(abc);
+        const beatsPerMeasure = meter.num;
+        const beatDuration = secondsPerQuarterNote * (4 / meter.denom);
+        
+        console.log(`[AbcChipPlayer] Meter: ${meter.num}/${meter.denom}, beat duration: ${beatDuration.toFixed(3)}s`);
+        
+        // Schedule melody with harmony
+        let harmonyCount = 0;
+        notes.forEach((note, i) => {
+            // Melody (main voice)
+            this.synth.playMelody(note.freq, now + note.time, note.duration);
+            
+            // Harmony (every other note, playing thirds)
+            if (i % 2 === 0) {
+                this.synth.playHarmony(note.freq, now + note.time, note.duration, 4);
+                harmonyCount++;
             }
-            // Handle rests
-            else if (element.el_type === "rest") {
-              currentTime += element.duration * beatDuration * 4;
-            }
-          });
         });
-      });
-    });
+        
+        console.log(`[AbcChipPlayer] Scheduled ${notes.length} melody notes + ${harmonyCount} harmony notes`);
+        
+        // Add bass line (root notes on strong beats)
+        const bassNotes = this.scheduleBass(notes, now, beatDuration, beatsPerMeasure);
+        console.log(`[AbcChipPlayer] Scheduled ${bassNotes} bass notes`);
+        
+        // Add percussion pattern
+        const drumHits = this.scheduleDrums(notes, now, beatDuration, beatsPerMeasure);
+        console.log(`[AbcChipPlayer] Scheduled ${drumHits} drum hits`);
 
-    return events;
-  }
+        console.log("♪ Multi-voice playback scheduled");
+    }
 
-  stop() {
-    this.isPlaying = false;
-    this.synth.stopAll();
-    console.log("[AbcChipPlayer] Stopped");
-  }
+    extractMeter(abc) {
+        // Extract time signature (e.g., M: 4/4)
+        const meterMatch = abc.match(/M:\s*(\d+)\/(\d+)/);
+        if (meterMatch) {
+            return { num: parseInt(meterMatch[1]), denom: parseInt(meterMatch[2]) };
+        }
+        return { num: 4, denom: 4 }; // Default 4/4
+    }
+
+    scheduleBass(notes, startTime, beatDuration, beatsPerMeasure) {
+        if (notes.length === 0) return 0;
+        
+        // Play bass on strong beats throughout the song
+        const totalDuration = notes[notes.length - 1].time + notes[notes.length - 1].duration;
+        const totalBeats = Math.ceil(totalDuration / beatDuration);
+        let bassCount = 0;
+        
+        for (let beat = 0; beat < totalBeats; beat++) {
+            const beatTime = beat * beatDuration;
+            const beatInMeasure = beat % beatsPerMeasure;
+            
+            // Play bass on beats 1 and 3
+            if (beatInMeasure === 0 || beatInMeasure === 2) {
+                // Find the melody note closest to this beat
+                const closestNote = notes.reduce((closest, note) => {
+                    const currentDist = Math.abs(note.time - beatTime);
+                    const closestDist = Math.abs(closest.time - beatTime);
+                    return currentDist < closestDist ? note : closest;
+                });
+                
+                if (closestNote) {
+                    this.synth.playBass(closestNote.freq, startTime + beatTime, beatDuration * 0.9);
+                    bassCount++;
+                }
+            }
+        }
+        
+        return bassCount;
+    }
+
+    scheduleDrums(notes, startTime, beatDuration, beatsPerMeasure) {
+        if (notes.length === 0) return 0;
+        
+        const totalDuration = notes[notes.length - 1].time + notes[notes.length - 1].duration;
+        const totalBeats = Math.ceil(totalDuration / beatDuration);
+        let drumCount = 0;
+        
+        for (let beat = 0; beat < totalBeats; beat++) {
+            const time = startTime + (beat * beatDuration);
+            const beatInMeasure = beat % beatsPerMeasure;
+            
+            // Kick on beats 1 and 3
+            if (beatInMeasure === 0 || beatInMeasure === 2) {
+                this.synth.playDrum('kick', time);
+                drumCount++;
+            }
+            
+            // Snare on beats 2 and 4
+            if (beatInMeasure === 1 || beatInMeasure === 3) {
+                this.synth.playDrum('snare', time);
+                drumCount++;
+            }
+            
+            // Hi-hat on every eighth note
+            this.synth.playDrum('hihat', time);
+            this.synth.playDrum('hihat', time + beatDuration / 2);
+            drumCount += 2;
+        }
+        
+        return drumCount;
+    }
+
+    extractNotes(visualObj, secondsPerQuarterNote) {
+        const notes = [];
+        let currentTime = 0;
+
+        // DEBUG: Log the first few elements to understand structure
+        let debugCount = 0;
+
+        visualObj.lines.forEach(line => {
+            line.staff?.forEach(staff => {
+                staff.voices?.forEach(voice => {
+                    voice.forEach(element => {
+                        if (element.el_type === "note" && element.pitches) {
+                            // DEBUG first 5 notes
+                            if (debugCount < 5) {
+                                console.log(`[Note ${debugCount}]`, {
+                                    name: element.pitches[0].name,
+                                    rawPitch: element.pitches[0].pitch,
+                                    with65: element.pitches[0].pitch + 65,
+                                    with66: element.pitches[0].pitch + 66,
+                                    with67: element.pitches[0].pitch + 67
+                                });
+                                debugCount++;
+                            }
+                            
+                            const noteDuration = (element.duration || 0.25) * secondsPerQuarterNote;
+                            
+                            element.pitches.forEach(pitch => {
+                                // ABC.js uses a diatonic (not chromatic!) scale starting at C
+                                // raw:0=C, 1=D, 2=E, 3=F, 4=G, 5=A, 6=B, then 7=c, etc
+                                // We need to convert to chromatic MIDI
+                                
+                                const diatonicToChromatic = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+                                const octave = pitch.name && pitch.name === pitch.name.toLowerCase() ? 1 : 0;
+                                const noteInOctave = pitch.pitch % 7;
+                                const octaveOffset = Math.floor(pitch.pitch / 7);
+                                
+                                const chromaticOffset = diatonicToChromatic[noteInOctave];
+                                const baseMidi = 60; // C4
+                                const midiNote = baseMidi + (octaveOffset + octave) * 12 + chromaticOffset;
+                                
+                                const freq = this.midiToFreq(midiNote);
+                                
+                                notes.push({
+                                    freq: freq,
+                                    time: currentTime,
+                                    duration: noteDuration,
+                                    // Debug info
+                                    noteName: pitch.name,
+                                    rawPitch: pitch.pitch,
+                                    midiNote: midiNote
+                                });
+                            });
+                            
+                            currentTime += noteDuration;
+                        } else if (element.el_type === "rest") {
+                            const restDuration = (element.duration || 0.25) * secondsPerQuarterNote;
+                            currentTime += restDuration;
+                        }
+                    });
+                });
+            });
+        });
+
+        // Log first 10 notes with their timing AND raw pitch values
+        console.log('[First 10 notes]:', notes.slice(0, 10).map(n => 
+            `${n.noteName}(${n.midiNote}) raw:${n.rawPitch} @${n.time.toFixed(2)}s`
+        ));
+
+        return notes;
+    }
+
+    midiToFreq(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    stop() {
+        this.synth.stopAll();
+    }
 }

@@ -144,76 +144,77 @@ export default class AbcChipPlayer {
         return drumCount;
     }
 
-    extractNotes(visualObj, secondsPerQuarterNote) {
-        const notes = [];
-        let currentTime = 0;
+   extractNotes(visualObj, secondsPerQuarterNote) {
+  const notes = [];
+  let currentTime = 0;
 
-        // DEBUG: Log the first few elements to understand structure
-        let debugCount = 0;
+  const staff = visualObj.lines[0].staff[0];
+  const keyMap = this.buildKeySignatureMap(staff);
 
-        visualObj.lines.forEach(line => {
-            line.staff?.forEach(staff => {
-                staff.voices?.forEach(voice => {
-                    voice.forEach(element => {
-                        if (element.el_type === "note" && element.pitches) {
-                            // DEBUG first 5 notes
-                            if (debugCount < 5) {
-                                console.log(`[Note ${debugCount}]`, {
-                                    name: element.pitches[0].name,
-                                    rawPitch: element.pitches[0].pitch,
-                                    with65: element.pitches[0].pitch + 65,
-                                    with66: element.pitches[0].pitch + 66,
-                                    with67: element.pitches[0].pitch + 67
-                                });
-                                debugCount++;
-                            }
-                            
-                            const noteDuration = (element.duration || 0.25) * secondsPerQuarterNote;
-                            
-                            element.pitches.forEach(pitch => {
-                                // ABC.js uses a diatonic (not chromatic!) scale starting at C
-                                // raw:0=C, 1=D, 2=E, 3=F, 4=G, 5=A, 6=B, then 7=c, etc
-                                // We need to convert to chromatic MIDI
-                                
-                                const diatonicToChromatic = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
-                                const octave = pitch.name && pitch.name === pitch.name.toLowerCase() ? 1 : 0;
-                                const noteInOctave = pitch.pitch % 7;
-                                const octaveOffset = Math.floor(pitch.pitch / 7);
-                                
-                                const chromaticOffset = diatonicToChromatic[noteInOctave];
-                                const baseMidi = 60; // C4
-                                const midiNote = baseMidi + (octaveOffset + octave) * 12 + chromaticOffset;
-                                
-                                const freq = this.midiToFreq(midiNote);
-                                
-                                notes.push({
-                                    freq: freq,
-                                    time: currentTime,
-                                    duration: noteDuration,
-                                    // Debug info
-                                    noteName: pitch.name,
-                                    rawPitch: pitch.pitch,
-                                    midiNote: midiNote
-                                });
-                            });
-                            
-                            currentTime += noteDuration;
-                        } else if (element.el_type === "rest") {
-                            const restDuration = (element.duration || 0.25) * secondsPerQuarterNote;
-                            currentTime += restDuration;
-                        }
-                    });
-                });
+  visualObj.lines.forEach(line => {
+    line.staff?.forEach(staff => {
+      staff.voices?.forEach(voice => {
+        voice.forEach(element => {
+
+          if (element.el_type === "note" && element.pitches) {
+            const duration =
+              (element.duration || 0.25) * secondsPerQuarterNote;
+
+            element.pitches.forEach(pitch => {
+              const midi = this.pitchToMidi(pitch, keyMap);
+              const freq = this.midiToFreq(midi);
+
+              notes.push({
+                freq,
+                time: currentTime,
+                duration,
+                midi
+              });
             });
+
+            currentTime += duration;
+
+          } else if (element.el_type === "rest") {
+            currentTime +=
+              (element.duration || 0.25) * secondsPerQuarterNote;
+          }
+
         });
+      });
+    });
+  });
 
-        // Log first 10 notes with their timing AND raw pitch values
-        console.log('[First 10 notes]:', notes.slice(0, 10).map(n => 
-            `${n.noteName}(${n.midiNote}) raw:${n.rawPitch} @${n.time.toFixed(2)}s`
-        ));
+  console.log("First notes:", notes.slice(0, 5));
+  return notes;
+}
 
-        return notes;
-    }
+buildKeySignatureMap(staff) {
+  const map = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+
+  staff.keySignature?.accidentals?.forEach(acc => {
+    const noteIndex = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 }[acc.note];
+    map[noteIndex] =
+      acc.acc === "sharp" ? 1 :
+      acc.acc === "flat"  ? -1 : 0;
+  });
+
+  return map;
+}
+
+pitchToMidi(pitch, keyMap) {
+  const diatonicToChromatic = [0, 2, 4, 5, 7, 9, 11];
+
+  const octave = Math.floor(pitch.pitch / 7);
+  const noteIndex = pitch.pitch % 7;
+
+  let accidental = keyMap[noteIndex] || 0;
+
+  if (pitch.accidental === "sharp") accidental = 1;
+  if (pitch.accidental === "flat") accidental = -1;
+  if (pitch.accidental === "natural") accidental = 0;
+
+  return 60 + octave * 12 + diatonicToChromatic[noteIndex] + accidental;
+} 
 
     midiToFreq(midi) {
         return 440 * Math.pow(2, (midi - 69) / 12);

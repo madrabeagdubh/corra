@@ -7,7 +7,7 @@ T: Drowsy Maggie
 Z: Jeremy
 S: https://thesession.org/tunes/27#setting27
 R: reel
-M: 4/4
+M: 6/8
 L: 1/8
 K: Edor
 d2fd c2ec|defg afge|d2fd c2ec|BABc dAFA|

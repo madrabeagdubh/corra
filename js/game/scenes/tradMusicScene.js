@@ -1,8 +1,6 @@
-// js/game/scenes/TradMusicScene.js
-
+// js/game/scenes/tradMusicScene.js
 /**
- * Phaser 3 Scene for Irish Trad Music Player
- * Demonstrates multi-voice progressive loop system
+ * Demonstrates multi-voice progressive loop system with bodhrán & drone
  */
 export default class TradMusicScene extends Phaser.Scene {
     constructor() {
@@ -16,7 +14,7 @@ export default class TradMusicScene extends Phaser.Scene {
     create() {
         // Initialize the music player
         this.player = new window.AbcTradPlayer();
-        
+
         // Set up loop change callback
         this.player.onLoopChange = (loopIndex, progression) => {
             this.updateLoopDisplay(loopIndex, progression);
@@ -33,7 +31,7 @@ export default class TradMusicScene extends Phaser.Scene {
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        this.add.text(width / 2, 100, 'Progressive Multi-Voice Loops', {
+        this.add.text(width / 2, 100, 'Progressive Multi-Voice Loops + Bodhrán', {
             fontSize: '18px',
             fontFamily: 'Courier New',
             color: '#aaffaa'
@@ -71,16 +69,17 @@ export default class TradMusicScene extends Phaser.Scene {
 
     createTuneButtons() {
         const width = this.cameras.main.width;
-        const startY = 260;
-        const spacing = 70;
+        const startY = 250;
+        const spacing = 60;
 
-        // Sample tunes from allTunes.js
+        // Sample tunes from allTunes.js - now with more variety!
         const tunesToDisplay = [
-            { key: 'keshThe', label: 'The Kesh', type: 'jig', color: 0x44aa44 },
+            { key: 'keshThe', label: 'The Kesh (Jig)', type: 'jig', color: 0x44aa44 },
             { key: 'cooleys', label: "Cooley's Reel", type: 'reel', color: 0xaa4444 },
-            { key: 'butterflyThe', label: 'The Butterfly', type: 'slipJig', color: 0x4444aa },
-            { key: 'morrisons', label: "Morrison's Jig", type: 'jig', color: 0x44aa44 },
-            { key: 'silverSpearThe', label: 'The Silver Spear', type: 'reel', color: 0xaa4444 }
+            { key: 'butterflyThe', label: 'The Butterfly (Slip)', type: 'slipJig', color: 0x4444aa },
+            { key: 'morrisons', label: "Morrison's (Pipes!)", type: 'pipes', color: 0xaa6644 },
+            { key: 'silverSpearThe', label: 'Silver Spear (Flute)', type: 'flute', color: 0x6644aa },
+            { key: 'keshThe', label: 'The Kesh (Reel Ver.)', type: 'reel', color: 0xaa4444 }
         ];
 
         tunesToDisplay.forEach((tune, index) => {
@@ -98,8 +97,8 @@ export default class TradMusicScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         this.createButton(
             width / 2,
-            600,
-            '⏹  STOP',
+            640,
+            '⏹   STOP',
             0x884444,
             () => this.stopMusic()
         );
@@ -107,14 +106,14 @@ export default class TradMusicScene extends Phaser.Scene {
 
     createButton(x, y, text, color, callback) {
         const buttonWidth = 500;
-        const buttonHeight = 55;
+        const buttonHeight = 50;
 
         const button = this.add.rectangle(x, y, buttonWidth, buttonHeight, color)
             .setInteractive({ useHandCursor: true })
             .setStrokeStyle(2, 0xffffff);
 
         const buttonText = this.add.text(x, y, text, {
-            fontSize: '20px',
+            fontSize: '18px',
             fontFamily: 'Courier New',
             color: '#ffffff',
             fontStyle: 'bold'
@@ -144,18 +143,17 @@ export default class TradMusicScene extends Phaser.Scene {
 
     createInfoPanel() {
         const width = this.cameras.main.width;
-        
+
         const infoText = [
-            'How it works:',
-            '• Loop 1: Solo instrument opens',
-            '• Loop 2-3: Others join progressively',
-            '• Loop 4: Different solo takes over',
-            '• Loop 5: Build back up to ensemble',
-            '• Real soundfonts - no distortion!'
+            'Progressive Loop System:',
+            '• Solo opens → harmony joins → bodhrán enters',
+            '• Pipes include authentic drone!',
+            '• Different instruments per arrangement',
+            '• No audio distortion - real soundfonts!'
         ].join('\n');
 
-        this.add.text(width / 2, 660, infoText, {
-            fontSize: '12px',
+        this.add.text(width / 2, 680, infoText, {
+            fontSize: '11px',
             fontFamily: 'Courier New',
             color: '#88aa88',
             align: 'center',
@@ -169,15 +167,16 @@ export default class TradMusicScene extends Phaser.Scene {
             this.statusText.setText('Loading soundfonts...');
             await this.player.preloadSoundfonts();
         }
-        
+
         // Get the ABC from allTunes
         const abc = window.allTunes[tuneKey];
-        
+
         if (!abc) {
             console.error('Tune not found:', tuneKey);
             return;
         }
 
+        console.log('[TradMusicScene] Playing:', tuneKey, 'as', tuneType);
         console.log('[TradMusicScene] Original ABC from allTunes:');
         console.log(abc);
 
@@ -190,9 +189,10 @@ export default class TradMusicScene extends Phaser.Scene {
 
         console.log('[TradMusicScene] Prepared tune data:', tuneData);
         console.log('[TradMusicScene] Multi-voice ABC length:', tuneData.abc.length);
+        console.log('[TradMusicScene] Progression steps:', tuneData.progression.length);
 
-        this.statusText.setText(`Playing: ${tuneData.name}`);
-        
+        this.statusText.setText(`♪ Playing: ${tuneData.name} (${tuneType})`);
+
         // Prepare and play
         await this.player.prepareTune(tuneData);
         await this.player.play();
@@ -206,7 +206,8 @@ export default class TradMusicScene extends Phaser.Scene {
     }
 
     updateLoopDisplay(loopIndex, progression) {
-        this.loopText.setText(`Loop ${loopIndex + 1}/5: ${progression.name}`);
+        const totalLoops = this.player.currentTune?.progression.length || 5;
+        this.loopText.setText(`Loop ${loopIndex + 1}/${totalLoops}: ${progression.name}`);
         this.instrumentsText.setText(progression.description);
     }
 

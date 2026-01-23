@@ -1,5 +1,3 @@
-import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
-import { keshJig } from './game/systems/music/keshJig.js';
 
 function ensureFontsLoaded(callback) {
   if (document.fonts && document.fonts.ready) {
@@ -27,63 +25,8 @@ const statIcons = {
     luck: '☘️'
 };
 
-// Module-level music player
-let musicPlayer = null;
-let currentTune = null;
 
-function initMusicPlayer() {
-    if (!musicPlayer) {
-        musicPlayer = new AbcChipPlayer();
-        console.log('[music] Player initialized');
-    }
-    return musicPlayer;
-}
 
-function crossfadeToTune(newTune) {
-    if (!newTune) {
-        console.warn('[music] No tune provided');
-        return;
-    }
-
-    const player = initMusicPlayer();
-    const ctx = player.synth.ensureContext();
-
-    // Ensure context is running (important for first interaction)
-    if (ctx.state !== 'running') {
-        ctx.resume().then(() => {
-            console.log('[music] AudioContext resumed, state:', ctx.state);
-            playNewTune();
-        }).catch(err => {
-            console.error('[music] Failed to resume context:', err);
-        });
-    } else {
-        playNewTune();
-    }
-
-    function playNewTune() {
-        // If same tune is playing, don't restart
-        if (currentTune === newTune) {
-            console.log('[music] Same tune already playing');
-            return;
-        }
-
-        // Stop previous tune
-        if (currentTune) {
-            player.stop();
-            console.log('[music] Stopped previous tune');
-        }
-
-        try {
-            // New API: prepare then play
-            player.prepareTune(newTune);
-            player.play();
-            currentTune = newTune;
-            console.log('[music] ✓ Playing new tune');
-        } catch (err) {
-            console.error('[music] Failed to play tune:', err);
-        }
-    }
-}
 
 function createStatPopup(statName, englishOpacity) {
     console.log('Creating stat popup for:', statName);
@@ -227,16 +170,7 @@ function createStatPopup(statName, englishOpacity) {
 }
 
 export function showCharacterModal(champion) {
-    // Play character's theme tune, or fall back to Kesh Jig
-    const tuneToPlay = champion.themeTune || keshJig;
-    
-    if (!champion.themeTune) {
-        console.log('[music] No themeTune for champion:', champion.nameGa, '- using Kesh Jig fallback');
-    }
-    
-    crossfadeToTune(tuneToPlay);
-
-    ensureFontsLoaded(() => {
+       ensureFontsLoaded(() => {
         let modal = document.getElementById('characterModal');
         if (!modal) {
             modal = document.createElement('div');

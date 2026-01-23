@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irish Trad Music Player - Phaser 3</title>
+    
+    <!-- Phaser 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    
+    <!-- abcjs for music rendering and playback -->
+    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.2.3/dist/abcjs-basic-min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a4d2e 0%, #0f2818 100%);
+            font-family: 'Courier New', monospace;
+        }
+        
+        #game-container {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        /* Loading indicator */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #90ee90;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        #loading.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div>Loading Irish Trad Session...</div>
+        <div style="font-size: 16px; margin-top: 10px; opacity: 0.7;">Preparing soundfonts...</div>
+    </div>
+    
+    <div id="game-container"></div>
+
+    <!-- Your game modules -->
+    <script type="module">
+        // Import your music system modules
+        import AbcTradPlayer from './js/game/systems/music/abcTradPlayer.js';
+        import { prepareTuneData } from './js/game/systems/music/tradTuneConfig.js';
+        import { allTunes } from './js/game/systems/music/allTunes.js';
+        
+        // Make them available globally for Phaser scene
+        window.AbcTradPlayer = AbcTradPlayer;
+        window.prepareTuneData = prepareTuneData;
+        window.allTunes = allTunes;
+        
+        // Import and start the Phaser game
+        import('./js/game/scenes/tradMusicScene.js').then(module => {
+            const TradMusicScene = module.default;
+            
+            const config = {
+                type: Phaser.AUTO,
+                width: 800,
+                height: 700,
+                parent: 'game-container',
+                backgroundColor: '#1a4d2e',
+                scene: TradMusicScene,
+                scale: {
+                    mode: Phaser.Scale.FIT,
+                    autoCenter: Phaser.Scale.CENTER_BOTH
+                }
+            };
+            
+            const game = new Phaser.Game(config);
+            
+            // Hide loading screen once game starts
+            document.getElementById('loading').classList.add('hidden');
+        });
+    </script>
+                                                                                                                              <script src="https://cdn.jsdelivr.net/npm/eruda"></script>        <script>eruda.init();</script>
+</body>
+</html>

@@ -2,76 +2,14 @@ import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 
-import AbcChipPlayer from './game/systems/music/abcChipPlayer.js';
-import { foggyDew } from './game/systems/music/foggyDew.js';
-import ChipSynth from "./game/systems/music/chipSynth.js";
-
-export function testMultiVoice() {
-    const synth = new ChipSynth();
-    const ctx = synth.ensureContext();
-    const now = ctx.currentTime + 0.1;
-    
-    console.log("[MultiVoice Test] Starting...");
-    
-    // Play a simple C major scale with all voices
-    const notes = [
-        { freq: 261.63, time: 0.0 },  // C
-        { freq: 293.66, time: 0.5 },  // D
-        { freq: 329.63, time: 1.0 },  // E
-        { freq: 349.23, time: 1.5 },  // F
-        { freq: 392.00, time: 2.0 },  // G
-    ];
-    
-    notes.forEach(note => {
-        // Melody
-        synth.playMelody(note.freq, now + note.time, 0.4);
-        
-        // Harmony (third above)
-        synth.playHarmony(note.freq, now + note.time, 0.4, 4);
-        
-        // Bass (every other note)
-        if (note.time % 1.0 === 0) {
-            synth.playBass(note.freq, now + note.time, 0.9);
-        }
-    });
-    
-    // Drums
-    for (let i = 0; i < 5; i++) {
-        const time = now + i * 0.5;
-        
-        // Kick on beats 1, 3, 5
-        if (i % 2 === 0) {
-            synth.playDrum('kick', time);
-        } else {
-            synth.playDrum('snare', time);
-        }
-        
-        // Hi-hat every beat
-        synth.playDrum('hihat', time);
-    }
-    
-    console.log("[MultiVoice Test] Scheduled 5 melody + 5 harmony + 3 bass + 10 drums");
-}
-
 // Prevent double initialization
 let initialized = false;
-let musicPlayer = null;
-let musicStarted = false;
 
 // Stat descriptions
 const statDescriptions = {
-  attack: {
-    irish: "Ionsaigh",
-    english: "Attack"
-  },
-  defense: {
-    irish: "Cosaint",
-    english: "Defense"
-  },
-  health: {
-    irish: "Sláinte",
-    english: "Health"
-  }
+  attack: { irish: "Ionsaigh", english: "Attack" },
+  defense: { irish: "Cosaint", english: "Defense" },
+  health: { irish: "Sláinte", english: "Health" }
 };
 
 const statIcons = {
@@ -79,7 +17,6 @@ const statIcons = {
   defense: '🛡️',
   health: '❤️'
 };
-
 
 function createStatsDisplay(champion, currentOpacity) {
     if (!champion || !champion.stats) return null;
@@ -132,8 +69,6 @@ function createStatsDisplay(champion, currentOpacity) {
 
     return statsContainer;
 }
-
-
 
 function createStatPopup(statName, englishOpacity) {
   console.log('Creating stat popup for:', statName, 'opacity:', englishOpacity);
@@ -296,9 +231,6 @@ function initHeroSelect() {
     if (!container) return;
 
     initialized = true;
-
-    // --- MUSIC INIT ---
-    musicPlayer = new AbcChipPlayer();
 
     let englishOpacity = 0.15;
     let currentChampionIndex = 0;
@@ -582,60 +514,26 @@ function initHeroSelect() {
 
     function initSwipe(container, len) {
         let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
-        let currentSwipeDetected = false;
         
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
        
-       
-const handleTouchStart = (e) => {
-    console.log('[swipe] touchstart on', e.target.className);
+        const handleTouchStart = (e) => {
+            isDragging = true;
+            startX = e.touches[0].pageX;
+            startY = e.touches[0].pageY;
+            scrollL = container.scrollLeft;
+            lastX = startX;
+            lastT = performance.now();
 
-    isDragging = true;
-    currentSwipeDetected = false;
-    startX = e.touches[0].pageX;
-    startY = e.touches[0].pageY;
-    scrollL = container.scrollLeft;
-    lastX = startX;
-    lastT = performance.now();
-
-    if (animID) cancelAnimationFrame(animID);
-    container.style.scrollSnapType = 'none';
-    container.style.scrollBehavior = 'auto';
-
-    // Ensure AudioContext is resumed immediately on gesture
-    if (musicPlayer) {
-        const ctx = musicPlayer.synth.ensureContext();
-        if (ctx.state !== 'running') {
-            ctx.resume().then(() => {
-                console.log('[music] ✓ AudioContext resumed on touchstart', ctx.state);
-                // Play a micro-beep to unlock context
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                gain.gain.value = 0;
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.001);
-            });
-        }
-    }
-};
-
-;;
+            if (animID) cancelAnimationFrame(animID);
+            container.style.scrollSnapType = 'none';
+            container.style.scrollBehavior = 'auto';
+        };
        
         const handleTouchMove = (e) => {
             if (!isDragging) return;
             
             const x = e.touches[0].pageX;
-            
-            const deltaX = Math.abs(x - startX);
-            
-            // Detect swipe
-            if (!currentSwipeDetected && deltaX > 15) {
-                currentSwipeDetected = true;
-                console.log('[swipe] Swipe detected! deltaX:', deltaX);
-            }
-            
             container.scrollLeft = scrollL - (x - startX);
             const now = performance.now();
             const dt = now - lastT;
@@ -644,81 +542,36 @@ const handleTouchStart = (e) => {
             lastT = now;
         };
       
-     const handleTouchEnd = () => {
-    console.log('[swipe] touchend - swipe detected:', currentSwipeDetected, 'music started:', musicStarted);
+        const handleTouchEnd = () => {
+            isDragging = false;
+            velocity *= 2.5;
 
-    // Play music on touchend after swipe
-    if (currentSwipeDetected && !musicStarted && musicPlayer) {
-        // 1. Ensure context exists
-        const ctx = musicPlayer.synth.ensureContext(); 
+            const decay = () => {
+                container.scrollLeft += velocity;
+                velocity *= 0.95;
+                if (Math.abs(velocity) > 0.1) {
+                    animID = requestAnimationFrame(decay);
+                    return;
+                }
+                const w = window.innerWidth;
+                const target = Math.round(container.scrollLeft / w);
+                container.style.scrollBehavior = 'smooth';
+                container.scrollTo({ left: target * w, behavior: 'smooth' });
+                setTimeout(() => {
+                    container.style.scrollSnapType = 'x mandatory';
+                    const realIndex = (target % len + len) % len;
+                    currentChampionIndex = realIndex;
+                    updateGlobalStats(validChampions[realIndex]);
+                    container.scrollLeft = (len + realIndex) * w;
+                }, 350);
+            };
 
-        // 2. Resume and Play
-        ctx.resume().then(() => {
-            console.log('[music] AudioContext state:', ctx.state);
-            if (ctx.state === 'running') {
-                musicPlayer.play(foggyDew);
-
-// Call this in your game code:
- testMultiVoice();
-
-
-
-                musicStarted = true;
-            }
-        }).catch(err => {
-            console.error('[music] Interaction failed:', err);
-        });
-    }
-
-
-    isDragging = false;
-    velocity *= 2.5;
-
-    const decay = () => {
-        container.scrollLeft += velocity;
-        velocity *= 0.95;
-        if (Math.abs(velocity) > 0.1) {
-            animID = requestAnimationFrame(decay);
-            return;
-        }
-        const w = window.innerWidth;
-        const target = Math.round(container.scrollLeft / w);
-        container.style.scrollBehavior = 'smooth';
-        container.scrollTo({ left: target * w, behavior: 'smooth' });
-        setTimeout(() => {
-            container.style.scrollSnapType = 'x mandatory';
-            const realIndex = (target % len + len) % len;
-            currentChampionIndex = realIndex;
-            updateGlobalStats(validChampions[realIndex]);
-            container.scrollLeft = (len + realIndex) * w;
-        }, 350);
-    };
-
-    decay();
-}; 
+            decay();
+        }; 
+        
         container.addEventListener('touchstart', handleTouchStart);
         container.addEventListener('touchmove', handleTouchMove);
         container.addEventListener('touchend', handleTouchEnd);
-        
-
-
-// Desktop click fallback (at the bottom of initSwipe)
-container.addEventListener('click', () => {
-    if (!musicStarted && musicPlayer) {
-        const ctx = musicPlayer.synth.ensureContext(); // FIX: Initialize context before accessing state
-        
-        ctx.resume().then(() => {
-            if (ctx.state === 'running') {
-                musicStarted = true;
-                musicPlayer.play(foggyDew);
-                console.log('[music] ✓ Playing from click!');
-            }
-        }).catch(err => console.error('[music] Click play failed:', err));
-    }
-}, { once: true });
-
-
-
     }
 
     function finalize(champ) {

@@ -1,17 +1,23 @@
+import { foggyDew } from '../js/game/systems/music/foggyDew.js'
+
+import { siBeagSiMor } from '../js/game/systems/music/siBeagSiMor.js'
+
+import { liltingBanshee } from '../js/game/systems/music/liltingBanshee.js'
+import { gravelWalks } from '../js/game/systems/music/gravelWalks.js'
 export const champions = [
-{spriteKey:'001.png', monologueID:1,gender:"", nameGa: 'Tassach',  nameEn: 'idle; inactive', charBioEn: "I was Tassach, one of Saint Patrick's 'three artificers, of exceptional skill,' as recorded in M448.2.", charBioGa: "Ba mise Tassach, duine de thrí ealaíontóirí eisceachtúi Nlaomh Pádraig, mar a taifeadadh i M448.2." 
+{themeTune:foggyDew, spriteKey:'001.png', monologueID:1,gender:"", nameGa: 'Tassach',  nameEn: 'idle; inactive', charBioEn: "I was Tassach, one of Saint Patrick's 'three artificers, of exceptional skill,' as recorded in M448.2.", charBioGa: "Ba mise Tassach, duine de thrí ealaíontóirí eisceachtúi Nlaomh Pádraig, mar a taifeadadh i M448.2." 
 , stats: {health: 6, attack: 3,  defense: 9,speed: 6, magic: 5,  luck: 1 }
 
 }
-,{spriteKey:'052.png', monologueID:1 ,gender:"m", nameGa: 'Ádhamhnán', nameEn: 'the timorous one', charBioEn: "I was Adhamhnan, the successor of Colum Cille, who went to Ireland and returned with the laws of Adhamhnan, as recorded in M186.2.", charBioGa: "Ba mise Ádhamhnán, comharba Cholum Cille, a chuaigh go hÉirinn agus a d'fhill le dlíthe Ádhamhnáin, mar a taifeadadh i M186.2." 
+,{themeTune:siBeagSiMor,spriteKey:'052.png', monologueID:1 ,gender:"m", nameGa: 'Ádhamhnán', nameEn: 'the timorous one', charBioEn: "I was Adhamhnan, the successor of Colum Cille, who went to Ireland and returned with the laws of Adhamhnan, as recorded in M186.2.", charBioGa: "Ba mise Ádhamhnán, comharba Cholum Cille, a chuaigh go hÉirinn agus a d'fhill le dlíthe Ádhamhnáin, mar a taifeadadh i M186.2." 
 , stats: {health: 7, attack: 8,  defense: 5,speed: 5, magic: 6,  luck: 4 }
 
 },
-,{spriteKey:'003.png', monologueID:1,gender:"m", nameGa: 'Fionn', nameEn: 'fair, white', charBioEn: "I was Finn, grandson of Baisgne, slain by Aichleach, son of Duibhdreann, and the sons of Uirgreann of the Luaighni Teamhrach, at Ath Brea, upon the Boinn Boyne,' as recorded in M283.2.", charBioGa: "Ba mise Fionn, garmhac Baisgne, marbhtha ag hAichleach, mac Duibhdreann, agus mic Uirgreann na Luí Teamhrach, ag Áth Breá, ar an mBóinn,' mar a taifeadadh i M283.2." 
+,{themeTune:liltingBanshee,spriteKey:'003.png', monologueID:1,gender:"m", nameGa: 'Fionn', nameEn: 'fair, white', charBioEn: "I was Finn, grandson of Baisgne, slain by Aichleach, son of Duibhdreann, and the sons of Uirgreann of the Luaighni Teamhrach, at Ath Brea, upon the Boinn Boyne,' as recorded in M283.2.", charBioGa: "Ba mise Fionn, garmhac Baisgne, marbhtha ag hAichleach, mac Duibhdreann, agus mic Uirgreann na Luí Teamhrach, ag Áth Breá, ar an mBóinn,' mar a taifeadadh i M283.2." 
 , stats: {health: 10, attack: 10,  defense: 10,speed: 6, magic: 5,  luck: 1 }
 
 },
-,{spriteKey:'004.png', monologueID:1,gender:"m", nameGa: 'Gormán', nameEn: 'dark; swarthy', charBioEn: "I was Gorman, warrior of Ard Brecain, who died never yielding, as recorded in M848.3.", charBioGa: "Ba mise Gormán, laoch Ard Breacáin, fuair mé bás ach níor géill mé, i M848.3." 
+,{themeTune:gravelWalks,spriteKey:'004.png', monologueID:1,gender:"m", nameGa: 'Gormán', nameEn: 'dark; swarthy', charBioEn: "I was Gorman, warrior of Ard Brecain, who died never yielding, as recorded in M848.3.", charBioGa: "Ba mise Gormán, laoch Ard Breacáin, fuair mé bás ach níor géill mé, i M848.3." 
 , stats: {health: 4, attack: 7,  defense: 6,speed: 8, magic: 5,  luck: 9 }
 
 },
@@ -2960,8 +2966,8 @@ charBioGa:
     gender: "f",
     nameGa: "Éabha",
     nameEn: "Life",
-    charBioEn: "Brave Eabha, clever Eabha, Eabha of the dirty sleeves, shining eyes, Eabha beloved champion",
-    charBioGa: "Eabha cróga, Éabha cliste, Éabha muinchillí salacha, súile lasta, Éabha na gaiscí"
+    charBioEn: "Her kin are mighty, of noble stock.\nThe spirits of the land know her name.\nAnd the fair folk of the sídhe smile upon her.\nÉabha, bridge between worlds,\nIn her heart lies the truth of the land.\nÉabha, fairest daughter of Éire.\nShe shall be a light, Guiding the lost.",
+    charBioGa: "As teaghlach uasal, de shliocht treise. \nAithníonn Banba í.\nÁthas na sí í. \nÉabha, droichead Tuathail,\nIna gcroí: fírinne tíre. Éabha, iníon Éireann is áille.\nBeidh sí ina solas, treoirí don té ar seachrán"
 , stats: {health: 6, attack: 3,  defense: 8,speed: 7, magic: 5,  luck: 1 }
    
 

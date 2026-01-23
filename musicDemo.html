@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phaser 3 Music Test - Simple</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+        }
+        #game-container {
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <script type="module">
+        import AbcChipPlayer from './js/game/systems/music/abcChipPlayer.js';
+
+        // Simple Music Manager - just switches tunes
+        class SimpleMusicManager {
+            constructor() {
+                this.player = new AbcChipPlayer();
+                this.currentTune = null;
+                this.isTransitioning = false;
+                this.tunes = {};
+            }
+
+            loadTunes(tunesObject) {
+                this.tunes = tunesObject;
+            }
+
+            async playTune(tuneName) {
+                // Don't restart same tune
+                if (this.currentTune === tuneName) {
+                    console.log('[Music] Already playing:', tuneName);
+                    return;
+                }
+
+                // Prevent overlapping transitions
+                if (this.isTransitioning) {
+                    console.log('[Music] Busy, ignoring click');
+                    return;
+                }
+
+                this.isTransitioning = true;
+                this.currentTune = tuneName;
+
+                const abc = this.tunes[tuneName];
+                if (!abc) {
+                    console.warn('[Music] Tune not found:', tuneName);
+                    this.isTransitioning = false;
+                    return;
+                }
+
+                try {
+                    // Stop current music
+                    await this.player.stop();
+                    
+                    // Small delay for clean switch
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Play new tune (always in normal mode for testing)
+                    this.player.prepareTune(abc, 'normal');
+                    await this.player.play();
+                    
+                    console.log('[Music] ♪ Now playing:', tuneName);
+                } catch (err) {
+                    console.error('[Music] Error:', err);
+                } finally {
+                    this.isTransitioning = false;
+                }
+            }
+
+            async stop() {
+                this.currentTune = null;
+                await this.player.stop();
+            }
+
+            destroy() {
+                this.player.stop();
+            }
+        }
+
+        // Demo Scene
+        class SimpleMusicTest extends Phaser.Scene {
+            constructor() {
+                super({ key: 'SimpleMusicTest' });
+            }
+
+            create() {
+                const width = this.cameras.main.width;
+                const height = this.cameras.main.height;
+
+                // Background
+                this.add.rectangle(width/2, height/2, width, height, 0x1a1a2e);
+
+                // Title
+                this.add.text(width/2, 50, 'SIMPLE TUNE SWITCHER', {
+                    fontSize: '32px',
+                    fontFamily: 'Courier New',
+                    color: '#00ff00',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(width/2, 90, 'Click to switch between tunes', {
+                    fontSize: '16px',
+                    fontFamily: 'Courier New',
+                    color: '#888'
+                }).setOrigin(0.5);
+
+                // Initialize Music Manager
+                this.musicManager = new SimpleMusicManager();
+
+                // Current tune display
+                this.tuneText = this.add.text(width/2, 140, 'Playing: None', {
+                    fontSize: '20px',
+                    fontFamily: 'Courier New',
+                    color: '#ffff00'
+                }).setOrigin(0.5);
+
+                // Load tunes
+                import('./js/game/systems/music/allTunes.js').then(module => {
+                    this.musicManager.loadTunes(module.allTunes);
+                    this.tunesLoaded = true;
+                    this.createButtons();
+                }).catch(err => {
+                    console.error('Could not load tunes:', err);
+                    this.add.text(width/2, height/2, 'Error loading tunes!\nCheck console', {
+                        fontSize: '20px',
+                        color: '#ff0000',
+                        align: 'center'
+                    }).setOrigin(0.5);
+                });
+
+                // Instructions
+                this.add.text(width/2, height - 40, 'Each button plays a DIFFERENT tune', {
+                    fontSize: '14px',
+                    fontFamily: 'Courier New',
+                    color: '#666'
+                }).setOrigin(0.5);
+            }
+
+            createButtons() {
+                const width = this.cameras.main.width;
+                const startY = 220;
+                const spacing = 90;
+
+                // 5 distinct tunes
+                const tunes = [
+                    { key: 'keshThe', label: 'The Kesh (Jig)', color: 0x00aa00 },
+                    { key: 'cooleys', label: "Cooley's (Reel)", color: 0xaa0000 },
+                    { key: 'butterflyThe', label: 'The Butterfly (Slip Jig)', color: 0x0000aa },
+                    { key: 'morrisonsJig', label: "Morrison's Jig", color: 0xaa6600 },
+                    { key: 'silverSpearThe', label: 'The Silver Spear (Reel)', color: 0xaa00aa }
+                ];
+
+                tunes.forEach((tune, index) => {
+                    this.createTuneButton(
+                        width/2, 
+                        startY + (index * spacing),
+                        tune.label,
+                        tune.color,
+                        () => this.switchToTune(tune.key, tune.label)
+                    );
+                });
+
+                // Stop button
+                this.createTuneButton(
+                    width/2,
+                    startY + (tunes.length * spacing) + 20,
+                    '⏹️  STOP',
+                    0x444444,
+                    () => this.stopMusic()
+                );
+            }
+
+            createTuneButton(x, y, text, color, callback) {
+                const buttonWidth = 500;
+                const buttonHeight = 70;
+
+                const button = this.add.rectangle(x, y, buttonWidth, buttonHeight, color)
+                    .setInteractive({ useHandCursor: true })
+                    .setStrokeStyle(3, 0xffffff);
+
+                const buttonText = this.add.text(x, y, text, {
+                    fontSize: '24px',
+                    fontFamily: 'Courier New',
+                    color: '#ffffff',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                button.on('pointerover', () => {
+                    button.setFillStyle(Phaser.Display.Color.GetColor(
+                        Math.min(255, Phaser.Display.Color.IntegerToRGB(color).r + 50),
+                        Math.min(255, Phaser.Display.Color.IntegerToRGB(color).g + 50),
+                        Math.min(255, Phaser.Display.Color.IntegerToRGB(color).b + 50)
+                    ));
+                    button.setScale(1.05);
+                    buttonText.setScale(1.05);
+                });
+
+                button.on('pointerout', () => {
+                    button.setFillStyle(color);
+                    button.setScale(1);
+                    buttonText.setScale(1);
+                });
+
+                button.on('pointerdown', () => {
+                    button.setScale(0.95);
+                    buttonText.setScale(0.95);
+                });
+
+                button.on('pointerup', () => {
+                    button.setScale(1.05);
+                    buttonText.setScale(1.05);
+                    callback();
+                });
+            }
+
+            async switchToTune(tuneKey, tuneLabel) {
+                if (!this.tunesLoaded) {
+                    console.warn('Tunes not loaded yet');
+                    return;
+                }
+
+                this.tuneText.setText(`Playing: ${tuneLabel}`);
+                await this.musicManager.playTune(tuneKey);
+            }
+
+            async stopMusic() {
+                this.tuneText.setText('Playing: None');
+                await this.musicManager.stop();
+            }
+
+            shutdown() {
+                if (this.musicManager) {
+                    this.musicManager.destroy();
+                }
+            }
+        }
+
+        // Phaser Configuration
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 750,
+            parent: 'game-container',
+            backgroundColor: '#1a1a2e',
+            scene: SimpleMusicTest,
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            }
+        };
+
+        const game = new Phaser.Game(config);
+    </script>
+   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>                                       <script>eruda.init();</script>
+
+
+
+</body>
+</html>

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Tune Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1410;
+            color: #d4af37;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .controls {
+            background: #2a1810;
+            border: 2px solid #d4af37;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            background: #3a2820;
+            color: #d4af37;
+            border: 1px solid #8b6914;
+            border-radius: 4px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .mode-btn:hover {
+            background: #4a3830;
+            border-color: #d4af37;
+        }
+        
+        .mode-btn.active {
+            background: #4a3020;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            background: #3a2820;
+            border: 1px solid #8b6914;
+            border-radius: 4px;
+            color: #d4af37;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .tune-list {
+            background: #2a1810;
+            border: 2px solid #d4af37;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .tune-item {
+            background: #3a2820;
+            border: 1px solid #8b6914;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .tune-item:hover {
+            background: #4a3830;
+            border-color: #d4af37;
+            transform: translateX(5px);
+        }
+        
+        .tune-item.playing {
+            background: #4a3020;
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+        
+        .tune-info {
+            flex: 1;
+        }
+        
+        .tune-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 3px;
+        }
+        
+        .tune-meta {
+            font-size: 11px;
+            color: #aaa;
+        }
+        
+        .tune-count {
+            background: #8b4513;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        button {
+            background: linear-gradient(145deg, #8b4513, #d2691e, #8b4513);
+            color: #1a1a1a;
+            border: 2px solid #d2691e;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: linear-gradient(145deg, #a0522d, #e67e22, #a0522d);
+            transform: scale(1.05);
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-top: 10px;
+            color: #00ff00;
+            font-size: 14px;
+        }
+        
+        .instructions {
+            background: #2a1810;
+            border: 2px solid #d4af37;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            background: #3a2820;
+            border: 1px solid #8b6914;
+            border-radius: 4px;
+            color: #d4af37;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Bulk Tune Tester 🍀</h1>
+        
+        <div class="instructions">
+            <strong>Auto-loading from allTunes.js</strong><br>
+            Place your bulk ABC tunes in a file called <code>bulk_tunes.txt</code> in your project root, then run:<br>
+            <code>python process_tunes.py</code><br>
+            This page will automatically load from <code>js/game/systems/music/allTunes.js</code>
+        </div>
+        
+        <div class="controls">
+            <textarea id="bulkInput" placeholder="Paste your ABC tunes here (X:1 ... X:2 ... X:3 ...)"></textarea>
+            <button id="parseBtn">📋 Parse Tunes</button>
+            <button id="loadFileBtn">📁 Load from allTunes.js</button>
+            <div class="status" id="status">Paste tunes or load file...</div>
+        </div>
+        
+        <div class="controls">
+            <strong>Mode:</strong>
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="normal">Normal</button>
+                <button class="mode-btn" data-mode="battle">⚔️ Battle</button>
+                <button class="mode-btn" data-mode="meditation">🧘 Meditation</button>
+                <button class="mode-btn" data-mode="haunted">👻 Haunted</button>
+                <button class="mode-btn" data-mode="victory">🏆 Victory</button>
+                <button class="mode-btn" data-mode="stealth">🕵️ Stealth</button>
+            </div>
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search tunes by name...">
+            <button id="stopBtn">⏹️ Stop</button>
+            <button id="clearBtn">🗑️ Clear</button>
+        </div>
+        
+        <div class="tune-list" id="tuneList">
+            <p style="text-align:center; color:#888;">No tunes loaded yet...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import AbcChipPlayer from './js/game/systems/music/abcChipPlayer.js';
+        
+        const player = new AbcChipPlayer();
+        let currentMode = 'normal';
+        let allTunes = [];
+        let filteredTunes = [];
+        
+        const bulkInput = document.getElementById('bulkInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const loadFileBtn = document.getElementById('loadFileBtn');
+        const tuneList = document.getElementById('tuneList');
+        const status = document.getElementById('status');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const searchBox = document.getElementById('searchBox');
+        
+        // Mode selector
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                status.textContent = `Mode: ${currentMode}`;
+            });
+        });
+        
+        // Parse bulk ABC text into individual tunes
+        function parseBulkABC(text) {
+            const tunes = [];
+            
+            // Split by "X: " followed by a number (tune separator)
+            const sections = text.split(/(?=X:\s*\d+)/);
+            
+            sections.forEach(section => {
+                section = section.trim();
+                if (!section || section.length < 10) return;
+                
+                // Extract tune name
+                const titleMatch = section.match(/T:\s*(.+)/);
+                const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
+                
+                // Extract metadata
+                const typeMatch = section.match(/R:\s*(.+)/);
+                const meterMatch = section.match(/M:\s*(.+)/);
+                const keyMatch = section.match(/K:\s*(.+)/);
+                
+                tunes.push({
+                    name: title,
+                    type: typeMatch ? typeMatch[1].trim() : '?',
+                    meter: meterMatch ? meterMatch[1].trim() : '?',
+                    key: keyMatch ? keyMatch[1].trim() : '?',
+                    abc: section
+                });
+            });
+            
+            return tunes;
+        }
+        
+        // Parse button
+        parseBtn.addEventListener('click', () => {
+            const text = bulkInput.value.trim();
+            if (!text) {
+                status.textContent = '⚠️ Please paste some ABC tunes first';
+                return;
+            }
+            
+            allTunes = parseBulkABC(text);
+            filteredTunes = [...allTunes];
+            status.textContent = `✅ Parsed ${allTunes.length} tunes!`;
+            renderTuneList();
+            bulkInput.value = ''; // Clear textarea
+        });
+        
+        // Load from external file
+        loadFileBtn.addEventListener('click', async () => {
+            try {
+                status.textContent = 'Loading allTunes.js...';
+                const module = await import('./js/game/systems/music/allTunes.js');
+                
+                // If exported as object
+                if (module.allTunes) {
+                    const tunesObj = module.allTunes;
+                    allTunes = Object.keys(tunesObj).map(key => {
+                        const abc = tunesObj[key];
+                        const titleMatch = abc.match(/T:\s*(.+)/);
+                        const typeMatch = abc.match(/R:\s*(.+)/);
+                        const meterMatch = abc.match(/M:\s*(.+)/);
+                        const keyMatch = abc.match(/K:\s*(.+)/);
+                        
+                        return {
+                            name: titleMatch ? titleMatch[1].trim() : key,
+                            type: typeMatch ? typeMatch[1].trim() : '?',
+                            meter: meterMatch ? meterMatch[1].trim() : '?',
+                            key: keyMatch ? keyMatch[1].trim() : '?',
+                            abc: abc
+                        };
+                    });
+                    
+                    filteredTunes = [...allTunes];
+                    status.textContent = `✅ Loaded ${allTunes.length} tunes from file!`;
+                    renderTuneList();
+                } else {
+                    status.textContent = '❌ allTunes.js not formatted correctly';
+                }
+            } catch (err) {
+                status.textContent = `❌ Error: ${err.message}`;
+                console.error(err);
+            }
+        });
+        
+        // Search
+        searchBox.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (!query) {
+                filteredTunes = [...allTunes];
+            } else {
+                filteredTunes = allTunes.filter(tune => 
+                    tune.name.toLowerCase().includes(query) ||
+                    tune.type.toLowerCase().includes(query)
+                );
+            }
+            renderTuneList();
+        });
+        
+        // Render tune list
+        function renderTuneList() {
+            tuneList.innerHTML = '';
+            
+            if (filteredTunes.length === 0) {
+                tuneList.innerHTML = '<p style="text-align:center; color:#888;">No tunes match your search...</p>';
+                return;
+            }
+            
+            filteredTunes.forEach((tune, index) => {
+                const item = document.createElement('div');
+                item.className = 'tune-item';
+                
+                item.innerHTML = `
+                    <div class="tune-info">
+                        <div class="tune-name">${tune.name}</div>
+                        <div class="tune-meta">${tune.type} | ${tune.meter} | Key: ${tune.key}</div>
+                    </div>
+                    <div class="tune-count">#${index + 1}</div>
+                `;
+                
+                item.addEventListener('click', () => playTune(tune, item));
+                tuneList.appendChild(item);
+            });
+        }
+        
+        // Play tune
+        function playTune(tune, element) {
+            document.querySelectorAll('.tune-item').forEach(el => {
+                el.classList.remove('playing');
+            });
+            element.classList.add('playing');
+            
+            try {
+                const ctx = player.synth.ensureContext();
+                
+                if (ctx.state === 'suspended') {
+                    ctx.resume().then(() => actuallyPlay());
+                } else {
+                    actuallyPlay();
+                }
+                
+                function actuallyPlay() {
+                    player.stop();
+                    player.prepareTune(tune.abc, currentMode);
+                    player.play();
+                    status.textContent = `🎵 [${currentMode}] ${tune.name}`;
+                }
+            } catch (err) {
+                status.textContent = `❌ Error: ${err.message}`;
+                console.error(err);
+            }
+        }
+        
+        // Stop button
+        stopBtn.addEventListener('click', () => {
+            player.stop();
+            document.querySelectorAll('.tune-item').forEach(el => {
+                el.classList.remove('playing');
+            });
+            status.textContent = '⏹️ Stopped';
+        });
+        
+        // Auto-load tunes on page load
+        async function autoLoadTunes() {
+            try {
+                status.textContent = '🎵 Loading tunes...';
+                const module = await import('./js/game/systems/music/allTunes.js');
+                
+                if (module.allTunes) {
+                    const tunesObj = module.allTunes;
+                    allTunes = Object.keys(tunesObj).map(key => {
+                        const abc = tunesObj[key];
+                        const titleMatch = abc.match(/T:\s*(.+)/);
+                        const typeMatch = abc.match(/R:\s*(.+)/);
+                        const meterMatch = abc.match(/M:\s*(.+)/);
+                        const keyMatch = abc.match(/K:\s*(.+)/);
+                        
+                        return {
+                            name: titleMatch ? titleMatch[1].trim() : key,
+                            type: typeMatch ? typeMatch[1].trim() : '?',
+                            meter: meterMatch ? meterMatch[1].trim() : '?',
+                            key: keyMatch ? keyMatch[1].trim() : '?',
+                            abc: abc
+                        };
+                    });
+                    
+                    filteredTunes = [...allTunes];
+                    status.textContent = `✅ Loaded ${allTunes.length} tunes!`;
+                    renderTuneList();
+                } else {
+                    status.textContent = '❌ No allTunes export found';
+                }
+            } catch (err) {
+                status.textContent = `⚠️ No allTunes.js found - paste tunes or create the file`;
+                console.warn('allTunes.js not found:', err.message);
+            }
+        }
+        
+        // Auto-load on page load
+        autoLoadTunes();
+</script>
+
+   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+   <script>eruda.init();</script>
+
+</body>
+</html> 

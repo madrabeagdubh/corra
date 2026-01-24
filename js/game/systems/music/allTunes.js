@@ -2,29 +2,29 @@
 // Total tunes: 300
 
 export const allTunes = {
-  drowsyMaggie: `X: 1
+  drowsyMaggie: `
+
+
+X: 1
 T: Drowsy Maggie
-Z: Jeremy
-S: https://thesession.org/tunes/27#setting27
 R: reel
-M: 6/8
+M: 4/4
 L: 1/8
 K: Edor
+|:E2BE dEBE|E2BE AFDF|E2BE dEBE|BABc dAFD:|
 d2fd c2ec|defg afge|d2fd c2ec|BABc dAFA|
-d2fd c2ec|defg afge|afge fdec|BABc dAFD|`,
+d2fd c2ec|defg afge|afge fdec|BABc dAFD|
+`,
 
   keshThe: `X: 2
 T: Kesh, The
-Z: Jeremy (ornamented pass)
-S: https://thesession.org/tunes/55#setting55
-R: jig
+Z: Jeremy
+S: https://thesession.org/tunes/55#setting55    R: jig
 M: 6/8
 L: 1/8
 K: Gmaj
-|:G3 GAB|A3 A{B}Bd|e{f}dd g{a}dd|e{f}dB dBA|
- GAG G{A}AB|A{B}BA ABd|e{f}dd gdd|BAF G3 z/8:|
-|:B2B d2d|e{f}ge dBA|B2B dBG|A{B}BA AGA|
- BAB d^c{d}d|e{f}ge dBd|g{a}fg a{b}ga|bg{a}g g3:|`,
+|:G3 GAB|A3 ABd|edd gdd|edB dBA|
+GAG GAB|ABA ABd|edd gdd|BAF G3:| |:B2B d2d|ege dBA|B2B dBG|ABA AGA|BAB d^cd|ege dBd|gfg aga|bgg g3:|`,
 
   cooleys: `X: 3
 T: Cooley's

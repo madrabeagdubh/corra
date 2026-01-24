@@ -2,6 +2,11 @@ import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 
+import { championMusicManager } from './game/systems/music/championMusicManager.js';
+
+
+
+
 // Prevent double initialization
 let initialized = false;
 
@@ -136,17 +141,27 @@ function createStatPopup(statName, englishOpacity) {
 
   if (!document.getElementById('statPopupStyle')) {
     const style = document.createElement('style');
+    
+
+
+
+
+if (!document.getElementById('statPopupStyle')) {
+    const style = document.createElement('style');
     style.id = 'statPopupStyle';
     style.textContent = `
-      @keyframes popupFadeIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-      @keyframes popupFadeOut { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
-      @keyframes letterGlow { 
-        0% { opacity: 0; transform: scale(1.3); text-shadow: 0 0 15px rgba(255, 200, 100, 1); } 
-        100% { opacity: 1; transform: scale(1); text-shadow: none; } 
+      @keyframes popupFadeIn { 
+        from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } 
+        to { opacity: 1; transform: translate(-50%, -50%) scale(1); } 
+      }
+      @keyframes popupFadeOut { 
+        from { opacity: 1; transform: translate(-50%, -50%) scale(1); } 
+        to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } 
       }
     `;
     document.head.appendChild(style);
   }
+
 
   let autoCloseTimer = null;
   const closePopup = () => {
@@ -470,7 +485,11 @@ function initHeroSelect() {
         runOnboarding();
         window.hideLoader();
         
-        updateGlobalStats(validChampions[randomIndex]);
+updateGlobalStats(validChampions[randomIndex]);
+// NEW: Play initial champion theme
+championMusicManager.playChampionTheme(validChampions[randomIndex], true); // immediate = true
+
+
     }
 
     function runOnboarding() {
@@ -542,52 +561,71 @@ function initHeroSelect() {
             lastT = now;
         };
       
-        const handleTouchEnd = () => {
-            isDragging = false;
-            velocity *= 2.5;
+       
 
-            const decay = () => {
-                container.scrollLeft += velocity;
-                velocity *= 0.95;
-                if (Math.abs(velocity) > 0.1) {
-                    animID = requestAnimationFrame(decay);
-                    return;
-                }
-                const w = window.innerWidth;
-                const target = Math.round(container.scrollLeft / w);
-                container.style.scrollBehavior = 'smooth';
-                container.scrollTo({ left: target * w, behavior: 'smooth' });
-                setTimeout(() => {
-                    container.style.scrollSnapType = 'x mandatory';
-                    const realIndex = (target % len + len) % len;
-                    currentChampionIndex = realIndex;
-                    updateGlobalStats(validChampions[realIndex]);
-                    container.scrollLeft = (len + realIndex) * w;
-                }, 350);
-            };
 
-            decay();
-        }; 
-        
+
+const handleTouchEnd = () => {
+    isDragging = false;
+    velocity *= 2.5;
+
+    const decay = () => {
+        container.scrollLeft += velocity;
+        velocity *= 0.95;
+        if (Math.abs(velocity) > 0.1) {
+            animID = requestAnimationFrame(decay);
+            return;
+        }
+        const w = window.innerWidth;
+        const target = Math.round(container.scrollLeft / w);
+        container.style.scrollBehavior = 'smooth';
+        container.scrollTo({ left: target * w, behavior: 'smooth' });
+        setTimeout(() => {
+            container.style.scrollSnapType = 'x mandatory';
+            const realIndex = (target % len + len) % len;
+            currentChampionIndex = realIndex;
+            updateGlobalStats(validChampions[realIndex]);
+            
+            championMusicManager.playChampionTheme(validChampions[realIndex]);
+            
+            container.scrollLeft = (len + realIndex) * w;
+        }, 350);
+    };
+
+    decay();
+}
+
+
+
+
+       
         container.addEventListener('touchstart', handleTouchStart);
         container.addEventListener('touchmove', handleTouchMove);
         container.addEventListener('touchend', handleTouchEnd);
     }
 
-    function finalize(champ) {
-        window.showLoader();
-        
-        if (globalStatsBar) {
-            globalStatsBar.remove();
-            globalStatsBar = null;
-        }
 
-        const container = document.querySelector('.hero-select-container');
-        if (container) container.remove();
-        
-        if (window.startGame) window.startGame(champ);
+
+
+
+
+function finalize(champ) {
+    window.showLoader();
+    
+    // NEW: Stop all champion music
+    championMusicManager.stopAll();
+    
+    if (globalStatsBar) {
+        globalStatsBar.remove();
+        globalStatsBar = null;
     }
+
+    const container = document.querySelector('.hero-select-container');
+    if (container) container.remove();
+    
+    if (window.startGame) window.startGame(champ);
 }
+
 
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 

@@ -67,31 +67,47 @@ export default class TradMusicScene extends Phaser.Scene {
         this.createInfoPanel();
     }
 
-    createTuneButtons() {
-        const width = this.cameras.main.width;
-        const startY = 250;
-        const spacing = 60;
+// In tradMusicScene.js - Update createTuneButtons() method:
 
-        // Sample tunes from allTunes.js - now with more variety!
-        const tunesToDisplay = [
-            { key: 'keshThe', label: 'The Kesh (Jig)', type: 'jig', color: 0x44aa44 },
-            { key: 'cooleys', label: "Cooley's Reel", type: 'reel', color: 0xaa4444 },
-            { key: 'butterflyThe', label: 'The Butterfly (Slip)', type: 'slipJig', color: 0x4444aa },
-            { key: 'morrisons', label: "Morrison's (Pipes!)", type: 'pipes', color: 0xaa6644 },
-            { key: 'silverSpearThe', label: 'Silver Spear (Flute)', type: 'flute', color: 0x6644aa },
-            { key: 'keshThe', label: 'The Kesh (Reel Ver.)', type: 'reel', color: 0xaa4444 }
-        ];
+createTuneButtons() {
+    const width = this.cameras.main.width;
+    const startY = 230;
+    const spacing = 52;
 
-        tunesToDisplay.forEach((tune, index) => {
-            this.createButton(
-                width / 2,
-                startY + (index * spacing),
-                tune.label,
-                tune.color,
-                () => this.playTune(tune.key, tune.type)
-            );
-        });
-    }
+    // Full range of tune types - cheerful to EPIC!
+    const tunesToDisplay = [
+        { key: 'keshThe', label: 'The Kesh (Jig)', type: 'jig', color: 0x44aa44 },
+        { key: 'cooleys', label: "Cooley's (Reel)", type: 'reel', color: 0xaa4444 },
+        { key: 'butterflyThe', label: 'Butterfly (Slip Jig)', type: 'slipJig', color: 0x4444aa },
+        { key: 'morrisons', label: "Morrison's (March)", type: 'march', color: 0xaa6644 },
+        { key: 'silverSpearThe', label: 'Silver Spear (Epic!)', type: 'epic', color: 0x9944aa },
+        { key: 'keshThe', label: 'The Kesh (Lament)', type: 'lament', color: 0x6666aa },
+        { key: 'butterflyThe', label: 'Butterfly (Celtic)', type: 'celtic', color: 0x66aa66 },
+        { key: 'keshThe', label: 'The Kesh (Pipes)', type: 'pipes', color: 0xaa8844 },
+        { key: 'cooleys', label: "Cooley's (Session)", type: 'session', color: 0xaa4466 }
+    ];
+
+    tunesToDisplay.forEach((tune, index) => {
+        this.createButton(
+            width / 2,
+            startY + (index * spacing),
+            tune.label,
+            tune.color,
+            () => this.playTune(tune.key, tune.type)
+        );
+    });
+}
+
+createStopButton() {
+    const width = this.cameras.main.width;
+    this.createButton(
+        width / 2,
+        680,
+        '⏹   STOP',
+        0x884444,
+        () => this.stopMusic()
+    );
+}
 
     createStopButton() {
         const width = this.cameras.main.width;

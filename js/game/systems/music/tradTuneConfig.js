@@ -1,88 +1,145 @@
 // js/game/systems/music/tradTuneConfig.js
 /**
- * Complete tradTuneConfig.js with bodhrán and drone support
+ * FIXED: Tempo override and discord issues resolved
  */
 
-// Updated loop progressions with bodhrán (voice 4) and drone (voice 5)
 export const LOOP_PROGRESSIONS = {
     jig: [
-        { name: "Solo Whistle", voices: [1], description: "Opening - Tin whistle alone" },
-        { name: "+ Concertina", voices: [1, 2], description: "Harmony joins" },
-        { name: "+ Rhythm", voices: [1, 2, 3, 4], description: "Add bodhrán" },
-        { name: "Solo Concertina", voices: [2], description: "Feature solo" },
-        { name: "Whistle + Bodhrán", voices: [1, 4], description: "Duo finish" }
+        { name: "Solo Banjo", voices: [1], description: "Bright opening" },
+        { name: "+ Fiddle", voices: [1, 2], description: "Lively duo" },
+        { name: "+ Cello", voices: [1, 2, 3], description: "Rich trio" },
+        { name: "Fiddle + Cello", voices: [2, 3], description: "Melodic harmony" },
+        { name: "All Together", voices: [1, 2, 3], description: "Joyful finale" }
     ],
 
     reel: [
-        { name: "Solo Whistle", voices: [1], description: "Opening" },
-        { name: "+ Fiddle", voices: [1, 2], description: "Fiddle harmony" },
-        { name: "+ Guitar", voices: [1, 2, 3], description: "Add guitar" },
-        { name: "+ Bodhrán", voices: [1, 2, 3, 4], description: "Full band" },
-        { name: "Solo Fiddle", voices: [2], description: "Fiddle takes lead" },
-        { name: "All Together", voices: [1, 2, 3, 4], description: "Grand finale" }
+        { name: "Solo Banjo", voices: [1], description: "Driving lead" },
+        { name: "+ Fiddle", voices: [1, 2], description: "Classic pairing" },
+        { name: "+ Concertina", voices: [1, 2, 3], description: "Full session" },
+        { name: "Fiddle Solo", voices: [2], description: "Soaring melody" },
+        { name: "Grand Finale", voices: [1, 2, 3], description: "Triumphant!" }
     ],
 
     slipJig: [
-        { name: "Solo Whistle", voices: [1], description: "Opening - Tin whistle alone" },
-        { name: "+ Concertina", voices: [1, 2], description: "Harmony joins" },
-        { name: "+ Banjo", voices: [1, 2, 3], description: "Full trio" },
-        { name: "+ Bodhrán", voices: [1, 2, 3, 4], description: "Add percussion" },
-        { name: "Solo Concertina", voices: [2], description: "Concertina feature" },
-        { name: "All Together", voices: [1, 2, 3, 4], description: "Grand finale" }
+        { name: "Solo Banjo", voices: [1], description: "9/8 dance" },
+        { name: "+ Harp", voices: [1, 2], description: "Ethereal shimmer" },
+        { name: "+ Guitar", voices: [1, 2, 3], description: "Gentle rhythm" },
+        { name: "Harp Solo", voices: [2], description: "Mystical" },
+        { name: "All Together", voices: [1, 2, 3], description: "Enchanting" }
+    ],
+
+    march: [
+        { name: "Lone Warrior", voices: [1], description: "Solo banjo" },
+        { name: "+ Battle Drums", voices: [1, 3], description: "Guitar rhythm" },
+        { name: "Army Gathers", voices: [1, 2, 3], description: "Full strength" },
+        { name: "War Hymn", voices: [2, 3], description: "Strings unite" },
+        { name: "Victory March", voices: [1, 2, 3], description: "Triumphant!" }
+    ],
+
+    epic: [
+        { name: "Ancient Times", voices: [2], description: "Harp alone" },
+        { name: "Hero Rises", voices: [1, 2], description: "Banjo enters" },
+        { name: "Journey Begins", voices: [1, 2, 3], description: "Full quest" },
+        { name: "Dark Hour", voices: [3], description: "Guitar alone" },
+        { name: "Hope Returns", voices: [1, 2], description: "Light breaks" },
+        { name: "Triumph", voices: [1, 2, 3], description: "Victory!" }
+    ],
+
+    lament: [
+        { name: "Mourning", voices: [2], description: "Harp, deeply sad" },
+        { name: "Remembrance", voices: [2, 3], description: "Guitar joins softly" },
+        { name: "Hope", voices: [1, 2, 3], description: "Banjo brings light" },
+        { name: "Acceptance", voices: [2], description: "Peaceful harp" },
+        { name: "Moving On", voices: [1, 2, 3], description: "Forward together" }
     ],
 
     pipes: [
-        { name: "Drone Only", voices: [5], description: "Pipes warming up" },
-        { name: "Pipes + Drone", voices: [1, 5], description: "Pipes enter" },
-        { name: "+ Fiddle", voices: [1, 2, 5], description: "Fiddle joins" },
-        { name: "+ Rhythm", voices: [1, 2, 3, 4, 5], description: "Full session" },
-        { name: "Pipes Feature", voices: [1, 4, 5], description: "Pipes and bodhrán" }
+        { name: "Drone Only", voices: [5], description: "Ancient awakening" },
+        { name: "Pipes Call", voices: [1, 5], description: "Rallying cry" },
+        { name: "+ Fiddle", voices: [1, 2, 5], description: "Warriors gather" },
+        { name: "+ Banjo", voices: [1, 2, 3, 5], description: "Full war party" },
+        { name: "Battle Charge", voices: [1, 2, 3, 5], description: "Into glory!" }
     ],
 
-    flute: [
-        { name: "Solo Flute", voices: [1], description: "Opening" },
-        { name: "+ Concertina", voices: [1, 2], description: "Harmony" },
-        { name: "+ Banjo", voices: [1, 2, 3], description: "Add banjo" },
-        { name: "+ Bodhrán", voices: [1, 2, 3, 4], description: "Full ensemble" },
-        { name: "Flute + Bodhrán", voices: [1, 4], description: "Duo finish" }
+    celtic: [
+        { name: "Solo Banjo", voices: [1], description: "Folk opening" },
+        { name: "+ Harp", voices: [1, 2], description: "Ancient blend" },
+        { name: "+ Guitar", voices: [1, 2, 3], description: "Grounded trio" },
+        { name: "Harp + Guitar", voices: [2, 3], description: "Gentle duo" },
+        { name: "All Together", voices: [1, 2, 3], description: "Celtic pride" }
     ],
 
-    // Default progression if type not specified
+    whistle: [
+        { name: "Solo Banjo", voices: [1], description: "Village tune" },
+        { name: "+ Whistle", voices: [1, 2], description: "Shepherd joins" },
+        { name: "+ Concertina", voices: [1, 2, 3], description: "Session grows" },
+        { name: "Whistle Solo", voices: [2], description: "Pure and clear" },
+        { name: "All Together", voices: [1, 2, 3], description: "Community joy" }
+    ],
+
+    session: [
+        { name: "Solo Banjo", voices: [1], description: "Pub opener" },
+        { name: "+ Fiddle", voices: [1, 2], description: "Locals join in" },
+        { name: "+ Flute", voices: [1, 2, 3], description: "Session heats up" },
+        { name: "Fiddle + Flute", voices: [2, 3], description: "Wind duet" },
+        { name: "Full Session", voices: [1, 2, 3], description: "Craic!" }
+    ],
+
     default: [
-        { name: "Solo", voices: [1], description: "Single instrument" },
-        { name: "Duo", voices: [1, 2], description: "Two instruments" },
-        { name: "Trio", voices: [1, 2, 3], description: "Three instruments" },
-        { name: "+ Bodhrán", voices: [1, 2, 3, 4], description: "Add percussion" },
-        { name: "Solo 2", voices: [2], description: "Different solo" }
+        { name: "Solo Banjo", voices: [1], description: "Opening" },
+        { name: "+ Harmony", voices: [1, 2], description: "Building" },
+        { name: "Full Trio", voices: [1, 2, 3], description: "Together" },
+        { name: "Finale", voices: [1, 2, 3], description: "Grand finish" }
     ]
 };
 
-// Instrument assignments (MIDI program numbers)
 export const INSTRUMENTS = {
-    // Irish trad instruments
-    78: { name: "Tin Whistle", short: "Whistle", type: "melody" },
+    105: { name: "Banjo", short: "Banjo", type: "melody" },
     110: { name: "Fiddle", short: "Fiddle", type: "melody" },
     21: { name: "Concertina", short: "Concertina", type: "harmony" },
-    23: { name: "Accordion", short: "Accordion", type: "harmony" },
-    105: { name: "Banjo", short: "Banjo", type: "rhythm" },
-    25: { name: "Acoustic Guitar", short: "Guitar", type: "rhythm" },
+    46: { name: "Celtic Harp", short: "Harp", type: "melody" },
+    25: { name: "Acoustic Guitar", short: "Guitar", type: "rhythm" },  // CHANGED from Cello
     109: { name: "Uilleann Pipes", short: "Pipes", type: "melody" },
+    78: { name: "Tin Whistle", short: "Whistle", type: "melody" },
     73: { name: "Flute", short: "Flute", type: "melody" },
-    116: { name: "Taiko Drum", short: "Bodhrán", type: "percussion" }
+    60: { name: "French Horn", short: "Horn", type: "melody" },
+    23: { name: "Accordion", short: "Accordion", type: "harmony" }
 };
 
-/**
- * Convert a tune from allTunes.js into a multi-voice format
- */
+// Tempo overrides for specific moods
+export const TEMPO_OVERRIDES = {
+    lament: 50,      // FORCE slow tempo
+    march: 85,       // FORCE march pace
+    epic: 95,        // FORCE epic feel
+};
+
+// The REAL fix - modify the ABC itself, not just metadata
+
 export function prepareTuneData(tuneName, singleVoiceAbc, tuneType = 'default') {
-    // Extract BPM from ABC (Q: field)
+    // STEP 1: Extract or override tempo
     const tempoMatch = singleVoiceAbc.match(/Q:\s*(\d+)/);
-    const bpm = tempoMatch ? parseInt(tempoMatch[1]) : 120;
+    let bpm;
+    
+    // Check for tempo override
+    if (TEMPO_OVERRIDES[tuneType]) {
+        bpm = TEMPO_OVERRIDES[tuneType];
+        console.log(`[tradTuneConfig] TEMPO OVERRIDE for ${tuneType}: ${bpm} BPM`);
+        
+        // CRITICAL FIX: Actually modify the ABC string!
+        if (tempoMatch) {
+            // Replace existing Q: field
+            singleVoiceAbc = singleVoiceAbc.replace(/Q:\s*\d+/, `Q:${bpm}`);
+        } else {
+            // Add Q: field after the first header line (X:)
+            singleVoiceAbc = singleVoiceAbc.replace(/X:\d+\n/, `X:1\nQ:${bpm}\n`);
+        }
+    } else if (tempoMatch) {
+        bpm = parseInt(tempoMatch[1]);
+    } else {
+        bpm = 100;
+    }
 
-    // Create multi-voice ABC with harmony, bodhrán, and drone
     const multiVoiceAbc = createMultiVoiceAbc(singleVoiceAbc, tuneType);
-
-    // Get appropriate progression for this tune type
     const progression = LOOP_PROGRESSIONS[tuneType] || LOOP_PROGRESSIONS.default;
 
     return {
@@ -94,17 +151,13 @@ export function prepareTuneData(tuneName, singleVoiceAbc, tuneType = 'default') 
     };
 }
 
-/**
- * Create multi-voice ABC from single-voice melody
- * Now includes bodhrán (voice 4) and drone (voice 5) support
- */
+// Even better approach - inject tempo into the multi-voice ABC headers:
 function createMultiVoiceAbc(abc, tuneType) {
     const lines = abc.split('\n');
     const header = [];
     const melody = [];
     let inMelody = false;
 
-    // Separate header from melody
     lines.forEach(line => {
         if (line.match(/^[A-Z]:/)) {
             header.push(line);
@@ -114,39 +167,54 @@ function createMultiVoiceAbc(abc, tuneType) {
         }
     });
 
-    // Get the key from ABC (e.g., K:D means D major)
+    // FORCE tempo override in the header itself
+    if (TEMPO_OVERRIDES[tuneType]) {
+        const bpm = TEMPO_OVERRIDES[tuneType];
+        // Remove any existing Q: line
+        const filteredHeader = header.filter(line => !line.match(/^Q:/));
+        header.length = 0;
+        header.push(...filteredHeader);
+        
+        // Add tempo after X: line
+        const xIndex = header.findIndex(line => line.match(/^X:/));
+        if (xIndex >= 0) {
+            header.splice(xIndex + 1, 0, `Q:${bpm}`);
+        }
+    }
+
     const keyMatch = abc.match(/K:\s*([A-G][#b]?)\s*(min|maj|m)?/i);
     const key = keyMatch ? keyMatch[1] : 'D';
     const isMinor = keyMatch && keyMatch[2] && keyMatch[2].toLowerCase().includes('min');
     
-    // Determine instruments based on tune type
-    let instruments, addBodhran = false, addDrone = false;
+    let instruments, addDrone = false;
     
     if (tuneType === 'reel') {
-        instruments = [78, 110, 25]; // Whistle, Fiddle, Guitar
-        addBodhran = true;
+        instruments = [105, 110, 21];
     } else if (tuneType === 'slipJig') {
-        instruments = [78, 21, 105]; // Whistle, Concertina, Banjo
-        addBodhran = true;
+        instruments = [105, 46, 25];
     } else if (tuneType === 'jig') {
-        instruments = [78, 21, 105]; // Whistle, Concertina, Banjo
-        addBodhran = true;
+        instruments = [105, 110, 25];
+    } else if (tuneType === 'march') {
+        instruments = [105, 110, 25];
+    } else if (tuneType === 'epic') {
+        instruments = [105, 46, 25];
+    } else if (tuneType === 'lament') {
+        instruments = [105, 46, 25];
     } else if (tuneType === 'pipes') {
-        instruments = [109, 110, 25]; // Uilleann Pipes, Fiddle, Guitar
-        addDrone = true; // Pipes need their drone!
-        addBodhran = true;
-    } else if (tuneType === 'flute') {
-        instruments = [73, 21, 105]; // Flute, Concertina, Banjo
-        addBodhran = true;
+        instruments = [109, 110, 105];
+        addDrone = true;
+    } else if (tuneType === 'celtic') {
+        instruments = [105, 46, 25];
+    } else if (tuneType === 'whistle') {
+        instruments = [105, 78, 21];
+    } else if (tuneType === 'session') {
+        instruments = [105, 110, 73];
     } else {
-        instruments = [78, 21, 105]; // Default: Whistle, Concertina, Banjo
-        addBodhran = true;
+        instruments = [105, 46, 25];
     }
 
-    // Build multi-voice ABC
     const result = [...header];
 
-    // Add voice definitions for main instruments (Voices 1-3)
     result.push(`V:1 name="${INSTRUMENTS[instruments[0]].short}" clef=treble`);
     result.push(`%%MIDI program ${instruments[0]}`);
     result.push(`V:2 name="${INSTRUMENTS[instruments[1]].short}" clef=treble`);
@@ -154,20 +222,11 @@ function createMultiVoiceAbc(abc, tuneType) {
     result.push(`V:3 name="${INSTRUMENTS[instruments[2]].short}" clef=treble`);
     result.push(`%%MIDI program ${instruments[2]}`);
 
-    // Add bodhrán if requested (Voice 4)
-    if (addBodhran) {
-        result.push(`V:4 name="Bodhrán" clef=percussion`);
-        result.push(`%%MIDI channel 10`); // Percussion channel
-        result.push(`%%MIDI program 116`); // Taiko Drum (closest to bodhrán)
-    }
-
-    // Add drone if requested (Voice 5)
     if (addDrone) {
         result.push(`V:5 name="Drone" clef=bass`);
-        result.push(`%%MIDI program 109`); // Bagpipe for drone
+        result.push(`%%MIDI program 109`);
     }
 
-    // Main melody voices (all play same melody for now)
     melody.forEach(line => {
         result.push(`[V:1] ${line}`);
     });
@@ -178,15 +237,6 @@ function createMultiVoiceAbc(abc, tuneType) {
         result.push(`[V:3] ${line}`);
     });
 
-    // Generate bodhrán pattern
-    if (addBodhran) {
-        const bodhranPattern = generateBodhranPattern(abc, tuneType);
-        bodhranPattern.forEach(line => {
-            result.push(`[V:4] ${line}`);
-        });
-    }
-
-    // Generate drone
     if (addDrone) {
         const dronePattern = generateDrone(abc, key, isMinor);
         dronePattern.forEach(line => {
@@ -196,85 +246,34 @@ function createMultiVoiceAbc(abc, tuneType) {
 
     const finalAbc = result.join('\n');
     
-    console.log('[tradTuneConfig] Generated multi-voice ABC:');
-    console.log(finalAbc);
-    console.log('[tradTuneConfig] Instruments:', instruments);
-    console.log('[tradTuneConfig] Bodhrán:', addBodhran, 'Drone:', addDrone);
-
+    console.log('[tradTuneConfig] Generated ABC with tempo override:');
+    console.log(finalAbc.split('\n').slice(0, 10).join('\n')); // Show first 10 lines
+    
     return finalAbc;
 }
 
-/**
- * Generate bodhrán rhythm pattern based on tune type
- */
-function generateBodhranPattern(abc, tuneType) {
-    const lines = abc.split('\n').filter(l => l.match(/^\|/));
-    const pattern = [];
-    
-    // Extract meter from ABC (M: field)
-    const meterMatch = abc.match(/M:\s*(\d+)\/(\d+)/);
-    const meter = meterMatch ? `${meterMatch[1]}/${meterMatch[2]}` : '4/4';
-    
-    if (tuneType === 'jig' || meter === '6/8') {
-        // 6/8 jig pattern: strong-weak-weak strong-weak-weak
-        // Using MIDI note C (middle C) for bodhrán hits
-        lines.forEach(() => {
-            pattern.push('|:[^C3C3^C3^C3:|]'); // Accented pattern
-        });
-    } else if (tuneType === 'slipJig' || meter === '9/8') {
-        // 9/8 slip jig: three groups of three
-        lines.forEach(() => {
-            pattern.push('|:[^C3C3C3:|]');
-        });
-    } else if (tuneType === 'reel' || meter === '4/4') {
-        // 4/4 reel: steady quarter notes with accents
-        lines.forEach(() => {
-            pattern.push('|:[^C2C2^C2C2:|]');
-        });
-    } else {
-        // Default simple pattern
-        lines.forEach(() => {
-            pattern.push('|:[C4:|]');
-        });
-    }
-    
-    return pattern;
-}
-
-/**
- * Generate drone notes (tonic + dominant)
- * Uilleann pipes traditionally drone on the tonic and dominant
- */
 function generateDrone(abc, key, isMinor) {
     const lines = abc.split('\n').filter(l => l.match(/^\|/));
     const pattern = [];
-    
-    // Map keys to drone notes (low octave)
-    // Format: [tonic, dominant] as whole notes
+
     const droneNotes = {
-        'D': '[D,2A,2]', // D major - most common for Irish pipes
-        'G': '[G,2D2]',   // G major
-        'A': '[A,2E2]',   // A major/minor (very common)
-        'E': '[E,2B,2]',  // E minor
-        'B': '[B,2F2]',   // B minor
-        'C': '[C2G2]'     // C major
+        'D': '[D,2A,2]',
+        'G': '[G,2D2]',
+        'A': '[A,2E2]',
+        'E': '[E,2B,2]',
+        'B': '[B,2F2]',
+        'C': '[C2G2]'
     };
-    
-    const drone = droneNotes[key] || '[D,2A,2]'; // Default to D
-    
-    // Create continuous drone for each measure
+
+    const drone = droneNotes[key] || '[D,2A,2]';
+
     lines.forEach(() => {
-        pattern.push(`|:${drone}${drone}:|`); // Repeat drone pattern
+        pattern.push(`|:${drone}${drone}:|`);
     });
-    
+
     return pattern;
 }
 
-/**
- * Get a random instrument for a given type
- * @param {string} type - 'melody', 'harmony', 'rhythm', 'percussion'
- * @returns {number} MIDI program number
- */
 export function getRandomInstrument(type) {
     const instrumentsOfType = Object.entries(INSTRUMENTS)
         .filter(([num, info]) => info.type === type)

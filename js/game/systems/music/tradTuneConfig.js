@@ -68,7 +68,7 @@ export const TEMPO_OVERRIDES = {
     slide: 110,      // Moderate playful
     slipJig: 115,    // Lilting 9/8
     default: 100,    // Standard pace
-    jig: 130,        // Bouncy & bright
+    jig: 150,        // Bouncy & bright
     reel: 160,       // Fast & driving
 };
 

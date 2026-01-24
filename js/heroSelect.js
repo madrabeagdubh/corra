@@ -4,9 +4,6 @@ import '../css/heroSelect.css'
 
 import { championMusicManager } from './game/systems/music/championMusicManager.js';
 
-
-
-
 // Prevent double initialization
 let initialized = false;
 
@@ -43,7 +40,7 @@ function createStatsDisplay(champion, currentOpacity) {
         pointer-events: none;
     `;
 
-    const statIcons = { attack: '⚔️', defense: '🛡️ ', health: '❤️' };
+    const statIconsLocal = { attack: '⚔️', defense: '🛡️', health: '❤️' };
 
     ['attack', 'defense', 'health'].forEach(statName => {
         if (champion.stats[statName] !== undefined) {
@@ -57,7 +54,7 @@ function createStatsDisplay(champion, currentOpacity) {
             `;
 
             item.innerHTML = `
-                <span style="font-size: 2.5rem; margin-bottom: 5px;">${statIcons[statName]}</span>
+                <span style="font-size: 2.5rem; margin-bottom: 5px;">${statIconsLocal[statName]}</span>
                 <span style="color: #d4af37; font-family: monospace; font-weight: bold; font-size: 1.3rem;">
                     ${champion.stats[statName]}
                 </span>
@@ -141,13 +138,6 @@ function createStatPopup(statName, englishOpacity) {
 
   if (!document.getElementById('statPopupStyle')) {
     const style = document.createElement('style');
-    
-
-
-
-
-if (!document.getElementById('statPopupStyle')) {
-    const style = document.createElement('style');
     style.id = 'statPopupStyle';
     style.textContent = `
       @keyframes popupFadeIn { 
@@ -161,7 +151,6 @@ if (!document.getElementById('statPopupStyle')) {
     `;
     document.head.appendChild(style);
   }
-
 
   let autoCloseTimer = null;
   const closePopup = () => {
@@ -390,6 +379,11 @@ function initHeroSelect() {
     `;
     if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
 
+    let chooseButton;
+    let audioUnlocked = false;
+    let lastMusicChangeTime = 0;
+    const MUSIC_CHANGE_DELAY = 500; // ms between music changes
+
     slider.oninput = e => {
         englishOpacity = Number(e.target.value);
        
@@ -420,7 +414,7 @@ function initHeroSelect() {
 
     const bottomPanel = document.createElement('div');
     bottomPanel.className = 'champion-bottom-panel';
-    const chooseButton = document.createElement('button');
+    chooseButton = document.createElement('button');
     chooseButton.className = 'champion-choose-button';
     chooseButton.textContent = 'Ar Aghaidh';
     chooseButton.style.cssText = `
@@ -429,9 +423,19 @@ function initHeroSelect() {
         border: 3px solid #d2691e; border-radius: 12px; cursor: pointer;
         text-transform: uppercase; letter-spacing: 2px; font-family: Aonchlo;
     `;
-    chooseButton.onclick = () => {
+    chooseButton.onclick = async () => {
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-        if (validChampions[currentChampionIndex]) finalize(validChampions[currentChampionIndex]);
+        if (validChampions[currentChampionIndex]) {
+            // Ensure audio starts if not already
+            if (!audioUnlocked) {
+                try {
+                    await championMusicManager.playChampionTheme(validChampions[currentChampionIndex], true);
+                } catch (err) {
+                    console.warn('[HeroSelect] Could not start audio on button click');
+                }
+            }
+            finalize(validChampions[currentChampionIndex]);
+        }
     };
     bottomPanel.appendChild(chooseButton);
     container.appendChild(bottomPanel);
@@ -444,7 +448,7 @@ function initHeroSelect() {
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
         const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
 
-        infiniteChampions.forEach((champ, i) => {
+        infiniteChampions.forEach((champ) => {
             const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
             const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
             if (!frameData) return;
@@ -485,11 +489,11 @@ function initHeroSelect() {
         runOnboarding();
         window.hideLoader();
         
-updateGlobalStats(validChampions[randomIndex]);
-// NEW: Play initial champion theme
-championMusicManager.playChampionTheme(validChampions[randomIndex], true); // immediate = true
-
-
+        updateGlobalStats(validChampions[randomIndex]);
+        
+        // Don't play music immediately - wait for user interaction
+        // championMusicManager.playChampionTheme(validChampions[randomIndex], true);
+        console.log('[HeroSelect] Ready - music will start on first touch interaction');
     }
 
     function runOnboarding() {
@@ -513,9 +517,9 @@ championMusicManager.playChampionTheme(validChampions[randomIndex], true); // im
         }, 800);
     }
 
-    function nudgeSlider(slider, callback) {
-        const trigger = (val) => { slider.value = val; slider.oninput({ target: slider }); };
-        slider.style.transition = 'all 0.15s ease-out';
+    function nudgeSlider(sliderEl, callback) {
+        const trigger = (val) => { sliderEl.value = val; sliderEl.oninput({ target: sliderEl }); };
+        sliderEl.style.transition = 'all 0.15s ease-out';
         const steps = [0.2, 0.4, 0.6, 0.8, 1.0, 'pause', 0.8, 0.6, 0.4, 0.2, 0.1];
         let delay = 0;
         steps.forEach(step => {
@@ -526,7 +530,7 @@ championMusicManager.playChampionTheme(validChampions[randomIndex], true); // im
             }
         });
         setTimeout(() => {
-            slider.style.transition = 'none';
+            sliderEl.style.transition = 'none';
             if (callback) callback();
         }, delay + 200);
     }
@@ -535,8 +539,25 @@ championMusicManager.playChampionTheme(validChampions[randomIndex], true); // im
         let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
         
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+        
+        const unlockAudio = async () => {
+            if (audioUnlocked) return;
+            try {
+                // Try to play the current champion's theme - this will resume AudioContext
+                const currentChamp = validChampions[currentChampionIndex];
+                await championMusicManager.playChampionTheme(currentChamp, true);
+                audioUnlocked = true;
+                console.log('[HeroSelect] Audio unlocked via user interaction');
+            } catch (err) {
+                console.warn('[HeroSelect] Audio unlock failed:', err);
+            }
+        };
        
         const handleTouchStart = (e) => {
+            if (!audioUnlocked) {
+                unlockAudio();
+            }
+            
             isDragging = true;
             startX = e.touches[0].pageX;
             startY = e.touches[0].pageY;
@@ -561,71 +582,62 @@ championMusicManager.playChampionTheme(validChampions[randomIndex], true); // im
             lastT = now;
         };
       
-       
+        const handleTouchEnd = () => {
+            isDragging = false;
+            velocity *= 2.5;
 
+            const decay = () => {
+                container.scrollLeft += velocity;
+                velocity *= 0.95;
+                if (Math.abs(velocity) > 0.1) {
+                    animID = requestAnimationFrame(decay);
+                    return;
+                }
+                const w = window.innerWidth;
+                const target = Math.round(container.scrollLeft / w);
+                container.style.scrollBehavior = 'smooth';
+                container.scrollTo({ left: target * w, behavior: 'smooth' });
+                setTimeout(() => {
+                    container.style.scrollSnapType = 'x mandatory';
+                    const realIndex = (target % len + len) % len;
+                    currentChampionIndex = realIndex;
+                    updateGlobalStats(validChampions[realIndex]);
+                    
+                    // Only play music after audio is unlocked and with debouncing
+                    const now = Date.now();
+                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
+                        lastMusicChangeTime = now;
+                        championMusicManager.playChampionTheme(validChampions[realIndex]);
+                    }
+                    
+                    container.scrollLeft = (len + realIndex) * w;
+                }, 350);
+            };
 
-
-const handleTouchEnd = () => {
-    isDragging = false;
-    velocity *= 2.5;
-
-    const decay = () => {
-        container.scrollLeft += velocity;
-        velocity *= 0.95;
-        if (Math.abs(velocity) > 0.1) {
-            animID = requestAnimationFrame(decay);
-            return;
-        }
-        const w = window.innerWidth;
-        const target = Math.round(container.scrollLeft / w);
-        container.style.scrollBehavior = 'smooth';
-        container.scrollTo({ left: target * w, behavior: 'smooth' });
-        setTimeout(() => {
-            container.style.scrollSnapType = 'x mandatory';
-            const realIndex = (target % len + len) % len;
-            currentChampionIndex = realIndex;
-            updateGlobalStats(validChampions[realIndex]);
-            
-            championMusicManager.playChampionTheme(validChampions[realIndex]);
-            
-            container.scrollLeft = (len + realIndex) * w;
-        }, 350);
-    };
-
-    decay();
-}
-
-
-
-
+            decay();
+        };
        
         container.addEventListener('touchstart', handleTouchStart);
         container.addEventListener('touchmove', handleTouchMove);
         container.addEventListener('touchend', handleTouchEnd);
     }
 
+    function finalize(champ) {
+        window.showLoader();
+        
+        championMusicManager.stopAll();
+        
+        if (globalStatsBar) {
+            globalStatsBar.remove();
+            globalStatsBar = null;
+        }
 
-
-
-
-
-function finalize(champ) {
-    window.showLoader();
-    
-    // NEW: Stop all champion music
-    championMusicManager.stopAll();
-    
-    if (globalStatsBar) {
-        globalStatsBar.remove();
-        globalStatsBar = null;
+        const containerEl = document.querySelector('.hero-select-container');
+        if (containerEl) containerEl.remove();
+        
+        if (window.startGame) window.startGame(champ);
     }
-
-    const container = document.querySelector('.hero-select-container');
-    if (container) container.remove();
-    
-    if (window.startGame) window.startGame(champ);
 }
-
 
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 

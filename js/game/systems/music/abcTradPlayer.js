@@ -3,7 +3,7 @@
 /**
  * Irish Trad Music Player using abcjs
  * Handles multi-voice progressive loops with real soundfonts
- * FIXED: Now properly handles pipes drone and bodhrán
+ * FIXED: Proper loop completion timing
  */
 export default class AbcTradPlayer {
     constructor() {
@@ -32,7 +32,7 @@ export default class AbcTradPlayer {
         
         console.log('[AbcTradPlayer] Preloading Irish trad soundfonts...');
         
-        const instruments = [77, 109, 20, 104, 24];
+        const instruments = [105, 110, 0, 46, 42, 73, 23];
         const tempSynth = new ABCJS.synth.CreateSynth();
         
         try {
@@ -56,7 +56,7 @@ export default class AbcTradPlayer {
         await this.stop();
         this.currentTune = tuneData;
         this.currentLoop = 0;
-        console.log('[AbcTradPlayer] Prepared:', tuneData.name);
+        console.log('[AbcTradPlayer] Prepared:', tuneData.name, 'BPM:', tuneData.bpm);
     }
 
     async play() {
@@ -112,34 +112,9 @@ export default class AbcTradPlayer {
                 return;
             }
 
-            // CRITICAL FIX: Determine instrument based on which voice is playing
-            const primaryVoice = progression.voices[0]; // Use first voice as primary
-            let instrument;
-            
-            // Map voice numbers to instruments
-            // Check if this is a drone-only loop (voice 5 only)
-            if (progression.voices.length === 1 && progression.voices[0] === 5) {
-                instrument = 109; // Bagpipe for drone
-                console.log('[AbcTradPlayer] DRONE ONLY loop - using bagpipe');
-            } else if (primaryVoice === 1) {
-                // Extract instrument for voice 1 from ABC
-                const voice1Instrument = this.extractInstrumentForVoice(this.currentTune.abc, 1);
-                instrument = voice1Instrument || 73; // Default to flute
-                console.log('[AbcTradPlayer] Voice 1 melody - instrument:', instrument);
-            } else if (primaryVoice === 2) {
-                const voice2Instrument = this.extractInstrumentForVoice(this.currentTune.abc, 2);
-                instrument = voice2Instrument || 21; // Default to concertina
-                console.log('[AbcTradPlayer] Voice 2 melody - instrument:', instrument);
-            } else if (primaryVoice === 4) {
-                // Bodhrán (percussion) - use a melodic substitute
-                instrument = 116; // Taiko
-                console.log('[AbcTradPlayer] Bodhrán rhythm');
-            } else if (primaryVoice === 5) {
-                instrument = 109; // Bagpipe for drone
-                console.log('[AbcTradPlayer] Drone voice');
-            } else {
-                instrument = 73; // Default
-            }
+            // Extract instrument for this loop
+            const primaryVoice = progression.voices[0];
+            const instrument = this.extractInstrumentForVoice(this.currentTune.abc, primaryVoice) || 105;
             
             console.log('[AbcTradPlayer] Using instrument:', instrument);
 
@@ -148,7 +123,7 @@ export default class AbcTradPlayer {
                     console.log('[AbcTradPlayer] Stopping previous synth...');
                     try {
                         await this.synth.stop();
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await new Promise(resolve => setTimeout(resolve, 150));
                     } catch (e) {
                         console.warn('[AbcTradPlayer] Error stopping previous synth:', e);
                     }
@@ -157,6 +132,10 @@ export default class AbcTradPlayer {
                 
                 this.synth = new ABCJS.synth.CreateSynth();
                 
+                // CRITICAL: Calculate actual duration based on tune structure and BPM
+                const tuneDuration = this.calculateTuneDuration(this.visualObj, this.currentTune.bpm);
+                console.log(`[AbcTradPlayer] Calculated duration: ${tuneDuration}ms`);
+                
                 await this.synth.init({
                     audioContext: this.audioContext,
                     visualObj: this.visualObj,
@@ -164,8 +143,9 @@ export default class AbcTradPlayer {
                         soundFontUrl: "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/",
                         program: instrument,
                         onEnded: () => {
-                            console.log('[AbcTradPlayer] Synth playback ended');
+                            console.log('[AbcTradPlayer] Synth playback ended naturally');
                             
+                            // Small gap before next loop
                             setTimeout(() => {
                                 if (this.isPlaying && loopIndex + 1 < this.currentTune.progression.length) {
                                     this.playLoop(loopIndex + 1);
@@ -173,7 +153,7 @@ export default class AbcTradPlayer {
                                     console.log('[AbcTradPlayer] All loops complete');
                                     this.isPlaying = false;
                                 }
-                            }, 100); // Tighter loop gap!
+                            }, 200);
                         }
                     }
                 });
@@ -193,6 +173,42 @@ export default class AbcTradPlayer {
             console.error('[AbcTradPlayer] Playback error:', err);
             this.isPlaying = false;
         }
+    }
+
+    /**
+     * Calculate the actual duration of the tune in milliseconds
+     * This helps ensure we don't cut off the tune prematurely
+     */
+    calculateTuneDuration(visualObj, bpm) {
+        if (!visualObj || !visualObj.lines || visualObj.lines.length === 0) {
+            return 8000; // Default 8 seconds
+        }
+
+        // Count total note duration from the parsed ABC
+        let totalDuration = 0;
+        
+        visualObj.lines.forEach(line => {
+            if (line.staff) {
+                line.staff.forEach(staff => {
+                    if (staff.voices) {
+                        staff.voices.forEach(voice => {
+                            voice.forEach(element => {
+                                if (element.duration) {
+                                    totalDuration += element.duration;
+                                }
+                            });
+                        });
+                    }
+                });
+            }
+        });
+
+        // Convert duration to milliseconds based on BPM
+        // Duration is in quarter notes, so: (duration / (bpm / 60)) * 1000
+        const durationMs = (totalDuration / (bpm / 60)) * 1000;
+        
+        // Add 10% buffer to ensure complete playback
+        return Math.max(durationMs * 1.1, 4000); // Minimum 4 seconds
     }
 
     /**
@@ -292,8 +308,7 @@ export default class AbcTradPlayer {
         }
 
         const filtered = output.join('\n');
-        console.log(`[AbcTradPlayer] Filtered ABC (${filtered.length} chars):`);
-        console.log(filtered);
+        console.log(`[AbcTradPlayer] Filtered ABC (${filtered.length} chars)`);
         
         return filtered;
     }

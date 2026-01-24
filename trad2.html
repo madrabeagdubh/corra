@@ -97,26 +97,26 @@
                     align: 'center'
                 }).setOrigin(0.5);
 
-                // Style Selector Buttons (2 rows for better fit)
-                const types = Object.keys(LOOP_PROGRESSIONS);
-                const row1Types = types.slice(0, 5);
-                const row2Types = types.slice(5);
+                // Style Selector Buttons - Single row with 6 types
+                const types = ['jig', 'reel', 'slipJig', 'slide', 'lament', 'default'];
+                const startX = width/2 - (types.length * 120) / 2 + 60;
 
-                // Row 1
-                row1Types.forEach((type, i) => {
-                    this.createTypeButton(50 + (i * 140), 200, type);
-                });
-
-                // Row 2
-                row2Types.forEach((type, i) => {
-                    this.createTypeButton(50 + (i * 140), 260, type);
+                types.forEach((type, i) => {
+                    this.createTypeButton(startX + (i * 120), 220, type);
                 });
 
                 // Active type indicator
-                this.activeTypeText = this.add.text(width/2, 320, '', {
-                    fontSize: '16px',
+                this.activeTypeText = this.add.text(width/2, 290, '', {
+                    fontSize: '18px',
                     color: '#ff0',
                     fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                // Tempo display
+                this.tempoText = this.add.text(width/2, 320, '', {
+                    fontSize: '14px',
+                    color: '#0ff',
+                    align: 'center'
                 }).setOrigin(0.5);
 
                 // Navigation Controls
@@ -145,24 +145,19 @@
                     jig: 0x44aa44,
                     reel: 0xaa4444,
                     slipJig: 0x4444aa,
-                    march: 0xaa6644,
-                    epic: 0x9944aa,
+                    slide: 0xaa6644,
                     lament: 0x6666aa,
-                    celtic: 0x66aa66,
-                    pipes: 0xaa8844,
-                    session: 0xaa4466,
-                    whistle: 0x44aaaa,
                     default: 0x888888
                 };
 
                 const color = colors[type] || 0x888888;
                 
-                const btn = this.add.rectangle(x, y, 120, 40, color, 0.7)
+                const btn = this.add.rectangle(x, y, 110, 45, color, 0.7)
                     .setInteractive({ useHandCursor: true })
                     .setStrokeStyle(2, 0x00ff00);
 
                 const label = this.add.text(x, y, type.toUpperCase(), { 
-                    fontSize: '13px',
+                    fontSize: '12px',
                     color: '#fff',
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
@@ -188,7 +183,6 @@
                 
                 this.infoText.setText(
                     `🎵 ${result.key}\n` +
-                    `Tempo: ${result.bpm} BPM\n` +
                     `Loops: ${result.loops}`
                 );
 
@@ -197,6 +191,19 @@
                 );
 
                 this.activeTypeText.setText(`► ${result.type.toUpperCase()} ◄`);
+                
+                // Show tempo with descriptive label
+                const tempoLabels = {
+                    45: 'Very Slow (Lament)',
+                    110: 'Moderate (Slide)',
+                    115: 'Lilting (Slip Jig)',
+                    100: 'Standard (Default)',
+                    130: 'Bouncy (Jig)',
+                    160: 'Fast! (Reel)'
+                };
+                this.tempoText.setText(
+                    `Tempo: ${result.bpm} BPM - ${tempoLabels[result.bpm] || 'Standard'}`
+                );
             }
 
             async stopAudit() {
@@ -240,6 +247,7 @@
         new Phaser.Game(config);
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/eruda">    </script>                                       <script>eruda.init();</script>
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
 </body>
 </html>

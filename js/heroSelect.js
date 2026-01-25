@@ -275,6 +275,33 @@ function initHeroSelect() {
     100% { transform: scale(1); filter: brightness(1); }
 }
 
+
+@keyframes championBoogie {
+    /* --- FACING RIGHT --- */
+    0%, 24.9% { transform: translateY(0px) scale(1, 1); }
+    12.5% { transform: translateY(-12px) scale(0.9, 1.15) rotate(3deg); }
+    
+    /* --- SNAP FLIP LEFT --- */
+    25%, 49.9% { transform: translateY(0px) scale(-1, 1); }
+    37.5% { transform: translateY(-12px) scale(-0.9, 1.15) rotate(-3deg); }
+
+    /* --- SNAP FLIP RIGHT --- */
+    50%, 74.9% { transform: translateY(0px) scale(1, 1); }
+    62.5% { transform: translateY(-12px) scale(0.9, 1.15) rotate(3deg); }
+
+    /* --- SNAP FLIP LEFT --- */
+    75%, 99.9% { transform: translateY(0px) scale(-1, 1); }
+    87.5% { transform: translateY(-12px) scale(-0.9, 1.15) rotate(-3deg); }
+    
+    100% { transform: translateY(0px) scale(1, 1); }
+}
+
+.champion-canvas.floating {
+    animation: championBoogie 2s linear infinite;
+    transform-origin: bottom center;
+}
+
+
 .stat-animate {
     animation: statPulse 0.4s ease-out;
 }
@@ -326,7 +353,7 @@ function initHeroSelect() {
 }
 
 .champion-name-en {
-    font-family: Dumble; 
+    font-family: CourrierPrime; 
     font-size: 1.4rem; 
     margin-bottom: 20px;
 }
@@ -849,93 +876,105 @@ function showStatsBar() {
         }, delay + 200);
     }
 
-    function initSwipe(container, len) {
-        let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
-        
-        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-       
-        const handleTouchStart = (e) => {
-            if (!sliderTutorialComplete) return;
-            
-            isDragging = true;
-            startX = e.touches[0].pageX;
-            startY = e.touches[0].pageY;
-            scrollL = container.scrollLeft;
-            lastX = startX;
-            lastT = performance.now();
-
-            if (animID) cancelAnimationFrame(animID);
-            container.style.scrollSnapType = 'none';
-            container.style.scrollBehavior = 'auto';
-        };
-       
-        const handleTouchMove = (e) => {
-            if (!isDragging) return;
-            
-            const x = e.touches[0].pageX;
-            container.scrollLeft = scrollL - (x - startX);
-            const now = performance.now();
-            const dt = now - lastT;
-            if (dt > 0) velocity = (lastX - x) / dt * 16;
-            lastX = x; 
-            lastT = now;
-        };
-      
-        const handleTouchEnd = () => {
-            isDragging = false;
-            velocity *= 2.5;
-
-            const decay = () => {
-                container.scrollLeft += velocity;
-                velocity *= 0.95;
-                if (Math.abs(velocity) > 0.1) {
-                    animID = requestAnimationFrame(decay);
-                    return;
-                }
-                const w = window.innerWidth;
-                const target = Math.round(container.scrollLeft / w);
-                container.style.scrollBehavior = 'smooth';
-                container.scrollTo({ left: target * w, behavior: 'smooth' });
-                
-            
-setTimeout(() => {
-    container.style.scrollSnapType = 'x mandatory';
+   function initSwipe(container, len) {
+    let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
+    let scrollTimeout = null;
     
-    // 1. Calculate the actual index (handling the infinite scroll wrap)
-    const realIndex = (target % len + len) % len;
-    const currentChamp = validChampions[realIndex];
-
-    // 2. Only update if the champion has actually changed
-    if (currentChampionIndex !== realIndex) {
-        currentChampionIndex = realIndex;
-        updateGlobalStats(currentChamp);
-
-        // 3. Handle Music Transition
-        const now = Date.now();
-        if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
-            lastMusicChangeTime = now;
-            
-            // Ensure we are playing the theme for the newly selected champion
-            if (currentChamp) {
-                championMusicManager.playChampionTheme(currentChamp);
-            }
+    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    
+    const startFloating = () => {
+        if (sliderTutorialComplete) {
+            // Find the center champion canvas
+            const allCanvases = document.querySelectorAll('.champion-canvas');
+            allCanvases.forEach(canvas => canvas.classList.add('floating'));
         }
-    }
+    };
+    
+    const stopFloating = () => {
+        const allCanvases = document.querySelectorAll('.champion-canvas');
+        allCanvases.forEach(canvas => canvas.classList.remove('floating'));
+    };
+   
+    const handleTouchStart = (e) => {
+        if (!sliderTutorialComplete) return;
+        
+        stopFloating();
+        
+        isDragging = true;
+        startX = e.touches[0].pageX;
+        startY = e.touches[0].pageY;
+        scrollL = container.scrollLeft;
+        lastX = startX;
+        lastT = performance.now();
 
-    // 4. Reset scroll position to the "middle" set of the infinite list 
-    // to keep the scrolling seamless in both directions
-    container.scrollLeft = (len + realIndex) * w;
-}, 350);
+        if (animID) cancelAnimationFrame(animID);
+        container.style.scrollSnapType = 'none';
+        container.style.scrollBehavior = 'auto';
+    };
+   
+    const handleTouchMove = (e) => {
+        if (!isDragging) return;
+        
+        const x = e.touches[0].pageX;
+        container.scrollLeft = scrollL - (x - startX);
+        const now = performance.now();
+        const dt = now - lastT;
+        if (dt > 0) velocity = (lastX - x) / dt * 16;
+        lastX = x; 
+        lastT = now;
+    };
+  
+    const handleTouchEnd = () => {
+        isDragging = false;
+        velocity *= 2.5;
 
-};
+        const decay = () => {
+            container.scrollLeft += velocity;
+            velocity *= 0.95;
+            if (Math.abs(velocity) > 0.1) {
+                animID = requestAnimationFrame(decay);
+                return;
+            }
+            const w = window.innerWidth;
+            const target = Math.round(container.scrollLeft / w);
+            container.style.scrollBehavior = 'smooth';
+            container.scrollTo({ left: target * w, behavior: 'smooth' });
+            
+            setTimeout(() => {
+                container.style.scrollSnapType = 'x mandatory';
+                
+                const realIndex = (target % len + len) % len;
+                const currentChamp = validChampions[realIndex];
 
-            decay();
+                if (currentChampionIndex !== realIndex) {
+                    currentChampionIndex = realIndex;
+                    updateGlobalStats(currentChamp);
+
+                    const now = Date.now();
+                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
+                        lastMusicChangeTime = now;
+                        
+                        if (currentChamp) {
+                            championMusicManager.playChampionTheme(currentChamp);
+                        }
+                    }
+                }
+
+                container.scrollLeft = (len + realIndex) * w;
+                
+                // Start floating animation after scroll settles
+                if (scrollTimeout) clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(startFloating, 500);
+            }, 350);
         };
-       
-        container.addEventListener('touchstart', handleTouchStart);
-        container.addEventListener('touchmove', handleTouchMove);
-        container.addEventListener('touchend', handleTouchEnd);
-    }
+
+        decay();
+    };
+   
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMove);
+    container.addEventListener('touchend', handleTouchEnd);
+} 
 
     function finalize(champ) {
         window.showLoader();

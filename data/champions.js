@@ -1975,7 +1975,7 @@ export const champions = [
       "magic": 5,
       "luck": 8
     },
-    "themeTuneTitle": "Mug Of Brown Ale, The"
+    "themeTuneTitle": "Mug Of Brown Ale"
   },
   {
     "spriteKey": "118.png",

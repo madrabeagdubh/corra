@@ -2561,7 +2561,7 @@ c3/2B/A a2 a|c3/2B/A a2 b|c'ba gfe|dcB A2 B:|
 cde g2 e|g2 e g3/2e/c|Acd e2 d|1 c3/2B/A A2 B:|2 c3/2B/A A2||`,
 
   mugOfBrownAleThe: `X: 185
-T: Mug Of Brown Ale, The
+T: Mug Of Brown Ale 
 Z: gian marco
 S: https://thesession.org/tunes/888#setting888
 R: jig

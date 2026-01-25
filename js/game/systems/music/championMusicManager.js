@@ -19,6 +19,14 @@ class ChampionMusicManager {
         this.audioContext = null;
     }
 
+
+setVolume(volume) {
+    if (this.masterGain) {
+        this.masterGain.gain.value = volume;
+    }
+}
+
+
     /**
      * Connects to the context unlocked by your UI slider.
      * Most crucial part: It prevents the manager from creating its own "locked" context.

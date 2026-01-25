@@ -426,62 +426,102 @@ function initHeroSelect() {
     topPanel.appendChild(slider);
     container.appendChild(topPanel);
 
-    // Create overlay for slider tutorial
-    const overlay = document.createElement('div');
-    overlay.id = 'slider-tutorial-overlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.95);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        transition: opacity 0.8s ease;
-        pointer-events: none;
-    `;
 
-    const tutorialText = document.createElement('div');
-    tutorialText.style.cssText = `
-        font-family: Aonchlo, serif;
-        font-size: 1.8rem;
-        color: #d4af37;
-        text-align: center;
-        padding: 2rem;
-        max-width: 80%;
-        line-height: 1.6;
-        margin-bottom: 3rem;
-    `;
-    
-    const irishText = document.createElement('div');
-    irishText.textContent = 'Fadó fadó in Éireann, roimh teacht an nua aois...';
-    irishText.style.cssText = `
-        font-family: Aonchlo, serif;
-        font-size: 1.8rem;
-        color: #d4af37;
-        margin-bottom: 0.5rem;
-    `;
-    
-    const englishText = document.createElement('div');
-    englishText.id = 'tutorial-english-text';
-    englishText.textContent = 'Long ago in Ireland, before the dawn of the new age...';
-    englishText.style.cssText = `
-        font-family: 'Courier New', monospace;
-        font-size: 1.2rem;
-        color: rgb(0, 255, 0);
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    `;
-    
-    tutorialText.appendChild(irishText);
-    tutorialText.appendChild(englishText);
 
-    overlay.appendChild(tutorialText);
-    container.appendChild(overlay);
+
+
+const overlay = document.createElement('div');
+overlay.id = 'slider-tutorial-overlay';
+overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+`;
+
+const tutorialText = document.createElement('div');
+tutorialText.style.cssText = `
+    font-family: Aonchlo, serif;
+    font-size: 1.8rem;
+    color: #d4af37;
+    text-align: center;
+    padding: 2rem;
+    max-width: 80%;
+    line-height: 1.6;
+    margin-bottom: 3rem;
+`;
+
+const irishText = document.createElement('div');
+irishText.textContent = 'Fadó fadó in Éireann, roimh teacht an nua aois...';
+irishText.style.cssText = `
+    font-family: Aonchlo, serif;
+    font-size: 1.8rem;
+    color: #d4af37;
+    margin-bottom: 0.5rem;
+`;
+
+const englishText = document.createElement('div');
+englishText.id = 'tutorial-english-text';
+englishText.textContent = 'Long ago in Ireland, before the dawn of the new age...';
+englishText.style.cssText = `
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
+    color: rgb(0, 255, 0);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+`;
+
+// Add "Slide to Begin" instruction
+const slideInstruction = document.createElement('div');
+slideInstruction.style.cssText = `
+    font-family: Aonchlo, serif;
+    font-size: 2.2rem;
+    color: #d4af37;
+    text-align: center;
+    margin-top: 2rem;
+    animation: slideInstructionPulse 2s ease-in-out infinite;
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+`;
+slideInstruction.innerHTML = '';
+
+// Add arrow pointing to slider
+const arrow = document.createElement('div');
+arrow.style.cssText = `
+`;
+arrow.textContent = '';
+
+const instructionStyle = document.createElement('style');
+instructionStyle.textContent = `
+    @keyframes slideInstructionPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    @keyframes arrowBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
+    }
+`;
+document.head.appendChild(instructionStyle);
+
+tutorialText.appendChild(irishText);
+tutorialText.appendChild(englishText);
+
+overlay.appendChild(tutorialText);
+overlay.appendChild(slideInstruction);
+overlay.appendChild(arrow);
+container.appendChild(overlay);
+
+
+
     
     // Make sure topPanel (with slider) is above the overlay
     topPanel.style.zIndex = '1001';
@@ -582,92 +622,193 @@ function runSwipeNudge() {
         // Just wait for slider interaction - no auto demo
         waitForSliderInteraction();
     }
+
 function waitForSliderInteraction() {
-    console.log('[HeroSelect] Waiting for user to interact with slider...');
+    console.log('[HeroSelect] Waiting for user to slide...');
 
     let hasUnlockedAudio = false;
     let hasReleasedSlider = false;
 
-    const unlockAudioIfNeeded = async () => {
-        if (hasUnlockedAudio) return;
+    // Unlock audio on first touch of slider
+    
 
-        hasUnlockedAudio = true;
-        console.log('[HeroSelect] Unlocking audio...');
+const handleSliderTouch = async (e) => {
+    console.log('[DEBUG] === SLIDER TOUCH EVENT ===');
+    console.log('[DEBUG] Event type:', e.type);
+    console.log('[DEBUG] isTrusted:', e.isTrusted);
+    console.log('[DEBUG] hasUnlockedAudio:', hasUnlockedAudio);
 
-        if (!window.sharedAudioContext) {
-            window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (hasUnlockedAudio) {
+        console.log('[DEBUG] Already unlocked, exiting');
+        return;
+    }
+    hasUnlockedAudio = true;
+
+    console.log('[DEBUG] Slider touched - unlocking audio...');
+    console.log('[DEBUG] Existing sharedAudioContext:', window.sharedAudioContext);
+
+    // Hide the instruction immediately
+    const instruction = document.querySelector('div[style*="slideInstructionPulse"]');
+    const arrow = document.querySelector('div[style*="arrowBounce"]');
+    if (instruction) instruction.style.display = 'none';
+    if (arrow) arrow.style.display = 'none';
+
+    try {
+        // Delete any existing context to force a fresh one
+        if (window.sharedAudioContext) {
+            console.log('[DEBUG] Closing old context...');
+            try {
+                await window.sharedAudioContext.close();
+            } catch (e) {
+                console.log('[DEBUG] Error closing old context:', e);
+            }
+            window.sharedAudioContext = null;
         }
 
-        await window.sharedAudioContext.resume();
+        // Create fresh context on this guaranteed user gesture
+        console.log('[DEBUG] Creating new AudioContext...');
+        window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        console.log('[DEBUG] Context created, state:', window.sharedAudioContext.state);
+
+        // Try resume with timeout
+        console.log('[DEBUG] Calling resume() with timeout...');
+        const resumePromise = window.sharedAudioContext.resume();
+        const timeoutPromise = new Promise(resolve => setTimeout(() => {
+            console.log('[DEBUG] Resume timeout hit');
+            resolve('timeout');
+        }, 500));
+        
+        const result = await Promise.race([resumePromise, timeoutPromise]);
+        console.log('[DEBUG] Resume result:', result);
+        console.log('[DEBUG] State after resume:', window.sharedAudioContext.state);
+
+        // If still suspended, play buffer AFTER resume attempt
+        if (window.sharedAudioContext.state === 'suspended') {
+            console.log('[DEBUG] Still suspended, playing buffer now...');
+            const buffer = window.sharedAudioContext.createBuffer(1, 1, 22050);
+            const source = window.sharedAudioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(window.sharedAudioContext.destination);
+            source.start(0);
+            
+            console.log('[DEBUG] State after buffer:', window.sharedAudioContext.state);
+            
+            // Try resume again
+            await Promise.race([
+                window.sharedAudioContext.resume(),
+                new Promise(resolve => setTimeout(resolve, 500))
+            ]);
+            console.log('[DEBUG] State after second resume:', window.sharedAudioContext.state);
+        }
+
+        // Wait for running state
+        let attempts = 0;
+        while (window.sharedAudioContext.state !== 'running' && attempts < 10) {
+            console.log('[DEBUG] Waiting for running state, attempt:', attempts + 1);
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+        }
+
+        console.log('[DEBUG] Final audio state:', window.sharedAudioContext.state);
         audioUnlocked = true;
 
-        console.log('[HeroSelect] Audio unlocked:', window.sharedAudioContext.state);
+        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+        const currentChamp = validChampions[currentChampionIndex];
+
+        if (currentChamp && window.sharedAudioContext.state === 'running') {
+            console.log('[DEBUG] Starting music for:', currentChamp.nameGa);
+            await championMusicManager.playChampionTheme(currentChamp, true);
+            championMusicManager.setVolume(0.2);
+            console.log('[DEBUG] Music playing');
+        } else {
+            console.error('[DEBUG] Cannot start music, state:', window.sharedAudioContext?.state);
+        }
+    } catch (error) {
+        console.error('[DEBUG] Error unlocking audio:', error);
+    }
+};
+
+
+
+
+;
+
+    const handleSliderRelease = async () => {
+        if (hasReleasedSlider) return;
+        hasReleasedSlider = true;
+
+        slider.removeEventListener('touchstart', handleSliderTouch);
+        slider.removeEventListener('mousedown', handleSliderTouch);
+        slider.removeEventListener('touchend', handleSliderRelease);
+        slider.removeEventListener('mouseup', handleSliderRelease);
+
+        setTimeout(() => {
+            sliderTutorialComplete = true;
+
+            if (championMusicManager.setVolume) {
+                // Fade volume up
+                let vol = 0.2;
+                const fadeInterval = setInterval(() => {
+                    vol += 0.04;
+                    if (vol >= 1.0) {
+                        championMusicManager.setVolume(1.0);
+                        clearInterval(fadeInterval);
+                    } else {
+                        championMusicManager.setVolume(vol);
+                    }
+                }, 100);
+            }
+
+            fadeOutTutorialOverlay();
+            showStatsBar();
+            runSwipeNudge();
+        }, 300);
     };
 
 
 
 
 
-let musicPrimed = false;
+let firstTouch = true;
+let touchUnlocked = false;
 
-const handleSliderInput = async (e) => {
-    // Only trigger on the first real move
-    if (!e.isTrusted || musicPrimed) return;
-    musicPrimed = true;
+// First, try to unlock on touchstart
+slider.addEventListener('touchstart', async (e) => {
+    if (!firstTouch) return;
+    firstTouch = false;
+    
+    console.log('[DEBUG] Touchstart - attempting unlock...');
+    await handleSliderTouch(e);
+    touchUnlocked = window.sharedAudioContext?.state === 'running';
+    console.log('[DEBUG] Unlock via touchstart successful:', touchUnlocked);
+}, { once: true });
 
-    if (!window.sharedAudioContext) {
-        window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
+// Fallback: if touchstart didn't work, try on first input (actual slider movement)
+slider.addEventListener('input', async (e) => {
+    if (touchUnlocked || hasUnlockedAudio) return;
+    
+    console.log('[DEBUG] Input event - attempting unlock (Firefox fallback)...');
+    await handleSliderTouch(e);
+}, { once: true });
 
-    // Crucial: await the resume
-    await window.sharedAudioContext.resume();
-    audioUnlocked = true;
+slider.addEventListener('mousedown', handleSliderTouch, { once: true });
 
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-    const currentChamp = validChampions[currentChampionIndex];
-
-    if (currentChamp) {
-        // Start the music. We play it at volume 0.1 so it's "on" but faint, 
-        // or 0 if your manager has a fadeTo method.
-        await championMusicManager.playChampionTheme(currentChamp);
-        // If your manager defaults to full volume, silence it immediately:
-        if (championMusicManager.setVolume) {
-            championMusicManager.setVolume(0);
-        }
-    }
-};
-;
+slider.addEventListener('touchend', handleSliderRelease);
+slider.addEventListener('mouseup', handleSliderRelease);
 
 
-const handleSliderRelease = async () => {
-    if (hasReleasedSlider) return;
-    hasReleasedSlider = true;
 
-    slider.removeEventListener('input', handleSliderInput);
-    slider.removeEventListener('change', handleSliderRelease);
-
-    setTimeout(() => {
-        sliderTutorialComplete = true;
-
-        // FADE IN THE MUSIC HERE
-        // If your manager has a fadeTo method:
-        if (championMusicManager.fadeTo) {
-            championMusicManager.fadeTo(1.0, 2000); 
-        } else if (championMusicManager.setVolume) {
-            // Manual fallback if no fade method exists
-            championMusicManager.setVolume(1.0);
-        }
-
-        fadeOutTutorialOverlay();
-        showStatsBar();
-        runSwipeNudge();
-    }, 3000);
-};
-;
-
-    slider.addEventListener('input', handleSliderInput);
-    slider.addEventListener('change', handleSliderRelease);
 }
+
+
+
+
+
+
+
+
+
 
 function fadeOutTutorialOverlay() {
     const overlayEl = document.getElementById('slider-tutorial-overlay');

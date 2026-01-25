@@ -28,18 +28,32 @@ export default class AbcTradPlayer {
         console.log('[AbcTradPlayer] ABCJS structure:', Object.keys(abcjs));
     }
 
-    async init() {
-        if (!this.audioContext) {
-            // Use shared context if available (unlocked by user interaction)
-            if (window.sharedAudioContext) {
-                this.audioContext = window.sharedAudioContext;
-                console.log('[AbcTradPlayer] Using shared AudioContext');
-            } else {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('[AbcTradPlayer] AudioContext initialized');
-            }
+    
+
+
+async init(existingContext = null) {
+    if (!this.audioContext) {
+        // Use passed context first, then shared, then create new
+        if (existingContext) {
+            this.audioContext = existingContext;
+            console.log('[AbcTradPlayer] Using passed AudioContext');
+        } else if (window.sharedAudioContext) {
+            this.audioContext = window.sharedAudioContext;
+            console.log('[AbcTradPlayer] Using shared AudioContext');
+        } else {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('[AbcTradPlayer] AudioContext initialized');
         }
     }
+}
+
+setVolume(volume) {
+    if (this.synth && this.synth.setVolume) {
+        this.synth.setVolume(volume);
+    } else {
+        console.warn('[AbcTradPlayer] Cannot set volume - synth not ready');
+    }
+}
 
     async preloadSoundfonts() {
         if (this.soundfontsPreloaded) return;

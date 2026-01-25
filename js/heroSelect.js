@@ -3,6 +3,8 @@ import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 
 import { championMusicManager } from './game/systems/music/championMusicManager.js';
+import AbcTradPlayer from './game/systems/music/abcTradPlayer.js';
+import { prepareTuneData } from './game/systems/music/tradTuneConfig.js';
 
 // Prevent double initialization
 let initialized = false;
@@ -381,6 +383,7 @@ function initHeroSelect() {
 
     let chooseButton;
     let audioUnlocked = false;
+    let audioUnlocking = false; // Prevent multiple simultaneous unlock attempts
     let lastMusicChangeTime = 0;
     const MUSIC_CHANGE_DELAY = 500; // ms between music changes
 
@@ -540,24 +543,59 @@ function initHeroSelect() {
         
         const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
         
-        const unlockAudio = async () => {
-            if (audioUnlocked) return;
-            try {
-                // Try to play the current champion's theme - this will resume AudioContext
-                const currentChamp = validChampions[currentChampionIndex];
-                await championMusicManager.playChampionTheme(currentChamp, true);
-                audioUnlocked = true;
-                console.log('[HeroSelect] Audio unlocked via user interaction');
-            } catch (err) {
-                console.warn('[HeroSelect] Audio unlock failed:', err);
-            }
-        };
-       
-        const handleTouchStart = (e) => {
-            if (!audioUnlocked) {
-                unlockAudio();
+        // Add a one-time click handler to unlock audio
+        const unlockOnce = (e) => {
+            if (audioUnlocked || audioUnlocking) return;
+            
+            audioUnlocking = true;
+            console.log('[HeroSelect] First interaction - unlocking audio');
+            
+            // Create AudioContext
+            if (!window.sharedAudioContext) {
+                window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
             
+            console.log('[HeroSelect] Initial state:', window.sharedAudioContext.state);
+            
+            // Play a brief silent tone to unlock - this is more reliable than resume()
+            const oscillator = window.sharedAudioContext.createOscillator();
+            const gainNode = window.sharedAudioContext.createGain();
+            gainNode.gain.value = 0.0001; // Nearly inaudible
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(window.sharedAudioContext.destination);
+            
+            oscillator.frequency.value = 440;
+            oscillator.start(window.sharedAudioContext.currentTime);
+            oscillator.stop(window.sharedAudioContext.currentTime + 0.001); // 1ms beep
+            
+            // Also call resume
+            window.sharedAudioContext.resume().then(() => {
+                console.log('[HeroSelect] Context state after unlock:', window.sharedAudioContext.state);
+                
+                audioUnlocked = true;
+                audioUnlocking = false;
+                
+                // Start music for current champion
+                const currentChamp = validChampions[currentChampionIndex];
+                championMusicManager.playChampionTheme(currentChamp, true);
+                
+                console.log('[HeroSelect] Music playback initiated');
+            }).catch(err => {
+                console.error('[HeroSelect] Resume error:', err);
+                audioUnlocking = false;
+            });
+            
+            // Remove this listener after first use
+            container.removeEventListener('touchstart', unlockOnce);
+            container.removeEventListener('click', unlockOnce);
+        };
+        
+        // Listen for first touch or click
+        container.addEventListener('touchstart', unlockOnce, { once: true, passive: true });
+        container.addEventListener('click', unlockOnce, { once: true });
+       
+        const handleTouchStart = (e) => {
             isDragging = true;
             startX = e.touches[0].pageX;
             startY = e.touches[0].pageY;

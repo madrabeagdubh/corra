@@ -30,8 +30,14 @@ export default class AbcTradPlayer {
 
     async init() {
         if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('[AbcTradPlayer] AudioContext initialized');
+            // Use shared context if available (unlocked by user interaction)
+            if (window.sharedAudioContext) {
+                this.audioContext = window.sharedAudioContext;
+                console.log('[AbcTradPlayer] Using shared AudioContext');
+            } else {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('[AbcTradPlayer] AudioContext initialized');
+            }
         }
     }
 
@@ -81,7 +87,12 @@ export default class AbcTradPlayer {
 
         if (this.audioContext.state === 'suspended') {
             console.log('[AbcTradPlayer] Resuming suspended AudioContext...');
-            await this.audioContext.resume();
+            try {
+                await this.audioContext.resume();
+                console.log('[AbcTradPlayer] AudioContext state after resume:', this.audioContext.state);
+            } catch (err) {
+                console.error('[AbcTradPlayer] Failed to resume AudioContext:', err);
+            }
         }
 
         if (!this.currentTune) {
@@ -148,11 +159,17 @@ export default class AbcTradPlayer {
                     this.synth = null;
                 }
 
-                this.synth = new ABCJS.synth.CreateSynth();
+                this.synth = new abcjs.synth.CreateSynth();
 
                 // CRITICAL: Calculate actual duration based on tune structure and BPM
                 const tuneDuration = this.calculateTuneDuration(this.visualObj, this.currentTune.bpm);
                 console.log(`[AbcTradPlayer] Calculated duration: ${tuneDuration}ms`);
+
+                console.log('[AbcTradPlayer] Initializing synth with:', {
+                    hasAudioContext: !!this.audioContext,
+                    hasVisualObj: !!this.visualObj,
+                    instrument: instrument
+                });
 
                 await this.synth.init({
                     audioContext: this.audioContext,
@@ -171,18 +188,21 @@ export default class AbcTradPlayer {
                                     console.log('[AbcTradPlayer] All loops complete');
                                     this.isPlaying = false;
                                 }
-                            }, 20);
+                            }, 200);
                         }
                     }
                 });
 
+                console.log('[AbcTradPlayer] Synth initialized, priming...');
                 await this.synth.prime();
+                console.log('[AbcTradPlayer] Synth primed, starting playback...');
                 this.synth.start();
 
                 this.currentLoop = loopIndex;
 
             } catch (err) {
                 console.error('[AbcTradPlayer] Synth error:', err);
+                console.error('[AbcTradPlayer] Error details:', err.stack);
                 this.isPlaying = false;
                 return;
             }

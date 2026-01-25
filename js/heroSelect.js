@@ -611,51 +611,59 @@ function waitForSliderInteraction() {
 let musicPrimed = false;
 
 const handleSliderInput = async (e) => {
+    // Only trigger on the first real move
     if (!e.isTrusted || musicPrimed) return;
-
     musicPrimed = true;
 
-    // Resume audio context
     if (!window.sharedAudioContext) {
-        window.sharedAudioContext =
-            new (window.AudioContext || window.webkitAudioContext)();
+        window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
+    // Crucial: await the resume
     await window.sharedAudioContext.resume();
     audioUnlocked = true;
 
-    console.log('[HeroSelect] Audio unlocked and priming music');
-
     const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    const currentChamp = validChampions[currentChampionIndex];
 
-    // 🔑 START MUSIC HERE — SILENT
-    await championMusicManager.playChampionTheme(
-        validChampions[currentChampionIndex],
-        true,
-        { initialVolume: 0 } // 👈 important
-    );
+    if (currentChamp) {
+        // Start the music. We play it at volume 0.1 so it's "on" but faint, 
+        // or 0 if your manager has a fadeTo method.
+        await championMusicManager.playChampionTheme(currentChamp);
+        // If your manager defaults to full volume, silence it immediately:
+        if (championMusicManager.setVolume) {
+            championMusicManager.setVolume(0);
+        }
+    }
 };
+;
 
 
+const handleSliderRelease = async () => {
+    if (hasReleasedSlider) return;
+    hasReleasedSlider = true;
 
-      const handleSliderRelease = async () => {
-        if (hasReleasedSlider) return;
-        hasReleasedSlider = true;
+    slider.removeEventListener('input', handleSliderInput);
+    slider.removeEventListener('change', handleSliderRelease);
 
-        slider.removeEventListener('input', handleSliderInput);
-        slider.removeEventListener('change', handleSliderRelease);
+    setTimeout(() => {
+        sliderTutorialComplete = true;
 
-        console.log('[HeroSelect] Slider released — starting 3s delay');
-setTimeout(() => {
-    sliderTutorialComplete = true;
+        // FADE IN THE MUSIC HERE
+        // If your manager has a fadeTo method:
+        if (championMusicManager.fadeTo) {
+            championMusicManager.fadeTo(1.0, 2000); 
+        } else if (championMusicManager.setVolume) {
+            // Manual fallback if no fade method exists
+            championMusicManager.setVolume(1.0);
+        }
 
-    //championMusicManager.fadeTo(1.0, 3000); // fade in over 3s
-
-    fadeOutTutorialOverlay();
-    showStatsBar();
-    runSwipeNudge();
-}, 3000);
-    };
+        fadeOutTutorialOverlay();
+        showStatsBar();
+        runSwipeNudge();
+    }, 3000);
+};
+;
 
     slider.addEventListener('input', handleSliderInput);
     slider.addEventListener('change', handleSliderRelease);
@@ -747,22 +755,38 @@ function showStatsBar() {
                 const target = Math.round(container.scrollLeft / w);
                 container.style.scrollBehavior = 'smooth';
                 container.scrollTo({ left: target * w, behavior: 'smooth' });
-                setTimeout(() => {
-                    container.style.scrollSnapType = 'x mandatory';
-                    const realIndex = (target % len + len) % len;
-                    currentChampionIndex = realIndex;
-                    updateGlobalStats(validChampions[realIndex]);
-                    
-                    // Change music (audio already unlocked from slider)
-                    const now = Date.now();
-                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
-                        lastMusicChangeTime = now;
-                        championMusicManager.playChampionTheme(validChampions[realIndex]);
-                    }
-                    
-                    container.scrollLeft = (len + realIndex) * w;
-                }, 350);
-            };
+                
+            
+setTimeout(() => {
+    container.style.scrollSnapType = 'x mandatory';
+    
+    // 1. Calculate the actual index (handling the infinite scroll wrap)
+    const realIndex = (target % len + len) % len;
+    const currentChamp = validChampions[realIndex];
+
+    // 2. Only update if the champion has actually changed
+    if (currentChampionIndex !== realIndex) {
+        currentChampionIndex = realIndex;
+        updateGlobalStats(currentChamp);
+
+        // 3. Handle Music Transition
+        const now = Date.now();
+        if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
+            lastMusicChangeTime = now;
+            
+            // Ensure we are playing the theme for the newly selected champion
+            if (currentChamp) {
+                championMusicManager.playChampionTheme(currentChamp);
+            }
+        }
+    }
+
+    // 4. Reset scroll position to the "middle" set of the infinite list 
+    // to keep the scrolling seamless in both directions
+    container.scrollLeft = (len + realIndex) * w;
+}, 350);
+
+};
 
             decay();
         };

@@ -4,250 +4,264 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trad Music System Auditor</title>
+
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.1/dist/abcjs-basic-min.js"></script>
+
     <style>
-        body { 
-            margin: 0; 
-            background: #0a0a12; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            font-family: 'Courier New', monospace; 
-            color: #0f0; 
+        body {
+            margin: 0;
+            background: #0a0a12;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
         }
-        #game-container { border: 2px solid #333; }
+        #game-container {
+            border: 2px solid #333;
+        }
     </style>
 </head>
 <body>
-    <div id="game-container"></div>
+<div id="game-container"></div>
 
-    <script type="module">
-        // Import your systems
-        import AbcTradPlayer from './js/game/systems/music/abcTradPlayer.js';
-        import { prepareTuneData, LOOP_PROGRESSIONS } from './js/game/systems/music/tradTuneConfig.js';
-        import { gameSpookyTunes } from './js/game/systems/music/gameSpookyTunes.js';
+<script type="module">
+    // Imports
+    import AbcTradPlayer from './js/game/systems/music/abcTradPlayer.js';
+    import { prepareTuneData } from './js/game/systems/music/altTuneConfig.js';
+    import { gameSpookyTunes } from './js/game/systems/music/gameSpookyTunes.js';
 
-        class AuditManager {
-            constructor() {
-                this.player = new AbcTradPlayer();
-                this.allTuneKeys = Object.keys(gameSpookyTunes);
-                this.currentIndex = 0;
-                this.currentType = 'jig';
-                this.isAutoPlay = false;
-            }
-
-            async playCurrent() {
-                const key = this.allTuneKeys[this.currentIndex];
-                const abc = gameSpookyTunes[key];
-
-                // Prepare the multi-voice version
-                const tuneData = prepareTuneData(key, abc, this.currentType);
-
-                await this.player.prepareTune(tuneData);
-                await this.player.play();
-                return { key, type: this.currentType, bpm: tuneData.bpm, loops: tuneData.progression.length };
-            }
-
-            next() {
-                this.currentIndex = (this.currentIndex + 1) % this.allTuneKeys.length;
-                return this.playCurrent();
-            }
-
-            prev() {
-                this.currentIndex = (this.currentIndex - 1 + this.allTuneKeys.length) % this.allTuneKeys.length;
-                return this.playCurrent();
-            }
-
-            setType(type) {
-                this.currentType = type;
-                return this.playCurrent();
-            }
-
-            async stop() {
-                await this.player.stop();
-            }
+    /* ----------------------------------------------------
+       AUDIT MANAGER
+    ---------------------------------------------------- */
+    class AuditManager {
+        constructor() {
+            this.player = new AbcTradPlayer();
+            this.allTuneKeys = Object.keys(gameSpookyTunes);
+            this.currentIndex = 0;
+            this.currentType = 'default';
         }
 
-        class MusicAuditScene extends Phaser.Scene {
-            constructor() { super({ key: 'MusicAuditScene' }); }
+        async playCurrent() {
+            const key = this.allTuneKeys[this.currentIndex];
+            const abc = gameSpookyTunes[key];
 
-            async create() {
-                const { width, height } = this.cameras.main;
-                this.manager = new AuditManager();
+            const tuneData = prepareTuneData(key, abc, this.currentType);
 
-                // UI Text
-                this.title = this.add.text(width/2, 30, 'TRAD SYSTEM AUDITOR', { 
-                    fontSize: '28px', 
-                    color: '#0f0',
-                    fontStyle: 'bold'
-                }).setOrigin(0.5);
+            await this.player.prepareTune(tuneData);
+            await this.player.play();
 
-                this.infoText = this.add.text(width/2, 80, 'Loading...', { 
-                    fontSize: '18px', 
-                    color: '#fff', 
-                    align: 'center',
-                    lineSpacing: 8
-                }).setOrigin(0.5);
+            return {
+                key,
+                type: this.currentType,
+                bpm: tuneData.bpm,
+                loops: tuneData.progression.length
+            };
+        }
 
-                this.progressText = this.add.text(width/2, 150, '', {
-                    fontSize: '14px',
-                    color: '#888',
-                    align: 'center'
-                }).setOrigin(0.5);
+        next() {
+            this.currentIndex = (this.currentIndex + 1) % this.allTuneKeys.length;
+            return this.playCurrent();
+        }
 
-                // Style Selector Buttons - Single row with 6 types
-                const types = ['jig', 'reel', 'slipJig', 'slide', 'lament', 'default'];
-                const startX = width/2 - (types.length * 120) / 2 + 60;
+        prev() {
+            this.currentIndex =
+                (this.currentIndex - 1 + this.allTuneKeys.length) % this.allTuneKeys.length;
+            return this.playCurrent();
+        }
 
-                types.forEach((type, i) => {
-                    this.createTypeButton(startX + (i * 120), 220, type);
-                });
+        setType(type) {
+            this.currentType = type;
+            return this.playCurrent();
+        }
 
-                // Active type indicator
-                this.activeTypeText = this.add.text(width/2, 290, '', {
-                    fontSize: '18px',
-                    color: '#ff0',
-                    fontStyle: 'bold'
-                }).setOrigin(0.5);
+        async stop() {
+            await this.player.stop();
+        }
+    }
 
-                // Tempo display
-                this.tempoText = this.add.text(width/2, 320, '', {
-                    fontSize: '14px',
-                    color: '#0ff',
-                    align: 'center'
-                }).setOrigin(0.5);
+    /* ----------------------------------------------------
+       SCENE
+    ---------------------------------------------------- */
+    class MusicAuditScene extends Phaser.Scene {
+        constructor() {
+            super({ key: 'MusicAuditScene' });
+        }
 
-                // Navigation Controls
-                this.createBtn(width/2 - 150, height - 120, 'PREV (B)', () => this.updateAudit(() => this.manager.prev()));
-                this.createBtn(width/2, height - 120, 'STOP', () => this.stopAudit());
-                this.createBtn(width/2 + 150, height - 120, 'NEXT (N)', () => this.updateAudit(() => this.manager.next()));
+        async create() {
+            const { width, height } = this.cameras.main;
+            this.manager = new AuditManager();
 
-                // Help text
-                this.add.text(width/2, height - 50, 'N = Next Tune | B = Previous Tune | Click type buttons to change arrangement', { 
-                    fontSize: '12px', 
-                    color: '#666',
-                    align: 'center'
-                }).setOrigin(0.5);
+            /* ---------- UI TEXT ---------- */
+            this.add.text(width / 2, 30, 'TRAD MUSIC AUDITOR', {
+                fontSize: '28px',
+                color: '#0f0',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
 
-                // Keyboard shortcuts
-                this.input.keyboard.on('keydown-N', () => this.updateAudit(() => this.manager.next()));
-                this.input.keyboard.on('keydown-B', () => this.updateAudit(() => this.manager.prev()));
-                this.input.keyboard.on('keydown-SPACE', () => this.stopAudit());
+            this.infoText = this.add.text(width / 2, 80, 'Loading...', {
+                fontSize: '18px',
+                color: '#fff',
+                align: 'center',
+                lineSpacing: 8
+            }).setOrigin(0.5);
 
-                // Initial Start
-                this.updateAudit(() => this.manager.playCurrent());
-            }
+            this.progressText = this.add.text(width / 2, 145, '', {
+                fontSize: '14px',
+                color: '#888'
+            }).setOrigin(0.5);
 
-            createTypeButton(x, y, type) {
-                const colors = {
-                    jig: 0x44aa44,
-                    reel: 0xaa4444,
-                    slipJig: 0x4444aa,
-                    slide: 0xaa6644,
-                    lament: 0x6666aa,
-                    default: 0x888888
-                };
+            this.activeTypeText = this.add.text(width / 2, 175, '', {
+                fontSize: '16px',
+                color: '#ff0',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
 
-                const color = colors[type] || 0x888888;
-                
-                const btn = this.add.rectangle(x, y, 110, 45, color, 0.7)
-                    .setInteractive({ useHandCursor: true })
-                    .setStrokeStyle(2, 0x00ff00);
+            this.tempoText = this.add.text(width / 2, 200, '', {
+                fontSize: '14px',
+                color: '#0ff'
+            }).setOrigin(0.5);
 
-                const label = this.add.text(x, y, type.toUpperCase(), { 
+            /* ---------- MODE BUTTONS ---------- */
+            const MODES = [
+                { label: 'DEFAULT', type: 'default', color: 0x666666 },
+                { label: 'LAMENT',  type: 'lament',  color: 0x444477 },
+                { label: 'SLIDE',   type: 'slide',   color: 0x777744 },
+                { label: 'REEL',    type: 'reel',    color: 0x774444 }
+            ];
+
+            const startX = width / 2 - (MODES.length * 140) / 2 + 70;
+
+            MODES.forEach((mode, i) => {
+                this.createModeButton(startX + i * 140, 250, mode);
+            });
+
+            /* ---------- NAV BUTTONS ---------- */
+            this.createBtn(width / 2 - 160, height - 120, 'PREV (B)', () =>
+                this.updateAudit(() => this.manager.prev())
+            );
+
+            this.createBtn(width / 2, height - 120, 'STOP', () =>
+                this.stopAudit()
+            );
+
+            this.createBtn(width / 2 + 160, height - 120, 'NEXT (N)', () =>
+                this.updateAudit(() => this.manager.next())
+            );
+
+            this.add.text(
+                width / 2,
+                height - 50,
+                'N = Next | B = Previous | SPACE = Stop | Click mode buttons to re-arrange',
+                {
                     fontSize: '12px',
-                    color: '#fff',
-                    fontStyle: 'bold'
-                }).setOrigin(0.5);
+                    color: '#666'
+                }
+            ).setOrigin(0.5);
 
-                btn.on('pointerover', () => {
-                    btn.setFillStyle(color, 1);
-                    label.setScale(1.1);
-                });
+            /* ---------- KEYS ---------- */
+            this.input.keyboard.on('keydown-N', () =>
+                this.updateAudit(() => this.manager.next())
+            );
+            this.input.keyboard.on('keydown-B', () =>
+                this.updateAudit(() => this.manager.prev())
+            );
+            this.input.keyboard.on('keydown-SPACE', () =>
+                this.stopAudit()
+            );
 
-                btn.on('pointerout', () => {
-                    btn.setFillStyle(color, 0.7);
-                    label.setScale(1);
-                });
-
-                btn.on('pointerdown', () => {
-                    this.updateAudit(() => this.manager.setType(type));
-                });
-            }
-
-            async updateAudit(action) {
-                this.infoText.setText('Switching...');
-                const result = await action();
-                
-                this.infoText.setText(
-                    `🎵 ${result.key}\n` +
-                    `Loops: ${result.loops}`
-                );
-
-                this.progressText.setText(
-                    `Tune ${this.manager.currentIndex + 1} of ${this.manager.allTuneKeys.length}`
-                );
-
-                this.activeTypeText.setText(`► ${result.type.toUpperCase()} ◄`);
-                
-                // Show tempo with descriptive label
-                const tempoLabels = {
-                    45: 'Very Slow (Lament)',
-                    110: 'Moderate (Slide)',
-                    115: 'Lilting (Slip Jig)',
-                    100: 'Standard (Default)',
-                    130: 'Bouncy (Jig)',
-                    160: 'Fast! (Reel)'
-                };
-                this.tempoText.setText(
-                    `Tempo: ${result.bpm} BPM - ${tempoLabels[result.bpm] || 'Standard'}`
-                );
-            }
-
-            async stopAudit() {
-                await this.manager.stop();
-                this.infoText.setText('Stopped');
-            }
-
-            createBtn(x, y, label, callback) {
-                const btn = this.add.rectangle(x, y, 140, 50, 0x333333)
-                    .setInteractive({ useHandCursor: true })
-                    .setStrokeStyle(2, 0x00ff00);
-
-                const text = this.add.text(x, y, label, { 
-                    fontSize: '16px',
-                    color: '#0f0'
-                }).setOrigin(0.5);
-
-                btn.on('pointerover', () => {
-                    btn.setFillStyle(0x444444);
-                    text.setScale(1.1);
-                });
-
-                btn.on('pointerout', () => {
-                    btn.setFillStyle(0x333333);
-                    text.setScale(1);
-                });
-
-                btn.on('pointerdown', callback);
-            }
+            /* ---------- START ---------- */
+            this.updateAudit(() => this.manager.playCurrent());
         }
 
-        const config = {
-            type: Phaser.AUTO,
-            width: 800,
-            height: 600,
-            parent: 'game-container',
-            backgroundColor: '#0a0a12',
-            scene: MusicAuditScene
-        };
+        createModeButton(x, y, mode) {
+            const btn = this.add.rectangle(x, y, 120, 48, mode.color, 0.75)
+                .setInteractive({ useHandCursor: true })
+                .setStrokeStyle(2, 0x00ff00);
 
-        new Phaser.Game(config);
-    </script>
+            const label = this.add.text(x, y, mode.label, {
+                fontSize: '13px',
+                color: '#fff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
 
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+            btn.on('pointerover', () => {
+                btn.setFillStyle(mode.color, 1);
+                label.setScale(1.1);
+            });
+
+            btn.on('pointerout', () => {
+                btn.setFillStyle(mode.color, 0.75);
+                label.setScale(1);
+            });
+
+            btn.on('pointerdown', () => {
+                this.updateAudit(() => this.manager.setType(mode.type));
+            });
+        }
+
+        async updateAudit(action) {
+            this.infoText.setText('Switching...');
+            const result = await action();
+
+            this.infoText.setText(
+                `🎵 ${result.key}\nLoops: ${result.loops}`
+            );
+
+            this.progressText.setText(
+                `Tune ${this.manager.currentIndex + 1} of ${this.manager.allTuneKeys.length}`
+            );
+
+            this.activeTypeText.setText(`MODE: ${result.type.toUpperCase()}`);
+
+            this.tempoText.setText(`Tempo: ${result.bpm} BPM`);
+        }
+
+        async stopAudit() {
+            await this.manager.stop();
+            this.infoText.setText('Stopped');
+        }
+
+        createBtn(x, y, label, callback) {
+            const btn = this.add.rectangle(x, y, 150, 50, 0x333333)
+                .setInteractive({ useHandCursor: true })
+                .setStrokeStyle(2, 0x00ff00);
+
+            const text = this.add.text(x, y, label, {
+                fontSize: '16px',
+                color: '#0f0'
+            }).setOrigin(0.5);
+
+            btn.on('pointerover', () => {
+                btn.setFillStyle(0x444444);
+                text.setScale(1.1);
+            });
+
+            btn.on('pointerout', () => {
+                btn.setFillStyle(0x333333);
+                text.setScale(1);
+            });
+
+            btn.on('pointerdown', callback);
+        }
+    }
+
+    /* ----------------------------------------------------
+       GAME
+    ---------------------------------------------------- */
+    new Phaser.Game({
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        parent: 'game-container',
+        backgroundColor: '#0a0a12',
+        scene: MusicAuditScene
+    });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
 </body>
 </html>

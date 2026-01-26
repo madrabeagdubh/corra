@@ -1001,22 +1001,37 @@ function showStatsBar() {
     container.addEventListener('touchend', handleTouchEnd);
 } 
 
-    function finalize(champ) {
-        window.showLoader();
-        
-        championMusicManager.stopAll();
-        
-        if (globalStatsBar) {
-            globalStatsBar.remove();
-            globalStatsBar = null;
-        }
+  
+function finalize(champ) {
+    console.log('[HeroSelect] === FINALIZE CALLED ===');
+    console.log('[HeroSelect] Champion:', champ);
+    console.log('[HeroSelect] window.startGame exists:', typeof window.startGame);
+    
+    window.showLoader();
 
-        const containerEl = document.querySelector('.hero-select-container');
-        if (containerEl) containerEl.remove();
-        
-        if (window.startGame) window.startGame(champ);
+    // 1. Remove the global stats bar from the body
+    if (globalStatsBar) {
+        console.log('[HeroSelect] Removing stats bar');
+        globalStatsBar.remove();
+        globalStatsBar = null;
     }
-}
+
+    // 2. Remove the hero select container
+    const container = document.querySelector('.hero-select-container');
+    if (container) {
+        console.log('[HeroSelect] Removing hero select container');
+        container.remove();
+    }
+
+    // 3. Start the game
+    if (window.startGame) {
+        console.log('[HeroSelect] Calling window.startGame with:', champ);
+        window.startGame(champ);
+    } else {
+        console.error('[HeroSelect] window.startGame is NOT defined!');
+        console.log('[HeroSelect] Available window properties:', Object.keys(window).filter(k => k.includes('start') || k.includes('game')));
+    }
+}}
 
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 

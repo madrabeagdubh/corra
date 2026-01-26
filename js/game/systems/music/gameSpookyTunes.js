@@ -20,10 +20,9 @@ R: jig
 M: 4/4
 L: 1/8
 K: Eminor
-ABB eze-|edB A3-|AGE ~G2B|E B/c/d edB|! ~B3 eBe|edB ~A3|AGE ~G3|AED E2z|! ABB eBe|edB ~A3|AGE ~G2B|E B/c/d ~e3|! ged BAB|edB A2A|AGE ~G3|AED E2z|! cG ~E3 c|BGA E2d|AFD DEF|GAB dBe|! cG ~E3 c|BGA E2d|AFD DEF|~E3 FGA|! cG ~E3 c|BGA E2d|AFD DEF|GAB dBe-|! edB e2g|deB- Bed|BAA ABd|ez2 g3|
+|:ABB eze-|edB A3-|AGE ~G2B|E B/c/d edB|! ~B3 eBe|edB ~A3|AGE ~G3|AED E2z|! ABB eBe|edB ~A3|AGE ~G2B|E B/c/d ~e3|! ged BAB|edB A2A|AGE ~G3|AED E2z|! cG ~E3 c|BGA E2d|AFD DEF|GAB dBe|! cG ~E3 c|BGA E2d|AFD DEF|~E3 FGA|! cG ~E3 c|BGA E2d|AFD DEF|GAB dBe-|! edB e2g|deB- Bed|BAA ABd|ez2 g3|
 
 `,
-
   ophelia_s_ghost: `
 
 X: 3
@@ -56,9 +55,10 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-B|AF~F2 ~E3F|~F2DE FA~A2|Be~e2 fedB|ABBA d2AD|! EFED ~E3F|~F2DE FA~A2|Be~e2 fedB|AFED ~E3A||! ~F3D ~E3F|~F2DE FA~A2|Be~e2 fedB|ABBA d2FD|! EF~F2 ~E3F|~F2DE FA~A2|Be~e2 fedB|AFED ~E3z||! fe~e2 fedB|fede fbaf|fe~e2 fedB|~A3B dABd|! fe~e2 dB~B2|~f3e fa~a2|bf~f2 afed|Bd~d2 de~e2|! fe~e2 fedB|~f3e fbaf|fe~e2 fedB|AB~B2 d2 (3Bcd|! fe~e2 dB~B2|~f3e fa~a2|bf~f2 ~a3b|afed e3||
+|:B|AF~F2 ~E3F|~F2DE FA~A2|Be~e2 fedB|ABBA d2AD|! EFED ~E3F|~F2DE FA~A2|Be~e2 fedB|AFED ~E3A||! ~F3D ~E3F|~F2DE FA~A2|Be~e2 fedB|ABBA d2FD|! EF~F2 ~E3F|~F2DE FA~A2|Be~e2 fedB|AFED ~E3z||! fe~e2 fedB|fede fbaf|fe~e2 fedB|~A3B dABd|! fe~e2 dB~B2|~f3e fa~a2|bf~f2 afed|Bd~d2 de~e2|! fe~e2 fedB|~f3e fbaf|fe~e2 fedB|AB~B2 d2 (3Bcd|! fe~e2 dB~B2|~f3e fa~a2|bf~f2 ~a3b|afed e3||
 
 `,
+
 
   the_ghost: `
 
@@ -731,7 +731,7 @@ K: Eminor
 |:B>A|G2 A2 Bc|d4 g>f|e2 d2 B>A|B G3 AB|! c2 B2 B>A|B e3 d>B|A4 (3BAG|A4:|! GB|d2 e2 fa|g4 (3efg|a2 e2 dB|A2 A2 Bd|g2 a2 bg|! a2 a2 gf|e2 d2 B2|A>A A2 Bd|g2 a2 bg|a4 gf|! e2 d2 B2|A>B G2 AB|c4 BA|B e3 dB|A4 (3GAB|A4||
 
 `,
-
+/*
   chumha_eoghain_rua_ui_neill: `
 
 X: 62
@@ -3056,7 +3056,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-"_VB"(dB)|(A2B2)(dB)|(d2e2f2)|(F2A2ed)|B4(dB)|(A2B2)(dB)|(d2e2f2)|(F2A2Bd)|d4||! (df)|.g.g f2(fe)|.f.a a2(fe)|.d.d e2(dB)|A4f2|a2(fedB)|(de) f4|(F2A2)(Bd)|d4||
+"VB"(dB)|(A2B2)(dB)|(d2e2f2)|(F2A2ed)|B4(dB)|(A2B2)(dB)|(d2e2f2)|(F2A2Bd)|d4||! (df)|.g.g f2(fe)|.f.a a2(fe)|.d.d e2(dB)|A4f2|a2(fedB)|(de) f4|(F2A2)(Bd)|d4||
 
 `,
 
@@ -8351,5 +8351,5 @@ K: Dmajor
 |:DEF ABA|AFE D3|DEF ABc|B3 A3|! DEF ABA|AFE D2E|FAF EFE|E3 D3:|! DFA def|edB AFE|DFA def|edB d3|! DFA def|afd ecA|B2B AFA|Bdd d3:|
 
 `,
-
+*/
 };

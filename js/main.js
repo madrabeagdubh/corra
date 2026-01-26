@@ -32,24 +32,25 @@ const config = {
   }
 
 };
-
 export function startGame(selectedChampion) {
   console.log('startGame called with:', selectedChampion);
-  
-  // Store champion globally so it's accessible
+
   window.selectedChampion = selectedChampion;
-  
-  // Also try to add it to config
   config.selectedChampion = selectedChampion;
-  
+
   window.game = new Phaser.Game(config);
   
-  // Set it again after game is created
+  // Set the registry data
   window.game.registry.set('selectedChampion', selectedChampion);
   
+  // ADD THIS LINE:
+  // This ensures that once the game engine boots, it starts your tutorial scene
+  // Replace 'BowTutorial' with the actual key defined in your bowTutorial.js class
+  window.game.scene.start('BowTutorial', { champion: selectedChampion });
+
   console.log('Game created, champion stored in registry');
 }
-window.startGame = startGame;
+
 
 window.startGame = startGame;
 

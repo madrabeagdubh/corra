@@ -1,72 +1,71 @@
 /**
- * ORGAN / SHADOW VARIANT
- * Gothic, ritualistic, non-session instrumentation
- * Intended for combat, dread, liminal spaces
- *
- * Explicitly avoids instruments used in tradTuneConfig:
- * (Banjo, Fiddle, Concertina, Harp, Guitar, Cello,
- *  Whistle, Flute, Accordion, Piano)
+ * ALTERNATIVE TUNE CONFIG
+ * Soft, round, and distinct from traditional Irish setup
+ * Gentle instrumentation, each mode has its own BPM and texture
  */
 
 export const LOOP_PROGRESSIONS = {
-    combat: [
-        { name: "Low Organ Drone", voices: [2], description: "Pressure builds" },
-        { name: "+ Bass Weight", voices: [2, 3], description: "Threat embodied" },
-        { name: "+ Clarinet Cry", voices: [1, 2, 3], description: "Blades cross" },
-        { name: "Relentless", voices: [1, 2, 3], description: "No retreat" }
-    ],
-
-    ritual: [
-        { name: "Solo Organ", voices: [2], description: "Invocation" },
-        { name: "+ Glass Harmonics", voices: [2, 3], description: "Otherworld resonance" },
-        { name: "+ Clarinet Signal", voices: [1, 2, 3], description: "Veil thins" },
-        { name: "Possession", voices: [1, 2, 3], description: "Crossing complete" }
+    default: [
+        { name: "Soft Piano Intro", voices: [1], description: "Gentle beginning" },
+        { name: "+ String Ensemble", voices: [1, 2], description: "Warm harmonic support" },
+        { name: "+ Contrabass Layer", voices: [1, 2, 3], description: "Depth added" },
+        { name: "Full Texture", voices: [1, 2, 3], description: "Complete sound" }
     ],
 
     lament: [
-        { name: "Solo Clarinet", voices: [1], description: "Mourning breath" },
-        { name: "+ Organ Chords", voices: [1, 2], description: "Weight of memory" },
-        { name: "+ Low Strings", voices: [1, 2, 3], description: "Grief settles" },
-        { name: "Aftermath", voices: [1, 2, 3], description: "What remains" }
+        { name: "Solo Contrabass", voices: [3], description: "Low mournful" },
+        { name: "+ Flute Line", voices: [2, 3], description: "Airy grief" },
+        { name: "+ Soft Organ Pad", voices: [1, 2, 3], description: "Weight settles" },
+        { name: "Aftermath", voices: [1, 2, 3], description: "Gentle closure" }
     ],
 
-    march: [
-        { name: "Organ Pulse", voices: [2], description: "Measured steps" },
-        { name: "+ Bass Tread", voices: [2, 3], description: "Approach" },
-        { name: "+ Clarinet Edge", voices: [1, 2, 3], description: "Resolve hardens" },
-        { name: "Iron Will", voices: [1, 2, 3], description: "Point of no return" }
+    slide: [
+        { name: "Nylon Guitar Lead", voices: [1], description: "Smooth articulation" },
+        { name: "+ Clarinet Harmony", voices: [1, 2], description: "Rich blend" },
+        { name: "+ Contrabass Depth", voices: [1, 2, 3], description: "Subtle grounding" },
+        { name: "Slide Texture", voices: [1, 2, 3], description: "Complete melodic layer" }
     ],
 
-    default: [
-        { name: "Organ Drone", voices: [2], description: "Unease" },
-        { name: "+ Clarinet", voices: [1, 2], description: "Attention drawn" },
-        { name: "+ Bass Depth", voices: [1, 2, 3], description: "Commitment" },
-        { name: "Full Texture", voices: [1, 2, 3], description: "Engaged" }
+    reel: [
+        { name: "Clean Electric Guitar", voices: [1], description: "Bright motion" },
+        { name: "+ Vibraphone Accent", voices: [1, 2], description: "Light shimmer" },
+        { name: "+ Soft Strings", voices: [1, 2, 3], description: "Warm support" },
+        { name: "Energetic Texture", voices: [1, 2, 3], description: "Full lively sound" }
+    ],
+
+    ambient: [
+        { name: "Soft Pipe Organ", voices: [1], description: "Ethereal atmosphere" },
+        { name: "+ Celesta Bells", voices: [1, 2], description: "Sparkling layers" },
+        { name: "+ Contrabass Pad", voices: [1, 2, 3], description: "Smooth low support" },
+        { name: "Ambient Texture", voices: [1, 2, 3], description: "Full gentle ambience" }
     ]
 };
 
 /**
- * MIDI instruments — none overlap with tradTuneConfig
+ * MIDI instruments — soft, round, distinct from tradTuneConfig
  */
 export const INSTRUMENTS = {
-    19: { name: "Pipe Organ", short: "Organ", type: "harmony" },
-    71: { name: "Clarinet", short: "Clarinet", type: "melody" },
-    48: { name: "String Ensemble 1", short: "Strings", type: "bass" },
-    99: { name: "Atmospheric FX", short: "Atmos", type: "texture" }
+    1:  { name: "Soft Piano", short: "Piano", type: "melody" },
+    2:  { name: "Nylon Guitar", short: "Guitar", type: "melody" },
+    3:  { name: "Clean Electric Guitar", short: "E-Guitar", type: "melody" },
+    4:  { name: "Clarinet", short: "Clarinet", type: "melody" },
+    5:  { name: "Flute", short: "Flute", type: "melody" },
+    6:  { name: "Contrabass", short: "Bass", type: "bass" },
+    7:  { name: "String Ensemble 1", short: "Strings", type: "harmony" },
+    8:  { name: "Vibraphone", short: "Vibe", type: "texture" },
+    9:  { name: "Celesta", short: "Celesta", type: "texture" },
+    10: { name: "Pipe Organ (Soft)", short: "Organ", type: "harmony" }
 };
 
 /**
- * Tempo philosophy:
- * Slower than dance music
- * Faster than dirges
- * Emphasis on inevitability
+ * Tempo for each mode
  */
 export const TEMPO_OVERRIDES = {
-    ritual: 48,     // Suspended, breath-based
-    lament: 42,     // Heavy and slow
-    march: 78,      // Deliberate, martial
-    combat: 132,    // Driving, oppressive
-    default: 88
+    default: 100,
+    lament: 55,
+    slide: 115,
+    reel: 155,
+    ambient: 80
 };
 
 export function prepareTuneData(tuneName, singleVoiceAbc, tuneType = 'default') {
@@ -88,10 +87,6 @@ export function prepareTuneData(tuneName, singleVoiceAbc, tuneType = 'default') 
     }
 
     cleanAbc = outputLines.join('\n');
-
-    console.log(
-        `[tradTuneConfig.organ] ${tuneType.toUpperCase()}: Q:1/4=${bpm}`
-    );
 
     const multiVoiceAbc = createMultiVoiceAbc(cleanAbc, tuneType, bpm);
     const progression = LOOP_PROGRESSIONS[tuneType] || LOOP_PROGRESSIONS.default;
@@ -122,18 +117,15 @@ function createMultiVoiceAbc(abc, tuneType, bpm) {
 
     const result = [header[0], `Q:1/4=${bpm}`, ...header.slice(1)];
 
+    // Assign instruments per mode
     let instruments;
-
-    if (tuneType === 'combat') {
-        instruments = [71, 19, 48]; // Clarinet, Organ, Strings
-    } else if (tuneType === 'ritual') {
-        instruments = [71, 19, 99]; // Clarinet, Organ, Atmos
-    } else if (tuneType === 'lament') {
-        instruments = [71, 19, 48];
-    } else if (tuneType === 'march') {
-        instruments = [71, 19, 48];
-    } else {
-        instruments = [71, 19, 48];
+    switch(tuneType) {
+        case 'default': instruments = [1, 7, 6]; break;   // Piano, Strings, Contrabass
+        case 'lament':  instruments = [6, 5, 10]; break;  // Contrabass, Flute, Soft Organ
+        case 'slide':   instruments = [2, 4, 6]; break;   // Nylon Guitar, Clarinet, Contrabass
+        case 'reel':    instruments = [3, 8, 7]; break;   // Electric Guitar, Vibraphone, Strings
+        case 'ambient': instruments = [10, 9, 6]; break;  // Soft Organ, Celesta, Contrabass
+        default:       instruments = [1, 7, 6]; break;
     }
 
     result.push(`V:1 name="${INSTRUMENTS[instruments[0]].short}" clef=treble`);

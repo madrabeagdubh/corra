@@ -10,6 +10,11 @@ import { prepareTuneData } from './game/systems/music/tradTuneConfig.js';
 let initialized = false;
 let sliderTutorialComplete = false;
 
+
+
+
+
+
 // Stat descriptions
 const statDescriptions = {
   attack: { irish: "Ionsaigh", english: "Attack" },
@@ -67,6 +72,7 @@ function createStatsDisplay(champion, currentOpacity) {
                 e.stopPropagation();
                 createStatPopup(statName, currentOpacity);
             };
+    if (!sliderTutorialComplete) return; 
 
             statsContainer.appendChild(item);
         }
@@ -377,16 +383,24 @@ function initHeroSelect() {
     scrollContainer.className = 'champion-scroll';
     container.appendChild(scrollContainer);
 
-    const topPanel = document.createElement('div');
-    topPanel.className = 'champion-top-panel';
-    const slider = document.createElement('input');
+
+    const topPanel = document.createElement('div');                                         
+    topPanel.className = 'champion-top-panel';                                              
+  
+const slider = document.createElement('input');
     slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.01;
     slider.value = englishOpacity;
-    slider.className = 'champion-slider';
-    
+    slider.className = 'champion-slider slider-waiting';
+
     const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
-    sliderStyle.textContent = `
+       sliderStyle.textContent = `
+        @keyframes thumbInvite {
+            0% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
+            50% { transform: scale(1.1); box-shadow: 0 0 20px #ffd700; } /* Scaled down slightly to avoid clipping */
+            100% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
+        }
+
         .champion-slider {
             -webkit-appearance: none !important;
             appearance: none !important;
@@ -395,7 +409,7 @@ function initHeroSelect() {
             background: #444 !important;
             border-radius: 5px !important;
             outline: none !important;
-            margin: 0 !important;
+            margin: 20px 0 !important; /* Added margin to give the thumb room to grow */
             padding: 0 !important;
         }
 
@@ -409,13 +423,27 @@ function initHeroSelect() {
             cursor: pointer !important;
             border: 8px solid rgba(255, 215, 0, 0.3) !important;
             background-clip: padding-box !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
             box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
+            position: relative; 
+            z-index: 2;
+        }
+
+        /* The Animation Rule */
+        .slider-waiting::-webkit-slider-thumb {
+            animation: thumbInvite 1.5s infinite ease-in-out !important;
+            border: 4px solid #ffffff !important; /* Forces the border to be white */
+            filter: drop-shadow(0 0 5px #ffd700); /* Uses filter instead of box-shadow if shadow is clipping */
         }
     `;
-    if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
+
+
+
+
+
+
+
+
+   if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
 
     let chooseButton;
     // 1. Define the visual update logic in one place
@@ -451,6 +479,8 @@ function initHeroSelect() {
 
     // 2. The player dragging the slider
     slider.oninput = e => {
+
+  slider.classList.remove('slider-waiting');
         updateSliderVisuals(Number(e.target.value));
     };
 
@@ -481,7 +511,6 @@ function initHeroSelect() {
 
 
 
-
 const overlay = document.createElement('div');
 overlay.id = 'slider-tutorial-overlay';
 overlay.style.cssText = `
@@ -491,14 +520,28 @@ overlay.style.cssText = `
     width: 100vw;
     height: 100vh;
     background: rgba(0, 0, 0, 0.95);
-    z-index: 1000;
+    z-index: 9999;           /* Boost this very high */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     transition: opacity 0.8s ease;
-    pointer-events: none;
+    pointer-events: all;     /* Capture all events */
+    touch-action: none;      /* Prevent scrolling behind */
 `;
+
+// Explicitly stop clicks from reaching elements underneath
+overlay.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+};
+overlay.ontouchstart = (e) => {
+    e.stopPropagation();
+};
+
+container.appendChild(overlay);
+
+
 
 const tutorialText = document.createElement('div');
 tutorialText.style.cssText = `
@@ -576,7 +619,7 @@ container.appendChild(overlay);
 
     
     // Make sure topPanel (with slider) is above the overlay
-    topPanel.style.zIndex = '1001';
+    topPanel.style.zIndex = '10001';
 
     const bottomPanel = document.createElement('div');
     bottomPanel.className = 'champion-bottom-panel';

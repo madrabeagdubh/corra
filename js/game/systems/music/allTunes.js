@@ -2980,20 +2980,19 @@ gbag efge|dged B^cde|g2 fa gedB|AcBA GEED:|
 |:E2 BE dEBE|Ed^cB AFDF|~E3 F GFGB|AF (3FFF DFAF|
 EBBA B3 B|BAGA B^cde|f2 af gfe^c|dBAF GEED:|`,
 
-  lochaberBadgerThe: `X: 214
-T: Lochaber Badger, The
-C: Fred Morrison
-Z: jdicarlo
-S: https://thesession.org/tunes/5758#setting5758
-R: reel
-M: 4/4
-L: 1/8
-K: Emin
-z|"Em"B2AG AG"C"E2-|~E2DE GD"Bm7"EG|B2AG AG"Em"E2|ED"Bm7"GD "Em"E3z|
-"Em"B2AG AG"C"E2-|~E2DE GD"Bm7"EG|B2AG AG"Em"E2|ED"Bm7"GD "Em"E3||
-z|"Em"~E2DE GE"Am7"A2-|~A2AG Ad"Bm7"B2-|~B2AG AG"Em"E2|ED"Bm7"GD "Em"E3D|
-"Em"~E2DE GE"Am7"A2-|~A2AG Ad"Bm7"B2-|~B2AG AG"Em"E2|ED"Bm7"GD "Em"E3||`,
 
+lochaberBadgerThe: `X:214
+T:Lochaber Badger, The
+C:Fred Morrison
+R:reel
+M:4/4
+L:1/8
+K:Emin
+|: B2AG AGE2 | E2DE GDEG | B2AG AGE2 | EDGD E4 |
+B2AG AGE2 | E2DE GDEG | B2AG AGE2 | EDGD E4 :|
+|: E2DE GEA2 | A2AG AdB2 | B2AG AGE2 | EDGD E3D |
+E2DE GEA2 | A2AG AdB2 | B2AG AGE2 | EDGD E4 :|`
+,
   cronins: `X: 215
 T: Cronin's
 Z: lars

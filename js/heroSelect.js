@@ -383,16 +383,36 @@ function initHeroSelect() {
     scrollContainer.className = 'champion-scroll';
     container.appendChild(scrollContainer);
 
+// Inside initHeroSelect...
 
-    const topPanel = document.createElement('div');                                         
-    topPanel.className = 'champion-top-panel';                                              
-  
+      const topPanel = document.createElement('div');
+    topPanel.className = 'champion-top-panel';
+    
+    // Calculate 25% of screen height in pixels
+    const startTop = window.innerHeight * 0.25;
+
+    topPanel.style.cssText = `
+        position: fixed;
+        top: ${startTop}px;      /* Pixel-based start */
+        left: 0;
+        width: 100%;
+        z-index: 10001;          /* Higher than overlay */
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+        /* Force hardware acceleration for the move */
+        transition: top 1.0s cubic-bezier(0.19, 1, 0.22, 1); 
+        will-change: top;
+    `;
+ 
+
 const slider = document.createElement('input');
-    slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.01;
-    slider.value = englishOpacity;
-    slider.className = 'champion-slider slider-waiting';
-
-    const sliderStyle = document.createElement('style');
+slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
+slider.value = englishOpacity;
+slider.className = 'champion-slider';
+   const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
        sliderStyle.textContent = `
         @keyframes thumbInvite {
@@ -478,11 +498,50 @@ const slider = document.createElement('input');
     };
 
     // 2. The player dragging the slider
-    slider.oninput = e => {
+   
 
-  slider.classList.remove('slider-waiting');
-        updateSliderVisuals(Number(e.target.value));
+
+
+let sequenceTriggered = false;
+
+       slider.oninput = e => {
+        const val = Number(e.target.value);
+        updateSliderVisuals(val);
+
+        if (!sequenceTriggered && val > 0.85) {
+            sequenceTriggered = true;
+            
+            // 1. Move to top (leaving a small 10px gap for aesthetics)
+            topPanel.style.top = '10px';
+
+            // 2. Start the fade sequence
+            setTimeout(() => {
+                const overlay = document.getElementById('slider-tutorial-overlay');
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    // Also fade out the tutorial text if it's a separate element
+                    if (tutorialText) tutorialText.style.opacity = '0';
+                }
+
+                setTimeout(() => {
+                    if (overlay) overlay.remove();
+                    // NOW we allow the rest of the game to work
+                    sliderTutorialComplete = true; 
+                    runOnboarding();
+                }, 1000); // Wait for overlay fade
+            }, 800); // Short pause after slider hits the top
+        }
     };
+;
+;
+
+
+
+
+
+
+
+
 
     // 3. The "Imperceptible" Fade Logic
     let isUserTouchingSlider = false;

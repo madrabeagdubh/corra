@@ -698,7 +698,7 @@ export const champions = [
       "magic": 6,
       "luck": 5
     },
-    "themeTuneTitle": "Otter's Holt, The"
+    "themeTuneTitle": "Otter\'s Holt, The"
   },
   null,
   {
@@ -3485,7 +3485,7 @@ export const champions = [
     "themeTuneTitle": "Lucy Farr's"
   },
   {
-    "spriteKey": "211.png",
+    "spriteKey": "243.png",
     "monologueID": 1,
     "gender": "f",
     "nameGa": "Bríghid",
@@ -4061,7 +4061,7 @@ export const champions = [
     "themeTuneTitle": "Cliffs Of Moher, The"
   },
   {
-    "spriteKey": "243.png",
+    "spriteKey": "211.png",
     "monologueID": 1,
     "gender": "m",
     "nameGa": "Urard",
@@ -4840,8 +4840,8 @@ export const champions = [
     "gender": "f",
     "nameGa": "Éabha",
     "nameEn": "Life",
-    "charBioEn": "Her kin are mighty, of noble stock.\nThe spirits of the land know her name.\nAnd the fair folk of the sídhe smile upon her.\nÉabha, bridge between worlds,\nIn her heart lies the truth of the land.\nÉabha, fairest daughter of Éire.\nShe shall be a light, Guiding the lost.",
-    "charBioGa": "As teaghlach uasal, de shliocht treise. \nAithníonn Banba í.\nÁthas na sí í. \nÉabha, droichead Tuathail,\nIna gcroí: fírinne tíre. Éabha, iníon Éireann is áille.\nBeidh sí ina solas, treoirí don té ar seachrán",
+    "charBioEn": "Her kin are mighty, of noble stock.\nAnd the fair folk of the sídhe smile upon her.\nÉabha, bridge between worlds.\nÉabha, fairest daughter of Éire.\nShe shall be a light, Guiding the lost.",
+    "charBioGa": "As teaghlach uasal, de shliocht treise. \nÁthas na sí í. \nÉabha, droichead Tuathail.\nÉabha, iníon Éire is áille.\nBeidh sí ina solas, treoirí don té ar seachrán",
     "stats": {
       "health": 6,
       "attack": 3,

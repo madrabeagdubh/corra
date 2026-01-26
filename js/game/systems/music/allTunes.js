@@ -343,21 +343,21 @@ dff fef|fef def|g2e f2d|edB BdB:|
 |:Add fdd|edd fdd|Add fdd|edB BdB|
 Add fdd|edB def|g2e f2d|edB BdB:|`,
 
+
+
   mountainRoadThe: `X: 26
 T: Mountain Road, The
-C: Michael Gorman
-Z: Jeremy
-S: https://thesession.org/tunes/68#setting68
 R: reel
 M: 4/4
 L: 1/8
 K: Dmaj
-F2 AF BFAF|F2 AF EFDE|F2 AF BFAF|G2 FG EFDE|
-F2 AF BFAF|F2 AF EFD2|FAA2 BAFA|BABd eddA|
-d2dA BAFA|d2 de fgfe|d2 dA BAFA|G2 FG EDFA|
-d2 dA BAFA|d2 de fgfe|d2 dA BAFA|G2 FG EFDE|`,
+F2AF BFAF | F2AF EFDE | F2AF BFAF | G2FG EFDE |
+F2AF BFAF | F2AF EFD2 | FAA2 BAFA | BABd eddA |
+d2dA BAFA | d2de fgfe | d2dA BAFA | G2FG EDFA |
+d2dA BAFA | d2de fgfe | d2dA BAFA | G2FG EFDE |]`,
 
-  saintAnnes: `X: 27
+
+saintAnnes: `X: 27
 T: Saint Anne's
 Z: Jeremy
 S: https://thesession.org/tunes/103#setting103
@@ -541,18 +541,18 @@ K: Edor
 Beed e2 de|fede fe e2|febe febe|fede fee2|
 Beed e2 de|fede fa a2|b2bf a2af|egfe dBAF|`,
 
-  johnRyans: `X: 40
-T: John Ryan's
-Z: b.maloney
-S: https://thesession.org/tunes/441#setting441
-R: polka
-M: 2/4
-L: 1/8
-K: Dmaj
-dd B/c/d/B/|AF ED|dd B/c/d/B/|AF E2|
-dd B/c/d/B/|AF Ad|fd ec|d2 d2||
-fd de/f/|gf ed|fd de/f/|gf a2|
-fd de/f/|gf ed|fd ec|d2 d2||`,
+
+  johnRyans: `X:40
+T:John Ryan's
+R:polka
+M:2/4
+L:1/8
+K:Dmaj
+|: dd B/c/d/B/ | AF ED | dd B/c/d/B/ | AF E2 |
+dd B/c/d/B/ | AF Ad | fd ec | d2 d2 :|
+|: fd de/f/ | gf ed | fd de/f/ | gf a2 |
+fd de/f/ | gf ed | fd ec | d2 d2 :|`,
+
 
   irishWasherwomanThe: `X: 41
 T: Irish Washerwoman, The
@@ -627,20 +627,20 @@ F2FG FEDE|FAAB AFED|d2eg fdec|dBAG FD:|
 |:FA|d2AG FDFA|dfaf gfeg|fedf eAcA|dfed cA A2|
 BAGB ADFD|dfaf gfed|Bdce dBAG|FGEF D2:|`,
 
-  aFigForAKiss: `X: 46
-T: A Fig For A Kiss
-Z: Josh Kane
-S: https://thesession.org/tunes/750#setting750
-R: slip jig
-M: 9/8
-L: 1/8
-K: Edor
-G2B E2B BAG|F2A D2A AGF|G2B E2B BAG|B/c/dB AGF DEF|
-G2B E2B BAG|F2A D2A AGF|G2B E2B BAG|B/c/dB AGF E3||
-g2e g2e edB|f2d dcd fed|g2e g2e edB|dBG GBd e2f|
-g2e g2e edB|f2d dcd fed|gfe fed ecA|B/c/dB AGF E2F||`,
 
-  myDarlingAsleep: `X: 47
+
+  aFigForAKiss: `X:46
+T:A Fig For A Kiss
+R:slip jig
+M:9/8
+L:1/8
+K:Edor
+|: G2B E2B BAG | F2A D2A AGF | G2B E2B BAG | B/c/dB AGF DEF |
+G2B E2B BAG | F2A D2A AGF | G2B E2B BAG | B/c/dB AGF E3 :|
+|: g2e g2e edB | f2d dcd fed | g2e g2e edB | dBG GBd e2f |
+g2e g2e edB | f2d dcd fed | gfe fed ecA | B/c/dB AGF E2F :|`,
+ 
+myDarlingAsleep: `X: 47
 T: My Darling Asleep
 Z: Jeremy
 S: https://thesession.org/tunes/76#setting76
@@ -982,21 +982,23 @@ A3ED2|B,3G,G,2|G,6|A4 FE|
 D2F2A2|=c4d2|B3cd2|AF F2D2|
 A,2D2F2|A2d2F2|E3DC2|D4:|`,
 
-  ottersHoltThe: `X: 72
-T: Otter's Holt, The
-C: Junior Crehan
-Z: Will Harmon
-S: https://thesession.org/tunes/636#setting636
-R: reel
-M: 4/4
-L: 1/8
-K: Bmin
-e|:fBBA FEFB|(3ABA FB ABde|fBBA FEFA|(3Bcd cA Bcde|
-fBBA FEFB|(3ABA FB ABde|faaf effe|1 dBBA ~B3e:|2 dBAF B3c||
-d2 fd Adfa|bfaf effe|(3ddd fd Adfa|bfaf egfe|
-defd Adfa|bfaf efde|fBBA FEFA|(3Bcd cA B3c|
-~d3f a2 fa|(3baf af effe|d2 fd adfa|bfaf effe|
-dcdf a2 fa|(3baf af effe|fBBA FEFA|(3Bcd cA ~B3e||`,
+
+
+
+  ottersHoltThe: `X:72
+T:Otter's Holt, The
+R:reel
+M:4/4
+L:1/8
+K:Bmin
+|: fBBA FEFB | A2FB ABde | fBBA FEFA | B/c/d cA Bcde |
+fBBA FEFB | A2FB ABde | faaf effe | dBAF B3e :|
+|: d2fd Adfa | bfaf effe | d2fd Adfa | bfaf egfe |
+defd Adfa | bfaf efde | fBBA FEFA | B/c/d cA B2Bc |
+d3f a2fa | bfaf effe | d2fd adfa | bfaf effe |
+dcdf a2fa | bfaf effe | fBBA FEFA | B/c/d cA B3e :|`,
+
+
 
   athollHighlandersThe: `X: 73
 T: Atholl Highlanders, The
@@ -1467,20 +1469,20 @@ K: Bmin
 fB (3BBB fBaB|fb (3BBB e2 de|fB (3BBB ~f3 e|dfaf e2 de|
 fB (3BBB bBaB|fBeB fede|fB (3BBB ~f3 e|dfaf e4||`,
 
-  ashplantThe: `X: 107
-T: Ashplant, The
-Z: seara
-S: https://thesession.org/tunes/726#setting726
-R: reel
-M: 4/4
-L: 1/8
-K: Edor
-BE~E2 BAGA|BE~E2 ~G3A|BE~E2 BABd|gedB A2GA|
-BE~E2 BAGA|BE~E2 ~G3A|~B3A (3Bcd ef|gedB A2GA||
-B2eB fBeB|~B2ed BAGA|B2eB ~f3d|efdB A2GA|
-B2eB fBeB|~B2ed BAGA|(3Bcd ef ~g3a|gedB A2GA||`,
+ 
 
-  swallowsTailThe: `X: 108
+   ashplantThe: `X:107
+T:Ashplant, The
+R:reel
+M:4/4
+L:1/8
+K:Edor
+|:BE E2 BAGA | BE E2 G3A | BE E2 BABd | gedB A2GA |
+BE E2 BAGA | BE E2 G3A | B3A (3Bcd ef | gedB A2GA ||
+B2eB fBeB | B2ed BAGA | B2eB f3d | efdB A2GA |
+B2eB fBeB | B2ed BAGA | (3Bcd ef g3a | gedB A2GA :|`,
+
+ swallowsTailThe: `X: 108
 T: Swallow's Tail, The
 Z: Jeremy
 S: https://thesession.org/tunes/105#setting105
@@ -1495,21 +1497,20 @@ eaag abag|edef g2fg|afge dBGB|AcBG A2 gf:|`,
 
   southWindThe: `X: 109
 T: South Wind, The
-C: Donall Meidhreach
-Z: bsykes62
-S: https://thesession.org/tunes/601#setting601
 R: waltz
 M: 3/4
 L: 1/8
 K: Gmaj
-dc|B3A G2|B3c d2|A4 B2|A4 dc|
-B3A G2|E3D E2|G6-|G2 z2 dc|
-B3A G2|B3c d2|A4 B2|A4 dc|
-B3A G2|E3D E2|G6-|G2 z2 (3d-e-f|
-g3a f2|g3f e2|d4 e2|d4 c2|
-B3A G2|B3c d2|A4 B2|A2 z2 (3d-e-f|
-g3a f2|g3f e2|d4 e2|d4 c2|
-Bd3 G2|Ac3 F2|G6-|G2 z2||`,
+|: dc | B3A G2 | B3c d2 | A4 B2 | A4 dc |
+B3A G2 | E3D E2 | G6 | G4 dc |
+B3A G2 | B3c d2 | A4 B2 | A4 dc |
+B3A G2 | E3D E2 | G6 | G4 (3def |
+g3a f2 | g3f e2 | d4 e2 | d4 c2 |
+B3A G2 | B3c d2 | A4 B2 | A4 (3def |
+g3a f2 | g3f e2 | d4 e2 | d4 c2 |
+B3A G2 | A3G F2 | G6 | G4 :|`,
+
+
 
   spootiskerry: `X: 110
 T: Spootiskerry
@@ -1588,20 +1589,21 @@ fdd gdd|fdd ged|^cde gag|1 ed^c d2 e:|2 ed^c d^cB||
 |:AFD ABG|~F3 GED|~E3 EFG|~E3 EFG|
 ABA dAG|~F3 GEA|DED DFA|1 DED D2 A:|2 DED D3||`,
 
-  fermoyLassesThe: `X: 115
-T: Fermoy Lasses, The
-Z: Jeremy
-S: https://thesession.org/tunes/219#setting219
-R: reel
-M: 4/4
-L: 1/8
-K: Emin
-GE (3EEE BE (3EEE|GE (3EEE BcBA|GE (3EEE BE (3EEE|AFDF AcBA|
-GE (3EEE BE (3EEE|GE (3EEE BcBA|(3GGG GF GBdB|AFDF AcBA||
-(3GGG BG dGBG|(3GGG Bd efg2|(3GGG BG dGBG|AFDF AcBA|
-(3GGG BG dGBG|(3GGG Bd efg2|afge fded|AFDF AcBA||`,
 
-  greigsPipes: `X: 116
+
+  fermoyLassesThe: `X:115
+T:Fermoy Lasses, The
+R:reel
+M:4/4
+L:1/8
+K:Emin
+|: GE E2 BE E2 | GE E2 BcBA | GE E2 BE E2 | AFDF AcBA |
+GE E2 BE E2 | GE E2 BcBA | G2GF GBdB | AFDF AcBA :|
+|: G2BG dGBG | G2Bd efg2 | G2BG dGBG | AFDF AcBA |
+G2BG dGBG | G2Bd efg2 | afge fded | AFDF AcBA :|`,
+
+
+    greigsPipes: `X: 116
 T: Greig's Pipes
 Z: Josh Kane
 S: https://thesession.org/tunes/605#setting605
@@ -2372,19 +2374,19 @@ GBG FAF|E2B BAB|G2B dBG|ABG FED:|
 G2B dBd|edB dBA|G2B dBG|ABG FED|
 G2B dBd|edB def|gfe dBG|ABG FED:|`,
 
-  abbeyThe: `X: 171
-T: Abbey, The
-Z: Josh Kane
-S: https://thesession.org/tunes/477#setting477
-R: reel
-M: 4/4
-L: 1/8
-K: Ador
-|:B|A3B A2GE|A2GA BddB|A3B AGEF|G3A Bdd:|
-g|egg2 a2ba|gabg aged|egg2 a2ga|bgaf gedg|
-egg2 a2bg|agbg aged|egg2 a2ga|bgaf ged|`,
+ 
+  abbeyThe: `X:171
+T:Abbey, The
+R:reel
+M:4/4
+L:1/8
+K:Ador
+|: A3B A2GE | A2GA BddB | A3B AGEF | G3A BddB :|
+|: egg2 a2ba | gabg aged | egg2 a2ga | bgaf gedg |
+egg2 a2bg | agbg aged | egg2 a2ga | bgaf ged2 :|`,
 
-  rakesOfMallowThe: `X: 172
+
+rakesOfMallowThe: `X: 172
 T: Rakes Of Mallow, The
 Z: Jeremy
 S: https://thesession.org/tunes/85#setting85
@@ -2560,20 +2562,18 @@ c3/2B/A a2 a|c3/2B/A a2 b|c'ba gfe|dcB A2 B:|
 |:cde g2 e|g2 e g3/2e/c|GAB d2 B|d2 B d3/2B/G|
 cde g2 e|g2 e g3/2e/c|Acd e2 d|1 c3/2B/A A2 B:|2 c3/2B/A A2||`,
 
-  mugOfBrownAleThe: `X: 185
-T: Mug Of Brown Ale 
-Z: gian marco
-S: https://thesession.org/tunes/888#setting888
-R: jig
-M: 6/8
-L: 1/8
-K: Ador
-g/f/|:eAA fAA|~g3 age|dBG GAG|~B3 Bcd|
-eAA fAA|~g3 age|dBd gdB|ABA ABd:|
-efg ~a3|aba age|dBd ~g3|gba ged|
-efg ~g3|aba age|dBd gdB|ABA ABd|
-efg ~a3|aba age|dBd ~g3|gba ged|
-efg a2b|^c'ac' age|dBd gdB|ABA A2||`,
+
+  mugOfBrownAleThe: `X:185
+T:Mug Of Brown Ale
+R:jig
+M:6/8
+L:1/8
+K:Ador
+|: eAA fAA | g3 age | dBG GAG | B3 Bcd |
+eAA fAA | g3 age | dBd gdB | BAG A3 :|
+|: efg a3 | aba age | dBd g3 | gba ged |
+efg a3 | aba age | dBd gdB | BAG A3 :|`
+,
 
   soldiersJoy: `X: 186
 T: Soldier's Joy
@@ -3306,20 +3306,19 @@ AFD DFA|BdB BAF|ABA F2E|1 FDD D2:|2 FDD D2e||
 |:fdd dcd|fdd d2e|fef def|gfg eag|
 fed B2d|A2d F2G|ABA F2E|1 FDD D2e:|2 FDD D2||`,
 
-  mairisWedding: `X: 238
-T: Mairi's Wedding
-Z: maclowlife
-S: https://thesession.org/tunes/706#setting706
-R: polka
-M: 2/4
-L: 1/8
-K: Dmaj
-f "A"|:"D"A>A AB|de f2|"G"ed Bd|"A7"fe fa|
-"D"A>A AB|de f2|"G"ed BG|"A7"A2 A2|
-"D"a>a ab|ag f2|"G"ed Bd|"A7"fe f<a|
-"D"a>a ab|ag f2|"G"ed BG|1 "A7"A2 A2:|2 "A"AB/c/ d/e/f/g/||
-"D"a>a ab|ag f2|"G"ed Bd|"A7"fe f<a|
-"D"A>A AB|de fg|"G"a>f "A7"fe|"D"d2 z2||`,
+  mairisWedding: `X:238
+T:Mairi's Wedding
+R:polka
+M:2/4
+L:1/8
+K:Dmaj
+f |: AA AB | de f2 | ed Bd | fe fa |
+AA AB | de f2 | ed BG | A2 A2 :|
+|: aa ab | ag f2 | ed Bd | fe fa |
+aa ab | ag f2 | ed BG | A2 A2 :|
+aa ab | ag f2 | ed Bd | fe fa |
+AA AB | de fg | af fe | d2 z2 |]`,
+  
 
   greenFieldsOfRossbeighThe: `X: 239
 T: Green Fields Of Rossbeigh, The
@@ -3334,22 +3333,23 @@ BE(3EDE BAFA|ABde fded|BE(3EDE BAFA|BFAF E2FA:|
 (3Bcd ef g2fe|dB(3BAB dBAd|(3Bcd ef gfge|dBAF E2ef|
 gfga gfeg|fefg fedB|ABde fgfe|dBAF E2FA:|`,
 
-  longfordCollectorThe: `X: 240
-T: Longford Collector, The
-Z: b.maloney
-S: https://thesession.org/tunes/563#setting563
-R: reel
-M: 4/4
-L: 1/8
-K: Gmaj
-G3A Bcdg|e~B3 eBdB|~G3A B2dB|ABBA GEDE|
-~G3A Bcdg|e~B3 d2ef|~g3f gedB|ABBA GEDE|
-G3A Bcdg|e~B3 eBdB|~G3A B2dB|ABBA GEDE|
-~G3A Bcdg|e~B3 d2ef|~g3f gedB|ABBA GEED||
-~g3f gedg|e~B3 d2ef|~g2gf gedB|ABBA GEED|
-~g3f gedg|e~B3 d2ef|gbaf gedB|ABBA GEED|
-~g2gf gedg|e~B3 d2ef|~g3g gedB|ABBA GEED|
-~g3f gedg|e~B3 d2ef|gbaf gedB|ABBA GEDE||`,
+  
+
+
+
+  longfordCollectorThe: `X:240
+T:Longford Collector, The
+R:reel
+M:4/4
+L:1/8
+K:Gmaj
+|: G3A Bcdg | eB B2 eBdB | G3A B2dB | ABBA GEDE |
+G3A Bcdg | eB B2 d2ef | g3f gedB | ABBA GEDE :|
+|: g3f gedg | eB B2 d2ef | g2gf gedB | ABBA GEED |
+g3f gedg | eB B2 d2ef | gbaf gedB | ABBA GEED :|`,
+
+
+
 
   galwayThe: `X: 241
 T: Galway, The
@@ -3548,21 +3548,20 @@ GEDE G2GA|B2BA Bcd2|edef gedc|BGAF G4:|
 |:g3e f3d|edef edB2|gedB G2GB|AGAB AGE2|
 GEDE G2GA|B3A Bcd2|edef gedc|BGAF G4:|`,
 
-  bankOfIrelandThe: `X: 255
-T: Bank Of Ireland, The
-Z: Jdharv
-S: https://thesession.org/tunes/320#setting320
-R: reel
-M: 4/4
-L: 1/8
-K: Dmix
-ed|c2AB cABG|EGDG EGAB|c2AB cABG|Add^c dfed|
-c2AB cABG|EGDG EGAB|c2AB cABG|Add^c d3e|
-K:D
-f2df e3 c|dfed cAAg|fedf e2fg|afge d2cd|
-eaag egfe|dfed cAGB|Addc defg|af (3gfe d2|`,
 
-  scholarThe: `X: 256
+
+bankOfIrelandThe: `X:255
+T:Bank Of Ireland, The
+R:reel
+M:4/4
+L:1/8
+K:Dmix
+|:ed | c2AB cABG | EGDG EGAB | c2AB cABG | Add^c dfed |
+c2AB cABG | EGDG EGAB | c2AB cABG | Add^c d3e |
+f2df e3c | dfed cAAg | fedf e2fg | afge d2cd |
+eaag egfe | dfed cAGB | Addc defg | af (3gfe d2 :|`,
+
+scholarThe: `X: 256
 T: Scholar, The
 C: James Hill
 Z: Jeremy
@@ -3722,18 +3721,18 @@ ceAe ceAe|ceAe fedc|"D"dfed "A"cA"E"BG|"E"E2 "A"A2 A2:|
 |:e2|"A"cAEA cAeA|cAeA fedc|"bm"dBGB dBfe|"D"defg "E"agfe|"A"
 cAEA cAeA|cAce fedc|"D"dfed "A"cA"E"BG|"E"E2 "A"A2 A2:|`,
 
-  rollingInTheBarrel: `X: 268
-T: Rolling In The Barrel
-Z: Josh Kane
-S: https://thesession.org/tunes/500#setting500
-R: reel
-M: 4/4
-L: 1/8
-K: Ador
-EE~E2 BE~E2|B2AF DEFD|EGFE BE~E2|B2Ac BEED|
-EE~E2 BE~E2|B2AF DEFD|EGFE BE~E2|B2Ac BE~E2||
-e2 (3gfe bege|d2df aafd|e2ge bege|dBAc BE~E2|
-e2 (3gfe be (3gfe|d2df a2fd|efge fdeB|(3dcB Ac BE~E2||`,
+  
+  rollingInTheBarrel: `X:268
+T:Rolling In The Barrel
+R:reel
+M:4/4
+L:1/8
+K:Ador
+|: E2E2 BE E2 | B2AF DEFD | EGFE BE E2 | B2Ac BEED |
+E2E2 BE E2 | B2AF DEFD | EGFE BE E2 | B2Ac BE E2 :|
+|: e2ge bege | d2df aafd | e2ge bege | dBAc BE E2 |
+e2ge bege | d2df a2fd | efge fdeB | dcBA G E2 :|`,
+
 
   giveUsADrinkOfWater: `X: 269
 T: Give Us A Drink Of Water
@@ -4050,39 +4049,28 @@ cAG ~c3|deg ~e3|deg edc|1 dcA c3:|2 dcA cde||
 ~g3 age|deg ~e3|deg edc|dcA cAG|
 cAG ~c3|deg ~e3|deg edc|dcA c3||`,
 
-  skyeBoatSongThe: `X: 291
-T: Skye Boat Song, The
-Z: dveith
-S: https://thesession.org/tunes/3690#setting3690
-R: waltz
-M: 3/4
-L: 1/8
-K: Gmaj
-"G"D>E D "G"G2 G|"D"A>B A "D"d3|"G"B>A B "C"E2 E|"D"D3 "D"D3|
-"G"D>E D "G"G2 G|"D"A>B A "D"d3|"G"B>A B "C"E2 E|E>D E "G"G3|
-"G" G3 "Em"B>G B|B3 "Am"A>E A|A3 "Em"G>E F|"C"G2 F "Am"E3|
-"Em"E3 "Em"B>G B|B3 "Am"A>E A|A3 "Em"G>E F|"C"G2 F "Em"E3|
-"D"D3 "G"D>E D|"G"G2 G "D"A>B A|"D"d3 "G"B>A B|"C"E2 E "D"D3|
-"D"D3 "G"D>E D|"G"G2 G "D"A>B A|"D"d3 "G"B>A B|"C"E2 E E>D E|"G" G3 "G" G3|`,
+   skyeBoatSongThe: `X:291
+T:Skye Boat Song, The
+R:waltz
+M:3/4
+L:1/8
+K:Gmaj
+|: D2E D G2 G | A2B A d3 | B2A B E2 E | D6 |
+D2E D G2 G | A2B A d3 | B2A B E2 E | E2D E G3 :|
+|: B2G B B3 | A2E A A3 | G2E F G2 F | E3 E3 |
+B2G B B3 | A2E A A3 | G2E F G2 F | E2D3 D :|`,
+ 
 
-  farAway: `X: 292
-T: Far Away
-C: Pete Jung
-Z: Domi Charly
-S: https://thesession.org/tunes/187#setting187
-R: waltz
-M: 3/4
-L: 1/8
-K: Bmin
-FA|B2 BA Bd|cA F2 FA|B2 BA B3/4c/e3/4|
-c4 dc|B2 BA B3/4c/d3/4|cB A2 de|fe dc BA|
-B3 A FA|B2 BA Bd|cA F2 FA|B2 BA B3/4c/e3/4|
-c4 dc|B2 BA B3/4c/d3/4|cB A2 de|fe dc BA|
-B3 c de|f2 fe f3/4g/a3/4|ec A2 de|f2 fe f3/4g/a3/4|
-e4 de|fd Be cA|dB Gd BG|F2 B2 BA|
-B3 c de|f2 fe f3/4g/a3/4|ec A2 de|f2 fe f3/4g/a3/4|
-e4 de|fd Be cA|dB Gd BG|F2 B2 BA|
-B3 A FA||`,
+  farAway: `X:292
+T:Far Away
+R:waltz
+M:3/4
+L:1/8
+K:Bmin
+|: FA | B2 BA Bd | cA F2 FA | B2 BA Be | c4 dc |
+B2 BA Bd | cB A2 de | fe dc BA | B3 A FA :|
+|: de | f2 fe fa | ec A2 de | f2 fe fa | e4 de |
+fd Be cA | dB Gd BG | F2 B2 BA | B3 A :|`,
 
   musicInTheGlen: `X: 293
 T: Music In The Glen
@@ -4097,20 +4085,20 @@ GABG EGDC|B,DGB AGAB|cdef g2ge|dBAB G2|D2:|
 |:B/A/G dG eGdG|BGdB cAAA|B/A/GBd edef|gdBG AGEG|
 BGBd edef|g2fg afdf|g2fg egdB cABG AGEG:|`,
 
-  redhairedLassThe: `X: 294
-T: Red-Haired Lass, The
-Z: Jamie
-S: https://thesession.org/tunes/1716#setting1716
-R: reel
-M: 4/4
-L: 1/8
-K: Gmaj
-DG{A}GF ~G3 E|DGBG AGEG|DG{A}GF GABd|egdB cBAG|
-DG{A}GF GABG|DGBG AGEG|DG{A}GF GABd|gedB ~c2 Bc||
-d2 gd edgd|(3ddd gd BABc|d2 gd edef|gedB ~c2 Bc|
-d2 gd edgd|(3ddd gd BABd|~c3 A BcBA|GABd edBA||`,
 
-  superfly: `X: 295
+  redhairedLassThe: `X:294
+T:Red-Haired Lass, The
+R:reel
+M:4/4
+L:1/8
+K:Gmaj
+|: DGGF G3E | DGBG AGEG | DGGF GABd | egdB cBAG |
+DGGF GABG | DGBG AGEG | DGGF GABd | gedB c2Bc ||
+d2gd edgd | d2gd BABc | d2gd edef | gedB c2Bc |
+d2gd edgd | d2gd BABd | c3A BcBA | GABd edBA :|`,
+
+
+superfly: `X: 295
 T: Superfly
 C: Kevin O'Neill
 Z: Joe CSS

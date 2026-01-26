@@ -27,12 +27,12 @@
         // Import your systems
         import AbcTradPlayer from './js/game/systems/music/abcTradPlayer.js';
         import { prepareTuneData, LOOP_PROGRESSIONS } from './js/game/systems/music/tradTuneConfig.js';
-        import { allTunes } from './js/game/systems/music/allTunes.js';
+        import { gameSpookyTunes } from './js/game/systems/music/gameSpookyTunes.js';
 
         class AuditManager {
             constructor() {
                 this.player = new AbcTradPlayer();
-                this.allTuneKeys = Object.keys(allTunes);
+                this.allTuneKeys = Object.keys(gameSpookyTunes);
                 this.currentIndex = 0;
                 this.currentType = 'jig';
                 this.isAutoPlay = false;
@@ -40,7 +40,7 @@
 
             async playCurrent() {
                 const key = this.allTuneKeys[this.currentIndex];
-                const abc = allTunes[key];
+                const abc = gameSpookyTunes[key];
 
                 // Prepare the multi-voice version
                 const tuneData = prepareTuneData(key, abc, this.currentType);

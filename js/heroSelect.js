@@ -418,22 +418,21 @@ function initHeroSelect() {
     if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
 
     let chooseButton;
+    // 1. Define the visual update logic in one place
+    const updateSliderVisuals = (opacity) => {
+        englishOpacity = opacity; // Keep global variable in sync
 
-    slider.oninput = e => {
-        englishOpacity = Number(e.target.value);
-       
         document.querySelectorAll('.champion-name-en').forEach(el => {
-            el.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+            el.style.color = `rgba(0, 255, 0, ${opacity})`;
         });
         
-        // Also update tutorial English text opacity
         const tutorialEnglish = document.querySelector('#tutorial-english-text');
         if (tutorialEnglish) {
-            tutorialEnglish.style.opacity = englishOpacity;
+            tutorialEnglish.style.opacity = opacity;
         }
 
         if (chooseButton) {
-            if (englishOpacity > 0.5) {
+            if (opacity > 0.5) {
                 chooseButton.textContent = 'Continue';
                 chooseButton.style.fontFamily = '"Courier New", Courier, monospace';
                 chooseButton.style.fontWeight = '300';
@@ -447,8 +446,34 @@ function initHeroSelect() {
                 chooseButton.style.textTransform = 'uppercase';
             }
         }
-        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${englishOpacity * 100}%, #444 ${englishOpacity * 100}%, #444 100%)`;
+        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${opacity * 100}%, #444 ${opacity * 100}%, #444 100%)`;
     };
+
+    // 2. The player dragging the slider
+    slider.oninput = e => {
+        updateSliderVisuals(Number(e.target.value));
+    };
+
+    // 3. The "Imperceptible" Fade Logic
+    let isUserTouchingSlider = false;
+    slider.addEventListener('mousedown', () => isUserTouchingSlider = true);
+    slider.addEventListener('touchstart', () => isUserTouchingSlider = true);
+    window.addEventListener('mouseup', () => isUserTouchingSlider = false);
+    window.addEventListener('touchend', () => isUserTouchingSlider = false);
+
+    const applyDecay = () => {
+        // Slow down the fade: 0.0001 per frame
+        if (sliderTutorialComplete && !isUserTouchingSlider && englishOpacity > 0) {
+            const newValue = Math.max(0, englishOpacity - 0.0001);
+            slider.value = newValue; // Move the physical sun slider
+            updateSliderVisuals(newValue); // Update the colors/text
+        }
+        requestAnimationFrame(applyDecay);
+    };
+
+    // Start the loop
+    requestAnimationFrame(applyDecay);
+;
 
     topPanel.appendChild(slider);
     container.appendChild(topPanel);

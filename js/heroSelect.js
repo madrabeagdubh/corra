@@ -38,7 +38,7 @@ function createStatsDisplay(champion, currentOpacity) {
         bottom: 120px !important;
         left: 0 !important;
         right: 0 !important;
-        background: rgba(42, 24, 16, 0.95) !important;
+        background: rgba(0,0,0, 0.95) !important;
         border-top: 2px solid #d4af37 !important;
         z-index: 499 !important;
         padding: 15px !important;
@@ -72,7 +72,6 @@ function createStatsDisplay(champion, currentOpacity) {
                 e.stopPropagation();
                 createStatPopup(statName, currentOpacity);
             };
-    if (!sliderTutorialComplete) return; 
 
             statsContainer.appendChild(item);
         }
@@ -94,7 +93,7 @@ function createStatPopup(statName, englishOpacity) {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(42, 24, 16, 0.98);
+    background: rgba(0,0,0, 0.98);
     border: 3px solid #d4af37;
     border-radius: 15px;
     padding: 1.5rem;
@@ -137,7 +136,6 @@ function createStatPopup(statName, englishOpacity) {
     line-height: 1.5;
     font-family: CourierPrime !important;
     text-align: center;
-    opacity: 0; 
     transition: opacity 0.5s ease;
   `;
 
@@ -207,7 +205,7 @@ function createStatPopup(statName, englishOpacity) {
           observer.observe(document.body, { childList: true });
         }
 
-        autoCloseTimer = setTimeout(closePopup, 4000);
+        autoCloseTimer = setTimeout(closePopup, 2700);
       }, 500);
     }
   }
@@ -242,7 +240,7 @@ function updateGlobalStats(champion) {
     }
 }
 
-function initHeroSelect() {
+export function initHeroSelect() {
     if (initialized) return;
 
     const container = document.getElementById('heroSelect');
@@ -389,7 +387,7 @@ function initHeroSelect() {
     topPanel.className = 'champion-top-panel';
     
     // Calculate 25% of screen height in pixels
-    const startTop = window.innerHeight * 0.25;
+    const startTop = window.innerHeight * 0.15;
 
     topPanel.style.cssText = `
         position: fixed;
@@ -504,18 +502,38 @@ slider.className = 'champion-slider';
 
 let sequenceTriggered = false;
 
-       slider.oninput = e => {
-        const val = Number(e.target.value);
-        updateSliderVisuals(val);
 
-        if (!sequenceTriggered && val > 0.85) {
-            sequenceTriggered = true;
+
+
+slider.oninput = e => {
+    const val = Number(e.target.value);
+    updateSliderVisuals(val);
+
+    if (!sequenceTriggered && val > 0.15) {
+        console.log('[DEBUG] Slider hit 0.85, moving panel to top');
+        console.log('[DEBUG] Current top:', topPanel.style.top);
+        console.log('[DEBUG] Current z-index:', topPanel.style.zIndex);
+        
+        sequenceTriggered = true;
+        
+        // Force z-index and remove any conflicting styles
+        topPanel.style.zIndex = '10002';
+        topPanel.style.position = 'fixed';
+        topPanel.style.top = '10px';
+        
+        console.log('[DEBUG] New top:', topPanel.style.top);
+        console.log('[DEBUG] New z-index:', topPanel.style.zIndex);
+        
+        // Force reflow
+        void topPanel.offsetHeight;
+
+        // 2. Wait for panel to reach top, THEN wait for reading time, THEN fade
+        setTimeout(() => {
+            console.log('[DEBUG] Panel movement complete, waiting for player to read...');
             
-            // 1. Move to top (leaving a small 10px gap for aesthetics)
-            topPanel.style.top = '10px';
-
-            // 2. Start the fade sequence
+            // Wait additional time for player to read the English text
             setTimeout(() => {
+                console.log('[DEBUG] Starting overlay fade');
                 const overlay = document.getElementById('slider-tutorial-overlay');
                 if (overlay) {
                     overlay.style.opacity = '0';
@@ -523,24 +541,39 @@ let sequenceTriggered = false;
                     if (tutorialText) tutorialText.style.opacity = '0';
                 }
 
+                // Wait for fade to complete, then remove overlay
                 setTimeout(() => {
                     if (overlay) overlay.remove();
-                    // NOW we allow the rest of the game to work
-                    sliderTutorialComplete = true; 
-                    runOnboarding();
-                }, 1000); // Wait for overlay fade
-            }, 800); // Short pause after slider hits the top
-        }
-    };
-;
-;
-
-
-
-
-
-
-
+                    
+                    // NOW do all the completion stuff
+                    sliderTutorialComplete = true;
+                    
+                    // Fade music volume up
+                    if (championMusicManager.setVolume) {
+                        let vol = 0.2;
+                        const fadeInterval = setInterval(() => {
+                            vol += 0.04;
+                            if (vol >= 1.0) {
+                                championMusicManager.setVolume(1.0);
+                                clearInterval(fadeInterval);
+                            } else {
+                                championMusicManager.setVolume(vol);
+                            }
+                        }, 100);
+                    }
+                    
+                    showStatsBar();
+                    
+                    // Wait for stats bar to be visible before showing swipe nudge
+                    setTimeout(() => {
+                        runSwipeNudge();
+                    }, 1500); // Give player 1.5 seconds to see the stats bar first
+                }, 1000); // Wait for opacity transition to complete
+            }, 2000); // Wait 5 seconds for player to read
+        }, 2000); // Wait for panel to reach top
+    }
+};
+/////////////
 
 
     // 3. The "Imperceptible" Fade Logic
@@ -567,7 +600,7 @@ let sequenceTriggered = false;
     topPanel.appendChild(slider);
     container.appendChild(topPanel);
 
-
+waitForSliderInteraction();
 
 
 const overlay = document.createElement('div');
@@ -601,21 +634,24 @@ overlay.ontouchstart = (e) => {
 container.appendChild(overlay);
 
 
-
 const tutorialText = document.createElement('div');
 tutorialText.style.cssText = `
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     font-family: Aonchlo, serif;
     font-size: 1.8rem;
     color: #d4af37;
     text-align: center;
     padding: 2rem;
     max-width: 80%;
+    width: 80%;
     line-height: 1.6;
-    margin-bottom: 3rem;
 `;
 
 const irishText = document.createElement('div');
-irishText.textContent = 'Fadó fadó in Éireann, roimh teacht an nua aois...';
+irishText.textContent = 'Fadó fadó in Éireann,\nroimh teacht an nua aois...';
 irishText.style.cssText = `
     font-family: Aonchlo, serif;
     font-size: 1.8rem;
@@ -623,16 +659,21 @@ irishText.style.cssText = `
     margin-bottom: 0.5rem;
 `;
 
+
+
 const englishText = document.createElement('div');
 englishText.id = 'tutorial-english-text';
-englishText.textContent = 'Long ago in Ireland, before the dawn of the new age...';
+englishText.textContent = 'Long long ago in Ireland, before the modern age...';
 englishText.style.cssText = `
     font-family: 'Courier New', monospace;
-    font-size: 1.2rem;
+    font-size: 1.7rem;
     color: rgb(0, 255, 0);
     opacity: 0;
     transition: opacity 0.2s ease;
+    min-height: 1.5em;
+    display: block;
 `;
+
 
 // Add "Slide to Begin" instruction
 const slideInstruction = document.createElement('div');
@@ -744,10 +785,36 @@ container.appendChild(overlay);
         currentChampionIndex = randomIndex;
 
         initSwipe(scrollContainer, validChampions.length);
-        runOnboarding();
         window.hideLoader();
-        
+    initBackgroundParticles(); // Add this line
+     
         updateGlobalStats(validChampions[randomIndex]);
+
+// Show stats bar once tutorial completes
+const checkAndShowStats = () => {
+    if (sliderTutorialComplete && globalStatsBar) {
+        showStatsBar();
+    } else if (!sliderTutorialComplete) {
+        setTimeout(checkAndShowStats, 100);
+    }
+};
+checkAndShowStats();
+
+
+// Start floating animation for the initial champion after tutorial completes
+    const startInitialAnimation = () => {
+        if (sliderTutorialComplete) {
+            const allCanvases = document.querySelectorAll('.champion-canvas');
+            allCanvases.forEach(canvas => canvas.classList.add('floating'));
+        } else {
+            setTimeout(startInitialAnimation, 100);
+        }
+    };
+    startInitialAnimation();
+
+
+
+
     }
 
 
@@ -885,40 +952,19 @@ const handleSliderTouch = async (e) => {
 
 
 
+const handleSliderRelease = async () => {
+    if (hasReleasedSlider) return;
+    hasReleasedSlider = true;
 
-;
+    slider.removeEventListener('touchstart', handleSliderTouch);
+    slider.removeEventListener('mousedown', handleSliderTouch);
+    slider.removeEventListener('touchend', handleSliderRelease);
+    slider.removeEventListener('mouseup', handleSliderRelease);
 
-    const handleSliderRelease = async () => {
-        if (hasReleasedSlider) return;
-        hasReleasedSlider = true;
-
-        slider.removeEventListener('touchstart', handleSliderTouch);
-        slider.removeEventListener('mousedown', handleSliderTouch);
-        slider.removeEventListener('touchend', handleSliderRelease);
-        slider.removeEventListener('mouseup', handleSliderRelease);
-
-        setTimeout(() => {
-            sliderTutorialComplete = true;
-
-            if (championMusicManager.setVolume) {
-                // Fade volume up
-                let vol = 0.2;
-                const fadeInterval = setInterval(() => {
-                    vol += 0.04;
-                    if (vol >= 1.0) {
-                        championMusicManager.setVolume(1.0);
-                        clearInterval(fadeInterval);
-                    } else {
-                        championMusicManager.setVolume(vol);
-                    }
-                }, 100);
-            }
-
-            fadeOutTutorialOverlay();
-            showStatsBar();
-            runSwipeNudge();
-        }, 300);
-    };
+    // Don't do anything here - let the slider.oninput sequence handle everything
+    // The sequence is triggered when slider value > 0.85
+    console.log('[DEBUG] Slider released, waiting for oninput sequence to complete');
+};
 
 
 
@@ -956,27 +1002,96 @@ slider.addEventListener('mouseup', handleSliderRelease);
 }
 
 
-
-
-
-
-
-
-
-
-function fadeOutTutorialOverlay() {
-    const overlayEl = document.getElementById('slider-tutorial-overlay');
-    if (!overlayEl) return;
-
-    const texts = overlayEl.querySelectorAll('div');
-
-    texts.forEach(el => el.style.opacity = '0');
-    overlayEl.style.opacity = '0';
-
-    setTimeout(() => overlayEl.remove(), 800);
+function initBackgroundParticles() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        pointer-events: none;
+    `;
+    
+    const container = document.getElementById('heroSelect');
+    if (container) {
+        container.insertBefore(canvas, container.firstChild);
+    }
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Particle system
+    const particles = [];
+	const particleCount =10;
+    
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 0.2; // Slight horizontal drift
+            this.vy = Math.random() * 0.5 + 0.3; // Downward movement
+            this.size = Math.random() * 2 + 0.5;
+            this.opacity = Math.random() * 0.5 + 0.2;
+            this.color = Math.random() > 0.5 ? '#d4af37' : '#ffd700'; // Gold colors
+        }
+        
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            
+            // Wrap horizontally
+            if (this.x < 0) this.x = canvas.width;
+            if (this.x > canvas.width) this.x = 0;
+            
+            // Reset to top when reaching bottom
+            if (this.y > canvas.height) {
+                this.y = 0;
+                this.x = Math.random() * canvas.width;
+            }
+        }
+        
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = this.opacity;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+    
+    // Create particles
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+    }
+    
+    // Animation loop
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach(particle => {
+            particle.update();
+            particle.draw();
+        });
+        
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
 }
-
-
 
 
 function showStatsBar() {
@@ -1053,11 +1168,11 @@ function showStatsBar() {
   
     const handleTouchEnd = () => {
         isDragging = false;
-        velocity *= 2.5;
+        velocity *= 1.5;
 
         const decay = () => {
             container.scrollLeft += velocity;
-            velocity *= 0.95;
+            velocity *= 0.9;
             if (Math.abs(velocity) > 0.1) {
                 animID = requestAnimationFrame(decay);
                 return;
@@ -1075,7 +1190,11 @@ function showStatsBar() {
 
                 if (currentChampionIndex !== realIndex) {
                     currentChampionIndex = realIndex;
-                    updateGlobalStats(currentChamp);
+                    
+
+
+
+updateGlobalStats(currentChamp);
 
                     const now = Date.now();
                     if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
@@ -1103,36 +1222,25 @@ function showStatsBar() {
     container.addEventListener('touchend', handleTouchEnd);
 } 
 
-  
-function finalize(champ) {
+ function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
-    console.log('[HeroSelect] Champion:', champ);
-    console.log('[HeroSelect] window.startGame exists:', typeof window.startGame);
     
-    window.showLoader();
-
-    // 1. Remove the global stats bar from the body
+    // Remove the stats bar
     if (globalStatsBar) {
-        console.log('[HeroSelect] Removing stats bar');
         globalStatsBar.remove();
         globalStatsBar = null;
     }
 
-    // 2. Remove the hero select container
+    // Remove the hero select container
     const container = document.querySelector('.hero-select-container');
     if (container) {
-        console.log('[HeroSelect] Removing hero select container');
         container.remove();
     }
 
-    // 3. Start the game
-    if (window.startGame) {
-        console.log('[HeroSelect] Calling window.startGame with:', champ);
-        window.startGame(champ);
-    } else {
-        console.error('[HeroSelect] window.startGame is NOT defined!');
-        console.log('[HeroSelect] Available window properties:', Object.keys(window).filter(k => k.includes('start') || k.includes('game')));
-    }
+    // Go to tutorial or adventure choice
+    import('./tutorialOrAdventure.js').then(module => {
+        module.initTutorialOrAdventure(champ);
+    });
 }}
 
 document.addEventListener('DOMContentLoaded', initHeroSelect);
@@ -1141,3 +1249,6 @@ if (document.readyState !== 'loading') {
   console.log('DOM already loaded, initializing...');
   initHeroSelect();
 }
+
+
+

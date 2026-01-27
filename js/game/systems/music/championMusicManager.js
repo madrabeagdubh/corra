@@ -77,7 +77,16 @@ setVolume(volume) {
             }
 
             const tuneData = prepareTuneData(tuneTitle, abc, 'jig');
-            tuneData.progression = [tuneData.progression[0]]; // Solo first loop
+         
+
+
+
+// Keep full progression but start with first loop
+const fullProgression = [...tuneData.progression];
+tuneData.progression = [fullProgression[0]]; // Solo first loop
+tuneData._fullProgression = fullProgression; // Store for later use
+
+
 
             if (this.currentPlayer) {
                 this.fadeOutPlayer(this.currentPlayer);
@@ -174,6 +183,57 @@ setVolume(volume) {
 
         player._loopInterval = interval;
     }
+
+
+
+
+
+
+
+async transitionToLoop(loopNumber) {
+        if (!this.currentPlayer || !this.currentPlayer._loopTuneData) {
+            console.warn('[ChampionMusic] No current player to transition');
+            return;
+        }
+
+        console.log(`[ChampionMusic] Transitioning to loop ${loopNumber}`);
+
+        const player = this.currentPlayer;
+        const tuneData = player._loopTuneData;
+        const fullProgression = tuneData._fullProgression || tuneData.progression;
+
+        // Wait for current playback to finish
+        return new Promise((resolve) => {
+            const checkInterval = setInterval(async () => {
+                if (!player.getIsPlaying()) {
+                    clearInterval(checkInterval);
+
+                    // Update progression to the requested loop
+                    if (loopNumber === 2 && fullProgression.length >= 2) {
+                        tuneData.progression = [fullProgression[1]]; // Second loop with accompaniment
+                    } else if (loopNumber === 3 && fullProgression.length >= 3) {
+                        tuneData.progression = [fullProgression[2]]; // Third loop if exists
+                    } else {
+                        tuneData.progression = [fullProgression[0]]; // Default to first loop
+                    }
+
+                    // Restart with new progression
+                    try {
+                        await player.prepareTune(tuneData);
+                        await player.play();
+                        if (player.setVolume) player.setVolume(1.0);
+                        console.log(`[ChampionMusic] Now playing loop ${loopNumber}`);
+                        resolve();
+                    } catch (err) {
+                        console.warn('[ChampionMusic] Transition failed', err);
+                        resolve();
+                    }
+                }
+            }, 100);
+        });
+    }
+
+
 
     fadeOutPlayer(player) {
         if (!player) return;

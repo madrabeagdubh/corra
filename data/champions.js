@@ -365,8 +365,8 @@ export const champions = [
     "gender": "f",
     "nameGa": "Téide",
     "nameEn": "wantonness",
-    "charBioEn": "I was Teidhe, daughter of Concobhar, ended by a scheming lords' fatal trap in M1071.1.",
-    "charBioGa": "Ba mise Téide, iníon Choncobhair, a tháinig chun críche de bharr iarfhlatha liúdaidhe i M1071.1.",
+    "charBioEn": "I was Teidhe, son of Concobhar, ended by a scheming lords' fatal trap in M1071.1.",
+    "charBioGa": "Ba mise Téide Mac Choncobhair, a tháinig chun críche de bharr iarfhlatha liúdaidhe i M1071.1.",
     "stats": {
       "health": 6,
       "attack": 3,

@@ -29,6 +29,11 @@ export default class BogMeadow extends BaseLocationScene {
     });
   }
 
+init(data) {
+        console.log('[BogMeadow] *** INIT CALLED ***');
+        console.trace();
+    }
+
   create() {
     console.log('BogMeadow: create starting');
 

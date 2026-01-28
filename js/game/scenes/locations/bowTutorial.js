@@ -43,6 +43,10 @@ this.load.image('skyeClouds', 'assets/skye0.png');
   }
 
 
+init(data) {
+        console.log('[BowTutorial] *** INIT CALLED ***');
+        console.trace();
+    }
 
 resetHitTracker() {
   if (!this.hitTrackerCircles) return;

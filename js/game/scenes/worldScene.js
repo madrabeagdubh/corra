@@ -10,13 +10,19 @@ export default class WorldScene extends Phaser.Scene {
     super({ key: "WorldScene" })
   }
 
+
+
   create() {
-    console.log('WorldScene - game config:', this.game.config);
-    console.log('WorldScene - selectedChampion:', this.game.config.selectedChampion);
+    console.log('[WorldScene] create() called');
+    console.log('[WorldScene] game config:', this.game.config);
+    console.log('[WorldScene] selectedChampion:', this.game.config.selectedChampion);
 
-//     this.scene.start("BogMeadow");
-   this.scene.start("BowTutorial");
-
+    // DON'T automatically start any scene!
+    // The scenes should be started explicitly from main.js via window.game.scene.start()
+    
+    // If for some reason WorldScene IS started, just do nothing
+    console.log('[WorldScene] WorldScene should not be auto-starting scenes');
+    
     window.hideLoader();
   }
 

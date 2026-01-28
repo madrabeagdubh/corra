@@ -1240,8 +1240,20 @@ function finalize(champ) {
     // Hide the hero select container (DON'T REMOVE IT!)
     const container = document.querySelector('.hero-select-container');
     if (container) {
-        container.style.opacity = '0';                // Just hide it
-        container.style.pointerEvents = 'none';       // Disable interactions
+        const heroSelectContainer = document.getElementById('heroSelect');
+if (heroSelectContainer) {
+    heroSelectContainer.remove();  // Completely remove
+}
+
+// Also remove stats bar
+if (globalStatsBar) {
+    globalStatsBar.remove();
+}
+
+// Remove any stragglers
+document.querySelectorAll('.champion-canvas').forEach(el => el.remove());
+document.querySelectorAll('.hero-select-container').forEach(el => el.remove());
+container.style.pointerEvents = 'none';       // Disable interactions
     }
 
     // Go to tutorial or adventure choice (which will display ON TOP)

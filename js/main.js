@@ -2,6 +2,8 @@ import BowTutorial from "./game/scenes/locations/bowTutorial.js"
 import WorldScene from "./game/scenes/worldScene.js"
 import BogMeadow from "./game/scenes/locations/bogMeadow.js"
 
+
+
 const config = {
   type: Phaser.AUTO,
   width: window.innerWidth,
@@ -9,7 +11,8 @@ const config = {
   backgroundColor: '#222222',
   parent: 'gameContainer',
   scene: [WorldScene, BogMeadow, BowTutorial],
-  scale: {
+  autoStart: false,  
+ scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
@@ -27,7 +30,10 @@ const config = {
 };
 
 // ✅ FIX #1: Accept 'options' parameter with default value
+
 export function startGame(selectedChampion, options = {}) {
+
+
   console.log('startGame called with:', selectedChampion, 'options:', options);
 
   window.selectedChampion = selectedChampion;
@@ -38,12 +44,16 @@ export function startGame(selectedChampion, options = {}) {
   // Set the registry data
   window.game.registry.set('selectedChampion', selectedChampion);
 
-  // ✅ FIX #2: Use options.startScene instead of hardcoding 'BowTutorial'
-  const sceneToStart = options.startScene || 'BowTutorial';
-  console.log('Starting scene:', sceneToStart);
   
-  // ✅ FIX #3: Start the scene from the options parameter
-  window.game.scene.start(sceneToStart, { champion: selectedChampion });
+  
+const sceneToStart = options.startScene || 'BowTutorial';
+console.log('[main.js] Starting scene:', sceneToStart);
+window.game.scene.start(sceneToStart, { champion: selectedChampion });
+
+
+
+
+window.game.scene.start(sceneToStart, { champion: selectedChampion });
 
   console.log('Game created, champion stored in registry');
 }

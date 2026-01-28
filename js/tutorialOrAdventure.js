@@ -177,8 +177,9 @@ export function initTutorialOrAdventure(champion) {
         // Hide heroSelect before starting game
         const heroSelectContainer = document.getElementById('heroSelect');
         if (heroSelectContainer) {
-            heroSelectContainer.style.display = 'none';
-        }
+        
+heroSelectContainer.remove()
+	}
         
         if (window.startGame) {
             window.startGame(champion, { startScene: 'BowTutorial' });
@@ -196,8 +197,9 @@ export function initTutorialOrAdventure(champion) {
         // Hide heroSelect before starting game
         const heroSelectContainer = document.getElementById('heroSelect');
         if (heroSelectContainer) {
-            heroSelectContainer.style.display = 'none';
-        }
+        
+heroSelectContainer.remove()
+	}
         
         if (window.startGame) {
             window.startGame(champion, { startScene: 'BogMeadow' });

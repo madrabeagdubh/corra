@@ -1231,32 +1231,19 @@ updateGlobalStats(currentChamp);
 function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
 
-    // Hide the stats bar (don't remove it)
+    // Pause the stats bar (don't remove)
     if (globalStatsBar) {
-        globalStatsBar.style.opacity = '0';           // Just hide it
-        globalStatsBar.style.pointerEvents = 'none';  // Disable interactions
+        globalStatsBar.style.opacity = '0';
+        globalStatsBar.style.pointerEvents = 'none';
     }
 
-    // Hide the hero select container (DON'T REMOVE IT!)
-    const container = document.querySelector('.hero-select-container');
-    if (container) {
-        const heroSelectContainer = document.getElementById('heroSelect');
-if (heroSelectContainer) {
-    heroSelectContainer.remove();  // Completely remove
-}
-
-// Also remove stats bar
-if (globalStatsBar) {
-    globalStatsBar.remove();
-}
-
-// Remove any stragglers
-document.querySelectorAll('.champion-canvas').forEach(el => el.remove());
-document.querySelectorAll('.hero-select-container').forEach(el => el.remove());
-container.style.pointerEvents = 'none';       // Disable interactions
+    // Pause the heroSelect container (don't remove)
+    const heroSelectContainer = document.getElementById('heroSelect');
+    if (heroSelectContainer) {
+        heroSelectContainer.style.opacity = '0';
+        heroSelectContainer.style.pointerEvents = 'none';
     }
-
-    // Go to tutorial or adventure choice (which will display ON TOP)
+    // Launch the tutorialOrAdventure overlay
     import('./tutorialOrAdventure.js').then(module => {
         module.initTutorialOrAdventure(champ);
     });

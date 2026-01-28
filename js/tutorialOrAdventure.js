@@ -210,22 +210,23 @@ heroSelectContainer.remove()
 
     // 3. Ar Ais / Back -> Just close the modal, heroSelect is still underneath!
   
-
-
 const backBtn = createButton('Ar Ais', 'Back', async () => {
     console.log('[TutorialOrAdventure] Back button clicked');
-    cleanup();
-    
-    // Optional: explicitly show heroSelect again
+    cleanup(); // remove modal
+
+    // Unpause heroSelect
+    const heroSelectContainer = document.getElementById('heroSelect');
+    if (heroSelectContainer) {
+        heroSelectContainer.style.opacity = '1';
+        heroSelectContainer.style.pointerEvents = 'auto';
+    }
+
+    // Restore any other heroSelect state if needed
     const heroSelectModule = await import('./heroSelect.js');
     if (heroSelectModule.showHeroSelect) {
         heroSelectModule.showHeroSelect();
     }
 });
-
-
-
-
 
 
 

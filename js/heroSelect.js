@@ -8,6 +8,11 @@ import { prepareTuneData } from './game/systems/music/tradTuneConfig.js';
 
 // Global state
 let initialized = false;
+
+function resetState() {
+    initialized = false;
+}
+
 let sliderTutorialComplete = false;
 
 
@@ -380,8 +385,6 @@ export function initHeroSelect() {
     const scrollContainer = document.createElement('div');
     scrollContainer.className = 'champion-scroll';
     container.appendChild(scrollContainer);
-
-// Inside initHeroSelect...
 
       const topPanel = document.createElement('div');
     topPanel.className = 'champion-top-panel';
@@ -1222,27 +1225,47 @@ updateGlobalStats(currentChamp);
     container.addEventListener('touchend', handleTouchEnd);
 } 
 
- function finalize(champ) {
+
+
+
+function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
-    
-    // Remove the stats bar
+
+    // Hide the stats bar (don't remove it)
     if (globalStatsBar) {
-        globalStatsBar.remove();
-        globalStatsBar = null;
+        globalStatsBar.style.opacity = '0';           // Just hide it
+        globalStatsBar.style.pointerEvents = 'none';  // Disable interactions
     }
 
-    // Remove the hero select container
+    // Hide the hero select container (DON'T REMOVE IT!)
     const container = document.querySelector('.hero-select-container');
     if (container) {
-        container.remove();
+        container.style.opacity = '0';                // Just hide it
+        container.style.pointerEvents = 'none';       // Disable interactions
     }
 
-    // Go to tutorial or adventure choice
+    // Go to tutorial or adventure choice (which will display ON TOP)
     import('./tutorialOrAdventure.js').then(module => {
         module.initTutorialOrAdventure(champ);
     });
-}}
+}
 
+
+}
+function showHeroSelect() {
+    console.log('[HeroSelect] showHeroSelect() called - making visible again');
+    
+    const container = document.querySelector('.hero-select-container');
+    if (container) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+    }
+    
+    if (globalStatsBar) {
+        globalStatsBar.style.opacity = '1';
+        globalStatsBar.style.pointerEvents = 'auto';
+    }
+}
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 
 if (document.readyState !== 'loading') {
@@ -1250,5 +1273,4 @@ if (document.readyState !== 'loading') {
   initHeroSelect();
 }
 
-
-
+export { showHeroSelect };

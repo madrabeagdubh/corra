@@ -26,6 +26,7 @@ const config = {
   }
 };
 
+// ✅ FIX #1: Accept 'options' parameter with default value
 export function startGame(selectedChampion, options = {}) {
   console.log('startGame called with:', selectedChampion, 'options:', options);
 
@@ -37,10 +38,11 @@ export function startGame(selectedChampion, options = {}) {
   // Set the registry data
   window.game.registry.set('selectedChampion', selectedChampion);
 
-  // Start the appropriate scene based on options
+  // ✅ FIX #2: Use options.startScene instead of hardcoding 'BowTutorial'
   const sceneToStart = options.startScene || 'BowTutorial';
   console.log('Starting scene:', sceneToStart);
   
+  // ✅ FIX #3: Start the scene from the options parameter
   window.game.scene.start(sceneToStart, { champion: selectedChampion });
 
   console.log('Game created, champion stored in registry');

@@ -15,7 +15,7 @@ export function initTutorialOrAdventure(champion) {
     };
     waitForBarEnd();
 
-    // 1. MAIN CONTAINER
+    // 1. MAIN CONTAINER - Now with even higher z-index to be ABOVE heroSelect
     const container = document.createElement('div');
     container.id = 'championIntro';
     container.className = 'champion-intro-container';
@@ -26,7 +26,7 @@ export function initTutorialOrAdventure(champion) {
         width: 100vw;
         height: 100vh;
         background: #000;
-        z-index: 10000;
+        z-index: 100000;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -65,8 +65,8 @@ export function initTutorialOrAdventure(champion) {
         width: 100%;
         max-width: 800px;
         margin: 1.5rem 0;
-        overflow-y: auto; /* Enable scrolling */
-        padding-right: 10px; /* Space for scrollbar */
+        overflow-y: auto;
+        padding-right: 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -124,7 +124,7 @@ export function initTutorialOrAdventure(champion) {
         align-items: center;
         gap: 0.8rem;
         padding-bottom: 10px;
-        flex-shrink: 0; /* Prevents buttons from squishing */
+        flex-shrink: 0;
     `;
 
     // Helper function to build the dual-language buttons
@@ -140,11 +140,10 @@ export function initTutorialOrAdventure(champion) {
             cursor: pointer;
             color: #1a1a1a;
             transition: all 0.2s;
-            flex-shrink: 0; /* Ensures buttons don't squash */
+            flex-shrink: 0;
         `;
 
         const updateButtonText = () => {
-            // If slider is past 50%, show English style
             if (englishOpacity > 0.5) {
                 btn.textContent = englishLabel;
                 btn.style.fontFamily = '"Courier New", Courier, monospace';
@@ -171,34 +170,63 @@ export function initTutorialOrAdventure(champion) {
 
     // 1. Oiliúint / Training -> Starts BowTutorial
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
-        console.log('[Intro] Navigating to Skye (BowTutorial)');
+        console.log('[TutorialOrAdventure] Training button clicked');
+        console.log('[TutorialOrAdventure] Starting BowTutorial');
         cleanup();
+        
+        // Hide heroSelect before starting game
+        const heroSelectContainer = document.getElementById('heroSelect');
+        if (heroSelectContainer) {
+            heroSelectContainer.style.display = 'none';
+        }
+        
         if (window.startGame) {
             window.startGame(champion, { startScene: 'BowTutorial' });
+        } else {
+            console.error('[TutorialOrAdventure] window.startGame not found!');
         }
     });
 
     // 2. An Portach / The Bog -> Starts BogMeadow
     const skipBtn = createButton('An Portach', 'The Bog', () => {
-        console.log('[Intro] Navigating to Bog (BogMeadow)');
+        console.log('[TutorialOrAdventure] Bog button clicked');
+        console.log('[TutorialOrAdventure] Starting BogMeadow');
         cleanup();
+        
+        // Hide heroSelect before starting game
+        const heroSelectContainer = document.getElementById('heroSelect');
+        if (heroSelectContainer) {
+            heroSelectContainer.style.display = 'none';
+        }
+        
         if (window.startGame) {
             window.startGame(champion, { startScene: 'BogMeadow' });
+        } else {
+            console.error('[TutorialOrAdventure] window.startGame not found!');
         }
     });
 
-    // 3. Ar Ais / Back -> Re-imports and restarts Hero Select
-    const backBtn = createButton('Ar Ais', 'Back', async () => {
-        console.log('[Intro] Going back to hero select');
-        cleanup();
+    // 3. Ar Ais / Back -> Just close the modal, heroSelect is still underneath!
+  
 
-        const heroSelectModule = await import('./heroSelect.js');
-        
-        // Call the exported function
-        if (heroSelectModule.initHeroSelect) {
-            heroSelectModule.initHeroSelect();
-        }
-    });
+
+const backBtn = createButton('Ar Ais', 'Back', async () => {
+    console.log('[TutorialOrAdventure] Back button clicked');
+    cleanup();
+    
+    // Optional: explicitly show heroSelect again
+    const heroSelectModule = await import('./heroSelect.js');
+    if (heroSelectModule.showHeroSelect) {
+        heroSelectModule.showHeroSelect();
+    }
+});
+
+
+
+
+
+
+
 
     bottomSection.appendChild(trainingBtn.btn);
     bottomSection.appendChild(skipBtn.btn);
@@ -238,11 +266,13 @@ export function initTutorialOrAdventure(champion) {
     };
 
     function cleanup() {
+        console.log('[TutorialOrAdventure] cleanup() called - removing modal overlay');
         container.remove();
         sliderStyle.remove();
         initialized = false;
     }
 
+    // Append to body - it will sit ON TOP of heroSelect
     document.body.appendChild(container);
 }
 

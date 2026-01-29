@@ -76,8 +76,30 @@
 
         .btn-play { background: #1976d2; }
         .btn-next { background: #555; }
+        .btn-beep { background: #d32f2f; margin-top: 10px; }
 
-        .status { margin-top: 15px; font-size: 0.8rem; color: #888; }
+        .status { 
+            margin-top: 15px; 
+            font-size: 0.8rem; 
+            color: #888; 
+            padding: 10px;
+            background: #0a0a0a;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        
+        .console-line {
+            font-family: monospace;
+            font-size: 0.75rem;
+            margin: 2px 0;
+            word-break: break-all;
+        }
+        
+        .console-error { color: #ff6b6b; }
+        .console-warn { color: #ffa500; }
+        .console-log { color: #51cf66; }
     </style>
 </head>
 <body>
@@ -86,74 +108,142 @@
         <h1>🍀 Trad Sesh Debugger</h1>
         <div id="tune-title">Tap Start to begin</div>
 
-        <div id="controls">
-            </div>
+        <div id="controls"></div>
 
         <div class="main-actions">
             <button class="btn-play" onclick="ui.start()">▶ START</button>
             <button class="btn-next" onclick="ui.next()">NEXT ⏭</button>
         </div>
+        
+        <button class="btn-beep" onclick="ui.testBeep()">🔊 TEST BEEP</button>
+        <button class="btn-beep" onclick="ui.testNote()" style="background: #7b1fa2;">🎵 TEST NOTES</button>
 
-        <div class="status" id="status-text">Ready</div>
+        <div class="status" id="status-text">
+            <div class="console-line">Console output will appear here...</div>
+            <div class="console-line console-warn">Open browser DevTools (F12) for full logs</div>
+        </div>
     </div>
 
 <script type="module">
     import TradSessionPlayer from './js/game/systems/music/tradSessionPlayer.js';
     import { allTunes } from './js/game/systems/music/allTunes.js';
 
+    console.log('[Main] Script loaded, initializing...');
+
     const session = new TradSessionPlayer();
     const tuneKeys = Object.keys(allTunes);
     let currentIdx = 0;
 
+    console.log('[Main] Available tunes:', tuneKeys.length);
+    console.log('[Main] Tune keys:', tuneKeys);
+
+    // Capture console logs and display in UI
+    const statusEl = document.getElementById('status-text');
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    function addToConsole(msg, type = 'log') {
+        const line = document.createElement('div');
+        line.className = `console-line console-${type}`;
+        line.textContent = typeof msg === 'object' ? JSON.stringify(msg) : String(msg);
+        statusEl.appendChild(line);
+        statusEl.scrollTop = statusEl.scrollHeight;
+        
+        // Keep only last 50 lines
+        while (statusEl.children.length > 50) {
+            statusEl.removeChild(statusEl.firstChild);
+        }
+    }
+    
+    console.log = function(...args) {
+        originalLog.apply(console, args);
+        addToConsole(args.join(' '), 'log');
+    };
+    
+    console.error = function(...args) {
+        originalError.apply(console, args);
+        addToConsole(args.join(' '), 'error');
+    };
+    
+    console.warn = function(...args) {
+        originalWarn.apply(console, args);
+        addToConsole(args.join(' '), 'warn');
+    };
+
     // Attach to window so HTML buttons can see it
     window.ui = {
-
-
         async start() {
-            const status = document.getElementById('status-text');
-            status.innerText = "Initializing...";
+            console.log('[UI] Start button clicked');
             
-            const key = tuneKeys[currentIdx];
-            document.getElementById('tune-title').innerText = key.toUpperCase();
-            
-            await session.loadTune(key);
-            
-            // Explicitly play
-            session.play();
-            
-            this.renderButtons();
-            status.innerText = `Playing ${key} - State: ${session.audioContext.state}`;
+            try {
+                const key = tuneKeys[currentIdx];
+                console.log('[UI] Loading tune:', key);
+                document.getElementById('tune-title').innerText = key.toUpperCase();
+                
+                const loaded = await session.loadTune(key);
+                console.log('[UI] Load result:', loaded);
+                
+                if (!loaded) {
+                    console.error('[UI] Failed to load tune');
+                    return;
+                }
+                
+                // Explicitly play
+                console.log('[UI] Calling play()...');
+                await session.play();
+                
+                this.renderButtons();
+                console.log('[UI] Start complete. AudioContext state:', session.audioContext.state);
+                
+            } catch (error) {
+                console.error('[UI] Start error:', error);
+                console.error('[UI] Error stack:', error.stack);
+            }
         },
 
-
-
-
-
-        
         toggle(i) {
+            console.log(`[UI] Toggle button ${i} clicked`);
             const isActive = session.toggleInstrument(i);
-            document.getElementById(`btn-${i}`).className = isActive ? 'active' : '';
+            const btn = document.getElementById(`btn-${i}`);
+            if (btn && session.tracks[i]) {
+                btn.className = isActive ? 'active' : '';
+                btn.innerText = `${session.tracks[i].name} ${isActive ? 'ON' : 'OFF'}`;
+            }
         },
 
         async next() {
+            console.log('[UI] Next button clicked');
             currentIdx = (currentIdx + 1) % tuneKeys.length;
             await this.start();
         },
 
         renderButtons() {
+            console.log('[UI] Rendering buttons for', session.tracks.length, 'tracks');
             const container = document.getElementById('controls');
-            // Create a button for each track in the player
             container.innerHTML = session.tracks.map((t, i) => 
                 `<button id="btn-${i}" class="${t.active ? 'active' : ''}" onclick="ui.toggle(${i})">
                     ${t.name} ${t.active ? 'ON' : 'OFF'}
                 </button>`
             ).join('');
+        },
+        
+        testBeep() {
+            console.log('[UI] Test beep clicked');
+            session.engine.testBeep();
+        },
+        
+        testNote() {
+            console.log('[UI] Test note clicked');
+            session.testSimpleNote();
         }
     };
+    
+    console.log('[Main] UI initialized and ready');
 </script>
 
-
-                            <script src="https://cdn.jsdelivr.net/npm/eruda"></script>                             <script>eruda.init();</script>
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
 
 </body>
 </html>

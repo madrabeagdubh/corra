@@ -73,11 +73,22 @@ export function initTutorialOrAdventure(champion) {
     `;
 
     // Define lines for interspacing
-    const lines = [
-        { ga: `Tá ${champion.nameGa} réidh le troid.`, en: `${champion.nameEn} is ready to fight.` },
-        { ga: "An bhfuil tú réidh le dul go Portach na hEala,", en: "Will you journey to the Bog of Allen," },
-        { ga: "nó ar mhaith leat oiliúint le Scáthach ar Oileán Sgitheanach?", en: "or train with Scáthach on the Isle of Skye?" }
-    ];
+   
+
+
+const lines = [
+  {
+    ga: `Tá ${champion.nameGa} chun a scéal a insint!`,
+    en: `${champion.nameGa} is ready to tell ${champion.gaObject} tale!`
+  },
+  
+{
+   ga: `Cá dtosóidh ${champion.pronouns.ga.subject}?`,
+    en: `Where shall ${champion.pronouns.en.subject} begin?`
+}
+];
+
+
 
     const storyContainer = document.createElement('div');
     storyContainer.style.width = '100%';

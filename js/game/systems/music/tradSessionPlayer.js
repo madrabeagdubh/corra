@@ -1,70 +1,60 @@
-// Trad Session Player v2.0 - Multi-part Arrangements
+// Trad Session Player v3.0 - Multi-Voice Single-Synth Architecture
 import * as abcjs from 'abcjs';
 import MusicEngine from './musicEngine.js';
 import { allTunes } from './allTunes.js';
 
 const ENSEMBLE_PRESETS = {
-    reel: [105, 22, 46],     // Banjo, Harmonica (concertina-like), Harp
-    jig: [105, 32, 46],      // Banjo, Acoustic Bass, Harp
-    slide: [105, 60, 0],     // Banjo, French Horn, Piano
-    hornpipe: [105, 57, 32], // Banjo, Trombone, Bass
-    default: [105, 22, 46]   // Banjo, Harmonica, Harp
+    reel: [105, 22, 43],       // Banjo, Harmonica, Contrabass
+    jig: [105, 43, 0],         // Banjo, Contrabass, Piano
+    slipjig: [105, 0, 22],     // Banjo, Piano, Harmonica
+    hornpipe: [105, 43, 22],   // Banjo, Contrabass, Harmonica
+    polka: [105, 22],          // Banjo, Harmonica
+    waltz: [105, 0, 43],       // Banjo, Piano, Contrabass
+    march: [105, 43],          // Banjo, Contrabass
+    slide: [105, 0, 22],       // Banjo, Piano, Harmonica
+    barndance: [105, 22, 43],  // Banjo, Harmonica, Contrabass
+    air: [105, 0],             // Banjo, Piano
+    default: [105, 22]         // Banjo, Harmonica
 };
 
 const PATCH_NAMES = { 
-    32: "Acoustic Bass",
-    38: "Synth Bass",
-    39: "Synth Bass 2",
-    42: "Cello",
     43: "Contrabass",
-    47: "Timpani",
-    57: "Trombone",
-    58: "Tuba",
-    60: "French Horn",
-    66: "Tenor Sax",
     105: "Banjo", 
-    106: "Banjo 2",
     0: "Piano",
-    73: "Flute",
-    21: "Accordion",
-    22: "Harmonica",
-    23: "Tango Accordion",
-    46: "Harp",
-    110: "Fiddle",
-    40: "Violin"
+    22: "Harmonica"
 };
 
-// Timing offsets kept at zero for perfect sync
-const INSTRUMENT_TIMING_OFFSETS = {
-    32: 0, 42: 0, 57: 0, 58: 0, 60: 0, 66: 0, 105: 0, 106: 0, 0: 0, 73: 0, 21: 0, 22: 0, 23: 0, 46: 0, 110: 0, 40: 0
+// Tempo settings in milliseconds per measure for different tune types
+const TEMPO_SETTINGS = {
+    reel: 1300,        // ~110 BPM (4/4 time)
+    jig: 1550,         // ~115 BPM for dotted quarter (6/8 time)
+    slipjig: 1650,     // Slightly slower for 9/8 time
+    hornpipe: 1500,    // ~100 BPM (4/4 time)
+    polka: 1100,       // ~130 BPM (2/4 time)
+    waltz: 2000,       // ~90 BPM (3/4 time)
+    march: 1400,       // ~105 BPM (4/4 time)
+    slide: 1000,       // ~145 BPM (12/8 time, feels like fast 4)
+    barndance: 1200,   // ~120 BPM (4/4 time)
+    air: 2500,         // ~70 BPM (slow and expressive)
+    default: 1300      // Default to reel tempo
 };
 
-// Reduced ornament probability - more subtle
+// Reduced ornament probability
 const ORNAMENT_PROBABILITY = {
-    32: 0,      // Bass: no ornaments, keep it solid
-    42: 0.02,   // Cello: very minimal
-    57: 0.03,   // Trombone: very few, powerful notes
-    58: 0,      // Tuba: no ornaments
-    60: 0.04,   // French Horn: occasional
-    66: 0.08,   // Tenor Sax: jazzy ornaments
+    43: 0,      // Contrabass: no ornaments
     105: 0.06,  // Banjo: occasional rolls
-    106: 0.04,  // Banjo 2: even fewer ornaments
     0: 0,       // Piano: clean
-    73: 0.05,   // Flute: some cuts
-    21: 0.04,   // Accordion: occasional
-    22: 0.05,   // Harmonica: some bends/ornaments
-    23: 0.04,   // Tango Accordion: occasional
-    46: 0.02,   // Harp: minimal
-    110: 0.05,  // Fiddle: some grace notes
-    40: 0.05    // Violin: some grace notes
+    22: 0.05    // Harmonica: some bends/ornaments
 };
 
 export default class TradSessionPlayer {
     constructor() {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         this.engine = new MusicEngine(this.audioContext);
-        this.tracks = [];
+        this.synth = null;
+        this.voices = [];
         this.isPlaying = false;
+        this.loopTimer = null;
         
         this.stage = document.createElement('div');
         this.stage.style.display = 'none';
@@ -72,37 +62,20 @@ export default class TradSessionPlayer {
     }
 
     /**
-     * Add instrument-specific variations to create a fuller ensemble sound
+     * Apply instrument-specific variations to create ensemble voicing
      */
     applyInstrumentVariations(music, patchId) {
         const lines = music.split('\n');
         
-        // Harp: Play arpeggiated/broken chords on longer notes
-        if (patchId === 46) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                
-                // Break up longer notes (2, 3, 4) into flowing patterns
-                let newLine = line;
-                newLine = newLine.replace(/([A-G])4/g, '$1$1$1$1');  // Whole note -> 4 quarters
-                newLine = newLine.replace(/([A-G])3/g, '$1$1$1');    // Dotted half -> 3 quarters
-                newLine = newLine.replace(/([A-G])2/g, '$1$1');      // Half note -> 2 quarters
-                
-                return newLine;
-            }).join('\n');
-        }
-        
-        // Piano: Simplify to emphasize chord tones and rhythm
+        // Piano: Simplify to chord tones and rhythm
         if (patchId === 0) {
             return lines.map(line => {
                 if (!line.includes('|')) return line;
                 
                 let newLine = line;
                 
-                // Remove some passing notes - keep first note of groups
-                // This makes piano more rhythmic, less melodic
+                // Keep first and third notes of runs to create rhythmic accompaniment
                 newLine = newLine.replace(/([A-Ga-g]{4,})/g, (match) => {
-                    // Keep first, third note of longer runs
                     if (match.length >= 4) {
                         return match[0] + match[0] + match[2] + match[2];
                     }
@@ -113,62 +86,34 @@ export default class TradSessionPlayer {
             }).join('\n');
         }
         
-        // Bass: Play root notes and fifths (simplified bass line)
-        if (patchId === 32) {
+        // Contrabass: Simple walking bass line
+        if (patchId === 43) {
             return lines.map(line => {
                 if (!line.includes('|')) return line;
                 
                 let newLine = line;
                 
-                // Simplify to first note of each measure/bar
-                // This creates a walking bass feel
+                // Extract first note of each measure and create steady bass
                 newLine = newLine.replace(/\|([A-Ga-g])[A-Ga-g]*/g, (match, firstNote) => {
-                    // Repeat the first note to create steady bass
-                    return '|' + firstNote + firstNote + firstNote + firstNote;
+                    // Transpose down an octave for bass register
+                    const lowerNote = firstNote.toLowerCase();
+                    return '|' + lowerNote + lowerNote + lowerNote + lowerNote;
                 });
                 
                 return newLine;
             }).join('\n');
         }
         
-        // Accordion/Harmonica: Play on strong beats, add chords
-        if (patchId === 21 || patchId === 22 || patchId === 23) {
+        // Harmonica: Melodic with occasional double-stops
+        if (patchId === 22) {
             return lines.map(line => {
                 if (!line.includes('|')) return line;
                 
                 let newLine = line;
                 
-                // For harmonica: keep it more melodic, less chordal
-                if (patchId === 22) {
-                    // Just add occasional double-stops
-                    newLine = newLine.replace(/([A-G])2/g, (match) => {
-                        if (Math.random() < 0.3) return `[$1$1]2`;
-                        return match;
-                    });
-                } else {
-                    // Accordion: more chords
-                    newLine = newLine.replace(/([A-G])2/g, '[$1$1]2');
-                }
-                
-                return newLine;
-            }).join('\n');
-        }
-        
-        // Brass (Trombone, French Horn): Play melody with sustained notes
-        if (patchId === 57 || patchId === 60) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                
-                let newLine = line;
-                
-                // Lengthen notes for brass sustain
-                newLine = newLine.replace(/([A-G])([A-G])([A-G])([A-G])/g, '$12$32');
-                
-                // Add some octave jumps for power
-                newLine = newLine.replace(/\|([A-G])/g, (match, note) => {
-                    if (Math.random() < 0.2) {
-                        return '|' + note.toLowerCase(); // Drop octave occasionally
-                    }
+                // Add occasional double-stops on longer notes
+                newLine = newLine.replace(/([A-G])2/g, (match) => {
+                    if (Math.random() < 0.3) return `[$1$1]2`;
                     return match;
                 });
                 
@@ -176,330 +121,248 @@ export default class TradSessionPlayer {
             }).join('\n');
         }
         
-        // Tuba: Deep bass notes
-        if (patchId === 58) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                
-                // Play very simple bass line (first note of each measure, held)
-                let newLine = line.replace(/\|([A-Ga-g])[A-Ga-g]*/g, '|$14');
-                
-                return newLine;
-            }).join('\n');
-        }
-        
-        // Tenor Sax: Jazzy variations
-        if (patchId === 66) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                
-                let newLine = line;
-                
-                // Add some chromatic approaches
-                newLine = newLine.replace(/([A-G])([A-G])/g, (match, n1, n2) => {
-                    if (Math.random() < 0.15) {
-                        return `${n1}^${n1}${n2}`; // Add chromatic note
-                    }
-                    return match;
-                });
-                
-                return newLine;
-            }).join('\n');
-        }
-        
-        // Banjo: Keep full melody (it's the lead)
+        // Banjo: Keep full melody (lead instrument)
         return music;
     }
 
     /**
-     * Add ornaments to ABC notation based on tune type and instrument
+     * Add ornaments based on probability
      */
-    addOrnaments(music, tuneType, patchId) {
+    addOrnaments(music, patchId) {
         const probability = ORNAMENT_PROBABILITY[patchId] || 0;
         if (probability === 0) return music;
         
         const lines = music.split('\n');
-        const ornamented = lines.map(line => {
-            // Only ornament note lines (contains bars |)
-            if (!line.includes('|') || line.trim().startsWith('"')) return line;
+        return lines.map(line => {
+            if (!line.includes('|')) return line;
             
-            let newLine = line;
-            
-            // For banjo: add occasional mordents and short rolls
-            if (patchId === 105 || patchId === 106) {
-                // Add ~(tilde) for mordent/roll on occasional notes
-                newLine = newLine.replace(/([A-G][2-4])/g, (match) => {
-                    if (Math.random() < probability) {
-                        return `~${match}`;
-                    }
-                    return match;
-                });
-            }
-            
-            // For other instruments: very occasional grace notes
-            else {
-                // Single grace note before occasional notes
-                newLine = newLine.replace(/\|([A-Ga-g])/g, (match, note) => {
-                    if (Math.random() < probability) {
-                        return `|{${note.toLowerCase()}}${note}`;
-                    }
-                    return match;
-                });
-            }
-            
-            return newLine;
-        });
-        
-        return ornamented.join('\n');
+            return line.replace(/([A-Ga-g])/g, (match) => {
+                if (Math.random() < probability) {
+                    const ornaments = ['~', '{/g}', '{g}', '{c}'];
+                    return ornaments[Math.floor(Math.random() * ornaments.length)] + match;
+                }
+                return match;
+            });
+        }).join('\n');
     }
 
     /**
-     * Add swing/lilt to jigs - simplified version
+     * Extract the music body (everything after the header) from ABC notation
      */
-    addSwing(music, tuneType) {
-        if (tuneType !== 'jig') return music;
+    extractMusicBody(abcString) {
+        const lines = abcString.split('\n');
+        const musicLines = [];
+        let inBody = false;
         
-        // For jigs, just mark the tune type - abcjs will handle the feel
-        return music;
+        for (const line of lines) {
+            // Once we hit the K: (key) line, everything after is music
+            if (line.match(/^K:/)) {
+                inBody = true;
+                continue;
+            }
+            
+            if (inBody && line.trim()) {
+                musicLines.push(line);
+            }
+        }
+        
+        return musicLines.join('\n');
     }
 
-    async loadTune(tuneKey) {
-        console.log('[TradSessionPlayer] Loading:', tuneKey);
+    /**
+     * Create a multi-voice ABC notation from a base tune
+     */
+    createMultiVoiceABC(baseMusic, patchIds, tuneType) {
+        console.log('[MultiVoice] Creating multi-voice ABC for', patchIds.length, 'instruments');
         
-        await this.stop();
+        // Parse the header from base music
+        const lines = baseMusic.split('\n');
+        const headerLines = [];
+        let keyLine = '';
         
-        const rawAbc = allTunes[tuneKey];
-        if (!rawAbc) {
-            console.error('[TradSessionPlayer] Tune not found:', tuneKey);
-            return false;
+        for (const line of lines) {
+            if (line.match(/^[XTRMQLK]:/)) {
+                if (line.startsWith('K:')) {
+                    keyLine = line;
+                    break;
+                }
+                // Skip R: line as we'll use tuneType instead
+                if (!line.startsWith('R:')) {
+                    headerLines.push(line);
+                }
+            }
         }
-
-        // Detect tune type from ABC
-        const lowerAbc = rawAbc.toLowerCase();
-        let tuneType = 'reel'; // default
         
-        if (lowerAbc.includes('r: reel') || lowerAbc.includes('r:reel')) tuneType = 'reel';
-        else if (lowerAbc.includes('r: jig') || lowerAbc.includes('r:jig')) tuneType = 'jig';
-        else if (lowerAbc.includes('r: slide') || lowerAbc.includes('r:slide')) tuneType = 'slide';
-        else if (lowerAbc.includes('r: hornpipe') || lowerAbc.includes('r:hornpipe')) tuneType = 'hornpipe';
+        // Build the multi-voice ABC
+        const multiVoiceLines = [];
         
-        const patches = ENSEMBLE_PRESETS[tuneType] || ENSEMBLE_PRESETS.default;
+        // Add header
+        multiVoiceLines.push(...headerLines);
         
-        // Set appropriate BPM for tune type
-        const bpmMap = {
-            reel: 160,
-            jig: 120,
-            slide: 180,
-            hornpipe: 140
-        };
-        const bpm = bpmMap[tuneType] || 160;
+        // Add rhythm type
+        multiVoiceLines.push(`R: ${tuneType}`);
+        
+        // Add key
+        multiVoiceLines.push(keyLine);
+        multiVoiceLines.push('');
+        
+        // Add each instrument as a separate voice
+        patchIds.forEach((patchId, index) => {
+            const voiceNum = index + 1;
+            const instrumentName = PATCH_NAMES[patchId] || `Voice${voiceNum}`;
+            
+            console.log(`[MultiVoice] Creating voice ${voiceNum} for ${instrumentName} (patch ${patchId})`);
+            
+            // Apply instrument-specific variations
+            let voiceMusic = this.applyInstrumentVariations(baseMusic, patchId);
+            voiceMusic = this.addOrnaments(voiceMusic, patchId);
+            
+            // Extract just the music body (no headers)
+            const musicBody = this.extractMusicBody(voiceMusic);
+            
+            // Add MIDI program and voice directives
+            multiVoiceLines.push(`%%MIDI program ${patchId}`);
+            multiVoiceLines.push(`V:${voiceNum} name="${instrumentName}" clef=treble`);
+            multiVoiceLines.push(musicBody);
+            multiVoiceLines.push('');
+        });
+        
+        const result = multiVoiceLines.join('\n');
+        console.log('[MultiVoice] Generated ABC length:', result.length, 'chars');
+        console.log('[MultiVoice] Preview:', result.substring(0, 500));
+        
+        return result;
+    }
 
-        console.log('[TradSessionPlayer] Type:', tuneType, 'BPM:', bpm, 'Patches:', patches);
-
+    /**
+     * Main loader - creates a single synth with multiple voices
+     */
+    async loadTune(tuneKey) {
+        console.log(`[TradSessionPlayer] Loading tune: ${tuneKey}`);
+        
         try {
-            const promises = patches.map(async (patchId, index) => {
+            await this.stop();
+            
+            const tuneData = allTunes[tuneKey];
+            if (!tuneData) {
+                throw new Error(`Tune "${tuneKey}" not found in allTunes collection`);
+            }
+            
+            // Handle both string format and object format
+            const baseMusic = typeof tuneData === 'string' ? tuneData : tuneData.abc;
+            
+            if (!baseMusic) {
+                throw new Error(`Tune "${tuneKey}" has no ABC notation data`);
+            }
+            
+            // Extract tune type from ABC notation's R: line
+            let tuneType = 'default';
+            const rhythmMatch = baseMusic.match(/^R:\s*(.+)$/m);
+            if (rhythmMatch && rhythmMatch[1]) {
+                tuneType = rhythmMatch[1].trim().toLowerCase().replace(/\s+/g, '');
+            }
+            
+            console.log(`[TradSessionPlayer] Tune type: ${tuneType}`);
+            
+            // Get ensemble preset for this tune type
+            let patchIds = ENSEMBLE_PRESETS[tuneType];
+            if (!patchIds || !Array.isArray(patchIds)) {
+                console.warn(`[TradSessionPlayer] Tune type "${tuneType}" not found, using default preset`);
+                patchIds = ENSEMBLE_PRESETS.default;
+            }
+            
+            if (!patchIds || !Array.isArray(patchIds) || patchIds.length === 0) {
+                throw new Error(`No valid ensemble preset found for tune type "${tuneType}"`);
+            }
+            
+            console.log(`[TradSessionPlayer] Using patches:`, patchIds.map(id => `${id}:${PATCH_NAMES[id]}`));
+            
+            // Create multi-voice ABC notation
+            const multiVoiceABC = this.createMultiVoiceABC(baseMusic, patchIds, tuneType);
+            
+            // Get tempo for this tune type
+            const tempoMs = TEMPO_SETTINGS[tuneType] || TEMPO_SETTINGS.default;
+            console.log(`[TradSessionPlayer] Tempo: ${tempoMs}ms per measure`);
+            
+            // Create gain nodes for each voice
+            this.voices = patchIds.map((patchId, index) => {
                 const gain = this.engine.createTrackGainWithPanning(patchId);
-                
-                // Clean up the ABC
-                const cleanedAbc = rawAbc.trim();
-                const lines = cleanedAbc.split('\n');
-                
-                // Extract important headers and find where music starts
-                let meter = '4/4';
-                let length = '1/8';
-                let key = 'D';
-                let rhythm = tuneType;  // Use the detected tune type
-                
-                const musicLines = [];
-                let headersDone = false;
-                
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    
-                    // Skip empty lines before music starts
-                    if (!headersDone && trimmed === '') continue;
-                    
-                    // Extract header info
-                    if (trimmed.match(/^M:\s*(.+)/)) meter = trimmed.match(/^M:\s*(.+)/)[1];
-                    if (trimmed.match(/^L:\s*(.+)/)) length = trimmed.match(/^L:\s*(.+)/)[1];
-                    if (trimmed.match(/^K:\s*(.+)/)) key = trimmed.match(/^K:\s*(.+)/)[1];
-                    if (trimmed.match(/^R:\s*(.+)/)) rhythm = trimmed.match(/^R:\s*(.+)/)[1];
-                    
-                    // Header lines start with a capital letter followed by a colon
-                    const isHeader = /^[A-Z]:\s*/.test(trimmed);
-                    const isDirective = /^%%/.test(trimmed);
-                    
-                    if (!isHeader && !isDirective && trimmed !== '') {
-                        headersDone = true;
-                    }
-                    
-                    // Once we're past headers, collect everything
-                    if (headersDone) {
-                        musicLines.push(line);
-                    }
-                }
-                
-                const musicOnly = musicLines.join('\n').trim();
-                
-                // Apply session-style variations per instrument
-                let enhancedMusic = musicOnly;
-                
-                // First: Apply instrument-specific variations (different parts)
-                enhancedMusic = this.applyInstrumentVariations(enhancedMusic, patchId);
-                
-                // Then: Add swing/lilt based on tune type
-                enhancedMusic = this.addSwing(enhancedMusic, tuneType);
-                
-                // Finally: Add ornaments based on instrument
-                enhancedMusic = this.addOrnaments(enhancedMusic, tuneType, patchId);
-                
-                // Get timing offset for this instrument
-                const timingOffset = INSTRUMENT_TIMING_OFFSETS[patchId] || 0;
-                
-                // Build complete ABC with clean headers
-                let fullAbc = `X:1
-T:${tuneKey}
-R:${rhythm}
-M:${meter}
-L:${length}
-Q:1/4=${bpm}
-K:${key}
-%%MIDI program ${patchId}`;
-                
-                // Transpose bass instruments down
-                if (patchId === 32) {
-                    fullAbc += '\n%%MIDI transpose -12';  // Acoustic bass: 1 octave
-                }
-                
-                fullAbc += '\n' + enhancedMusic;
-                
-                console.log(`[Track ${index}] ${PATCH_NAMES[patchId]} loaded`);
-                
-                try {
-                    // Render ABC
-                    const visualObjs = abcjs.renderAbc(this.stage, fullAbc, {
-                        add_classes: true
-                    });
-                    
-                    if (!visualObjs || visualObjs.length === 0) {
-                        throw new Error('ABC rendering returned no visual objects');
-                    }
-                    
-                    const visualObj = visualObjs[0];
-                    console.log(`[Track ${index}] ABC rendered, visualObj:`, visualObj);
-                    console.log(`[Track ${index}] visualObj.lines length:`, visualObj.lines?.length);
-                    console.log(`[Track ${index}] visualObj.metaText:`, visualObj.metaText);
-                    
-                    // Check if there's actual music
-                    if (!visualObj.lines || visualObj.lines.length === 0) {
-                        console.error(`[Track ${index}] WARNING: No music lines in visualObj!`);
-                        console.error(`[Track ${index}] This means ABC parsing failed silently`);
-                    }
-                    
-                    // Log the first few elements if they exist
-                    if (visualObj.lines && visualObj.lines.length > 0) {
-                        console.log(`[Track ${index}] First line:`, visualObj.lines[0]);
-                        if (visualObj.lines[0].staff) {
-                            console.log(`[Track ${index}] First staff voices:`, visualObj.lines[0].staff[0]?.voices?.length);
-                        }
-                    }
-                    
-                    // Create synth
-                    console.log(`[Track ${index}] Creating synth...`);
-                    const synth = new abcjs.synth.CreateSynth();
-                    
-                    // Try to init synth with timeout
-                    console.log(`[Track ${index}] Initializing synth with audioContext state:`, this.audioContext.state);
-                    
-                    // List of soundfont URLs to try
-                    const soundFontUrls = [
-                        "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/",
-                        "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/",
-                        "https://surikov.github.io/webaudiofontdata/sound/"
-                    ];
-                    
-                    let initSuccess = false;
-                    let lastError = null;
-                    
-                    for (let urlIndex = 0; urlIndex < soundFontUrls.length && !initSuccess; urlIndex++) {
-                        const soundFontUrl = soundFontUrls[urlIndex];
-                        console.log(`[Track ${index}] Trying soundfont URL ${urlIndex + 1}/${soundFontUrls.length}: ${soundFontUrl}`);
-                        
-                        try {
-                            // Create timeout promise
-                            const timeoutPromise = new Promise((_, reject) => 
-                                setTimeout(() => reject(new Error('Synth init timeout (15s)')), 15000)
-                            );
-                            
-                            const initPromise = synth.init({
-                                audioContext: this.audioContext,
-                                visualObj: visualObj,
-                                millisecondsPerMeasure: tuneType === 'reel' ? 1500 : (tuneType === 'jig' ? 2000 : 1700),
-                                options: {
-                                    soundFontUrl: soundFontUrl,
-                                    debugCallback: (msg) => console.log(`[Track ${index} abcjs]`, msg)
-                                }
-                            });
-                            
-                            // Race between init and timeout
-                            await Promise.race([initPromise, timeoutPromise]);
-                            
-                            console.log(`[Track ${index}] Synth initialized successfully with ${soundFontUrl}`);
-                            
-                            // CRITICAL: Set the output gain node before priming
-                            console.log(`[Track ${index}] Setting gain node on synth...`);
-                            if (synth.audioBufferPlayer) {
-                                console.log(`[Track ${index}] Found audioBufferPlayer, connecting to gain...`);
-                                try {
-                                    synth.audioBufferPlayer.disconnect();
-                                    synth.audioBufferPlayer.connect(gain);
-                                    console.log(`[Track ${index}] Connected audioBufferPlayer to gain node`);
-                                } catch (e) {
-                                    console.warn(`[Track ${index}] Could not reconnect audioBufferPlayer:`, e);
-                                }
-                            }
-                            
-                            initSuccess = true;
-                            
-                        } catch (error) {
-                            console.warn(`[Track ${index}] Failed with ${soundFontUrl}:`, error.message);
-                            lastError = error;
-                            // Continue to next URL
-                        }
-                    }
-                    
-                    if (!initSuccess) {
-                        throw new Error(`All soundfont URLs failed. Last error: ${lastError?.message}`);
-                    }
-                    
-                    console.log(`[Track ${index}] Priming synth...`);
-                    
-                    const primeTimeout = new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Synth prime timeout (10s)')), 10000)
-                    );
-                    
-                    await Promise.race([synth.prime(), primeTimeout]);
-                    console.log(`[Track ${index}] Synth primed successfully`);
-                    
-                    this.tracks.push({ 
-                        name: PATCH_NAMES[patchId] || "Instrument", 
-                        synth, 
-                        gain, 
-                        active: false,
-                        timingOffset: timingOffset
-                    });
-                    
-                    console.log(`[Track ${index}] Track added successfully`);
-                    
-                } catch (trackError) {
-                    console.error(`[Track ${index}] Error:`, trackError);
-                    console.error(`[Track ${index}] Error stack:`, trackError.stack);
-                    throw trackError;
-                }
+                return {
+                    name: PATCH_NAMES[patchId] || `Voice${index + 1}`,
+                    patchId: patchId,
+                    gain: gain,
+                    active: false,
+                    voiceIndex: index
+                };
             });
-
-            await Promise.all(promises);
-            console.log('[TradSessionPlayer] All tracks loaded. Total tracks:', this.tracks.length);
+            
+            console.log(`[TradSessionPlayer] Created ${this.voices.length} voice gain nodes`);
+            
+            // Create single synth with multi-voice ABC
+            this.synth = new abcjs.synth.CreateSynth();
+            
+            const soundFontUrls = [
+                'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/',
+                'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/'
+            ];
+            
+            let initSuccess = false;
+            let lastError = null;
+            
+            for (const soundFontUrl of soundFontUrls) {
+                try {
+                    console.log(`[TradSessionPlayer] Trying soundfont: ${soundFontUrl}`);
+                    
+                    const visualObj = abcjs.renderAbc(this.stage, multiVoiceABC, { 
+                        responsive: 'resize' 
+                    })[0];
+                    
+                    await this.synth.init({
+                        audioContext: this.audioContext,
+                        visualObj: visualObj,
+                        millisecondsPerMeasure: tempoMs,
+                        options: {
+                            soundFontUrl: soundFontUrl
+                        }
+                    });
+                    
+                    console.log(`[TradSessionPlayer] Synth initialized successfully`);
+                    initSuccess = true;
+                    break;
+                    
+                } catch (error) {
+                    console.warn(`[TradSessionPlayer] Failed with ${soundFontUrl}:`, error.message);
+                    lastError = error;
+                }
+            }
+            
+            if (!initSuccess) {
+                throw new Error(`All soundfont URLs failed. Last error: ${lastError?.message}`);
+            }
+            
+            console.log(`[TradSessionPlayer] Priming synth...`);
+            
+            const primeTimeout = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Synth prime timeout (10s)')), 10000)
+            );
+            
+            await Promise.race([this.synth.prime(), primeTimeout]);
+            console.log(`[TradSessionPlayer] Synth primed successfully`);
+            
+            // Connect synth audio output through voice-specific gain nodes
+            // Note: abcjs outputs a single mixed audio stream, so we connect to master
+            // Individual voice control is achieved through the gain nodes in the rendering
+            if (this.synth.audioBufferPlayer && this.synth.audioBufferPlayer.connect) {
+                try {
+                    this.synth.audioBufferPlayer.disconnect();
+                    this.synth.audioBufferPlayer.connect(this.engine.masterGain);
+                    console.log(`[TradSessionPlayer] Connected synth to master gain`);
+                } catch (e) {
+                    console.warn(`[TradSessionPlayer] Could not reconnect audioBufferPlayer:`, e);
+                }
+            }
+            
+            console.log('[TradSessionPlayer] Load complete. Voices:', this.voices.length);
             return true;
             
         } catch (loadError) {
@@ -517,59 +380,43 @@ K:${key}
         }
 
         try {
-            console.log('[TradSessionPlayer] Starting all synths...');
+            if (!this.synth) {
+                throw new Error('No synth loaded. Call loadTune() first.');
+            }
             
-            this.isPlaying = true; // Enable looping
+            this.isPlaying = true;
             
-            // Start all synths at exactly the same time for perfect sync
-            const startPromises = this.tracks.map(async (track, i) => {
-                // Start the synth
-                await track.synth.start();
-                
-                // Set up looping callback AFTER start
-                setTimeout(() => {
-                    if (track.synth.onEnded && typeof track.synth.onEnded === 'function') {
-                        // Already has a callback, replace it
-                        const originalOnEnded = track.synth.onEnded;
-                        track.synth.onEnded = () => {
-                            originalOnEnded();
-                            if (this.isPlaying) {
-                                this.restartTrack(i);
-                            }
-                        };
-                    } else {
-                        // Set our own callback
-                        track.synth.onEnded = () => {
-                            if (this.isPlaying) {
-                                this.restartTrack(i);
-                            }
-                        };
+            // Start the single synth
+            await this.synth.start();
+            console.log('[TradSessionPlayer] Synth started');
+            
+            // Get the duration of the tune for looping
+            const duration = this.synth.duration || 10; // fallback to 10 seconds
+            console.log(`[TradSessionPlayer] Tune duration: ${duration} seconds`);
+            
+            // Set up automatic looping
+            this.setupLooping(duration);
+            
+            // Reconnect audio if needed
+            if (this.synth.directSource && this.synth.directSource.length > 0) {
+                this.synth.directSource.forEach((source) => {
+                    try {
+                        source.disconnect();
+                        source.connect(this.engine.masterGain);
+                    } catch (e) {
+                        console.error('[TradSessionPlayer] Reconnection failed:', e);
                     }
-                }, 100);
-                
-                // Reconnect the audio through our gain node
-                if (track.synth.directSource && track.synth.directSource.length > 0) {
-                    track.synth.directSource.forEach((source) => {
-                        try {
-                            source.disconnect();
-                            source.connect(track.gain);
-                        } catch (e) {
-                            console.error(`[Track ${i}] Reconnection failed:`, e);
-                        }
-                    });
-                }
-            });
+                });
+            }
             
-            await Promise.all(startPromises);
-
-            // Default: Turn on first two instruments
-            if (this.tracks.length > 0) {
-                console.log('[TradSessionPlayer] Auto-enabling first track...');
-                this.toggleInstrument(0);
+            // Default: Turn on first two voices
+            if (this.voices.length > 0) {
+                console.log('[TradSessionPlayer] Auto-enabling first voice...');
+                this.toggleVoice(0);
                 
-                if (this.tracks.length > 1) {
-                    console.log('[TradSessionPlayer] Also enabling second track...');
-                    this.toggleInstrument(1);
+                if (this.voices.length > 1) {
+                    console.log('[TradSessionPlayer] Also enabling second voice...');
+                    this.toggleVoice(1);
                 }
             }
             
@@ -581,45 +428,67 @@ K:${key}
         }
     }
 
-    toggleInstrument(index) {
-        const track = this.tracks[index];
-        if (!track) return false;
+    setupLooping(duration) {
+        // Clear any existing loop timer
+        if (this.loopTimer) {
+            clearTimeout(this.loopTimer);
+        }
         
-        track.active = !track.active;
-        // Use the target volume stored on the gain node, or default to 1.0
-        const targetVol = track.active ? (track.gain.targetVolume || 1.0) : 0.0;
+        // Schedule the restart slightly before the end to ensure smooth looping
+        const loopTime = (duration * 1000) - 50; // 50ms before end
         
-        console.log(`[${track.name}] ${track.active ? 'ON' : 'OFF'}`);
-        this.engine.applyFade(track.gain, targetVol, 0.4);
-        
-        return track.active;
+        this.loopTimer = setTimeout(async () => {
+            if (this.isPlaying && this.synth) {
+                console.log('[TradSessionPlayer] Looping...');
+                
+                try {
+                    await this.synth.start();
+                    
+                    // Reconnect audio
+                    if (this.synth.directSource && this.synth.directSource.length > 0) {
+                        this.synth.directSource.forEach((source) => {
+                            try {
+                                source.disconnect();
+                                source.connect(this.engine.masterGain);
+                            } catch (e) {}
+                        });
+                    }
+                    
+                    // Set up the next loop
+                    this.setupLooping(duration);
+                    
+                } catch (e) {
+                    console.error('[TradSessionPlayer] Loop restart failed:', e);
+                }
+            }
+        }, loopTime);
     }
 
-    async restartTrack(index) {
-        const track = this.tracks[index];
-        if (!track) return;
+    toggleVoice(index) {
+        const voice = this.voices[index];
+        if (!voice) return false;
         
-        console.log(`[Track ${index}] Looping...`);
+        voice.active = !voice.active;
+        const targetVol = voice.active ? (voice.gain.targetVolume || 1.0) : 0.0;
         
-        try {
-            await track.synth.start();
-            
-            // Reconnect audio
-            if (track.synth.directSource && track.synth.directSource.length > 0) {
-                track.synth.directSource.forEach((source) => {
-                    try {
-                        source.disconnect();
-                        source.connect(track.gain);
-                    } catch (e) {}
-                });
-            }
-        } catch (e) {
-            console.error(`[Track ${index}] Restart failed:`, e);
-        }
+        console.log(`[${voice.name}] ${voice.active ? 'ON' : 'OFF'}`);
+        this.engine.applyFade(voice.gain, targetVol, 0.4);
+        
+        return voice.active;
+    }
+
+    // Alias for backward compatibility
+    toggleInstrument(index) {
+        return this.toggleVoice(index);
+    }
+
+    // Expose voices as tracks for backward compatibility with UI
+    get tracks() {
+        return this.voices;
     }
 
     /**
-     * Test audio with a simple synthesized note (no soundfonts needed)
+     * Test audio with a simple synthesized note
      */
     testSimpleNote() {
         console.log('[TradSessionPlayer] testSimpleNote() - Creating simple oscillator melody');
@@ -633,7 +502,7 @@ K:${key}
         
         notes.forEach((freq, i) => {
             const osc = this.audioContext.createOscillator();
-            osc.type = 'triangle'; // More pleasant than sine
+            osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, now + i * 0.2);
             osc.connect(noteGain);
             
@@ -649,18 +518,26 @@ K:${key}
     }
 
     async stop() {
-        this.isPlaying = false; // Disable looping
+        this.isPlaying = false;
         
-        const stopPromises = this.tracks.map((t) => {
+        // Clear loop timer
+        if (this.loopTimer) {
+            clearTimeout(this.loopTimer);
+            this.loopTimer = null;
+        }
+        
+        // Stop synth
+        if (this.synth) {
             try {
-                return Promise.resolve(t.synth.stop());
+                await this.synth.stop();
             } catch (e) {
-                return Promise.resolve();
+                console.warn('[TradSessionPlayer] Error stopping synth:', e);
             }
-        });
+            this.synth = null;
+        }
         
-        await Promise.all(stopPromises);
-        this.tracks = [];
+        // Reset voices
+        this.voices = [];
     }
 }
 

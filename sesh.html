@@ -59,6 +59,11 @@
             background: var(--off);
             transition: all 0.2s ease;
             touch-action: manipulation; /* Prevents double-tap zoom delay */
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
         }
 
         button.active {
@@ -100,42 +105,44 @@
         .console-error { color: #ff6b6b; }
         .console-warn { color: #ffa500; }
         .console-log { color: #51cf66; }
+        
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>🍀 Trad Sesh Debugger</h1>
-        <div id="tune-title">Tap Start to begin</div>
+        <div id="tune-title">Loading...</div>
 
         <div id="controls"></div>
 
         <div class="main-actions">
-            <button class="btn-play" onclick="ui.start()">▶ START</button>
-            <button class="btn-next" onclick="ui.next()">NEXT ⏭</button>
+            <button class="btn-play" id="btn-start" disabled>▶ START</button>
+            <button class="btn-next" id="btn-next" disabled>NEXT ⏭</button>
         </div>
         
-        <button class="btn-beep" onclick="ui.testBeep()">🔊 TEST BEEP</button>
-        <button class="btn-beep" onclick="ui.testNote()" style="background: #7b1fa2;">🎵 TEST NOTES</button>
+        <button class="btn-beep" id="btn-beep" disabled>🔊 TEST BEEP</button>
+        <button class="btn-beep" id="btn-note" style="background: #7b1fa2;" disabled>🎵 TEST NOTES</button>
 
         <div class="status" id="status-text">
-            <div class="console-line">Console output will appear here...</div>
+            <div class="console-line loading">Initializing music system...</div>
             <div class="console-line console-warn">Open browser DevTools (F12) for full logs</div>
         </div>
     </div>
 
 <script type="module">
-    import TradSessionPlayer from './js/game/systems/music/tradSessionPlayer.js';
+    import { TradSessionPlayer } from './js/game/systems/music/tradSessionPlayerConductor.js';
     import { allTunes } from './js/game/systems/music/allTunes.js';
 
     console.log('[Main] Script loaded, initializing...');
 
-    const session = new TradSessionPlayer();
-    const tuneKeys = Object.keys(allTunes);
+    let session = null;
+    let tuneKeys = [];
     let currentIdx = 0;
-
-    console.log('[Main] Available tunes:', tuneKeys.length);
-    console.log('[Main] Tune keys:', tuneKeys);
 
     // Capture console logs and display in UI
     const statusEl = document.getElementById('status-text');
@@ -171,15 +178,39 @@
         addToConsole(args.join(' '), 'warn');
     };
 
-    // Attach to window so HTML buttons can see it
-    window.ui = {
+    // Initialize the session player
+    try {
+        session = new TradSessionPlayer();
+        tuneKeys = Object.keys(allTunes);
+        
+        console.log('[Main] Available tunes:', tuneKeys.length);
+        console.log('[Main] Tune keys:', tuneKeys);
+        
+        // Enable buttons now that everything is loaded
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('btn-beep').disabled = false;
+        document.getElementById('btn-note').disabled = false;
+        
+        document.getElementById('tune-title').textContent = 'Ready! Tap START to begin';
+        
+        console.log('[Main] System initialized successfully');
+        
+    } catch (error) {
+        console.error('[Main] Initialization error:', error);
+        console.error('[Main] Error stack:', error.stack);
+        document.getElementById('tune-title').textContent = 'Error - Check console';
+    }
+
+    // UI functions
+    const ui = {
         async start() {
             console.log('[UI] Start button clicked');
             
             try {
                 const key = tuneKeys[currentIdx];
                 console.log('[UI] Loading tune:', key);
-                document.getElementById('tune-title').innerText = key.toUpperCase();
+                document.getElementById('tune-title').textContent = key.toUpperCase();
                 
                 const loaded = await session.loadTune(key);
                 console.log('[UI] Load result:', loaded);
@@ -208,7 +239,7 @@
             const btn = document.getElementById(`btn-${i}`);
             if (btn && session.tracks[i]) {
                 btn.className = isActive ? 'active' : '';
-                btn.innerText = `${session.tracks[i].name} ${isActive ? 'ON' : 'OFF'}`;
+                btn.textContent = `${session.tracks[i].name} ${isActive ? 'ON' : 'OFF'}`;
             }
         },
 
@@ -222,7 +253,7 @@
             console.log('[UI] Rendering buttons for', session.tracks.length, 'tracks');
             const container = document.getElementById('controls');
             container.innerHTML = session.tracks.map((t, i) => 
-                `<button id="btn-${i}" class="${t.active ? 'active' : ''}" onclick="ui.toggle(${i})">
+                `<button id="btn-${i}" class="${t.active ? 'active' : ''}" onclick="window.uiToggle(${i})">
                     ${t.name} ${t.active ? 'ON' : 'OFF'}
                 </button>`
             ).join('');
@@ -239,11 +270,22 @@
         }
     };
     
+    // Expose functions to global scope for button onclick handlers
+    window.uiToggle = (i) => ui.toggle(i);
+    
+    // Attach event listeners to buttons
+    document.getElementById('btn-start').addEventListener('click', () => ui.start());
+    document.getElementById('btn-next').addEventListener('click', () => ui.next());
+    document.getElementById('btn-beep').addEventListener('click', () => ui.testBeep());
+    document.getElementById('btn-note').addEventListener('click', () => ui.testNote());
+    
     console.log('[Main] UI initialized and ready');
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+                                                  
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>      
 <script>eruda.init();</script>
+
 
 </body>
 </html>

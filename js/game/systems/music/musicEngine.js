@@ -1,5 +1,5 @@
-// Music Engine v2.0 - Spatial Audio
-export default class MusicEngine {
+// Music Engine v2.1 - Spatial Audio (Simplified)
+export class MusicEngine {
     constructor(audioContext) {
         this.ctx = audioContext;
         this.masterGain = this.ctx.createGain();
@@ -33,42 +33,18 @@ export default class MusicEngine {
             // Piano: Center-right (accompaniment)
             panner.pan.value = 0.3;
             targetVolume = 0.7;
-        } else if (patchId === 46) {
-            // Harp: Far right (shimmer)
-            panner.pan.value = 0.6;
-            targetVolume = 0.85;
         } else if (patchId === 32) {
-            // Bass: Center (foundation)
+            // Acoustic Bass: Center (foundation)
             panner.pan.value = 0;
-            targetVolume = 0.7;
-        } else if (patchId === 21) {
-            // Accordion: Left
-            panner.pan.value = -0.4;
             targetVolume = 0.75;
         } else if (patchId === 22) {
             // Harmonica: Slight left (concertina-like)
             panner.pan.value = -0.3;
             targetVolume = 0.85; // Boost to cut through
-        } else if (patchId === 23) {
-            // Tango Accordion: Left
-            panner.pan.value = -0.35;
-            targetVolume = 0.8;
-        } else if (patchId === 57) {
-            // Trombone: Center-right (power!)
-            panner.pan.value = 0.25;
-            targetVolume = 0.85;
-        } else if (patchId === 58) {
-            // Tuba: Dead center (deep foundation)
+        } else {
+            // Default positioning for any other instruments
             panner.pan.value = 0;
-            targetVolume = 0.75;
-        } else if (patchId === 60) {
-            // French Horn: Left (warm and noble)
-            panner.pan.value = -0.35;
             targetVolume = 0.8;
-        } else if (patchId === 66) {
-            // Tenor Sax: Right (jazzy surprise)
-            panner.pan.value = 0.4;
-            targetVolume = 0.85;
         }
         
         // Connect: gain -> panner -> master

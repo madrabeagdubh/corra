@@ -653,8 +653,11 @@ tutorialText.style.cssText = `
     line-height: 1.6;
 `;
 
+
+
+
 const irishText = document.createElement('div');
-irishText.textContent = 'Fadó fadó in Éireann,\nroimh teacht an nua aois...';
+irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
 irishText.style.cssText = `
     font-family: Aonchlo, serif;
     font-size: 1.8rem;
@@ -662,11 +665,9 @@ irishText.style.cssText = `
     margin-bottom: 0.5rem;
 `;
 
-
-
 const englishText = document.createElement('div');
 englishText.id = 'tutorial-english-text';
-englishText.textContent = 'Long long ago in Ireland, before the modern age...';
+englishText.textContent = `In Tír na nÓg, at the meeting place of champions...`;
 englishText.style.cssText = `
     font-family: 'Courier New', monospace;
     font-size: 1.7rem;
@@ -676,6 +677,7 @@ englishText.style.cssText = `
     min-height: 1.5em;
     display: block;
 `;
+
 
 
 // Add "Slide to Begin" instruction

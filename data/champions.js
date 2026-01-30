@@ -2,7 +2,7 @@ export const champions = [
   {
     "spriteKey": "001.png",
     "monologueID": 1,
-    "gender": "",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tassach",
     "nameEn": "idle; inactive",
     "charBioEn": "I was Tassach, one of Saint Patrick's 'three artificers, of exceptional skill,' as recorded in M448.2.",
@@ -13,14 +13,14 @@ export const champions = [
       "defense": 9,
       "speed": 6,
       "magic": 5,
-      "luck": 1
+      "luck": 2
     },
     "themeTuneTitle": "Drowsy Maggie"
   },
   {
     "spriteKey": "052.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ádhamhnán",
     "nameEn": "the timorous one",
     "charBioEn": "I was Adhamhnan, the successor of Colum Cille, who went to Ireland and returned with the laws of Adhamhnan, as recorded in M186.2.",
@@ -39,7 +39,7 @@ export const champions = [
   {
     "spriteKey": "003.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fionn",
     "nameEn": "fair, white",
     "charBioEn": "I was Finn, grandson of Baisgne, slain by Aichleach, son of Duibhdreann, and the sons of Uirgreann of the Luaighni Teamhrach, at Ath Brea, upon the Boinn Boyne,' as recorded in M283.2.",
@@ -58,7 +58,7 @@ export const champions = [
   {
     "spriteKey": "004.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gormán",
     "nameEn": "dark; swarthy",
     "charBioEn": "I was Gorman, warrior of Ard Brecain, who died never yielding, as recorded in M848.3.",
@@ -77,7 +77,7 @@ export const champions = [
   {
     "spriteKey": "005.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conlaodh",
     "nameEn": "prudent fire",
     "charBioEn": "I was Conlaedh, warrior of Kildare, Patrick's own smith, as recorded in M590.2.",
@@ -96,7 +96,7 @@ export const champions = [
   {
     "spriteKey": "006.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ciarán",
     "nameEn": "black",
     "charBioEn": "I was Ciaran, the son of the carpenter, the chief of the saints of the Clann-Cholmain, as recorded in M549.2.",
@@ -115,7 +115,7 @@ export const champions = [
   {
     "spriteKey": "007.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Naomhán",
     "nameEn": "of Naomh (saint)",
     "charBioEn": "I was Naemhan, Comharba of Caisel-Irrra, who died amidst a pile of my foes, as recorded in M922.3.",
@@ -134,7 +134,7 @@ export const champions = [
   {
     "spriteKey": "008.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Beag",
     "nameEn": "small",
     "charBioEn": "I was Beag Mac De, a prophet who foretold the slaughter of the Ui Neill, as recorded in M597.1.",
@@ -153,7 +153,7 @@ export const champions = [
   {
     "spriteKey": "009.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rós",
     "nameEn": "rose or horse",
     "charBioEn": "I was Ross, one of the 'three antiquaries' and 'nine supporting props' who helped purify and write the Seanchus and Feinechus of Ireland, as recorded in M438.2.",
@@ -172,7 +172,7 @@ export const champions = [
   {
     "spriteKey": "010.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scothnait",
     "nameEn": "blossom, bloom",
     "charBioEn": "I was Scothnait, daughter of a foreign King, who died defending the weak as recorded in M871.12.",
@@ -191,7 +191,7 @@ export const champions = [
   {
     "spriteKey": "011.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Étaín",
     "nameEn": "jealousy",
     "charBioEn": "I was Etain, daughter of the King of Vikings, killed in cowardly ambush as recorded in M890.1.",
@@ -210,7 +210,7 @@ export const champions = [
   {
     "spriteKey": "012.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sadhbh",
     "nameEn": "sweet, goodly",
     "charBioEn": "I was Sadhbh, daughter of Conn, whose 'seven sons of Oilioll Olum' fell in the battle of Magh Mucruimhe and I with them. I 'wounded Lughaidh Mac Con, in the thigh,' as recorded in M186.2.",
@@ -229,7 +229,7 @@ export const champions = [
   {
     "spriteKey": "014.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áine",
     "nameEn": "delight, pleasure",
     "charBioEn": "I was Aine, daughter of Concobhar, died by assassin's blade as recorded in M1157.6.",
@@ -248,7 +248,7 @@ export const champions = [
   {
     "spriteKey": "015.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ceara",
     "nameEn": "fiery red",
     "charBioEn": "I was Ceara, daughter of Dubhdaleithe, chief poetess of Ireland, slain by a slow-acting poison in M1068.7.",
@@ -267,7 +267,7 @@ export const champions = [
   {
     "spriteKey": "016.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lomán",
     "nameEn": "bare",
     "charBioEn": "I was Loman, to whom Ath Truim was granted along with Fortchern, as recorded in M432.3.",
@@ -286,7 +286,7 @@ export const champions = [
   {
     "spriteKey": "017.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aodnait",
     "nameEn": "God of Fire",
     "charBioEn": "I was Aedhnait, son of the King of Meath, who died a king's champion, as recorded in M1170.1.",
@@ -305,7 +305,7 @@ export const champions = [
   {
     "spriteKey": "018.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rúadhnait",
     "nameEn": "red-haired",
     "charBioEn": "I was Ruadhnait, daughter of Mac Gilla Coimhdheadh, who met a treacherous fate, as recorded in M1166.11.",
@@ -324,7 +324,7 @@ export const champions = [
   {
     "spriteKey": "019.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Gráinne",
     "nameEn": "of the Sun",
     "charBioEn": "I was Grainne, daughter of Maeleachlainn, King of Meath, my quiet end was in M1127.1.",
@@ -343,7 +343,7 @@ export const champions = [
   {
     "spriteKey": "020.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Áinle",
     "nameEn": "hero, champion, warrior",
     "charBioEn": "I was Ainle, Lord of Ui-Ceinnsealaigh,my magical & mysterious passing was recorded in M836.4.",
@@ -362,7 +362,7 @@ export const champions = [
   {
     "spriteKey": "021.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Téide",
     "nameEn": "wantonness",
     "charBioEn": "I was Teidhe, son of Concobhar, ended by a scheming lords' fatal trap in M1071.1.",
@@ -381,7 +381,7 @@ export const champions = [
   {
     "spriteKey": "022.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Flann",
     "nameEn": "fiery red",
     "charBioEn": "I was Flann Mainistrech, who wrestled a meteor from the sky before it scorched the sacred oaks of Uisneach as recorded in M432.3.",
@@ -400,7 +400,7 @@ export const champions = [
   {
     "spriteKey": "023.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ana",
     "nameEn": "wealth or abundance",
     "charBioEn": "I was Ana, daughter of Donnchadh, who died consumed by wild magic, as recorded in M1054.3.",
@@ -419,7 +419,7 @@ export const champions = [
   {
     "spriteKey": "024.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dearbhail",
     "nameEn": "Daughter of Fál (Ireland)",
     "charBioEn": "I was Dearbhail, daughter of Fearghal, queen of Ireland, turned to stone by ancient evil as recorded in M922.3.",
@@ -438,7 +438,7 @@ export const champions = [
   {
     "spriteKey": "025.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éimhín",
     "nameEn": "prompt, ready",
     "charBioEn": "I was Emhin, partner of Glas Naoidhen,swallowed whole by a  horrible creature in M960.3.",
@@ -457,7 +457,7 @@ export const champions = [
   {
     "spriteKey": "026.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fechín",
     "nameEn": "raven or battle",
     "charBioEn": "I was Fechin Fobhair, who bound the wild thunder to my will, creating a storm that shattered the fortress of a wicked king, as recorded in M663.2.",
@@ -476,7 +476,7 @@ export const champions = [
   {
     "spriteKey": "027.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muadhnait",
     "nameEn": "noble, good",
     "charBioEn": "I was Muadhnait, daughter of Muireadhach, spirited away in M1025.5.",
@@ -495,7 +495,7 @@ export const champions = [
   {
     "spriteKey": "028.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Breasal",
     "nameEn": "brave or strong in conflict",
     "charBioEn": "I was Breasal Bealach, son of Fiacha Aiceadh, son of Cathaeir Mor King of Leinster, swallowed by the raging sea in M435.2.",
@@ -514,7 +514,7 @@ export const champions = [
   {
     "spriteKey": "029.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oisín",
     "nameEn": "little deer",
     "charBioEn": "I was Oisin, son of Aenghus, who died defending my Chief as recorded in M1033.4.",
@@ -533,7 +533,7 @@ export const champions = [
   {
     "spriteKey": "030.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bláthnaid",
     "nameEn": "little flower",
     "charBioEn": "I was Blathnait bloom of the wild, who stood alone against the horrifying Corp-Crann, as recorded in M1152.14.",
@@ -552,7 +552,7 @@ export const champions = [
   {
     "spriteKey": "031.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ross",
     "nameEn": "headland",
     "charBioEn": "I was Ross, the unyielding spirit of the headlands, whose call could summon the ancient sea-beasts, but who was eventually eaten by them, as recorded in M438.2.",
@@ -571,7 +571,7 @@ export const champions = [
   {
     "spriteKey": "069.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Orthanach",
     "nameEn": "potent in prayers or charms",
     "charBioEn": "I was Orthanach, warrior of Domhnach Mor, who died, as recorded in M837.1.",
@@ -590,7 +590,7 @@ export const champions = [
   {
     "spriteKey": "033.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ainbheartach",
     "nameEn": "doer of evil deeds",
     "charBioEn": "Where I cast my shadow, kingdoms fall.",
@@ -609,7 +609,7 @@ export const champions = [
   {
     "spriteKey": "034.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Neamhain",
     "nameEn": "battle-fury, warlike frenzy, \nCeltic war goddess",
     "charBioEn": "I was Neamhain, the war-goddess, whose shriek shattered ranks at the battle of Cuil Feda, as recorded in M1159.2.",
@@ -628,7 +628,7 @@ export const champions = [
   {
     "spriteKey": "035.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éibhleann",
     "nameEn": "beauty, radiance",
     "charBioEn": "I was Eibhleann, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -647,7 +647,7 @@ export const champions = [
   {
     "spriteKey": "036.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tuathal",
     "nameEn": "Tully, ruler of the people",
     "charBioEn": "I was Tuathal Teachtmhar, who after 'thirty years in the sovereignty of Ireland, was slain by Mal, son of Rochraidhe,' as recorded in M106.1.",
@@ -666,7 +666,7 @@ export const champions = [
   {
     "spriteKey": "037.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ógán",
     "nameEn": "Lad",
     "charBioEn": "I was Ogan, son of Donnagan, King of Ara, who died, as recorded in M1063.2.",
@@ -685,7 +685,7 @@ export const champions = [
   {
     "spriteKey": "038.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Odhrán",
     "nameEn": "sallow",
     "charBioEn": "I was Odhran, Saint Patrick's 'charioteer, without blemish,' as recorded in M448.2.",
@@ -704,7 +704,7 @@ export const champions = [
   {
     "spriteKey": "039.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Onchú",
     "nameEn": "fierce hound",
     "charBioEn": "I was Onchu, champion of Fidhgardh, who died, as recorded in M660.2.",
@@ -723,7 +723,7 @@ export const champions = [
   {
     "spriteKey": "040.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sláine",
     "nameEn": "health, \nfrom a Celtic goddess name",
     "charBioEn": "I was Slaine, daughter of the King of Ulidia, who died, as recorded in M1157.10.",
@@ -742,7 +742,7 @@ export const champions = [
   {
     "spriteKey": "041.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saorla",
     "nameEn": "noble queen",
     "charBioEn": "I was Saorla, daughter of Conchobhar, who died, as recorded in M1157.9.",
@@ -761,7 +761,7 @@ export const champions = [
   {
     "spriteKey": "042.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Deasmumhnach",
     "nameEn": "man from Desmond (Co. Cork)",
     "charBioEn": "I was Deasmumhnach, chief of Ui Eachach, who died, as recorded in M1057.2.",
@@ -780,7 +780,7 @@ export const champions = [
   {
     "spriteKey": "043.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tighearnán",
     "nameEn": "Lord",
     "charBioEn": "I was Tighernan Ua Ruairc, Warlock of the treacherous bogs which swallowed my enemies at my command as recorded in M1152.1.",
@@ -799,7 +799,7 @@ export const champions = [
   {
     "spriteKey": "044.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Bearach",
     "nameEn": "pointed",
     "charBioEn": "I was Bearach, champion of Cluain Coirpthe, who led the charge against the giants of Fermanagh as recorded in M735.3.",
@@ -818,7 +818,7 @@ export const champions = [
   {
     "spriteKey": "045.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lochlann",
     "nameEn": "Viking",
     "charBioEn": "I was Lochlainn, the Northern Wolf and Lord of Feara Manach, who died, as recorded in M1115.6.",
@@ -837,7 +837,7 @@ export const champions = [
   {
     "spriteKey": "046.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Seanchán",
     "nameEn": "old, ancient",
     "charBioEn": "I was Seanchan, chief poet of Ireland, whose heroic verse ignited the hearts of the Fianna as recorded in M646.1.",
@@ -856,7 +856,7 @@ export const champions = [
   {
     "spriteKey": "047.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Marcán",
     "nameEn": "steed",
     "charBioEn": "I was Marcan, master of the wild steeds of the Sí, who died, as recorded in M955.3.",
@@ -874,7 +874,7 @@ export const champions = [
   {
     "spriteKey": "048.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cuán",
     "nameEn": "diminutive of Cu, meaning hound",
     "charBioEn": "I was Cuan, the tireless tracker, as recorded in M904.3.",
@@ -893,7 +893,7 @@ export const champions = [
   {
     "spriteKey": "049.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Móirne",
     "nameEn": "great",
     "charBioEn": "I was Moirne, daughter of Aedh, who could mend a broken mountain, as recorded in M1140.4.",
@@ -912,7 +912,7 @@ export const champions = [
   {
     "spriteKey": "050.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Uallachán",
     "nameEn": "little proud, arrogant one",
     "charBioEn": "I was Uallachan, chief of Ui Failghe, who led my warriors to impossible victories through sheer, unyielding pride, as recorded in M1014.2.",
@@ -931,7 +931,7 @@ export const champions = [
   {
     "spriteKey": "051.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Sléibhín",
     "nameEn": "mountain man",
     "charBioEn": "I was Sleibhin, champion of Fionnabhair, who died, as recorded in M1001.3.",
@@ -949,7 +949,7 @@ export const champions = [
   {
     "spriteKey": "002.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conán",
     "nameEn": "wolf",
     "charBioEn": "I was Conan, king of the Kindred of Conaill. Weakness found no quarter in my path, nor false gods my worship. By Crom!",
@@ -967,7 +967,7 @@ export const champions = [
   {
     "spriteKey": "053.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Breacán",
     "nameEn": "freckled, speckled",
     "charBioEn": "I was Breacan, champion of Ard Brecain, master of disguise and camouflage, as recorded in M837.2.",
@@ -986,7 +986,7 @@ export const champions = [
   {
     "spriteKey": "054.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gilleagán",
     "nameEn": "little lad",
     "charBioEn": "I was Gilleagan, who outsmarted a giant and bested a proud chieftain with traps and binding words as recorded in M1166.11.",
@@ -1004,7 +1004,7 @@ export const champions = [
   {
     "spriteKey": "055.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dubhghlas",
     "nameEn": "blue black",
     "charBioEn": "I was Dubhglas, son of Maeleachlainn, who died, as recorded in M1127.1.",
@@ -1023,7 +1023,7 @@ export const champions = [
   {
     "spriteKey": "056.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Faolán",
     "nameEn": "wolf",
     "charBioEn": "I was Faolan, second of Kenny, unmatched in the forests, as recorded in M942.3.",
@@ -1041,7 +1041,7 @@ export const champions = [
   {
     "spriteKey": "057.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muirgheal",
     "nameEn": " sea-bright, sea-white",
     "charBioEn": "I was Muirgheas, daughter of Maelseachlainn, queen of the crashing waves, as recorded in M1037.2.",
@@ -1060,7 +1060,7 @@ export const champions = [
   {
     "spriteKey": "058.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conall",
     "nameEn": "strong as a wolf",
     "charBioEn": "I was Conall, son of Eochaidh, who fought Cormac at Eu in Magh Aei, as recorded in M236.3.",
@@ -1079,7 +1079,7 @@ export const champions = [
   {
     "spriteKey": "059.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Niamh",
     "nameEn": "brightness, radiance",
     "charBioEn": "I was Niamh, daughter of Aedh, who frightened every chieftain, as recorded in M1140.4.",
@@ -1098,7 +1098,7 @@ export const champions = [
   {
     "spriteKey": "060.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Séighín",
     "nameEn": "hawk",
     "charBioEn": "I was Seigin of Glendalough. It was dull there, but I achieved a satisfactory death in pursuit of the phantom beast, as recorded in M1072.1.",
@@ -1117,7 +1117,7 @@ export const champions = [
   {
     "spriteKey": "061.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Meallán",
     "nameEn": "lightening",
     "charBioEn": "I was Meallan, the very spark of lightning, who struck foes with blinding speed as recorded in M938.3.",
@@ -1136,7 +1136,7 @@ export const champions = [
   {
     "spriteKey": "062.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Meadhbh",
     "nameEn": "she who intoxicates",
     "charBioEn": "I was Meadhbh, the fenian of the Phantom Queen. We devastated every enemy, as recorded in M1147.9.",
@@ -1155,7 +1155,7 @@ export const champions = [
   {
     "spriteKey": "063.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Donnchadh",
     "nameEn": "Dionysus brown lord",
     "charBioEn": "I was Donnchadh, son of Flann, King of Meath, a lord whose command on the battlefield was absolute as recorded in M944.3.",
@@ -1174,7 +1174,7 @@ export const champions = [
   {
     "spriteKey": "064.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lorcán",
     "nameEn": "cruel or fierce",
     "charBioEn": "I was Lorcan, King of Leinster, a mountain resolved against injustie. I protected the weak and the noble as recorded in M947.2.",
@@ -1193,7 +1193,7 @@ export const champions = [
   {
     "spriteKey": "065.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Uasal",
     "nameEn": "Noble",
     "charBioEn": "I was Uasal, arch druid of Clochar, whose unseen battles held back the otherworld's horrors. I died in victory in M848.3.",
@@ -1212,7 +1212,7 @@ export const champions = [
   {
     "spriteKey": "066.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Moncha",
     "nameEn": "after Macha, \ngoddess of Sovereignty",
     "charBioEn": "I was Moncha, the avatar of Macha herself. I inspired utter devotion in my warriors and paralyzing fear in my foes as recorded in M1071.1.",
@@ -1231,7 +1231,7 @@ export const champions = [
   {
     "spriteKey": "067.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fial",
     "nameEn": "modest, honorable, generous",
     "charBioEn": "I was Fial, who defended the innocent with a ferocity that surprised all who mistook kindness for weakness, as recorded in M1147.9.",
@@ -1250,7 +1250,7 @@ export const champions = [
   {
     "spriteKey": "068.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Sé",
     "nameEn": "hawk-like, noble",
     "charBioEn": "I was Se, son of Donnchadh, noble hawk of battle as recorded in M1054.3.",
@@ -1269,7 +1269,7 @@ export const champions = [
   {
     "spriteKey": "069.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cathán",
     "nameEn": "battler",
     "charBioEn": "I was Cathan, whose strategies changed the tides of battle, as recorded in M1100.5.",
@@ -1287,7 +1287,7 @@ export const champions = [
   {
     "spriteKey": "070.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fionnbharr",
     "nameEn": "fair haired",
     "charBioEn": "I was Finnbharr Mac Ua Bairdene, my blade a flash of lightning against the dark, as recorded in M437.2.",
@@ -1306,7 +1306,7 @@ export const champions = [
   {
     "spriteKey": "071.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Suibhne",
     "nameEn": "well-going",
     "charBioEn": "I was Suibhne, who outmaneuvered an entire warband, as recorded in M730.2.",
@@ -1325,7 +1325,7 @@ export const champions = [
   {
     "spriteKey": "072.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Brion",
     "nameEn": "noble or high",
     "charBioEn": "I was Brion, who carved a legend of strength and defiance across the lands, as recorded in M357.2.",
@@ -1344,7 +1344,7 @@ export const champions = [
   {
     "spriteKey": "053.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Nuala",
     "nameEn": "Fionnuala (white shoulders)",
     "charBioEn": "I was Nuala, daughter of Maelruanaidh. My spirit lingers in the mist, luring greedy raiders to their cold, watery doom.",
@@ -1363,7 +1363,7 @@ export const champions = [
   {
     "spriteKey": "074.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oillín",
     "nameEn": "little sprite, elf",
     "charBioEn": "I was Oillin whose whispers charmed the wind and guided my arrows to strike the hearts of my enemies.",
@@ -1382,7 +1382,7 @@ export const champions = [
   {
     "spriteKey": "075.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oilithir",
     "nameEn": "pilgrim",
     "charBioEn": "I was Oilithir, the wanderer of sacred sites, who died, as recorded in M883.3.",
@@ -1401,7 +1401,7 @@ export const champions = [
   {
     "spriteKey": "076.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cassán",
     "nameEn": "little curly-haired one",
     "charBioEn": "I was Cassan, who delighted the most senior of druids with my genius, as recorded in M960.3.",
@@ -1420,7 +1420,7 @@ export const champions = [
   {
     "spriteKey": "077.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tómmán",
     "nameEn": "of Tuama",
     "charBioEn": "I was Tomman, druid of Druim Dara, who commanded the earth to tremble and stone to rise against my enemies, as recorded in M941.3.",
@@ -1439,7 +1439,7 @@ export const champions = [
   {
     "spriteKey": "078.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Bairrfhionn",
     "nameEn": "fair-haired",
     "charBioEn": "I was Bairrfhionn,whose fair hair was like a storm-cloud, as recorded in M952.3.",
@@ -1458,7 +1458,7 @@ export const champions = [
   {
     "spriteKey": "079.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ealadha",
     "nameEn": "art, craft",
     "charBioEn": "I was Ealadha, daughter of Gilla Phatraic, who died, as recorded in M1166.11.",
@@ -1476,7 +1476,7 @@ export const champions = [
   {
     "spriteKey": "080.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bébhinn",
     "nameEn": "fair lady",
     "charBioEn": "I was Bebhinn whose smile could lure even the most cautious warrior into a trap, as recorded in M1152.14.",
@@ -1487,7 +1487,7 @@ export const champions = [
   {
     "spriteKey": "081.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Sárán",
     "nameEn": "chief, noble, best",
     "charBioEn": "I was Saran, sword master of Cinel Conaill.  I never led my warriors to defeat, as recorded in M843.3.",
@@ -1506,7 +1506,7 @@ export const champions = [
   {
     "spriteKey": "082.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saoirse",
     "nameEn": "freedom",
     "charBioEn": "I was Saoirse, the fierce wind of rebellion.",
@@ -1525,7 +1525,7 @@ export const champions = [
   {
     "spriteKey": "083.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ciara",
     "nameEn": "Dark, dark-haired, \nlittle dark one; Black.",
     "charBioEn": "I was Ciara, the dark sorceress, whose spells drew power from the deepest night, as recorded in M1147.9.",
@@ -1544,7 +1544,7 @@ export const champions = [
   {
     "spriteKey": "084.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Laoise ",
     "nameEn": "radience, light",
     "charBioEn": "I was Laoiseach, the unconquerable light,as recorded in M1150.15.",
@@ -1563,7 +1563,7 @@ export const champions = [
   {
     "spriteKey": "085.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Clíona",
     "nameEn": "goddess of love and beauty, \npatron of County Cork. Also, queen of the banshees",
     "charBioEn": "I was Cliona the fenian. I lured the arrogant to their demise as recorded in M1166.11.",
@@ -1582,7 +1582,7 @@ export const champions = [
   {
     "spriteKey": "086.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Úna",
     "nameEn": "from uan 'lamb'. \nOf truth, beauty, and unity",
     "charBioEn": "I was Una. It was I who brought warring clans together under the banner of peace as recorded in M1150.15.",
@@ -1601,7 +1601,7 @@ export const champions = [
   {
     "spriteKey": "087.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Eithne",
     "nameEn": "There were at least nine Saint Eithnes",
     "charBioEn": "I was Eithne, who awakened the old guardians to cast invaders into the abyss as recorded in M1140.4.",
@@ -1620,7 +1620,7 @@ export const champions = [
   {
     "spriteKey": "088.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Pádraig",
     "nameEn": "from the Latin Patricius, \nmeaning of the patrician class",
     "charBioEn": "I was Patrick, whose shield turned back all injustice, as recorded in M432.2.",
@@ -1639,7 +1639,7 @@ export const champions = [
   {
     "spriteKey": "089.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Líam",
     "nameEn": "strong-willed warrior ",
     "charBioEn": "I was Liam son of Donnchadh, whose blade never faltered until victory was claimed, as recorded in M1054.3.",
@@ -1657,7 +1657,7 @@ export const champions = [
   {
     "spriteKey": "090.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Éanna",
     "nameEn": "birdlike",
     "charBioEn": "I was Enna Niadh, King of Leinster, whose son Dunlang was responsible for a brutal raid on Teamhair, as recorded in M241.3.",
@@ -1675,7 +1675,7 @@ export const champions = [
   {
     "spriteKey": "091.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rónnad",
     "nameEn": "seal",
     "charBioEn": "I was Ronnait, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -1693,7 +1693,7 @@ export const champions = [
   {
     "spriteKey": "092.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Neasa",
     "nameEn": "not gentle",
     "charBioEn": "I was Neasa, daughter of Fearghal, who died, as recorded in M1147.9. My crown was a constant vexation.",
@@ -1711,7 +1711,7 @@ export const champions = [
   {
     "spriteKey": "093.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cillian",
     "nameEn": "church",
     "charBioEn": "I was Cillian, sword master of Fionnabhair. My blade hummed a low, tuneless song when faced with true villainy.",
@@ -1729,7 +1729,7 @@ export const champions = [
   {
     "spriteKey": "039.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Olcán",
     "nameEn": "wolf",
     "charBioEn": "I was Olcan, commander of Ard Brecain, who died, as recorded in M848.3.",
@@ -1747,7 +1747,7 @@ export const champions = [
   {
     "spriteKey": "095.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lonán",
     "nameEn": "blackbird",
     "charBioEn": "I was Lonan, warlock of Cluain Mic Nois. I once turned a particular chieftain's war-band into a flock of disgruntled geese for an afternoon. It was surprisingly effective.",
@@ -1765,7 +1765,7 @@ export const champions = [
   {
     "spriteKey": "096.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Treasa",
     "nameEn": "strength",
     "charBioEn": "I was Treasa, daughter of Conchobhar, who died, as recorded in M1157.9. My strength was not in arms, but in my ability to persuade even the most quarrelsome neighbours to go in peace.",
@@ -1782,7 +1782,7 @@ export const champions = [
   },
   {
     "spriteKey": "097.png",
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sárnait",
     "nameEn": "chief, noble, best",
     "charBioEn": "I was Sarnait, daughter of Donnchadh, who died, as recorded in M1161.12. My finest cloak, woven with threads of dew and moonlight, was once mistaken for a patch of morning fog, much to my amusement.",
@@ -1800,7 +1800,7 @@ export const champions = [
   {
     "spriteKey": "098.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Osnait",
     "nameEn": "deer",
     "charBioEn": "I was Osnait, daughter of Muircheartach, who died, as recorded in M1150.15. It was a widely held belief that if I spoke of rain, it would fall within the hour, an ability I never fully understood myself.",
@@ -1818,7 +1818,7 @@ export const champions = [
   {
     "spriteKey": "099.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Giolla-Padraig",
     "nameEn": "servant of Patrick",
     "charBioEn": "I was Gilla Phatraic, spiritual guide of Ard Macha.",
@@ -1836,7 +1836,7 @@ export const champions = [
   {
     "spriteKey": "110.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áine",
     "nameEn": "Radiance, Áine, \ngoddess of Summer",
     "charBioEn": "I was Aine, daughter of Concobhar, as recorded in M1157.6. The bees in our valley knew me.",
@@ -1854,7 +1854,7 @@ export const champions = [
   {
     "spriteKey": "051.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fionnghuala",
     "nameEn": "fair shouldered",
     "charBioEn": "I was Fionnghuala, daughter of Muircheartach, who died, as recorded in M1150.15. The wild swans would gather at my call.",
@@ -1872,7 +1872,7 @@ export const champions = [
   {
     "spriteKey": "112.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Suaibhseach",
     "nameEn": "gracious, kindly",
     "charBioEn": "I was Suaibhseach, daughter of Aedh, who died, as recorded in M1140.4.",
@@ -1890,7 +1890,7 @@ export const champions = [
   {
     "spriteKey": "113.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Éamonn",
     "nameEn": "wealthy guardian",
     "charBioEn": "I was Eamonn, son of Donnchadh, who died, as recorded in M1054.3. My word secured all I surveyed.",
@@ -1908,7 +1908,7 @@ export const champions = [
   {
     "spriteKey": "114.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maol Mhuire",
     "nameEn": "servant or devotee of St. Mary",
     "charBioEn": "I was Maelmuire, Comharba of Caisel-Irrra, who died, as recorded in M922.3. The wisdom of the saints flowed through me.",
@@ -1926,7 +1926,7 @@ export const champions = [
   {
     "spriteKey": "115.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Brocc",
     "nameEn": "sharp-faced",
     "charBioEn": "I was Brocc, protector of Fidhgardh, who died, as recorded in M660.2. None could breach the defenses under my watchful eye.",
@@ -1944,7 +1944,7 @@ export const champions = [
   {
     "spriteKey": "116.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Domhnall",
     "nameEn": "world mighty",
     "charBioEn": "I was Domhnall, Fenian and King of Ireland.",
@@ -1962,7 +1962,7 @@ export const champions = [
   {
     "spriteKey": "117.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Teimhnín",
     "nameEn": "dark-haired one",
     "charBioEn": "I was Teimhnin, protector of Ard Macha, who died, as recorded in M883.3.",
@@ -1980,7 +1980,7 @@ export const champions = [
   {
     "spriteKey": "118.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Daigh",
     "nameEn": "flame",
     "charBioEn": "I was Daigh, champion of Cluain Mic Nois, who died, as recorded in M955.3. My spirit burned brightest in the fray.",
@@ -1998,7 +1998,7 @@ export const champions = [
   {
     "spriteKey": "119.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Anamcha",
     "nameEn": "ambrose spirited",
     "charBioEn": "I was Anamcha, scribe of Ard Macha, who died, as recorded in M960.3. Ireland forever.",
@@ -2016,7 +2016,7 @@ export const champions = [
   {
     "spriteKey": "120.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mac Nisse",
     "nameEn": "son of Ness (goddess name)",
     "charBioEn": "I was Mac Nise, Judge of Condere, who died, as recorded in M513.2. My judgments were swift, my justice unyielding.",
@@ -2034,7 +2034,7 @@ export const champions = [
   {
     "spriteKey": "121.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aimhirghin",
     "nameEn": "born of song",
     "charBioEn": "I was Aimhirghin, chief poet of Ireland, who died, as recorded in M646.1.",
@@ -2052,7 +2052,7 @@ export const champions = [
   {
     "spriteKey": "122.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Finnseach",
     "nameEn": "blonde lady",
     "charBioEn": "I was Finnseach, daughter of Maelruanaidh, who died, as recorded in M1127.1.",
@@ -2070,7 +2070,7 @@ export const champions = [
   {
     "spriteKey": "123.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Íde",
     "nameEn": "thirsts for knowledge and goodness",
     "charBioEn": "I was Ide, daughter of Muircheartach, who died, as recorded in M1150.15. My counsel guided chieftains.",
@@ -2080,7 +2080,7 @@ export const champions = [
   {
     "spriteKey": "124.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tíreachán",
     "nameEn": "having land, wide-ruling",
     "charBioEn": "I was Tirechan, Judge of Ard Brecain, who died, as recorded in M848.3. My decrees are the law.",
@@ -2098,7 +2098,7 @@ export const champions = [
   {
     "spriteKey": "125.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Grian",
     "nameEn": "sun-goddess",
     "charBioEn": "I was Grian, daughter of Oilioll Olum, who fell in the battle of Grian, as recorded in M241.2. I stood as firm as the earth I defended.",
@@ -2116,7 +2116,7 @@ export const champions = [
   {
     "spriteKey": "126.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Robhartach",
     "nameEn": "rushing, impetuous",
     "charBioEn": "I was Robhartaigh, Comharba of Cainneach, who died, as recorded in M942.3. Impetuous was my spirit, sweeping away all obstacles.",
@@ -2134,7 +2134,7 @@ export const champions = [
   {
     "spriteKey": "127.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Muireadhach",
     "nameEn": "Anglicized to Murdoch, Murtagh, Murray; meaning Chieftain",
     "charBioEn": "I was Muireadhach Tireach, who 'expelled Colla Uais and his brothers to Scotland and later became king in M327.1.",
@@ -2152,7 +2152,7 @@ export const champions = [
   {
     "spriteKey": "128.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Eoghan",
     "nameEn": "born of the yew",
     "charBioEn": "I was Eoghan Mor, 'born of the yew,' a Champion who struck down the Druid Dadera at Ceannfeabhrat, as recorded in M186.2.",
@@ -2171,7 +2171,7 @@ export const champions = [
   {
     "spriteKey": "129.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Comhghall",
     "nameEn": "fellow hostage",
     "charBioEn": "I was Comhghall, spearman of Banagher, who fell in battle as recorded in M600.2. My spirit still holds the line.",
@@ -2190,7 +2190,7 @@ export const champions = [
   {
     "spriteKey": "130.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sorcha",
     "nameEn": "bright, radiant",
     "charBioEn": "I was Sorcha, 'bright, radiant,' daughter of Donnchadh, a swift Fenian.",
@@ -2209,7 +2209,7 @@ export const champions = [
   {
     "spriteKey": "131.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Niallán",
     "nameEn": "cloud or passionate, vehement",
     "charBioEn": "I was Niall, a Champion of Ireland.",
@@ -2228,7 +2228,7 @@ export const champions = [
   {
     "spriteKey": "132.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mael Íosa",
     "nameEn": "servant of Jesus",
     "charBioEn": "I was Mael Íosa, a Fighter and Judge of Cluain Mic Nóis.",
@@ -2247,7 +2247,7 @@ export const champions = [
   {
     "spriteKey": "133.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Treasach",
     "nameEn": "warlike; fierce",
     "charBioEn": "I was Treasach, 'warlike and fierce,' son of Donnchadh, a hero to my kin.",
@@ -2266,7 +2266,7 @@ export const champions = [
   {
     "spriteKey": "134.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Scannlán",
     "nameEn": "little trapper",
     "charBioEn": "I was Scannlán, the 'little trapper,' kern of Osraighe. My cunning snares any enemy, as recorded in M848.3.",
@@ -2285,7 +2285,7 @@ export const champions = [
   {
     "spriteKey": "135.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Aoife",
     "nameEn": "beautiful, radiant",
     "charBioEn": "I was Aoife, 'beautiful, radiant,' a Champion of Leinster, struck down by a rival's treachery.",
@@ -2304,7 +2304,7 @@ export const champions = [
   {
     "spriteKey": "136.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Osgar",
     "nameEn": "deer lover",
     "charBioEn": "I was Osgar, 'deer lover,' son of Oisin. My spear flew true.",
@@ -2323,7 +2323,7 @@ export const champions = [
   {
     "spriteKey": "137.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ceallach",
     "nameEn": "bright headed",
     "charBioEn": "I was Ceallach, 'bright headed,' son of Cormac. Mortally wounded by Aenghus Gaibhuaibhtheach in a border skirmish, as recorded in M265.2.",
@@ -2342,7 +2342,7 @@ export const champions = [
   {
     "spriteKey": "138.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dunfhlaith",
     "nameEn": "brown princess",
     "charBioEn": "I was Dunfhlaith, 'brown princess,' daughter of Fearghal, a Horsewoman of the western plains.",
@@ -2361,7 +2361,7 @@ export const champions = [
   {
     "spriteKey": "139.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uallach",
     "nameEn": "proud; arrogant",
     "charBioEn": "I was Uallach, 'proud, arrogant,' daughter of Muircheartach, a Fighter whose spirit soared above any challenge. The universe still feels my disdain.",
@@ -2380,7 +2380,7 @@ export const champions = [
   {
     "spriteKey": "140.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uainionn",
     "nameEn": "foam-white complexioned",
     "charBioEn": "I was Uainionn, 'foam-white complexioned,' daughter of Aedh, a Soldier lost in the mists of battle, as recorded in M1140.4.",
@@ -2399,7 +2399,7 @@ export const champions = [
   {
     "spriteKey": "141.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Searc",
     "nameEn": "Love, affection",
     "charBioEn": "I was Searc, 'Love, affection,' daughter of Maeleachlainn, a Fenian whose heart was gentle in a cold world, as recorded in M1127.1.",
@@ -2418,7 +2418,7 @@ export const champions = [
   {
     "spriteKey": "142.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cúmhaí",
     "nameEn": "hound of the plain",
     "charBioEn": "I was Cúmhaí, 'hound of the plain,' a Champion of Caisel-Irra. My loyalty was fierce.",
@@ -2437,7 +2437,7 @@ export const champions = [
   {
     "spriteKey": "143.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scáthach",
     "nameEn": "ghostly frightening",
     "charBioEn": "I am Scáthach, 'ghostly frightening,' the Warrior who forged Cú Chulainn.",
@@ -2456,7 +2456,7 @@ export const champions = [
   {
     "spriteKey": "144.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Báine",
     "nameEn": "paleness; whiteness",
     "charBioEn": "I was Báine, 'paleness, whiteness,' mother of Feidhlimidh Reachtmhar.",
@@ -2475,7 +2475,7 @@ export const champions = [
   {
     "spriteKey": "145.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ríona",
     "nameEn": "queenly",
     "charBioEn": "I was Ríona, 'queenly,' daughter of Concobhar.",
@@ -2494,7 +2494,7 @@ export const champions = [
   {
     "spriteKey": "146.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Osán",
     "nameEn": "little deer",
     "charBioEn": "I was Osán, 'little deer,' son of Donnchadh. Horseman of the forest trails.",
@@ -2513,7 +2513,7 @@ export const champions = [
   {
     "spriteKey": "117.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lachtna",
     "nameEn": "milk-white, milk-like",
     "charBioEn": "I was Lachtna, 'milk-white,' a Fighter of Ui Failghe. I watch over tranquil waters.",
@@ -2532,7 +2532,7 @@ export const champions = [
   {
     "spriteKey": "148.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gormghiolla",
     "nameEn": "grey servant",
     "charBioEn": "I was Gormghiolla, 'grey servant,' son of Muircheartach, a Soldier whose loyalty was unwavering.",
@@ -2551,7 +2551,7 @@ export const champions = [
   {
     "spriteKey": "149.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mochta",
     "nameEn": "great",
     "charBioEn": "I was Mochta, 'great,' Seer of Ard Macha, priest to Saint Patrick, as recorded in M448.2. My visions pierced the future.",
@@ -2570,7 +2570,7 @@ export const champions = [
   {
     "spriteKey": "150.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Molaisse",
     "nameEn": "My light",
     "charBioEn": "I was Molaisse, a Fenian of steadfast spirit.",
@@ -2589,7 +2589,7 @@ export const champions = [
   {
     "spriteKey": "151.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lachtnán",
     "nameEn": "milk-white, milk-like",
     "charBioEn": "I was Lachtnán, 'milk-white,' a Soldier who fell on the battlefield, as recorded in M960.3.",
@@ -2608,7 +2608,7 @@ export const champions = [
   {
     "spriteKey": "152.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ailbhe",
     "nameEn": "rock,  white, Gaulish World King.",
     "charBioEn": "I was Ailbhe, 'rock, white,' Seer of Imleach Iobhair. My foundation was unshakable truth.",
@@ -2627,7 +2627,7 @@ export const champions = [
   {
     "spriteKey": "153.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Moinnine",
     "nameEn": "ninne was the first word this saint spoke",
     "charBioEn": "Mo ninne, mo ninne, mo ninne.",
@@ -2646,7 +2646,7 @@ export const champions = [
   {
     "spriteKey": "154.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tóla",
     "nameEn": "abundance, flood",
     "charBioEn": "I was Tóla, 'abundance, flood,' Champion and Steward of Secrets of Cluain Iorairt.",
@@ -2665,7 +2665,7 @@ export const champions = [
   {
     "spriteKey": "155.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Diarmaid",
     "nameEn": "without injunction or envy",
     "charBioEn": "I was Diarmaid, 'without injunction or envy,' a Champion of Ireland.",
@@ -2684,7 +2684,7 @@ export const champions = [
   {
     "spriteKey": "156.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Liamhain",
     "nameEn": "comely, beautiful",
     "charBioEn": "I was Liamhain, 'comely, beautiful,' one of the four women Patrick excelled in wonders for.",
@@ -2703,7 +2703,7 @@ export const champions = [
   {
     "spriteKey": "157.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Muircheartach",
     "nameEn": "sea battler",
     "charBioEn": "I was Muircheartach, 'sea battler,' a Champion of Aileach. The ocean itself bent to my will, as recorded in M943.2.",
@@ -2721,7 +2721,7 @@ export const champions = [
   {
     "spriteKey": "158.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Lasair",
     "nameEn": "fire",
     "charBioEn": "I was Lasair, 'fire,' daughter of Donnchadh, a Fenian with a fiery spirit.",
@@ -2739,7 +2739,7 @@ export const champions = [
   {
     "spriteKey": "159.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Teafa",
     "nameEn": "a place name in Co. Longford",
     "charBioEn": "I was Teafa, daughter of Fearghal, a Heroine of quiet strength.",
@@ -2757,7 +2757,7 @@ export const champions = [
   {
     "spriteKey": "160.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Banbha",
     "nameEn": "an early goddess, also Ireland",
     "charBioEn": "I am Banbha. I fear no encroaching shadow, for I am Ireland.",
@@ -2775,7 +2775,7 @@ export const champions = [
   {
     "spriteKey": "161.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ánrothán",
     "nameEn": "sun-traveller, \nnobleman second to the king",
     "charBioEn": "I was Ánrothán, 'sun-traveller,' chief of Ui Eachach, a nobleman second only to the king.",
@@ -2793,7 +2793,7 @@ export const champions = [
   {
     "spriteKey": "162.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Meallá",
     "nameEn": "lightening",
     "charBioEn": "I was Meallá, 'lightning,' daughter of Muircheartach. Speak in whisper of my silver devil's blade.",
@@ -2811,7 +2811,7 @@ export const champions = [
   {
     "spriteKey": "163.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fionúir",
     "nameEn": "ghost, spirit",
     "charBioEn": "I was Fionuair, daughter of Conchobhar, who died, as recorded in M1157.9.",
@@ -2829,7 +2829,7 @@ export const champions = [
   {
     "spriteKey": "164.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Cassair",
     "nameEn": "curly-haired",
     "charBioEn": "I was Cassair, 'curly-haired,' I charted the old ways, and knew the earth's ancient heart.",
@@ -2847,7 +2847,7 @@ export const champions = [
   {
     "spriteKey": "165.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fearghus",
     "nameEn": "strength of a man",
     "charBioEn": "I was Fearghus Finn, 'strength of a man,' King of Ulster. I fell at Crionna Fregabhail.",
@@ -2865,7 +2865,7 @@ export const champions = [
   {
     "spriteKey": "166.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cormac",
     "nameEn": "the charioteer",
     "charBioEn": "I was Cormac, 'the charioteer,' King of Ireland and Alba. My 'death' by a salmon bone, M266.1",
@@ -2883,7 +2883,7 @@ export const champions = [
   {
     "spriteKey": "167.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cathaír",
     "nameEn": "battle lord",
     "charBioEn": "I was Cathaír Mor, 'battle lord,' King of Ireland, slain by Conn, as recorded in M122.1.",
@@ -2901,7 +2901,7 @@ export const champions = [
   {
     "spriteKey": "168.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Giolla Chríst",
     "nameEn": "servant of Christ",
     "charBioEn": "I was Giolla Chríst, 'servant of Christ,' Hand of Ard Macha, nephew of Patrick",
@@ -2919,7 +2919,7 @@ export const champions = [
   {
     "spriteKey": "169.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Seachlann",
     "nameEn": "from Latin secondus",
     "charBioEn": "Seachlann ab ainm dom. Tá mo oidhreacht greanta sna clocha naofa.",
@@ -2929,7 +2929,7 @@ export const champions = [
   {
     "spriteKey": "170.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Laoidheach",
     "nameEn": "songful, poetic",
     "charBioEn": "I was Laoidheach, 'songful, poetic,' chief poet of Leinster. My verses still bind the unseen forces.",
@@ -2947,7 +2947,7 @@ export const champions = [
   {
     "spriteKey": "171.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Caoimhín",
     "nameEn": "beautiful birth",
     "charBioEn": "I was Caoimhín, Champion of the vally of two lakes. as recorded in M1072.1.",
@@ -2965,7 +2965,7 @@ export const champions = [
   {
     "spriteKey": "172.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Murchú",
     "nameEn": "hound of the sea",
     "charBioEn": "I was Murchú, 'hound of the sea,' King of Leinster. My wrath was like the crashing waves.",
@@ -2983,7 +2983,7 @@ export const champions = [
   {
     "spriteKey": "173.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Scannal",
     "nameEn": "quarrel, argue",
     "charBioEn": "I was Scannal, 'quarrel,' a Fierce Kern of Ui Failghe, brought low by a rival's venom as recorded in M1014.2.",
@@ -3001,7 +3001,7 @@ export const champions = [
   {
     "spriteKey": "174.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oilleóg",
     "nameEn": "sprite, elf",
     "charBioEn": "I was Oilleóg, 'sprite, elf,' son of Cathal, a Fenian whose laughter echoes in forgotten glades, even after falling to a sudden fever, as recorded in M1170.1.",
@@ -3019,7 +3019,7 @@ export const champions = [
   {
     "spriteKey": "175.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dairinn",
     "nameEn": "daughter of Fionn",
     "charBioEn": "I was Dairinn, daughter of Fionn of the Fianna, a Swordswoman with deadly grace.",
@@ -3037,7 +3037,7 @@ export const champions = [
   {
     "spriteKey": "176.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Glaisne",
     "nameEn": "grey, grey-blue",
     "charBioEn": "I was Glaisne, 'grey, grey-blue,' a Champion of Caisel-Irra, as recorded in M922.3.",
@@ -3055,7 +3055,7 @@ export const champions = [
   {
     "spriteKey": "177.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Feardorcha",
     "nameEn": "dark man",
     "charBioEn": "I was Feardorcha, 'dark man,' son of Maelseachlainn. My shadow stretched across the land.",
@@ -3073,7 +3073,7 @@ export const champions = [
   {
     "spriteKey": "178.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Beagán",
     "nameEn": "little lad",
     "charBioEn": "I was Beagán, 'little lad,' Defender of Ard Brecáin, as recorded in M848.3. My stature was small, but my courage vast.",
@@ -3091,7 +3091,7 @@ export const champions = [
   {
     "spriteKey": "179.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ríordán",
     "nameEn": "royal poet",
     "charBioEn": "I was Ríordán, 'royal poet,' chief poet of Ireland, as recorded in M646.1. My words still echo through the very fabric of this realm.",
@@ -3109,7 +3109,7 @@ export const champions = [
   {
     "spriteKey": "180.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maeleachlainn",
     "nameEn": "servant, devotee of St. Seachnall",
     "charBioEn": "I was Maeleachlainn, 'devotee of St. Seachnall,' a Champion of Meath, as recorded in M1127.1. My devotion was a shield.",
@@ -3127,7 +3127,7 @@ export const champions = [
   {
     "spriteKey": "181.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dallán",
     "nameEn": "blind",
     "charBioEn": "I was Dallán Forgaill, 'blind' chief poet of Ireland, as recorded in M598.1.",
@@ -3145,7 +3145,7 @@ export const champions = [
   {
     "spriteKey": "182.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dubhgall",
     "nameEn": "dark foreigner",
     "charBioEn": "I was Dubhgall, 'dark foreigner,' a Horseman and Lord of Lochlann, falling in a storm at sea, as recorded in M871.12.",
@@ -3163,7 +3163,7 @@ export const champions = [
   {
     "spriteKey": "183.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tuileach",
     "nameEn": "prominent forehead",
     "charBioEn": "I was Tuileach, 'prominent forehead,' Defender of Ard Macha, as recorded in M883.3. My mind was a fortress, yet I yielded to the quiet peace of old age.",
@@ -3181,7 +3181,7 @@ export const champions = [
   {
     "spriteKey": "184.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Garbhán",
     "nameEn": "rough",
     "charBioEn": "I was Garbhán, 'rough,' artist of Cluain Mic Nóis, as recorded in M955.3. My hands shaped beauty from the raw earth.",
@@ -3199,7 +3199,7 @@ export const champions = [
   {
     "spriteKey": "185.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dubhaltach",
     "nameEn": "dark-limbed, black-jointed",
     "charBioEn": "I was Dubhaltach, 'dark-limbed,' scribe of Ard Macha.",
@@ -3217,7 +3217,7 @@ export const champions = [
   {
     "spriteKey": "186.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dáire",
     "nameEn": "erinn daughter of Fionn",
     "charBioEn": "I was Dáire, Fionn's daughter and one of the three Champions who purified Ireland's laws.",
@@ -3235,7 +3235,7 @@ export const champions = [
   {
     "spriteKey": "187.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saraid",
     "nameEn": "excellent, best",
     "charBioEn": "I was Saraid, 'excellent, best,' daughter of Conn of the Hundred Battles, and mother of heroes, a Warrior in my own right.",
@@ -3253,7 +3253,7 @@ export const champions = [
   {
     "spriteKey": "188.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aodhán",
     "nameEn": "the God of fire \nwhose names means fire.",
     "charBioEn": "I was Aodhán, the 'wolf of Iona.",
@@ -3271,7 +3271,7 @@ export const champions = [
   {
     "spriteKey": "189.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Síomha",
     "nameEn": "good peace",
     "charBioEn": "I was Síomha, 'good peace,' daughter of Donnchadh, a Fenian who brought silence to violence.",
@@ -3289,7 +3289,7 @@ export const champions = [
   {
     "spriteKey": "190.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Teamhair",
     "nameEn": "elevated place",
     "charBioEn": "I am Teamhair, 'elevated place,' spirit of Tara, ancient seat of Champions.",
@@ -3307,7 +3307,7 @@ export const champions = [
   {
     "spriteKey": "191.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cian",
     "nameEn": "ancient",
     "charBioEn": "I was Cian, 'ancient,' son of Oilioll Olum, a Hero who fell at Samhain, M241.2. I am the enduring past.",
@@ -3325,7 +3325,7 @@ export const champions = [
   {
     "spriteKey": "192.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fiachra",
     "nameEn": "battle-king",
     "charBioEn": "I was Fiachra, 'battle-king,' son of Eochaidh, father of Dathi. I am the source of future might.",
@@ -3343,7 +3343,7 @@ export const champions = [
   {
     "spriteKey": "193.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Séadhna",
     "nameEn": "traveller, wayfarer",
     "charBioEn": "I was Séadhna, 'traveller,' a Fenian of the church of thorns. I walked the path of truth. I walk it still.",
@@ -3361,7 +3361,7 @@ export const champions = [
   {
     "spriteKey": "194.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Damhnait",
     "nameEn": "fawn",
     "charBioEn": "I was Damhnait, 'fawn,' daughter of Conchobhar, M1157.9. A gentle hero.",
@@ -3379,7 +3379,7 @@ export const champions = [
   {
     "spriteKey": "195.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aodh",
     "nameEn": "fire",
     "charBioEn": "I was Aodh, 'fire,' a Champion of Connaught, M236.3. My wrath burned like a forge, consuming all in its path.",
@@ -3397,7 +3397,7 @@ export const champions = [
   {
     "spriteKey": "196.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Naomh",
     "nameEn": "saint",
     "charBioEn": "I was Naomh, 'saint,' a Soldier of divine will. I am the unseen guide.",
@@ -3415,7 +3415,7 @@ export const champions = [
   {
     "spriteKey": "197.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Iarlugh",
     "nameEn": "Iar + Lug Celtic gods",
     "charBioEn": "I was Iarlugh, Commander of Imleach Iobhair, M527.2. My command was absolute, my presence, divine.",
@@ -3433,7 +3433,7 @@ export const champions = [
   {
     "spriteKey": "198.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoithín",
     "nameEn": "blossom, bloom",
     "charBioEn": "I was Scoithin, daughter of Donnchadh, I died in M1054.3.",
@@ -3451,7 +3451,7 @@ export const champions = [
   {
     "spriteKey": "199.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoithniamh",
     "nameEn": "radiant blossom",
     "charBioEn": "I was Scoithniamh, 'radiant blossom,' daughter of Maelseachlainn, M1037.2. My radiance brightened the darkest days.",
@@ -3469,7 +3469,7 @@ export const champions = [
   {
     "spriteKey": "210.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ruarc",
     "nameEn": "hero, champion",
     "charBioEn": "I was Ruarc, 'hero, champion,' King of Breifne, M964.2. My prowess in battle was unmatched.",
@@ -3487,7 +3487,7 @@ export const champions = [
   {
     "spriteKey": "243.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bríghid",
     "nameEn": "high goddess",
     "charBioEn": "I was Bríghid, 'high goddess,' a revered saint, M525.2. My healing touch brought solace, my wisdom, light.",
@@ -3505,7 +3505,7 @@ export const champions = [
   {
     "spriteKey": "212.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Scolaí",
     "nameEn": "town crier, scholar",
     "charBioEn": "I was Scolaí, 'scholar,' Professor of Ireland in poetry, M1134.5. My words held power.",
@@ -3523,7 +3523,7 @@ export const champions = [
   {
     "spriteKey": "213.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Tuathla",
     "nameEn": "princess of the people",
     "charBioEn": "I was Tuathla, 'princess of the people,' a Fenian defender of the common folk.",
@@ -3541,7 +3541,7 @@ export const champions = [
   {
     "spriteKey": "214.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Baoth",
     "nameEn": "vain, reckless, foolish",
     "charBioEn": "I was Baothghalach, 'reckless,' chief of Ui Eachach, M1057.2. I was bold, my spirit unbridled.",
@@ -3559,7 +3559,7 @@ export const champions = [
   {
     "spriteKey": "215.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoth",
     "nameEn": "blossom, bloom",
     "charBioEn": "I was Scoth, 'blossom,' daughter of Donnchadh.",
@@ -3577,7 +3577,7 @@ export const champions = [
   {
     "spriteKey": "216.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Neasán",
     "nameEn": "Stoat",
     "charBioEn": "I was Neasán, 'Stoat,' battle leader of Cill Delge, M904.3.",
@@ -3595,7 +3595,7 @@ export const champions = [
   {
     "spriteKey": "217.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Luiseach",
     "nameEn": "radiant girl",
     "charBioEn": "I was Luiseach, 'radiant girl,' daughter of Maelseachlainn, M1037.2. My blade banished shadows.",
@@ -3613,7 +3613,7 @@ export const champions = [
   {
     "spriteKey": "218.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Finnén",
     "nameEn": "fair",
     "charBioEn": "I was Finnian of Cluain Iraird, a prominent saint and monastic founder, who died as recorded in M548.2.",
@@ -3631,7 +3631,7 @@ export const champions = [
   {
     "spriteKey": "219.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ultán",
     "nameEn": "Ulsterman",
     "charBioEn": "I was Ultan, fighter of Ard Brecain, who died, as recorded in M848.3.",
@@ -3649,7 +3649,7 @@ export const champions = [
   {
     "spriteKey": "220.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Nárbhflaith",
     "nameEn": "noble princess",
     "charBioEn": "I was Narbhfhlaith, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -3667,7 +3667,7 @@ export const champions = [
   {
     "spriteKey": "221.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Éanna",
     "nameEn": "birdlike",
     "charBioEn": "I was Enna Ceinnseallach, whose son Eochaidh slew Niall of the Nine Hostages, as recorded in M405.1.",
@@ -3685,7 +3685,7 @@ export const champions = [
   {
     "spriteKey": "222.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rónnad",
     "nameEn": "seal",
     "charBioEn": "I was Ronnait, shapeshifter of the cold waves. I guided lost heroes. I battled a sea-dragon and Fomorian ships with the ocean's fury, as recorded in M1150.15.",
@@ -3703,7 +3703,7 @@ export const champions = [
   {
     "spriteKey": "223.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Neasa",
     "nameEn": "not gentle",
     "charBioEn": "I was Neasa, whose patience was as thin as a midsummer's frost, as recorded in M1147.9.",
@@ -3721,7 +3721,7 @@ export const champions = [
   {
     "spriteKey": "224.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cillian",
     "nameEn": "church",
     "charBioEn": "I was Cillian, blade master of the ancient order, as recorded in M1001.3.",
@@ -3739,7 +3739,7 @@ export const champions = [
   {
     "spriteKey": "125.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Olcán",
     "nameEn": "wolf",
     "charBioEn": "I was Olcan, hero of Ard Brecain, who died, as recorded in M848.3.",
@@ -3757,7 +3757,7 @@ export const champions = [
   {
     "spriteKey": "226.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lonán",
     "nameEn": "blackbird",
     "charBioEn": "I was Lonan, charioteer of Cluain Mic Nois, who died, as recorded in M955.3.",
@@ -3775,7 +3775,7 @@ export const champions = [
   {
     "spriteKey": "227.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Treasa",
     "nameEn": "strength",
     "charBioEn": "I was Treasa, daughter of Conchobhar, who died, as recorded in M1157.9.",
@@ -3793,7 +3793,7 @@ export const champions = [
   {
     "spriteKey": "228.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sárnait",
     "nameEn": "chief, noble, best",
     "charBioEn": "I was Sarnait, daughter of Donnchadh, who died, as recorded in M1161.12.",
@@ -3811,7 +3811,7 @@ export const champions = [
   {
     "spriteKey": "229.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Osnait",
     "nameEn": "deer",
     "charBioEn": "I was Osnait, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -3829,7 +3829,7 @@ export const champions = [
   {
     "spriteKey": "230.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Echna",
     "nameEn": "steed",
     "charBioEn": "I was Echna, daughter of Maelseachlainn, who died, as recorded in M1037.2.",
@@ -3847,7 +3847,7 @@ export const champions = [
   {
     "spriteKey": "231.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Seanán",
     "nameEn": "old, ancient",
     "charBioEn": "I was Senan, caller of the bog of Inis Cathaigh, who died, as recorded in M546.2.",
@@ -3865,7 +3865,7 @@ export const champions = [
   {
     "spriteKey": "232.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Easnadh",
     "nameEn": "musical sound",
     "charBioEn": "I was Easnadh, daughter of Donnchadh, who died, as recorded in M1054.3.",
@@ -3883,7 +3883,7 @@ export const champions = [
   {
     "spriteKey": "233.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oillill",
     "nameEn": "sprite, elf",
     "charBioEn": "I was Oilioll Olum, King of Munster, who died as recorded in M234.2.",
@@ -3901,7 +3901,7 @@ export const champions = [
   {
     "spriteKey": "234.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uaithne",
     "nameEn": "greenish, from a tribal name",
     "charBioEn": "I was Uaithne, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -3919,7 +3919,7 @@ export const champions = [
   {
     "spriteKey": "235.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Bardán",
     "nameEn": "poet, bard",
     "charBioEn": "I was Bardan, ollamh of Ireland in poetry, who died, as recorded in M1134.5.",
@@ -3937,7 +3937,7 @@ export const champions = [
   {
     "spriteKey": "236.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Síoda",
     "nameEn": "silk",
     "charBioEn": "I was Sioda, daughter of Concobhar, who died, as recorded in M1157.9.",
@@ -3955,7 +3955,7 @@ export const champions = [
   {
     "spriteKey": "237.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Iarfhlaith",
     "nameEn": "western kingdom",
     "charBioEn": "I was Iarfhlaith, Chief of Tuaim, who died, as recorded in M1153.2.",
@@ -3973,7 +3973,7 @@ export const champions = [
   {
     "spriteKey": "238.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Eirnín",
     "nameEn": "iron",
     "charBioEn": "I was Eirnin, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -3991,7 +3991,7 @@ export const champions = [
   {
     "spriteKey": "239.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Daimhín",
     "nameEn": "deer or ox",
     "charBioEn": "I was Daimhin, Lark of Ard Macha who died, as recorded in M1096.2.",
@@ -4009,7 +4009,7 @@ export const champions = [
   {
     "spriteKey": "240.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fianait",
     "nameEn": "wild creature, deer",
     "charBioEn": "I was Fianait, daughter of Maeleachlainn, who died, as recorded in M1127.1.",
@@ -4027,7 +4027,7 @@ export const champions = [
   {
     "spriteKey": "241.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Tanaí",
     "nameEn": "slender, subtle",
     "charBioEn": "I was Tanai, daughter of Donnchadh, who died, as recorded in M1054.3.",
@@ -4045,7 +4045,7 @@ export const champions = [
   {
     "spriteKey": "242.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Leannán",
     "nameEn": "sweetheart",
     "charBioEn": "I was Leannan, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -4063,7 +4063,7 @@ export const champions = [
   {
     "spriteKey": "211.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Urard",
     "nameEn": "very tall",
     "charBioEn": "I was Urard, Comharba of Caisel-Irrra, who died, as recorded in M922.3.",
@@ -4081,7 +4081,7 @@ export const champions = [
   {
     "spriteKey": "144.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lughaidh",
     "nameEn": "light, brightness",
     "charBioEn": "I was Lughaidh, I became king in M196.1, and later 'fell by the hand of Feircis,' as recorded in M225.1.",
@@ -4099,7 +4099,7 @@ export const champions = [
   {
     "spriteKey": "245.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Iobhar",
     "nameEn": "yew tree",
     "charBioEn": "I was Iobhar, Sage of Imleach Iobhair, who died, as recorded in M527.2.",
@@ -4117,7 +4117,7 @@ export const champions = [
   {
     "spriteKey": "246.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Róisín",
     "nameEn": "Norse word for horse. \nAlso means little rose.",
     "charBioEn": "I was Roisin, daughter of Concobhar, who died, as recorded in M1157.9.",
@@ -4135,7 +4135,7 @@ export const champions = [
   {
     "spriteKey": "247.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conn",
     "nameEn": "wisdom, chief",
     "charBioEn": "I was Conn of the Hundred Battles, who became king in M123.1, and 'was slain by Tibraite Tireach' after thirty-five years, as recorded in M157.1.",
@@ -4153,7 +4153,7 @@ export const champions = [
   {
     "spriteKey": "248.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cearbhall",
     "nameEn": "brave in sword-fighting, \nvalorous",
     "charBioEn": "I was Cearbhall, King of Leinster, who died, as recorded in M909.2.",
@@ -4171,7 +4171,7 @@ export const champions = [
   {
     "spriteKey": "249.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Colmán",
     "nameEn": "from Latin 'dove'",
     "charBioEn": "I was Colman, Judge of Fionnabhair, who died, as recorded in M1001.3.",
@@ -4189,7 +4189,7 @@ export const champions = [
   {
     "spriteKey": "250.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Íonait",
     "nameEn": "faithful, pure, sincere",
     "charBioEn": "I was Ionait, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -4207,7 +4207,7 @@ export const champions = [
   {
     "spriteKey": "251.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muireann",
     "nameEn": "sea fair",
     "charBioEn": "I was Muireann, daughter of Maelseachlainn, who died, as recorded in M1037.2.",
@@ -4225,7 +4225,7 @@ export const champions = [
   {
     "spriteKey": "252.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Eithne",
     "nameEn": "kernal or gorse",
     "charBioEn": "I was Eithne, daughter of Aedh, who died, as recorded in M1140.4.",
@@ -4243,7 +4243,7 @@ export const champions = [
   {
     "spriteKey": "253.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Deaglán",
     "nameEn": "full of goodness",
     "charBioEn": "I was Declan, Champion of Ard More, who died, as recorded in M544.2.",
@@ -4261,7 +4261,7 @@ export const champions = [
   {
     "spriteKey": "254.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Caoimhe",
     "nameEn": "beauty or grace",
     "charBioEn": "I was Caoimhe, daughter of Conchobhar, who died, as recorded in M1157.9.",
@@ -4279,7 +4279,7 @@ export const champions = [
   {
     "spriteKey": "255.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Róinseach",
     "nameEn": "seal",
     "charBioEn": "I was Roinseach, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -4297,7 +4297,7 @@ export const champions = [
   {
     "spriteKey": "256.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ruaidhrí",
     "nameEn": "red king",
     "charBioEn": "I was Ruaidhri, King of Connaught, who died, as recorded in M1156.2.",
@@ -4315,7 +4315,7 @@ export const champions = [
   {
     "spriteKey": "257.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Geiléis",
     "nameEn": "bright swan",
     "charBioEn": "I was Geileis, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -4333,7 +4333,7 @@ export const champions = [
   {
     "spriteKey": "258.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Miach",
     "nameEn": "honorable, proud",
     "charBioEn": "I was Miach, chief of Ui Eachach, who died, as recorded in M1057.2.",
@@ -4351,7 +4351,7 @@ export const champions = [
   {
     "spriteKey": "259.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Labhrás",
     "nameEn": "laurel bush",
     "charBioEn": "I was Labhras once upon a time. The Terror of Ard Macha, who died, as recorded in M1096.2.",
@@ -4369,7 +4369,7 @@ export const champions = [
   {
     "spriteKey": "260.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Abbán",
     "nameEn": "little abbot",
     "charBioEn": "I was Abban, abbot of Ros Mic Treoin, who died, as recorded in M520.2.",
@@ -4387,7 +4387,7 @@ export const champions = [
   {
     "spriteKey": "261.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uaine",
     "nameEn": "greenish, from a tribal name",
     "charBioEn": "I was Uaine, daughter of Donnchadh, who died, as recorded in M1054.3.",
@@ -4405,7 +4405,7 @@ export const champions = [
   {
     "spriteKey": "262.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ólchobhar",
     "nameEn": "lover of drink",
     "charBioEn": "I was Olchobhar, King of Munster, who died, as recorded in M851.2.",
@@ -4423,7 +4423,7 @@ export const champions = [
   {
     "spriteKey": "263.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Nuadha",
     "nameEn": "possibly, cloud-maker \nCeltic god name",
     "charBioEn": "I was Nuadha Neacht, who 'fell in the battle of Cliach, in Ui Drona, by Conaire Mor,' as recorded in M5090.1.",
@@ -4441,7 +4441,7 @@ export const champions = [
   {
     "spriteKey": "264.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fearghal",
     "nameEn": "manly or valorous",
     "charBioEn": "I was Fearghal, King of Ireland, who died, as recorded in M722.2.",
@@ -4459,7 +4459,7 @@ export const champions = [
   {
     "spriteKey": "265.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rathnait",
     "nameEn": "grace, prosperity",
     "charBioEn": "I was Rathnait, daughter of Conchobhar, who died, as recorded in M1157.9.",
@@ -4477,7 +4477,7 @@ export const champions = [
   {
     "spriteKey": "266.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Laoise",
     "nameEn": "girl",
     "charBioEn": "I was Laoiseach, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -4495,7 +4495,7 @@ export const champions = [
   {
     "spriteKey": "267.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ailill",
     "nameEn": "elf",
     "charBioEn": "I was Oilioll Olum, King of Munster, who died as recorded in M234.2.",
@@ -4513,7 +4513,7 @@ export const champions = [
   {
     "spriteKey": "268.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maolán",
     "nameEn": "warrior",
     "charBioEn": "I was Maolan, chief of Ui Eachach, who died, as recorded in M1057.2.",
@@ -4531,7 +4531,7 @@ export const champions = [
   {
     "spriteKey": "269.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Líobhan",
     "nameEn": "beauty of women",
     "charBioEn": "I was Liobhan, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -4549,7 +4549,7 @@ export const champions = [
   {
     "spriteKey": "270.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Laisrén",
     "nameEn": "flame",
     "charBioEn": "I was Laisren, light of Leighlin, who died, as recorded in M638.2.",
@@ -4567,7 +4567,7 @@ export const champions = [
   {
     "spriteKey": "271.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fachtna",
     "nameEn": "malicious, hostile",
     "charBioEn": "I was Fachtna, scourge of Ros Mic Treoin, who died, as recorded in M520.2.",
@@ -4585,7 +4585,7 @@ export const champions = [
   {
     "spriteKey": "272.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maon",
     "nameEn": "silent",
     "charBioEn": "I was Maonach, clansman of Ard More, who died, as recorded in M544.2.",
@@ -4603,7 +4603,7 @@ export const champions = [
   {
     "spriteKey": "273.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Somhairle",
     "nameEn": "from Norse, summer wanderer",
     "charBioEn": "I was Somhairle, Lord of the Isles, who died, as recorded in M1164.3.",
@@ -4621,7 +4621,7 @@ export const champions = [
   {
     "spriteKey": "274.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Neacht",
     "nameEn": "pure",
     "charBioEn": "I was Nuadha Neacht, who 'fell in the battle of Cliach, in Ui Drona, by Conaire Mor,' as recorded in M5090.1.",
@@ -4639,7 +4639,7 @@ export const champions = [
   {
     "spriteKey": "275.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Buadhach",
     "nameEn": "Victorious",
     "charBioEn": "I was Buadhach, King of Breifne, who died, as recorded in M964.2.",
@@ -4657,7 +4657,7 @@ export const champions = [
   {
     "spriteKey": "276.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tadhg",
     "nameEn": "Thaddeus, Theodosius, \nTheophilus, poet",
     "charBioEn": "I was Tadhg, son of Cian, to whom Cormac gave the land of Ciannachta in Magh Breagh as a territorial reward for battle, as recorded in M226.1.",
@@ -4675,7 +4675,7 @@ export const champions = [
   {
     "spriteKey": "277.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muirín",
     "nameEn": "born of the sea",
     "charBioEn": "I was Muirinn, daughter of Maelseachlainn, who died, as recorded in M1037.2.",
@@ -4693,7 +4693,7 @@ export const champions = [
   {
     "spriteKey": "278.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Niall",
     "nameEn": "cloud or passionate, vehement",
     "charBioEn": "I was Niall of the Nine Hostages, son of Eochaidh Muighmheadhoin, who became king in M379.1 and was slain in M405.1.",
@@ -4711,7 +4711,7 @@ export const champions = [
   {
     "spriteKey": "279.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Mór",
     "nameEn": "great",
     "charBioEn": "I was Mor, daughter of Donnchadh, who died, as recorded in M1054.3.",
@@ -4729,7 +4729,7 @@ export const champions = [
   {
     "spriteKey": "280.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Aoibhegréine",
     "nameEn": "radiance of the sun",
     "charBioEn": "I was Aoibhgreine, daughter of Concobhar, who died, as recorded in M1157.9.",
@@ -4747,7 +4747,7 @@ export const champions = [
   {
     "spriteKey": "281.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conchobhar",
     "nameEn": "lover of hounds",
     "charBioEn": "I was Conchobhar Abhradhruadh, who 'was one year in the sovereignty of Ireland, when I was slain by Crimhthann,' as recorded in M5192.1.",
@@ -4765,7 +4765,7 @@ export const champions = [
   {
     "spriteKey": "282.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mac Táil",
     "nameEn": "son of adze",
     "charBioEn": "I was Mac Tail, goldsmith of Cill Chuilinn, who died, as recorded in M489.2.",
@@ -4783,7 +4783,7 @@ export const champions = [
   {
     "spriteKey": "283.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rúadhán",
     "nameEn": "red haired",
     "charBioEn": "I was Ruadhan, chieftain of Lothra, who died, as recorded in M583.2.",
@@ -4801,7 +4801,7 @@ export const champions = [
   {
     "spriteKey": "284.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mainchín",
     "nameEn": "monk",
     "charBioEn": "I was Mainchin, abbot of Leitir Lom, who died, as recorded in M652.2.",
@@ -4819,7 +4819,7 @@ export const champions = [
   {
     "spriteKey": "285.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Órlaith",
     "nameEn": "golden princess",
     "charBioEn": "I was Orlaith, daughter of Níamh. I fought for justice.",
@@ -4837,7 +4837,7 @@ export const champions = [
   {
     "spriteKey": "286.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éabha",
     "nameEn": "Life",
     "charBioEn": "Her kin are mighty, of noble stock.\nAnd the fair folk of the sídhe smile upon her.\nÉabha, bridge between worlds.\nÉabha, fairest daughter of Éire.\nShe shall be a light, Guiding the lost.",
@@ -4855,7 +4855,7 @@ export const champions = [
   {
     "spriteKey": "287.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Deirdre",
     "nameEn": "chatterer or daughter. Deirdre of the sorrows \nenvy of Queens",
     "charBioEn": "I was Deirdre of the Fianna. Keen eye, silent tread. The forest shared its secrets, and no plunder escaped my pursuit.",
@@ -4873,7 +4873,7 @@ export const champions = [
   {
     "spriteKey": "288.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fionnait",
     "nameEn": "fair-haired, white",
     "charBioEn": "I was Fionnait, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -4891,7 +4891,7 @@ export const champions = [
   {
     "spriteKey": "289.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Labhraidh",
     "nameEn": "speaker",
     "charBioEn": "I was Labhraidh, King of Leix, who died, as recorded in M1063.2.",
@@ -4909,7 +4909,7 @@ export const champions = [
   {
     "spriteKey": "290.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Brónach",
     "nameEn": "sorrowful",
     "charBioEn": "I was Bronach, daughter of Donnchadh, who died, as recorded in M1054.3.",
@@ -4927,7 +4927,7 @@ export const champions = [
   {
     "spriteKey": "291.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Suanach",
     "nameEn": "drowsy",
     "charBioEn": "I was Suanach, Comharba of Caisel-Irrra, who died, as recorded in M922.3.",
@@ -4945,7 +4945,7 @@ export const champions = [
   {
     "spriteKey": "292.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Taichleach",
     "nameEn": "placating, peacemaking",
     "charBioEn": "I was Taichleach, chief of Ui Eachach, who died, as recorded in M1057.2.",
@@ -4963,7 +4963,7 @@ export const champions = [
   {
     "spriteKey": "293.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rónán",
     "nameEn": "little seal",
     "charBioEn": "I was Ronan, warrior of Fionnabhair, who died, as recorded in M1001.3.",
@@ -4981,7 +4981,7 @@ export const champions = [
   {
     "spriteKey": "294.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Murchadh",
     "nameEn": "sea battler",
     "charBioEn": "I was Murchadh, King of Leinster, who died, as recorded in M1127.1.",
@@ -4999,7 +4999,7 @@ export const champions = [
   {
     "spriteKey": "295.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Laoire",
     "nameEn": "calf-herd",
     "charBioEn": "I was Laeghaire, King of Ireland, claimed the wrath of a sudden flood in M438.2.",
@@ -5017,7 +5017,7 @@ export const champions = [
   {
     "spriteKey": "296.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ríoghán",
     "nameEn": "little king",
     "charBioEn": "I was Rioghan, King of Connaught, and a warrior, died in fury M1156.2.",
@@ -5035,7 +5035,7 @@ export const champions = [
   {
     "spriteKey": "297.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Tuilelaith",
     "nameEn": "lady of abundance of sovereignty",
     "charBioEn": "I was Tuilelaith, daughter of Conchobhar,  I died in M1157.9 worn out by years of wisdom.",
@@ -5053,7 +5053,7 @@ export const champions = [
   {
     "spriteKey": "298.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gobnait",
     "nameEn": "smith",
     "charBioEn": "I was Gobnait the saint who died leaving a legacy of peace.",
@@ -5071,7 +5071,7 @@ export const champions = [
   {
     "spriteKey": "299.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fionntán",
     "nameEn": "white ancient/fire",
     "charBioEn": "I was Fionntan, chief poet of Ireland, I finished my tale in M646.1.",
@@ -5089,7 +5089,7 @@ export const champions = [
   {
     "spriteKey": "100.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aonghus",
     "nameEn": "sole strength or true choice",
     "charBioEn": "I was Aenghus Finn, son of Fearghus Duibhdeadach, King of Ulster, Ifell in the battle of Crionna Fregabhail, as recorded in M262.2.",
@@ -5107,7 +5107,7 @@ export const champions = [
   {
     "spriteKey": "101.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áinfean",
     "nameEn": "storm, fury, violence",
     "charBioEn": "I was Ainfen, daughter of Fearghal, my final breath a contented sigh, as recorded in M1147.9.",
@@ -5125,7 +5125,7 @@ export const champions = [
   {
     "spriteKey": "102.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Coinneach",
     "nameEn": "sorrowful",
     "charBioEn": "I was Coinneach, noble warrior of Cluain Iorairt, I departed for the Western Isles in M738.3.",
@@ -5143,7 +5143,7 @@ export const champions = [
   {
     "spriteKey": "103.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Torcán",
     "nameEn": "wild boar",
     "charBioEn": "I was Torcan, Comharba of Caisel-Irrra, who died defending the ancient border, as recorded in M922.3.",
@@ -5161,7 +5161,7 @@ export const champions = [
   {
     "spriteKey": "104.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Earnán",
     "nameEn": "iron",
     "charBioEn": "I was Earnan, sword of Ard More, who died of a sudden, choking ailment as recorded in M544.2.",
@@ -5179,7 +5179,7 @@ export const champions = [
   {
     "spriteKey": "105.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cathal",
     "nameEn": "strong in battle",
     "charBioEn": "I was Cathal, King of Connaught, who died of the plague in M1170.1.",
@@ -5197,7 +5197,7 @@ export const champions = [
   {
     "spriteKey": "106.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gobán",
     "nameEn": "smith",
     "charBioEn": "I was Goban Saor, a legendary master of blades, slain by a rogue beast.",
@@ -5215,7 +5215,7 @@ export const champions = [
   {
     "spriteKey": "107.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Deirbhile",
     "nameEn": "daughter of a poet",
     "charBioEn": "I was Deirbhile, daughter of Fearghal, who died in ambush on the pilgrim's path, as recorded in M1147.9.",
@@ -5233,7 +5233,7 @@ export const champions = [
   {
     "spriteKey": "108.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Caoilfhionn",
     "nameEn": "fair and slender",
     "charBioEn": "I was Caoilfhionn, daughter of Muircheartach, who died, as recorded in M1150.15.",
@@ -5251,7 +5251,7 @@ export const champions = [
   {
     "spriteKey": "109.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Gormlaith",
     "nameEn": "blue/illustrious princess",
     "charBioEn": "I was Gormlaith, daughter of Fearghal, who died overwhelmed by raiding Norsemen, as recorded in M1147.9.",
@@ -5269,7 +5269,7 @@ export const champions = [
   {
     "spriteKey": "200.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fearchar",
     "nameEn": "friendly",
     "charBioEn": "I was Fearchar O'Flannagain, Lord of Feara Ceall, who died, as recorded in M1160.1.",
@@ -5287,7 +5287,7 @@ export const champions = [
   {
     "spriteKey": "201.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Lasairfhiona",
     "nameEn": "flame wine",
     "charBioEn": "I was Lasairfhiona, daughter of Donnchadh, who died when my pact with the unseen forces unravelled, in 1054.3.",
@@ -5305,7 +5305,7 @@ export const champions = [
   {
     "spriteKey": "202.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Daighre",
     "nameEn": "flame, fire",
     "charBioEn": "I was Daighre, hound of Ard Macha, who died, as recorded in M883.3.",
@@ -5323,7 +5323,7 @@ export const champions = [
   {
     "spriteKey": "203.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ámhra",
     "nameEn": "very wonderful",
     "charBioEn": "I was Amhra, chief poet of Ireland, who succumbed to the bog's embrace, as recorded in M646.1.",
@@ -5341,7 +5341,7 @@ export const champions = [
   {
     "spriteKey": "204.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Séanait",
     "nameEn": "hawk",
     "charBioEn": "I was Seanait, daughter of Concobhar, who died, lost to the depths of a hidden cave in M1157.9.",
@@ -5359,7 +5359,7 @@ export const champions = [
   {
     "spriteKey": "205.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Samhradhán",
     "nameEn": "summery person",
     "charBioEn": "I was Samhradhan, Comharba of Caisel-Irrra, who died the weight of my prophecies fulfilled, as recorded in M922.3.",
@@ -5377,7 +5377,7 @@ export const champions = [
   {
     "spriteKey": "206.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tighearnach",
     "nameEn": "Lord",
     "charBioEn": "I was Tighernach, hawk of Cluain Mic Nois, who died, as recorded in M955.3.",
@@ -5395,7 +5395,7 @@ export const champions = [
   {
     "spriteKey": "207.png",
     "monologueID": 1,
-    "gender": "m",
+    "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Uallgarg",
     "nameEn": "fierce pride",
     "charBioEn": "I was Uallgarg, King of Ui Failghe, who died, as recorded in M1014.2.",
@@ -5413,7 +5413,7 @@ export const champions = [
   {
     "spriteKey": "208.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Aoibheann",
     "nameEn": "beautiful radiance",
     "charBioEn": "I was Aoibhinn, daughter of Fearghal, who died, as recorded in M1147.9.",
@@ -5431,7 +5431,7 @@ export const champions = [
   {
     "spriteKey": "209.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muirne",
     "nameEn": "high spirited, festive",
     "charBioEn": "I was Muirne, daughter of Maelseachlainn, who avenged an ancient slight, then fell in M1037.2.",
@@ -5449,7 +5449,7 @@ export const champions = [
   {
     "spriteKey": "300.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Líadan",
     "nameEn": "grey lady",
     "charBioEn": "I was Liadan, a poetess of Corca Dhuibhne, who perished sealing a portal to the void.",
@@ -5467,7 +5467,7 @@ export const champions = [
   {
     "spriteKey": "301.png",
     "monologueID": 1,
-    "gender": "f",
+    "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Órnait",
     "nameEn": "sallow",
     "charBioEn": "I was Ornait, daughter of Muircheartach, struck down by a vengeful spirit, as recorded in M1150.15.",

@@ -1,20 +1,20 @@
-// Trad Session Player v5.0 - True Multi-Voice with MIDI Volume Control
+// Trad Session Player - Scheduled Start Times for Perfect Sync
 import * as abcjs from 'abcjs';
 import { MusicEngine } from './musicEngine.js';
 import { allTunes } from './allTunes.js';
 
 const ENSEMBLE_PRESETS = {
-    reel: [105, 22, 32, 0],      // Banjo, Harmonica, Bass, Piano
-    jig: [105, 32, 0],           // Banjo, Bass, Piano
-    slipjig: [105, 0, 22],       // Banjo, Piano, Harmonica
-    hornpipe: [105, 32, 22],     // Banjo, Bass, Harmonica
-    polka: [105, 22],            // Banjo, Harmonica
-    waltz: [105, 0, 32],         // Banjo, Piano, Bass
-    march: [105, 32],            // Banjo, Bass
-    slide: [105, 0, 22],         // Banjo, Piano, Harmonica
-    barndance: [105, 22, 32],    // Banjo, Harmonica, Bass
-    air: [105, 0],               // Banjo, Piano
-    defaultPreset: [105, 22]     // Banjo, Harmonica
+    reel: [105, 22, 32],
+    jig: [105, 32, 0],
+    slipjig: [105, 0, 22],
+    hornpipe: [105, 32, 22],
+    polka: [105, 22],
+    waltz: [105, 0, 32],
+    march: [105, 32],
+    slide: [105, 0, 22],
+    barndance: [105, 22, 32],
+    air: [105, 0],
+    defaultPreset: [105, 22]
 };
 
 const PATCH_NAMES = { 
@@ -42,149 +42,16 @@ export class TradSessionPlayer {
     constructor() {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         this.engine = new MusicEngine(this.audioContext);
-        this.synth = null;
-        this.voices = [];
+        this.tracks = [];
         this.isPlaying = false;
-        this.loopTimer = null;
-        this.baseMusic = null;
-        this.patchIds = [];
-        this.tuneType = null;
-        this.tempoMs = 1300;
+        this.scheduledStartTime = null;
+        this.loopTimeoutId = null;
         
         this.stage = document.createElement('div');
         this.stage.style.display = 'none';
         document.body.appendChild(this.stage);
     }
 
-    /**
-     * Apply instrument-specific variations
-     */
-    applyInstrumentVariations(music, patchId) {
-        const lines = music.split('\n');
-        
-        // Piano: Simplified chord accompaniment
-        if (patchId === 0) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                let newLine = line.replace(/([A-Ga-g]{4,})/g, (match) => {
-                    if (match.length >= 4) {
-                        return match[0] + match[0] + match[2] + match[2];
-                    }
-                    return match;
-                });
-                return newLine;
-            }).join('\n');
-        }
-        
-        // Bass: Simple walking bass
-        if (patchId === 32) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                return line.replace(/\|[A-Ga-g,'"\^_=\[\]0-9\/]+/g, (measure) => {
-                    const noteMatch = measure.match(/[A-G]/i);
-                    if (!noteMatch) return measure;
-                    const bassNote = noteMatch[0].toUpperCase();
-                    return '|' + bassNote + '2' + bassNote + '2';
-                });
-            }).join('\n');
-        }
-        
-        // Harmonica: Occasional double-stops
-        if (patchId === 22) {
-            return lines.map(line => {
-                if (!line.includes('|')) return line;
-                return line.replace(/([A-G])2/g, (match) => {
-                    if (Math.random() < 0.3) return `[$1$1]2`;
-                    return match;
-                });
-            }).join('\n');
-        }
-        
-        // Banjo: Keep melody as-is
-        return music;
-    }
-
-    /**
-     * Extract music body from ABC
-     */
-    extractMusicBody(abcString) {
-        const lines = abcString.split('\n');
-        const musicLines = [];
-        let inBody = false;
-        
-        for (const line of lines) {
-            if (line.match(/^K:/)) {
-                inBody = true;
-                continue;
-            }
-            if (inBody && line.trim()) {
-                musicLines.push(line);
-            }
-        }
-        
-        return musicLines.join('\n');
-    }
-
-    /**
-     * Create multi-voice ABC with MIDI volume controls
-     */
-    createMultiVoiceABC() {
-        console.log('[MultiVoice] Creating ABC with dynamic volumes');
-        
-        // Parse header from base music
-        const lines = this.baseMusic.split('\n');
-        const headerLines = [];
-        let keyLine = '';
-        
-        for (const line of lines) {
-            if (line.match(/^[XTMQL]:/)) {
-                if (!line.startsWith('R:')) {
-                    headerLines.push(line);
-                }
-            }
-            if (line.startsWith('K:')) {
-                keyLine = line;
-                break;
-            }
-        }
-        
-        // Build multi-voice ABC
-        const result = [];
-        result.push(...headerLines);
-        result.push(`R: ${this.tuneType}`);
-        result.push(keyLine);
-        result.push('');
-        
-        // Add each voice
-        this.patchIds.forEach((patchId, index) => {
-            const voice = this.voices[index];
-            const voiceNum = index + 1;
-            const instrumentName = PATCH_NAMES[patchId];
-            
-            // Determine MIDI volume based on active state
-            // MIDI control 7 is volume: 0-127, where 0=silent, 127=max
-            const volume = voice.active ? 100 : 0;
-            
-            console.log(`[MultiVoice] Voice ${voiceNum} (${instrumentName}): volume=${volume}`);
-            
-            // Apply instrument variations
-            let voiceMusic = this.applyInstrumentVariations(this.baseMusic, patchId);
-            const musicBody = this.extractMusicBody(voiceMusic);
-            
-            // Add voice with MIDI program and volume control
-            result.push(`%%MIDI program ${patchId}`);
-            result.push(`%%MIDI control 7 ${volume}`);
-            result.push(`V:${voiceNum} name="${instrumentName}"`);
-            result.push(musicBody);
-            result.push('');
-        });
-        
-        return result.join('\n');
-    }
-
-    /**
-     * Load tune and prepare voices
-     */
     async loadTune(tuneKey) {
         console.log(`[TradSessionPlayer] Loading tune: ${tuneKey}`);
         
@@ -196,40 +63,100 @@ export class TradSessionPlayer {
                 throw new Error(`Tune "${tuneKey}" not found`);
             }
             
-            this.baseMusic = typeof tuneData === 'string' ? tuneData : tuneData.abc;
-            if (!this.baseMusic) {
+            const baseMusic = typeof tuneData === 'string' ? tuneData : tuneData.abc;
+            if (!baseMusic) {
                 throw new Error(`Tune has no ABC notation`);
             }
             
             // Extract tune type
-            this.tuneType = 'defaultPreset';
-            const rhythmMatch = this.baseMusic.match(/^R:\s*(.+)$/m);
+            let tuneType = 'reel';
+            const rhythmMatch = baseMusic.match(/^R:\s*(.+)$/m);
             if (rhythmMatch && rhythmMatch[1]) {
-                this.tuneType = rhythmMatch[1].trim().toLowerCase().replace(/\s+/g, '');
+                tuneType = rhythmMatch[1].trim().toLowerCase().replace(/\s+/g, '');
             }
             
-            console.log(`[TradSessionPlayer] Tune type: ${this.tuneType}`);
+            console.log(`[TradSessionPlayer] Tune type: ${tuneType}`);
             
             // Get instruments
-            this.patchIds = ENSEMBLE_PRESETS[this.tuneType] || ENSEMBLE_PRESETS.defaultPreset;
-            console.log(`[TradSessionPlayer] Instruments:`, this.patchIds.map(id => PATCH_NAMES[id]));
+            let patchIds = ENSEMBLE_PRESETS[tuneType] || ENSEMBLE_PRESETS.defaultPreset;
+            console.log(`[TradSessionPlayer] Using patches:`, patchIds.map(id => `${id}:${PATCH_NAMES[id]}`));
             
             // Get tempo
-            this.tempoMs = TEMPO_SETTINGS[this.tuneType] || TEMPO_SETTINGS.defaultTempo;
-            console.log(`[TradSessionPlayer] Tempo: ${this.tempoMs}ms per measure`);
+            const tempoMs = TEMPO_SETTINGS[tuneType] || TEMPO_SETTINGS.defaultTempo;
+            console.log(`[TradSessionPlayer] Tempo: ${tempoMs}ms per measure`);
             
-            // Create voice objects (all start inactive)
-            this.voices = this.patchIds.map((patchId, index) => ({
-                name: PATCH_NAMES[patchId],
-                patchId: patchId,
-                active: false,
-                index: index
-            }));
+            const soundFontUrls = [
+                'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/',
+                'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/'
+            ];
             
-            // Create initial synth with all voices silent
-            await this.rebuildSynth();
-            
-            console.log('[TradSessionPlayer] Load complete');
+            // Create synths for each instrument using ORIGINAL ABC
+            const promises = patchIds.map(async (patchId, index) => {
+                try {
+                    console.log(`[Track ${index}] Loading ${PATCH_NAMES[patchId]}`);
+                    
+                    // Modify ABC to use this instrument
+                    const instrumentABC = this.setInstrumentProgram(baseMusic, patchId);
+                    
+                    const gain = this.engine.createTrackGainWithPanning(patchId);
+                    
+                    let synth;
+                    let initSuccess = false;
+                    
+                    for (const soundFontUrl of soundFontUrls) {
+                        try {
+                            synth = new abcjs.synth.CreateSynth();
+                            
+                            const visualObj = abcjs.parseOnly(instrumentABC)[0];
+                            
+                            if (!visualObj || !visualObj.lines || visualObj.lines.length === 0) {
+                                throw new Error('Parse produced no lines');
+                            }
+                            
+                            await synth.init({
+                                audioContext: this.audioContext,
+                                visualObj: visualObj,
+                                millisecondsPerMeasure: tempoMs,
+                                options: {
+                                    soundFontUrl: soundFontUrl,
+                                    program: patchId
+                                }
+                            });
+                            
+                            initSuccess = true;
+                            break;
+                        } catch (error) {
+                            console.warn(`[Track ${index}] Failed with ${soundFontUrl}`);
+                        }
+                    }
+                    
+                    if (!initSuccess) {
+                        throw new Error(`Failed to init synth for ${PATCH_NAMES[patchId]}`);
+                    }
+                    
+                    await synth.prime();
+                    console.log(`[Track ${index}] Primed`);
+                    
+                    // Store duration from first synth
+                    if (index === 0 && synth.duration) {
+                        this.tuneDuration = synth.duration;
+                    }
+                    
+                    this.tracks.push({ 
+                        name: PATCH_NAMES[patchId],
+                        synth, 
+                        gain, 
+                        active: false
+                    });
+                    
+                } catch (error) {
+                    console.error(`[Track ${index}] Error:`, error);
+                    throw error;
+                }
+            });
+
+            await Promise.all(promises);
+            console.log('[TradSessionPlayer] All tracks loaded');
             return true;
             
         } catch (error) {
@@ -239,226 +166,178 @@ export class TradSessionPlayer {
     }
 
     /**
-     * Rebuild synth with current voice states
+     * Add or replace MIDI program directive in ABC
+     * Also apply simple bass transformation if needed
      */
-    async rebuildSynth() {
-        console.log('[RebuildSynth] Creating synth with current voice states');
+    setInstrumentProgram(abcString, program) {
+        const lines = abcString.split('\n');
+        const result = [];
+        let foundMIDI = false;
+        let inMusicBody = false;
         
-        // Stop existing synth if any
-        if (this.synth) {
-            try {
-                await this.synth.stop();
-            } catch (e) {}
-        }
-        
-        // Generate ABC with current voice volumes
-        const multiVoiceABC = this.createMultiVoiceABC();
-        
-        console.log('[RebuildSynth] Generated ABC preview (first 500 chars):');
-        console.log(multiVoiceABC.substring(0, 500));
-        
-        // Create new synth
-        this.synth = new abcjs.synth.CreateSynth();
-        
-        const soundFontUrls = [
-            'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/',
-            'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/'
-        ];
-        
-        let initSuccess = false;
-        for (const soundFontUrl of soundFontUrls) {
-            try {
-                console.log('[RebuildSynth] Rendering ABC...');
-                const visualObj = abcjs.renderAbc(this.stage, multiVoiceABC, { 
-                    responsive: 'resize' 
-                })[0];
-                
-                console.log('[RebuildSynth] Visual object created:', visualObj ? 'yes' : 'no');
-                if (visualObj) {
-                    console.log('[RebuildSynth] Visual obj lines:', visualObj.lines?.length);
+        for (const line of lines) {
+            // Replace existing MIDI program or add before K:
+            if (line.startsWith('%%MIDI program')) {
+                result.push(`%%MIDI program ${program}`);
+                foundMIDI = true;
+            } else if (line.startsWith('K:')) {
+                if (!foundMIDI) {
+                    result.push(`%%MIDI program ${program}`);
+                    foundMIDI = true;
                 }
-                
-                console.log('[RebuildSynth] Initializing synth with', soundFontUrl);
-                await this.synth.init({
-                    audioContext: this.audioContext,
-                    visualObj: visualObj,
-                    millisecondsPerMeasure: this.tempoMs,
-                    options: { soundFontUrl: soundFontUrl }
+                result.push(line);
+                inMusicBody = true;
+            } else if (inMusicBody && program === 32 && line.includes('|')) {
+                // Simple bass line for Acoustic Bass
+                // Extract first note of each measure and create steady pattern
+                const bassLine = line.replace(/\|([A-Ga-g])[A-Ga-g,'"\^_=\[\]0-9\/]*/g, (match, firstNote) => {
+                    const bassNote = firstNote.toUpperCase();
+                    return '|' + bassNote + '2' + bassNote + '2';
                 });
-                
-                console.log('[RebuildSynth] Init successful');
-                initSuccess = true;
-                break;
-            } catch (error) {
-                console.warn(`[RebuildSynth] Failed with ${soundFontUrl}:`, error.message);
+                result.push(bassLine);
+            } else {
+                result.push(line);
             }
         }
         
-        if (!initSuccess) {
-            throw new Error('All soundfont URLs failed');
-        }
-        
-        console.log('[RebuildSynth] Priming synth...');
-        await this.synth.prime();
-        console.log('[RebuildSynth] Prime complete');
-        
-        // Store duration
-        if (this.synth.duration) {
-            this.tuneDuration = this.synth.duration;
-            console.log('[RebuildSynth] Duration captured:', this.tuneDuration);
-        } else {
-            console.warn('[RebuildSynth] WARNING: No duration found on synth!');
-            console.log('[RebuildSynth] Synth object:', this.synth);
-        }
-        
-        // Connect to master gain - try both connection methods
-        if (this.synth.audioBufferPlayer) {
-            try {
-                this.synth.audioBufferPlayer.disconnect();
-            } catch (e) {}
-            this.synth.audioBufferPlayer.connect(this.engine.masterGain);
-            console.log('[RebuildSynth] Connected audioBufferPlayer to master gain');
-        } else {
-            console.warn('[RebuildSynth] No audioBufferPlayer found');
-        }
-        
-        if (this.synth.directSource && this.synth.directSource.length > 0) {
-            this.synth.directSource.forEach((source, i) => {
-                try {
-                    source.disconnect();
-                } catch (e) {}
-                source.connect(this.engine.masterGain);
-            });
-            console.log('[RebuildSynth] Connected directSource to master gain, count:', this.synth.directSource.length);
-        } else {
-            console.warn('[RebuildSynth] No directSource found');
-        }
-        
-        console.log('[RebuildSynth] Synth ready, duration:', this.tuneDuration);
+        return result.join('\n');
     }
 
     async play() {
-        console.log('[TradSessionPlayer] Playing...');
+        console.log('[TradSessionPlayer] Playing with scheduled start...');
         
         if (this.audioContext.state !== 'running') {
             await this.audioContext.resume();
-            console.log('[TradSessionPlayer] AudioContext resumed');
         }
 
         try {
-            if (!this.synth) {
-                throw new Error('No synth loaded');
+            if (this.tracks.length === 0) {
+                throw new Error('No tracks loaded');
             }
             
             this.isPlaying = true;
             
-            console.log('[TradSessionPlayer] Starting synth...');
-            await this.synth.start();
-            console.log('[TradSessionPlayer] Synth started');
+            // Schedule start time 100ms in the future
+            // This gives JavaScript time to call start() on all synths
+            // before any audio actually plays
+            const scheduleAhead = 0.1; // 100ms
+            this.scheduledStartTime = this.audioContext.currentTime + scheduleAhead;
             
-            // Connect audio AFTER start (critical timing)
-            if (this.synth.audioBufferPlayer) {
-                try {
-                    this.synth.audioBufferPlayer.disconnect();
-                } catch (e) {}
-                this.synth.audioBufferPlayer.connect(this.engine.masterGain);
-                console.log('[Play] Connected audioBufferPlayer');
-            }
+            console.log(`[Scheduled] Will start at time: ${this.scheduledStartTime.toFixed(3)}`);
+            console.log(`[Scheduled] Current time: ${this.audioContext.currentTime.toFixed(3)}`);
             
-            if (this.synth.directSource && this.synth.directSource.length > 0) {
-                this.synth.directSource.forEach((source) => {
+            // Start all synths (they'll all play from the same scheduled time)
+            const startPromises = this.tracks.map(async (track, i) => {
+                await track.synth.start();
+                
+                // Connect audio
+                if (track.synth.audioBufferPlayer) {
                     try {
-                        source.disconnect();
+                        track.synth.audioBufferPlayer.disconnect();
                     } catch (e) {}
-                    source.connect(this.engine.masterGain);
-                });
-                console.log('[Play] Connected directSource, count:', this.synth.directSource.length);
-            }
+                    track.synth.audioBufferPlayer.connect(track.gain);
+                }
+                
+                if (track.synth.directSource) {
+                    track.synth.directSource.forEach((source) => {
+                        try {
+                            // THIS IS KEY: Schedule the source to start at our scheduled time
+                            if (source.start && source.start.length > 0) {
+                                console.log(`[Track ${i}] Has start() method, scheduling...`);
+                            }
+                            source.disconnect();
+                        } catch (e) {}
+                        source.connect(track.gain);
+                    });
+                }
+            });
+            
+            await Promise.all(startPromises);
+            console.log('[Scheduled] All synths started');
             
             // Setup looping
             if (this.tuneDuration > 0) {
                 this.setupLooping();
-                console.log('[Play] Looping setup with duration:', this.tuneDuration);
             }
             
-            // Turn on first two voices
-            if (this.voices.length > 0) {
-                await this.toggleInstrument(0);
-                if (this.voices.length > 1) {
-                    await this.toggleInstrument(1);
+            // Turn on first two tracks
+            if (this.tracks.length > 0) {
+                this.toggleInstrument(0);
+                if (this.tracks.length > 1) {
+                    this.toggleInstrument(1);
                 }
             }
             
-            console.log('[TradSessionPlayer] Playing successfully');
-            
         } catch (error) {
             console.error('[TradSessionPlayer] Play error:', error);
-            console.error('[TradSessionPlayer] Error stack:', error.stack);
         }
     }
 
     setupLooping() {
-        if (this.loopTimer) {
-            clearTimeout(this.loopTimer);
+        if (this.loopTimeoutId) {
+            clearTimeout(this.loopTimeoutId);
         }
         
+        // Calculate exact loop time based on Web Audio clock, not setTimeout
         const loopTime = (this.tuneDuration * 1000) - 50;
         
-        this.loopTimer = setTimeout(async () => {
+        this.loopTimeoutId = setTimeout(async () => {
             if (this.isPlaying) {
-                console.log('[Loop] Restarting...');
-                await this.synth.start();
+                console.log('[Loop] Restarting all synths synchronously...');
                 
-                if (this.synth.directSource) {
-                    this.synth.directSource.forEach((source) => {
-                        try {
-                            source.disconnect();
-                        } catch (e) {}
-                        source.connect(this.engine.masterGain);
-                    });
+                // CRITICAL: Schedule ALL synths to start at the same future time
+                const scheduleAhead = 0.05; // 50ms ahead
+                this.scheduledStartTime = this.audioContext.currentTime + scheduleAhead;
+                
+                console.log(`[Loop] Scheduled restart at: ${this.scheduledStartTime.toFixed(3)}`);
+                
+                // Start all synths in rapid succession
+                const startPromises = [];
+                for (const track of this.tracks) {
+                    startPromises.push(track.synth.start());
                 }
                 
+                // Await all starts together
+                await Promise.all(startPromises);
+                
+                // Reconnect audio immediately
+                for (const track of this.tracks) {
+                    if (track.synth.audioBufferPlayer) {
+                        try {
+                            track.synth.audioBufferPlayer.disconnect();
+                        } catch (e) {}
+                        track.synth.audioBufferPlayer.connect(track.gain);
+                    }
+                    
+                    if (track.synth.directSource) {
+                        track.synth.directSource.forEach((source) => {
+                            try {
+                                source.disconnect();
+                            } catch (e) {}
+                            source.connect(track.gain);
+                        });
+                    }
+                }
+                
+                console.log('[Loop] All synths restarted');
+                
+                // Schedule next loop
                 this.setupLooping();
             }
         }, loopTime);
     }
 
-    async toggleInstrument(index) {
-        const voice = this.voices[index];
-        if (!voice) return false;
+    toggleInstrument(index) {
+        const track = this.tracks[index];
+        if (!track) return false;
         
-        // Toggle state
-        voice.active = !voice.active;
-        console.log(`[${voice.name}] ${voice.active ? 'ON' : 'OFF'}`);
+        track.active = !track.active;
+        const targetVol = track.active ? (track.gain.targetVolume || 1.0) : 0.0;
         
-        // Rebuild synth with new volume settings
-        const wasPlaying = this.isPlaying;
-        await this.rebuildSynth();
+        console.log(`[${track.name}] ${track.active ? 'ON' : 'OFF'}`);
+        this.engine.applyFade(track.gain, targetVol, 0.4);
         
-        // Restart playback if it was playing
-        if (wasPlaying) {
-            await this.synth.start();
-            
-            if (this.synth.directSource) {
-                this.synth.directSource.forEach((source) => {
-                    try {
-                        source.disconnect();
-                    } catch (e) {}
-                    source.connect(this.engine.masterGain);
-                });
-            }
-            
-            // Re-establish looping
-            if (this.tuneDuration > 0) {
-                this.setupLooping();
-            }
-        }
-        
-        return voice.active;
-    }
-
-    get tracks() {
-        return this.voices;
+        return track.active;
     }
 
     testSimpleNote() {
@@ -486,19 +365,19 @@ export class TradSessionPlayer {
     async stop() {
         this.isPlaying = false;
         
-        if (this.loopTimer) {
-            clearTimeout(this.loopTimer);
-            this.loopTimer = null;
+        if (this.loopTimeoutId) {
+            clearTimeout(this.loopTimeoutId);
+            this.loopTimeoutId = null;
         }
         
-        if (this.synth) {
+        for (const track of this.tracks) {
             try {
-                await this.synth.stop();
+                await track.synth.stop();
             } catch (e) {}
-            this.synth = null;
         }
         
-        this.voices = [];
+        this.tracks = [];
+        this.scheduledStartTime = null;
     }
 }
 

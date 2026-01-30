@@ -1,3 +1,4 @@
+import { initStarfield, stopStarfield } from './game/effects/starfield.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
@@ -625,6 +626,15 @@ overlay.style.cssText = `
     touch-action: none;      /* Prevent scrolling behind */
 `;
 
+
+
+
+
+
+
+
+
+
 // Explicitly stop clicks from reaching elements underneath
 overlay.onclick = (e) => {
     e.preventDefault();
@@ -1250,7 +1260,8 @@ function finalize(champ) {
         module.initTutorialOrAdventure(champ);
     });
 }
-
+const starfieldCanvas = initStarfield();
+document.body.appendChild(starfieldCanvas); // append as the very last element
 
 }
 function showHeroSelect() {

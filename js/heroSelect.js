@@ -297,7 +297,7 @@ export function initHeroSelect() {
 
     initialized = true;
 
-    
+ 
 
 
 const slider = document.createElement('input');
@@ -336,7 +336,7 @@ const slider = document.createElement('input');
 
 
 
-    let englishOpacity = 0.15;
+    let englishOpacity = 0.05;
     let currentChampionIndex = 0;
     let atlasData = null;
     let sheetLoaded = false;
@@ -647,7 +647,12 @@ slider.oninput = e => {
                     }
                     
                     showStatsBar();
-                    
+                      const starCanvas = document.querySelector('canvas:not([id])'); // Or your specific selector
+if (starfieldCanvas) {
+    starfieldCanvas.style.transition = 'z-index 0.8s step-end, opacity 1s ease';
+    starfieldCanvas.style.zIndex = '50'; 
+}
+ 
                     // Wait for stats bar to be visible before showing swipe nudge
                     setTimeout(() => {
                         runSwipeNudge();

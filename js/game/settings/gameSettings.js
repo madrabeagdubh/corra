@@ -1,7 +1,7 @@
 
 
 export const GameSettings = {
-  englishOpacity: 0.2,
+  englishOpacity: 0.05,
   
   setEnglishOpacity(value) {
     this.englishOpacity = Math.max(0, Math.min(1, value));

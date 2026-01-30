@@ -10,15 +10,55 @@ import { prepareTuneData } from './game/systems/music/tradTuneConfig.js';
 // Global state
 let initialized = false;
 
+let sequenceTriggered = false;
 function resetState() {
     initialized = false;
 }
 
 let sliderTutorialComplete = false;
 
+const irishText = document.createElement('div');
+irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
+irishText.style.cssText = `
+    font-family: Aonchlo, serif;
+    font-size: 1.8rem;
+    color: #d4af37;
+    margin-bottom: 0.5rem;
+`;
+
+const englishText = document.createElement('div');
+englishText.id = 'tutorial-english-text';
+englishText.textContent = `In Tír na nÓg, at the meeting place of champions...`;
+englishText.style.cssText = `
+    font-family: 'Courier New', monospace;
+    font-size: 1.7rem;
+    color: rgb(0, 255, 0);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    min-height: 1.5em;
+    display: block;
+`;
 
 
+irishText.style.cssText += `
+    transition: opacity 0.8s ease-in-out;
+    min-height: 4rem;
+`;
 
+englishText.style.cssText += `
+    transition: opacity 0.5s ease;
+    min-height: 4rem;
+`;
+
+
+const amerginLines = [
+    { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
+    { ga: "Cé gair aois na gealaí?", en: "Who tells the age of the moon?" },
+    { ga: "Cá dú dul faoi na gréine?", en: "Where does the sun go to rest?" },
+    { ga: "Cé beir buar ó thigh Teamhrach?", en: "Who brings the cattle from the house of Tara?" },
+    { ga: "Cé buar Teathra le gean?", en: "Who are the cattle of Tethra with love?" },
+    { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "Who is man? Who is the god that fashions weapons?" }
+];
 
 
 // Stat descriptions
@@ -246,13 +286,55 @@ function updateGlobalStats(champion) {
     }
 }
 
+
+
+
+
 export function initHeroSelect() {
     if (initialized) return;
-
     const container = document.getElementById('heroSelect');
     if (!container) return;
 
     initialized = true;
+
+    
+
+
+const slider = document.createElement('input');
+
+    // 2. NOW DEFINE THE AMERGIN LOGIC
+    let currentLyricIndex = Math.floor(Math.random() * amerginLines.length);
+    let lyricInterval = null;
+
+    const updateLyricDisplay = () => {
+        const line = amerginLines[currentLyricIndex];
+        irishText.style.opacity = '0';
+        englishText.style.opacity = '0';
+
+        setTimeout(() => {
+            irishText.textContent = line.ga;
+            englishText.textContent = line.en;
+            irishText.style.opacity = '1';
+            englishText.style.opacity = slider ? slider.value : 0;
+        }, 800);
+    };
+
+    // 3. START THE CYCLE
+    lyricInterval = setInterval(() => {
+        if (!sequenceTriggered) {
+            currentLyricIndex = (currentLyricIndex + 1) % amerginLines.length;
+            updateLyricDisplay();
+        }
+    }, 10000);
+
+    // Set initial text
+    const initialLine = amerginLines[currentLyricIndex];
+    if (irishText && englishText) {
+        irishText.textContent = initialLine.ga;
+        englishText.textContent = initialLine.en;
+    }
+
+
 
     let englishOpacity = 0.15;
     let currentChampionIndex = 0;
@@ -410,7 +492,6 @@ export function initHeroSelect() {
     `;
  
 
-const slider = document.createElement('input');
 slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
 slider.value = englishOpacity;
 slider.className = 'champion-slider';
@@ -504,7 +585,6 @@ slider.className = 'champion-slider';
 
 
 
-let sequenceTriggered = false;
 
 
 
@@ -665,28 +745,6 @@ tutorialText.style.cssText = `
 
 
 
-
-const irishText = document.createElement('div');
-irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
-irishText.style.cssText = `
-    font-family: Aonchlo, serif;
-    font-size: 1.8rem;
-    color: #d4af37;
-    margin-bottom: 0.5rem;
-`;
-
-const englishText = document.createElement('div');
-englishText.id = 'tutorial-english-text';
-englishText.textContent = `In Tír na nÓg, at the meeting place of champions...`;
-englishText.style.cssText = `
-    font-family: 'Courier New', monospace;
-    font-size: 1.7rem;
-    color: rgb(0, 255, 0);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    min-height: 1.5em;
-    display: block;
-`;
 
 
 

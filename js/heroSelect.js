@@ -1261,8 +1261,17 @@ function finalize(champ) {
     });
 }
 const starfieldCanvas = initStarfield();
-document.body.appendChild(starfieldCanvas); // append as the very last element
+// Force it to the absolute top of the visual stack
+starfieldCanvas.style.position = 'fixed';
+starfieldCanvas.style.top = '0';
+starfieldCanvas.style.left = '0';
+starfieldCanvas.style.width = '100vw';
+starfieldCanvas.style.height = '100vh';
+starfieldCanvas.style.zIndex = '200'; // Higher than any other element (10002)
 
+starfieldCanvas.style.pointerEvents = 'none'; // CRITICAL: Allows clicks to pass through to buttons/sliders
+
+document.body.appendChild(starfieldCanvas);
 }
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called - making visible again');

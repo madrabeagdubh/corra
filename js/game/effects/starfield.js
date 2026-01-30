@@ -1,115 +1,116 @@
-// ./js/game/effects/starfield.js
+// game/effects/starfield.js
 
-let canvas, ctx;
-let particles = [];
-let animationId = null;
-let rotation = 0;
-let container = null;
+let canvas, ctx, animationId;
+let stars = [];
 let active = false;
+const starCount = 3000;
 
 class Star {
-    constructor(width, height) {
-        this.width = width;
-        this.height = height;
+    constructor(w, h) {
+        this.w = w;
+        this.h = h;
         this.reset();
     }
 
     reset() {
-        this.radius = Math.random() * Math.min(this.width, this.height) * 0.5;
+        const maxDist = Math.max(this.w, this.h) * 2.5;
+        this.dist = Math.random() * maxDist;
         this.angle = Math.random() * Math.PI * 2;
-        this.size = Math.random() * 2 + 0.5;
-        this.opacity = Math.random() * 0.5 + 0.3;
-        this.color = Math.random() > 0.5 ? '#d4af37' : '#ffd700';
-        this.speed = 0.0005 + Math.random() * 0.001;
+        this.speed = (Math.random() * 0.00001) + 0.000005; 
+        this.size = Math.random() * 1.3 + 0.1;
+        this.brightness = Math.random() * Math.PI;
+        this.twinkleSpeed = Math.random() * 0.01 + 0.004;
+        
+        const r = Math.random();
+        if (r > 0.99) this.color = "212, 175, 55";
+        else if (r > 0.95) this.color = "100, 140, 255";
+        else if (r > 0.90) this.color = "180, 80, 255";
+        else this.color = "255, 255, 255";               
     }
 
     update(delta) {
         this.angle += this.speed * delta;
+        this.brightness += this.twinkleSpeed;
     }
 
-    draw(ctx, centerX, centerY) {
-        const x = centerX + this.radius * Math.cos(this.angle + rotation);
-        const y = centerY + this.radius * Math.sin(this.angle + rotation);
+    draw(ctx, cx, cy) {
+        const x = cx + Math.cos(this.angle) * this.dist;
+        const y = cy + Math.sin(this.angle) * this.dist;
+        
+        if (y > cy + 100 || x < -50 || x > this.w + 50) return;
+
+        const opacity = (Math.sin(this.brightness) * 0.5 + 0.5);
+        ctx.fillStyle = `rgba(${this.color}, ${opacity})`;
         ctx.beginPath();
         ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.globalAlpha = this.opacity;
         ctx.fill();
-        ctx.globalAlpha = 1;
     }
 }
 
-function initStarfield(targetContainer = document.body, starCount = 100) {
-    if (canvas) return; // Already initialized
+export function initStarfield() {
     active = true;
-    container = targetContainer;
-
     canvas = document.createElement('canvas');
-    canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        pointer-events: none;
-    `;
-    container.appendChild(canvas);
     ctx = canvas.getContext('2d');
-
     resizeCanvas();
 
-    for (let i = 0; i < starCount; i++) {
-        particles.push(new Star(canvas.width, canvas.height));
-    }
+    stars = Array.from({ length: starCount }, () => new Star(canvas.width, canvas.height));
 
     let lastTime = performance.now();
+    let bgPulse = 0;
 
-    function animate(now) {
-        if (!active) return;
-        const delta = now - lastTime;
-        lastTime = now;
+  function animate(now) {
+    if (!active) return;
+    const delta = now - lastTime;
+    lastTime = now;
+    bgPulse += delta * 0.00015;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 1. CHANGE THIS: Clear the canvas to be transparent
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
 
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
+    const hubX = canvas.width * 0.33;
+    const hubY = canvas.height * 0.7;
 
-        rotation += 0.0003 * delta; // Rotation speed
+    // 2. THE BACKGROUND HUES (Keep these, they are semi-transparent)
+    // Blue Glow
+    const blueGrad = ctx.createRadialGradient(hubX, hubY, 0, hubX, hubY, canvas.height * 1.2);
+    const blueAlpha = 0.12 + (Math.sin(bgPulse) * 0.05); 
+    blueGrad.addColorStop(0, `rgba(30, 60, 180, ${blueAlpha})`);
+    blueGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = blueGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        particles.forEach(star => {
-            star.update(delta);
-            star.draw(ctx, centerX, centerY);
-        });
+    // Purple Glow
+    const purpGrad = ctx.createRadialGradient(canvas.width, 0, 0, hubX, hubY, canvas.width * 1.5);
+    const purpAlpha = 0.08 + (Math.cos(bgPulse * 0.6) * 0.04);
+    purpGrad.addColorStop(0, `rgba(120, 40, 200, ${purpAlpha})`);
+    purpGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = purpGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        animationId = requestAnimationFrame(animate);
-    }
+    // 3. DRAW STARS
+    stars.forEach(star => {
+        star.update(delta);
+        star.draw(ctx, hubX, hubY);
+    });
 
     animationId = requestAnimationFrame(animate);
+}
+ 
 
+    animationId = requestAnimationFrame(animate);
     window.addEventListener('resize', resizeCanvas);
+    return canvas;
+}
+
+export function stopStarfield() {
+    active = false;
+    if (animationId) cancelAnimationFrame(animationId);
+    if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
 }
 
 function resizeCanvas() {
     if (!canvas) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Update star radii to fit new size
-    particles.forEach(star => {
-        star.width = canvas.width;
-        star.height = canvas.height;
-        star.radius = Math.random() * Math.min(canvas.width, canvas.height) * 0.5;
-    });
 }
 
-function stopStarfield() {
-    active = false;
-    if (animationId) cancelAnimationFrame(animationId);
-    if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
-    canvas = null;
-    ctx = null;
-    particles = [];
-    window.removeEventListener('resize', resizeCanvas);
-}
-
-export { initStarfield, stopStarfield };

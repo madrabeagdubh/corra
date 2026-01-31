@@ -872,7 +872,14 @@ chooseButton.onclick = () => {
 if (validChampions[randomIndex] && validChampions[randomIndex].tuneKey) {
     // Delay slightly to ensure audio context is ready
     setTimeout(() => {
-        playChampionTune(validChampions[randomIndex].tuneKey);
+
+
+
+const tuneKey = getTuneKeyForChampion(validChampions[randomIndex]);
+if (tuneKey) {
+    playChampionTune(tuneKey);
+}
+
     }, 500);
 }
 // Show stats bar once tutorial completes
@@ -1030,10 +1037,17 @@ if (!musicPlayer) {
     console.log('[DEBUG] Music player initialized');
 }
 
-// Start playing the initial champion's music
-if (currentChamp && currentChamp.tuneKey) {
-    await playChampionTune(currentChamp.tuneKey);
-}   } else {
+
+
+if (currentChamp) {
+    console.log('[DEBUG] Champion object:', currentChamp);
+    const tuneKey = getTuneKeyForChampion(currentChamp);
+    console.log('[DEBUG] Got tune key:', tuneKey);
+    if (tuneKey) {
+        await playChampionTune(tuneKey);
+    
+}
+   } else {
             console.error('[DEBUG] Cannot start music, state:', window.sharedAudioContext?.state);
         }
     } catch (error) {
@@ -1292,11 +1306,18 @@ updateGlobalStats(currentChamp);
 const now = Date.now();
 if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
     lastMusicChangeTime = now;
-    
-    if (currentChamp && currentChamp.tuneKey) {
-        // Load and play the champion's tune (only banjo will be audible)
-        playChampionTune(currentChamp.tuneKey);
+   
+if (currentChamp) {
+    console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
+    const tuneKey = getTuneKeyForChampion(currentChamp);
+    console.log('[DEBUG] Playing tune:', tuneKey);
+    if (tuneKey) {
+        playChampionTune(tuneKey);
     }
+}
+
+ 
+ 
 }
 
 

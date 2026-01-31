@@ -4,7 +4,7 @@ import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 import {allTunes} from './game/systems/music/allTunes.js'
 import {TradSessionPlayer } from './game/systems/music/tradSessionPlayerConductor.js';
-
+import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 // Global state
 let initialized = false;
 

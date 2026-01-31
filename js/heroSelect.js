@@ -2,10 +2,8 @@ import { initStarfield, stopStarfield } from './game/effects/starfield.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
-
-import { championMusicManager } from './game/systems/music/championMusicManager.js';
-import AbcTradPlayer from './game/systems/music/abcTradPlayer.js';
-import { prepareTuneData } from './game/systems/music/tradTuneConfig.js';
+import {allTunes} from './game/systems/music/allTunes.js'
+import {TradSessionPlayer } from './game/systems/music/tradSessionPlayerConductor.js';
 
 // Global state
 let initialized = false;
@@ -16,6 +14,9 @@ function resetState() {
 }
 
 let sliderTutorialComplete = false;
+// Initialize the new music player
+let musicPlayer = null;
+let currentTuneKey = null;
 
 const irishText = document.createElement('div');
 irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
@@ -341,7 +342,14 @@ const slider = document.createElement('input');
     let atlasData = null;
     let sheetLoaded = false;
     let audioUnlocked = false;
-    let lastMusicChangeTime = 0;
+    
+// Initialize music player
+if (!musicPlayer) {
+    musicPlayer = new TradSessionPlayer();
+    console.log('[HeroSelect] Music player initialized');
+}
+
+let lastMusicChangeTime = 0;
     const MUSIC_CHANGE_DELAY = 500;
 
     const sheet = new Image();
@@ -631,29 +639,15 @@ slider.oninput = e => {
                     
                     // NOW do all the completion stuff
                     sliderTutorialComplete = true;
-                    
-                    // Fade music volume up
-                    if (championMusicManager.setVolume) {
-                        let vol = 0.2;
-                        const fadeInterval = setInterval(() => {
-                            vol += 0.04;
-                            if (vol >= 1.0) {
-                                championMusicManager.setVolume(1.0);
-                                clearInterval(fadeInterval);
-                            } else {
-                                championMusicManager.setVolume(vol);
-                            }
-                        }, 100);
-                    }
+                   
                     
                     showStatsBar();
                       const starCanvas = document.querySelector('canvas:not([id])'); // Or your specific selector
 if (starfieldCanvas) {
     starfieldCanvas.style.transition = 'z-index 0.8s step-end, opacity 1s ease';
-    starfieldCanvas.style.zIndex = '50'; 
+    starfieldCanvas.style.zIndex = '499'; 
 }
  
-                    // Wait for stats bar to be visible before showing swipe nudge
                     setTimeout(() => {
                         runSwipeNudge();
                     }, 1500); // Give player 1.5 seconds to see the stats bar first
@@ -810,10 +804,17 @@ container.appendChild(overlay);
         border: 3px solid #d2691e; border-radius: 12px; cursor: pointer;
         text-transform: uppercase; letter-spacing: 2px; font-family: Aonchlo;
     `;
-    chooseButton.onclick = () => {
-        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-        if (validChampions[currentChampionIndex]) finalize(validChampions[currentChampionIndex]);
-    };
+   
+
+chooseButton.onclick = () => {
+    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    if (validChampions[currentChampionIndex]) {
+        // Unmute piano before transitioning
+        unmutePiano();
+        finalize(validChampions[currentChampionIndex]);
+    }
+};
+;
     bottomPanel.appendChild(chooseButton);
     container.appendChild(bottomPanel);
 
@@ -867,7 +868,13 @@ container.appendChild(overlay);
     initBackgroundParticles(); // Add this line
      
         updateGlobalStats(validChampions[randomIndex]);
-
+// Start playing the initial champion's music
+if (validChampions[randomIndex] && validChampions[randomIndex].tuneKey) {
+    // Delay slightly to ensure audio context is ready
+    setTimeout(() => {
+        playChampionTune(validChampions[randomIndex].tuneKey);
+    }, 500);
+}
 // Show stats bar once tutorial completes
 const checkAndShowStats = () => {
     if (sliderTutorialComplete && globalStatsBar) {
@@ -1017,10 +1024,16 @@ const handleSliderTouch = async (e) => {
 
         if (currentChamp && window.sharedAudioContext.state === 'running') {
             console.log('[DEBUG] Starting music for:', currentChamp.nameGa);
-            await championMusicManager.playChampionTheme(currentChamp, true);
-            championMusicManager.setVolume(0.2);
-            console.log('[DEBUG] Music playing');
-        } else {
+     // Initialize music player
+if (!musicPlayer) {
+    musicPlayer = new TradSessionPlayer();
+    console.log('[DEBUG] Music player initialized');
+}
+
+// Start playing the initial champion's music
+if (currentChamp && currentChamp.tuneKey) {
+    await playChampionTune(currentChamp.tuneKey);
+}   } else {
             console.error('[DEBUG] Cannot start music, state:', window.sharedAudioContext?.state);
         }
     } catch (error) {
@@ -1274,14 +1287,19 @@ function showStatsBar() {
 
 updateGlobalStats(currentChamp);
 
-                    const now = Date.now();
-                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
-                        lastMusicChangeTime = now;
-                        
-                        if (currentChamp) {
-                            championMusicManager.playChampionTheme(currentChamp);
-                        }
-                    }
+
+
+const now = Date.now();
+if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
+    lastMusicChangeTime = now;
+    
+    if (currentChamp && currentChamp.tuneKey) {
+        // Load and play the champion's tune (only banjo will be audible)
+        playChampionTune(currentChamp.tuneKey);
+    }
+}
+
+
                 }
 
                 container.scrollLeft = (len + realIndex) * w;
@@ -1300,7 +1318,75 @@ updateGlobalStats(currentChamp);
     container.addEventListener('touchend', handleTouchEnd);
 } 
 
+async function playChampionTune(tuneKey) {
+    console.log('[DEBUG] Playing tune:', tuneKey);
+    
+    if (!musicPlayer) {
+        console.warn('[DEBUG] Music player not initialized');
+        return;
+    }
+    
+    // If same tune is already playing, don't reload
+    if (currentTuneKey === tuneKey && musicPlayer.isPlaying) {
+        console.log('[DEBUG] Tune already playing');
+        return;
+    }
+    
+    currentTuneKey = tuneKey;
+    
+    try {
+        // Load the tune
+        const loaded = await musicPlayer.loadTune(tuneKey);
+        
+        if (!loaded) {
+            console.error('[DEBUG] Failed to load tune');
+            return;
+        }
+        
+        // Start playing
+        await musicPlayer.play();
+        
+        // The play() method already enables first two instruments
+        // We want ONLY banjo (index 0), so turn off others
+        for (let i = 1; i < musicPlayer.tracks.length; i++) {
+            if (musicPlayer.tracks[i].active) {
+                await musicPlayer.toggleInstrument(i);
+            }
+        }
+        
+        // Ensure banjo is on
+        if (musicPlayer.tracks.length > 0 && !musicPlayer.tracks[0].active) {
+            await musicPlayer.toggleInstrument(0);
+        }
+        
+        console.log('[DEBUG] Tune playing with banjo only');
+        
+    } catch (error) {
+        console.error('[DEBUG] Error playing tune:', error);
+    }
+}
 
+async function unmutePiano() {
+    console.log('[DEBUG] Unmuting piano');
+    
+    if (!musicPlayer || !musicPlayer.tracks) {
+        console.warn('[DEBUG] No music player or tracks available');
+        return;
+    }
+    
+    // Find the piano track
+    const pianoIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
+    
+    if (pianoIndex >= 0 && !musicPlayer.tracks[pianoIndex].active) {
+        console.log('[DEBUG] Toggling piano on at index', pianoIndex);
+        await musicPlayer.toggleInstrument(pianoIndex);
+    } else if (pianoIndex >= 0) {
+        console.log('[DEBUG] Piano already active');
+    } else {
+        console.log('[DEBUG] Piano track not found. Available tracks:', 
+            musicPlayer.tracks.map(t => t.name));
+    }
+}
 
 
 function finalize(champ) {
@@ -1323,6 +1409,81 @@ function finalize(champ) {
         module.initTutorialOrAdventure(champ);
     });
 }
+
+
+async function playChampionTune(tuneKey) {
+    console.log('[HeroSelect] Playing tune:', tuneKey);
+    
+    if (!musicPlayer) {
+        console.warn('[HeroSelect] Music player not initialized');
+        return;
+    }
+    
+    // If same tune is already playing, don't reload
+    if (currentTuneKey === tuneKey && musicPlayer.isPlaying) {
+        console.log('[HeroSelect] Tune already playing');
+        return;
+    }
+    
+    currentTuneKey = tuneKey;
+    
+    try {
+        // Load the tune
+        const loaded = await musicPlayer.loadTune(tuneKey);
+        
+        if (!loaded) {
+            console.error('[HeroSelect] Failed to load tune');
+            return;
+        }
+        
+        // Start playing
+        await musicPlayer.play();
+        
+        // Mute all instruments except banjo (index 0)
+        // Assuming tracks are: [Banjo, Harmonica, Bass, Piano] or similar
+        for (let i = 1; i < musicPlayer.tracks.length; i++) {
+            if (musicPlayer.tracks[i].active) {
+                musicPlayer.toggleInstrument(i); // Turn off
+            }
+        }
+        
+        // Make sure banjo is on
+        if (musicPlayer.tracks.length > 0 && !musicPlayer.tracks[0].active) {
+            musicPlayer.toggleInstrument(0); // Turn on banjo
+        }
+        
+        console.log('[HeroSelect] Tune playing with banjo only');
+        
+    } catch (error) {
+        console.error('[HeroSelect] Error playing tune:', error);
+    }
+}
+
+
+
+function unmutePiano() {
+    console.log('[HeroSelect] Unmuting piano');
+    
+    if (!musicPlayer || !musicPlayer.tracks) {
+        console.warn('[HeroSelect] No music player or tracks available');
+        return;
+    }
+    
+    // Find the piano track (usually index 3 or by name)
+    const pianoIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
+    
+    if (pianoIndex >= 0 && !musicPlayer.tracks[pianoIndex].active) {
+        console.log('[HeroSelect] Toggling piano on at index', pianoIndex);
+        musicPlayer.toggleInstrument(pianoIndex);
+    } else {
+        console.log('[HeroSelect] Piano track not found or already active');
+    }
+}
+
+
+
+
+
 const starfieldCanvas = initStarfield();
 // Force it to the absolute top of the visual stack
 starfieldCanvas.style.position = 'fixed';

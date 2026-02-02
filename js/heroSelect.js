@@ -3,7 +3,7 @@ import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
 import {allTunes} from './game/systems/music/allTunes.js'
-import {TradSessionPlayer } from './game/systems/music/tradSessionPlayerConductor.js';
+import {TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 // Global state
 let initialized = false;
@@ -806,12 +806,17 @@ container.appendChild(overlay);
     `;
    
 
-chooseButton.onclick = () => {
+chooseButton.onclick = async () => {
     const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
     if (validChampions[currentChampionIndex]) {
+        console.log('[DEBUG] Continue button clicked');
         // Unmute piano before transitioning
-        unmutePiano();
-        finalize(validChampions[currentChampionIndex]);
+        await unmutePiano();
+        // Wait a moment to hear the piano join in
+        console.log('[DEBUG] Waiting 800ms for piano to be heard...');
+        setTimeout(() => {
+            finalize(validChampions[currentChampionIndex]);
+        }, 800);
     }
 };
 ;
@@ -868,20 +873,7 @@ chooseButton.onclick = () => {
     initBackgroundParticles(); // Add this line
      
         updateGlobalStats(validChampions[randomIndex]);
-// Start playing the initial champion's music
-if (validChampions[randomIndex] && validChampions[randomIndex].tuneKey) {
-    // Delay slightly to ensure audio context is ready
-    setTimeout(() => {
-
-
-
-const tuneKey = getTuneKeyForChampion(validChampions[randomIndex]);
-if (tuneKey) {
-    playChampionTune(tuneKey);
-}
-
-    }, 500);
-}
+        
 // Show stats bar once tutorial completes
 const checkAndShowStats = () => {
     if (sliderTutorialComplete && globalStatsBar) {
@@ -1031,23 +1023,15 @@ const handleSliderTouch = async (e) => {
 
         if (currentChamp && window.sharedAudioContext.state === 'running') {
             console.log('[DEBUG] Starting music for:', currentChamp.nameGa);
-     // Initialize music player
-if (!musicPlayer) {
-    musicPlayer = new TradSessionPlayer();
-    console.log('[DEBUG] Music player initialized');
-}
-
-
-
+// Start playing the initial champion's music
 if (currentChamp) {
-    console.log('[DEBUG] Champion object:', currentChamp);
+    console.log('[DEBUG] Champion object:', currentChamp.nameEn, 'Theme:', currentChamp.themeTuneTitle);
     const tuneKey = getTuneKeyForChampion(currentChamp);
     console.log('[DEBUG] Got tune key:', tuneKey);
     if (tuneKey) {
         await playChampionTune(tuneKey);
-    
-}
-   } else {
+    }
+}   } else {
             console.error('[DEBUG] Cannot start music, state:', window.sharedAudioContext?.state);
         }
     } catch (error) {
@@ -1306,18 +1290,15 @@ updateGlobalStats(currentChamp);
 const now = Date.now();
 if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
     lastMusicChangeTime = now;
-   
-if (currentChamp) {
-    console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
-    const tuneKey = getTuneKeyForChampion(currentChamp);
-    console.log('[DEBUG] Playing tune:', tuneKey);
-    if (tuneKey) {
-        playChampionTune(tuneKey);
+    
+    if (currentChamp) {
+        console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
+        const tuneKey = getTuneKeyForChampion(currentChamp);
+        console.log('[DEBUG] Playing tune:', tuneKey);
+        if (tuneKey) {
+            playChampionTune(tuneKey);
+        }
     }
-}
-
- 
- 
 }
 
 
@@ -1353,59 +1334,160 @@ async function playChampionTune(tuneKey) {
         return;
     }
     
-    currentTuneKey = tuneKey;
+    // If switching tunes, do overlap crossfade
+    const isChangingTune = currentTuneKey && currentTuneKey !== tuneKey && musicPlayer.isPlaying;
     
-    try {
-        // Load the tune
-        const loaded = await musicPlayer.loadTune(tuneKey);
+    if (isChangingTune) {
+        console.log('[DEBUG] Crossfading from', currentTuneKey, 'to', tuneKey);
         
-        if (!loaded) {
-            console.error('[DEBUG] Failed to load tune');
-            return;
-        }
+        // Capture the old tracks and their state
+        const oldTracks = musicPlayer.tracks.map(t => ({
+            synth: t.synth,
+            gain: t.gain,
+            active: t.active
+        }));
         
-        // Start playing
-        await musicPlayer.play();
+        const oldIsPlaying = musicPlayer.isPlaying;
         
-        // The play() method already enables first two instruments
-        // We want ONLY banjo (index 0), so turn off others
-        for (let i = 1; i < musicPlayer.tracks.length; i++) {
-            if (musicPlayer.tracks[i].active) {
-                await musicPlayer.toggleInstrument(i);
+        // Start fading out old tracks
+        const fadeOutTime = musicPlayer.audioContext.currentTime;
+        for (const track of oldTracks) {
+            if (track.active && track.gain) {
+                // Fade out over 600ms
+                track.gain.gain.setTargetAtTime(0, fadeOutTime, 0.8);
             }
         }
         
-        // Ensure banjo is on
-        if (musicPlayer.tracks.length > 0 && !musicPlayer.tracks[0].active) {
-            await musicPlayer.toggleInstrument(0);
+        console.log('[DEBUG] Old tune fading out, loading new tune...');
+        
+        // Load new tune WITHOUT stopping (preservePlayback = true)
+        currentTuneKey = tuneKey;
+        
+        try {
+            // This loads new tracks but doesn't stop the old ones
+            const loaded = await musicPlayer.loadTune(tuneKey, true);
+            
+            if (!loaded) {
+                console.error('[DEBUG] Failed to load tune');
+                return;
+            }
+            
+            console.log('[DEBUG] New tune loaded, starting playback...');
+            
+            // Start new tune playing
+            await musicPlayer.play();
+            
+            console.log('[DEBUG] New tune playing, both tunes audible during crossfade');
+            
+            // Verify banjo is the only active track in new tune
+            const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
+            console.log('[DEBUG] Active tracks:', activeTrackNames);
+            
+            if (activeTrackNames.length !== 1 || !musicPlayer.tracks[0].active) {
+                console.warn('[DEBUG] Unexpected track state, fixing...');
+                for (let i = 0; i < musicPlayer.tracks.length; i++) {
+                    if (i === 0 && !musicPlayer.tracks[i].active) {
+                        musicPlayer.toggleInstrument(i);
+                    } else if (i !== 0 && musicPlayer.tracks[i].active) {
+                        musicPlayer.toggleInstrument(i);
+                    }
+                }
+            }
+            
+            // Clean up old synths after fade completes
+            setTimeout(() => {
+                console.log('[DEBUG] Stopping old synths...');
+                for (const track of oldTracks) {
+                    try {
+                        if (track.synth && track.synth.stop) {
+                            track.synth.stop();
+                        }
+                        // Disconnect old gain nodes
+                        if (track.gain) {
+                            try {
+                                track.gain.disconnect();
+                            } catch (e) {}
+                        }
+                    } catch (e) {
+                        console.log('[DEBUG] Error stopping old synth:', e);
+                    }
+                }
+                console.log('[DEBUG] ✓ Crossfade complete, old synths cleaned up');
+            }, 1000);
+            
+        } catch (error) {
+            console.error('[DEBUG] Error during crossfade:', error);
         }
         
-        console.log('[DEBUG] Tune playing with banjo only');
+    } else {
+        // First tune or resuming - no crossfade needed
+        currentTuneKey = tuneKey;
         
-    } catch (error) {
-        console.error('[DEBUG] Error playing tune:', error);
+        try {
+            const loaded = await musicPlayer.loadTune(tuneKey, false);
+            
+            if (!loaded) {
+                console.error('[DEBUG] Failed to load tune');
+                return;
+            }
+            
+            console.log('[DEBUG] Tune loaded, tracks:', musicPlayer.tracks.map(t => `${t.name}(${t.active ? 'ON' : 'OFF'})`));
+            
+            await musicPlayer.play();
+            
+            console.log('[DEBUG] Play() completed');
+            
+            const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
+            console.log('[DEBUG] Active tracks:', activeTrackNames);
+            
+            if (activeTrackNames.length !== 1 || !musicPlayer.tracks[0].active) {
+                console.warn('[DEBUG] Unexpected track state, fixing...');
+                for (let i = 0; i < musicPlayer.tracks.length; i++) {
+                    if (i === 0 && !musicPlayer.tracks[i].active) {
+                        musicPlayer.toggleInstrument(i);
+                    } else if (i !== 0 && musicPlayer.tracks[i].active) {
+                        musicPlayer.toggleInstrument(i);
+                    }
+                }
+            }
+            
+            console.log('[DEBUG] ✓ Tune playing with banjo only');
+            
+        } catch (error) {
+            console.error('[DEBUG] Error playing tune:', error);
+        }
     }
 }
 
 async function unmutePiano() {
-    console.log('[DEBUG] Unmuting piano');
+    console.log('[DEBUG] Unmuting piano (or second instrument)');
     
     if (!musicPlayer || !musicPlayer.tracks) {
         console.warn('[DEBUG] No music player or tracks available');
         return;
     }
     
-    // Find the piano track
-    const pianoIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
+    console.log('[DEBUG] Available tracks:', musicPlayer.tracks.map(t => t.name));
     
-    if (pianoIndex >= 0 && !musicPlayer.tracks[pianoIndex].active) {
-        console.log('[DEBUG] Toggling piano on at index', pianoIndex);
-        await musicPlayer.toggleInstrument(pianoIndex);
-    } else if (pianoIndex >= 0) {
-        console.log('[DEBUG] Piano already active');
+    // Try to find piano first
+    let targetIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
+    
+    if (targetIndex < 0) {
+        // No piano, so enable the second instrument (index 1) if available
+        console.log('[DEBUG] No Piano track, enabling second instrument instead');
+        if (musicPlayer.tracks.length > 1) {
+            targetIndex = 1;
+        } else {
+            console.log('[DEBUG] Only one track available, nothing to add');
+            return;
+        }
+    }
+    
+    if (targetIndex >= 0 && !musicPlayer.tracks[targetIndex].active) {
+        console.log('[DEBUG] Toggling ON:', musicPlayer.tracks[targetIndex].name, 'at index', targetIndex);
+        await musicPlayer.toggleInstrument(targetIndex);
     } else {
-        console.log('[DEBUG] Piano track not found. Available tracks:', 
-            musicPlayer.tracks.map(t => t.name));
+        console.log('[DEBUG] Track already active:', musicPlayer.tracks[targetIndex].name);
     }
 }
 
@@ -1432,74 +1514,7 @@ function finalize(champ) {
 }
 
 
-async function playChampionTune(tuneKey) {
-    console.log('[HeroSelect] Playing tune:', tuneKey);
-    
-    if (!musicPlayer) {
-        console.warn('[HeroSelect] Music player not initialized');
-        return;
-    }
-    
-    // If same tune is already playing, don't reload
-    if (currentTuneKey === tuneKey && musicPlayer.isPlaying) {
-        console.log('[HeroSelect] Tune already playing');
-        return;
-    }
-    
-    currentTuneKey = tuneKey;
-    
-    try {
-        // Load the tune
-        const loaded = await musicPlayer.loadTune(tuneKey);
-        
-        if (!loaded) {
-            console.error('[HeroSelect] Failed to load tune');
-            return;
-        }
-        
-        // Start playing
-        await musicPlayer.play();
-        
-        // Mute all instruments except banjo (index 0)
-        // Assuming tracks are: [Banjo, Harmonica, Bass, Piano] or similar
-        for (let i = 1; i < musicPlayer.tracks.length; i++) {
-            if (musicPlayer.tracks[i].active) {
-                musicPlayer.toggleInstrument(i); // Turn off
-            }
-        }
-        
-        // Make sure banjo is on
-        if (musicPlayer.tracks.length > 0 && !musicPlayer.tracks[0].active) {
-            musicPlayer.toggleInstrument(0); // Turn on banjo
-        }
-        
-        console.log('[HeroSelect] Tune playing with banjo only');
-        
-    } catch (error) {
-        console.error('[HeroSelect] Error playing tune:', error);
-    }
-}
 
-
-
-function unmutePiano() {
-    console.log('[HeroSelect] Unmuting piano');
-    
-    if (!musicPlayer || !musicPlayer.tracks) {
-        console.warn('[HeroSelect] No music player or tracks available');
-        return;
-    }
-    
-    // Find the piano track (usually index 3 or by name)
-    const pianoIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
-    
-    if (pianoIndex >= 0 && !musicPlayer.tracks[pianoIndex].active) {
-        console.log('[HeroSelect] Toggling piano on at index', pianoIndex);
-        musicPlayer.toggleInstrument(pianoIndex);
-    } else {
-        console.log('[HeroSelect] Piano track not found or already active');
-    }
-}
 
 
 

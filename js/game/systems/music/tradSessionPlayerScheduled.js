@@ -1,20 +1,21 @@
+
 // Trad Session Player - Scheduled Start Times for Perfect Sync
 import * as abcjs from 'abcjs';
 import { MusicEngine } from './musicEngine.js';
 import { allTunes } from './allTunes.js';
 
 const ENSEMBLE_PRESETS = {
-    reel: [105, 22, 32],
-    jig: [105, 32, 0],
-    slipjig: [105, 0, 22],
-    hornpipe: [105, 32, 22],
-    polka: [105, 22],
-    waltz: [105, 0, 32],
-    march: [105, 32],
-    slide: [105, 0, 22],
-    barndance: [105, 22, 32],
-    air: [105, 0],
-    defaultPreset: [105, 22]
+    reel: [105, 0, 32],      // Banjo, Piano, Bass
+    jig: [105, 0, 32],       // Banjo, Piano, Bass
+    slipjig: [105, 0, 32],   // Banjo, Piano, Bass
+    hornpipe: [105, 0, 32],  // Banjo, Piano, Bass
+    polka: [105, 0],         // Banjo, Piano
+    waltz: [105, 0, 32],     // Banjo, Piano, Bass
+    march: [105, 0],         // Banjo, Piano
+    slide: [105, 0, 32],     // Banjo, Piano, Bass
+    barndance: [105, 0, 32], // Banjo, Piano, Bass
+    air: [105, 0],           // Banjo, Piano
+    defaultPreset: [105, 0]  // Banjo, Piano
 };
 
 const PATCH_NAMES = { 
@@ -52,11 +53,14 @@ export class TradSessionPlayer {
         document.body.appendChild(this.stage);
     }
 
-    async loadTune(tuneKey) {
+    async loadTune(tuneKey, preservePlayback = false) {
         console.log(`[TradSessionPlayer] Loading tune: ${tuneKey}`);
         
         try {
-            await this.stop();
+            // Only stop if not preserving playback for crossfade
+            if (!preservePlayback) {
+                await this.stop();
+            }
             
             const tuneData = allTunes[tuneKey];
             if (!tuneData) {
@@ -91,6 +95,9 @@ export class TradSessionPlayer {
             ];
             
             // Create synths for each instrument using ORIGINAL ABC
+            // Pre-allocate tracks array to preserve order
+            this.tracks = new Array(patchIds.length);
+            
             const promises = patchIds.map(async (patchId, index) => {
                 try {
                     console.log(`[Track ${index}] Loading ${PATCH_NAMES[patchId]}`);
@@ -142,12 +149,18 @@ export class TradSessionPlayer {
                         this.tuneDuration = synth.duration;
                     }
                     
-                    this.tracks.push({ 
+                    // Store in the correct position instead of pushing
+                    this.tracks[index] = { 
                         name: PATCH_NAMES[patchId],
                         synth, 
                         gain, 
-                        active: false
-                    });
+                        active: (index === 0) // First track (Banjo) starts active
+                    };
+                    
+                    // Set gain for first track
+                    if (index === 0) {
+                        gain.gain.value = gain.targetVolume || 1.0;
+                    }
                     
                 } catch (error) {
                     console.error(`[Track ${index}] Error:`, error);
@@ -157,6 +170,7 @@ export class TradSessionPlayer {
 
             await Promise.all(promises);
             console.log('[TradSessionPlayer] All tracks loaded');
+            console.log('[TradSessionPlayer] Track order:', this.tracks.map(t => t.name));
             return true;
             
         } catch (error) {
@@ -228,7 +242,11 @@ export class TradSessionPlayer {
             
             // Start all synths (they'll all play from the same scheduled time)
             const startPromises = this.tracks.map(async (track, i) => {
+                const startTime = this.audioContext.currentTime;
+                console.log(`[Track ${i}] Starting at: ${startTime.toFixed(4)}`);
                 await track.synth.start();
+                const endTime = this.audioContext.currentTime;
+                console.log(`[Track ${i}] Start completed in: ${((endTime - startTime) * 1000).toFixed(2)}ms`);
                 
                 // Connect audio
                 if (track.synth.audioBufferPlayer) {
@@ -241,10 +259,6 @@ export class TradSessionPlayer {
                 if (track.synth.directSource) {
                     track.synth.directSource.forEach((source) => {
                         try {
-                            // THIS IS KEY: Schedule the source to start at our scheduled time
-                            if (source.start && source.start.length > 0) {
-                                console.log(`[Track ${i}] Has start() method, scheduling...`);
-                            }
                             source.disconnect();
                         } catch (e) {}
                         source.connect(track.gain);
@@ -254,19 +268,16 @@ export class TradSessionPlayer {
             
             await Promise.all(startPromises);
             console.log('[Scheduled] All synths started');
+            console.log('[Scheduled] Total elapsed:', ((this.audioContext.currentTime - this.scheduledStartTime + 0.1) * 1000).toFixed(2), 'ms');
             
             // Setup looping
             if (this.tuneDuration > 0) {
                 this.setupLooping();
             }
             
-            // Turn on first two tracks
-            if (this.tracks.length > 0) {
-                this.toggleInstrument(0);
-                if (this.tracks.length > 1) {
-                    this.toggleInstrument(1);
-                }
-            }
+            // NOTE: Do NOT auto-enable tracks here
+            // The calling code (heroSelect.js) will handle which instruments to enable
+            console.log('[TradSessionPlayer] Play complete - waiting for external track control');
             
         } catch (error) {
             console.error('[TradSessionPlayer] Play error:', error);

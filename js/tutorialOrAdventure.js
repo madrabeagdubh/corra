@@ -1,292 +1,255 @@
-import { championMusicManager } from './game/systems/music/championMusicManager.js';
+// Store the current Amergin line from heroSelect
+let currentAmerginLine = null;
+
+export function setCurrentAmerginLine(line) {
+    currentAmerginLine = line;
+}
 
 let initialized = false;
-let englishOpacity = 0.15;
+let englishSliderValue = 0.15;
 
 export function initTutorialOrAdventure(champion) {
     if (initialized) return;
     initialized = true;
 
-    console.log('[ChampionIntro] Starting intro for:', champion.nameGa);
-
-    // Music Transition
-    const waitForBarEnd = async () => {
-        await championMusicManager.transitionToLoop(2);
-    };
-    waitForBarEnd();
-
-    // 1. MAIN CONTAINER - Now with even higher z-index to be ABOVE heroSelect
+    // ───────────── MAIN CONTAINER (GRID) ─────────────
     const container = document.createElement('div');
     container.id = 'championIntro';
-    container.className = 'champion-intro-container';
     container.style.cssText = `
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
+        inset: 0;
         background: #000;
         z-index: 100000;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: center;
-        padding: 2rem;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        justify-items: center;
+        padding: 1rem;
         box-sizing: border-box;
     `;
 
-    // 2. TOP SECTION (Slider)
-    const topSection = document.createElement('div');
-    topSection.style.cssText = `width: 100%; display: flex; justify-content: center;`;
+    // ───────────── SLIDER (TOP) ─────────────
+    const sliderSection = document.createElement('div');
+    sliderSection.style.cssText = `
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    `;
 
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.min = 0;
     slider.max = 1;
     slider.step = 0.05;
-    slider.value = englishOpacity;
-    slider.className = 'champion-slider';
+    slider.value = englishSliderValue;
+
+    const updateSliderStyle = () => {
+        slider.style.background = `
+            linear-gradient(
+                to right,
+                #d4af37 0%,
+                #d4af37 ${englishSliderValue * 100}%,
+                #444 ${englishSliderValue * 100}%,
+                #444 100%
+            )
+        `;
+    };
+
     slider.style.cssText = `
         -webkit-appearance: none;
         width: 80%;
         max-width: 600px;
         height: 10px;
-        background: linear-gradient(to right, #d4af37 0%, #d4af37 ${englishOpacity * 100}%, #444 ${englishOpacity * 100}%, #444 100%);
         border-radius: 5px;
         outline: none;
     `;
+    updateSliderStyle();
 
-    topSection.appendChild(slider);
+    sliderSection.appendChild(slider);
 
-    // 3. MIDDLE SECTION (Scrollable Story)
-    const middleSection = document.createElement('div');
-    middleSection.style.cssText = `
-        flex: 1;
-        width: 100%;
+    // ───────────── TEXT (BELOW SLIDER) ─────────────
+    const textContainer = document.createElement('div');
+    textContainer.style.cssText = `
+        text-align: center;
         max-width: 800px;
-        margin: 1.5rem 0;
-        overflow-y: auto;
-        padding-right: 10px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        margin-top: 0.5rem;
     `;
 
-    // Define lines for interspacing
-   
+    const displayLine = currentAmerginLine || {
+        ga: `Cé an té le nod slí na gcloch sléibhe?`,
+        en: `Who knows the way of the mountain stones?`
+    };
 
+    const irishText = document.createElement('div');
+    irishText.textContent = displayLine.ga;
+    irishText.style.cssText = `
+        font-family: Aonchlo, serif;
+        font-size: 2rem;
+        color: #d4af37;
+        line-height: 1.5;
+    `;
 
-const lines = [
-  {
-    ga: `Tá ${champion.nameGa} chun a scéal a insint!`,
-    en: `${champion.nameGa} is ready to tell ${champion.gaObject} tale!`
-  },
-  
-{
-   ga: `Cá dtosóidh ${champion.pronouns.ga.subject}?`,
-    en: `Where shall ${champion.pronouns.en.subject} begin?`
-}
-];
+    const englishText = document.createElement('div');
+    englishText.textContent = displayLine.en;
+    englishText.style.cssText = `
+        font-family: 'Courier New', monospace;
+        font-size: 1.4rem;
+        color: #00ff00;
+        line-height: 1.5;
+        display: none;
+    `;
 
+    textContainer.append(irishText, englishText);
 
+    // ───────────── CHAMPION (CENTER, VISIBLE) ─────────────
+    const championHolder = document.createElement('div');
+    championHolder.style.cssText = `
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    `;
 
-    const storyContainer = document.createElement('div');
-    storyContainer.style.width = '100%';
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = `
+        display: block;
+        height: 420px;
+        max-height: 60vh;
+        width: auto;
+        image-rendering: pixelated;
+    `;
 
-    // Create a list to track English elements for the slider update
-    const englishElements = [];
+    championHolder.appendChild(canvas);
 
-    lines.forEach(line => {
-        const lineBox = document.createElement('div');
-        lineBox.style.marginBottom = '2rem';
+    async function loadChampionSprite() {
+        try {
+            const sheet = new Image();
+            sheet.src = 'assets/champions/champions-with-kit.png';
 
-        const gaLine = document.createElement('div');
-        gaLine.style.cssText = `
-            font-family: Aonchlo, serif;
-            font-size: 1.6rem;
-            color: #d4af37;
-            margin-bottom: 0.2rem;
-        `;
-        gaLine.textContent = line.ga;
+            const atlas = await fetch('assets/champions/champions0.json').then(r => r.json());
+            await new Promise(res => (sheet.onload = res));
 
-        const enLine = document.createElement('div');
-        enLine.style.cssText = `
-            font-family: 'Courier New', monospace;
-            font-size: 1.1rem;
-            color: rgba(0, 255, 0, ${englishOpacity});
-            transition: color 0.2s ease;
-        `;
-        enLine.textContent = line.en;
+            const frameName = champion.spriteKey.endsWith('.png')
+                ? champion.spriteKey
+                : `${champion.spriteKey}.png`;
 
-        englishElements.push(enLine);
-        lineBox.appendChild(gaLine);
-        lineBox.appendChild(enLine);
-        storyContainer.appendChild(lineBox);
-    });
+            const frame = atlas.textures[0].frames.find(f => f.filename === frameName);
+            if (!frame) return;
 
-    middleSection.appendChild(storyContainer);
+            canvas.width = frame.frame.w;
+            canvas.height = frame.frame.h;
 
-    // 4. BOTTOM SECTION (Compact Buttons)
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(
+                sheet,
+                frame.frame.x,
+                frame.frame.y,
+                frame.frame.w,
+                frame.frame.h,
+                0,
+                0,
+                frame.frame.w,
+                frame.frame.h
+            );
+        } catch (e) {
+            console.error('Champion sprite load failed', e);
+        }
+    }
+
+    loadChampionSprite();
+
+    // ───────────── BUTTONS (BOTTOM) ─────────────
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         width: 100%;
+        max-width: 800px;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 0.8rem;
-        padding-bottom: 10px;
-        flex-shrink: 0;
+        gap: 0.7rem;
+        margin-bottom: 0.5rem;
     `;
 
-    // Helper function to build the dual-language buttons
-    const createButton = (irishLabel, englishLabel, onclick) => {
+    function createButton(ga, en, onClick) {
         const btn = document.createElement('button');
         btn.style.cssText = `
             width: 100%;
-            max-width: 400px;
-            padding: 1rem;
-            background: #8b4513;
-            border: 3px solid #d2691e;
+            padding: 1.1rem;
             border-radius: 12px;
+            background: linear-gradient(145deg, #8b4513, #d2691e, #8b4513);
+            border: 3px solid #d2691e;
+            font-family: Aonchlo;
+            font-size: 1.3rem;
             cursor: pointer;
-            color: #1a1a1a;
-            transition: all 0.2s;
-            flex-shrink: 0;
         `;
 
-        const updateButtonText = () => {
-            if (englishOpacity > 0.5) {
-                btn.textContent = englishLabel;
-                btn.style.fontFamily = '"Courier New", Courier, monospace';
-                btn.style.fontWeight = '300';
-                btn.style.letterSpacing = '1px';
-                btn.style.textTransform = 'none';
-            } else {
-                btn.textContent = irishLabel;
-                btn.style.fontFamily = 'Aonchlo, serif';
-                btn.style.fontWeight = 'bold';
-                btn.style.letterSpacing = '2px';
-                btn.style.textTransform = 'uppercase';
+        const label = document.createElement('div');
+        label.textContent = ga;
+
+        btn.appendChild(label);
+        btn.onclick = onClick;
+
+        return {
+            btn,
+            setLanguage(isEnglish) {
+                label.textContent = isEnglish ? en : ga;
             }
         };
+    }
 
-        btn.onmouseover = () => btn.style.transform = 'scale(1.02)';
-        btn.onmouseout = () => btn.style.transform = 'scale(1)';
-
-        updateButtonText();
-        btn.onclick = onclick;
-
-        return { btn, updateButtonText };
-    };
-
-    // 1. Oiliúint / Training -> Starts BowTutorial
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
-        console.log('[TutorialOrAdventure] Training button clicked');
-        console.log('[TutorialOrAdventure] Starting BowTutorial');
         cleanup();
-        
-        // Hide heroSelect before starting game
-        const heroSelectContainer = document.getElementById('heroSelect');
-        if (heroSelectContainer) {
-        
-heroSelectContainer.remove()
-	}
-        
-        if (window.startGame) {
-            window.startGame(champion, { startScene: 'BowTutorial' });
-        } else {
-            console.error('[TutorialOrAdventure] window.startGame not found!');
-        }
+        document.getElementById('heroSelect')?.remove();
+        window.startGame?.(champion, { startScene: 'BowTutorial' });
     });
 
-    // 2. An Portach / The Bog -> Starts BogMeadow
-    const skipBtn = createButton('An Portach', 'The Bog', () => {
-        console.log('[TutorialOrAdventure] Bog button clicked');
-        console.log('[TutorialOrAdventure] Starting BogMeadow');
+    const bogBtn = createButton('An Portach', 'The Bog', () => {
         cleanup();
-        
-        // Hide heroSelect before starting game
-        const heroSelectContainer = document.getElementById('heroSelect');
-        if (heroSelectContainer) {
-        
-heroSelectContainer.remove()
-	}
-        
-        if (window.startGame) {
-            window.startGame(champion, { startScene: 'BogMeadow' });
-        } else {
-            console.error('[TutorialOrAdventure] window.startGame not found!');
-        }
+        document.getElementById('heroSelect')?.remove();
+        window.startGame?.(champion, { startScene: 'BogMeadow' });
     });
 
-    // 3. Ar Ais / Back -> Just close the modal, heroSelect is still underneath!
-  
-const backBtn = createButton('Ar Ais', 'Back', async () => {
-    console.log('[TutorialOrAdventure] Back button clicked');
-    cleanup(); // remove modal
+    const backBtn = createButton('Ar Ais', 'Back', async () => {
+        const heroSelect = await import('./heroSelect.js');
+        await heroSelect.muteSecondInstrument?.();
+        cleanup();
+        heroSelect.showHeroSelect?.();
+    });
 
-    // Unpause heroSelect
-    const heroSelectContainer = document.getElementById('heroSelect');
-    if (heroSelectContainer) {
-        heroSelectContainer.style.opacity = '1';
-        heroSelectContainer.style.pointerEvents = 'auto';
+    bottomSection.append(trainingBtn.btn, bogBtn.btn, backBtn.btn);
+
+    // ───────────── LANGUAGE SWITCH LOGIC ─────────────
+    function updateLanguage() {
+        const isEnglish = englishSliderValue >= 0.5;
+
+        irishText.style.display = isEnglish ? 'none' : 'block';
+        englishText.style.display = isEnglish ? 'block' : 'none';
+
+        trainingBtn.setLanguage(isEnglish);
+        bogBtn.setLanguage(isEnglish);
+        backBtn.setLanguage(isEnglish);
     }
 
-    // Restore any other heroSelect state if needed
-    const heroSelectModule = await import('./heroSelect.js');
-    if (heroSelectModule.showHeroSelect) {
-        heroSelectModule.showHeroSelect();
-    }
-});
-
-
-
-
-    bottomSection.appendChild(trainingBtn.btn);
-    bottomSection.appendChild(skipBtn.btn);
-    bottomSection.appendChild(backBtn.btn);
-
-    // 5. ASSEMBLE AND STYLE
-    container.appendChild(topSection);
-    container.appendChild(middleSection);
-    container.appendChild(bottomSection);
-
-    const sliderStyle = document.createElement('style');
-    sliderStyle.textContent = `
-        .champion-intro-container .champion-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: #ffd700;
-            cursor: pointer;
-            border: 8px solid rgba(255, 215, 0, 0.3);
-            background-clip: padding-box;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-        }
-    `;
-    document.head.appendChild(sliderStyle);
-
-    // 6. INPUT LOGIC (Updated for multiple elements)
-    slider.oninput = (e) => {
-        englishOpacity = Number(e.target.value);
-        englishElements.forEach(el => {
-            el.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
-        });
-        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${englishOpacity * 100}%, #444 ${englishOpacity * 100}%, #444 100%)`;
-        trainingBtn.updateButtonText();
-        skipBtn.updateButtonText();
-        backBtn.updateButtonText();
+    slider.oninput = e => {
+        englishSliderValue = parseFloat(e.target.value);
+        updateSliderStyle();
+        updateLanguage();
     };
+
+    updateLanguage();
+
+    // ───────────── ASSEMBLE ─────────────
+    container.append(
+        sliderSection,
+        textContainer,
+        championHolder,
+        bottomSection
+    );
+
+    document.body.appendChild(container);
 
     function cleanup() {
-        console.log('[TutorialOrAdventure] cleanup() called - removing modal overlay');
-        container.remove();
-        sliderStyle.remove();
         initialized = false;
+        container.remove();
     }
-
-    // Append to body - it will sit ON TOP of heroSelect
-    document.body.appendChild(container);
 }
-

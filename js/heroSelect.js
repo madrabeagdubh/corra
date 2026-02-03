@@ -18,6 +18,9 @@ let sliderTutorialComplete = false;
 let musicPlayer = null;
 let currentTuneKey = null;
 
+// Current Amergin line for export to tutorialOrAdventure
+let currentAmerginLineForExport = null;
+
 const irishText = document.createElement('div');
 irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
 irishText.style.cssText = `
@@ -309,6 +312,10 @@ const slider = document.createElement('input');
 
     const updateLyricDisplay = () => {
         const line = amerginLines[currentLyricIndex];
+        
+        // Export the current line for tutorialOrAdventure
+        setCurrentAmerginLine(line);
+        
         irishText.style.opacity = '0';
         englishText.style.opacity = '0';
 
@@ -330,6 +337,10 @@ const slider = document.createElement('input');
 
     // Set initial text
     const initialLine = amerginLines[currentLyricIndex];
+    
+    // Export the initial line
+    setCurrentAmerginLine(initialLine);
+    
     if (irishText && englishText) {
         irishText.textContent = initialLine.ga;
         englishText.textContent = initialLine.en;
@@ -1354,7 +1365,7 @@ async function playChampionTune(tuneKey) {
         for (const track of oldTracks) {
             if (track.active && track.gain) {
                 // Fade out over 600ms
-                track.gain.gain.setTargetAtTime(0, fadeOutTime, 0.8);
+                track.gain.gain.setTargetAtTime(0, fadeOutTime, 0.2);
             }
         }
         
@@ -1552,6 +1563,40 @@ document.addEventListener('DOMContentLoaded', initHeroSelect);
 if (document.readyState !== 'loading') {
   console.log('DOM already loaded, initializing...');
   initHeroSelect();
+}
+
+// Export current Amergin line for tutorialOrAdventure
+export function getCurrentAmerginLine() {
+    return currentAmerginLineForExport;
+}
+
+export function setCurrentAmerginLine(line) {
+    currentAmerginLineForExport = line;
+}
+
+// Export music player accessor
+export function getMusicPlayer() {
+    return musicPlayer;
+}
+
+// Export function to mute second instrument
+export async function muteSecondInstrument() {
+    console.log('[HeroSelect] Muting second instrument');
+    
+    if (!musicPlayer || !musicPlayer.tracks) {
+        console.warn('[HeroSelect] No music player or tracks available');
+        return;
+    }
+    
+    // Turn off all instruments except banjo (index 0)
+    for (let i = 1; i < musicPlayer.tracks.length; i++) {
+        if (musicPlayer.tracks[i].active) {
+            console.log('[HeroSelect] Turning off:', musicPlayer.tracks[i].name);
+            musicPlayer.toggleInstrument(i);
+        }
+    }
+    
+    console.log('[HeroSelect] Second instrument muted, back to banjo only');
 }
 
 export { showHeroSelect };

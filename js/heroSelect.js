@@ -275,19 +275,19 @@ function initMainHeroSelect() {
     if (!container) return;
 
     initialized = true; 
-
-sliderTutorialComplete = true; // Skip tutorial, intro handled it
+    sliderTutorialComplete = true; // Skip tutorial, intro handled it
     
-let englishOpacity = initialSliderValue; // Use value from intro modal
-let currentChampionIndex = 0;
+    let audioUnlocked = true; // Audio was unlocked in intro modal
+    let englishOpacity = initialSliderValue; // Use value from intro modal
+    let currentChampionIndex = 0;
     let atlasData = null;
     let sheetLoaded = false;
     
-// Initialize music player
-if (!musicPlayer) {
-    musicPlayer = new TradSessionPlayer();
-    console.log('[HeroSelect] Music player initialized');
-}
+    // Initialize music player
+    if (!musicPlayer) {
+        musicPlayer = new TradSessionPlayer();
+        console.log('[HeroSelect] Music player initialized');
+    }
 
 let lastMusicChangeTime = 0;
     const MUSIC_CHANGE_DELAY = 500;
@@ -348,7 +348,7 @@ let lastMusicChangeTime = 0;
 
 .hero-select-container {
     display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden;
-    background: #000; position: relative;
+    background: transparent; position: relative;
 }
 
 .champion-scroll {
@@ -426,7 +426,7 @@ topPanel.className = 'champion-top-panel';
 
 topPanel.style.cssText = `
     position: fixed;
-    top: 10px;  // <-- CHANGE: Start at top (no animation needed)
+    top: 10px;
     left: 0;
     width: 100%;
     z-index: 10001;
@@ -437,6 +437,15 @@ topPanel.style.cssText = `
     box-sizing: border-box;
 `;
 
+// Create the slider element
+const slider = document.createElement('input');
+slider.type = 'range';
+slider.min = 0;
+slider.max = 1;
+slider.step = 0.05;
+slider.value = initialSliderValue;
+slider.className = 'champion-slider';
+
 
 
 
@@ -444,12 +453,6 @@ topPanel.style.cssText = `
 
 
     
-    const startTop = window.innerHeight * 0.15;
-
-slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
-slider.value = initialSliderValue;
-
-slider.className = 'champion-slider';
    const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
        sliderStyle.textContent = `
@@ -574,9 +577,6 @@ slider.oninput = e => {
     topPanel.appendChild(slider);
     container.appendChild(topPanel);
 
-waitForSliderInteraction();
-
-
    
     // Make sure topPanel (with slider) is above the overlay
     topPanel.style.zIndex = '10001';
@@ -595,16 +595,32 @@ waitForSliderInteraction();
    
 
 chooseButton.onclick = async () => {
+    console.log('[DEBUG] Continue button clicked');
+    console.log('[DEBUG] currentChampionIndex:', currentChampionIndex);
+    
     const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    console.log('[DEBUG] validChampions length:', validChampions.length);
+    console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
+    
     if (validChampions[currentChampionIndex]) {
-        console.log('[DEBUG] Continue button clicked');
-        // Unmute piano before transitioning
-        await unmutePiano();
-        // Wait a moment to hear the piano join in
-        console.log('[DEBUG] Waiting 800ms for piano to be heard...');
-        setTimeout(() => {
-            finalize(validChampions[currentChampionIndex]);
-        }, 800);
+        // Check if music is loaded before trying to unmute
+        if (musicPlayer && musicPlayer.tracks && musicPlayer.tracks.some(t => t && t.name)) {
+            // Unmute piano before transitioning
+            await unmutePiano();
+            // Wait a moment to hear the piano join in
+            console.log('[DEBUG] Waiting 800ms for piano to be heard...');
+            setTimeout(() => {
+                finalize(validChampions[currentChampionIndex]);
+            }, 800);
+        } else {
+            console.warn('[DEBUG] Music not loaded, proceeding without unmuting');
+            // Proceed anyway after short delay
+            setTimeout(() => {
+                finalize(validChampions[currentChampionIndex]);
+            }, 200);
+        }
+    } else {
+        console.error('[DEBUG] No champion at currentChampionIndex:', currentChampionIndex);
     }
 };
 ;
@@ -656,6 +672,16 @@ chooseButton.onclick = async () => {
         scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
         currentChampionIndex = randomIndex;
 
+        // Start music for the initial champion
+        const initialChampion = validChampions[randomIndex];
+        if (initialChampion) {
+            const tuneKey = getTuneKeyForChampion(initialChampion);
+            if (tuneKey) {
+                console.log('[HeroSelect] Starting initial tune for:', initialChampion.nameEn, '- tune:', tuneKey);
+                playChampionTune(tuneKey);
+            }
+        }
+
         initSwipe(scrollContainer, validChampions.length);
         window.hideLoader();
     initBackgroundParticles(); // Add this line
@@ -688,6 +714,18 @@ checkAndShowStats();
 
 
     }
+
+    // Initialize background starfield for heroSelect (behind everything)
+    const starfieldCanvas = initStarfield();
+    starfieldCanvas.style.position = 'fixed';
+    starfieldCanvas.style.top = '0';
+    starfieldCanvas.style.left = '0';
+    starfieldCanvas.style.width = '100vw';
+    starfieldCanvas.style.height = '100vh';
+    starfieldCanvas.style.zIndex = '1';  // Always behind everything
+    starfieldCanvas.style.pointerEvents = 'none';
+    document.body.appendChild(starfieldCanvas);
+}
 
 
 
@@ -902,28 +940,21 @@ function showStatsBar() {
                 if (currentChampionIndex !== realIndex) {
                     currentChampionIndex = realIndex;
                     
+                    updateGlobalStats(currentChamp);
 
-
-
-updateGlobalStats(currentChamp);
-
-
-
-const now = Date.now();
-if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
-    lastMusicChangeTime = now;
-    
-    if (currentChamp) {
-        console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
-        const tuneKey = getTuneKeyForChampion(currentChamp);
-        console.log('[DEBUG] Playing tune:', tuneKey);
-        if (tuneKey) {
-            playChampionTune(tuneKey);
-        }
-    }
-}
-
-
+                    const now = Date.now();
+                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
+                        lastMusicChangeTime = now;
+                        
+                        if (currentChamp) {
+                            console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
+                            const tuneKey = getTuneKeyForChampion(currentChamp);
+                            console.log('[DEBUG] Playing tune:', tuneKey);
+                            if (tuneKey) {
+                                playChampionTune(tuneKey);
+                            }
+                        }
+                    }
                 }
 
                 container.scrollLeft = (len + realIndex) * w;
@@ -1089,15 +1120,24 @@ async function unmutePiano() {
         return;
     }
     
-    console.log('[DEBUG] Available tracks:', musicPlayer.tracks.map(t => t.name));
+    // Check if tracks are actually loaded (not undefined)
+    const loadedTracks = musicPlayer.tracks.filter(t => t && t.name);
+    console.log('[DEBUG] Loaded tracks:', loadedTracks.length, '/', musicPlayer.tracks.length);
+    
+    if (loadedTracks.length === 0) {
+        console.warn('[DEBUG] No tracks loaded yet, cannot unmute');
+        return;
+    }
+    
+    console.log('[DEBUG] Available tracks:', loadedTracks.map(t => t.name));
     
     // Try to find piano first
-    let targetIndex = musicPlayer.tracks.findIndex(t => t.name === 'Piano');
+    let targetIndex = musicPlayer.tracks.findIndex(t => t && t.name === 'Piano');
     
     if (targetIndex < 0) {
         // No piano, so enable the second instrument (index 1) if available
         console.log('[DEBUG] No Piano track, enabling second instrument instead');
-        if (musicPlayer.tracks.length > 1) {
+        if (loadedTracks.length > 1) {
             targetIndex = 1;
         } else {
             console.log('[DEBUG] Only one track available, nothing to add');
@@ -1105,10 +1145,10 @@ async function unmutePiano() {
         }
     }
     
-    if (targetIndex >= 0 && !musicPlayer.tracks[targetIndex].active) {
+    if (targetIndex >= 0 && musicPlayer.tracks[targetIndex] && !musicPlayer.tracks[targetIndex].active) {
         console.log('[DEBUG] Toggling ON:', musicPlayer.tracks[targetIndex].name, 'at index', targetIndex);
         await musicPlayer.toggleInstrument(targetIndex);
-    } else {
+    } else if (targetIndex >= 0 && musicPlayer.tracks[targetIndex]) {
         console.log('[DEBUG] Track already active:', musicPlayer.tracks[targetIndex].name);
     }
 }
@@ -1147,19 +1187,6 @@ function finalize(champ) {
 
 
 
-// Position starfield above tutorial overlay but below slider so it's visible and interactive
-const starfieldCanvas = initStarfield();
-starfieldCanvas.style.position = 'fixed';
-starfieldCanvas.style.top = '0';
-starfieldCanvas.style.left = '0';
-starfieldCanvas.style.width = '100vw';
-starfieldCanvas.style.height = '100vh';
-starfieldCanvas.style.zIndex = '1';  // <-- CHANGE: Always behind everything
-starfieldCanvas.style.pointerEvents = 'none';
-document.body.appendChild(starfieldCanvas);starfieldCanvas.style.pointerEvents = 'none'; // CRITICAL: Allows clicks to pass through to buttons/sliders
-
-document.body.appendChild(starfieldCanvas);
-}
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called - making visible again');
     
@@ -1206,7 +1233,7 @@ export async function muteSecondInstrument() {
     
     // Turn off all instruments except banjo (index 0)
     for (let i = 1; i < musicPlayer.tracks.length; i++) {
-        if (musicPlayer.tracks[i].active) {
+        if (musicPlayer.tracks[i] && musicPlayer.tracks[i].active) {
             console.log('[HeroSelect] Turning off:', musicPlayer.tracks[i].name);
             musicPlayer.toggleInstrument(i);
         }

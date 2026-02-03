@@ -1,3 +1,4 @@
+import { initIntroModal } from './introModal.js';
 import { initStarfield, stopStarfield } from './game/effects/starfield.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
@@ -21,49 +22,8 @@ let currentTuneKey = null;
 // Current Amergin line for export to tutorialOrAdventure
 let currentAmerginLineForExport = null;
 
-const irishText = document.createElement('div');
-irishText.textContent = `I Nás na nLaoch i dTír na nÓg… `;
-irishText.style.cssText = `
-    font-family: Aonchlo, serif;
-    font-size: 1.8rem;
-    color: #d4af37;
-    margin-bottom: 0.5rem;
-`;
 
-const englishText = document.createElement('div');
-englishText.id = 'tutorial-english-text';
-englishText.textContent = `In Tír na nÓg, at the meeting place of champions...`;
-englishText.style.cssText = `
-    font-family: 'Courier New', monospace;
-    font-size: 1.7rem;
-    color: rgb(0, 255, 0);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    min-height: 1.5em;
-    display: block;
-`;
-
-
-irishText.style.cssText += `
-    transition: opacity 0.8s ease-in-out;
-    min-height: 4rem;
-`;
-
-englishText.style.cssText += `
-    transition: opacity 0.5s ease;
-    min-height: 4rem;
-`;
-
-
-const amerginLines = [
-    { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
-    { ga: "Cé gair aois na gealaí?", en: "Who tells the age of the moon?" },
-    { ga: "Cá dú dul faoi na gréine?", en: "Where does the sun go to rest?" },
-    { ga: "Cé beir buar ó thigh Teamhrach?", en: "Who brings the cattle from the house of Tara?" },
-    { ga: "Cé buar Teathra le gean?", en: "Who are the cattle of Tethra with love?" },
-    { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "Who is man? Who is the god that fashions weapons?" }
-];
-
+let initialSliderValue = 0.05;
 
 // Stat descriptions
 const statDescriptions = {
@@ -293,66 +253,35 @@ function updateGlobalStats(champion) {
 
 
 
-
 export function initHeroSelect() {
     if (initialized) return;
+    
+    // Show intro modal first
+    initIntroModal((sliderValue, amerginLine) => {
+        console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
+        console.log('[HeroSelect] Current Amergin line:', amerginLine);
+        
+        // Store the values from intro
+        initialSliderValue = sliderValue;
+        currentAmerginLineForExport = amerginLine;
+        
+        // Now initialize the main hero select
+        initMainHeroSelect();
+    });
+}
+
+function initMainHeroSelect() {
     const container = document.getElementById('heroSelect');
     if (!container) return;
 
-    initialized = true;
+    initialized = true; 
 
- 
-
-
-const slider = document.createElement('input');
-
-    // 2. NOW DEFINE THE AMERGIN LOGIC
-    let currentLyricIndex = Math.floor(Math.random() * amerginLines.length);
-    let lyricInterval = null;
-
-    const updateLyricDisplay = () => {
-        const line = amerginLines[currentLyricIndex];
-        
-        // Export the current line for tutorialOrAdventure
-        setCurrentAmerginLine(line);
-        
-        irishText.style.opacity = '0';
-        englishText.style.opacity = '0';
-
-        setTimeout(() => {
-            irishText.textContent = line.ga;
-            englishText.textContent = line.en;
-            irishText.style.opacity = '1';
-            englishText.style.opacity = slider ? slider.value : 0;
-        }, 800);
-    };
-
-    // 3. START THE CYCLE
-    lyricInterval = setInterval(() => {
-        if (!sequenceTriggered) {
-            currentLyricIndex = (currentLyricIndex + 1) % amerginLines.length;
-            updateLyricDisplay();
-        }
-    }, 10000);
-
-    // Set initial text
-    const initialLine = amerginLines[currentLyricIndex];
+sliderTutorialComplete = true; // Skip tutorial, intro handled it
     
-    // Export the initial line
-    setCurrentAmerginLine(initialLine);
-    
-    if (irishText && englishText) {
-        irishText.textContent = initialLine.ga;
-        englishText.textContent = initialLine.en;
-    }
-
-
-
-    let englishOpacity = 0.05;
-    let currentChampionIndex = 0;
+let englishOpacity = initialSliderValue; // Use value from intro modal
+let currentChampionIndex = 0;
     let atlasData = null;
     let sheetLoaded = false;
-    let audioUnlocked = false;
     
 // Initialize music player
 if (!musicPlayer) {
@@ -488,31 +417,38 @@ let lastMusicChangeTime = 0;
     scrollContainer.className = 'champion-scroll';
     container.appendChild(scrollContainer);
 
-      const topPanel = document.createElement('div');
-    topPanel.className = 'champion-top-panel';
+
+
+
+
+const topPanel = document.createElement('div');
+topPanel.className = 'champion-top-panel';
+
+topPanel.style.cssText = `
+    position: fixed;
+    top: 10px;  // <-- CHANGE: Start at top (no animation needed)
+    left: 0;
+    width: 100%;
+    z-index: 10001;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+`;
+
+
+
+
+
+
+
     
-    // Calculate 25% of screen height in pixels
     const startTop = window.innerHeight * 0.15;
 
-    topPanel.style.cssText = `
-        position: fixed;
-        top: ${startTop}px;      /* Pixel-based start */
-        left: 0;
-        width: 100%;
-        z-index: 10001;          /* Higher than overlay */
-        padding: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        box-sizing: border-box;
-        /* Force hardware acceleration for the move */
-        transition: top 1.0s cubic-bezier(0.19, 1, 0.22, 1); 
-        will-change: top;
-    `;
- 
-
 slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
-slider.value = englishOpacity;
+slider.value = initialSliderValue;
+
 slider.className = 'champion-slider';
    const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
@@ -607,66 +543,10 @@ slider.className = 'champion-slider';
 
 
 
-
 slider.oninput = e => {
     const val = Number(e.target.value);
     updateSliderVisuals(val);
-
-    if (!sequenceTriggered && val > 0.15) {
-        console.log('[DEBUG] Slider hit 0.85, moving panel to top');
-        console.log('[DEBUG] Current top:', topPanel.style.top);
-        console.log('[DEBUG] Current z-index:', topPanel.style.zIndex);
-        
-        sequenceTriggered = true;
-        
-        // Force z-index and remove any conflicting styles
-        topPanel.style.zIndex = '10002';
-        topPanel.style.position = 'fixed';
-        topPanel.style.top = '10px';
-        
-        console.log('[DEBUG] New top:', topPanel.style.top);
-        console.log('[DEBUG] New z-index:', topPanel.style.zIndex);
-        
-        // Force reflow
-        void topPanel.offsetHeight;
-
-        // 2. Wait for panel to reach top, THEN wait for reading time, THEN fade
-        setTimeout(() => {
-            console.log('[DEBUG] Panel movement complete, waiting for player to read...');
-            
-            // Wait additional time for player to read the English text
-            setTimeout(() => {
-                console.log('[DEBUG] Starting overlay fade');
-                const overlay = document.getElementById('slider-tutorial-overlay');
-                if (overlay) {
-                    overlay.style.opacity = '0';
-                    // Also fade out the tutorial text if it's a separate element
-                    if (tutorialText) tutorialText.style.opacity = '0';
-                }
-
-                // Wait for fade to complete, then remove overlay
-                setTimeout(() => {
-                    if (overlay) overlay.remove();
-                    
-                    // NOW do all the completion stuff
-                    sliderTutorialComplete = true;
-                   
-                    
-                    showStatsBar();
-                      const starCanvas = document.querySelector('canvas:not([id])'); // Or your specific selector
-if (starfieldCanvas) {
-    starfieldCanvas.style.transition = 'z-index 0.8s step-end, opacity 1s ease';
-    starfieldCanvas.style.zIndex = '499'; 
-}
- 
-                    setTimeout(() => {
-                        runSwipeNudge();
-                    }, 1500); // Give player 1.5 seconds to see the stats bar first
-                }, 1000); // Wait for opacity transition to complete
-            }, 2000); // Wait 5 seconds for player to read
-        }, 2000); // Wait for panel to reach top
-    }
-};
+};;
 /////////////
 
 
@@ -697,110 +577,7 @@ if (starfieldCanvas) {
 waitForSliderInteraction();
 
 
-const overlay = document.createElement('div');
-overlay.id = 'slider-tutorial-overlay';
-overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 9999;           /* Boost this very high */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.8s ease;
-    pointer-events: all;     /* Capture all events */
-    touch-action: none;      /* Prevent scrolling behind */
-`;
-
-
-
-
-
-
-
-
-
-
-// Explicitly stop clicks from reaching elements underneath
-overlay.onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-};
-overlay.ontouchstart = (e) => {
-    e.stopPropagation();
-};
-
-container.appendChild(overlay);
-
-
-const tutorialText = document.createElement('div');
-tutorialText.style.cssText = `
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-family: Aonchlo, serif;
-    font-size: 1.8rem;
-    color: #d4af37;
-    text-align: center;
-    padding: 2rem;
-    max-width: 80%;
-    width: 80%;
-    line-height: 1.6;
-`;
-
-
-
-
-
-
-// Add "Slide to Begin" instruction
-const slideInstruction = document.createElement('div');
-slideInstruction.style.cssText = `
-    font-family: Aonchlo, serif;
-    font-size: 2.2rem;
-    color: #d4af37;
-    text-align: center;
-    margin-top: 2rem;
-    animation: slideInstructionPulse 2s ease-in-out infinite;
-    text-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
-`;
-slideInstruction.innerHTML = '';
-
-// Add arrow pointing to slider
-const arrow = document.createElement('div');
-arrow.style.cssText = `
-`;
-arrow.textContent = '';
-
-const instructionStyle = document.createElement('style');
-instructionStyle.textContent = `
-    @keyframes slideInstructionPulse {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
-    }
-    @keyframes arrowBounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-15px); }
-    }
-`;
-document.head.appendChild(instructionStyle);
-
-tutorialText.appendChild(irishText);
-tutorialText.appendChild(englishText);
-
-overlay.appendChild(tutorialText);
-overlay.appendChild(slideInstruction);
-overlay.appendChild(arrow);
-container.appendChild(overlay);
-
-
-
-    
+   
     // Make sure topPanel (with slider) is above the overlay
     topPanel.style.zIndex = '10001';
 
@@ -934,172 +711,6 @@ function runSwipeNudge() {
 }
 
 
-    function runOnboarding() {
-        // Just wait for slider interaction - no auto demo
-        waitForSliderInteraction();
-    }
-
-function waitForSliderInteraction() {
-    console.log('[HeroSelect] Waiting for user to slide...');
-
-    let hasUnlockedAudio = false;
-    let hasReleasedSlider = false;
-
-    // Unlock audio on first touch of slider
-    
-
-const handleSliderTouch = async (e) => {
-    console.log('[DEBUG] === SLIDER TOUCH EVENT ===');
-    console.log('[DEBUG] Event type:', e.type);
-    console.log('[DEBUG] isTrusted:', e.isTrusted);
-    console.log('[DEBUG] hasUnlockedAudio:', hasUnlockedAudio);
-
-    if (hasUnlockedAudio) {
-        console.log('[DEBUG] Already unlocked, exiting');
-        return;
-    }
-    hasUnlockedAudio = true;
-
-    console.log('[DEBUG] Slider touched - unlocking audio...');
-    console.log('[DEBUG] Existing sharedAudioContext:', window.sharedAudioContext);
-
-    // Hide the instruction immediately
-    const instruction = document.querySelector('div[style*="slideInstructionPulse"]');
-    const arrow = document.querySelector('div[style*="arrowBounce"]');
-    if (instruction) instruction.style.display = 'none';
-    if (arrow) arrow.style.display = 'none';
-
-    try {
-        // Delete any existing context to force a fresh one
-        if (window.sharedAudioContext) {
-            console.log('[DEBUG] Closing old context...');
-            try {
-                await window.sharedAudioContext.close();
-            } catch (e) {
-                console.log('[DEBUG] Error closing old context:', e);
-            }
-            window.sharedAudioContext = null;
-        }
-
-        // Create fresh context on this guaranteed user gesture
-        console.log('[DEBUG] Creating new AudioContext...');
-        window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        console.log('[DEBUG] Context created, state:', window.sharedAudioContext.state);
-
-        // Try resume with timeout
-        console.log('[DEBUG] Calling resume() with timeout...');
-        const resumePromise = window.sharedAudioContext.resume();
-        const timeoutPromise = new Promise(resolve => setTimeout(() => {
-            console.log('[DEBUG] Resume timeout hit');
-            resolve('timeout');
-        }, 500));
-        
-        const result = await Promise.race([resumePromise, timeoutPromise]);
-        console.log('[DEBUG] Resume result:', result);
-        console.log('[DEBUG] State after resume:', window.sharedAudioContext.state);
-
-        // If still suspended, play buffer AFTER resume attempt
-        if (window.sharedAudioContext.state === 'suspended') {
-            console.log('[DEBUG] Still suspended, playing buffer now...');
-            const buffer = window.sharedAudioContext.createBuffer(1, 1, 22050);
-            const source = window.sharedAudioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(window.sharedAudioContext.destination);
-            source.start(0);
-            
-            console.log('[DEBUG] State after buffer:', window.sharedAudioContext.state);
-            
-            // Try resume again
-            await Promise.race([
-                window.sharedAudioContext.resume(),
-                new Promise(resolve => setTimeout(resolve, 500))
-            ]);
-            console.log('[DEBUG] State after second resume:', window.sharedAudioContext.state);
-        }
-
-        // Wait for running state
-        let attempts = 0;
-        while (window.sharedAudioContext.state !== 'running' && attempts < 10) {
-            console.log('[DEBUG] Waiting for running state, attempt:', attempts + 1);
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
-        }
-
-        console.log('[DEBUG] Final audio state:', window.sharedAudioContext.state);
-        audioUnlocked = true;
-
-        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-        const currentChamp = validChampions[currentChampionIndex];
-
-        if (currentChamp && window.sharedAudioContext.state === 'running') {
-            console.log('[DEBUG] Starting music for:', currentChamp.nameGa);
-// Start playing the initial champion's music
-if (currentChamp) {
-    console.log('[DEBUG] Champion object:', currentChamp.nameEn, 'Theme:', currentChamp.themeTuneTitle);
-    const tuneKey = getTuneKeyForChampion(currentChamp);
-    console.log('[DEBUG] Got tune key:', tuneKey);
-    if (tuneKey) {
-        await playChampionTune(tuneKey);
-    }
-}   } else {
-            console.error('[DEBUG] Cannot start music, state:', window.sharedAudioContext?.state);
-        }
-    } catch (error) {
-        console.error('[DEBUG] Error unlocking audio:', error);
-    }
-};
-
-
-
-const handleSliderRelease = async () => {
-    if (hasReleasedSlider) return;
-    hasReleasedSlider = true;
-
-    slider.removeEventListener('touchstart', handleSliderTouch);
-    slider.removeEventListener('mousedown', handleSliderTouch);
-    slider.removeEventListener('touchend', handleSliderRelease);
-    slider.removeEventListener('mouseup', handleSliderRelease);
-
-    // Don't do anything here - let the slider.oninput sequence handle everything
-    // The sequence is triggered when slider value > 0.85
-    console.log('[DEBUG] Slider released, waiting for oninput sequence to complete');
-};
-
-
-
-
-
-let firstTouch = true;
-let touchUnlocked = false;
-
-// First, try to unlock on touchstart
-slider.addEventListener('touchstart', async (e) => {
-    if (!firstTouch) return;
-    firstTouch = false;
-    
-    console.log('[DEBUG] Touchstart - attempting unlock...');
-    await handleSliderTouch(e);
-    touchUnlocked = window.sharedAudioContext?.state === 'running';
-    console.log('[DEBUG] Unlock via touchstart successful:', touchUnlocked);
-}, { once: true });
-
-// Fallback: if touchstart didn't work, try on first input (actual slider movement)
-slider.addEventListener('input', async (e) => {
-    if (touchUnlocked || hasUnlockedAudio) return;
-    
-    console.log('[DEBUG] Input event - attempting unlock (Firefox fallback)...');
-    await handleSliderTouch(e);
-}, { once: true });
-
-slider.addEventListener('mousedown', handleSliderTouch, { once: true });
-
-slider.addEventListener('touchend', handleSliderRelease);
-slider.addEventListener('mouseup', handleSliderRelease);
-
-
-
-}
 
 
 function initBackgroundParticles() {
@@ -1518,9 +1129,14 @@ function finalize(champ) {
         heroSelectContainer.style.opacity = '0';
         heroSelectContainer.style.pointerEvents = 'none';
     }
-    // Launch the tutorialOrAdventure overlay
+    
+    // Get the current slider value
+    const slider = document.querySelector('.champion-slider');
+    const currentSliderValue = slider ? parseFloat(slider.value) : 0.15;
+    
+    // Launch the tutorialOrAdventure overlay with current state
     import('./tutorialOrAdventure.js').then(module => {
-        module.initTutorialOrAdventure(champ);
+        module.initTutorialOrAdventure(champ, currentSliderValue, currentAmerginLineForExport);
     });
 }
 
@@ -1531,16 +1147,16 @@ function finalize(champ) {
 
 
 
+// Position starfield above tutorial overlay but below slider so it's visible and interactive
 const starfieldCanvas = initStarfield();
-// Force it to the absolute top of the visual stack
 starfieldCanvas.style.position = 'fixed';
 starfieldCanvas.style.top = '0';
 starfieldCanvas.style.left = '0';
 starfieldCanvas.style.width = '100vw';
 starfieldCanvas.style.height = '100vh';
-starfieldCanvas.style.zIndex = '200'; // Higher than any other element (10002)
-
-starfieldCanvas.style.pointerEvents = 'none'; // CRITICAL: Allows clicks to pass through to buttons/sliders
+starfieldCanvas.style.zIndex = '1';  // <-- CHANGE: Always behind everything
+starfieldCanvas.style.pointerEvents = 'none';
+document.body.appendChild(starfieldCanvas);starfieldCanvas.style.pointerEvents = 'none'; // CRITICAL: Allows clicks to pass through to buttons/sliders
 
 document.body.appendChild(starfieldCanvas);
 }

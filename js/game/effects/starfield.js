@@ -1,116 +1,119 @@
-// game/effects/starfield.js
+ let canvas, ctx, animationId;
+ let active = true;
+ let stars = [];
+ let lastTime = performance.now();
+ const nebulaImage = new Image();
 
-let canvas, ctx, animationId;
-let stars = [];
-let active = false;
-const starCount = 3000;
+ // CONFIGURATION
+ const STAR_COUNT = 350;                                                 nebulaImage.src = 'assets/n1-top@3x.png';
 
-class Star {
-    constructor(w, h) {
-        this.w = w;
-        this.h = h;
-        this.reset();
-    }
+ class Star {             constructor(w, h, hubX, hubY) {
+   this.hubX = hubX;
+     this.hubY = hubY;
+     this.reset(w, h);
+   }
 
-    reset() {
-        const maxDist = Math.max(this.w, this.h) * 2.5;
-        this.dist = Math.random() * maxDist;
-        this.angle = Math.random() * Math.PI * 2;
-        this.speed = (Math.random() * 0.00001) + 0.000005; 
-        this.size = Math.random() * 1.3 + 0.1;
-        this.brightness = Math.random() * Math.PI;
-        this.twinkleSpeed = Math.random() * 0.01 + 0.004;
-        
-        const r = Math.random();
-        if (r > 0.99) this.color = "212, 175, 55";
-        else if (r > 0.95) this.color = "100, 140, 255";
-        else if (r > 0.90) this.color = "180, 80, 255";
-        else this.color = "255, 255, 255";               
-    }
+   reset(w, h) {
+     // We want stars to fill the diagonal of the screen
+     const maxScreenDist = Math.sqrt(w * w + h * h);
 
-    update(delta) {
-        this.angle += this.speed * delta;
-        this.brightness += this.twinkleSpeed;
-    }
+     // Distribute stars mostly within the screen view
+     this.dist = Math.random() * maxScreenDist;
+     this.angle = Math.random() * Math.PI * 2;
 
-    draw(ctx, cx, cy) {
-        const x = cx + Math.cos(this.angle) * this.dist;
-        const y = cy + Math.sin(this.angle) * this.dist;
-        
-        if (y > cy + 100 || x < -50 || x > this.w + 50) return;
+     this.size = Math.random() * 1.4 + 0.2;
+     // Variety in speed creates depth (parallax)
+     this.rotationSpeed = (Math.random() * 0.00004 + 0.00001);
 
-        const opacity = (Math.sin(this.brightness) * 0.5 + 0.5);
-        ctx.fillStyle = `rgba(${this.color}, ${opacity})`;
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-}
+     // Twinkle factor
+     this.opacity = Math.random() * 0.6 + 0.2;
+     this.twinkleSpeed = Math.random() * 0.002 + 0.001;
+   }
 
-export function initStarfield() {
-    active = true;
-    canvas = document.createElement('canvas');
-    ctx = canvas.getContext('2d');
-    resizeCanvas();
+   update(delta) {
+     this.angle += this.rotationSpeed * delta;
+   }
 
-    stars = Array.from({ length: starCount }, () => new Star(canvas.width, canvas.height));
+   draw(ctx, now) {
+     const x = this.hubX + Math.cos(this.angle) * this.dist;
+     const y = this.hubY + Math.sin(this.angle) * this.dist;
 
-    let lastTime = performance.now();
-    let bgPulse = 0;
+     // Subtle twinkle effect using sine wave on opacity
+    const currentOpacity = this.opacity + Math.sin(now * this.twinkleSpeed) * 0.2;
 
-  function animate(now) {
-    if (!active) return;
-    const delta = now - lastTime;
-    lastTime = now;
-    bgPulse += delta * 0.00015;
+     ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, currentOpacity)})`;
+     ctx.beginPath();
+     ctx.arc(x, y, this.size, 0, Math.PI * 2);
+     ctx.fill();
+   }
+ }
 
-    // 1. CHANGE THIS: Clear the canvas to be transparent
-    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+ export function initStarfield() {
+   active = true;
+   canvas = document.createElement('canvas');
+   ctx = canvas.getContext('2d');
 
-    const hubX = canvas.width * 0.33;
-    const hubY = canvas.height * 0.7;
+   canvas.width = window.innerWidth;
+   canvas.height = window.innerHeight;
 
-    // 2. THE BACKGROUND HUES (Keep these, they are semi-transparent)
-    // Blue Glow
-    const blueGrad = ctx.createRadialGradient(hubX, hubY, 0, hubX, hubY, canvas.height * 1.2);
-    const blueAlpha = 0.12 + (Math.sin(bgPulse) * 0.05); 
-    blueGrad.addColorStop(0, `rgba(30, 60, 180, ${blueAlpha})`);
-    blueGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = blueGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+   const hubX = canvas.width * 0.33;
+   const hubY = canvas.height * 0.7;
 
-    // Purple Glow
-    const purpGrad = ctx.createRadialGradient(canvas.width, 0, 0, hubX, hubY, canvas.width * 1.5);
-    const purpAlpha = 0.08 + (Math.cos(bgPulse * 0.6) * 0.04);
-    purpGrad.addColorStop(0, `rgba(120, 40, 200, ${purpAlpha})`);
-    purpGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = purpGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+   stars = Array.from({ length: STAR_COUNT }, () => new Star(canvas.width, canvas.height, hubX, hubY));
 
-    // 3. DRAW STARS
-    stars.forEach(star => {
-        star.update(delta);
-        star.draw(ctx, hubX, hubY);
-    });
+   function animate(now) {
+     if (!active) return;
+     const delta = now - lastTime;
+     lastTime = now;
 
-    animationId = requestAnimationFrame(animate);
-}
- 
+     // 1. Solid Background
+     ctx.fillStyle = '#02040a';
+     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    animationId = requestAnimationFrame(animate);
-    window.addEventListener('resize', resizeCanvas);
-    return canvas;
-}
+     // 2. Rotating Nebula
+     if (nebulaImage.complete && nebulaImage.naturalWidth > 0) {
+       ctx.save();
+       ctx.translate(hubX, hubY);
+       ctx.rotate(now * 0.00002); // Slower, majestic rotation
+       ctx.globalAlpha = 0.4 + (Math.sin(now * 0.0005) * 0.1);
 
-export function stopStarfield() {
-    active = false;
-    if (animationId) cancelAnimationFrame(animationId);
-    if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
-}
+       const scale = 2.2;
+       const side = Math.max(canvas.width, canvas.height) * scale;
+       ctx.drawImage(nebulaImage, -side/2, -side/2, side, side);
+       ctx.restore();
+     }
 
-function resizeCanvas() {
-    if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
+    // 3. Wheeling Stars (Batch drawing is faster)
+     stars.forEach(star => {
+       star.update(delta);
+       star.draw(ctx, now);
+     });
+
+     animationId = requestAnimationFrame(animate);
+   }
+
+  window.addEventListener('resize', resizeCanvas);
+   animationId = requestAnimationFrame(animate);
+
+   return canvas;
+ }
+
+ export function stopStarfield() {
+   active = false;
+   if (animationId) cancelAnimationFrame(animationId);
+   if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+   window.removeEventListener('resize', resizeCanvas);
+ }
+
+ function resizeCanvas() {
+   if (!canvas) return;
+   canvas.width = window.innerWidth;  canvas.height = window.innerHeight;
+  // Re-calculate stars on resize to fit new screen dimensions
+   const hubX = canvas.width * 0.33;
+   const hubY = canvas.height * 0.7;
+   stars.forEach(s => {
+       s.hubX = hubX;
+       s.hubY = hubY;
+   });
+ }
 

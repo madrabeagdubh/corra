@@ -4,22 +4,27 @@ import * as abcjs from 'abcjs';
 import { MusicEngine } from './musicEngine.js';
 import { allTunes } from './allTunes.js';
 
-const ENSEMBLE_PRESETS = {
-    reel: [105, 0, 32],      // Banjo, Piano, Bass
-    jig: [105, 0, 32],       // Banjo, Piano, Bass
-    slipjig: [105, 0, 32],   // Banjo, Piano, Bass
-    hornpipe: [105, 0, 32],  // Banjo, Piano, Bass
-    polka: [105, 0],         // Banjo, Piano
-    waltz: [105, 0, 32],     // Banjo, Piano, Bass
-    march: [105, 0],         // Banjo, Piano
-    slide: [105, 0, 32],     // Banjo, Piano, Bass
-    barndance: [105, 0, 32], // Banjo, Piano, Bass
-    air: [105, 0],           // Banjo, Piano
-    defaultPreset: [105, 0]  // Banjo, Piano
+const ENSEMBLE_PRESETS = 
+{
+
+    reel:      [46, 0, 105],
+    jig:       [46, 0, 105],
+    slipjig:   [46, 0, 105],
+    hornpipe:  [46, 0, 105],
+    polka:     [46, 0, 105],
+    waltz:     [46, 0, 105],
+    march:     [46, 0, 105],
+    slide:     [46, 0, 105],
+    barndance: [46, 0, 105],
+    air:       [46, 0, 105],
+    defaultPreset: [46, 0, 105]
+
+
+
 };
 
 const PATCH_NAMES = { 
-    32: "Acoustic Bass",
+    46: "Harp",
     105: "Banjo", 
     0: "Piano",
     22: "Harmonica"
@@ -35,7 +40,7 @@ const TEMPO_SETTINGS = {
     march: 1400,
     slide: 1000,
     barndance: 1200,
-    air: 2500,
+    air: 1500,
     defaultTempo: 1300
 };
 

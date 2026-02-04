@@ -606,9 +606,15 @@ chooseButton.onclick = async () => {
     console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
     
     if (validChampions[currentChampionIndex]) {
-        // Check if music is loaded before trying to unmute
-        if (musicPlayer && musicPlayer.tracks && musicPlayer.tracks.some(t => t && t.name)) {
+        // Check if music is loaded AND tracks are fully initialized
+        const musicReady = musicPlayer && 
+                          musicPlayer.tracks && 
+                          musicPlayer.tracks.length > 0 &&
+                          musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
+        
+        if (musicReady) {
             // Unmute piano before transitioning
+            console.log('[DEBUG] Music ready, unmuting piano...');
             await unmutePiano();
             // Wait a moment to hear the piano join in
             console.log('[DEBUG] Waiting 800ms for piano to be heard...');
@@ -616,7 +622,7 @@ chooseButton.onclick = async () => {
                 finalize(validChampions[currentChampionIndex]);
             }, 800);
         } else {
-            console.warn('[DEBUG] Music not loaded, proceeding without unmuting');
+            console.warn('[DEBUG] Music not fully loaded yet, proceeding without unmuting');
             // Proceed anyway after short delay
             setTimeout(() => {
                 finalize(validChampions[currentChampionIndex]);

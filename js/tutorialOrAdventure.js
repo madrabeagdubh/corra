@@ -321,43 +321,36 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         bottomSection.style.opacity = '0';
         bottomSection.style.pointerEvents = 'none';
         
-        // Wait 3 seconds for the response to be read
+        // Wait 2 seconds for the response to be read
         setTimeout(async () => {
-            // Play confirmation sound (if available)
-            try {
-                const confirmSound = new Audio('assets/audio/confirm.mp3');
-                confirmSound.volume = 0.5;
-                confirmSound.play().catch(e => console.log('[TutorialOrAdventure] Confirm sound not available'));
-            } catch (e) {
-                console.log('[TutorialOrAdventure] No confirmation sound');
-            }
-            
-            // Unmute all instruments and start fade out
+            // Unmute all instruments for final flourish
             const heroSelect = await import('./heroSelect.js');
             const musicPlayer = heroSelect.getMusicPlayer?.();
             
             if (musicPlayer && musicPlayer.tracks) {
                 console.log('[TutorialOrAdventure] Unmuting all instruments for fade out');
                 
-                // Unmute all tracks first
+                // Unmute all tracks first - with safety check
                 for (let i = 0; i < musicPlayer.tracks.length; i++) {
-                    if (!musicPlayer.tracks[i].active) {
-                        await musicPlayer.toggleInstrument(i);
+                    // Check if track exists and has the active property
+                    if (musicPlayer.tracks[i] && typeof musicPlayer.tracks[i].active !== 'undefined') {
+                        if (!musicPlayer.tracks[i].active) {
+                            await musicPlayer.toggleInstrument(i);
+                        }
+                    } else {
+                        console.log('[TutorialOrAdventure] Track', i, 'not ready yet, skipping');
                     }
                 }
                 
-                // Wait a brief moment to hear all instruments
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Fade out all tracks over 4.5 seconds
+                // Fade out all tracks over 2 seconds
                 console.log('[TutorialOrAdventure] Fading out music...');
                 const fadeStartTime = musicPlayer.audioContext.currentTime;
-                const fadeDuration = 4.5; // seconds
                 
                 for (const track of musicPlayer.tracks) {
-                    if (track.active && track.gain) {
+                    // Check if track and gain exist before fading
+                    if (track && track.active && track.gain) {
                         // Exponential fade out
-                        track.gain.gain.setTargetAtTime(0, fadeStartTime, fadeDuration / 3);
+                        track.gain.gain.setTargetAtTime(0, fadeStartTime, 0.6);
                     }
                 }
             }
@@ -370,36 +363,26 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                 background: #000;
                 opacity: 0;
                 z-index: 100001;
-                transition: opacity 4.5s ease;
+                transition: opacity 2s ease;
                 pointer-events: none;
             `;
             document.body.appendChild(blackOverlay);
             
-            // Start fading elements in sequence
-            // First fade slider and text
+            // Start fading everything out
             setTimeout(() => {
                 sliderSection.style.transition = 'opacity 1s ease';
                 sliderSection.style.opacity = '0';
                 textContainer.style.transition = 'opacity 1s ease';
                 textContainer.style.opacity = '0';
-            }, 100);
-            
-            // Then fade champion and responses (last to fade)
-            setTimeout(() => {
-                championHolder.style.transition = 'opacity 2s ease';
+                championHolder.style.transition = 'opacity 1.5s ease';
                 championHolder.style.opacity = '0';
-            }, 1000);
-            
-            // Start black overlay fade
-            setTimeout(() => {
                 blackOverlay.style.opacity = '1';
             }, 100);
             
-            // IMPROVED: Find and remove all starfield canvases
+            // Find and fade out starfield
             console.log('[TutorialOrAdventure] Looking for starfield canvases...');
             const allCanvases = document.querySelectorAll('canvas');
             allCanvases.forEach(canvas => {
-                // Look for starfield characteristics
                 const style = canvas.style;
                 const isStarfield = 
                     style.position === 'fixed' || 
@@ -408,18 +391,13 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                     canvas.width === window.innerWidth;
                 
                 if (isStarfield && canvas.parentElement) {
-                    console.log('[TutorialOrAdventure] Found starfield canvas, removing...');
+                    console.log('[TutorialOrAdventure] Found starfield, fading out...');
                     canvas.style.transition = 'opacity 2s ease';
                     canvas.style.opacity = '0';
-                    setTimeout(() => {
-                        if (canvas.parentElement) {
-                            canvas.remove();
-                        }
-                    }, 2000);
                 }
             });
             
-            // After 5 seconds total (music and visuals faded), proceed to next scene
+            // After 2.5 seconds, proceed to game
             setTimeout(() => {
                 // Stop music completely
                 if (musicPlayer && musicPlayer.stop) {
@@ -427,48 +405,93 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                     musicPlayer.stop();
                 }
                 
-                console.log('[TutorialOrAdventure] Calling game start callback');
-                
-                // Check if window.startGame exists
-                if (typeof window.startGame === 'function') {
-                    callback();
-                } else {
-                    console.error('[TutorialOrAdventure] window.startGame is not defined!');
-                    console.log('[TutorialOrAdventure] Available window properties:', Object.keys(window).filter(k => k.includes('game') || k.includes('Game')));
+                // Remove starfield canvases
+                allCanvases.forEach(canvas => {
+                    const style = canvas.style;
+                    const isStarfield = 
+                        style.position === 'fixed' || 
+                        style.zIndex === '1' ||
+                        style.zIndex === '200' ||
+                        canvas.width === window.innerWidth;
                     
-                    // Try to provide helpful feedback
-                    alert('Game initialization error: window.startGame is not defined. Please check that the game module is properly loaded.');
+                    if (isStarfield && canvas.parentElement) {
+                        canvas.remove();
+                    }
+                });
+                
+                // CRITICAL: Remove the black overlay BEFORE calling callback
+                if (blackOverlay && blackOverlay.parentElement) {
+                    console.log('[TutorialOrAdventure] Removing black overlay');
+                    blackOverlay.remove();
                 }
-            }, 5000);
-        }, 3000);
+                
+                // Also remove the main tutorialOrAdventure container
+                const tutorialContainer = document.getElementById('championIntro');
+                if (tutorialContainer) {
+                    console.log('[TutorialOrAdventure] Removing championIntro container');
+                    tutorialContainer.remove();
+                }
+                
+                console.log('[TutorialOrAdventure] Calling game start callback');
+                callback();
+            }, 2500);
+        }, 2000);
     }
 
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
-        console.log('[TutorialOrAdventure] Training button clicked');
         showResponseAndProceed(() => {
-            cleanup();
-            document.getElementById('heroSelect')?.remove();
-            console.log('[TutorialOrAdventure] Starting game with BowTutorial scene');
-            window.startGame?.(champion, { startScene: 'BowTutorial' });
+            console.log('[TutorialOrAdventure] Training button clicked');
+            console.log('[TutorialOrAdventure] Starting BowTutorial');
+            
+            // Hide heroSelect before starting game
+            const heroSelectContainer = document.getElementById('heroSelect');
+            if (heroSelectContainer) {
+                heroSelectContainer.remove();
+            }
+            
+            if (window.startGame) {
+                window.startGame(champion, { startScene: 'BowTutorial' });
+            } else {
+                console.error('[TutorialOrAdventure] window.startGame not found!');
+            }
         });
     });
 
     const bogBtn = createButton('An Portach', 'The Bog', () => {
-        console.log('[TutorialOrAdventure] Bog button clicked');
         showResponseAndProceed(() => {
-            cleanup();
-            document.getElementById('heroSelect')?.remove();
-            console.log('[TutorialOrAdventure] Starting game with BogMeadow scene');
-            window.startGame?.(champion, { startScene: 'BogMeadow' });
+            console.log('[TutorialOrAdventure] Bog button clicked');
+            console.log('[TutorialOrAdventure] Starting BogMeadow');
+            
+            // Hide heroSelect before starting game
+            const heroSelectContainer = document.getElementById('heroSelect');
+            if (heroSelectContainer) {
+                heroSelectContainer.remove();
+            }
+            
+            if (window.startGame) {
+                window.startGame(champion, { startScene: 'BogMeadow' });
+            } else {
+                console.error('[TutorialOrAdventure] window.startGame not found!');
+            }
         });
     });
 
     const backBtn = createButton('Ar Ais', 'Back', async () => {
         console.log('[TutorialOrAdventure] Back button clicked');
-        const heroSelect = await import('./heroSelect.js');
-        await heroSelect.muteSecondInstrument?.();
-        cleanup();
-        heroSelect.showHeroSelect?.();
+        cleanup(); // remove modal
+
+        // Unpause heroSelect
+        const heroSelectContainer = document.getElementById('heroSelect');
+        if (heroSelectContainer) {
+            heroSelectContainer.style.opacity = '1';
+            heroSelectContainer.style.pointerEvents = 'auto';
+        }
+
+        // Restore any other heroSelect state if needed
+        const heroSelectModule = await import('./heroSelect.js');
+        if (heroSelectModule.showHeroSelect) {
+            heroSelectModule.showHeroSelect();
+        }
     });
 
     bottomSection.append(trainingBtn.btn, bogBtn.btn, backBtn.btn);
@@ -505,4 +528,4 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         sliderStyle.remove();
     }
 }
- 
+

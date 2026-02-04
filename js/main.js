@@ -48,7 +48,6 @@ export function startGame(selectedChampion, options = {}) {
   
 const sceneToStart = options.startScene || 'BowTutorial';
 console.log('[main.js] Starting scene:', sceneToStart);
-window.game.scene.start(sceneToStart, { champion: selectedChampion });
 
 
 

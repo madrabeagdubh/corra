@@ -157,7 +157,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - Irish (above champion, hidden initially)
     const responseIrish = document.createElement('div');
-    responseIrish.textContent = 'Murach mise, cé?';
+    responseIrish.textContent = 'Cé, murach mise?';
     responseIrish.style.cssText = `
         font-family: Aonchlo, serif;
         font-size: 1.8rem;
@@ -184,7 +184,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - English (below champion, hidden initially)
     const responseEnglish = document.createElement('div');
-    responseEnglish.textContent = 'If not me, who?';
+    responseEnglish.textContent = 'Who, if not I?';
     responseEnglish.style.cssText = `
         font-family: 'Courier New', monospace;
         font-size: 1.7rem;
@@ -478,17 +478,24 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     const backBtn = createButton('Ar Ais', 'Back', async () => {
         console.log('[TutorialOrAdventure] Back button clicked');
+        
+        // Mute the second instrument (piano) before going back
+        const heroSelectModule = await import('./heroSelect.js');
+        if (heroSelectModule.muteSecondInstrument) {
+            console.log('[TutorialOrAdventure] Muting second instrument');
+            await heroSelectModule.muteSecondInstrument();
+        }
+        
         cleanup(); // remove modal
-
+        
         // Unpause heroSelect
         const heroSelectContainer = document.getElementById('heroSelect');
         if (heroSelectContainer) {
             heroSelectContainer.style.opacity = '1';
             heroSelectContainer.style.pointerEvents = 'auto';
         }
-
+        
         // Restore any other heroSelect state if needed
-        const heroSelectModule = await import('./heroSelect.js');
         if (heroSelectModule.showHeroSelect) {
             heroSelectModule.showHeroSelect();
         }

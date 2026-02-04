@@ -702,7 +702,7 @@ chooseButton.onclick = async () => {
                     playChampionTune(tuneKey);
                 }
             }
-        }, 2000); // Wait 2 seconds after hero select loads
+        }, 200); // Wait 2 seconds after hero select loads
         
 // Show stats bar once tutorial completes
 const checkAndShowStats = () => {
@@ -1023,7 +1023,7 @@ async function playChampionTune(tuneKey) {
         for (const track of oldTracks) {
             if (track.gain) {
                 // Fade out over 800ms using exponential fade
-                track.gain.gain.setTargetAtTime(0.0001, fadeOutTime, 0.25);
+                track.gain.gain.setTargetAtTime(0.0001, fadeOutTime, 0.75);
             }
         }
         

@@ -1,17 +1,60 @@
 import { initStarfield, stopStarfield } from './game/effects/starfield.js';
+import { allTunes } from './game/systems/music/allTunes.js';
+import * as abcjs from 'abcjs';
 
 let initialized = false;
 let introStarfield = null;
 let audioContextUnlocked = false;
 
+console.log('[IntroModal] Preloading music data... tunes available:', Object.keys(allTunes).length);
+console.log('[IntroModal] ABC.js library loaded');
+
+// Preload/warm up the music system during intro
+async function warmupMusicSystem() {
+    try {
+        console.log('[IntroModal] Warming up music system...');
+        
+        // Create a temporary audio context
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const tempContext = new AudioContext();
+        
+        // Try parsing a simple tune to warm up abcjs
+        const simpleTune = `X:1
+T:Test
+M:4/4
+L:1/8
+K:C
+CDEF GABc|`;
+        
+        const parsed = abcjs.parseOnly(simpleTune);
+        console.log('[IntroModal] ABC parsing warmed up');
+        
+        // Close temp context
+        setTimeout(() => {
+            tempContext.close();
+        }, 100);
+        
+        console.log('[IntroModal] ✓ Music system ready');
+    } catch (e) {
+        console.warn('[IntroModal] Music warmup failed (non-critical):', e);
+    }
+}
+
+// Start warming up immediately
+warmupMusicSystem();
+
+
+
+
 const amerginLines = [
     { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
-    { ga: "Cé gair aois na gealaí?", en: "Who tells the age of the moon?" },
-    { ga: "Cá dú dul faoi na gréine?", en: "Where does the sun go to rest?" },
-    { ga: "Cé beir buar ó thigh Teamhrach?", en: "Who brings the cattle from the house of Tara?" },
-    { ga: "Cé buar Teathra le gean?", en: "Who are the cattle of Tethra with love?" },
-    { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "Who is man? Who is the god that fashions weapons?" }
+    { ga: "Cé gair aois na gealaí?", en: "Who fortells the ages of the moon?" },
+    { ga: "Cá dú dul faoi na gréine?", en: "Who knows where the sun rests?" },
+    { ga: "Cé beir buar ó thigh Teathra?", en: "Who raids cattle from the house of Death?" },
+    { ga: "Cé buar Teathra le gean?", en: "Upon whom do the stars smile?" },
+    { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "What people? what god is the sculptor of keen weapons?" }
 ];
+
 
 // Function to unlock audio context
 async function unlockAudioContext() {
@@ -52,7 +95,21 @@ export function initIntroModal(onComplete) {
     if (initialized) return;
     initialized = true;
 
-    // Create container
+    // Preload the Aonchlo font before showing the modal
+    async function ensureFontLoaded() {
+        try {
+            // Wait for the font to load
+            await document.fonts.load('1.8rem Aonchlo');
+            console.log('[IntroModal] Aonchlo font loaded');
+        } catch (e) {
+            console.warn('[IntroModal] Font preload failed (non-critical):', e);
+        }
+    }
+
+    // Start font loading
+    ensureFontLoaded();
+
+    // Create container (initially hidden)
     const container = document.createElement('div');
     container.id = 'intro-modal';
     container.style.cssText = `
@@ -64,6 +121,8 @@ export function initIntroModal(onComplete) {
         align-items: center;
         justify-content: center;
         pointer-events: all;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     `;
 
     // Initialize starfield for intro modal
@@ -239,6 +298,17 @@ export function initIntroModal(onComplete) {
     contentLayer.append(irishText, englishText, slider);
     container.appendChild(contentLayer);
     document.body.appendChild(container);
+    
+    // Fade in the container after font loads (or after 100ms max wait)
+    Promise.race([
+        ensureFontLoaded(),
+        new Promise(resolve => setTimeout(resolve, 100))
+    ]).then(() => {
+        // Small delay to ensure render, then fade in
+        requestAnimationFrame(() => {
+            container.style.opacity = '1';
+        });
+    });
 }
 
 export function getCurrentIntroState() {
@@ -249,4 +319,30 @@ export function getCurrentIntroState() {
 export function isAudioUnlocked() {
     return audioContextUnlocked;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

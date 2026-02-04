@@ -184,7 +184,7 @@ export function initIntroModal(onComplete) {
                     // Call completion callback with current slider value and line
                     onComplete(val, currentLine);
                 }, 800);
-            }, 500);
+            }, 4500);
         }
     };
 

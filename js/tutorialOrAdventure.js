@@ -20,6 +20,8 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         currentAmerginLine = amerginLine;
     }
 
+    console.log('[TutorialOrAdventure] Initializing with champion:', champion.nameEn);
+
     // ───────────── MAIN CONTAINER ─────────────
     const container = document.createElement('div');
     container.id = 'championIntro';
@@ -323,7 +325,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         setTimeout(async () => {
             // Play confirmation sound (if available)
             try {
-                const confirmSound = new Audio('assets/audio/confirm.mp3'); // Adjust path as needed
+                const confirmSound = new Audio('assets/audio/confirm.mp3');
                 confirmSound.volume = 0.5;
                 confirmSound.play().catch(e => console.log('[TutorialOrAdventure] Confirm sound not available'));
             } catch (e) {
@@ -393,47 +395,76 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                 blackOverlay.style.opacity = '1';
             }, 100);
             
-            // Remove starfield
-            const starfieldCanvas = document.querySelector('canvas[style*="z-index: 200"]') || 
-                                   document.querySelector('canvas[style*="pointer-events: none"]');
-            if (starfieldCanvas) {
-                console.log('[TutorialOrAdventure] Removing starfield');
-                starfieldCanvas.style.transition = 'opacity 2s ease';
-                starfieldCanvas.style.opacity = '0';
-                setTimeout(() => {
-                    starfieldCanvas.remove();
-                }, 2000);
-            }
+            // IMPROVED: Find and remove all starfield canvases
+            console.log('[TutorialOrAdventure] Looking for starfield canvases...');
+            const allCanvases = document.querySelectorAll('canvas');
+            allCanvases.forEach(canvas => {
+                // Look for starfield characteristics
+                const style = canvas.style;
+                const isStarfield = 
+                    style.position === 'fixed' || 
+                    style.zIndex === '1' ||
+                    style.zIndex === '200' ||
+                    canvas.width === window.innerWidth;
+                
+                if (isStarfield && canvas.parentElement) {
+                    console.log('[TutorialOrAdventure] Found starfield canvas, removing...');
+                    canvas.style.transition = 'opacity 2s ease';
+                    canvas.style.opacity = '0';
+                    setTimeout(() => {
+                        if (canvas.parentElement) {
+                            canvas.remove();
+                        }
+                    }, 2000);
+                }
+            });
             
             // After 5 seconds total (music and visuals faded), proceed to next scene
             setTimeout(() => {
                 // Stop music completely
                 if (musicPlayer && musicPlayer.stop) {
+                    console.log('[TutorialOrAdventure] Stopping music player');
                     musicPlayer.stop();
                 }
                 
-                callback();
+                console.log('[TutorialOrAdventure] Calling game start callback');
+                
+                // Check if window.startGame exists
+                if (typeof window.startGame === 'function') {
+                    callback();
+                } else {
+                    console.error('[TutorialOrAdventure] window.startGame is not defined!');
+                    console.log('[TutorialOrAdventure] Available window properties:', Object.keys(window).filter(k => k.includes('game') || k.includes('Game')));
+                    
+                    // Try to provide helpful feedback
+                    alert('Game initialization error: window.startGame is not defined. Please check that the game module is properly loaded.');
+                }
             }, 5000);
         }, 3000);
     }
 
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
+        console.log('[TutorialOrAdventure] Training button clicked');
         showResponseAndProceed(() => {
             cleanup();
             document.getElementById('heroSelect')?.remove();
+            console.log('[TutorialOrAdventure] Starting game with BowTutorial scene');
             window.startGame?.(champion, { startScene: 'BowTutorial' });
         });
     });
 
     const bogBtn = createButton('An Portach', 'The Bog', () => {
+        console.log('[TutorialOrAdventure] Bog button clicked');
         showResponseAndProceed(() => {
             cleanup();
             document.getElementById('heroSelect')?.remove();
+            console.log('[TutorialOrAdventure] Starting game with BogMeadow scene');
             window.startGame?.(champion, { startScene: 'BogMeadow' });
         });
     });
 
     const backBtn = createButton('Ar Ais', 'Back', async () => {
+        console.log('[TutorialOrAdventure] Back button clicked');
         const heroSelect = await import('./heroSelect.js');
         await heroSelect.muteSecondInstrument?.();
         cleanup();
@@ -474,4 +505,4 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         sliderStyle.remove();
     }
 }
-
+ 

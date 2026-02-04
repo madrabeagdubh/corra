@@ -22,6 +22,12 @@ let currentTuneKey = null;
 // Current Amergin line for export to tutorialOrAdventure
 let currentAmerginLineForExport = null;
 
+// CRITICAL FIX: Declare these at module level so they're accessible everywhere
+let currentChampionIndex = 0;
+let validChampions = [];
+let audioUnlocked = true;
+let lastMusicChangeTime = 0;
+const MUSIC_CHANGE_DELAY = 500;
 
 let initialSliderValue = 0.05;
 
@@ -277,9 +283,10 @@ function initMainHeroSelect() {
     initialized = true; 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
     
-    let audioUnlocked = true; // Audio was unlocked in intro modal
+    // CRITICAL FIX: Use module-level variables instead of local ones
+    audioUnlocked = true; // Audio was unlocked in intro modal
     let englishOpacity = initialSliderValue; // Use value from intro modal
-    let currentChampionIndex = 0;
+    currentChampionIndex = 0; // Use module-level variable
     let atlasData = null;
     let sheetLoaded = false;
     
@@ -288,9 +295,6 @@ function initMainHeroSelect() {
         musicPlayer = new TradSessionPlayer();
         console.log('[HeroSelect] Music player initialized');
     }
-
-let lastMusicChangeTime = 0;
-    const MUSIC_CHANGE_DELAY = 500;
 
     const sheet = new Image();
     sheet.src = 'assets/champions/champions-with-kit.png';
@@ -546,6 +550,7 @@ slider.className = 'champion-slider';
 
 
 
+
 slider.oninput = e => {
     const val = Number(e.target.value);
     updateSliderVisuals(val);
@@ -597,8 +602,6 @@ slider.oninput = e => {
 chooseButton.onclick = async () => {
     console.log('[DEBUG] Continue button clicked');
     console.log('[DEBUG] currentChampionIndex:', currentChampionIndex);
-    
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
     console.log('[DEBUG] validChampions length:', validChampions.length);
     console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
     
@@ -632,7 +635,8 @@ chooseButton.onclick = async () => {
     }
 
     function renderChampions() {
-        const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+        // CRITICAL FIX: Use module-level validChampions instead of local variable
+        validChampions = champions.filter(c => c && c.spriteKey && c.stats);
         const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
 
         infiniteChampions.forEach((champ) => {
@@ -672,21 +676,27 @@ chooseButton.onclick = async () => {
         scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
         currentChampionIndex = randomIndex;
 
-        // Start music for the initial champion
-        const initialChampion = validChampions[randomIndex];
-        if (initialChampion) {
-            const tuneKey = getTuneKeyForChampion(initialChampion);
-            if (tuneKey) {
-                console.log('[HeroSelect] Starting initial tune for:', initialChampion.nameEn, '- tune:', tuneKey);
-                playChampionTune(tuneKey);
-            }
-        }
+        // Don't start music immediately - wait for user to interact
+        // Music will start on first swipe or after a delay
 
         initSwipe(scrollContainer, validChampions.length);
         window.hideLoader();
     initBackgroundParticles(); // Add this line
      
         updateGlobalStats(validChampions[randomIndex]);
+        
+        // Start music after a short delay to let the user see the first champion
+        // This gives time for the intro slider animation to complete
+        setTimeout(() => {
+            const initialChampion = validChampions[currentChampionIndex];
+            if (initialChampion && !musicPlayer.isPlaying) {
+                const tuneKey = getTuneKeyForChampion(initialChampion);
+                if (tuneKey) {
+                    console.log('[HeroSelect] Starting initial tune (delayed) for:', initialChampion.nameEn, '- tune:', tuneKey);
+                    playChampionTune(tuneKey);
+                }
+            }
+        }, 2000); // Wait 2 seconds after hero select loads
         
 // Show stats bar once tutorial completes
 const checkAndShowStats = () => {
@@ -871,7 +881,7 @@ function showStatsBar() {
     let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
     let scrollTimeout = null;
     
-    const validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+    // CRITICAL FIX: Use module-level validChampions instead of redefining it
     
     const startFloating = () => {
         if (sliderTutorialComplete) {
@@ -959,7 +969,7 @@ function showStatsBar() {
 
                 container.scrollLeft = (len + realIndex) * w;
                 
-                // Start floating animation after scroll settles
+                // CRITICAL FIX: Resume floating animation after scroll settles
                 if (scrollTimeout) clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(startFloating, 500);
             }, 350);
@@ -1002,12 +1012,12 @@ async function playChampionTune(tuneKey) {
         
         const oldIsPlaying = musicPlayer.isPlaying;
         
-        // Start fading out old tracks
+        // Start fading out old tracks immediately
         const fadeOutTime = musicPlayer.audioContext.currentTime;
         for (const track of oldTracks) {
-            if (track.active && track.gain) {
-                // Fade out over 600ms
-                track.gain.gain.setTargetAtTime(0, fadeOutTime, 0.2);
+            if (track.gain) {
+                // Fade out over 800ms using exponential fade
+                track.gain.gain.setTargetAtTime(0.0001, fadeOutTime, 0.25);
             }
         }
         
@@ -1017,11 +1027,19 @@ async function playChampionTune(tuneKey) {
         currentTuneKey = tuneKey;
         
         try {
-            // This loads new tracks but doesn't stop the old ones
+            // This loads new tracks but doesn't stop the old ones yet
             const loaded = await musicPlayer.loadTune(tuneKey, true);
             
             if (!loaded) {
                 console.error('[DEBUG] Failed to load tune');
+                // Clean up old tracks anyway
+                for (const track of oldTracks) {
+                    try {
+                        if (track.synth && track.synth.stop) {
+                            track.synth.stop();
+                        }
+                    } catch (e) {}
+                }
                 return;
             }
             
@@ -1047,7 +1065,7 @@ async function playChampionTune(tuneKey) {
                 }
             }
             
-            // Clean up old synths after fade completes
+            // Clean up old synths after fade completes (1 second)
             setTimeout(() => {
                 console.log('[DEBUG] Stopping old synths...');
                 for (const track of oldTracks) {
@@ -1066,10 +1084,18 @@ async function playChampionTune(tuneKey) {
                     }
                 }
                 console.log('[DEBUG] ✓ Crossfade complete, old synths cleaned up');
-            }, 1000);
+            }, 1200);
             
         } catch (error) {
             console.error('[DEBUG] Error during crossfade:', error);
+            // Clean up old tracks on error
+            for (const track of oldTracks) {
+                try {
+                    if (track.synth && track.synth.stop) {
+                        track.synth.stop();
+                    }
+                } catch (e) {}
+            }
         }
         
     } else {
@@ -1243,3 +1269,4 @@ export async function muteSecondInstrument() {
 }
 
 export { showHeroSelect };
+

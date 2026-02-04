@@ -2,6 +2,7 @@ import { initStarfield, stopStarfield } from './game/effects/starfield.js';
 
 let initialized = false;
 let introStarfield = null;
+let audioContextUnlocked = false;
 
 const amerginLines = [
     { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
@@ -11,6 +12,41 @@ const amerginLines = [
     { ga: "Cé buar Teathra le gean?", en: "Who are the cattle of Tethra with love?" },
     { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "Who is man? Who is the god that fashions weapons?" }
 ];
+
+// Function to unlock audio context
+async function unlockAudioContext() {
+    if (audioContextUnlocked) return;
+    
+    try {
+        // Create a temporary audio context to unlock
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const tempContext = new AudioContext();
+        
+        console.log('[IntroModal] Audio context state:', tempContext.state);
+        
+        if (tempContext.state === 'suspended') {
+            await tempContext.resume();
+            console.log('[IntroModal] Audio context resumed, state:', tempContext.state);
+        }
+        
+        // Play a silent sound to fully unlock
+        const buffer = tempContext.createBuffer(1, 1, 22050);
+        const source = tempContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(tempContext.destination);
+        source.start(0);
+        
+        audioContextUnlocked = true;
+        console.log('[IntroModal] ✓ Audio context unlocked');
+        
+        // Close temporary context
+        setTimeout(() => {
+            tempContext.close();
+        }, 100);
+    } catch (e) {
+        console.warn('[IntroModal] Audio unlock failed:', e);
+    }
+}
 
 export function initIntroModal(onComplete) {
     if (initialized) return;
@@ -160,6 +196,11 @@ export function initIntroModal(onComplete) {
         englishText.style.opacity = val;
         slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${val * 100}%, #444 ${val * 100}%, #444 100%)`;
         
+        // Unlock audio on first interaction (don't await - let it happen in background)
+        if (!audioContextUnlocked) {
+            unlockAudioContext().catch(e => console.warn('[IntroModal] Audio unlock failed:', e));
+        }
+        
         if (!hasMovedSlider && val > 0.15) {
             hasMovedSlider = true;
             clearInterval(lyricInterval);
@@ -184,9 +225,16 @@ export function initIntroModal(onComplete) {
                     // Call completion callback with current slider value and line
                     onComplete(val, currentLine);
                 }, 800);
-            }, 4500);
+            }, 4500); // Keep the 4500ms delay from original
         }
     };
+
+    // Also unlock on touch for mobile
+    slider.addEventListener('touchstart', () => {
+        if (!audioContextUnlocked) {
+            unlockAudioContext().catch(e => console.warn('[IntroModal] Audio unlock failed:', e));
+        }
+    }, { once: false });
 
     contentLayer.append(irishText, englishText, slider);
     container.appendChild(contentLayer);
@@ -196,5 +244,9 @@ export function initIntroModal(onComplete) {
 export function getCurrentIntroState() {
     // This can be used to get state if needed
     return initialized;
+}
+
+export function isAudioUnlocked() {
+    return audioContextUnlocked;
 }
 

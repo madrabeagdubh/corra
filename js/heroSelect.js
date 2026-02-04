@@ -1050,11 +1050,14 @@ async function playChampionTune(tuneKey) {
             }
             
             console.log('[DEBUG] New tune loaded, starting playback...');
+            console.log('[DEBUG] Audio context state:', musicPlayer.audioContext.state);
             
             // Start new tune playing
             await musicPlayer.play();
             
             console.log('[DEBUG] New tune playing, both tunes audible during crossfade');
+            console.log('[DEBUG] Audio context state after play:', musicPlayer.audioContext.state);
+            console.log('[DEBUG] isPlaying flag:', musicPlayer.isPlaying);
             
             // Verify banjo is the only active track in new tune
             const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
@@ -1117,10 +1120,13 @@ async function playChampionTune(tuneKey) {
             }
             
             console.log('[DEBUG] Tune loaded, tracks:', musicPlayer.tracks.map(t => `${t.name}(${t.active ? 'ON' : 'OFF'})`));
+            console.log('[DEBUG] Audio context state before play:', musicPlayer.audioContext.state);
             
             await musicPlayer.play();
             
             console.log('[DEBUG] Play() completed');
+            console.log('[DEBUG] Audio context state after play:', musicPlayer.audioContext.state);
+            console.log('[DEBUG] isPlaying flag:', musicPlayer.isPlaying);
             
             const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
             console.log('[DEBUG] Active tracks:', activeTrackNames);

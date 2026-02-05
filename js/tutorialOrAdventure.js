@@ -157,7 +157,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - Irish (above champion, hidden initially)
     const responseIrish = document.createElement('div');
-    responseIrish.textContent = 'Cé, murach mise?';
+    responseIrish.textContent = 'Murach mise, cé?';
     responseIrish.style.cssText = `
         font-family: Aonchlo, serif;
         font-size: 1.8rem;
@@ -184,7 +184,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - English (below champion, hidden initially)
     const responseEnglish = document.createElement('div');
-    responseEnglish.textContent = 'Who, if not I?';
+    responseEnglish.textContent = 'If not me, who?';
     responseEnglish.style.cssText = `
         font-family: 'Courier New', monospace;
         font-size: 1.7rem;
@@ -217,7 +217,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                 };
             });
             
-            sheet.src = 'assets/champions/champions-with-kit.png';
+            sheet.src = 'assets/champions/champions0.png';
             await loadPromise;
 
             const frameName = champion.spriteKey.endsWith('.png')
@@ -443,11 +443,41 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
             console.log('[TutorialOrAdventure] Training button clicked');
             console.log('[TutorialOrAdventure] Starting BowTutorial');
             
-            // Hide heroSelect before starting game
+            // COMPLETE CLEANUP: Remove ALL heroSelect-related elements
+            
+            // 1. Remove heroSelect container
             const heroSelectContainer = document.getElementById('heroSelect');
             if (heroSelectContainer) {
+                console.log('[TutorialOrAdventure] Removing heroSelect container');
                 heroSelectContainer.remove();
             }
+            
+            // 2. Remove global stats bar (critical - this is what's intercepting touches!)
+            const statsBar = document.getElementById('global-stats-bar');
+            if (statsBar) {
+                console.log('[TutorialOrAdventure] Removing global stats bar');
+                statsBar.remove();
+            }
+            
+            // 3. Remove any stat popups
+            const statPopup = document.getElementById('statPopup');
+            if (statPopup) {
+                console.log('[TutorialOrAdventure] Removing stat popup');
+                statPopup.remove();
+            }
+            
+            // 4. Remove any lingering styles
+            const sunSliderStyle = document.getElementById('sunSliderStyle');
+            if (sunSliderStyle) {
+                sunSliderStyle.remove();
+            }
+            
+            const statPopupStyle = document.getElementById('statPopupStyle');
+            if (statPopupStyle) {
+                statPopupStyle.remove();
+            }
+            
+            console.log('[TutorialOrAdventure] ✓ All heroSelect elements cleaned up');
             
             if (window.startGame) {
                 window.startGame(champion, { startScene: 'BowTutorial' });
@@ -462,11 +492,41 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
             console.log('[TutorialOrAdventure] Bog button clicked');
             console.log('[TutorialOrAdventure] Starting BogMeadow');
             
-            // Hide heroSelect before starting game
+            // COMPLETE CLEANUP: Remove ALL heroSelect-related elements
+            
+            // 1. Remove heroSelect container
             const heroSelectContainer = document.getElementById('heroSelect');
             if (heroSelectContainer) {
+                console.log('[TutorialOrAdventure] Removing heroSelect container');
                 heroSelectContainer.remove();
             }
+            
+            // 2. Remove global stats bar (critical - this is what's intercepting touches!)
+            const statsBar = document.getElementById('global-stats-bar');
+            if (statsBar) {
+                console.log('[TutorialOrAdventure] Removing global stats bar');
+                statsBar.remove();
+            }
+            
+            // 3. Remove any stat popups
+            const statPopup = document.getElementById('statPopup');
+            if (statPopup) {
+                console.log('[TutorialOrAdventure] Removing stat popup');
+                statPopup.remove();
+            }
+            
+            // 4. Remove any lingering styles
+            const sunSliderStyle = document.getElementById('sunSliderStyle');
+            if (sunSliderStyle) {
+                sunSliderStyle.remove();
+            }
+            
+            const statPopupStyle = document.getElementById('statPopupStyle');
+            if (statPopupStyle) {
+                statPopupStyle.remove();
+            }
+            
+            console.log('[TutorialOrAdventure] ✓ All heroSelect elements cleaned up');
             
             if (window.startGame) {
                 window.startGame(champion, { startScene: 'BogMeadow' });

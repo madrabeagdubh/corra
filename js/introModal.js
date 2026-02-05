@@ -250,43 +250,6 @@ export function initIntroModal(onComplete) {
         }
     }, 10000);
 
-    slider.oninput = (e) => {
-        const val = parseFloat(e.target.value);
-        englishText.style.opacity = val;
-        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${val * 100}%, #444 ${val * 100}%, #444 100%)`;
-        
-        // Unlock audio on first interaction (don't await - let it happen in background)
-        if (!audioContextUnlocked) {
-            unlockAudioContext().catch(e => console.warn('[IntroModal] Audio unlock failed:', e));
-        }
-        
-        if (!hasMovedSlider && val > 0.15) {
-            hasMovedSlider = true;
-            clearInterval(lyricInterval);
-            
-            // Get current line for export
-            const currentLine = amerginLines[currentLyricIndex];
-            
-            // Fade out and complete
-            setTimeout(() => {
-                container.style.transition = 'opacity 0.8s ease';
-                container.style.opacity = '0';
-                
-                setTimeout(() => {
-                    // Stop intro starfield
-                    if (introStarfield && introStarfield.parentNode) {
-                        stopStarfield();
-                    }
-                    container.remove();
-                    sliderStyle.remove();
-                    initialized = false;
-                    
-                    // Call completion callback with current slider value and line
-                    onComplete(val, currentLine);
-                }, 800);
-            }, 4500); // Keep the 4500ms delay from original
-        }
-    };
 
     // Also unlock on touch for mobile
     slider.addEventListener('touchstart', () => {
@@ -309,7 +272,86 @@ export function initIntroModal(onComplete) {
             container.style.opacity = '1';
         });
     });
+
+
+
+
+
+
+// Indices of Tethra-related Amergin lines
+const TETHRA_LINES = new Set([3, 4]);
+let shoalTriggered = false;
+
+slider.oninput = (e) => {
+    const val = parseFloat(e.target.value);
+
+    // Update English opacity
+    englishText.style.opacity = val;
+
+    // Update slider track
+    slider.style.background = 
+        `linear-gradient(
+            to right,
+            #d4af37 0%,
+            #d4af37 ${val * 100}%,
+            #444 ${val * 100}%,
+            #444 100%
+        )`;
+
+    // Unlock audio on first interaction
+    if (!audioContextUnlocked) {
+        unlockAudioContext().catch(err =>
+            console.warn('[IntroModal] Audio unlock failed:', err)
+        );
+    }
+
+    // --- TETHRA EFFECT ---
+    // Trigger once, mid-translation, for Tethra lines only
+    if (
+        !shoalTriggered &&
+        val > 0.25 &&
+        TETHRA_LINES.has(currentLyricIndex)
+    ) {
+        shoalTriggered = true;
+        runTethraShoal(container);
+    }
+
+    // --- FINAL COMMIT ---
+    if (!hasMovedSlider && val > 0.15) {
+        hasMovedSlider = true;
+        clearInterval(lyricInterval);
+
+        const currentLine = amerginLines[currentLyricIndex];
+
+        // Let the line + effect breathe before fade-out
+        setTimeout(() => {
+            container.style.transition = 'opacity 0.8s ease';
+            container.style.opacity = '0';
+
+            setTimeout(() => {
+                if (introStarfield && introStarfield.parentNode) {
+                    stopStarfield();
+                }
+
+                container.remove();
+                sliderStyle.remove();
+                initialized = false;
+
+                onComplete(val, currentLine);
+            }, 800);
+        }, 4500);
+    }
+};
+
+
+
+
+
 }
+
+
+
+
 
 export function getCurrentIntroState() {
     // This can be used to get state if needed

@@ -157,7 +157,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - Irish (above champion, hidden initially)
     const responseIrish = document.createElement('div');
-    responseIrish.textContent = 'Murach mise, cé?';
+    responseIrish.textContent = 'Cé murach mise.';
     responseIrish.style.cssText = `
         font-family: Aonchlo, serif;
         font-size: 1.8rem;
@@ -184,7 +184,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     // Response text - English (below champion, hidden initially)
     const responseEnglish = document.createElement('div');
-    responseEnglish.textContent = 'If not me, who?';
+    responseEnglish.textContent = 'Who, if not I.';
     responseEnglish.style.cssText = `
         font-family: 'Courier New', monospace;
         font-size: 1.7rem;

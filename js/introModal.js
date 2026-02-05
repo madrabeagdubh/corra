@@ -50,8 +50,8 @@ const amerginLines = [
     { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
     { ga: "Cé gair aois na gealaí?", en: "Who fortells the ages of the moon?" },
     { ga: "Cá dú dul faoi na gréine?", en: "Who knows where the sun rests?" },
-    { ga: "Cé beir buar ó thigh Teathra?", en: "Who raids cattle from the house of Death?" },
-    { ga: "Cé buar Teathra le gean?", en: "Upon whom do the stars smile?" },
+    { ga: "Cé beir buar ó thigh Teathra?", en: "Who raids the sunless realm?" },
+    { ga: "Cé buar Teathra le gean?", en: "Who charms the sunless king?" },
     { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "What people? what god is the sculptor of keen weapons?" }
 ];
 
@@ -361,30 +361,5 @@ export function getCurrentIntroState() {
 export function isAudioUnlocked() {
     return audioContextUnlocked;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

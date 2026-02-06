@@ -1,41 +1,13 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corra</title>
   <link rel="stylesheet" href="css/styles.css">
-
-
-
-
-
+  <link rel="stylesheet" href="css/css-starfield.css">
 
   <style>
-
-
-     /* Hidden by default (mobile-first) */
-  #desktop-only {
-    display: none;
-  }
-
-  /* Desktop and larger */
-  @media (min-width: 1024px) {
-    #desktop-only {
-      display: block;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 9999;
-background: rgba(0, 0, 0, 0.8);
-color:green;
-  
-
-  }
-  }
-
     body {
       margin: 0;
       padding: 0;
@@ -52,7 +24,7 @@ color:green;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(26, 26, 26, 0.95);
+      background: #02040a;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -60,6 +32,29 @@ color:green;
       z-index: 9999;
       opacity: 1;
       transition: opacity 0.8s ease;
+      overflow: hidden;
+    }
+    
+    /* Nebula background layer */
+    #triskeleLoader::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 250vmax;
+      height: 250vmax;
+      background-image: url('assets/n1-top@3x.png');
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0.6;
+      animation: nebulaRotate 100s linear infinite;
+      transform-origin: center center;
+    }
+
+    @keyframes nebulaRotate {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
     }
 
     #triskeleLoader.hidden {
@@ -67,127 +62,122 @@ color:green;
       pointer-events: none;
     }
 
-    .triskele-container {
-      position: relative;
-      width: 250px;
-      height: 250px;
-      animation: spin 12s linear infinite;
-    }
-
-    .spiral {
+    /* CSS star container */
+    .loader-stars {
       position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      transform-origin: center center;
+      z-index: 1;
     }
 
-    .spiral svg {
-      width: 100%;
-      height: 100%;
-      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
+    /* Individual CSS stars */
+    .loader-star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: starTwinkle 3s ease-in-out infinite;
     }
 
-    .spiral:nth-child(1) {
-      transform: rotate(0deg);
-      animation: pulse 3s ease-in-out infinite;
-    }
-
-    .spiral:nth-child(2) {
-      transform: rotate(120deg);
-      animation: pulse 3s ease-in-out infinite 1s;
-    }
-
-    .spiral:nth-child(3) {
-      transform: rotate(240deg);
-      animation: pulse 3s ease-in-out infinite 2s;
-    }
-
-    .spiral-path {
-      fill: none;
-      stroke: #e0e0e0;
-      stroke-width: 4;
-      stroke-linecap: round;
-      stroke-dasharray: 500;
-      stroke-dashoffset: 500;
-      animation: trace 4s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.7; }
+    @keyframes starTwinkle {
+      0%, 100% { opacity: 0.3; }
       50% { opacity: 1; }
     }
 
-    @keyframes trace {
-      0% { stroke-dashoffset: 500; }
-      50% { stroke-dashoffset: 0; }
-      100% { stroke-dashoffset: -500; }
+    /* Create rotating star groups for swirl effect */
+    .loader-star-group {
+      position: absolute;
+      top: 70%;
+      left: 33%;
+      width: 200vmax;
+      height: 200vmax;
+      transform: translate(-50%, -50%);
+      animation: loaderRotate 120s linear infinite;
     }
 
-    .loading-text {
-      margin-top: 40px;
-      color: #e0e0e0;
-      font-family: monospace;
-      font-size: 20px;
-      letter-spacing: 3px;
-      animation: fadeInOut 2s ease-in-out infinite;
+    .loader-star-group.fast {
+      animation: loaderRotate 80s linear infinite;
     }
 
-    @keyframes fadeInOut {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 1; }
+    .loader-star-group.slow {
+      animation: loaderRotate 160s linear infinite;
+    }
+
+    @keyframes loaderRotate {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    
+    /* Central spinner - subtle star pattern */
+    .central-spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 150px;
+      height: 150px;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      animation: spinnerRotate 15s linear infinite;
+    }
+    
+    @keyframes spinnerRotate {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    
+    /* Spinner stars - 3 stars in geometric pattern */
+    .spinner-star {
+      position: absolute;
+      background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(200,220,255,0.6) 40%, rgba(255,255,255,0) 80%);
+      border-radius: 50%;
+      box-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(200,220,255,0.4);
+      animation: spinnerPulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes spinnerPulse {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
     }
   </style>
 </head>
 <body>
-
-
- 
 	<div style="font-family: 'Aonchlo'; visibility: hidden; position: absolute;">
-		</div> 
+	</div>
   <div id="triskeleLoader">
-    <div class="triskele-container">
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-    </div>
+    <div class="loader-stars" id="loaderStars"></div>
+    <div class="central-spinner" id="centralSpinner"></div>
   </div>
 
   <script>
-
+    // ========================================
+    // CSS LOADER FUNCTIONS (NOT the starfield module)
+    // This is just the initial loading screen
+    // ========================================
+    
     // Function to show loader (call this when starting game)
     window.showLoader = function() {
       const loader = document.getElementById('triskeleLoader');
-      loader.classList.remove('hidden');
+      if (loader) loader.classList.remove('hidden');
     };
 
     // Function to hide loader (call when assets are loaded)
     window.hideLoader = function() {
       const loader = document.getElementById('triskeleLoader');
-      loader.classList.add('hidden');
+      if (loader) {
+        loader.classList.add('hidden');
+        // Also remove from DOM after fade completes
+        setTimeout(() => {
+          if (loader.parentNode) {
+            loader.style.display = 'none';
+          }
+        }, 800);
+      }
     };
   </script>
 
 </body>
 </html>
-
-
 
 
 
@@ -203,6 +193,72 @@ color:green;
   <script type="module" src="js/main.js?v=7"></script>
 
   <script>
+    // Generate stars AFTER everything else loads
+    window.addEventListener('DOMContentLoaded', function() {
+      const loaderStars = document.getElementById('loaderStars');
+      const centralSpinner = document.getElementById('centralSpinner');
+      
+      if (loaderStars) {
+        // Create three rotating groups for depth
+        const groups = [
+          { count: 80, class: 'fast' },
+          { count: 80, class: '' },
+          { count: 80, class: 'slow' }
+        ];
+        
+        groups.forEach(group => {
+          const container = document.createElement('div');
+          container.className = `loader-star-group ${group.class}`;
+          
+          for (let i = 0; i < group.count; i++) {
+            const star = document.createElement('div');
+            star.className = 'loader-star';
+            
+            // Random position in circular area
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 50; // 0-50% from center
+            const x = 50 + Math.cos(angle) * dist;
+            const y = 50 + Math.sin(angle) * dist;
+            
+            star.style.left = x + '%';
+            star.style.top = y + '%';
+            star.style.width = (Math.random() * 2 + 1) + 'px';
+            star.style.height = star.style.width;
+            star.style.animationDelay = (Math.random() * 3) + 's';
+            star.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            
+            container.appendChild(star);
+          }
+          
+          loaderStars.appendChild(container);
+        });
+      }
+      
+      // Create subtle central spinner pattern - 3 stars in a triangle
+      if (centralSpinner) {
+        // Create 3 stars at 120-degree intervals forming a triangle
+        for (let i = 0; i < 3; i++) {
+          const star = document.createElement('div');
+          star.className = 'spinner-star';
+          
+          const angle = (i * 120) * (Math.PI / 180); // 0°, 120°, 240°
+          const distance = 45; // Distance from center in percentage
+          
+          const x = 50 + Math.cos(angle) * distance;
+          const y = 50 + Math.sin(angle) * distance;
+          
+          star.style.left = x + '%';
+          star.style.top = y + '%';
+          star.style.width = '8px';
+          star.style.height = '8px';
+          star.style.animationDelay = (i * 1) + 's'; // Stagger the pulses
+          star.style.animationDuration = '3s';
+          
+          centralSpinner.appendChild(star);
+        }
+      }
+    });
+
     // Handle start button: fullscreen, scroll, and remove button
     const startButton = document.getElementById('startButton');
     if (startButton) {
@@ -230,12 +286,6 @@ color:green;
     window.addEventListener('resize', resizeGame);
     window.addEventListener('orientationchange', resizeGame);
   </script>
-
-<div id="desktop-only">
-Mobile devices only --
-Ar aghaidh le fón póca
-</div>
-
 </body>
 </html>
 

@@ -1,5 +1,5 @@
 import { initIntroModal } from './introModal.js';
-import { initStarfield, stopStarfield } from './game/effects/starfield.js';
+import { initCSSStarfield, stopCSSStarfield } from './game/effects/cssStarfield.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js'
 import '../css/heroSelect.css'
@@ -277,6 +277,12 @@ export function initHeroSelect() {
 }
 
 function initMainHeroSelect() {
+    // Hide the CSS loader immediately - intro is done
+    if (typeof window.hideLoader === 'function') {
+        window.hideLoader();
+        console.log('[HeroSelect] Loader hidden');
+    }
+    
     const container = document.getElementById('heroSelect');
     if (!container) return;
 
@@ -295,6 +301,10 @@ function initMainHeroSelect() {
         musicPlayer = new TradSessionPlayer();
         console.log('[HeroSelect] Music player initialized');
     }
+    
+    // Initialize CSS background starfield for heroSelect
+    initCSSStarfield();
+    console.log('[HeroSelect] CSS starfield initialized');
 
     const sheet = new Image();
     sheet.src = 'assets/champions/champions-with-kit.png';
@@ -686,7 +696,6 @@ chooseButton.onclick = async () => {
         // Music will start on first swipe or after a delay
 
         initSwipe(scrollContainer, validChampions.length);
-        window.hideLoader();
     initBackgroundParticles(); // Add this line
      
         updateGlobalStats(validChampions[randomIndex]);
@@ -731,16 +740,7 @@ checkAndShowStats();
 
     }
 
-    // Initialize background starfield for heroSelect (behind everything)
-    const starfieldCanvas = initStarfield();
-    starfieldCanvas.style.position = 'fixed';
-    starfieldCanvas.style.top = '0';
-    starfieldCanvas.style.left = '0';
-    starfieldCanvas.style.width = '100vw';
-    starfieldCanvas.style.height = '100vh';
-    starfieldCanvas.style.zIndex = '1';  // Always behind everything
-    starfieldCanvas.style.pointerEvents = 'none';
-    document.body.appendChild(starfieldCanvas);
+    // Note: CSS starfield already initialized at the start of initMainHeroSelect
 }
 
 

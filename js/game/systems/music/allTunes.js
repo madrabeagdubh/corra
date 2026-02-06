@@ -210,7 +210,7 @@ S: https://thesession.org/tunes/106#setting106
 R: jig
 M: 6/8
 L: 1/8
-K: Ador
+K: Dmix
 |:cBA eAA|cBA edc|BGG dGG|gfe dcB|
 cBA eAA|cBA e2f|gfe dcB|cBA A2d:|
 efg a2b|a2b age|efg a2b|age g2d|

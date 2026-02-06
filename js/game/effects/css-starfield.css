@@ -1,0 +1,86 @@
+/* ========================================
+   CSS BACKGROUND STARFIELD
+   Use this instead of canvas starfield
+   ======================================== */
+
+/* Container for the CSS starfield background */
+.css-starfield-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #02040a;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1; /* Behind everything */
+}
+
+/* Nebula background layer */
+.css-starfield-bg::before {
+  content: '';
+  position: absolute;
+  top: 70%;
+  left: 33%;
+  width: 250vmax;
+  height: 250vmax;
+  background-image: url('../assets/n1-top@3x.png');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.4;
+  animation: bgNebulaRotate 100s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes bgNebulaRotate {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Star container */
+.css-stars-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Individual background stars */
+.css-bg-star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: bgStarTwinkle 3s ease-in-out infinite;
+}
+
+@keyframes bgStarTwinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* Rotating star groups for swirl effect */
+.css-star-swirl {
+  position: absolute;
+  top: 70%;
+  left: 33%;
+  width: 200vmax;
+  height: 200vmax;
+  transform: translate(-50%, -50%);
+  animation: bgStarSwirl 120s linear infinite;
+}
+
+.css-star-swirl.fast {
+  animation: bgStarSwirl 80s linear infinite;
+}
+
+.css-star-swirl.slow {
+  animation: bgStarSwirl 160s linear infinite;
+}
+
+@keyframes bgStarSwirl {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+

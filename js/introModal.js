@@ -1,9 +1,9 @@
-import { initStarfield, stopStarfield } from './game/effects/starfield.js';
+import { initCSSStarfield, stopCSSStarfield } from './game/effects/cssStarfield.js';
 import { allTunes } from './game/systems/music/allTunes.js';
 import * as abcjs from 'abcjs';
 
 let initialized = false;
-let introStarfield = null;
+let introStarfieldCSS = null;
 let audioContextUnlocked = false;
 
 console.log('[IntroModal] Preloading music data... tunes available:', Object.keys(allTunes).length);
@@ -125,13 +125,13 @@ export function initIntroModal(onComplete) {
         transition: opacity 0.3s ease;
     `;
 
-    // Initialize starfield for intro modal
-    introStarfield = initStarfield();
-    introStarfield.style.position = 'absolute';
-    introStarfield.style.inset = '0';
-    introStarfield.style.zIndex = '1';
-    introStarfield.style.pointerEvents = 'none';
-    container.appendChild(introStarfield);
+    // Initialize CSS starfield for intro modal
+    introStarfieldCSS = initCSSStarfield();
+    if (introStarfieldCSS) {
+        introStarfieldCSS.style.position = 'absolute';
+        introStarfieldCSS.style.zIndex = '1';
+        container.appendChild(introStarfieldCSS);
+    }
 
     // Content layer above starfield
     const contentLayer = document.createElement('div');
@@ -322,6 +322,12 @@ slider.oninput = (e) => {
         clearInterval(lyricInterval);
 
         const currentLine = amerginLines[currentLyricIndex];
+        
+        // Hide the CSS loader immediately - we're moving to heroSelect
+        if (typeof window.hideLoader === 'function') {
+            window.hideLoader();
+            console.log('[IntroModal] Loader hidden');
+        }
 
         // Let the line + effect breathe before fade-out
         setTimeout(() => {
@@ -329,8 +335,10 @@ slider.oninput = (e) => {
             container.style.opacity = '0';
 
             setTimeout(() => {
-                if (introStarfield && introStarfield.parentNode) {
-                    stopStarfield();
+                // Remove starfield from intro modal container
+                // Don't stop it - heroSelect will reuse it
+                if (introStarfieldCSS && introStarfieldCSS.parentNode) {
+                    introStarfieldCSS.parentNode.removeChild(introStarfieldCSS);
                 }
 
                 container.remove();

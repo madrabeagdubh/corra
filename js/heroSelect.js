@@ -1,4 +1,8 @@
 import { initIntroModal, getPreloadedAssets } from './introModal.js';
+
+import { waitForHeroAssets } from './introModal.js';
+
+
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
 import '../css/heroSelect.css';
@@ -268,18 +272,27 @@ export function initHeroSelect() {
     }
     
     console.log('[HeroSelect] Calling initIntroModal...');
-    // Show intro modal first
-    initIntroModal((sliderValue, amerginLine) => {
-        console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
-        console.log('[HeroSelect] Current Amergin line:', amerginLine);
-        
-        // Store the values from intro
-        initialSliderValue = sliderValue;
-        currentAmerginLineForExport = amerginLine;
-        
-        // Now initialize the main hero select
-        initMainHeroSelect();
-    });
+
+
+
+initIntroModal(async (sliderValue, amerginLine) => {
+    console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
+    console.log('[HeroSelect] Current Amergin line:', amerginLine);
+
+    // Store the values from intro
+    initialSliderValue = sliderValue;
+    currentAmerginLineForExport = amerginLine;
+
+    console.log('[HeroSelect] Waiting for preloaded hero assets...');
+    await waitForHeroAssets();
+    console.log('[HeroSelect] Assets ready. Initializing hero select.');
+
+    initMainHeroSelect();
+});
+
+
+
+    
 }
 
 function initMainHeroSelect() {

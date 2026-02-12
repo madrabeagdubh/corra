@@ -50,7 +50,10 @@ const preloadedAssets = {
     atlasData: null
 };
 
-async function preloadHeroSelectAssets() {
+
+
+function preloadHeroSelectAssets() {
+    return (async () => {
     try {
         console.log('[IntroModal] Preloading hero select assets...');
         
@@ -74,16 +77,20 @@ async function preloadHeroSelectAssets() {
     } catch (e) {
         console.warn('[IntroModal] Asset preload failed (non-critical):', e);
     }
+
+})()
 }
 
-// Start preloading immediately (don't wait)
-preloadHeroSelectAssets();
+const heroAssetsReady = preloadHeroSelectAssets();
+
+
+export function waitForHeroAssets() {
+    return heroAssetsReady;
+}
 
 export function getPreloadedAssets() {
     return preloadedAssets;
 }
-
-
 
 
 const amerginLines = [

@@ -5,129 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corra</title>
 
-
-
-
-
-
   <style>
-
-
-     /* Hidden by default (mobile-first) */
-  #desktop-only {
-    display: none;
-  }
-
-  /* Desktop and larger */
-  @media (min-width: 1024px) {
-    #desktop-only {
-      display: block;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 9999;
-background: rgba(0, 0, 0, 0.8);
-color:green;
-  
-
-  }
-  }
+    html {
+      background: #02040a;
+    }
 
     body {
       margin: 0;
       padding: 0;
-      background: #1a1a1a;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background: transparent;
       min-height: 100vh;
     }
 
-    #triskeleLoader {
+    #starfieldLoader {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(26, 26, 26, 0.95);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      opacity: 1;
-      transition: opacity 0.8s ease;
-    }
-
-    #triskeleLoader.hidden {
-      opacity: 0;
+      background: #02040a;
+      
       pointer-events: none;
     }
 
-    .triskele-container {
-      position: relative;
-      width: 250px;
-      height: 250px;
-      animation: spin 12s linear infinite;
-    }
-
-    .spiral {
+    #starfieldCanvas {
       position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      transform-origin: center center;
-    }
-
-    .spiral svg {
-      width: 100%;
-      height: 100%;
-      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
-    }
-
-    .spiral:nth-child(1) {
-      transform: rotate(0deg);
-      animation: pulse 3s ease-in-out infinite;
-    }
-
-    .spiral:nth-child(2) {
-      transform: rotate(120deg);
-      animation: pulse 3s ease-in-out infinite 1s;
-    }
-
-    .spiral:nth-child(3) {
-      transform: rotate(240deg);
-      animation: pulse 3s ease-in-out infinite 2s;
-    }
-
-    .spiral-path {
-      fill: none;
-      stroke: #e0e0e0;
-      stroke-width: 4;
-      stroke-linecap: round;
-      stroke-dasharray: 500;
-      stroke-dashoffset: 500;
-      animation: trace 4s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-
-    @keyframes trace {
-      0% { stroke-dashoffset: 500; }
-      50% { stroke-dashoffset: 0; }
-      100% { stroke-dashoffset: -500; }
     }
 
     .loading-text {
+      position: relative;
+      z-index: 1;
       margin-top: 40px;
       color: #e0e0e0;
       font-family: monospace;
@@ -141,56 +52,15 @@ color:green;
       50% { opacity: 1; }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-D-Ud286X.js"></script>
+  <script type="module" crossorigin src="/assets/index-DuvFt7NC.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-D1sdxx0y.css">
 </head>
 <body>
-
-
- 
 	<div style="font-family: 'Aonchlo'; visibility: hidden; position: absolute;">
-		</div> 
-  <div id="triskeleLoader">
-    <div class="triskele-container">
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-      <div class="spiral">
-        <svg viewBox="0 0 200 200">
-          <path class="spiral-path" d="M 100 100 C 100 80, 110 70, 120 70 C 140 70, 150 85, 150 100 C 150 120, 135 135, 115 135 C 90 135, 75 115, 75 95 C 75 70, 95 55, 120 55 C 150 55, 165 75, 165 100"/>
-        </svg>
-      </div>
-    </div>
+		</div>
+  <div id="starfieldLoader">
+    <canvas id="starfieldCanvas"></canvas>
   </div>
-
-  <script>
-
-    // Function to show loader (call this when starting game)
-    window.showLoader = function() {
-      const loader = document.getElementById('triskeleLoader');
-      loader.classList.remove('hidden');
-    };
-
-    // Function to hide loader (call when assets are loaded)
-    window.hideLoader = function() {
-      const loader = document.getElementById('triskeleLoader');
-      loader.classList.add('hidden');
-    };
-  </script>
-
-</body>
-</html>
-
-
-
-
 
 
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -229,12 +99,6 @@ color:green;
     window.addEventListener('resize', resizeGame);
     window.addEventListener('orientationchange', resizeGame);
   </script>
-
-<div id="desktop-only">
-Mobile devices only --
-Ar aghaidh le fón póca
-</div>
-
 </body>
 </html>
 

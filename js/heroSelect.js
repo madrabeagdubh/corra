@@ -675,7 +675,13 @@ chooseButton.onclick = async () => {
     }
 
     function tryRender() {
-        if (atlasData && sheetLoaded && champions.length > 0) renderChampions();
+        console.log('[HeroSelect] tryRender called - atlasData:', !!atlasData, 'sheetLoaded:', sheetLoaded, 'champions:', champions.length);
+        if (atlasData && sheetLoaded && champions.length > 0) {
+            console.log('[HeroSelect] All conditions met, calling renderChampions');
+            renderChampions();
+        } else {
+            console.log('[HeroSelect] Waiting for assets...');
+        }
     }
 
     function renderChampions() {
@@ -693,12 +699,19 @@ chooseButton.onclick = async () => {
         console.log('[HeroSelect] Will show champion', randomIndex, ':', validChampions[randomIndex].nameEn);
 
         // Start music for the selected champion immediately
-        const selectedChampion = validChampions[randomIndex];
-        const tuneKey = getTuneKeyForChampion(selectedChampion);
-        if (tuneKey && !musicPlayer.isPlaying) {
-            console.log('[HeroSelect] Starting tune for:', selectedChampion.nameEn, '- tune:', tuneKey);
-            playChampionTune(tuneKey);
+        try {
+            const selectedChampion = validChampions[randomIndex];
+            const tuneKey = getTuneKeyForChampion(selectedChampion);
+            if (tuneKey && !musicPlayer.isPlaying) {
+                console.log('[HeroSelect] Starting tune for:', selectedChampion.nameEn, '- tune:', tuneKey);
+                playChampionTune(tuneKey);
+            }
+            console.log('[HeroSelect] Music started successfully, proceeding to render');
+        } catch (e) {
+            console.error('[HeroSelect] Error starting music:', e);
         }
+
+        console.log('[HeroSelect] About to define renderBatch function');
 
         // Batch rendering to prevent freeze - render in chunks across frames
         const BATCH_SIZE = 5; // Render 5 champions per frame

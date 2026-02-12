@@ -168,7 +168,6 @@ export function initIntroModal(onComplete) {
         opacity: 0;
         transition: opacity 0.3s ease;
         background: transparent;
-        border: 5px solid red;
     `;
     console.log('[IntroModal] Container created with z-index 100000');
 
@@ -351,18 +350,7 @@ slider.oninput = (e) => {
         );
     }
 
-    // --- TETHRA EFFECT ---
-    // Trigger once, mid-translation, for Tethra lines only
-    if (
-        !shoalTriggered &&
-        val > 0.25 &&
-        TETHRA_LINES.has(currentLyricIndex)
-    ) {
-        shoalTriggered = true;
-        runTethraShoal(container);
-    }
-
-    // --- FINAL COMMIT ---
+       // --- FINAL COMMIT ---
     if (!hasMovedSlider && val > 0.15) {
         hasMovedSlider = true;
         clearInterval(lyricInterval);

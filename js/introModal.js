@@ -1,9 +1,9 @@
-import { initStarfield, stopStarfield } from './game/effects/starfield.js';
 import { allTunes } from './game/systems/music/allTunes.js';
 import * as abcjs from 'abcjs';
 
+console.log('[IntroModal] MODULE LOADED - introModal.js is executing');
+
 let initialized = false;
-let introStarfield = null;
 let audioContextUnlocked = false;
 
 console.log('[IntroModal] Preloading music data... tunes available:', Object.keys(allTunes).length);
@@ -42,6 +42,46 @@ CDEF GABc|`;
 
 // Start warming up immediately
 warmupMusicSystem();
+
+// PRELOAD HERO SELECT ASSETS
+// This prevents the freeze when transitioning to heroSelect
+const preloadedAssets = {
+    spriteSheet: null,
+    atlasData: null
+};
+
+async function preloadHeroSelectAssets() {
+    try {
+        console.log('[IntroModal] Preloading hero select assets...');
+        
+        // Preload sprite sheet
+        const img = new Image();
+        img.src = 'assets/champions/champions-with-kit.png';
+        await new Promise((resolve, reject) => {
+            img.onload = () => {
+                preloadedAssets.spriteSheet = img;
+                console.log('[IntroModal] ✓ Sprite sheet preloaded');
+                resolve();
+            };
+            img.onerror = reject;
+        });
+        
+        // Preload atlas data
+        const response = await fetch('assets/champions/champions0.json');
+        preloadedAssets.atlasData = await response.json();
+        console.log('[IntroModal] ✓ Atlas data preloaded');
+        
+    } catch (e) {
+        console.warn('[IntroModal] Asset preload failed (non-critical):', e);
+    }
+}
+
+// Start preloading immediately (don't wait)
+preloadHeroSelectAssets();
+
+export function getPreloadedAssets() {
+    return preloadedAssets;
+}
 
 
 
@@ -95,6 +135,10 @@ export function initIntroModal(onComplete) {
     if (initialized) return;
     initialized = true;
 
+    // DON'T hide the loader - just make sure introModal appears above it
+    // The starfield from index.html will continue running underneath
+    console.log('[IntroModal] Initializing, starfield continues in background');
+
     // Preload the Aonchlo font before showing the modal
     async function ensureFontLoaded() {
         try {
@@ -123,17 +167,12 @@ export function initIntroModal(onComplete) {
         pointer-events: all;
         opacity: 0;
         transition: opacity 0.3s ease;
+        background: transparent;
+        border: 5px solid red;
     `;
+    console.log('[IntroModal] Container created with z-index 100000');
 
-    // Initialize starfield for intro modal
-    introStarfield = initStarfield();
-    introStarfield.style.position = 'absolute';
-    introStarfield.style.inset = '0';
-    introStarfield.style.zIndex = '1';
-    introStarfield.style.pointerEvents = 'none';
-    container.appendChild(introStarfield);
-
-    // Content layer above starfield
+    // Content layer (starfield from index.html runs behind this at z-index 9999)
     const contentLayer = document.createElement('div');
     contentLayer.style.cssText = `
         position: relative;
@@ -269,7 +308,14 @@ export function initIntroModal(onComplete) {
     ]).then(() => {
         // Small delay to ensure render, then fade in
         requestAnimationFrame(() => {
+            console.log('[IntroModal] Fading in container to opacity 1');
             container.style.opacity = '1';
+            
+            // Verify it's visible
+            setTimeout(() => {
+                console.log('[IntroModal] Container opacity:', container.style.opacity);
+                console.log('[IntroModal] Container in DOM:', document.body.contains(container));
+            }, 500);
         });
     });
 
@@ -322,6 +368,10 @@ slider.oninput = (e) => {
         clearInterval(lyricInterval);
 
         const currentLine = amerginLines[currentLyricIndex];
+        
+        // DON'T hide the loader here - let starfield continue running
+        // It will be hidden later when heroSelect fully loads
+        console.log('[IntroModal] Transitioning to heroSelect, keeping starfield running');
 
         // Let the line + effect breathe before fade-out
         setTimeout(() => {
@@ -329,17 +379,14 @@ slider.oninput = (e) => {
             container.style.opacity = '0';
 
             setTimeout(() => {
-                if (introStarfield && introStarfield.parentNode) {
-                    stopStarfield();
-                }
-
+                // Starfield continues running - just remove intro modal
                 container.remove();
                 sliderStyle.remove();
                 initialized = false;
 
                 onComplete(val, currentLine);
             }, 800);
-        }, 4500);
+        }, 1500); // Reduced from 4500ms to 1500ms for faster transition
     }
 };
 

@@ -1,11 +1,13 @@
-import { initIntroModal } from './introModal.js';
-import { initStarfield, stopStarfield } from './game/effects/starfield.js';
+import { initIntroModal, getPreloadedAssets } from './introModal.js';
 import { champions } from '../data/champions.js';
-import { showCharacterModal } from './characterModal.js'
-import '../css/heroSelect.css'
-import {allTunes} from './game/systems/music/allTunes.js'
+import { showCharacterModal } from './characterModal.js';
+import '../css/heroSelect.css';
+import {allTunes} from './game/systems/music/allTunes.js';
 import {TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
+
+console.log('[HeroSelect] MODULE LOADED - heroSelect.js is executing');
+
 // Global state
 let initialized = false;
 
@@ -260,8 +262,13 @@ function updateGlobalStats(champion) {
 
 
 export function initHeroSelect() {
-    if (initialized) return;
+    console.log('[HeroSelect] initHeroSelect called, initialized:', initialized);
+    if (initialized) {
+        console.log('[HeroSelect] Already initialized, returning');
+        return;
+    }
     
+    console.log('[HeroSelect] Calling initIntroModal...');
     // Show intro modal first
     initIntroModal((sliderValue, amerginLine) => {
         console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
@@ -277,8 +284,14 @@ export function initHeroSelect() {
 }
 
 function initMainHeroSelect() {
+    console.log('[HeroSelect] Initializing main hero select');
+    
     const container = document.getElementById('heroSelect');
     if (!container) return;
+
+    // The starfield from index.html continues running in the background
+    // No need to create a new one - it's already there at z-index 9999
+    console.log('[HeroSelect] Using shared starfield from index.html');
 
     initialized = true; 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
@@ -287,30 +300,22 @@ function initMainHeroSelect() {
     audioUnlocked = true; // Audio was unlocked in intro modal
     let englishOpacity = initialSliderValue; // Use value from intro modal
     currentChampionIndex = 0; // Use module-level variable
-    let atlasData = null;
-    let sheetLoaded = false;
+    
+    // Declare scrollContainer early so it's accessible in renderChampions
+    let scrollContainer;
     
     // Initialize music player
     if (!musicPlayer) {
         musicPlayer = new TradSessionPlayer();
         console.log('[HeroSelect] Music player initialized');
     }
+    
+    // Canvas starfield from index.html is already running - no need to init another one
+    console.log('[HeroSelect] Using canvas starfield from index.html');
 
-    const sheet = new Image();
-    sheet.src = 'assets/champions/champions-with-kit.png';
-
-    fetch('assets/champions/champions0.json')
-        .then(res => res.json())
-        .then(data => {
-            atlasData = data;
-            tryRender();
-        });
-
-    sheet.onload = () => {
-        sheetLoaded = true;
-        tryRender();
-    };
-
+    // Defer asset loading until after UI is created
+    let sheet, atlasData, sheetLoaded;
+    
     const layoutStyle = document.createElement('style');
     layoutStyle.textContent = `
 @keyframes statPulse {
@@ -417,8 +422,10 @@ function initMainHeroSelect() {
     document.head.appendChild(layoutStyle);
 
     container.className = 'hero-select-container';
-    const scrollContainer = document.createElement('div');
+    scrollContainer = document.createElement('div');
     scrollContainer.className = 'champion-scroll';
+    scrollContainer.style.opacity = '0'; // Hide initially
+    scrollContainer.style.transition = 'opacity 0.3s ease';
     container.appendChild(scrollContainer);
 
 
@@ -636,6 +643,37 @@ chooseButton.onclick = async () => {
     bottomPanel.appendChild(chooseButton);
     container.appendChild(bottomPanel);
 
+    // NOW load assets - UI is ready, scrollContainer exists
+    const preloaded = getPreloadedAssets();
+    
+    if (preloaded.spriteSheet && preloaded.atlasData) {
+        // Both assets preloaded - use them immediately
+        sheet = preloaded.spriteSheet;
+        atlasData = preloaded.atlasData;
+        sheetLoaded = true;
+        console.log('[HeroSelect] Using preloaded assets ✓');
+        tryRender();
+    } else {
+        // Fallback: load assets now
+        sheet = new Image();
+        atlasData = null;
+        sheetLoaded = false;
+        
+        console.log('[HeroSelect] Loading assets (not preloaded)');
+        sheet.src = 'assets/champions/champions-with-kit.png';
+        sheet.onload = () => {
+            sheetLoaded = true;
+            tryRender();
+        };
+        
+        fetch('assets/champions/champions0.json')
+            .then(res => res.json())
+            .then(data => {
+                atlasData = data;
+                tryRender();
+            });
+    }
+
     function tryRender() {
         if (atlasData && sheetLoaded && champions.length > 0) renderChampions();
     }
@@ -645,64 +683,111 @@ chooseButton.onclick = async () => {
         validChampions = champions.filter(c => c && c.spriteKey && c.stats);
         const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
 
-        infiniteChampions.forEach((champ) => {
-            const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
-            const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
-            if (!frameData) return;
-
-            const card = document.createElement('div');
-            card.className = 'champion-card';
-            card.onclick = () => showCharacterModal(champ);
-
-            const canvas = document.createElement('canvas');
-            canvas.className = 'champion-canvas';
-            canvas.width = frameData.frame.w; 
-            canvas.height = frameData.frame.h;
-            const ctx = canvas.getContext('2d');
-
-            ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
-
-            const nameGa = document.createElement('div');
-            nameGa.className = 'champion-name-ga';
-            nameGa.textContent = champ.nameGa;
-
-            const nameEn = document.createElement('div');
-            nameEn.className = 'champion-name-en';
-            nameEn.textContent = champ.nameEn;
-            nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
-
-            card.appendChild(canvas);
-            card.appendChild(nameGa);
-            card.appendChild(nameEn);
-            
-            scrollContainer.appendChild(card);
-        });
-
+        // Calculate random index FIRST before any rendering
         const randomIndex = Math.floor(Math.random() * validChampions.length);
-        scrollContainer.scrollLeft = window.innerWidth * (validChampions.length + randomIndex);
         currentChampionIndex = randomIndex;
+        
+        // Calculate target scroll position
+        const targetScroll = window.innerWidth * (validChampions.length + randomIndex);
+        
+        console.log('[HeroSelect] Will show champion', randomIndex, ':', validChampions[randomIndex].nameEn);
 
-        // Don't start music immediately - wait for user to interact
-        // Music will start on first swipe or after a delay
+        // Start music for the selected champion immediately
+        const selectedChampion = validChampions[randomIndex];
+        const tuneKey = getTuneKeyForChampion(selectedChampion);
+        if (tuneKey && !musicPlayer.isPlaying) {
+            console.log('[HeroSelect] Starting tune for:', selectedChampion.nameEn, '- tune:', tuneKey);
+            playChampionTune(tuneKey);
+        }
+
+        // Batch rendering to prevent freeze - render in chunks across frames
+        const BATCH_SIZE = 5; // Render 5 champions per frame
+        let currentIndex = 0;
+        let hasScrolled = false; // Track if we've scrolled yet
+
+        function renderBatch() {
+            const endIndex = Math.min(currentIndex + BATCH_SIZE, infiniteChampions.length);
+            
+            for (let i = currentIndex; i < endIndex; i++) {
+            
+            for (let i = currentIndex; i < endIndex; i++) {
+                const champ = infiniteChampions[i];
+                const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
+                const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
+                if (!frameData) continue;
+
+                const card = document.createElement('div');
+                card.className = 'champion-card';
+                card.onclick = () => showCharacterModal(champ);
+
+                const canvas = document.createElement('canvas');
+                canvas.className = 'champion-canvas';
+                canvas.width = frameData.frame.w; 
+                canvas.height = frameData.frame.h;
+                const ctx = canvas.getContext('2d');
+
+                ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
+
+                const nameGa = document.createElement('div');
+                nameGa.className = 'champion-name-ga';
+                nameGa.textContent = champ.nameGa;
+
+                const nameEn = document.createElement('div');
+                nameEn.className = 'champion-name-en';
+                nameEn.textContent = champ.nameEn;
+                nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+
+                card.appendChild(canvas);
+                card.appendChild(nameGa);
+                card.appendChild(nameEn);
+                
+                scrollContainer.appendChild(card);
+            }
+
+            currentIndex = endIndex;
+
+            // Scroll and show container once we've rendered enough cards to reach the target
+            if (!hasScrolled && currentIndex >= (validChampions.length + randomIndex + 1)) {
+                scrollContainer.scrollLeft = targetScroll;
+                scrollContainer.style.opacity = '1';
+                hasScrolled = true;
+                console.log('[HeroSelect] Scrolled to and showing champion', randomIndex);
+            }
+
+            if (currentIndex < infiniteChampions.length) {
+                // More to render - schedule next batch
+                requestAnimationFrame(renderBatch);
+            } else {
+                // Rendering complete - finalize
+                completeRendering();
+            }
+        }
+
+        function completeRendering() {
+            // Ensure container is visible (in case we didn't reach the threshold)
+            if (!hasScrolled) {
+                scrollContainer.scrollLeft = targetScroll;
+                scrollContainer.style.opacity = '1';
+                console.log('[HeroSelect] Final scroll and show');
+            }
+            console.log('[HeroSelect] All champions rendered');
+
+            // Don't scroll again - we already did it during rendering
+            // currentChampionIndex and scrollContainer.scrollLeft are already set
+
+            // Don't start music immediately - wait for user to interact
+            // Music will start on first swipe or after a delay
 
         initSwipe(scrollContainer, validChampions.length);
-        window.hideLoader();
     initBackgroundParticles(); // Add this line
      
         updateGlobalStats(validChampions[randomIndex]);
         
-        // Start music after a short delay to let the user see the first champion
-        // This gives time for the intro slider animation to complete
-        setTimeout(() => {
-            const initialChampion = validChampions[currentChampionIndex];
-            if (initialChampion && !musicPlayer.isPlaying) {
-                const tuneKey = getTuneKeyForChampion(initialChampion);
-                if (tuneKey) {
-                    console.log('[HeroSelect] Starting initial tune (delayed) for:', initialChampion.nameEn, '- tune:', tuneKey);
-                    playChampionTune(tuneKey);
-                }
-            }
-        }, 200); // Wait 2 seconds after hero select loads
+        // Keep the starfield running as the background - don't hide it
+        // It will stay visible behind the hero select UI
+        console.log('[HeroSelect] Starfield continues as background');
+        
+        // Music already started before rendering - no need to start again here
         
 // Show stats bar once tutorial completes
 const checkAndShowStats = () => {
@@ -725,26 +810,18 @@ checkAndShowStats();
         }
     };
     startInitialAnimation();
-
-
-
-
+        }
+        
+        // Start rendering in batches
+        console.log('[HeroSelect] Starting batched rendering of', infiniteChampions.length, 'champions');
+        requestAnimationFrame(renderBatch);
     }
 
-    // Initialize background starfield for heroSelect (behind everything)
-    const starfieldCanvas = initStarfield();
-    starfieldCanvas.style.position = 'fixed';
-    starfieldCanvas.style.top = '0';
-    starfieldCanvas.style.left = '0';
-    starfieldCanvas.style.width = '100vw';
-    starfieldCanvas.style.height = '100vh';
-    starfieldCanvas.style.zIndex = '1';  // Always behind everything
-    starfieldCanvas.style.pointerEvents = 'none';
-    document.body.appendChild(starfieldCanvas);
+    // Note: Shared starfield from index.html continues running as background
 }
 
 
-
+}
 function runSwipeNudge() {
     const dist = window.innerWidth * 0.45;
     const start = scrollContainer.scrollLeft;

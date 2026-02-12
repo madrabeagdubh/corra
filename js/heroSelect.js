@@ -56,7 +56,6 @@ function createStatsDisplay(champion, currentOpacity) {
         bottom: 120px !important;
         left: 0 !important;
         right: 0 !important;
-        background: rgba(0,0,0, 0.95) !important;
         border-top: 2px solid #d4af37 !important;
         z-index: 499 !important;
         padding: 15px !important;
@@ -289,9 +288,8 @@ function initMainHeroSelect() {
     const container = document.getElementById('heroSelect');
     if (!container) return;
 
-    // The starfield from index.html continues running in the background
-    // No need to create a new one - it's already there at z-index 9999
-    console.log('[HeroSelect] Using shared starfield from index.html');
+container.style.position = 'relative';
+container.style.zIndex = '10002';
 
     initialized = true; 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
@@ -382,7 +380,7 @@ function initMainHeroSelect() {
     scroll-snap-align: start;
     box-sizing: border-box;
     text-align: center;
-    padding-bottom: 180px; 
+    padding-bottom: 180px;
 }
 
 .champion-canvas {
@@ -721,7 +719,6 @@ chooseButton.onclick = async () => {
         function renderBatch() {
             const endIndex = Math.min(currentIndex + BATCH_SIZE, infiniteChampions.length);
             
-            for (let i = currentIndex; i < endIndex; i++) {
             
             for (let i = currentIndex; i < endIndex; i++) {
                 const champ = infiniteChampions[i];
@@ -831,7 +828,7 @@ checkAndShowStats();
     }
 
     // Note: Shared starfield from index.html continues running as background
-}
+
 
 
 }

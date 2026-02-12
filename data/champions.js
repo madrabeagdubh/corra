@@ -1904,7 +1904,10 @@ export const champions = [
       "luck": 5
     },
     "themeTuneTitle": "Behind The Haystack"
-  },
+  }
+
+
+	,
   {
     "spriteKey": "114.png",
     "monologueID": 1,

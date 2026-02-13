@@ -22,6 +22,33 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     console.log('[TutorialOrAdventure] Initializing with champion:', champion.nameEn);
 
+
+
+
+// UNMUTE ALL INSTRUMENTS when tutorial/adventure screen opens
+    (async () => {
+        const heroSelectModule = await import('./heroSelect.js');
+        const musicPlayer = heroSelectModule.getMusicPlayer?.();
+        
+        if (musicPlayer && musicPlayer.tracks) {
+            console.log('[TutorialOrAdventure] Unmuting all instruments');
+            
+            // Unmute all tracks
+            for (let i = 0; i < musicPlayer.tracks.length; i++) {
+                if (musicPlayer.tracks[i] && !musicPlayer.tracks[i].active) {
+                    console.log('[TutorialOrAdventure] Unmuting:', musicPlayer.tracks[i].name || `Track ${i}`);
+                    await musicPlayer.toggleInstrument(i);
+                }
+            }
+            
+            console.log('[TutorialOrAdventure] All instruments active');
+        }
+    })();
+
+
+
+
+
     // ───────────── MAIN CONTAINER ─────────────
     const container = document.createElement('div');
     container.id = 'championIntro';

@@ -1,3 +1,4 @@
+// Character Modal with music integration
 
 function ensureFontsLoaded(callback) {
   if (document.fonts && document.fonts.ready) {
@@ -25,9 +26,6 @@ const statIcons = {
     luck: '☘️'
 };
 
-
-
-
 function createStatPopup(statName, englishOpacity) {
     console.log('Creating stat popup for:', statName);
     
@@ -49,7 +47,7 @@ function createStatPopup(statName, englishOpacity) {
         max-width: 100%;
         min-height: 180px;
         height: auto;
-        z-index: 10000;
+        z-index: 100000;
         box-shadow: 0 10px 40px rgba(0,0,0,0.8);
         animation: popupFadeIn 0.2s ease-out;
         cursor: pointer;
@@ -169,8 +167,25 @@ function createStatPopup(statName, englishOpacity) {
     typeNextChar();
 }
 
-export function showCharacterModal(champion) {
-       ensureFontsLoaded(() => {
+export async function showCharacterModal(champion) {
+       ensureFontsLoaded(async () => {
+        // Import heroSelect to access music controls
+        const heroSelect = await import('./heroSelect.js');
+        const musicPlayer = heroSelect.getMusicPlayer?.();
+        
+        // Unmute piano when modal opens
+        if (musicPlayer && musicPlayer.tracks) {
+            console.log('[CharacterModal] Unmuting piano');
+            // Find piano track (usually index 1) and unmute it
+            const pianoIndex = musicPlayer.tracks.findIndex(t => t && t.name === 'Piano');
+            if (pianoIndex >= 0 && !musicPlayer.tracks[pianoIndex].active) {
+                await musicPlayer.toggleInstrument(pianoIndex);
+            } else if (pianoIndex < 0 && musicPlayer.tracks.length > 1 && !musicPlayer.tracks[1].active) {
+                // No piano, just toggle second instrument
+                await musicPlayer.toggleInstrument(1);
+            }
+        }
+        
         let modal = document.getElementById('characterModal');
         if (!modal) {
             modal = document.createElement('div');
@@ -182,24 +197,24 @@ export function showCharacterModal(champion) {
                 left: 0 !important;
                 width: 100vw !important;
                 height: calc(100vh - 160px) !important;
-                background-color: transparent !important;
+                background-color: rgba(0, 0, 0, 0.5) !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: flex-start !important;
                 align-items: center !important;
-                z-index: 990 !important;
+                z-index: 99999 !important;
                 overflow: hidden !important;
-                pointer-events: none !important;
+                pointer-events: auto !important;
             `;
 
             const content = document.createElement('div');
             content.id = 'characterModalContent';
             content.style.cssText = `
-                background-color: #2a1810 !important;
+                background-color: rgba(0, 0, 0, 0.3) !important;
                 color: white !important;
                 padding: 20px !important;
                 border-radius: 12px !important;
-                border: 3px solid #888 !important;
+                border: 3px solid #d4af37 !important;
                 width: 90% !important;
                 max-width: 800px !important;
                 height: 90% !important;
@@ -209,6 +224,7 @@ export function showCharacterModal(champion) {
                 pointer-events: auto !important;
                 display: flex !important;
                 flex-direction: column !important;
+                z-index: 1 !important;
             `;
 
             modal.appendChild(content);
@@ -244,6 +260,8 @@ export function showCharacterModal(champion) {
             margin: 0 0 10px 0 !important;
             font-family: Aonchlo !important;
             pointer-events: none !important;
+            z-index: 2 !important;
+            position: relative !important;
         `;
         modal.insertBefore(nameHeader, content);
 
@@ -345,7 +363,18 @@ export function showCharacterModal(champion) {
         typeNextCharacter();
 
         const closeBtn = document.getElementById('closeModalBtn');
-        closeBtn.addEventListener('click', () => {
+        closeBtn.addEventListener('click', async () => {
+            // Mute piano when closing
+            if (musicPlayer && musicPlayer.tracks) {
+                console.log('[CharacterModal] Muting piano');
+                const pianoIndex = musicPlayer.tracks.findIndex(t => t && t.name === 'Piano');
+                if (pianoIndex >= 0 && musicPlayer.tracks[pianoIndex].active) {
+                    await musicPlayer.toggleInstrument(pianoIndex);
+                } else if (pianoIndex < 0 && musicPlayer.tracks.length > 1 && musicPlayer.tracks[1].active) {
+                    // No piano, just toggle second instrument
+                    await musicPlayer.toggleInstrument(1);
+                }
+            }
             modal.remove();
         });
 
@@ -357,3 +386,4 @@ export function showCharacterModal(champion) {
         });
     });
 }
+

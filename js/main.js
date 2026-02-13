@@ -51,7 +51,7 @@ console.log('[main.js] Starting scene:', sceneToStart);
 
 
 
-
+window.startGame = startGame
 window.game.scene.start(sceneToStart, { champion: selectedChampion });
 
   console.log('Game created, champion stored in registry');

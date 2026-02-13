@@ -24,7 +24,14 @@ create() {
     console.warn('[WorldScene] No champion found — WorldScene should be idle');
   }
 
-  window.hideLoader();
+
+
+// In worldScene.js, change line with window.hideLoader() to:
+if (window.hideLoader) {
+    window.hideLoader();
+} else {
+    console.log('[WorldScene] No loader to hide');
+}
 }
 
 

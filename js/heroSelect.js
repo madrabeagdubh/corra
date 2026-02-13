@@ -1,6 +1,6 @@
 import { initIntroModal, getPreloadedAssets } from './introModal.js';
 import { waitForHeroAssets } from './introModal.js';
-
+import { startGame } from './main.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
 import '../css/heroSelect.css';
@@ -49,6 +49,15 @@ const statIcons = {
   defense: '🛡️',
   health: '❤️'
 };
+
+
+
+
+// Make sure startGame is globally available
+ if (!window.startGame) {
+     window.startGame = startGame;
+     }
+
 
 function createStatsDisplay(champion, currentOpacity) {
     if (!champion || !champion.stats) return null;

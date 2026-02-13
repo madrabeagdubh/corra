@@ -565,37 +565,7 @@ function initMainHeroSelect() {
         }
     };
 
-    const arrowLeft = document.createElement('button');
-    arrowLeft.innerHTML = '←';
-    arrowLeft.style.cssText = `
-        position: absolute; left: 10px; 
-        background: rgba(212, 175, 55, 0.8); 
-        color: #1a1a1a; border: none; 
-        border-radius: 50%; width: 50px; height: 50px; 
-        font-size: 1.5rem; cursor: pointer; z-index: 10002;
-    `;
-    arrowLeft.onclick = () => {
-        const w = window.innerWidth;
-        scrollContainer.scrollLeft -= w;
-    };
-
-    const arrowRight = document.createElement('button');
-    arrowRight.innerHTML = '→';
-    arrowRight.style.cssText = `
-        position: absolute; right: 10px; 
-        background: rgba(212, 175, 55, 0.8); 
-        color: #1a1a1a; border: none; 
-        border-radius: 50%; width: 50px; height: 50px; 
-        font-size: 1.5rem; cursor: pointer; z-index: 10002;
-    `;
-    arrowRight.onclick = () => {
-        const w = window.innerWidth;
-        scrollContainer.scrollLeft += w;
-    };
-
-    topPanel.appendChild(arrowLeft);
     topPanel.appendChild(slider);
-    topPanel.appendChild(arrowRight);
     container.appendChild(topPanel);
 
     topPanel.style.zIndex = '10001';

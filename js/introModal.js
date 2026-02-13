@@ -1,5 +1,6 @@
 import { allTunes } from './game/systems/music/allTunes.js';
 import * as abcjs from 'abcjs';
+import { champions } from '../data/champions.js';
 
 console.log('[IntroModal] MODULE LOADED - introModal.js is executing');
 
@@ -47,13 +48,13 @@ warmupMusicSystem();
 // This prevents the freeze when transitioning to heroSelect
 const preloadedAssets = {
     spriteSheet: null,
-    atlasData: null
+    atlasData: null,
+    validChampions: null,
+    firstChampionCanvas: null,
+    randomStartIndex: null
 };
 
-
-
-function preloadHeroSelectAssets() {
-    return (async () => {
+async function preloadHeroSelectAssets() {
     try {
         console.log('[IntroModal] Preloading hero select assets...');
         
@@ -74,15 +75,46 @@ function preloadHeroSelectAssets() {
         preloadedAssets.atlasData = await response.json();
         console.log('[IntroModal] ✓ Atlas data preloaded');
         
+        // PRE-PARSE CHAMPIONS - this is expensive, do it here
+        preloadedAssets.validChampions = champions.filter(c => c && c.spriteKey && c.stats);
+        console.log('[IntroModal] ✓ Parsed', preloadedAssets.validChampions.length, 'valid champions');
+        
+        // PRE-RENDER THE FIRST CHAMPION
+        // Pick a random starting champion
+        const randomIndex = Math.floor(Math.random() * preloadedAssets.validChampions.length);
+        preloadedAssets.randomStartIndex = randomIndex;
+        
+        const firstChamp = preloadedAssets.validChampions[randomIndex];
+        const frameName = firstChamp.spriteKey.endsWith('.png') ? firstChamp.spriteKey : `${firstChamp.spriteKey}.png`;
+        const frameData = preloadedAssets.atlasData.textures[0].frames.find(f => f.filename === frameName);
+        
+        if (frameData) {
+            const canvas = document.createElement('canvas');
+            canvas.width = frameData.frame.w;
+            canvas.height = frameData.frame.h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(
+                preloadedAssets.spriteSheet,
+                frameData.frame.x, 
+                frameData.frame.y,
+                frameData.frame.w,
+                frameData.frame.h,
+                0,
+                0,
+                frameData.frame.w,
+                frameData.frame.h
+            );
+            
+            preloadedAssets.firstChampionCanvas = canvas;
+            console.log('[IntroModal] ✓ Pre-rendered first champion:', firstChamp.nameEn);
+        }
+        
     } catch (e) {
         console.warn('[IntroModal] Asset preload failed (non-critical):', e);
     }
-
-})()
 }
 
 const heroAssetsReady = preloadHeroSelectAssets();
-
 
 export function waitForHeroAssets() {
     return heroAssetsReady;
@@ -92,7 +124,6 @@ export function getPreloadedAssets() {
     return preloadedAssets;
 }
 
-
 const amerginLines = [
     { ga: "Cé an té le nod slí na gcloch sléibhe?", en: "Who knows the way of the mountain stones?" },
     { ga: "Cé gair aois na gealaí?", en: "Who fortells the ages of the moon?" },
@@ -101,7 +132,6 @@ const amerginLines = [
     { ga: "Cé buar Teathra le gean?", en: "Who charms the sunless king?" },
     { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "What people? what god is the sculptor of keen weapons?" }
 ];
-
 
 // Function to unlock audio context
 async function unlockAudioContext() {
@@ -295,7 +325,6 @@ export function initIntroModal(onComplete) {
         }
     }, 10000);
 
-
     // Also unlock on touch for mobile
     slider.addEventListener('touchstart', () => {
         if (!audioContextUnlocked) {
@@ -325,75 +354,61 @@ export function initIntroModal(onComplete) {
         });
     });
 
+    // Indices of Tethra-related Amergin lines
+    const TETHRA_LINES = new Set([3, 4]);
+    let shoalTriggered = false;
 
+    slider.oninput = (e) => {
+        const val = parseFloat(e.target.value);
 
+        // Update English opacity
+        englishText.style.opacity = val;
 
+        // Update slider track
+        slider.style.background = 
+            `linear-gradient(
+                to right,
+                #d4af37 0%,
+                #d4af37 ${val * 100}%,
+                #444 ${val * 100}%,
+                #444 100%
+            )`;
 
+        // Unlock audio on first interaction
+        if (!audioContextUnlocked) {
+            unlockAudioContext().catch(err =>
+                console.warn('[IntroModal] Audio unlock failed:', err)
+            );
+        }
 
-// Indices of Tethra-related Amergin lines
-const TETHRA_LINES = new Set([3, 4]);
-let shoalTriggered = false;
+        // --- FINAL COMMIT ---
+        if (!hasMovedSlider && val > 0.15) {
+            hasMovedSlider = true;
+            clearInterval(lyricInterval);
 
-slider.oninput = (e) => {
-    const val = parseFloat(e.target.value);
+            const currentLine = amerginLines[currentLyricIndex];
+            
+            // DON'T hide the loader here - let starfield continue running
+            // It will be hidden later when heroSelect fully loads
+            console.log('[IntroModal] Transitioning to heroSelect, keeping starfield running');
 
-    // Update English opacity
-    englishText.style.opacity = val;
-
-    // Update slider track
-    slider.style.background = 
-        `linear-gradient(
-            to right,
-            #d4af37 0%,
-            #d4af37 ${val * 100}%,
-            #444 ${val * 100}%,
-            #444 100%
-        )`;
-
-    // Unlock audio on first interaction
-    if (!audioContextUnlocked) {
-        unlockAudioContext().catch(err =>
-            console.warn('[IntroModal] Audio unlock failed:', err)
-        );
-    }
-
-       // --- FINAL COMMIT ---
-    if (!hasMovedSlider && val > 0.15) {
-        hasMovedSlider = true;
-        clearInterval(lyricInterval);
-
-        const currentLine = amerginLines[currentLyricIndex];
-        
-        // DON'T hide the loader here - let starfield continue running
-        // It will be hidden later when heroSelect fully loads
-        console.log('[IntroModal] Transitioning to heroSelect, keeping starfield running');
-
-        // Let the line + effect breathe before fade-out
-        setTimeout(() => {
-            container.style.transition = 'opacity 0.8s ease';
-            container.style.opacity = '0';
-
+            // Let the line + effect breathe before fade-out
             setTimeout(() => {
-                // Starfield continues running - just remove intro modal
-                container.remove();
-                sliderStyle.remove();
-                initialized = false;
+                container.style.transition = 'opacity 0.8s ease';
+                container.style.opacity = '0';
 
-                onComplete(val, currentLine);
-            }, 800);
-        }, 1500); // Reduced from 4500ms to 1500ms for faster transition
-    }
-};
+                setTimeout(() => {
+                    // Starfield continues running - just remove intro modal
+                    container.remove();
+                    sliderStyle.remove();
+                    initialized = false;
 
-
-
-
-
+                    onComplete(val, currentLine);
+                }, 800);
+            }, 1500);
+        }
+    };
 }
-
-
-
-
 
 export function getCurrentIntroState() {
     // This can be used to get state if needed
@@ -403,5 +418,4 @@ export function getCurrentIntroState() {
 export function isAudioUnlocked() {
     return audioContextUnlocked;
 }
-
 

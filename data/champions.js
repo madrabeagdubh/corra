@@ -5468,7 +5468,7 @@ export const champions = [
     "themeTuneTitle": "Ashplant, The"
   },
   {
-    "spriteKey": "301.png",
+    "spriteKey": "241.png",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Órnait",

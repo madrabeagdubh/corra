@@ -1,7 +1,5 @@
 import { initIntroModal, getPreloadedAssets } from './introModal.js';
-
 import { waitForHeroAssets } from './introModal.js';
-
 
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
@@ -14,7 +12,6 @@ console.log('[HeroSelect] MODULE LOADED - heroSelect.js is executing');
 
 // Global state
 let initialized = false;
-
 let sequenceTriggered = false;
 function resetState() {
     initialized = false;
@@ -36,6 +33,9 @@ let lastMusicChangeTime = 0;
 const MUSIC_CHANGE_DELAY = 500;
 
 let initialSliderValue = 0.05;
+
+// Module-level scrollContainer reference
+let scrollContainer = null;
 
 // Stat descriptions
 const statDescriptions = {
@@ -261,9 +261,6 @@ function updateGlobalStats(champion) {
     }
 }
 
-
-
-
 export function initHeroSelect() {
     console.log('[HeroSelect] initHeroSelect called, initialized:', initialized);
     if (initialized) {
@@ -273,26 +270,20 @@ export function initHeroSelect() {
     
     console.log('[HeroSelect] Calling initIntroModal...');
 
+    initIntroModal(async (sliderValue, amerginLine) => {
+        console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
+        console.log('[HeroSelect] Current Amergin line:', amerginLine);
 
+        // Store the values from intro
+        initialSliderValue = sliderValue;
+        currentAmerginLineForExport = amerginLine;
 
-initIntroModal(async (sliderValue, amerginLine) => {
-    console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
-    console.log('[HeroSelect] Current Amergin line:', amerginLine);
+        console.log('[HeroSelect] Waiting for preloaded hero assets...');
+        await waitForHeroAssets();
+        console.log('[HeroSelect] Assets ready. Initializing hero select.');
 
-    // Store the values from intro
-    initialSliderValue = sliderValue;
-    currentAmerginLineForExport = amerginLine;
-
-    console.log('[HeroSelect] Waiting for preloaded hero assets...');
-    await waitForHeroAssets();
-    console.log('[HeroSelect] Assets ready. Initializing hero select.');
-
-    initMainHeroSelect();
-});
-
-
-
-    
+        initMainHeroSelect();
+    });
 }
 
 function initMainHeroSelect() {
@@ -301,8 +292,8 @@ function initMainHeroSelect() {
     const container = document.getElementById('heroSelect');
     if (!container) return;
 
-container.style.position = 'relative';
-container.style.zIndex = '10002';
+    container.style.position = 'relative';
+    container.style.zIndex = '10002';
 
     initialized = true; 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
@@ -311,9 +302,6 @@ container.style.zIndex = '10002';
     audioUnlocked = true; // Audio was unlocked in intro modal
     let englishOpacity = initialSliderValue; // Use value from intro modal
     currentChampionIndex = 0; // Use module-level variable
-    
-    // Declare scrollContainer early so it's accessible in renderChampions
-    let scrollContainer;
     
     // Initialize music player
     if (!musicPlayer) {
@@ -324,8 +312,43 @@ container.style.zIndex = '10002';
     // Canvas starfield from index.html is already running - no need to init another one
     console.log('[HeroSelect] Using canvas starfield from index.html');
 
-    // Defer asset loading until after UI is created
-    let sheet, atlasData, sheetLoaded;
+    // GET PRELOADED ASSETS - everything is ready!
+    const preloaded = getPreloadedAssets();
+    const sheet = preloaded.spriteSheet;
+    const atlasData = preloaded.atlasData;
+    const allValidChampions = preloaded.validChampions;
+    const firstChampionCanvas = preloaded.firstChampionCanvas;
+    const randomStartIndex = preloaded.randomStartIndex;
+    
+    // SELECT A RANDOM SUBSET for better performance
+    // This gives us instant loading + all features working
+    // Trade-off: Users see 30 random champions instead of all 300+
+    // Can increase this number if performance allows (e.g., 50, 75, 100)
+    const CHAMPION_SUBSET_SIZE = 30; // Adjust this for performance vs variety balance
+    
+    // Randomly select champions
+    const shuffled = [...allValidChampions].sort(() => Math.random() - 0.5);
+    validChampions = shuffled.slice(0, CHAMPION_SUBSET_SIZE);
+    
+    // Make sure the pre-rendered champion is in the subset
+    const preRenderedChamp = allValidChampions[randomStartIndex];
+    if (!validChampions.includes(preRenderedChamp)) {
+        validChampions[0] = preRenderedChamp; // Replace first with pre-rendered
+    }
+    
+    // Find where the pre-rendered champion is now
+    const newStartIndex = validChampions.indexOf(preRenderedChamp);
+    
+    console.log('[HeroSelect] Using preloaded assets:', {
+        sheet: !!sheet,
+        atlasData: !!atlasData,
+        totalChampions: allValidChampions.length,
+        selectedSubset: validChampions.length,
+        firstCanvas: !!firstChampionCanvas,
+        firstCanvasSize: firstChampionCanvas ? `${firstChampionCanvas.width}x${firstChampionCanvas.height}` : 'N/A',
+        preRenderedChamp: preRenderedChamp ? preRenderedChamp.nameEn : 'N/A',
+        startIndex: newStartIndex
+    });
     
     const layoutStyle = document.createElement('style');
     layoutStyle.textContent = `
@@ -334,7 +357,6 @@ container.style.zIndex = '10002';
     30% { transform: scale(1.2); filter: brightness(1.8) drop-shadow(0 0 10px #d4af37); }
     100% { transform: scale(1); filter: brightness(1); }
 }
-
 
 @keyframes championBoogie {
     /* --- FACING RIGHT --- */
@@ -361,7 +383,6 @@ container.style.zIndex = '10002';
     transform-origin: bottom center;
 }
 
-
 .stat-animate {
     animation: statPulse 0.4s ease-out;
 }
@@ -375,10 +396,11 @@ container.style.zIndex = '10002';
     flex: 1; 
     display: flex; 
     overflow-x: auto; 
-    scroll-snap-type: x mandatory;
+    scroll-snap-type: x proximity;
     scrollbar-width: none; 
     -ms-overflow-style: none;
     overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
 } 
 
 .champion-scroll::-webkit-scrollbar { display: none; }
@@ -435,52 +457,43 @@ container.style.zIndex = '10002';
     container.className = 'hero-select-container';
     scrollContainer = document.createElement('div');
     scrollContainer.className = 'champion-scroll';
-    scrollContainer.style.opacity = '0'; // Hide initially
+    scrollContainer.style.opacity = '0';
     scrollContainer.style.transition = 'opacity 0.3s ease';
+    scrollContainer.style.webkitOverflowScrolling = 'touch';
+    scrollContainer.style.scrollBehavior = 'auto'; // Let native momentum handle it
     container.appendChild(scrollContainer);
 
+    const topPanel = document.createElement('div');
+    topPanel.className = 'champion-top-panel';
 
+    topPanel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 0;
+        width: 100%;
+        z-index: 10001;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+    `;
 
+    // Create the slider element
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = 0;
+    slider.max = 1;
+    slider.step = 0.05;
+    slider.value = initialSliderValue;
+    slider.className = 'champion-slider';
 
-
-const topPanel = document.createElement('div');
-topPanel.className = 'champion-top-panel';
-
-topPanel.style.cssText = `
-    position: fixed;
-    top: 10px;
-    left: 0;
-    width: 100%;
-    z-index: 10001;
-    padding: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-`;
-
-// Create the slider element
-const slider = document.createElement('input');
-slider.type = 'range';
-slider.min = 0;
-slider.max = 1;
-slider.step = 0.05;
-slider.value = initialSliderValue;
-slider.className = 'champion-slider';
-
-
-
-
-
-
-
-    
-   const sliderStyle = document.createElement('style');
+    const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
-       sliderStyle.textContent = `
+    sliderStyle.textContent = `
         @keyframes thumbInvite {
             0% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
-            50% { transform: scale(1.1); box-shadow: 0 0 20px #ffd700; } /* Scaled down slightly to avoid clipping */
+            50% { transform: scale(1.1); box-shadow: 0 0 20px #ffd700; }
             100% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
         }
 
@@ -492,121 +505,104 @@ slider.className = 'champion-slider';
             background: #444 !important;
             border-radius: 5px !important;
             outline: none !important;
-            margin: 20px 0 !important; /* Added margin to give the thumb room to grow */
+            margin: 20px 0 !important;
             padding: 0 !important;
         }
 
         .champion-slider::-webkit-slider-thumb {
             -webkit-appearance: none !important;
             appearance: none !important;
-            width: 44px !important;
-            height: 44px !important;
+            width: 40px !important;
+            height: 40px !important;
             border-radius: 50% !important;
             background: #ffd700 !important;
             cursor: pointer !important;
-            border: 8px solid rgba(255, 215, 0, 0.3) !important;
-            background-clip: padding-box !important;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-            position: relative; 
-            z-index: 2;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6) !important;
+            transition: transform 0.15s ease !important;
         }
 
-        /* The Animation Rule */
-        .slider-waiting::-webkit-slider-thumb {
-            animation: thumbInvite 1.5s infinite ease-in-out !important;
-            border: 4px solid #ffffff !important; /* Forces the border to be white */
-            filter: drop-shadow(0 0 5px #ffd700); /* Uses filter instead of box-shadow if shadow is clipping */
+        .champion-slider::-moz-range-thumb {
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 50% !important;
+            background: #ffd700 !important;
+            cursor: pointer !important;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6) !important;
+            border: none !important;
+        }
+
+        .champion-slider:active::-webkit-slider-thumb {
+            transform: scale(1.1) !important;
+        }
+
+        .champion-slider:active::-moz-range-thumb {
+            transform: scale(1.1) !important;
+        }
+
+        @keyframes letterGlow {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
     `;
+    document.head.appendChild(sliderStyle);
 
+    const initialTrackPercent = initialSliderValue * 100;
+    slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${initialTrackPercent}%, #444 ${initialTrackPercent}%, #444 100%)`;
 
-
-
-
-
-
-
-   if (!document.getElementById('sunSliderStyle')) document.head.appendChild(sliderStyle);
-
-    let chooseButton;
-    // 1. Define the visual update logic in one place
-    const updateSliderVisuals = (opacity) => {
-        englishOpacity = opacity; // Keep global variable in sync
-
+    slider.oninput = (e) => {
+        const val = parseFloat(e.target.value);
+        const percent = val * 100;
+        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${percent}%, #444 ${percent}%, #444 100%)`;
+        
+        englishOpacity = val;
         document.querySelectorAll('.champion-name-en').forEach(el => {
-            el.style.color = `rgba(0, 255, 0, ${opacity})`;
+            el.style.color = `rgba(0, 255, 0, ${val})`;
         });
         
-        const tutorialEnglish = document.querySelector('#tutorial-english-text');
-        if (tutorialEnglish) {
-            tutorialEnglish.style.opacity = opacity;
+        const popup = document.getElementById('statPopupEnglish');
+        if (popup) {
+            popup.style.color = `rgba(0, 255, 0, ${val})`;
         }
-
-        if (chooseButton) {
-            if (opacity > 0.5) {
-                chooseButton.textContent = 'Continue';
-                chooseButton.style.fontFamily = '"Courier New", Courier, monospace';
-                chooseButton.style.fontWeight = '300';
-                chooseButton.style.letterSpacing = '1px';
-                chooseButton.style.textTransform = 'none';
-            } else {
-                chooseButton.textContent = 'Ar Aghaidh';
-                chooseButton.style.fontFamily = 'Aonchlo, serif';
-                chooseButton.style.fontWeight = 'bold';
-                chooseButton.style.letterSpacing = '2px';
-                chooseButton.style.textTransform = 'uppercase';
-            }
-        }
-        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${opacity * 100}%, #444 ${opacity * 100}%, #444 100%)`;
     };
 
-    // 2. The player dragging the slider
-   
-
-
-
-
-
-
-
-slider.oninput = e => {
-    const val = Number(e.target.value);
-    updateSliderVisuals(val);
-};;
-/////////////
-
-
-    // 3. The "Imperceptible" Fade Logic
-    let isUserTouchingSlider = false;
-    slider.addEventListener('mousedown', () => isUserTouchingSlider = true);
-    slider.addEventListener('touchstart', () => isUserTouchingSlider = true);
-    window.addEventListener('mouseup', () => isUserTouchingSlider = false);
-    window.addEventListener('touchend', () => isUserTouchingSlider = false);
-
-    const applyDecay = () => {
-        // Slow down the fade: 0.0001 per frame
-        if (sliderTutorialComplete && !isUserTouchingSlider && englishOpacity > 0) {
-            const newValue = Math.max(0, englishOpacity - 0.0001);
-            slider.value = newValue; // Move the physical sun slider
-            updateSliderVisuals(newValue); // Update the colors/text
-        }
-        requestAnimationFrame(applyDecay);
+    const arrowLeft = document.createElement('button');
+    arrowLeft.innerHTML = '←';
+    arrowLeft.style.cssText = `
+        position: absolute; left: 10px; 
+        background: rgba(212, 175, 55, 0.8); 
+        color: #1a1a1a; border: none; 
+        border-radius: 50%; width: 50px; height: 50px; 
+        font-size: 1.5rem; cursor: pointer; z-index: 10002;
+    `;
+    arrowLeft.onclick = () => {
+        const w = window.innerWidth;
+        scrollContainer.scrollLeft -= w;
     };
 
-    // Start the loop
-    requestAnimationFrame(applyDecay);
-;
+    const arrowRight = document.createElement('button');
+    arrowRight.innerHTML = '→';
+    arrowRight.style.cssText = `
+        position: absolute; right: 10px; 
+        background: rgba(212, 175, 55, 0.8); 
+        color: #1a1a1a; border: none; 
+        border-radius: 50%; width: 50px; height: 50px; 
+        font-size: 1.5rem; cursor: pointer; z-index: 10002;
+    `;
+    arrowRight.onclick = () => {
+        const w = window.innerWidth;
+        scrollContainer.scrollLeft += w;
+    };
 
+    topPanel.appendChild(arrowLeft);
     topPanel.appendChild(slider);
+    topPanel.appendChild(arrowRight);
     container.appendChild(topPanel);
 
-   
-    // Make sure topPanel (with slider) is above the overlay
     topPanel.style.zIndex = '10001';
 
     const bottomPanel = document.createElement('div');
     bottomPanel.className = 'champion-bottom-panel';
-    chooseButton = document.createElement('button');
+    const chooseButton = document.createElement('button');
     chooseButton.className = 'champion-choose-button';
     chooseButton.textContent = 'Ar Aghaidh';
     chooseButton.style.cssText = `
@@ -615,237 +611,170 @@ slider.oninput = e => {
         border: 3px solid #d2691e; border-radius: 12px; cursor: pointer;
         text-transform: uppercase; letter-spacing: 2px; font-family: Aonchlo;
     `;
-   
 
-chooseButton.onclick = async () => {
-    console.log('[DEBUG] Continue button clicked');
-    console.log('[DEBUG] currentChampionIndex:', currentChampionIndex);
-    console.log('[DEBUG] validChampions length:', validChampions.length);
-    console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
-    
-    if (validChampions[currentChampionIndex]) {
-        // Check if music is loaded AND tracks are fully initialized
-        const musicReady = musicPlayer && 
-                          musicPlayer.tracks && 
-                          musicPlayer.tracks.length > 0 &&
-                          musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
+    chooseButton.onclick = async () => {
+        console.log('[DEBUG] Continue button clicked');
+        console.log('[DEBUG] currentChampionIndex:', currentChampionIndex);
+        console.log('[DEBUG] validChampions length:', validChampions.length);
+        console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
         
-        if (musicReady) {
-            // Unmute piano before transitioning
-            console.log('[DEBUG] Music ready, unmuting piano...');
-            await unmutePiano();
-            // Wait a moment to hear the piano join in
-            console.log('[DEBUG] Waiting 800ms for piano to be heard...');
-            setTimeout(() => {
-                finalize(validChampions[currentChampionIndex]);
-            }, 800);
+        if (validChampions[currentChampionIndex]) {
+            // Check if music is loaded AND tracks are fully initialized
+            const musicReady = musicPlayer && 
+                              musicPlayer.tracks && 
+                              musicPlayer.tracks.length > 0 &&
+                              musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
+            
+            if (musicReady) {
+                // Unmute piano before transitioning
+                console.log('[DEBUG] Music ready, unmuting piano...');
+                await unmutePiano();
+                // Wait a moment to hear the piano join in
+                console.log('[DEBUG] Waiting 800ms for piano to be heard...');
+                setTimeout(() => {
+                    finalize(validChampions[currentChampionIndex]);
+                }, 800);
+            } else {
+                console.warn('[DEBUG] Music not fully loaded yet, proceeding without unmuting');
+                // Proceed anyway after short delay
+                setTimeout(() => {
+                    finalize(validChampions[currentChampionIndex]);
+                }, 200);
+            }
         } else {
-            console.warn('[DEBUG] Music not fully loaded yet, proceeding without unmuting');
-            // Proceed anyway after short delay
-            setTimeout(() => {
-                finalize(validChampions[currentChampionIndex]);
-            }, 200);
+            console.error('[DEBUG] No champion at currentChampionIndex:', currentChampionIndex);
         }
-    } else {
-        console.error('[DEBUG] No champion at currentChampionIndex:', currentChampionIndex);
-    }
-};
-;
+    };
+    
     bottomPanel.appendChild(chooseButton);
     container.appendChild(bottomPanel);
 
-    // NOW load assets - UI is ready, scrollContainer exists
-    const preloaded = getPreloadedAssets();
+    // RENDER ALL CHAMPIONS with batching for speed
+    console.log('[HeroSelect] Starting champion rendering');
     
-    if (preloaded.spriteSheet && preloaded.atlasData) {
-        // Both assets preloaded - use them immediately
-        sheet = preloaded.spriteSheet;
-        atlasData = preloaded.atlasData;
-        sheetLoaded = true;
-        console.log('[HeroSelect] Using preloaded assets ✓');
-        tryRender();
-    } else {
-        // Fallback: load assets now
-        sheet = new Image();
-        atlasData = null;
-        sheetLoaded = false;
+    // Set current index
+    currentChampionIndex = newStartIndex;
+    
+    // Create infinite scroll array
+    const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
+    
+    // Calculate where we need to scroll to
+    const targetScroll = window.innerWidth * (validChampions.length + newStartIndex);
+    
+    // First champion reference
+    const firstChamp = validChampions[newStartIndex];
+    
+    // Render ALL champions in fast batches
+    const BATCH_SIZE = 30; // Larger batches for speed
+    let currentIndex = 0;
+    let hasScrolled = false;
+    
+    function renderBatch() {
+        const endIndex = Math.min(currentIndex + BATCH_SIZE, infiniteChampions.length);
         
-        console.log('[HeroSelect] Loading assets (not preloaded)');
-        sheet.src = 'assets/champions/champions-with-kit.png';
-        sheet.onload = () => {
-            sheetLoaded = true;
-            tryRender();
-        };
-        
-        fetch('assets/champions/champions0.json')
-            .then(res => res.json())
-            .then(data => {
-                atlasData = data;
-                tryRender();
-            });
-    }
-
-    function tryRender() {
-        console.log('[HeroSelect] tryRender called - atlasData:', !!atlasData, 'sheetLoaded:', sheetLoaded, 'champions:', champions.length);
-        if (atlasData && sheetLoaded && champions.length > 0) {
-            console.log('[HeroSelect] All conditions met, calling renderChampions');
-            renderChampions();
-        } else {
-            console.log('[HeroSelect] Waiting for assets...');
-        }
-    }
-
-    function renderChampions() {
-        // CRITICAL FIX: Use module-level validChampions instead of local variable
-        validChampions = champions.filter(c => c && c.spriteKey && c.stats);
-        const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
-
-        // Calculate random index FIRST before any rendering
-        const randomIndex = Math.floor(Math.random() * validChampions.length);
-        currentChampionIndex = randomIndex;
-        
-        // Calculate target scroll position
-        const targetScroll = window.innerWidth * (validChampions.length + randomIndex);
-        
-        console.log('[HeroSelect] Will show champion', randomIndex, ':', validChampions[randomIndex].nameEn);
-
-        // Start music for the selected champion immediately
-        try {
-            const selectedChampion = validChampions[randomIndex];
-            const tuneKey = getTuneKeyForChampion(selectedChampion);
-            if (tuneKey && !musicPlayer.isPlaying) {
-                console.log('[HeroSelect] Starting tune for:', selectedChampion.nameEn, '- tune:', tuneKey);
-                playChampionTune(tuneKey);
-            }
-            console.log('[HeroSelect] Music started successfully, proceeding to render');
-        } catch (e) {
-            console.error('[HeroSelect] Error starting music:', e);
-        }
-
-        console.log('[HeroSelect] About to define renderBatch function');
-
-        // Batch rendering to prevent freeze - render in chunks across frames
-        const BATCH_SIZE = 5; // Render 5 champions per frame
-        let currentIndex = 0;
-        let hasScrolled = false; // Track if we've scrolled yet
-
-        function renderBatch() {
-            const endIndex = Math.min(currentIndex + BATCH_SIZE, infiniteChampions.length);
+        for (let i = currentIndex; i < endIndex; i++) {
+            const champ = infiniteChampions[i];
+            const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
+            const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
+            if (!frameData) continue;
             
+            const card = document.createElement('div');
+            card.className = 'champion-card';
+            card.onclick = () => showCharacterModal(champ);
             
-            for (let i = currentIndex; i < endIndex; i++) {
-                const champ = infiniteChampions[i];
-                const frameName = champ.spriteKey.endsWith('.png') ? champ.spriteKey : `${champ.spriteKey}.png`;
-                const frameData = atlasData.textures[0].frames.find(f => f.filename === frameName);
-                if (!frameData) continue;
-
-                const card = document.createElement('div');
-                card.className = 'champion-card';
-                card.onclick = () => showCharacterModal(champ);
-
-                const canvas = document.createElement('canvas');
-                canvas.className = 'champion-canvas';
-                canvas.width = frameData.frame.w; 
+            // Use pre-rendered canvas for the starting champion
+            let canvas;
+            if (i === validChampions.length + newStartIndex && firstChampionCanvas) {
+                console.log('[HeroSelect] Using pre-rendered canvas for champion', i);
+                // Can't use cloneNode - it doesn't copy pixel data!
+                // Instead, create new canvas and copy the image data
+                canvas = document.createElement('canvas');
+                canvas.className = 'champion-canvas floating';
+                canvas.width = firstChampionCanvas.width;
+                canvas.height = firstChampionCanvas.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(firstChampionCanvas, 0, 0);
+            } else {
+                canvas = document.createElement('canvas');
+                canvas.className = 'champion-canvas floating';
+                canvas.width = frameData.frame.w;
                 canvas.height = frameData.frame.h;
                 const ctx = canvas.getContext('2d');
-
                 ctx.drawImage(sheet, frameData.frame.x, frameData.frame.y, frameData.frame.w, frameData.frame.h, 0, 0, frameData.frame.w, frameData.frame.h);
-
-                const nameGa = document.createElement('div');
-                nameGa.className = 'champion-name-ga';
-                nameGa.textContent = champ.nameGa;
-
-                const nameEn = document.createElement('div');
-                nameEn.className = 'champion-name-en';
-                nameEn.textContent = champ.nameEn;
-                nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
-
-                card.appendChild(canvas);
-                card.appendChild(nameGa);
-                card.appendChild(nameEn);
-                
-                scrollContainer.appendChild(card);
             }
-
-            currentIndex = endIndex;
-
-            // Scroll and show container once we've rendered enough cards to reach the target
-            if (!hasScrolled && currentIndex >= (validChampions.length + randomIndex + 1)) {
-                scrollContainer.scrollLeft = targetScroll;
-                scrollContainer.style.opacity = '1';
-                hasScrolled = true;
-                console.log('[HeroSelect] Scrolled to and showing champion', randomIndex);
-            }
-
-            if (currentIndex < infiniteChampions.length) {
-                // More to render - schedule next batch
-                requestAnimationFrame(renderBatch);
-            } else {
-                // Rendering complete - finalize
-                completeRendering();
-            }
+            
+            const nameGa = document.createElement('div');
+            nameGa.className = 'champion-name-ga';
+            nameGa.textContent = champ.nameGa;
+            
+            const nameEn = document.createElement('div');
+            nameEn.className = 'champion-name-en';
+            nameEn.textContent = champ.nameEn;
+            nameEn.style.color = `rgba(0, 255, 0, ${englishOpacity})`;
+            
+            card.appendChild(canvas);
+            card.appendChild(nameGa);
+            card.appendChild(nameEn);
+            
+            scrollContainer.appendChild(card);
         }
-
-        function completeRendering() {
-            // Ensure container is visible (in case we didn't reach the threshold)
-            if (!hasScrolled) {
-                scrollContainer.scrollLeft = targetScroll;
-                scrollContainer.style.opacity = '1';
-                console.log('[HeroSelect] Final scroll and show');
+        
+        currentIndex = endIndex;
+        
+        // Show after first batch that includes our target champion
+        if (!hasScrolled && currentIndex >= (validChampions.length + newStartIndex + 1)) {
+            scrollContainer.scrollLeft = targetScroll;
+            scrollContainer.style.opacity = '1';
+            hasScrolled = true;
+            
+            // Update stats immediately
+            updateGlobalStats(firstChamp);
+            if (globalStatsBar) {
+                globalStatsBar.style.opacity = '1';
+                globalStatsBar.style.pointerEvents = 'auto';
             }
-            console.log('[HeroSelect] All champions rendered');
-
-            // Don't scroll again - we already did it during rendering
-            // currentChampionIndex and scrollContainer.scrollLeft are already set
-
-            // Don't start music immediately - wait for user to interact
-            // Music will start on first swipe or after a delay
-
-        initSwipe(scrollContainer, validChampions.length);
-    initBackgroundParticles(); // Add this line
-     
-        updateGlobalStats(validChampions[randomIndex]);
+            
+            // Start music immediately
+            try {
+                const tuneKey = getTuneKeyForChampion(firstChamp);
+                if (tuneKey && !musicPlayer.isPlaying) {
+                    console.log('[HeroSelect] Starting tune for:', firstChamp.nameEn, '- tune:', tuneKey);
+                    playChampionTune(tuneKey);
+                }
+            } catch (e) {
+                console.error('[HeroSelect] Error starting music:', e);
+            }
+            
+            console.log('[HeroSelect] ✓ First champion visible!');
+        }
         
-        // Keep the starfield running as the background - don't hide it
-        // It will stay visible behind the hero select UI
-        console.log('[HeroSelect] Starfield continues as background');
-        
-        // Music already started before rendering - no need to start again here
-        
-// Show stats bar once tutorial completes
-const checkAndShowStats = () => {
-    if (sliderTutorialComplete && globalStatsBar) {
-        showStatsBar();
-    } else if (!sliderTutorialComplete) {
-        setTimeout(checkAndShowStats, 100);
-    }
-};
-checkAndShowStats();
-
-
-// Start floating animation for the initial champion after tutorial completes
-    const startInitialAnimation = () => {
-        if (sliderTutorialComplete) {
-            const allCanvases = document.querySelectorAll('.champion-canvas');
-            allCanvases.forEach(canvas => canvas.classList.add('floating'));
+        if (currentIndex < infiniteChampions.length) {
+            // More to render - schedule next batch
+            requestAnimationFrame(renderBatch);
         } else {
-            setTimeout(startInitialAnimation, 100);
+            // All done!
+            console.log('[HeroSelect] ✓ All champions rendered');
+            
+            // Initialize swipe handler
+            initSwipe(scrollContainer, validChampions.length);
+            
+            // Initialize background particles
+            initBackgroundParticles();
+            
+            // Run the swipe nudge animation to show user they can swipe
+            setTimeout(() => {
+                runSwipeNudge();
+            }, 1000);
         }
-    };
-    startInitialAnimation();
-        }
-        
-        // Start rendering in batches
-        console.log('[HeroSelect] Starting batched rendering of', infiniteChampions.length, 'champions');
-        requestAnimationFrame(renderBatch);
     }
-
-    // Note: Shared starfield from index.html continues running as background
-
-
-
+    
+    // Start rendering
+    renderBatch();
 }
+
 function runSwipeNudge() {
+    if (!scrollContainer) return;
+    
     const dist = window.innerWidth * 0.45;
     const start = scrollContainer.scrollLeft;
 
@@ -858,306 +787,128 @@ function runSwipeNudge() {
         setTimeout(() => {
             scrollContainer.scrollLeft = start;
             setTimeout(() => {
-                scrollContainer.style.scrollSnapType = 'x mandatory';
+                scrollContainer.style.scrollSnapType = 'x proximity';
+                scrollContainer.style.scrollBehavior = 'auto';
             }, 600);
         }, 700);
     }, 700);
 }
 
+function initSwipe(scrollContainer, champCount) {
+    let lastScrollLeft = scrollContainer.scrollLeft;
+    let debounceTimer = null;
+    let isScrolling = false;
 
-
-
-function initBackgroundParticles() {
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        pointer-events: none;
-    `;
-    
-    const container = document.getElementById('heroSelect');
-    if (container) {
-        container.insertBefore(canvas, container.firstChild);
-    }
-    
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    // Particle system
-    const particles = [];
-	const particleCount =10;
-    
-    class Particle {
-        constructor() {
-            this.reset();
-        }
+    scrollContainer.addEventListener('scroll', () => {
+        isScrolling = true;
+        clearTimeout(debounceTimer);
         
-        reset() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.vx = (Math.random() - 0.5) * 0.2; // Slight horizontal drift
-            this.vy = Math.random() * 0.5 + 0.3; // Downward movement
-            this.size = Math.random() * 2 + 0.5;
-            this.opacity = Math.random() * 0.5 + 0.2;
-            this.color = Math.random() > 0.5 ? '#d4af37' : '#ffd700'; // Gold colors
-        }
-        
-        update() {
-            this.x += this.vx;
-            this.y += this.vy;
+        // Only run this after scrolling has stopped
+        debounceTimer = setTimeout(() => {
+            const newScrollLeft = scrollContainer.scrollLeft;
+            const w = window.innerWidth;
             
-            // Wrap horizontally
-            if (this.x < 0) this.x = canvas.width;
-            if (this.x > canvas.width) this.x = 0;
+            // Determine current index based on scroll position
+            const rawIndex = Math.round(newScrollLeft / w);
+            const actualIndex = rawIndex % champCount;
             
-            // Reset to top when reaching bottom
-            if (this.y > canvas.height) {
-                this.y = 0;
-                this.x = Math.random() * canvas.width;
+            if (actualIndex !== currentChampionIndex) {
+                currentChampionIndex = actualIndex;
+                console.log('[HeroSelect] Swiped to champion:', currentChampionIndex, validChampions[currentChampionIndex].nameEn);
+                
+                // Update stats
+                updateGlobalStats(validChampions[currentChampionIndex]);
+                
+                // Change music
+                const now = Date.now();
+                if (now - lastMusicChangeTime > MUSIC_CHANGE_DELAY) {
+                    lastMusicChangeTime = now;
+                    const tuneKey = getTuneKeyForChampion(validChampions[currentChampionIndex]);
+                    if (tuneKey && tuneKey !== currentTuneKey) {
+                        playChampionTune(tuneKey);
+                    }
+                }
             }
-        }
-        
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fillStyle = this.color;
-            ctx.globalAlpha = this.opacity;
-            ctx.fill();
-            ctx.globalAlpha = 1;
-        }
-    }
-    
-    // Create particles
-    for (let i = 0; i < particleCount; i++) {
-        particles.push(new Particle());
-    }
-    
-    // Animation loop
-    function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        particles.forEach(particle => {
-            particle.update();
-            particle.draw();
-        });
-        
-        requestAnimationFrame(animate);
-    }
-    
-    animate();
-    
-    // Handle resize
-    window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+            
+            // Handle infinite scroll wrapping (only when stopped)
+            if (newScrollLeft < w * 0.5) {
+                scrollContainer.style.scrollSnapType = 'none';
+                scrollContainer.scrollLeft = newScrollLeft + (champCount * w);
+                requestAnimationFrame(() => {
+                    scrollContainer.style.scrollSnapType = 'x proximity';
+                });
+            } else if (newScrollLeft > (champCount * 2 - 0.5) * w) {
+                scrollContainer.style.scrollSnapType = 'none';
+                scrollContainer.scrollLeft = newScrollLeft - (champCount * w);
+                requestAnimationFrame(() => {
+                    scrollContainer.style.scrollSnapType = 'x proximity';
+                });
+            }
+            
+            lastScrollLeft = newScrollLeft;
+            isScrolling = false;
+        }, 100);
     });
 }
 
-
 function showStatsBar() {
-    if (!globalStatsBar) return;
-    globalStatsBar.style.transition = 'opacity 0.8s ease';
-    globalStatsBar.style.opacity = '1';
+    if (globalStatsBar) {
+        globalStatsBar.style.transition = 'opacity 0.5s ease';
+        globalStatsBar.style.opacity = '1';
+        globalStatsBar.style.pointerEvents = 'auto';
+    }
 }
 
-    function nudgeSlider(sliderEl, callback) {
-        const trigger = (val) => { sliderEl.value = val; sliderEl.oninput({ target: sliderEl }); };
-        sliderEl.style.transition = 'all 0.15s ease-out';
-        const steps = [0.2, 0.4, 0.6, 0.8, 1.0, 'pause', 0.8, 0.6, 0.4, 0.2, 0.1];
-        let delay = 0;
-        steps.forEach(step => {
-            if (step === 'pause') { delay += 600; }
-            else {
-                setTimeout(() => trigger(step), delay);
-                delay += 150;
-            }
-        });
-        setTimeout(() => {
-            sliderEl.style.transition = 'none';
-            if (callback) callback();
-        }, delay + 200);
-    }
-
-   function initSwipe(container, len) {
-    let isDragging = false, startX, startY, scrollL, velocity = 0, lastX, lastT, animID;
-    let scrollTimeout = null;
-    
-    // CRITICAL FIX: Use module-level validChampions instead of redefining it
-    
-    const startFloating = () => {
-        if (sliderTutorialComplete) {
-            // Find the center champion canvas
-            const allCanvases = document.querySelectorAll('.champion-canvas');
-            allCanvases.forEach(canvas => canvas.classList.add('floating'));
-        }
-    };
-    
-    const stopFloating = () => {
-        const allCanvases = document.querySelectorAll('.champion-canvas');
-        allCanvases.forEach(canvas => canvas.classList.remove('floating'));
-    };
-   
-    const handleTouchStart = (e) => {
-        if (!sliderTutorialComplete) return;
-        
-        stopFloating();
-        
-        isDragging = true;
-        startX = e.touches[0].pageX;
-        startY = e.touches[0].pageY;
-        scrollL = container.scrollLeft;
-        lastX = startX;
-        lastT = performance.now();
-
-        if (animID) cancelAnimationFrame(animID);
-        container.style.scrollSnapType = 'none';
-        container.style.scrollBehavior = 'auto';
-    };
-   
-    const handleTouchMove = (e) => {
-        if (!isDragging) return;
-        
-        const x = e.touches[0].pageX;
-        container.scrollLeft = scrollL - (x - startX);
-        const now = performance.now();
-        const dt = now - lastT;
-        if (dt > 0) velocity = (lastX - x) / dt * 16;
-        lastX = x; 
-        lastT = now;
-    };
-  
-    const handleTouchEnd = () => {
-        isDragging = false;
-        velocity *= 1.5;
-
-        const decay = () => {
-            container.scrollLeft += velocity;
-            velocity *= 0.9;
-            if (Math.abs(velocity) > 0.1) {
-                animID = requestAnimationFrame(decay);
-                return;
-            }
-            const w = window.innerWidth;
-            const target = Math.round(container.scrollLeft / w);
-            container.style.scrollBehavior = 'smooth';
-            container.scrollTo({ left: target * w, behavior: 'smooth' });
-            
-            setTimeout(() => {
-                container.style.scrollSnapType = 'x mandatory';
-                
-                const realIndex = (target % len + len) % len;
-                const currentChamp = validChampions[realIndex];
-
-                if (currentChampionIndex !== realIndex) {
-                    currentChampionIndex = realIndex;
-                    
-                    updateGlobalStats(currentChamp);
-
-                    const now = Date.now();
-                    if (audioUnlocked && (now - lastMusicChangeTime) >= MUSIC_CHANGE_DELAY) {
-                        lastMusicChangeTime = now;
-                        
-                        if (currentChamp) {
-                            console.log('[DEBUG] Champion changed to:', currentChamp.nameEn);
-                            const tuneKey = getTuneKeyForChampion(currentChamp);
-                            console.log('[DEBUG] Playing tune:', tuneKey);
-                            if (tuneKey) {
-                                playChampionTune(tuneKey);
-                            }
-                        }
-                    }
-                }
-
-                container.scrollLeft = (len + realIndex) * w;
-                
-                // CRITICAL FIX: Resume floating animation after scroll settles
-                if (scrollTimeout) clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(startFloating, 500);
-            }, 350);
-        };
-
-        decay();
-    };
-   
-    container.addEventListener('touchstart', handleTouchStart);
-    container.addEventListener('touchmove', handleTouchMove);
-    container.addEventListener('touchend', handleTouchEnd);
-} 
-
 async function playChampionTune(tuneKey) {
-    console.log('[DEBUG] Playing tune:', tuneKey);
-    
-    if (!musicPlayer) {
-        console.warn('[DEBUG] Music player not initialized');
+    if (!tuneKey || !musicPlayer) {
+        console.warn('[HeroSelect] Cannot play tune - missing tuneKey or musicPlayer');
         return;
     }
     
-    // If same tune is already playing, don't reload
+    console.log('[DEBUG] playChampionTune called with tuneKey:', tuneKey);
+    console.log('[DEBUG] Current tune:', currentTuneKey);
+    console.log('[DEBUG] Music player isPlaying:', musicPlayer.isPlaying);
+    
+    // If we're already on this tune, don't reload it
     if (currentTuneKey === tuneKey && musicPlayer.isPlaying) {
-        console.log('[DEBUG] Tune already playing');
+        console.log('[DEBUG] Already playing this tune, skipping');
         return;
     }
     
-    // If switching tunes, do overlap crossfade
-    const isChangingTune = currentTuneKey && currentTuneKey !== tuneKey && musicPlayer.isPlaying;
-    
-    if (isChangingTune) {
+    // Crossfade if music is already playing
+    if (currentTuneKey && musicPlayer.isPlaying) {
         console.log('[DEBUG] Crossfading from', currentTuneKey, 'to', tuneKey);
         
-        // Capture the old tracks and their state
-        const oldTracks = musicPlayer.tracks.map(t => ({
-            synth: t.synth,
-            gain: t.gain,
-            active: t.active
-        }));
-        
-        const oldIsPlaying = musicPlayer.isPlaying;
-        
-        // Start fading out old tracks immediately
-        const fadeOutTime = musicPlayer.audioContext.currentTime;
-        for (const track of oldTracks) {
-            if (track.gain) {
-                // Fade out over 800ms using exponential fade
-                track.gain.gain.setTargetAtTime(0.0001, fadeOutTime, 0.75);
-            }
-        }
-        
-        console.log('[DEBUG] Old tune fading out, loading new tune...');
-        
-        // Load new tune WITHOUT stopping (preservePlayback = true)
-        currentTuneKey = tuneKey;
-        
         try {
-            // This loads new tracks but doesn't stop the old ones yet
-            const loaded = await musicPlayer.loadTune(tuneKey, true);
+            // Store reference to old tracks before loading new ones
+            const oldTracks = musicPlayer.tracks ? [...musicPlayer.tracks] : [];
+            console.log('[DEBUG] Captured old tracks:', oldTracks.length);
+            
+            // Fade out old tracks
+            for (const track of oldTracks) {
+                if (track && track.gain) {
+                    const currentGain = track.gain.gain.value;
+                    track.gain.gain.setValueAtTime(currentGain, musicPlayer.audioContext.currentTime);
+                    track.gain.gain.linearRampToValueAtTime(0, musicPlayer.audioContext.currentTime + 1.0);
+                    console.log('[DEBUG] Fading out track:', track.name);
+                }
+            }
+            
+            // Load new tune (it will create fresh tracks)
+            const loaded = await musicPlayer.loadTune(tuneKey, false);
             
             if (!loaded) {
-                console.error('[DEBUG] Failed to load tune');
-                // Clean up old tracks anyway
-                for (const track of oldTracks) {
-                    try {
-                        if (track.synth && track.synth.stop) {
-                            track.synth.stop();
-                        }
-                    } catch (e) {}
-                }
+                console.error('[DEBUG] Failed to load new tune');
                 return;
             }
             
+            currentTuneKey = tuneKey;
             console.log('[DEBUG] New tune loaded, starting playback...');
-            console.log('[DEBUG] Audio context state:', musicPlayer.audioContext.state);
             
             // Start new tune playing
             await musicPlayer.play();
             
-            console.log('[DEBUG] New tune playing, both tunes audible during crossfade');
-            console.log('[DEBUG] Audio context state after play:', musicPlayer.audioContext.state);
-            console.log('[DEBUG] isPlaying flag:', musicPlayer.isPlaying);
+            console.log('[DEBUG] New tune playing');
             
             // Verify banjo is the only active track in new tune
             const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
@@ -1174,7 +925,7 @@ async function playChampionTune(tuneKey) {
                 }
             }
             
-            // Clean up old synths after fade completes (1 second)
+            // Clean up old synths after fade completes
             setTimeout(() => {
                 console.log('[DEBUG] Stopping old synths...');
                 for (const track of oldTracks) {
@@ -1182,7 +933,6 @@ async function playChampionTune(tuneKey) {
                         if (track.synth && track.synth.stop) {
                             track.synth.stop();
                         }
-                        // Disconnect old gain nodes
                         if (track.gain) {
                             try {
                                 track.gain.disconnect();
@@ -1192,19 +942,11 @@ async function playChampionTune(tuneKey) {
                         console.log('[DEBUG] Error stopping old synth:', e);
                     }
                 }
-                console.log('[DEBUG] ✓ Crossfade complete, old synths cleaned up');
+                console.log('[DEBUG] ✓ Crossfade complete');
             }, 1200);
             
         } catch (error) {
             console.error('[DEBUG] Error during crossfade:', error);
-            // Clean up old tracks on error
-            for (const track of oldTracks) {
-                try {
-                    if (track.synth && track.synth.stop) {
-                        track.synth.stop();
-                    }
-                } catch (e) {}
-            }
         }
         
     } else {
@@ -1219,14 +961,11 @@ async function playChampionTune(tuneKey) {
                 return;
             }
             
-            console.log('[DEBUG] Tune loaded, tracks:', musicPlayer.tracks.map(t => `${t.name}(${t.active ? 'ON' : 'OFF'})`));
-            console.log('[DEBUG] Audio context state before play:', musicPlayer.audioContext.state);
+            console.log('[DEBUG] Tune loaded');
             
             await musicPlayer.play();
             
-            console.log('[DEBUG] Play() completed');
-            console.log('[DEBUG] Audio context state after play:', musicPlayer.audioContext.state);
-            console.log('[DEBUG] isPlaying flag:', musicPlayer.isPlaying);
+            console.log('[DEBUG] Tune playing');
             
             const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
             console.log('[DEBUG] Active tracks:', activeTrackNames);
@@ -1258,7 +997,6 @@ async function unmutePiano() {
         return;
     }
     
-    // Check if tracks are actually loaded (not undefined)
     const loadedTracks = musicPlayer.tracks.filter(t => t && t.name);
     console.log('[DEBUG] Loaded tracks:', loadedTracks.length, '/', musicPlayer.tracks.length);
     
@@ -1291,7 +1029,6 @@ async function unmutePiano() {
     }
 }
 
-
 function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
 
@@ -1318,13 +1055,6 @@ function finalize(champ) {
     });
 }
 
-
-
-
-
-
-
-
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called - making visible again');
     
@@ -1339,6 +1069,78 @@ function showHeroSelect() {
         globalStatsBar.style.pointerEvents = 'auto';
     }
 }
+
+function initBackgroundParticles() {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        pointer-events: none;
+    `;
+    
+    const container = document.getElementById('heroSelect');
+    if (container) {
+        container.insertBefore(canvas, container.firstChild);
+    }
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Particle system
+    const particles = [];
+    const particleCount = 10;
+    
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.radius = Math.random() * 2 + 1;
+            this.opacity = Math.random() * 0.5 + 0.2;
+        }
+        
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            
+            if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+            if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+        }
+        
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(212, 175, 55, ${this.opacity})`;
+            ctx.fill();
+        }
+    }
+    
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+    }
+    
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+}
+
 document.addEventListener('DOMContentLoaded', initHeroSelect);
 
 if (document.readyState !== 'loading') {

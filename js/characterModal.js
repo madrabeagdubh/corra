@@ -9,11 +9,11 @@ function ensureFontsLoaded(callback) {
 }
 
 const statDescriptions = {
-    attack: { irish: "Ionsaigh", english: "Attack" },
-    defense: { irish: "Cosaint", english: "Defense" },
+    attack: { irish: "Troid", english: "Fight" },
+    defense: { irish: "Cosain", english: "Defend" },
     health: { irish: "Sláinte", english: "Health" },
     speed: { irish: "Luas", english: "Speed" },
-    magic: { irish: "Driocht", english: "Magic" },
+    magic: { irish: "Snas", english: "Polish" },
     luck: { irish: "Ádh", english: "luck" }
 };
 

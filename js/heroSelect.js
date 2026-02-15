@@ -39,8 +39,8 @@ let scrollContainer = null;
 
 // Stat descriptions
 const statDescriptions = {
-  attack: { irish: "Ionsaigh", english: "Attack" },
-  defense: { irish: "Cosaint", english: "Defense" },
+  attack: { irish: "Troid", english: "Fight" },
+  defense: { irish: "Cosain", english: "Defend" },
   health: { irish: "Sláinte", english: "Health" }
 };
 
@@ -123,7 +123,7 @@ function createStatPopup(statName, englishOpacity) {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0,0,0, 0.98);
+    background: rgba(0,0,0, 0.333;
     border: 3px solid #d4af37;
     border-radius: 15px;
     padding: 1.5rem;

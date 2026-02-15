@@ -1,4 +1,30 @@
 
+.desktop-blocked body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #02040a;
+}
+
+.desktop-blocked #gameContainer,
+.desktop-blocked #heroSelect,
+.desktop-blocked #starfieldLoader {
+  display: none !important;
+}
+
+.desktop-blocked body::before {
+  content: "Mobile Only\A Tá an cluiche seo ar fáil ar ghléas soghluaiste amháin.\A This experience is designed for mobile devices.";
+  white-space: pre-line;
+  color: #e0e0e0;
+  font-family: monospace;
+  text-align: center;
+}
+
+
+
+
+
+
 @font-face {
   font-family: 'Urchlo';
     src: url('../public/assets/fonts/urchlo.ttf');

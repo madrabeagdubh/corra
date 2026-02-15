@@ -1,9 +1,31 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
+
+
+<script>
+(function () {
+  const isTouchDevice =
+    ('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0);
+
+  const isLargeScreen = window.innerWidth > 900;
+
+  if (!isTouchDevice && isLargeScreen) {
+    document.documentElement.classList.add("desktop-blocked");
+  }
+})();
+</script>
+
+
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corra</title>
+
+
+
+
 
   <style>
     html {
@@ -52,10 +74,12 @@
       50% { opacity: 1; }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-Bwme4FwW.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-D1sdxx0y.css">
+  <script type="module" crossorigin src="/assets/index--197RlqG.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-1aLypQCM.css">
 </head>
 <body>
+
+
 	<div style="font-family: 'Aonchlo'; visibility: hidden; position: absolute;">
 		</div>
   <div id="starfieldLoader">

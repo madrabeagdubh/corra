@@ -6,6 +6,48 @@
   <title>Corra</title>
   <link rel="stylesheet" href="css/styles.css">
 
+
+<script>
+  (function () {
+    const isDesktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (isDesktop) {
+      document.documentElement.innerHTML = `
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Mobile Only</title>
+          <style>
+            html, body {
+              margin: 0;
+              height: 100%;
+              background: #02040a;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              color: #e0e0e0;
+              font-family: monospace;
+              padding: 40px;
+            }
+            h1 { letter-spacing: 4px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div>
+            <h1>Mobile Only</h1>
+            <p>Tá an cluiche seo ar fáil ar ghléas soghluaiste amháin.</p>
+            <p>This experience is designed for mobile devices.</p>
+          </div>
+        </body>
+      `;
+    }
+  })();
+</script>
+
+
+
+
   <style>
     html {
       background: #02040a;
@@ -55,6 +97,8 @@
   </style>
 </head>
 <body>
+
+
 	<div style="font-family: 'Aonchlo'; visibility: hidden; position: absolute;">
 		</div>
   <div id="starfieldLoader">

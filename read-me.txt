@@ -1,0 +1,46 @@
+~/lit ᐅ cx coire.txt 200 310 "formorians"
+Of ancient lands, where shadows dwell,
+And whispers of the past do swell,
+There rise the tales of Formorian might,
+Eldritch beings, shrouded in night.
+
+From darkened seas they once did come,
+With eyes like embers, fierce and glum,
+Their forms, a terror to behold,
+Giants of strength, of ancient mold.
+
+In battles fierce, their fury cast,
+Against the Tuatha, spells were massed,
+Yet still they stood with iron will,
+Formorians strong, unbent, and still.
+
+Balor of the Evil Eye,
+With single glance could mortals fry,
+A chieftain feared in every land,
+His dread command, a ruthless hand.
+
+But 'neath their harsh and cruel guise,
+In secret hearts, a longing lies,
+For lands to call their own, to till,
+For peace amidst the tempest's thrill.
+
+Yet in the annals of the brave,
+Their stories echo, like the wave,
+Of warriors bold and battles grand,
+Of Formorians and their storied band.
+
+So heed, ye sons of Erin's soil,
+The tales of those who once did toil,
+For in their legends, lessons gleam,
+In courage found, and daring dream.
+
+In times of yore, when shadows throng,
+The Formorians' name resounds in song,
+A testament to ancient might,
+In Ireland's shadowed, storied night.
+~/lit ᐅ ls
+coire.txt      pbotg.txt    tain.txt
+dánta0.txt     scraps0.txt  tdohPoems.txt
+dánta1.txt     scraps1.txt  temp
+knocklong.txt  scraps2.txt  vbwi.txt
+ogafm.txt      scraps3.txt

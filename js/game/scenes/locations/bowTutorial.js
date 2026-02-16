@@ -13,6 +13,14 @@ export default class BowTutorial extends Phaser.Scene {
 
 
 
+this.load.audio('metalSwoosh1', '/assets/sounds/metalSwoosh1.wav');
+this.load.audio('metalSwoosh2', '/assets/sounds/metalSwoosh2.wav');
+this.load.audio('metalSwoosh4', '/assets/sounds/metalSwoosh4.wav');
+
+
+
+
+
 this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png');
 
 		  this.load.image('glowCursor', 'assets/glowCursor.png');
@@ -288,7 +296,6 @@ this.mountainTop.setDepth(0);
     this.bowMechanics = new BowMechanics(this, this.player);
 
     // Create single target
-    this.createTarget();
 
     // Initialize text panel system
     this.textPanel = new TextPanel(this);
@@ -366,36 +373,65 @@ showBullseyeEffect(x, y) {
     onComplete: () => bullseyeText.destroy()
   });
 }
+// Key changes to fix your two issues:
+// 1. Double-tap fix: Remove the input blocker timing issue
+// 2. Target visibility: Only create target after exposition completes
 
-   showExposition() {
-    const exposition = this.tutorialData.narrative.exposition;
-    if (!exposition || exposition.length === 0) return;
+// In your create() method, REMOVE this line (currently line 291):
+// this.createTarget();
 
-    this.narrativeInProgress = true;
-    this.narrativeQueue = [...exposition];
+// And MODIFY the showExposition() method like this:
 
-    const showNext = () => {
-      if (this.narrativeQueue.length === 0) {
-        this.narrativeInProgress = false;
-        console.log('BowTutorial: exposition complete');
-        return;
-      }
+showExposition() {
+  const exposition = this.tutorialData.narrative.exposition;
+  if (!exposition || exposition.length === 0) return;
 
-      const entry = this.narrativeQueue.shift();
+  this.narrativeInProgress = true;
+  this.narrativeQueue = [...exposition];
 
-      this.textPanel.show({
-        irish: entry.irish,
-        english: entry.english,
-        type: 'dialogue',
-        speaker: 'Scáthach ',
-        onDismiss: () => {
-          this.time.delayedCall(300, showNext);
-        }
+  const showNext = () => {
+    if (this.narrativeQueue.length === 0) {
+      this.narrativeInProgress = false;
+      console.log('BowTutorial: exposition complete');
+      
+      // ✅ FIX #2: Create target ONLY after exposition finishes
+      this.time.delayedCall(300, () => {
+        this.createTarget();
       });
-    };
+      
+      return;
+    }
 
-    showNext();
-  }
+    const entry = this.narrativeQueue.shift();
+
+    this.textPanel.show({
+      irish: entry.irish,
+      english: entry.english,
+      type: 'dialogue',
+      speaker: 'Scáthach ',
+      onDismiss: () => {
+        // ✅ FIX #1: Reduce delay to make dismissal feel more responsive
+        // The 300ms delay might be causing the double-tap feeling
+        this.time.delayedCall(100, showNext); // Changed from 300 to 100
+      }
+    });
+  };
+
+  showNext();
+}
+
+// HOWEVER, the double-tap issue is more likely in your TextPanel class.
+// Please share your textPanel.js file so I can check if there's an
+// input blocking/timing issue there. Common causes:
+// 
+// 1. The panel catches one click to remove input blocker
+// 2. A second click is needed to actually dismiss
+// 
+// OR
+// 
+// 1. There's a cooldown preventing immediate re-interaction
+// 2. First tap starts cooldown, second tap registers
+
 
   getRandomDialogue(pool, usedArray) {
     // Get unused dialogues

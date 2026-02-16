@@ -47,6 +47,33 @@ export default class Player {
     this.initializeInventory();
   }
 
+
+async function requestFullscreenMode() {
+    try {
+        const el = document.documentElement;
+
+        if (document.fullscreenElement || 
+            document.webkitFullscreenElement) {
+            return; // Already fullscreen
+        }
+
+        if (el.requestFullscreen) {
+            await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen(); // iOS Safari
+        } else if (el.msRequestFullscreen) {
+            await el.msRequestFullscreen();
+        }
+
+        console.log('[IntroModal] ✓ Fullscreen requested');
+    } catch (e) {
+        console.warn('[IntroModal] Fullscreen request failed (non-critical):', e);
+    }
+}
+
+
+
+
   /**
    * Initialize HP system
    */
@@ -187,7 +214,7 @@ export default class Player {
     this.inventory.setItem(4, null);
 
     this.inventory.setItem(5, createItem('healing_potion'));
-    this.inventory.setItem(6, createItem('arrows', 30));
+    this.inventory.setItem(6, createItem('arrows', 50));
 
     this.updateStatsFromEquipment();
   }

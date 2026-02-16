@@ -20,13 +20,18 @@ async function warmupMusicSystem() {
         const tempContext = new AudioContext();
         
         // Try parsing a simple tune to warm up abcjs
-        const simpleTune = `X:1
-T:Test
-M:4/4
-L:1/8
-K:C
-CDEF GABc|`;
-        
+     
+const simpleTune = [
+  "X:1",
+  "T:Test",
+  "M:4/4",
+  "L:1/8",
+  "K:C",
+  "CDEF GABc|"
+].join("\n");
+
+
+  
         const parsed = abcjs.parseOnly(simpleTune);
         console.log('[IntroModal] ABC parsing warmed up');
         
@@ -133,40 +138,65 @@ const amerginLines = [
     { ga: "Cé daon? Cé dia, dealbhóir arm faobhrach?", en: "What people? what god sculpts keen weapons?" }
 ];
 
-// Function to unlock audio context
+
 async function unlockAudioContext() {
     if (audioContextUnlocked) return;
-    
+
     try {
-        // Create a temporary audio context to unlock
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const tempContext = new AudioContext();
-        
+
         console.log('[IntroModal] Audio context state:', tempContext.state);
-        
+
         if (tempContext.state === 'suspended') {
             await tempContext.resume();
             console.log('[IntroModal] Audio context resumed, state:', tempContext.state);
-        }
-        
-        // Play a silent sound to fully unlock
+        } // <--- Ensure this is closed
+
         const buffer = tempContext.createBuffer(1, 1, 22050);
-        const source = tempContext.createBufferSource();
-        source.buffer = buffer;
+        const source = tempContext.createBufferSource();                                    
+        source.buffer = buffer;                                                             
         source.connect(tempContext.destination);
         source.start(0);
-        
+
         audioContextUnlocked = true;
         console.log('[IntroModal] ✓ Audio context unlocked');
-        
-        // Close temporary context
+
         setTimeout(() => {
             tempContext.close();
         }, 100);
+
     } catch (e) {
         console.warn('[IntroModal] Audio unlock failed:', e);
     }
+} // <--- This brace MUST exist before starting requestFullscreenMode
+
+
+
+
+async function requestFullscreenMode() {
+    try {
+        const el = document.documentElement;
+
+        if (document.fullscreenElement || 
+            document.webkitFullscreenElement) {
+            return; // Already fullscreen
+        }
+
+        if (el.requestFullscreen) {
+            await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen(); // iOS Safari
+        } else if (el.msRequestFullscreen) {
+            await el.msRequestFullscreen();
+        }
+
+        console.log('[IntroModal] ✓ Fullscreen requested');
+    } catch (e) {
+        console.warn('[IntroModal] Fullscreen request failed (non-critical):', e);
+    }
 }
+
 
 export function initIntroModal(onComplete) {
     if (initialized) return;
@@ -327,10 +357,17 @@ export function initIntroModal(onComplete) {
 
     // Also unlock on touch for mobile
     slider.addEventListener('touchstart', () => {
-        if (!audioContextUnlocked) {
-            unlockAudioContext().catch(e => console.warn('[IntroModal] Audio unlock failed:', e));
-        }
-    }, { once: false });
+      // Unlock audio + request fullscreen on first interaction
+if (!audioContextUnlocked) {
+    unlockAudioContext().catch(err =>
+        console.warn('[IntroModal] Audio unlock failed:', err)
+    );
+
+    requestFullscreenMode().catch(err =>
+        console.warn('[IntroModal] Fullscreen request failed:', err)
+    );
+}}
+ , { once: false });
 
     contentLayer.append(irishText, englishText, slider);
     container.appendChild(contentLayer);

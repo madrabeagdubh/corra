@@ -25,6 +25,15 @@ this.bullseyeHits = 0;
     });
   });
 	}
+playSwoosh(volume = 0.5) {
+  const sounds = ['metalSwoosh1', 'metalSwoosh2', 'metalSwoosh4'];
+  const key = Phaser.Utils.Array.GetRandom(sounds);
+
+  this.scene.sound.play(key, {
+    volume,
+    rate: Phaser.Math.FloatBetween(0.9, 1.1) // slight pitch variation
+  });
+}
 
   start() {
     console.log('AdvancedTraining: starting');
@@ -1285,7 +1294,9 @@ spearKata3() {
     duration: 400,
     ease: 'Power2.easeOut',
     onStart: () => {
-      // Spear does figure-8 twirl
+this.playSwoosh(0.6)    
+
+  // Spear does figure-8 twirl
       if (this.spear) {
         this.scene.tweens.add({
           targets: this.spear,
@@ -1307,6 +1318,8 @@ spearKata3() {
         duration: 400,
         ease: 'Power2.easeOut',
         onStart: () => {
+
+this.playSwoosh(0.7)
           // Spear spins overhead
           if (this.spear) {
             this.scene.tweens.add({
@@ -1329,6 +1342,8 @@ spearKata3() {
             duration: 350,
             ease: 'Linear',
             onStart: () => {
+
+this.playSwoosh(0.8)
               // Spear extends outward during spin
               if (this.spear) {
                 this.scene.tweens.add({
@@ -1353,6 +1368,8 @@ spearKata3() {
                 duration: 500,
                 ease: 'Power2.easeIn',
                 onStart: () => {
+
+this.playSwoosh(0.9)
                   // Spear creates spiral trail
                   if (this.spear) {
                     this.scene.tweens.add({
@@ -1396,7 +1413,8 @@ spearKata3() {
                         ease: 'Back.easeOut',
                         onStart: () => {
                           // Spear thrusts forward with impact
-                          if (this.spear) {
+                       this.playSwoosh(1)
+   if (this.spear) {
                             this.scene.tweens.add({
                               targets: this.spear,
                               x: this.spear.x + 90, // Spear extends further

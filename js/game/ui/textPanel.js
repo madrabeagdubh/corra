@@ -355,29 +355,181 @@ lineSpacing: 4
       this.dismissWithCooldown();
     });
   }
+ 
+
+
+// ============================================================
+// COMPLETE FIX FOR BOWTUTORIAL
+// ============================================================
+// This file shows all the changes needed for both issues
+
+// PART 1: Fix double-tap issue in textPanel.js
+// ---------------------------------------------
+// Replace the dismissWithCooldown() method (around line 359):
+
+dismissWithCooldown() {
+  // ✅ FIX: Allow single tap to dismiss even during typewriter
+  // Just complete the typewriter immediately and dismiss in one action
   
-  dismissWithCooldown() {
-    if (this.typewriterActive) {
-      this.skipTypewriter();
+  if (this.typewriterActive) {
+    // Complete the typewriter
+    this.typewriterActive = false;
+    if (this.irishTextObject) {
+      this.irishTextObject.setText(this.irishFullText);
+    }
+    
+    if (this.readingCursor) {
+      this.readingCursor.destroy();
+      this.readingCursor = null;
+    }
+    this.cursorParticles.forEach(p => p.destroy());
+    this.cursorParticles = [];
+    
+    this.showEnglishText();
+  }
+
+  // Now dismiss immediately (no second tap needed)
+  if (this.onDismiss) {
+    const callback = this.onDismiss;
+    this.onDismiss = null;
+    callback(); 
+  } else {
+    // LAST LINE OF DIALOGUE
+    this.hide();
+    
+    // Global cooldown to let player walk away
+    this.scene.textPanelCooldown = true;
+    this.scene.time.delayedCall(1000, () => {
+      this.scene.textPanelCooldown = false;
+    });
+  }
+}
+
+// PART 2: Fix target visibility and add fade-in + sound in BowTutorial.js
+// ------------------------------------------------------------------------
+
+// 2A. In preload() method, add the sound (around line 24):
+preload() {
+  // ... existing preload code ...
+  this.load.audio('equipJewelry', 'assets/sounds/equipJewelry.wav');
+}
+
+// 2B. REMOVE line 291:
+// DELETE THIS LINE: this.createTarget();
+
+// 2C. Replace the showExposition() method (around line 370):
+showExposition() {
+  const exposition = this.tutorialData.narrative.exposition;
+  if (!exposition || exposition.length === 0) return;
+
+  this.narrativeInProgress = true;
+  this.narrativeQueue = [...exposition];
+
+  const showNext = () => {
+    if (this.narrativeQueue.length === 0) {
+      this.narrativeInProgress = false;
+      console.log('BowTutorial: exposition complete');
+      
+      // ✅ Create target with fade-in and sound
+      this.time.delayedCall(300, () => {
+        this.createTargetWithFadeIn();
+      });
+      
       return;
     }
 
-    if (this.onDismiss) {
-      const callback = this.onDismiss;
-      this.onDismiss = null;
-      callback(); 
-      // No cooldown here, so lines flow fast
-    } else {
-      // LAST LINE OF DIALOGUE
-      this.hide();
-      
-      // Global cooldown to let player walk away
-      this.scene.textPanelCooldown = true;
-      this.scene.time.delayedCall(1000, () => {
-        this.scene.textPanelCooldown = false;
+    const entry = this.narrativeQueue.shift();
+
+    this.textPanel.show({
+      irish: entry.irish,
+      english: entry.english,
+      type: 'dialogue',
+      speaker: 'Scáthach ',
+      onDismiss: () => {
+        this.time.delayedCall(100, showNext);
+      }
+    });
+  };
+
+  showNext();
+}
+
+// 2D. Add this NEW method to BowTutorial (can go right after showExposition):
+createTargetWithFadeIn() {
+  // Play the sound
+  this.sound.play('equipJewelry', { volume: 0.6 });
+  
+  // Create target at initial position
+  const screenWidth = this.scale.width;
+  const screenHeight = this.scale.height;
+  const targetX = screenWidth * 0.5;
+  const targetY = screenHeight * 0.35;
+
+  this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
+  this.target.setDepth(50);
+  
+  // Start invisible
+  this.target.setAlpha(0);
+  this.target.setScale(0.5);
+  
+  // Fade in with scale animation
+  this.tweens.add({
+    targets: this.target,
+    alpha: 0.7,
+    scale: 1,
+    duration: 600,
+    ease: 'Back.easeOut'
+  });
+  
+  // Optional: Add a golden glow ring effect
+  const glowRing = this.add.circle(targetX, targetY, 35, 0xffd700, 0);
+  glowRing.setStrokeStyle(2, 0xffd700);
+  glowRing.setDepth(49);
+  glowRing.setAlpha(0);
+  
+  this.tweens.add({
+    targets: glowRing,
+    alpha: 0.6,
+    scale: 1.3,
+    duration: 800,
+    ease: 'Power2',
+    yoyo: true,
+    onComplete: () => {
+      // Fade out the glow ring after intro
+      this.tweens.add({
+        targets: glowRing,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => glowRing.destroy()
       });
     }
-  }
+  });
+}
+
+// 2E. Update your existing createTarget() method to be simpler:
+// (This gets called for subsequent targets)
+createTarget() {
+  const screenWidth = this.scale.width;
+  const screenHeight = this.scale.height;
+  const targetX = screenWidth * 0.5;
+  const targetY = screenHeight * 0.35;
+
+  this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
+  this.target.setDepth(50);
+}
+
+// That's it! These changes will:
+// 1. Allow single-tap dismissal even during typewriter animation
+// 2. Hide the target until exposition completes
+// 3. Fade in the target with a scale animation
+// 4. Play the equipJewelry sound when target appears
+// 5. Add an optional golden glow ring for extra polish
+
+
+
+
+
+ 
 
   createNotificationPanel(irish, english, screenWidth, screenHeight) {
     const panelPadding = 10;

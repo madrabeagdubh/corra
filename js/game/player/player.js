@@ -47,33 +47,6 @@ export default class Player {
     this.initializeInventory();
   }
 
-
-async function requestFullscreenMode() {
-    try {
-        const el = document.documentElement;
-
-        if (document.fullscreenElement || 
-            document.webkitFullscreenElement) {
-            return; // Already fullscreen
-        }
-
-        if (el.requestFullscreen) {
-            await el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) {
-            await el.webkitRequestFullscreen(); // iOS Safari
-        } else if (el.msRequestFullscreen) {
-            await el.msRequestFullscreen();
-        }
-
-        console.log('[IntroModal] ✓ Fullscreen requested');
-    } catch (e) {
-        console.warn('[IntroModal] Fullscreen request failed (non-critical):', e);
-    }
-}
-
-
-
-
   /**
    * Initialize HP system
    */
@@ -412,3 +385,4 @@ async function requestFullscreenMode() {
     this.moveProgress = 0;
   }
 }
+

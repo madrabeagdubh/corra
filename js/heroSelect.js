@@ -70,12 +70,12 @@ function createStatsDisplay(champion, currentOpacity) {
         left: 0 !important;
         right: 0 !important;
         border-top: 2px solid #d4af37 !important;
-        z-index: 499 !important;
+        z-index: 10005 !important;
         padding: 15px !important;
         display: flex !important;
         justify-content: center !important;
         gap: 40px !important;
-        pointer-events: none;
+        pointer-events: auto !important;
     `;
 
     const statIconsLocal = { attack: '⚔️', defense: '🛡️', health: '❤️' };
@@ -88,7 +88,7 @@ function createStatsDisplay(champion, currentOpacity) {
                 flex-direction: column !important;
                 align-items: center !important;
                 cursor: pointer !important;
-                pointer-events: auto;
+                pointer-events: auto !important;
             `;
 
             item.innerHTML = `
@@ -102,6 +102,11 @@ function createStatsDisplay(champion, currentOpacity) {
                 e.stopPropagation();
                 createStatPopup(statName, currentOpacity);
             };
+
+            item.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                createStatPopup(statName, currentOpacity);
+            }, { passive: true });
 
             statsContainer.appendChild(item);
         }
@@ -123,22 +128,34 @@ function createStatPopup(statName, englishOpacity) {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0,0,0, 0.333;
+    background: rgba(0, 0, 0, 0.92);
     border: 3px solid #d4af37;
     border-radius: 15px;
     padding: 1.5rem;
-    width: 100%;
-    max-width: 90%;
-    min-height: 180px;
-    height: auto;
-    z-index: 10000;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    width: 80%;
+    max-width: 340px;
+    height: 200px;
+    z-index: 99999;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.9);
     animation: popupFadeIn 0.2s ease-out;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   `;
 
   const iconElement = document.createElement('div');
-  iconElement.style.cssText = `font-size: 3rem; text-align: center; margin-bottom: 1rem;`;
+  iconElement.style.cssText = `
+    font-size: 3rem;
+    text-align: center;
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  `;
   iconElement.textContent = statIcons[statName];
 
   const irishText = document.createElement('div');
@@ -146,11 +163,15 @@ function createStatPopup(statName, englishOpacity) {
   irishText.style.cssText = `
     font-size: 1.4rem;
     color: #ffff00;
-    margin-bottom: 0.8rem;
     line-height: 1.5;
     font-family: Aonchlo !important;
     text-align: center;
-    min-height: 1.8rem;
+    height: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
   `;
   irishText.textContent = '';
 
@@ -166,8 +187,15 @@ function createStatPopup(statName, englishOpacity) {
     line-height: 1.5;
     font-family: CourierPrime !important;
     text-align: center;
+    height: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0;
     transition: opacity 0.5s ease;
   `;
+  englishText.textContent = statDescriptions[statName].english;
 
   popup.appendChild(iconElement);
   popup.appendChild(irishText);
@@ -213,8 +241,8 @@ function createStatPopup(statName, englishOpacity) {
       setTimeout(typeNextChar, 400 / irishString.length + 20);
     } else {
       setTimeout(() => {
-        englishText.textContent = englishString;
-        englishText.style.opacity = "1";
+        // Text already set - just fade in by opacity
+        englishText.style.opacity = liveOpacity;
 
         if (slider) {
           const updatePopupColor = () => {
@@ -593,6 +621,21 @@ function initMainHeroSelect() {
 
     chooseButton.onclick = async () => {
         console.log('[DEBUG] Continue button clicked');
+
+        // ✅ Request fullscreen immediately on user gesture
+        try {
+            const el = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (el.requestFullscreen) {
+                    el.requestFullscreen().catch(e => console.warn('[HeroSelect] Fullscreen failed:', e));
+                } else if (el.webkitRequestFullscreen) {
+                    el.webkitRequestFullscreen();
+                }
+            }
+        } catch(e) {
+            console.warn('[HeroSelect] Fullscreen error:', e);
+        }
+
         console.log('[DEBUG] currentChampionIndex:', currentChampionIndex);
         console.log('[DEBUG] validChampions length:', validChampions.length);
         console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
@@ -659,7 +702,22 @@ function initMainHeroSelect() {
             
             const card = document.createElement('div');
             card.className = 'champion-card';
-            card.onclick = () => showCharacterModal(champ);
+            card.onclick = () => {
+                // Request fullscreen on champion tap
+                try {
+                    const el = document.documentElement;
+                    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                        if (el.requestFullscreen) {
+                            el.requestFullscreen().catch(e => console.warn('[HeroSelect] Fullscreen failed:', e));
+                        } else if (el.webkitRequestFullscreen) {
+                            el.webkitRequestFullscreen();
+                        }
+                    }
+                } catch(e) {
+                    console.warn('[HeroSelect] Fullscreen error:', e);
+                }
+                showCharacterModal(champ);
+            };
             
             // Use pre-rendered canvas for the starting champion
             let canvas;

@@ -35,7 +35,8 @@ this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png');
 
 this.load.image('skyeMountainTop', 'assets/skye1.png');   
 this.load.image('skyeMountainBottom', 'assets/skye2.png');
-this.load.image('skyeClouds', 'assets/skye0.png');       
+// skyeClouds removed — replaced by fog layer
+this.load.image('fog', 'assets/fog01.png');
 
 
     this.load.image('cape', 'assets/cape.png');
@@ -254,21 +255,58 @@ this.hitTrackerComplete = false;
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
 
-this.clouds1 = this.add.image(0, 0, 'skyeClouds');
-this.clouds1.setOrigin(0, 0); // Top-left origin
-this.clouds1.setDepth(-1); // Behind the mountains
+// --- BACKGROUND: wintry tinted mountains (no clouds) ---
 
-this.clouds2 = this.add.image(this.clouds1.width -1, 0, 'skyeClouds');
-this.clouds2.setOrigin(0, 0); // Top-left origin
-this.clouds2.setDepth(-1);
+// Atmospheric depth haze — Oileán an Cheo (Isle of Mist)
+// Baked into a RenderTexture so the gradient is smooth with zero hard edges.
+// Two vertical strips (top-half and bottom-half) drawn into one texture,
+// creating a bell-curve opacity that peaks in the middle of the screen.
+const hazeRT = this.add.renderTexture(0, 0, screenWidth, screenHeight)
+    .setDepth(0.5).setOrigin(0, 0);
+
+const hazeGfx = this.add.graphics();
+
+// Top half: alpha 0 → 0.75 (transparent sky fading into mist)
+hazeGfx.fillGradientStyle(0xaabbc8, 0xaabbc8, 0xaabbc8, 0xaabbc8, 0, 0, 0.75, 0.75);
+hazeGfx.fillRect(0, 0, screenWidth, screenHeight * 0.5);
+hazeRT.draw(hazeGfx, 0, 0);
+
+// Bottom half: alpha 0.75 → 0 (mist clearing toward the ground / gameplay area)
+hazeGfx.clear();
+hazeGfx.fillGradientStyle(0xaabbc8, 0xaabbc8, 0xaabbc8, 0xaabbc8, 0.75, 0.75, 0, 0);
+hazeGfx.fillRect(0, 0, screenWidth, screenHeight * 0.5);
+hazeRT.draw(hazeGfx, 0, screenHeight * 0.5);
+
+hazeGfx.destroy(); // no longer needed after baking
 
 this.mountainBottom = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainBottom');
 this.mountainBottom.setDisplaySize(screenWidth, screenHeight);
 this.mountainBottom.setDepth(0);
+this.mountainBottom.setTint(0x8899aa); // cool grey-blue winter tint
 
 this.mountainTop = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainTop');
 this.mountainTop.setDisplaySize(screenWidth, screenHeight);
-this.mountainTop.setDepth(0); 
+this.mountainTop.setDepth(0);
+this.mountainTop.setTint(0x99aabb); // slightly lighter/cooler at the peaks
+
+// --- FOG LAYERS: two-layer parallax, scrolling left ---
+// Fog graphic is 1024x512. We scale it to 1.5× screen width so the two
+// panels always overlap and the seam never shows on any screen size.
+const fogScaleW = screenWidth * 1.5;
+const fogScaleH = screenHeight * 0.45; // natural-ish aspect for 1024x512
+
+// Layer 1 — foreground fog, normal orientation, slightly faster
+const fogY1 = screenHeight * 0.78;
+this.fog1a = this.add.image(0, fogY1, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.28).setDepth(1);
+this.fog1b = this.add.image(fogScaleW, fogY1, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.28).setDepth(1);
+
+// Layer 2 — background fog, flipped horizontally, slower (parallax depth cue)
+const fogY2 = screenHeight * 0.85;
+this.fog2a = this.add.image(0, fogY2, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.18).setDepth(2).setFlipX(true);
+this.fog2b = this.add.image(fogScaleW, fogY2, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.18).setDepth(2).setFlipX(true);
+
+this.fogSpeed1 = 0.3;  // foreground: faster
+this.fogSpeed2 = 0.15; // background: slower = feels further away
 
 
 
@@ -562,24 +600,22 @@ update(time, delta) {
   }
 
 
-// Scroll clouds slowly
-  const scrollSpeed =  0.1 ; // Adjust speed here (pixels per frame)
-  
-  if (this.clouds1) {
-    this.clouds1.x -= scrollSpeed;
-    this.clouds2.x -= scrollSpeed;
-    
-    const cloudWidth = this.clouds1.width;
-    
-    // Loop clouds1
-    if (this.clouds1.x <= -cloudWidth) {
-      this.clouds1.x = this.clouds2.x + cloudWidth;
-    }
-    
-    // Loop clouds2
-    if (this.clouds2.x <= -cloudWidth) {
-      this.clouds2.x = this.clouds1.x + cloudWidth;
-    }
+// --- FOG PARALLAX SCROLL ---
+  // Layer 1 (foreground, faster)
+  if (this.fog1a) {
+    this.fog1a.x -= this.fogSpeed1;
+    this.fog1b.x -= this.fogSpeed1;
+    const fw1 = this.fog1a.displayWidth;
+    if (this.fog1a.x + fw1 < 0) this.fog1a.x = this.fog1b.x + fw1;
+    if (this.fog1b.x + fw1 < 0) this.fog1b.x = this.fog1a.x + fw1;
+  }
+  // Layer 2 (background, slower)
+  if (this.fog2a) {
+    this.fog2a.x -= this.fogSpeed2;
+    this.fog2b.x -= this.fogSpeed2;
+    const fw2 = this.fog2a.displayWidth;
+    if (this.fog2a.x + fw2 < 0) this.fog2a.x = this.fog2b.x + fw2;
+    if (this.fog2b.x + fw2 < 0) this.fog2b.x = this.fog2a.x + fw2;
   }
 
 

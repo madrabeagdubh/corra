@@ -1,625 +1,457 @@
-// Store the current Amergin line from heroSelect
-let currentAmerginLine = null;
+// tutorialOrAdventure.js
+// Using a single state object avoids any re-declaration conflicts
+// if this module is ever evaluated in an unexpected context.
+
+const _state = {
+    currentAmerginLine: null,
+    initialized: false,
+    englishSliderValue: 0.15,
+};
 
 export function setCurrentAmerginLine(line) {
-    currentAmerginLine = line;
+    _state.currentAmerginLine = line;
 }
 
-let initialized = false;
-let englishSliderValue = 0.15;
+// ─────────────────────────────────────────────
+// SPINNING STARFIELD
+// Fully self-contained. Returns stop() fn.
+// ─────────────────────────────────────────────
+function createStarfield() {
+    const sfCanvas = document.createElement('canvas');
+    sfCanvas.id = 'tutorialStarfield';
+    sfCanvas.style.cssText = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 100000;
+        pointer-events: none;
+    `;
+    document.body.appendChild(sfCanvas);
+    sfCanvas.width  = window.innerWidth;
+    sfCanvas.height = window.innerHeight;
 
-export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLine = null) {
-    if (initialized) return;
-    initialized = true;
+    const ctx = sfCanvas.getContext('2d');
+    let rafId = null;
 
-    // Use the passed slider value from heroSelect
-    englishSliderValue = sliderValue;
-    
-    // Use the passed Amergin line if provided
-    if (amerginLine) {
-        currentAmerginLine = amerginLine;
+    function makeStar(scatter) {
+        return {
+            angle:      Math.random() * Math.PI * 2,
+            depth:      scatter ? Math.random() * (sfCanvas.width * 0.5) : sfCanvas.width * 0.5,
+            speed:      Math.random() * 1.5 + 0.5,
+            size:       Math.random() * 1.5 + 0.5,
+            brightness: Math.random() * 0.6 + 0.4,
+        };
     }
+
+    const stars = Array.from({ length: 200 }, () => makeStar(true));
+
+    function loop() {
+        ctx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
+        for (const s of stars) {
+            s.depth -= s.speed;
+            if (s.depth <= 0) { Object.assign(s, makeStar(false)); continue; }
+
+            const cx    = sfCanvas.width  / 2;
+            const cy    = sfCanvas.height / 2;
+            const scale = (sfCanvas.width * 0.5) / s.depth;
+            const x     = cx + Math.cos(s.angle) * scale * 100;
+            const y     = cy + Math.sin(s.angle) * scale * 100;
+
+            if (x < -20 || x > sfCanvas.width + 20 || y < -20 || y > sfCanvas.height + 20) {
+                Object.assign(s, makeStar(false));
+                continue;
+            }
+
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(0.3, s.size * scale * 0.8), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(212,175,55,${s.brightness * Math.min(1, scale * 0.4)})`;
+            ctx.fill();
+        }
+        rafId = requestAnimationFrame(loop);
+    }
+    loop();
+
+    return function stop() {
+        if (rafId) cancelAnimationFrame(rafId);
+        sfCanvas.remove();
+    };
+}
+
+// ─────────────────────────────────────────────
+// MAIN ENTRY POINT
+// ─────────────────────────────────────────────
+export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLine = null) {
+    if (_state.initialized) return;
+    _state.initialized = true;
+
+    _state.englishSliderValue = sliderValue;
+    if (amerginLine) _state.currentAmerginLine = amerginLine;
 
     console.log('[TutorialOrAdventure] Initializing with champion:', champion.nameEn);
 
-
-
-
-// UNMUTE ALL INSTRUMENTS when tutorial/adventure screen opens
+    // Unmute all instruments (fire-and-forget)
     (async () => {
-        const heroSelectModule = await import('./heroSelect.js');
-        const musicPlayer = heroSelectModule.getMusicPlayer?.();
-        
-        if (musicPlayer && musicPlayer.tracks) {
-            console.log('[TutorialOrAdventure] Unmuting all instruments');
-            
-            // Unmute all tracks
-            for (let i = 0; i < musicPlayer.tracks.length; i++) {
-                if (musicPlayer.tracks[i] && !musicPlayer.tracks[i].active) {
-                    console.log('[TutorialOrAdventure] Unmuting:', musicPlayer.tracks[i].name || `Track ${i}`);
-                    await musicPlayer.toggleInstrument(i);
+        try {
+            const mod = await import('./heroSelect.js');
+            const mp  = mod.getMusicPlayer?.();
+            if (mp?.tracks) {
+                for (let i = 0; i < mp.tracks.length; i++) {
+                    if (mp.tracks[i] && !mp.tracks[i].active) await mp.toggleInstrument(i);
                 }
+                console.log('[TutorialOrAdventure] All instruments active');
             }
-            
-            console.log('[TutorialOrAdventure] All instruments active');
-        }
+        } catch (e) { console.error('[TutorialOrAdventure] Unmute error:', e); }
     })();
 
+    // ── BOOGIE KEYFRAMES ─────────────────────
+    if (!document.getElementById('tutorialBoogieStyle')) {
+        const s = document.createElement('style');
+        s.id = 'tutorialBoogieStyle';
+        s.textContent = `
+            @keyframes championBoogie {
+                0%,  24.9% { transform: translateY(0px)   scale( 1,   1);                  }
+                12.5%      { transform: translateY(-12px) scale( 0.9, 1.15) rotate( 3deg); }
+                25%, 49.9% { transform: translateY(0px)   scale(-1,   1);                  }
+                37.5%      { transform: translateY(-12px) scale(-0.9, 1.15) rotate(-3deg); }
+                50%, 74.9% { transform: translateY(0px)   scale( 1,   1);                  }
+                62.5%      { transform: translateY(-12px) scale( 0.9, 1.15) rotate( 3deg); }
+                75%, 99.9% { transform: translateY(0px)   scale(-1,   1);                  }
+                87.5%      { transform: translateY(-12px) scale(-0.9, 1.15) rotate(-3deg); }
+                100%       { transform: translateY(0px)   scale( 1,   1);                  }
+            }
+            .tutorial-champion-canvas {
+                animation: championBoogie 2s linear infinite;
+                transform-origin: bottom center;
+            }
+        `;
+        document.head.appendChild(s);
+    }
 
+    // ── Z-INDEX LAYER STACK ──────────────────
+    // 99999  : black background div
+    // 100000 : starfield canvas  (pointer-events:none — never blocks input)
+    // 100001 : UI container      (all visible interactive elements)
 
-
-
-    // ───────────── MAIN CONTAINER ─────────────
-    const container = document.createElement('div');
-    container.id = 'championIntro';
-    container.style.cssText = `
-        position: fixed;
-        inset: 0;
+    const blackBg = document.createElement('div');
+    blackBg.id = 'tutorialBlackBg';
+    blackBg.style.cssText = `
+        position: fixed; inset: 0;
         background: #000;
-        z-index: 100000;
+        z-index: 99999;
+        pointer-events: none;
+    `;
+    document.body.appendChild(blackBg);
+
+    let stopStarfield = createStarfield();
+
+    // ── UI CONTAINER ─────────────────────────
+    // height:100% + overflow:hidden so flex children fill the screen
+    const uiContainer = document.createElement('div');
+    uiContainer.id = 'championIntro';
+    uiContainer.style.cssText = `
+        position: fixed; inset: 0;
+        background: transparent;
+        z-index: 100001;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 0;
+        height: 100%;
         box-sizing: border-box;
+        overflow: hidden;
     `;
 
-    // ───────────── SLIDER (TOP - STYLED LIKE HEROSELECT) ─────────────
+    // ── SLIDER SECTION ───────────────────────
     const sliderSection = document.createElement('div');
     sliderSection.style.cssText = `
         width: 100%;
-        display: flex;
-        justify-content: center;
+        display: flex; justify-content: center;
         padding: 1rem 0;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0,0,0,0.8);
+        flex-shrink: 0;
     `;
 
     const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.min = 0;
-    slider.max = 1;
-    slider.step = 0.05;
-    slider.value = englishSliderValue;
-    slider.className = 'champion-slider'; // Match heroSelect class
-
-    // Apply the exact same styling as heroSelect's slider
+    slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
+    slider.value = _state.englishSliderValue;
+    slider.className = 'champion-slider';
     slider.style.cssText = `
         -webkit-appearance: none;
-        width: 80%;
-        max-width: 600px;
-        height: 12px;
-        border-radius: 6px;
-        outline: none;
-        cursor: pointer;
-        background: linear-gradient(
-            to right,
-            #d4af37 0%,
-            #d4af37 ${englishSliderValue * 100}%,
-            #444 ${englishSliderValue * 100}%,
-            #444 100%
-        );
+        width: 80%; max-width: 600px;
+        height: 12px; border-radius: 6px;
+        outline: none; cursor: pointer;
     `;
 
-    // Add the webkit thumb styling to match heroSelect
-    const sliderStyle = document.createElement('style');
-    sliderStyle.textContent = `
+    const sliderThumbStyle = document.createElement('style');
+    sliderThumbStyle.id = 'tutorialSliderStyle';
+    sliderThumbStyle.textContent = `
         #championIntro .champion-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #d4af37;
-            cursor: pointer;
+            -webkit-appearance: none; appearance: none;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #d4af37; cursor: pointer;
             border: 2px solid #000;
-            box-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+            box-shadow: 0 0 8px rgba(212,175,55,0.6);
         }
-
         #championIntro .champion-slider::-moz-range-thumb {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #d4af37;
-            cursor: pointer;
-            border: 2px solid #000;
-            box-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #d4af37; cursor: pointer;
+            border: 2px solid #000; box-shadow: 0 0 8px rgba(212,175,55,0.6);
         }
     `;
-    document.head.appendChild(sliderStyle);
+    document.head.appendChild(sliderThumbStyle);
 
-    const updateSliderStyle = () => {
-        slider.style.background = `
-            linear-gradient(
-                to right,
-                #d4af37 0%,
-                #d4af37 ${englishSliderValue * 100}%,
-                #444 ${englishSliderValue * 100}%,
-                #444 100%
-            )
-        `;
-    };
-
+    function refreshSliderTrack() {
+        const pct = _state.englishSliderValue * 100;
+        slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${pct}%, #444 ${pct}%, #444 100%)`;
+    }
+    refreshSliderTrack();
     sliderSection.appendChild(slider);
 
-    // ───────────── TEXT (BELOW SLIDER - SAME AS HEROSELECT) ─────────────
+    // ── AMERGIN TEXT ─────────────────────────
     const textContainer = document.createElement('div');
     textContainer.style.cssText = `
-        text-align: center;
-        max-width: 800px;
-        padding: 2rem 1rem 1rem 1rem;
-        min-height: 120px;
+        text-align: center; max-width: 800px; width: 100%;
+        padding: 1.5rem 1rem 0.5rem 1rem;
+        flex-shrink: 0;
+        box-sizing: border-box;
     `;
-
-    // Use the current Amergin line from heroSelect, or fall back to default
-    const displayLine = currentAmerginLine || {
-        ga: `Cé an té le nod slí na gcloch sléibhe?`,
-        en: `Who knows the way of the mountain stones?`
+    const displayLine = _state.currentAmerginLine || {
+        ga: 'Cé an té le nod slí na gcloch sléibhe?',
+        en: 'Who knows the way of the mountain stones?'
     };
-
-    const irishText = document.createElement('div');
-    irishText.textContent = displayLine.ga;
-    irishText.style.cssText = `
+    const irishTextEl = document.createElement('div');
+    irishTextEl.textContent = displayLine.ga;
+    irishTextEl.style.cssText = `
         font-family: Aonchlo, serif;
-        font-size: 1.8rem;
-        color: #d4af37;
-        margin-bottom: 1.5rem;
-        line-height: 1.5;
+        font-size: 1.8rem; color: #d4af37;
+        margin-bottom: 0.5rem; line-height: 1.5;
     `;
+    textContainer.appendChild(irishTextEl);
 
-    textContainer.append(irishText);
-
-    // ───────────── CHAMPION (CENTER - SAME SIZE AS HEROSELECT) ─────────────
+    // ── CHAMPION AREA ────────────────────────
+    // flex:1 fills remaining height; padding-bottom:180px matches heroSelect .champion-card
     const championHolder = document.createElement('div');
     championHolder.style.cssText = `
-        flex: 1;
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        overflow: visible;
-        padding: 1rem;
-        position: relative;
+        flex: 1; width: 100%;
+        min-height: 0;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        overflow: hidden;
+        padding: 0.5rem 1rem;
+        box-sizing: border-box;
     `;
 
-    // Response text - Irish (above champion, hidden initially)
     const responseIrish = document.createElement('div');
     responseIrish.textContent = 'Cé murach mise.';
     responseIrish.style.cssText = `
         font-family: Aonchlo, serif;
-        font-size: 1.8rem;
-        color: #ffd700;
-        margin-bottom: 1rem;
-        line-height: 1.5;
-        opacity: 0;
-        transition: opacity 0.6s ease;
+        font-size: 1.8rem; color: #ffd700;
+        margin-bottom: 1rem; line-height: 1.5;
+        opacity: 0; transition: opacity 0.6s ease;
     `;
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'champion-canvas';
-    canvas.style.cssText = `
+    const championCanvas = document.createElement('canvas');
+    championCanvas.className = 'tutorial-champion-canvas';
+    championCanvas.style.cssText = `
         display: block !important;
-        max-width: 85%;
-        max-height: 55vh;
+        max-width: 85%; max-height: 35vh;
         object-fit: contain;
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
         filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
-        margin-bottom: 1rem;
+        margin-bottom: 20px;
     `;
 
-    // Response text - English (below champion, hidden initially)
     const responseEnglish = document.createElement('div');
     responseEnglish.textContent = 'Who, if not I.';
     responseEnglish.style.cssText = `
-        font-family: 'Courier New', monospace;
-        font-size: 1.7rem;
-        color: rgb(0, 255, 0);
-        opacity: 0;
-        transition: opacity 0.6s ease;
-        line-height: 1.5;
+        font-family: CourierPrime, 'Courier New', monospace;
+        font-size: 1.7rem; color: rgb(0,255,0);
+        opacity: 0; transition: opacity 0.6s ease; line-height: 1.5;
     `;
 
-    championHolder.append(responseIrish, canvas, responseEnglish);
+    championHolder.append(responseIrish, championCanvas, responseEnglish);
 
-    // Load sprite immediately
-    (async function loadChampionSprite() {
-        console.log('[TutorialOrAdventure] Loading champion sprite for:', champion.nameEn);
-        
+    // Load sprite
+    (async function loadSprite() {
         try {
-            const sheet = new Image();
-            sheet.crossOrigin = "anonymous";
-            
             const atlas = await fetch('assets/champions/champions0.json').then(r => r.json());
-            
-            const loadPromise = new Promise((resolve, reject) => {
-                sheet.onload = () => {
-                    console.log('[TutorialOrAdventure] Sheet loaded successfully');
-                    resolve();
-                };
-                sheet.onerror = (e) => {
-                    console.error('[TutorialOrAdventure] Sheet load error:', e);
-                    reject(e);
-                };
+            const sheet = await new Promise((res, rej) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => res(img);
+                img.onerror = rej;
+                img.src = 'assets/champions/champions0.png';
             });
-            
-            sheet.src = 'assets/champions/champions0.png';
-            await loadPromise;
-
-            const frameName = champion.spriteKey.endsWith('.png')
-                ? champion.spriteKey
-                : `${champion.spriteKey}.png`;
-
+            const frameName = champion.spriteKey.endsWith('.png') ? champion.spriteKey : `${champion.spriteKey}.png`;
             const frame = atlas.textures[0].frames.find(f => f.filename === frameName);
-            
-            if (!frame) {
-                console.error('[TutorialOrAdventure] Frame not found for:', frameName);
-                return;
-            }
+            if (!frame) { console.error('[TutorialOrAdventure] Frame not found:', frameName); return; }
 
-            canvas.width = frame.frame.w;
-            canvas.height = frame.frame.h;
-
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = false;
-            
-            ctx.drawImage(
-                sheet,
-                frame.frame.x,
-                frame.frame.y,
-                frame.frame.w,
-                frame.frame.h,
-                0,
-                0,
-                frame.frame.w,
-                frame.frame.h
-            );
-            
-            console.log('[TutorialOrAdventure] Champion sprite drawn successfully');
+            championCanvas.width  = frame.frame.w;
+            championCanvas.height = frame.frame.h;
+            const c = championCanvas.getContext('2d');
+            c.imageSmoothingEnabled = false;
+            c.drawImage(sheet, frame.frame.x, frame.frame.y, frame.frame.w, frame.frame.h, 0, 0, frame.frame.w, frame.frame.h);
+            console.log('[TutorialOrAdventure] Sprite drawn successfully');
         } catch (e) {
-            console.error('[TutorialOrAdventure] Champion sprite load failed:', e);
+            console.error('[TutorialOrAdventure] Sprite load failed:', e);
         }
     })();
 
-    // ───────────── BUTTONS (BOTTOM) ─────────────
+    // ── BUTTONS ──────────────────────────────
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
-        width: 100%;
-        max-width: 800px;
-        display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-        padding: 1rem;
-        box-sizing: border-box;
+        width: 100%; max-width: 800px;
+        display: flex; flex-direction: column;
+        gap: 0.7rem; padding: 1rem;
+        box-sizing: border-box; flex-shrink: 0;
         transition: opacity 0.6s ease;
     `;
 
     function createButton(ga, en, onClick) {
         const btn = document.createElement('button');
         btn.style.cssText = `
-            width: 100%;
-            padding: 1.1rem;
-            border-radius: 12px;
+            width: 100%; padding: 1.1rem; border-radius: 12px;
             background: linear-gradient(145deg, #8b4513, #d2691e, #8b4513);
             border: 3px solid #d2691e;
-            font-family: Aonchlo;
-            font-size: 1.3rem;
-            cursor: pointer;
-            color: #fff;
+            font-size: 1.3rem; cursor: pointer; color: #fff;
             transition: all 0.2s ease;
         `;
-
         const label = document.createElement('div');
         label.textContent = ga;
-
+        label.style.fontFamily = 'Aonchlo, serif';
         btn.appendChild(label);
         btn.onclick = onClick;
-
-        // Add hover effect
-        btn.onmouseenter = () => {
-            btn.style.transform = 'scale(1.02)';
-            btn.style.boxShadow = '0 0 15px rgba(210, 105, 30, 0.5)';
-        };
-        btn.onmouseleave = () => {
-            btn.style.transform = 'scale(1)';
-            btn.style.boxShadow = 'none';
-        };
-
+        btn.onmouseenter = () => { btn.style.transform = 'scale(1.02)'; btn.style.boxShadow = '0 0 15px rgba(210,105,30,0.5)'; };
+        btn.onmouseleave = () => { btn.style.transform = 'scale(1)';    btn.style.boxShadow = 'none'; };
         return {
             btn,
             setLanguage(opacity) {
-                // Show Irish when opacity is low, English when high
-                const isEnglish = opacity >= 0.5;
-                label.textContent = isEnglish ? en : ga;
+                const isEn = opacity >= 0.5;
+                label.textContent      = isEn ? en : ga;
+                label.style.fontFamily = isEn ? "CourierPrime, 'Courier New', monospace" : 'Aonchlo, serif';
             }
         };
     }
 
-    // Function to show the response and proceed after delay
+    function cleanupHeroSelect() {
+        document.getElementById('heroSelect')?.remove();
+        document.getElementById('global-stats-bar')?.remove();
+        document.getElementById('statPopup')?.remove();
+        document.getElementById('sunSliderStyle')?.remove();
+        document.getElementById('statPopupStyle')?.remove();
+        console.log('[TutorialOrAdventure] ✓ heroSelect elements cleaned up');
+    }
+
     async function showResponseAndProceed(callback) {
-        // Fade in the Irish response
-        responseIrish.style.opacity = '1';
-        
-        // Fade in the English response based on current slider value
-        responseEnglish.style.opacity = englishSliderValue;
-        
-        // Hide buttons
-        bottomSection.style.opacity = '0';
+        responseIrish.style.opacity   = '1';
+        responseEnglish.style.opacity = String(_state.englishSliderValue);
+        bottomSection.style.opacity       = '0';
         bottomSection.style.pointerEvents = 'none';
-        
-        // Wait 2 seconds for the response to be read
-        setTimeout(async () => {
-            // Unmute all instruments for final flourish
-            const heroSelect = await import('./heroSelect.js');
-            const musicPlayer = heroSelect.getMusicPlayer?.();
-            
-            if (musicPlayer && musicPlayer.tracks) {
-                console.log('[TutorialOrAdventure] Unmuting all instruments for fade out');
-                
-                // Unmute all tracks first - with safety check
-                for (let i = 0; i < musicPlayer.tracks.length; i++) {
-                    // Check if track exists and has the active property
-                    if (musicPlayer.tracks[i] && typeof musicPlayer.tracks[i].active !== 'undefined') {
-                        if (!musicPlayer.tracks[i].active) {
-                            await musicPlayer.toggleInstrument(i);
-                        }
-                    } else {
-                        console.log('[TutorialOrAdventure] Track', i, 'not ready yet, skipping');
-                    }
+
+        await new Promise(r => setTimeout(r, 2000));
+
+        try {
+            const heroSelect  = await import('./heroSelect.js');
+            const mp = heroSelect.getMusicPlayer?.();
+            if (mp?.tracks) {
+                for (let i = 0; i < mp.tracks.length; i++) {
+                    const t = mp.tracks[i];
+                    if (t && typeof t.active !== 'undefined' && !t.active) await mp.toggleInstrument(i);
                 }
-                
-                // Fade out all tracks over 2 seconds
-                console.log('[TutorialOrAdventure] Fading out music...');
-                const fadeStartTime = musicPlayer.audioContext.currentTime;
-                
-                for (const track of musicPlayer.tracks) {
-                    // Check if track and gain exist before fading
-                    if (track && track.active && track.gain) {
-                        // Exponential fade out
-                        track.gain.gain.setTargetAtTime(0, fadeStartTime, 0.6);
-                    }
+                const t0 = mp.audioContext.currentTime;
+                for (const track of mp.tracks) {
+                    if (track?.active && track.gain) track.gain.gain.setTargetAtTime(0, t0, 0.6);
                 }
             }
-            
-            // Create black overlay for fade to black
-            const blackOverlay = document.createElement('div');
-            blackOverlay.style.cssText = `
-                position: fixed;
-                inset: 0;
-                background: #000;
-                opacity: 0;
-                z-index: 100001;
-                transition: opacity 2s ease;
-                pointer-events: none;
-            `;
-            document.body.appendChild(blackOverlay);
-            
-            // Start fading everything out
-            setTimeout(() => {
-                sliderSection.style.transition = 'opacity 1s ease';
-                sliderSection.style.opacity = '0';
-                textContainer.style.transition = 'opacity 1s ease';
-                textContainer.style.opacity = '0';
-                championHolder.style.transition = 'opacity 1.5s ease';
-                championHolder.style.opacity = '0';
-                blackOverlay.style.opacity = '1';
-            }, 100);
-            
-            // Find and fade out starfield
-            console.log('[TutorialOrAdventure] Looking for starfield canvases...');
-            const allCanvases = document.querySelectorAll('canvas');
-            allCanvases.forEach(canvas => {
-                const style = canvas.style;
-                const isStarfield = 
-                    style.position === 'fixed' || 
-                    style.zIndex === '1' ||
-                    style.zIndex === '200' ||
-                    canvas.width === window.innerWidth;
-                
-                if (isStarfield && canvas.parentElement) {
-                    console.log('[TutorialOrAdventure] Found starfield, fading out...');
-                    canvas.style.transition = 'opacity 2s ease';
-                    canvas.style.opacity = '0';
-                }
+        } catch (e) { console.error('[TutorialOrAdventure] Music fade error:', e); }
+
+        const blackOverlay = document.createElement('div');
+        blackOverlay.style.cssText = `
+            position: fixed; inset: 0; background: #000; opacity: 0;
+            z-index: 200000; transition: opacity 2s ease; pointer-events: none;
+        `;
+        document.body.appendChild(blackOverlay);
+
+        setTimeout(() => {
+            [sliderSection, textContainer, championHolder].forEach(el => {
+                el.style.transition = 'opacity 1s ease'; el.style.opacity = '0';
             });
-            
-            // After 2.5 seconds, proceed to game
-            setTimeout(() => {
-                // Stop music completely
-                if (musicPlayer && musicPlayer.stop) {
-                    console.log('[TutorialOrAdventure] Stopping music player');
-                    musicPlayer.stop();
-                }
-                
-                // Remove starfield canvases
-                allCanvases.forEach(canvas => {
-                    const style = canvas.style;
-                    const isStarfield = 
-                        style.position === 'fixed' || 
-                        style.zIndex === '1' ||
-                        style.zIndex === '200' ||
-                        canvas.width === window.innerWidth;
-                    
-                    if (isStarfield && canvas.parentElement) {
-                        canvas.remove();
-                    }
-                });
-                
-                // CRITICAL: Remove the black overlay BEFORE calling callback
-                if (blackOverlay && blackOverlay.parentElement) {
-                    console.log('[TutorialOrAdventure] Removing black overlay');
-                    blackOverlay.remove();
-                }
-                
-                // Also remove the main tutorialOrAdventure container
-                const tutorialContainer = document.getElementById('championIntro');
-                if (tutorialContainer) {
-                    console.log('[TutorialOrAdventure] Removing championIntro container');
-                    tutorialContainer.remove();
-                }
-                
-                console.log('[TutorialOrAdventure] Calling game start callback');
-                callback();
-            }, 2500);
-        }, 2000);
+            blackOverlay.style.opacity = '1';
+        }, 100);
+
+        if (stopStarfield) { stopStarfield(); stopStarfield = null; }
+        blackBg.style.transition = 'opacity 1s ease'; blackBg.style.opacity = '0';
+
+        await new Promise(r => setTimeout(r, 2500));
+
+        blackOverlay.remove();
+        blackBg.remove();
+        document.getElementById('championIntro')?.remove();
+        sliderThumbStyle.remove();
+        callback();
     }
 
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
         showResponseAndProceed(() => {
-            console.log('[TutorialOrAdventure] Training button clicked');
-            console.log('[TutorialOrAdventure] Starting BowTutorial');
-            
-            // COMPLETE CLEANUP: Remove ALL heroSelect-related elements
-            
-            // 1. Remove heroSelect container
-            const heroSelectContainer = document.getElementById('heroSelect');
-            if (heroSelectContainer) {
-                console.log('[TutorialOrAdventure] Removing heroSelect container');
-                heroSelectContainer.remove();
-            }
-            
-            // 2. Remove global stats bar (critical - this is what's intercepting touches!)
-            const statsBar = document.getElementById('global-stats-bar');
-            if (statsBar) {
-                console.log('[TutorialOrAdventure] Removing global stats bar');
-                statsBar.remove();
-            }
-            
-            // 3. Remove any stat popups
-            const statPopup = document.getElementById('statPopup');
-            if (statPopup) {
-                console.log('[TutorialOrAdventure] Removing stat popup');
-                statPopup.remove();
-            }
-            
-            // 4. Remove any lingering styles
-            const sunSliderStyle = document.getElementById('sunSliderStyle');
-            if (sunSliderStyle) {
-                sunSliderStyle.remove();
-            }
-            
-            const statPopupStyle = document.getElementById('statPopupStyle');
-            if (statPopupStyle) {
-                statPopupStyle.remove();
-            }
-            
-            console.log('[TutorialOrAdventure] ✓ All heroSelect elements cleaned up');
-            
-            if (window.startGame) {
-                window.startGame(champion, { startScene: 'BowTutorial' });
-            } else {
-                console.error('[TutorialOrAdventure] window.startGame not found!');
-            }
+            cleanupHeroSelect();
+            window.startGame
+                ? window.startGame(champion, { startScene: 'BowTutorial' })
+                : console.error('[TutorialOrAdventure] window.startGame not found!');
         });
     });
 
     const bogBtn = createButton('An Portach', 'The Bog', () => {
         showResponseAndProceed(() => {
-            console.log('[TutorialOrAdventure] Bog button clicked');
-            console.log('[TutorialOrAdventure] Starting BogMeadow');
-            
-            // COMPLETE CLEANUP: Remove ALL heroSelect-related elements
-            
-            // 1. Remove heroSelect container
-            const heroSelectContainer = document.getElementById('heroSelect');
-            if (heroSelectContainer) {
-                console.log('[TutorialOrAdventure] Removing heroSelect container');
-                heroSelectContainer.remove();
-            }
-            
-            // 2. Remove global stats bar (critical - this is what's intercepting touches!)
-            const statsBar = document.getElementById('global-stats-bar');
-            if (statsBar) {
-                console.log('[TutorialOrAdventure] Removing global stats bar');
-                statsBar.remove();
-            }
-            
-            // 3. Remove any stat popups
-            const statPopup = document.getElementById('statPopup');
-            if (statPopup) {
-                console.log('[TutorialOrAdventure] Removing stat popup');
-                statPopup.remove();
-            }
-            
-            // 4. Remove any lingering styles
-            const sunSliderStyle = document.getElementById('sunSliderStyle');
-            if (sunSliderStyle) {
-                sunSliderStyle.remove();
-            }
-            
-            const statPopupStyle = document.getElementById('statPopupStyle');
-            if (statPopupStyle) {
-                statPopupStyle.remove();
-            }
-            
-            console.log('[TutorialOrAdventure] ✓ All heroSelect elements cleaned up');
-            
-            if (window.startGame) {
-                window.startGame(champion, { startScene: 'BogMeadow' });
-            } else {
-                console.error('[TutorialOrAdventure] window.startGame not found!');
-            }
+            cleanupHeroSelect();
+            window.startGame
+                ? window.startGame(champion, { startScene: 'BogMeadow' })
+                : console.error('[TutorialOrAdventure] window.startGame not found!');
         });
     });
 
     const backBtn = createButton('Ar Ais', 'Back', async () => {
-        console.log('[TutorialOrAdventure] Back button clicked');
-        
-        // Mute the second instrument (piano) before going back
-        const heroSelectModule = await import('./heroSelect.js');
-        if (heroSelectModule.muteSecondInstrument) {
-            console.log('[TutorialOrAdventure] Muting second instrument');
-            await heroSelectModule.muteSecondInstrument();
-        }
-        
-        cleanup(); // remove modal
-        
-        // Unpause heroSelect
-        const heroSelectContainer = document.getElementById('heroSelect');
-        if (heroSelectContainer) {
-            heroSelectContainer.style.opacity = '1';
-            heroSelectContainer.style.pointerEvents = 'auto';
-        }
-        
-        // Restore any other heroSelect state if needed
-        if (heroSelectModule.showHeroSelect) {
-            heroSelectModule.showHeroSelect();
+        try {
+            const mod = await import('./heroSelect.js');
+            if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
+            cleanup();
+            const hsc = document.getElementById('heroSelect');
+            if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
+            if (mod.showHeroSelect) mod.showHeroSelect();
+        } catch (e) {
+            console.error('[TutorialOrAdventure] Back error:', e);
+            cleanup();
         }
     });
 
     bottomSection.append(trainingBtn.btn, bogBtn.btn, backBtn.btn);
 
-    // ───────────── LANGUAGE SWITCH LOGIC ─────────────
+    // ── LANGUAGE UPDATES ─────────────────────
     function updateLanguage() {
-        // Update button labels based on slider
-        trainingBtn.setLanguage(englishSliderValue);
-        bogBtn.setLanguage(englishSliderValue);
-        backBtn.setLanguage(englishSliderValue);
+        trainingBtn.setLanguage(_state.englishSliderValue);
+        bogBtn.setLanguage(_state.englishSliderValue);
+        backBtn.setLanguage(_state.englishSliderValue);
     }
 
     slider.oninput = e => {
-        englishSliderValue = parseFloat(e.target.value);
-        updateSliderStyle();
+        _state.englishSliderValue = parseFloat(e.target.value);
+        refreshSliderTrack();
         updateLanguage();
     };
 
     updateLanguage();
 
-    // ───────────── ASSEMBLE ─────────────
-    container.append(
-        sliderSection,
-        textContainer,
-        championHolder,
-        bottomSection
-    );
+    // ── ASSEMBLE ─────────────────────────────
+    uiContainer.append(sliderSection, textContainer, championHolder, bottomSection);
+    document.body.appendChild(uiContainer);
 
-    document.body.appendChild(container);
-
+    // ── CLEANUP ──────────────────────────────
     function cleanup() {
-        initialized = false;
-        container.remove();
-        sliderStyle.remove();
+        _state.initialized = false;
+        if (stopStarfield) { stopStarfield(); stopStarfield = null; }
+        document.getElementById('tutorialBlackBg')?.remove();
+        document.getElementById('championIntro')?.remove();
+        document.getElementById('tutorialSliderStyle')?.remove();
     }
 }
 

@@ -88,7 +88,12 @@ function _requestFullscreen() {
  * Creates a Phaser game running just the ConstellationScene.
  * onComplete(moonPhase, frozenAmerginLine) is called after all constellations are drawn.
  */
+var _sceneInitialized = false;
+
 export function initConstellationScene(onComplete) {
+    if (_sceneInitialized) return;
+    _sceneInitialized = true;
+
     // Load the Aonchlo font before Phaser boots, mirroring introModal's loadFont()
     document.fonts.load('1.8rem Aonchlo').catch(() => {});
 
@@ -442,7 +447,9 @@ export class ConstellationScene extends Phaser.Scene {
             .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
         this.buildConstellations(wSize);
-        this.panCameraTo(0, false);
+        // Camera starts at constellation 0 position — settleMoon will pan into it
+        const c0 = this.constellations[0];
+        this.cameras.main.setScroll(c0.wcx - this.W / 2, c0.wcy - this.H / 2 - this.H * 0.38);
 
         // Hide all constellation graphics until moon has settled
         this.worldG.setAlpha(0);
@@ -555,8 +562,8 @@ export class ConstellationScene extends Phaser.Scene {
 
         overlay.appendChild(irishEl);
         overlay.appendChild(enEl);
-        overlay.appendChild(moonCanvas);
         document.body.appendChild(overlay);
+        document.body.appendChild(moonCanvas);   // moon lives on body, not in flex overlay
 
         // ── Drag logic ────────────────────────────────────────────────────────
         let dragging         = false;
@@ -630,7 +637,8 @@ export class ConstellationScene extends Phaser.Scene {
 
         // Outer glow
         const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.6);
-        glow.addColorStop(0,   `rgba(200,220,255,${0.08 + phase * 0.14})`);
+        glow.addColorStop(0,   `rgba(200,220,255,${0.18 + phase * 0.14})`);
+        glow.addColorStop(0.5, `rgba(150,180,255,${0.08 + phase * 0.06})`);
         glow.addColorStop(1,   'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
@@ -643,8 +651,8 @@ export class ConstellationScene extends Phaser.Scene {
         ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
         ctx.clip();
 
-        // Base disc: dark side colour
-        ctx.fillStyle = '#0a0e1a';
+        // Base disc: dark side colour — faint blue so crescent shape is always visible
+        ctx.fillStyle = '#1a2035';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Lit portion: draw as a lens/crescent using two overlapping circles
@@ -728,6 +736,10 @@ export class ConstellationScene extends Phaser.Scene {
             if (el) { el.style.transition = 'opacity 0.6s'; el.style.opacity = '0'; }
         });
 
+        // Kill the pulsing invite animation so the halo disappears cleanly
+        moonEl.style.animation = 'none';
+        moonEl.style.filter    = 'none';
+
         // Step 1: gently reverse the sky rotation back to 0° over ~1.4s
         this.tweens.add({
             targets:  this,
@@ -737,50 +749,51 @@ export class ConstellationScene extends Phaser.Scene {
             onUpdate: () => { this.cameras.main.setAngle(this.spinAngle); },
         });
 
-        // Step 2: simultaneously snap moon's vertical to its top-strip position
-        // We do this via CSS transition so it looks like the camera pans down
-        // to reveal the starfield below, with the moon staying fixed in the sky.
+        // Step 2: moon flies to its top-strip position via CSS transition
         moonEl.style.transition = `left 0.9s cubic-bezier(0.4,0,0.2,1), top 1.2s cubic-bezier(0.4,0,0.2,1)`;
         requestAnimationFrame(() => requestAnimationFrame(() => {
             moonEl.style.left = endX + 'px';
             moonEl.style.top  = endY + 'px';
         }));
 
-        // Step 3: while moon flies up, pan camera downward so the sky scrolls
-        // into view — making it look like we're looking down at the stars, not
-        // that the moon moved up.
-        const cam       = this.cameras.main;
-        const panOffset = H * 0.38;   // how far to pan: roughly where moon started
-        const panProg   = { t: 0 };
-        const startScrollY = cam.scrollY;
+        // Step 3: pan camera downward — gives the illusion the sky pans into view
+        // We pan FROM current scroll PLUS an upward offset DOWN to the real target,
+        // so the net effect is the stars appear below the moon as it rises.
+        const cam        = this.cameras.main;
+        const targetScrollX = this.constellations[0].wcx - this.W / 2;
+        const targetScrollY = this.constellations[0].wcy - this.H / 2;
+        const panProg    = { t: 0 };
+        // Start the camera a screenful above the target so it pans down into it
+        cam.setScroll(targetScrollX, targetScrollY - H * 0.38);
         this.tweens.add({
             targets:  panProg,
             t:        1,
             duration: 1400,
             ease:     'Cubic.easeInOut',
             onUpdate: () => {
-                // Interpolate scroll toward the "constellation starting" position
-                // which panCameraTo(0) already set — we just nudge it by panOffset
-                // and let it settle back. Result: camera scrolls smoothly downward.
-                cam.scrollY = startScrollY + panOffset * panProg.t;
+                cam.scrollY = (targetScrollY - H * 0.38) + H * 0.38 * panProg.t;
             },
             onComplete: () => {
-                // Now snap to the correct constellation position cleanly
-                this.panCameraTo(0, false);
+                cam.setScroll(targetScrollX, targetScrollY);
             },
         });
 
-        // Step 4: after everything settles, fade in stars then activate constellations
+        // Step 4: after everything settles, remove overlay, fade in stars, activate
         setTimeout(() => {
             [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
+            // Remove the overlay container itself — text children are gone, moon is now fixed
+            if (this.moonOverlay) {
+                this.moonOverlay.remove();
+                this.moonOverlay = null;
+            }
             moonEl.style.transition = '';
 
             // Fade in the world graphics (stars)
             this.tweens.add({
-                targets: this.worldG,
-                alpha: 1,
+                targets:  this.worldG,
+                alpha:    1,
                 duration: 1200,
-                ease: 'Sine.easeIn',
+                ease:     'Sine.easeIn',
                 onComplete: () => {
                     this.canInteract = true;
                     this.startSequencePulse();
@@ -1332,9 +1345,9 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     shutdown() {
-        if (this._lyricInterval) clearInterval(this._lyricInterval);
-        if (this.moonOverlay)    this.moonOverlay.remove();
-        if (this._moonStyle)     this._moonStyle.remove();
+        if (this._lyricInterval)  clearInterval(this._lyricInterval);
+        if (this.moonOverlay)     { this.moonOverlay.remove(); this.moonOverlay = null; }
+        if (this._moonStyle)      { this._moonStyle.remove();  this._moonStyle  = null; }
     }
 
     initAudio() {

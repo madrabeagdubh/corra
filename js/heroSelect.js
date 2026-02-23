@@ -1,5 +1,8 @@
-import { initIntroModal, getPreloadedAssets } from './introModal.js';
-import { waitForHeroAssets } from './introModal.js';
+
+import { initConstellationScene, waitForHeroAssets, getPreloadedAssets } from './introModal.js';
+
+
+//import { initIntroModal, getPreloadedAssets } from './introModal.js';
 import { startGame } from './main.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
@@ -305,23 +308,19 @@ export function initHeroSelect() {
         return;
     }
     
-    console.log('[HeroSelect] Calling initIntroModal...');
+initConstellationScene(async (sliderValue, amerginLine) => {
+    console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
+    console.log('[HeroSelect] Current Amergin line:', amerginLine);
 
-    initIntroModal(async (sliderValue, amerginLine) => {
-        console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
-        console.log('[HeroSelect] Current Amergin line:', amerginLine);
+    initialSliderValue = sliderValue;
+    currentAmerginLineForExport = amerginLine;
 
-        // Store the values from intro
-        initialSliderValue = sliderValue;
-        currentAmerginLineForExport = amerginLine;
+    console.log('[HeroSelect] Waiting for preloaded hero assets...');
+    await waitForHeroAssets();
+    console.log('[HeroSelect] Assets ready. Initializing hero select.');
 
-        console.log('[HeroSelect] Waiting for preloaded hero assets...');
-        await waitForHeroAssets();
-        console.log('[HeroSelect] Assets ready. Initializing hero select.');
-
-        initMainHeroSelect();
-    });
-}
+    initMainHeroSelect();
+});}
 
 function initMainHeroSelect() {
     console.log('[HeroSelect] Initializing main hero select');

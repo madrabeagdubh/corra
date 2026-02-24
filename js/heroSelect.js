@@ -1,6 +1,5 @@
 
-import { initConstellationScene, waitForHeroAssets, getPreloadedAssets } from './introModal.js';
-
+import { initConstellationScene, waitForHeroAssets, getPreloadedAssets, getPrewarmedPlayer } from './introModal.js';
 
 //import { initIntroModal, getPreloadedAssets } from './introModal.js';
 import { startGame } from './main.js';
@@ -52,8 +51,6 @@ const statIcons = {
   defense: '🛡️',
   health: '❤️'
 };
-
-
 
 
 // Make sure startGame is globally available
@@ -307,7 +304,8 @@ export function initHeroSelect() {
         console.log('[HeroSelect] Already initialized, returning');
         return;
     }
-    
+    initialized = true;
+
 initConstellationScene(async (sliderValue, amerginLine) => {
     console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
     console.log('[HeroSelect] Current Amergin line:', amerginLine);
@@ -331,7 +329,6 @@ function initMainHeroSelect() {
     container.style.position = 'relative';
     container.style.zIndex = '10002';
 
-    initialized = true; 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
     
     // CRITICAL FIX: Use module-level variables instead of local ones
@@ -339,9 +336,9 @@ function initMainHeroSelect() {
     let englishOpacity = initialSliderValue; // Use value from intro modal
     currentChampionIndex = 0; // Use module-level variable
     
-    // Initialize music player
+    // Use pre-warmed music player if available, otherwise create new one
     if (!musicPlayer) {
-        musicPlayer = new TradSessionPlayer();
+        musicPlayer = getPrewarmedPlayer() || new TradSessionPlayer();
         console.log('[HeroSelect] Music player initialized');
     }
     
@@ -356,23 +353,16 @@ function initMainHeroSelect() {
     const firstChampionCanvas = preloaded.firstChampionCanvas;
     const randomStartIndex = preloaded.randomStartIndex;
     
-    // SELECT A RANDOM SUBSET for better performance
-    // This gives us instant loading + all features working
-    // Trade-off: Users see 30 random champions instead of all 300+
-    // Can increase this number if performance allows (e.g., 50, 75, 100)
-    const CHAMPION_SUBSET_SIZE = 30; // Adjust this for performance vs variety balance
+    const CHAMPION_SUBSET_SIZE = 30;
     
-    // Randomly select champions
     const shuffled = [...allValidChampions].sort(() => Math.random() - 0.5);
     validChampions = shuffled.slice(0, CHAMPION_SUBSET_SIZE);
     
-    // Make sure the pre-rendered champion is in the subset
     const preRenderedChamp = allValidChampions[randomStartIndex];
     if (!validChampions.includes(preRenderedChamp)) {
-        validChampions[0] = preRenderedChamp; // Replace first with pre-rendered
+        validChampions[0] = preRenderedChamp;
     }
     
-    // Find where the pre-rendered champion is now
     const newStartIndex = validChampions.indexOf(preRenderedChamp);
     
     console.log('[HeroSelect] Using preloaded assets:', {
@@ -496,12 +486,11 @@ function initMainHeroSelect() {
     scrollContainer.style.opacity = '0';
     scrollContainer.style.transition = 'opacity 0.3s ease';
     scrollContainer.style.webkitOverflowScrolling = 'touch';
-    scrollContainer.style.scrollBehavior = 'auto'; // Let native momentum handle it
+    scrollContainer.style.scrollBehavior = 'auto';
     container.appendChild(scrollContainer);
 
     const topPanel = document.createElement('div');
     topPanel.className = 'champion-top-panel';
-
     topPanel.style.cssText = `
         position: fixed;
         top: 10px;
@@ -515,7 +504,8 @@ function initMainHeroSelect() {
         box-sizing: border-box;
     `;
 
-    // Create the slider element
+    // ── Slider with moon canvas thumb ────────────────────────────────────────
+
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.min = 0;
@@ -527,60 +517,125 @@ function initMainHeroSelect() {
     const sliderStyle = document.createElement('style');
     sliderStyle.id = 'sunSliderStyle';
     sliderStyle.textContent = `
-        @keyframes thumbInvite {
-            0% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
-            50% { transform: scale(1.1); box-shadow: 0 0 20px #ffd700; }
-            100% { transform: scale(1); box-shadow: 0 0 0px #ffd700; }
+        @keyframes letterGlow {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
 
         .champion-slider {
             -webkit-appearance: none !important;
             appearance: none !important;
-            width: 90% !important;
+            width: 100% !important;
             height: 10px !important;
             background: #444 !important;
             border-radius: 5px !important;
             outline: none !important;
-            margin: 20px 0 !important;
+            margin: 0 !important;
             padding: 0 !important;
+            display: block;
+            cursor: pointer;
         }
 
+        /* Hide native thumb — moon canvas replaces it */
         .champion-slider::-webkit-slider-thumb {
             -webkit-appearance: none !important;
             appearance: none !important;
-            width: 40px !important;
-            height: 40px !important;
-            border-radius: 50% !important;
-            background: #ffd700 !important;
-            cursor: pointer !important;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6) !important;
-            transition: transform 0.15s ease !important;
+            width: 0px !important;
+            height: 0px !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
 
         .champion-slider::-moz-range-thumb {
-            width: 40px !important;
-            height: 40px !important;
-            border-radius: 50% !important;
-            background: #ffd700 !important;
-            cursor: pointer !important;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6) !important;
+            width: 0px !important;
+            height: 0px !important;
+            background: transparent !important;
             border: none !important;
-        }
-
-        .champion-slider:active::-webkit-slider-thumb {
-            transform: scale(1.1) !important;
-        }
-
-        .champion-slider:active::-moz-range-thumb {
-            transform: scale(1.1) !important;
-        }
-
-        @keyframes letterGlow {
-            0% { opacity: 0; transform: translateY(10px); }
-            100% { opacity: 1; transform: translateY(0); }
+            box-shadow: none !important;
         }
     `;
     document.head.appendChild(sliderStyle);
+
+    // Moon canvas
+    const moonR = Math.round(window.innerHeight * 0.025);
+    const moonD = moonR * 2;
+    const moonCanvas = document.createElement('canvas');
+    moonCanvas.width  = moonD;
+    moonCanvas.height = moonD;
+  moonCanvas.style.cssText = `
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: ${moonD}px;
+    height: ${moonD}px;
+    pointer-events: none;
+    z-index: 2;
+`;
+
+slider.style.cssText = `position: relative; z-index: 1;`; 
+
+
+function drawMoon(phase) {
+    const ctx = moonCanvas.getContext('2d');
+    const r   = moonR;
+    const cx  = r, cy = r;
+    ctx.clearRect(0, 0, moonCanvas.width, moonCanvas.height);
+
+    // Outer glow
+    const grd = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.6);
+    grd.addColorStop(0, `rgba(200,220,255,${0.12 + phase * 0.10})`);
+    grd.addColorStop(1, 'rgba(200,220,255,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ← ADD THIS: dark side fill so track doesn't show through
+    ctx.fillStyle = 'rgb(8, 4, 30)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Moon body (lit portion drawn on top)
+    ctx.fillStyle = `rgb(${Math.round(200 + phase * 35)}, ${Math.round(210 + phase * 30)}, ${Math.round(220 + phase * 20)})`;
+
+
+        ctx.beginPath();
+        if (phase >= 0.99) {
+            ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+        } else {
+            const terminatorX = r * 0.92 * Math.cos(phase * Math.PI);
+            ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
+            ctx.ellipse(cx, cy, Math.abs(terminatorX), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, terminatorX > 0);
+        }
+        ctx.fill();
+
+        // Rim highlight
+        ctx.strokeStyle = `rgba(200,220,255,${0.15 + phase * 0.25})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Wrapper: slider + moon canvas stacked
+    const sliderWrapper = document.createElement('div');
+    sliderWrapper.style.cssText = `
+        position: relative;
+        width: 90%;
+        display: flex;
+        align-items: center;
+        height: ${moonD + 10}px;
+    `;
+
+    function positionMoon(val) {
+        const trackW = sliderWrapper.offsetWidth;
+        const margin = moonR;
+        const usable = trackW - margin * 2;
+        moonCanvas.style.left = (margin + val * usable - moonR) + 'px';
+        drawMoon(val);
+    }
 
     const initialTrackPercent = initialSliderValue * 100;
     slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${initialTrackPercent}%, #444 ${initialTrackPercent}%, #444 100%)`;
@@ -589,21 +644,27 @@ function initMainHeroSelect() {
         const val = parseFloat(e.target.value);
         const percent = val * 100;
         slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${percent}%, #444 ${percent}%, #444 100%)`;
-        
+        positionMoon(val);
+
         englishOpacity = val;
         document.querySelectorAll('.champion-name-en').forEach(el => {
             el.style.color = `rgba(0, 255, 0, ${val})`;
         });
-        
+
         const popup = document.getElementById('statPopupEnglish');
-        if (popup) {
-            popup.style.color = `rgba(0, 255, 0, ${val})`;
-        }
+        if (popup) popup.style.color = `rgba(0, 255, 0, ${val})`;
     };
 
-    topPanel.appendChild(slider);
-    container.appendChild(topPanel);
+    sliderWrapper.appendChild(slider);
+    sliderWrapper.appendChild(moonCanvas);
+    topPanel.appendChild(sliderWrapper);
 
+    // Draw moon at initial position once in DOM
+    requestAnimationFrame(() => positionMoon(initialSliderValue));
+
+    // ── End moon slider ───────────────────────────────────────────────────────
+
+    container.appendChild(topPanel);
     topPanel.style.zIndex = '10001';
 
     const bottomPanel = document.createElement('div');
@@ -621,7 +682,6 @@ function initMainHeroSelect() {
     chooseButton.onclick = async () => {
         console.log('[DEBUG] Continue button clicked');
 
-        // ✅ Request fullscreen immediately on user gesture
         try {
             const el = document.documentElement;
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -640,24 +700,20 @@ function initMainHeroSelect() {
         console.log('[DEBUG] Champion at index:', validChampions[currentChampionIndex]);
         
         if (validChampions[currentChampionIndex]) {
-            // Check if music is loaded AND tracks are fully initialized
             const musicReady = musicPlayer && 
                               musicPlayer.tracks && 
                               musicPlayer.tracks.length > 0 &&
                               musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
             
             if (musicReady) {
-                // Unmute piano before transitioning
                 console.log('[DEBUG] Music ready, unmuting piano...');
                 await unmutePiano();
-                // Wait a moment to hear the piano join in
                 console.log('[DEBUG] Waiting 800ms for piano to be heard...');
                 setTimeout(() => {
                     finalize(validChampions[currentChampionIndex]);
                 }, 800);
             } else {
                 console.warn('[DEBUG] Music not fully loaded yet, proceeding without unmuting');
-                // Proceed anyway after short delay
                 setTimeout(() => {
                     finalize(validChampions[currentChampionIndex]);
                 }, 200);
@@ -673,20 +729,13 @@ function initMainHeroSelect() {
     // RENDER ALL CHAMPIONS with batching for speed
     console.log('[HeroSelect] Starting champion rendering');
     
-    // Set current index
     currentChampionIndex = newStartIndex;
     
-    // Create infinite scroll array
     const infiniteChampions = [...validChampions, ...validChampions, ...validChampions];
-    
-    // Calculate where we need to scroll to
     const targetScroll = window.innerWidth * (validChampions.length + newStartIndex);
-    
-    // First champion reference
     const firstChamp = validChampions[newStartIndex];
     
-    // Render ALL champions in fast batches
-    const BATCH_SIZE = 30; // Larger batches for speed
+    const BATCH_SIZE = 30;
     let currentIndex = 0;
     let hasScrolled = false;
     
@@ -702,7 +751,6 @@ function initMainHeroSelect() {
             const card = document.createElement('div');
             card.className = 'champion-card';
             card.onclick = () => {
-                // Request fullscreen on champion tap
                 try {
                     const el = document.documentElement;
                     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -718,12 +766,9 @@ function initMainHeroSelect() {
                 showCharacterModal(champ);
             };
             
-            // Use pre-rendered canvas for the starting champion
             let canvas;
             if (i === validChampions.length + newStartIndex && firstChampionCanvas) {
                 console.log('[HeroSelect] Using pre-rendered canvas for champion', i);
-                // Can't use cloneNode - it doesn't copy pixel data!
-                // Instead, create new canvas and copy the image data
                 canvas = document.createElement('canvas');
                 canvas.className = 'champion-canvas floating';
                 canvas.width = firstChampionCanvas.width;
@@ -757,20 +802,18 @@ function initMainHeroSelect() {
         
         currentIndex = endIndex;
         
-        // Show after first batch that includes our target champion
         if (!hasScrolled && currentIndex >= (validChampions.length + newStartIndex + 1)) {
             scrollContainer.scrollLeft = targetScroll;
             scrollContainer.style.opacity = '1';
             hasScrolled = true;
             
-            // Update stats immediately
             updateGlobalStats(firstChamp);
             if (globalStatsBar) {
                 globalStatsBar.style.opacity = '1';
                 globalStatsBar.style.pointerEvents = 'auto';
             }
             
-            // Start music immediately
+            // Start music
             try {
                 const tuneKey = getTuneKeyForChampion(firstChamp);
                 if (tuneKey && !musicPlayer.isPlaying) {
@@ -785,26 +828,17 @@ function initMainHeroSelect() {
         }
         
         if (currentIndex < infiniteChampions.length) {
-            // More to render - schedule next batch
             requestAnimationFrame(renderBatch);
         } else {
-            // All done!
             console.log('[HeroSelect] ✓ All champions rendered');
-            
-            // Initialize swipe handler
             initSwipe(scrollContainer, validChampions.length);
-            
-            // Initialize background particles
             initBackgroundParticles();
-            
-            // Run the swipe nudge animation to show user they can swipe
             setTimeout(() => {
                 runSwipeNudge();
             }, 1000);
         }
     }
     
-    // Start rendering
     renderBatch();
 }
 
@@ -839,12 +873,10 @@ function initSwipe(scrollContainer, champCount) {
         isScrolling = true;
         clearTimeout(debounceTimer);
         
-        // Only run this after scrolling has stopped
         debounceTimer = setTimeout(() => {
             const newScrollLeft = scrollContainer.scrollLeft;
             const w = window.innerWidth;
             
-            // Determine current index based on scroll position
             const rawIndex = Math.round(newScrollLeft / w);
             const actualIndex = rawIndex % champCount;
             
@@ -852,10 +884,8 @@ function initSwipe(scrollContainer, champCount) {
                 currentChampionIndex = actualIndex;
                 console.log('[HeroSelect] Swiped to champion:', currentChampionIndex, validChampions[currentChampionIndex].nameEn);
                 
-                // Update stats
                 updateGlobalStats(validChampions[currentChampionIndex]);
                 
-                // Change music
                 const now = Date.now();
                 if (now - lastMusicChangeTime > MUSIC_CHANGE_DELAY) {
                     lastMusicChangeTime = now;
@@ -866,7 +896,6 @@ function initSwipe(scrollContainer, champCount) {
                 }
             }
             
-            // Handle infinite scroll wrapping (only when stopped)
             if (newScrollLeft < w * 0.5) {
                 scrollContainer.style.scrollSnapType = 'none';
                 scrollContainer.scrollLeft = newScrollLeft + (champCount * w);
@@ -905,22 +934,18 @@ async function playChampionTune(tuneKey) {
     console.log('[DEBUG] Current tune:', currentTuneKey);
     console.log('[DEBUG] Music player isPlaying:', musicPlayer.isPlaying);
     
-    // If we're already on this tune, don't reload it
     if (currentTuneKey === tuneKey && musicPlayer.isPlaying) {
         console.log('[DEBUG] Already playing this tune, skipping');
         return;
     }
     
-    // Crossfade if music is already playing
     if (currentTuneKey && musicPlayer.isPlaying) {
         console.log('[DEBUG] Crossfading from', currentTuneKey, 'to', tuneKey);
         
         try {
-            // Store reference to old tracks before loading new ones
             const oldTracks = musicPlayer.tracks ? [...musicPlayer.tracks] : [];
             console.log('[DEBUG] Captured old tracks:', oldTracks.length);
             
-            // Fade out old tracks
             for (const track of oldTracks) {
                 if (track && track.gain) {
                     const currentGain = track.gain.gain.value;
@@ -930,7 +955,6 @@ async function playChampionTune(tuneKey) {
                 }
             }
             
-            // Load new tune (it will create fresh tracks)
             const loaded = await musicPlayer.loadTune(tuneKey, false);
             
             if (!loaded) {
@@ -941,12 +965,10 @@ async function playChampionTune(tuneKey) {
             currentTuneKey = tuneKey;
             console.log('[DEBUG] New tune loaded, starting playback...');
             
-            // Start new tune playing
             await musicPlayer.play();
             
             console.log('[DEBUG] New tune playing');
             
-            // Verify banjo is the only active track in new tune
             const activeTrackNames = musicPlayer.tracks.filter(t => t.active).map(t => t.name);
             console.log('[DEBUG] Active tracks:', activeTrackNames);
             
@@ -961,7 +983,6 @@ async function playChampionTune(tuneKey) {
                 }
             }
             
-            // Clean up old synths after fade completes
             setTimeout(() => {
                 console.log('[DEBUG] Stopping old synths...');
                 for (const track of oldTracks) {
@@ -1043,11 +1064,9 @@ async function unmutePiano() {
     
     console.log('[DEBUG] Available tracks:', loadedTracks.map(t => t.name));
     
-    // Try to find piano first
     let targetIndex = musicPlayer.tracks.findIndex(t => t && t.name === 'Piano');
     
     if (targetIndex < 0) {
-        // No piano, so enable the second instrument (index 1) if available
         console.log('[DEBUG] No Piano track, enabling second instrument instead');
         if (loadedTracks.length > 1) {
             targetIndex = 1;
@@ -1068,24 +1087,20 @@ async function unmutePiano() {
 function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
 
-    // Pause the stats bar (don't remove)
     if (globalStatsBar) {
         globalStatsBar.style.opacity = '0';
         globalStatsBar.style.pointerEvents = 'none';
     }
 
-    // Pause the heroSelect container (don't remove)
     const heroSelectContainer = document.getElementById('heroSelect');
     if (heroSelectContainer) {
         heroSelectContainer.style.opacity = '0';
         heroSelectContainer.style.pointerEvents = 'none';
     }
     
-    // Get the current slider value
     const slider = document.querySelector('.champion-slider');
     const currentSliderValue = slider ? parseFloat(slider.value) : 0.15;
     
-    // Launch the tutorialOrAdventure overlay with current state
     import('./tutorialOrAdventure.js').then(module => {
         module.initTutorialOrAdventure(champ, currentSliderValue, currentAmerginLineForExport);
     });
@@ -1127,7 +1142,6 @@ function initBackgroundParticles() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // Particle system
     const particles = [];
     const particleCount = 10;
     
@@ -1148,7 +1162,6 @@ function initBackgroundParticles() {
         update() {
             this.x += this.vx;
             this.y += this.vy;
-            
             if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
             if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
         }
@@ -1207,7 +1220,6 @@ export async function muteSecondInstrument() {
         return;
     }
     
-    // Turn off all instruments except banjo (index 0)
     for (let i = 1; i < musicPlayer.tracks.length; i++) {
         if (musicPlayer.tracks[i] && musicPlayer.tracks[i].active) {
             console.log('[HeroSelect] Turning off:', musicPlayer.tracks[i].name);

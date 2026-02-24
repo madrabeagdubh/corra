@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { allTunes } from './game/systems/music/allTunes.js';
 import * as abcjs from 'abcjs';
 import { champions } from '../data/champions.js';
+import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
+import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 
 // ── Module-level: runs immediately on import, same as introModal ─────────────
 
@@ -22,6 +24,14 @@ var _fullscreenDone  = false;
 
 // Preload hero-select assets in the background while the constellation scene plays
 var _preloadedAssets = { spriteSheet: null, atlasData: null, validChampions: null, firstChampionCanvas: null, randomStartIndex: null };
+
+
+var _prewarmedPlayer = null;
+
+
+
+
+
 
 var _heroAssetsReady = (function preloadHeroSelectAssets() {
     const img = new Image();
@@ -45,6 +55,19 @@ var _heroAssetsReady = (function preloadHeroSelectAssets() {
                         cv.getContext('2d').drawImage(img, fd.frame.x, fd.frame.y, fd.frame.w, fd.frame.h, 0, 0, fd.frame.w, fd.frame.h);
                         _preloadedAssets.firstChampionCanvas = cv;
                     }
+
+                    // Pre-warm the music player for the first champion
+                    try {
+                        const tuneKey = getTuneKeyForChampion(champ);
+                        if (tuneKey) {
+                            _prewarmedPlayer = new TradSessionPlayer();
+                            _prewarmedPlayer.loadTune(tuneKey); // fire and forget
+                            console.log('[ConstellationScene] Pre-warming music for:', champ.nameEn, tuneKey);
+                        }
+                    } catch(e) {
+                        console.warn('[ConstellationScene] Music pre-warm failed (non-critical):', e);
+                    }
+
                     resolve();
                 })
                 .catch(e => { console.warn('[ConstellationScene] Asset preload failed:', e); resolve(); });
@@ -53,6 +76,12 @@ var _heroAssetsReady = (function preloadHeroSelectAssets() {
     });
 })();
 
+
+
+
+
+
+export function getPrewarmedPlayer() { return _prewarmedPlayer; }
 export function waitForHeroAssets()  { return _heroAssetsReady; }
 export function getPreloadedAssets() { return _preloadedAssets; }
 export function isAudioUnlocked()    { return _audioUnlocked; }
@@ -120,9 +149,14 @@ export function initConstellationScene(onComplete) {
     });
 
     // Pass onComplete into the scene via registry so it can call it from onAllComplete
-    game.events.once('ready', () => {
-        game.registry.set('onComplete', onComplete);
-    });
+
+
+
+
+game.registry.set('onComplete', onComplete);  // ← set it directly, no 'ready' wrapper
+return game;
+
+
 
     return game;
 }
@@ -1517,19 +1551,57 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         });
     }
 
-    onAllComplete() {
-        this.irishText.setText('Go raibh maith agat').setAlpha(0);
-        this.tweens.add({
-            targets: this.irishText, alpha: 1, duration: 2000,
-            onComplete: () => {
-                this.time.delayedCall(2000, () => {
+
+
+
+
+
+
+
+
+
+onAllComplete() {
+    this.irishText.setText('Go raibh maith agat').setAlpha(0);
+    this.tweens.add({
+        targets: this.irishText, alpha: 1, duration: 2000,
+        onComplete: () => {
+            this.time.delayedCall(2000, () => {
+                // Fade to deep indigo
+                this.cameras.main.fadeOut(1800, 10, 5, 40);
+
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    // Shut down the moon overlay cleanly
+                    this.shutdown();
+
+                    // Remove the moon canvas directly from body
+                    if (this.moonEl && this.moonEl.parentNode) {
+                        this.moonEl.parentNode.removeChild(this.moonEl);
+                        this.moonEl = null;
+                    }
+
+                    // Fire the callback — this triggers initMainHeroSelect() in heroSelect.js
                     if (this._onComplete) {
                         this._onComplete(this.moonPhase, this._frozenAmerginLine);
                     }
+
+                    // Destroy the Phaser game instance and remove its canvas
+                    const canvas = this.game.canvas;
+                    this.game.destroy(true);
+                    canvas.remove();
+
+                    const gameContainer = document.getElementById('gameContainer');
+                    if (gameContainer) gameContainer.style.display = 'none';
                 });
-            },
-        });
-    }
+            });
+        },
+    });
+}
+
+
+
+
+
+
 
     shutdown() {
         if (this._lyricInterval)  clearInterval(this._lyricInterval);

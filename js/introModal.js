@@ -73,13 +73,21 @@ function _unlockAudio() {
 
 function _requestFullscreen() {
     if (_fullscreenDone) return;
-    _fullscreenDone = true;
     try {
         const el = document.documentElement;
-        if (document.fullscreenElement || document.webkitFullscreenElement) return;
-        if      (el.requestFullscreen)       el.requestFullscreen().catch(() => {});
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (el.msRequestFullscreen)     el.msRequestFullscreen();
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            _fullscreenDone = true;
+            return;
+        }
+        if (el.requestFullscreen) {
+            el.requestFullscreen().then(() => { _fullscreenDone = true; }).catch(() => {});
+        } else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+            _fullscreenDone = true;
+        } else if (el.msRequestFullscreen) {
+            el.msRequestFullscreen();
+            _fullscreenDone = true;
+        }
     } catch (e) { console.warn('[ConstellationScene] Fullscreen:', e); }
 }
 
@@ -302,6 +310,7 @@ const CONSTELLATION_DATA = [
         id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
         waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
         waitingEn: 'He carries the darkest sword in the sky',
+        cameraOffsetY: -0.18,  // shift view upward so foot star stays on screen
         starOffsets: [
             { lx:   0.78, ly:  -1.10 },  // 0 Gamma Per — head
             { lx:   0.21, ly:  -0.68 },  // 1 Mirfak — shoulder (brightest)
@@ -395,17 +404,15 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCY = wSize / 2;
         this.cameras.main.setBounds(0, 0, wSize, wSize);
 
-        // Nebula layer — behind everything, very slow parallax
-        this.drawNebula(wSize);
-
+        // (Nebula is rendered by the starfield canvas behind this Phaser canvas)
         this.drawStaticBackground(wSize);
 
         this.worldG  = this.add.graphics().setDepth(10);
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
 
-        const textSize     = Math.round(Math.min(this.W, this.H) * 0.072);
-        const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.048);
+        const textSize     = Math.round(Math.min(this.W, this.H) * 0.095);
+        const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.062);
         const textY        = this.H * 0.15;   // top quarter
         const subY         = this.H * 0.72;   // bottom third
 
@@ -414,7 +421,7 @@ export class ConstellationScene extends Phaser.Scene {
             .text(this.W / 2, textY, '', {
                 fontFamily: 'Aonchlo, serif',
                 fontSize: textSize + 'px',
-                color: '#d4af37', stroke: '#000a1a', strokeThickness: 3,
+                color: '#f5d76e', stroke: '#000a1a', strokeThickness: 3,
             })
             .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
@@ -431,7 +438,7 @@ export class ConstellationScene extends Phaser.Scene {
             .text(this.W / 2, textY, '', {
                 fontFamily: 'Aonchlo, serif',
                 fontSize: textSize + 'px',
-                color: '#d4af37', stroke: '#000a1a', strokeThickness: 3,
+                color: '#f5d76e', stroke: '#000a1a', strokeThickness: 3,
                 wordWrap: { width: this.W * 0.82 },
                 align: 'center',
             })
@@ -447,6 +454,19 @@ export class ConstellationScene extends Phaser.Scene {
             })
             .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
+        // UI camera — never rotates, only renders depth-22 text objects.
+        // Main camera handles everything else (and rotates for the wheeling sky effect).
+        this.uiCamera = this.cameras.add(0, 0, this.W, this.H)
+            .setName('ui')
+            .setBackgroundColor('rgba(0,0,0,0)');
+        this.uiCamera.ignore(
+            this.children.list.filter(obj => obj.depth !== 22)
+        );
+        // Main camera ignores all depth-22 objects
+        this.cameras.main.ignore(
+            this.children.list.filter(obj => obj.depth === 22)
+        );
+
         this.buildConstellations(wSize);
         // Camera starts at constellation 0 position — settleMoon will pan into it
         const c0 = this.constellations[0];
@@ -458,6 +478,16 @@ export class ConstellationScene extends Phaser.Scene {
         this.input.on('pointerdown', this.onPointerDown, this);
         this.input.on('pointermove', this.onPointerMove, this);
         this.input.on('pointerup',   this.onPointerUp,   this);
+
+        // Fullscreen must be triggered from a native DOM event — attach directly to canvas
+        const fsHandler = () => {
+            _requestFullscreen();
+            _unlockAudio();
+            this.game.canvas.removeEventListener('pointerdown', fsHandler);
+            this.game.canvas.removeEventListener('touchstart',  fsHandler);
+        };
+        this.game.canvas.addEventListener('pointerdown', fsHandler, { once: true, passive: true });
+        this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
 
         // Build the moon overlay — constellations are blocked until first release
         this.buildMoonOverlay();
@@ -890,23 +920,15 @@ export class ConstellationScene extends Phaser.Scene {
     // ── spin is now driven directly by moonPhase in onDragMove, no physics loop needed
     updateSpin(delta) {
         if (this._bgWheelsPaused) return;
-        const m  = this._bgWheelsSpeedMult || 1;
-        const dt = delta * m;
-        if (this._nebulaWheelRt) this._nebulaWheelRt.angle += this._nebulaWheelSpeed * dt;
-        if (this._bgWheelRt)     this._bgWheelRt.angle     += this._bgWheelSpeed     * dt;
-        if (this._driftWheelRt)  this._driftWheelRt.angle  += this._driftWheelSpeed  * dt;
+        const dt = delta * (this._bgWheelsSpeedMult || 1);
+        if (this._bgWheelRt)    this._bgWheelRt.angle    += this._bgWheelSpeed    * dt;
+        if (this._driftWheelRt) this._driftWheelRt.angle += this._driftWheelSpeed * dt;
+        if (this._fgWheelRt)    this._fgWheelRt.angle    += this._fgWheelSpeed    * dt;
 
-        // Twinkle stars orbit CCW at an intermediate speed — negative angle = CCW
-        const twinkleSpeed = -(Math.PI * 2) / 90000;  // radians per ms — 90s per revolution
-        this._twinkleAngle = (this._twinkleAngle || 0) + twinkleSpeed * dt;
-        if (this._twinkleStars && this._twinkleStars.length) {
-            const cx = this.W / 2;
-            const cy = this.H / 2;
-            for (const s of this._twinkleStars) {
-                const a = s.theta + this._twinkleAngle;
-                s.rt.setPosition(cx + Math.cos(a) * s.dist, cy + Math.sin(a) * s.dist);
-            }
-        }
+        // Rotate camera to carry worldG (constellation) with the stars
+        const camDeg = this._driftWheelSpeed * dt;
+        this.spinAngle = (this.spinAngle || 0) + camDeg;
+        this.cameras.main.setAngle(this.spinAngle);
     }
 
     // ── Nebula background — very slow parallax, behind all stars ─────────────
@@ -1001,9 +1023,9 @@ export class ConstellationScene extends Phaser.Scene {
 
         // Static layer — boosted brightness so rotation is clearly visible
         for (const l of [
-            { n: 600,  minR: 0.6, maxR: 1.0, minA: 0.35, maxA: 0.60 },
-            { n: 200,  minR: 1.0, maxR: 1.5, minA: 0.45, maxA: 0.70 },
-            { n: 60,   minR: 1.4, maxR: 2.0, minA: 0.55, maxA: 0.85 },
+            { n: 600,  minR: 0.6, maxR: 1.0, minA: 0.08, maxA: 0.18 },
+            { n: 200,  minR: 1.0, maxR: 1.5, minA: 0.12, maxA: 0.24 },
+            { n: 60,   minR: 1.4, maxR: 2.0, minA: 0.16, maxA: 0.30 },
         ]) {
             for (let i = 0; i < l.n; i++) {
                 drawStarStatic(
@@ -1069,56 +1091,36 @@ export class ConstellationScene extends Phaser.Scene {
         this._driftWheelSpeed = -360 / 90000;  // 90s per revolution
         this._driftWheelTween = null;           // no tween — driven by updateSpin()
 
-        const cx = W / 2;
-        const cy = H / 2;
+        // Foreground layer — brightest, fastest rotation, sparse large stars
+        const rng3 = new Phaser.Math.RandomDataGenerator(['réaltaí3']);
+        const rt3  = this.add.renderTexture(0, 0, S, S)
+            .setScrollFactor(0).setDepth(5).setOrigin(0.5)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setPosition(W / 2, H / 2);
 
-        // A sparse set of twinkle stars — stored with polar coords so they orbit the centre
-        this._twinkleStars = [];
-        const numTwinkle = 200;
-        for (let i = 0; i < numTwinkle; i++) {
-            const r    = rng2.realInRange(0.8, 2.2);
-            const a    = rng2.realInRange(0.18, 0.55);
-            const size = Math.round(r) * 2 + 3;
-            const tx   = rng2.realInRange(0, W);
-            const ty   = rng2.realInRange(0, H);
-            // Store polar coords relative to screen centre
-            const dx   = tx - cx;
-            const dy   = ty - cy;
-            const dist  = Math.sqrt(dx * dx + dy * dy);
-            const theta = Math.atan2(dy, dx);
-            const trt = this.add.renderTexture(tx, ty, size, size)
-                .setScrollFactor(0).setDepth(2).setOrigin(0.5, 0.5)
-                .setBlendMode(Phaser.BlendModes.ADD);
-            const tg = this.make.graphics({ add: false });
-            tg.fillStyle(0xffffff, 1);
-            const arm = Math.round(r);
-            const tcx  = Math.floor(size / 2);
-            tg.fillRect(tcx - arm, tcx, arm * 2 + 1, 1);
-            tg.fillRect(tcx, tcx - arm, 1, arm * 2 + 1);
-            trt.draw(tg, 0, 0);
-            tg.destroy();
-            trt.setAlpha(a);
-            this._twinkleStars.push({ rt: trt, baseAlpha: a, dist, theta });
+        const tmp3 = this.make.graphics({ add: false });
+        for (const l of [
+            { n: 180,  minR: 1.0, maxR: 2.0, minA: 0.28, maxA: 0.55 },
+            { n: 60,   minR: 1.8, maxR: 3.0, minA: 0.38, maxA: 0.65 },
+            { n: 20,   minR: 2.5, maxR: 4.0, minA: 0.45, maxA: 0.75 },
+        ]) {
+            for (let i = 0; i < l.n; i++) {
+                const x = rng3.realInRange(0, S);
+                const y = rng3.realInRange(0, S);
+                const r = rng3.realInRange(l.minR, l.maxR);
+                const a = rng3.realInRange(l.minA, l.maxA);
+                tmp3.fillStyle(0xffffff, a);
+                const arm = Math.round(r);
+                tmp3.fillRect(Math.floor(x - arm), Math.floor(y), arm * 2 + 1, 1);
+                tmp3.fillRect(Math.floor(x), Math.floor(y - arm), 1, arm * 2 + 1);
+            }
         }
-        this._twinkleAngle = 0;  // current rotation angle in radians, updated in updateSpin
+        rt3.draw(tmp3, 0, 0);
+        tmp3.destroy();
 
-        // Schedule staggered slow twinkles
-        this._twinkleStars.forEach((s) => {
-            const delay   = rng2.integerInRange(0, 12000);
-            const dur     = rng2.integerInRange(2000, 5000);
-            const loAlpha = Math.max(0.03, s.baseAlpha * 0.2);
-            this.time.delayedCall(delay, () => {
-                this.tweens.add({
-                    targets:     s.rt,
-                    alpha:       loAlpha,
-                    duration:    dur,
-                    ease:        'Sine.easeInOut',
-                    yoyo:        true,
-                    repeat:      -1,
-                    repeatDelay: rng2.integerInRange(3000, 9000),
-                });
-            });
-        });
+        // Foreground rotates fastest — 60s per revolution
+        this._fgWheelRt    = rt3;
+        this._fgWheelSpeed = -360 / 60000;
     }
 
     buildConstellations(wSize) {
@@ -1156,6 +1158,7 @@ export class ConstellationScene extends Phaser.Scene {
                 englishText: data.englishText || '',
                 waitingGa: data.waitingGa || '',
                 waitingEn: data.waitingEn || '',
+                cameraOffsetY: data.cameraOffsetY || 0,
                 wcx, wcy, stars, connections, completed: false,
             };
         });
@@ -1165,7 +1168,7 @@ export class ConstellationScene extends Phaser.Scene {
         const c = this.constellations[idx];
         if (!c) return;
         const tx = c.wcx - this.W / 2;
-        const ty = c.wcy - this.H / 2;
+        const ty = c.wcy - this.H / 2 + (c.cameraOffsetY || 0) * this.H;
         if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
         // Arc motion: interpolate from current scroll through a perpendicular
@@ -1192,29 +1195,68 @@ export class ConstellationScene extends Phaser.Scene {
         this.tweens.killTweensOf(cam);
         this.tweens.killTweensOf(prog);
 
-        // Resume wheeling during the pan — speed up dramatically to convey turning to new sky
-        this._setBgWheelPaused(false);
+        // ── Parallax sky shift during pan ────────────────────────────────────
+        // The camera moves (sx,sy) → (tx,ty) in world space.
+        // Background layers are scrollFactor(0) so they don't move at all by default.
+        // To fake parallax we temporarily translate them OPPOSITE to camera travel,
+        // at a fraction of the camera displacement — deeper layers move less.
+        // This makes the sky look like it's turning with you, not sitting still
+        // while constellation stars fly across it.
 
-        // Resume wheeling during the pan at 6× speed to convey turning to new sky
-        this._setBgWheelPaused(false);
-        this._bgWheelsSpeedMult = 6;
+        const camDX = tx - sx;   // total camera travel in world px
+        const camDY = ty - sy;
+
+        // Snapshot starting positions of all layers
+        const bgLayers = [
+            { rt: this._bgWheelRt,    depth: 0.25 },
+            { rt: this._driftWheelRt, depth: 0.45 },
+            { rt: this._fgWheelRt,    depth: 0.65 },
+        ].filter(l => l.rt);
+
+        const startAngles  = bgLayers.map(l => l.rt.angle);
+        const startCamAngle = this.spinAngle || 0;
+
+        // Rotation sweep proportional to pan distance — further pans = bigger sky turn
+        const panDist   = Math.sqrt(camDX * camDX + camDY * camDY);
+        const sweepDeg  = Math.min(panDist * 0.018, 55);
+        const sweepSign = -1;  // always CCW
+
+        // Pause auto-rotation — drive manually during pan
+        this._bgWheelsPaused = true;
+
+        const PAN_MS = 3000;
+        const prog2  = { t: 0 };
+        this.tweens.add({
+            targets:  prog2,
+            t:        1,
+            duration: PAN_MS,
+            ease:     'Cubic.easeInOut',
+            onUpdate: () => {
+                const t = prog2.t;
+                bgLayers.forEach((l, i) => {
+                    l.rt.angle = startAngles[i] + sweepDeg * sweepSign * l.depth * t;
+                });
+                this.spinAngle = startCamAngle * (1 - t);
+                this.cameras.main.setAngle(this.spinAngle);
+            },
+            onComplete: () => {
+                this.spinAngle = 0;
+                this.cameras.main.setAngle(0);
+                this._bgWheelsPaused = false;
+                this._setBgWheelPaused(true);
+            },
+        });
 
         this.tweens.add({
             targets:  prog,
             t:        1,
-            duration: 3000,
-            ease:     'Cubic.easeInOut',   // heavy ease-in, heavy ease-out
+            duration: PAN_MS,
+            ease:     'Cubic.easeInOut',
             onUpdate: () => {
                 const t  = prog.t;
                 const it = 1 - t;
-                // Quadratic Bézier: B(t) = (1-t)²·P0 + 2(1-t)t·Pm + t²·P1
                 cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
                 cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
-            },
-            onComplete: () => {
-                // Pan done — restore normal speed and pause
-                this._bgWheelsSpeedMult = 1;
-                this._setBgWheelPaused(true);
             },
         });
     }
@@ -1282,7 +1324,24 @@ export class ConstellationScene extends Phaser.Scene {
 
     hitR() { return Math.min(this.W, this.H) * 0.09; }
 
+    // Convert a screen-space pointer position to the rotated camera's coordinate space.
+    // trailG is scrollFactor(0) so it renders in the camera's rotated screen space —
+    // pointer.x/y are in unrotated screen space, so we must rotate them to match.
+    screenToRotated(sx, sy) {
+        const cx = this.W / 2, cy = this.H / 2;
+        const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
+        const cos = Math.cos(rad), sin = Math.sin(rad);
+        const dx = sx - cx, dy = sy - cy;
+        return {
+            x: cx + dx * cos + dy * sin,
+            y: cy - dx * sin + dy * cos,
+        };
+    }
+
     onPointerDown(pointer) {
+        // Attempt fullscreen on any game touch — catches cases where moon drag didn't trigger it
+        _requestFullscreen();
+        _unlockAudio();
         if (!this.canInteract) return;
         const c = this.constellations[this.currentIndex];
         if (!c || c.completed) return;
@@ -1294,13 +1353,15 @@ export class ConstellationScene extends Phaser.Scene {
                 this.strokeHits = [star];
                 this.smoothX    = pointer.x;
                 this.smoothY    = pointer.y;
-                this.trailPts   = [{ x: pointer.x, y: pointer.y }];
+                const rp0 = this.screenToRotated(pointer.x, pointer.y);
+                this.trailPts   = [rp0];
                 star.lit        = true;
                 this.tweens.killTweensOf(star);
                 star.brightness = 2.0;
                 this.spawnRipple(star.wx, star.wy);
-                // Sky stills while player draws
+                // Sky and camera still while player draws
                 this._setBgWheelPaused(true);
+                this._frozenSpinAngle = this.spinAngle;
                 break;
             }
         }
@@ -1313,9 +1374,10 @@ export class ConstellationScene extends Phaser.Scene {
         this.smoothY += (pointer.y - this.smoothY) * TRAIL_SMOOTH;
 
         const last = this.trailPts[this.trailPts.length - 1];
-        const dx = this.smoothX - last.x, dy = this.smoothY - last.y;
+        const rp = this.screenToRotated(this.smoothX, this.smoothY);
+        const dx = rp.x - last.x, dy = rp.y - last.y;
         if (dx * dx + dy * dy >= 2) {
-            this.trailPts.push({ x: this.smoothX, y: this.smoothY });
+            this.trailPts.push(rp);
             if (this.trailPts.length > TRAIL_MAX) this.trailPts.shift();
         }
 

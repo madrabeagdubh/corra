@@ -387,6 +387,7 @@ export class ConstellationScene extends Phaser.Scene {
         this._onComplete = this.registry.get('onComplete') || null;
         this._frozenAmerginLine = null;
 
+        // Dark sky background — nebula and stars render over this via ADD blend.
         this.cameras.main.setBackgroundColor('#00060f');
 
         const wSize  = 5000;
@@ -403,10 +404,10 @@ export class ConstellationScene extends Phaser.Scene {
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
 
-        const textSize     = Math.round(Math.min(this.W, this.H) * 0.055);
-        const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.036);
-        const textY        = this.H * 0.80;
-        const subY         = textY + Math.round(Math.min(this.W, this.H) * 0.068);
+        const textSize     = Math.round(Math.min(this.W, this.H) * 0.072);
+        const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.048);
+        const textY        = this.H * 0.15;   // top quarter
+        const subY         = this.H * 0.72;   // bottom third
 
         // Constellation name texts (shown on completion) — Aonchlo gold / Courier green
         this.irishText = this.add
@@ -480,36 +481,40 @@ export class ConstellationScene extends Phaser.Scene {
         overlay.style.cssText = [
             'position:fixed;inset:0;z-index:99999;',
             'pointer-events:none;',
-            'display:flex;flex-direction:column;',
-            'align-items:center;justify-content:center;',
         ].join('');
         this.moonOverlay = overlay;
 
-        // Irish text — Aonchlo, gold, same size as introModal's 1.8rem equivalent
+        // Irish text — Aonchlo, gold — in top quarter of screen
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
         irishEl.style.cssText = [
             'font-family:Aonchlo,serif;',
-            `font-size:${Math.round(Math.min(W, H) * 0.052)}px;`,
+            `font-size:${Math.round(Math.min(W, H) * 0.075)}px;`,
             'color:#d4af37;text-align:center;',
             'text-shadow:0 0 18px rgba(0,0,0,0.9);',
-            'padding:0 1.5rem;margin-bottom:0.6em;',
+            'padding:0 1.5rem;',
             'pointer-events:none;',
             'opacity:1;transition:opacity 0.8s ease-in-out;',
+            'position:absolute;',
+            `top:${Math.round(H * 0.12)}px;`,
+            'left:0;right:0;',
         ].join('');
         this.irishOverlayEl = irishEl;
 
-        // English text — Courier New, green, starts near-invisible
+        // English text — Courier New, green — in bottom third
         const enEl = document.createElement('div');
         enEl.textContent = line.en;
         enEl.style.cssText = [
             'font-family:"Courier New",monospace;',
-            `font-size:${Math.round(Math.min(W, H) * 0.038)}px;`,
+            `font-size:${Math.round(Math.min(W, H) * 0.048)}px;`,
             'color:rgb(0,255,0);text-align:center;',
             'text-shadow:0 0 12px rgba(0,0,0,0.9);',
-            'padding:0 1.5rem;margin-bottom:1.4em;',
+            'padding:0 1.5rem;',
             'pointer-events:none;',
             'opacity:0.05;transition:opacity 0.5s ease;',
+            'position:absolute;',
+            `top:${Math.round(H * 0.68)}px;`,
+            'left:0;right:0;',
         ].join('');
         this.englishEl = enEl;
 
@@ -731,12 +736,8 @@ export class ConstellationScene extends Phaser.Scene {
         const endX   = marginX + phase * trackW - r;
         const endY   = Math.round(H * 0.01);
 
-        // Fade out Irish/English text
-        [this.irishOverlayEl, this.englishEl].forEach(el => {
-            if (el) { el.style.transition = 'opacity 0.6s'; el.style.opacity = '0'; }
-        });
-
-        // Kill the pulsing invite animation so the halo disappears cleanly
+        // Text will fade when the moon actually starts moving (after the delay below)
+        // Kill the pulsing invite animation immediately though
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
@@ -749,21 +750,90 @@ export class ConstellationScene extends Phaser.Scene {
             onUpdate: () => { this.cameras.main.setAngle(this.spinAngle); },
         });
 
-        // Step 2: moon flies to its top-strip position via CSS transition
-        moonEl.style.transition = `left 0.9s cubic-bezier(0.4,0,0.2,1), top 1.2s cubic-bezier(0.4,0,0.2,1)`;
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            moonEl.style.left = endX + 'px';
-            moonEl.style.top  = endY + 'px';
-        }));
+        // Step 2: moon flies to top with dreamlike afterimage trail
+        // We create ghost copies that fade in/out along the path
+        const startLeft = parseFloat(moonEl.style.left) || (parseFloat(moonEl.style.left) || 0);
+        const startTop  = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
-        // Step 3: pan camera downward — gives the illusion the sky pans into view
-        // We pan FROM current scroll PLUS an upward offset DOWN to the real target,
-        // so the net effect is the stars appear below the moon as it rises.
+        const NUM_GHOSTS = 6;
+        const ghosts = [];
+        for (let i = 0; i < NUM_GHOSTS; i++) {
+            const ghost = moonEl.cloneNode(true);
+            ghost.style.pointerEvents = 'none';
+            ghost.style.animation     = 'none';
+            ghost.style.cursor        = 'default';
+            // Start at same position as moon
+            ghost.style.left     = moonEl.style.left;
+            ghost.style.top      = moonEl.style.top;
+            ghost.style.opacity  = '0';
+            ghost.style.filter   = 'blur(1px)';
+            ghost.style.transition = '';
+            document.body.appendChild(ghost);
+            ghosts.push(ghost);
+        }
+
+        // Animate moon and ghosts — 2s pause first so user can read the text
+        const MOVE_DURATION = 3500; // ms — slow, dreamy float upward
+        const MOVE_DELAY    = 2000; // ms — wait before starting
+        const moveStart = performance.now() + MOVE_DELAY;
+        const fromLeft  = parseFloat(moonEl.style.left) || 0;
+        const fromTop   = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
+
+        let _textFaded = false;
+        const animateMoonTrail = (now) => {
+            // Sit still until delay has elapsed
+            if (now < moveStart) { requestAnimationFrame(animateMoonTrail); return; }
+            // Fade text out exactly as moon begins to move
+            if (!_textFaded) {
+                _textFaded = true;
+                [this.irishOverlayEl, this.englishEl].forEach(el => {
+                    if (el) { el.style.transition = 'opacity 1.2s'; el.style.opacity = '0'; }
+                });
+            }
+            const elapsed = now - moveStart;
+            const rawT    = Math.min(elapsed / MOVE_DURATION, 1);
+            // ease out quad — starts moving confidently, glides to a stop
+            const t = 1 - (1 - rawT) * (1 - rawT);
+
+            const curLeft = fromLeft + (endX - fromLeft) * t;
+            const curTop  = fromTop  + (endY - fromTop)  * t;
+            moonEl.style.left = curLeft + 'px';
+            moonEl.style.top  = curTop  + 'px';
+
+            // Each ghost trails behind at a fractional t
+            ghosts.forEach((ghost, i) => {
+                const lag  = (i + 1) / (NUM_GHOSTS + 1) * 0.55; // how far behind
+                const gt   = Math.max(0, rawT - lag);
+                const ease = gt < 0.5 ? 4 * gt * gt * gt : 1 - Math.pow(-2 * gt + 2, 3) / 2;
+                const gLeft = fromLeft + (endX - fromLeft) * ease;
+                const gTop  = fromTop  + (endY - fromTop)  * ease;
+                ghost.style.left = gLeft + 'px';
+                ghost.style.top  = gTop  + 'px';
+                // fade: appear during transit, vanish near end
+                const fadeIn  = Math.min(gt * 4, 1);
+                const fadeOut = Math.max(0, 1 - (rawT - 0.5) * 2);
+                ghost.style.opacity = String(fadeIn * fadeOut * (0.5 - i * 0.07));
+            });
+
+            if (rawT < 1) {
+                requestAnimationFrame(animateMoonTrail);
+            } else {
+                // rAF complete — moon is exactly at endX/endY with no jump
+                moonEl.style.left = endX + 'px';
+                moonEl.style.top  = endY + 'px';
+                ghosts.forEach(g => g.remove());
+
+                // Now safe to start long drift without any position conflict
+                this._startPostSettleSequence(moonEl, endX, endY, W, H);
+            }
+        };
+        requestAnimationFrame(animateMoonTrail);
+
+        // Step 3: pan camera into first constellation while moon is floating up
         const cam        = this.cameras.main;
         const targetScrollX = this.constellations[0].wcx - this.W / 2;
         const targetScrollY = this.constellations[0].wcy - this.H / 2;
         const panProg    = { t: 0 };
-        // Start the camera a screenful above the target so it pans down into it
         cam.setScroll(targetScrollX, targetScrollY - H * 0.38);
         this.tweens.add({
             targets:  panProg,
@@ -777,29 +847,6 @@ export class ConstellationScene extends Phaser.Scene {
                 cam.setScroll(targetScrollX, targetScrollY);
             },
         });
-
-        // Step 4: after everything settles, remove overlay, fade in stars, activate
-        setTimeout(() => {
-            [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
-            // Remove the overlay container itself — text children are gone, moon is now fixed
-            if (this.moonOverlay) {
-                this.moonOverlay.remove();
-                this.moonOverlay = null;
-            }
-            moonEl.style.transition = '';
-
-            // Fade in the world graphics (stars)
-            this.tweens.add({
-                targets:  this.worldG,
-                alpha:    1,
-                duration: 1200,
-                ease:     'Sine.easeIn',
-                onComplete: () => {
-                    this.canInteract = true;
-                    this.startSequencePulse();
-                },
-            });
-        }, 1600);
 
         // Re-wire drag for settled moon along top strip
         let dragging     = false;
@@ -853,29 +900,35 @@ export class ConstellationScene extends Phaser.Scene {
         // We use a plain Graphics soft-glow fallback if the image isn't ready,
         // then swap in the image once loaded.
 
-        const S   = Math.max(this.W, this.H) * 2.4;  // large enough to cover any pan
-        const rt  = this.add.renderTexture(wSize / 2 - S / 2, wSize / 2 - S / 2, S, S)
-                        .setScrollFactor(0.012).setDepth(-1).setAlpha(0.38);
+        // Nebula fixed to screen centre, large enough to cover at any rotation
+        const S   = Math.round(Math.max(this.W, this.H) * 1.5);
+        const rt  = this.add.renderTexture(0, 0, S, S)
+                        .setScrollFactor(0).setDepth(0).setAlpha(1)
+                        .setOrigin(0.5).setPosition(this.W / 2, this.H / 2)
+                        .setBlendMode(Phaser.BlendModes.ADD);
 
         const paintNebula = (img) => {
             rt.clear();
-            const g = this.make.graphics({ add: false });
-            // Dark base
-            g.fillStyle(0x00060f, 1);
-            g.fillRect(0, 0, S, S);
-            rt.draw(g, 0, 0);
-            g.destroy();
-
             if (img) {
-                // Draw nebula image centred, covering the RT, slightly rotated
-                rt.draw(img, S / 2 - img.width / 2, S / 2 - img.height / 2);
+                // Scale image to fill RT
+                const scaleX = S / img.width;
+                const scaleY = S / img.height;
+                const scale  = Math.max(scaleX, scaleY);
+                const dw = img.width * scale, dh = img.height * scale;
+                rt.draw(img, (S - dw) / 2, (S - dh) / 2);
             } else {
-                // Soft radial glow fallback
+                // Visible glow fallback — brighter so it's actually seen
                 const fg = this.make.graphics({ add: false });
-                const positions = [[0.3,0.4],[0.7,0.3],[0.5,0.7],[0.2,0.7],[0.8,0.6]];
-                for (const [px, py] of positions) {
-                    fg.fillGradientStyle(0x1a0a3a, 0x0a1a3a, 0x000820, 0x000820, 0.18, 0.14, 0, 0);
-                    fg.fillCircle(S * px, S * py, S * 0.22);
+                const glows = [
+                    { x:0.35, y:0.38, r:0.32, c1:0x2a1060, c2:0x0a1840 },
+                    { x:0.65, y:0.28, r:0.28, c1:0x1a0850, c2:0x080d30 },
+                    { x:0.50, y:0.65, r:0.35, c1:0x0d1850, c2:0x050a25 },
+                    { x:0.22, y:0.68, r:0.25, c1:0x200840, c2:0x080820 },
+                    { x:0.78, y:0.58, r:0.30, c1:0x180a48, c2:0x060a20 },
+                ];
+                for (const g of glows) {
+                    fg.fillGradientStyle(g.c1, g.c1, g.c2, g.c2, 0.55, 0.55, 0, 0);
+                    fg.fillCircle(S * g.x, S * g.y, S * g.r);
                 }
                 rt.draw(fg, 0, 0);
                 fg.destroy();
@@ -894,23 +947,27 @@ export class ConstellationScene extends Phaser.Scene {
             paintNebula(null);  // paint glow fallback immediately
         }
 
-        // Very slow rotation tween to match the HTML starfield's nebula drift
-        this.tweens.add({
+        // Nebula rotates slowest of all — 5 minutes per rotation
+        this._nebulaWheelTween = this.tweens.add({
             targets:  rt,
             angle:    360,
-            duration: 600000,   // one full rotation in 10 minutes
+            duration: 300000,
             repeat:   -1,
             ease:     'Linear',
         });
     }
 
     drawStaticBackground(wSize) {
-        // Use the larger dimension so RT covers full screen in any orientation
         const W = this.W;
         const H = this.H;
-        const S = Math.max(W, H);   // square — covers portrait AND landscape
+        // Must be large enough to cover screen at all rotation angles.
+        // At 45° a square of side S has diagonal S√2 — so use 1.5× for safety.
+        const S = Math.round(Math.max(W, H) * 1.5);
 
-        const rt  = this.add.renderTexture(0, 0, S, S).setScrollFactor(0.03).setDepth(0);
+        const rt  = this.add.renderTexture(0, 0, S, S)
+            .setScrollFactor(0).setDepth(3).setOrigin(0.5)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setPosition(W / 2, H / 2);
         const tmp = this.make.graphics({ add: false });
         const rng = new Phaser.Math.RandomDataGenerator(['oíche2025']);
 
@@ -947,81 +1004,105 @@ export class ConstellationScene extends Phaser.Scene {
         rt.draw(tmp, 0, 0);
         tmp.destroy();
 
-        // Drifting mid-field layer — now DENSER, with occasional twinkling
+        // Far-field layer — slow wheel, 3 minutes per rotation
+        this._bgWheelRt = rt;
+        this._bgWheelTween = this.tweens.add({
+            targets:  rt,
+            angle:    360,
+            duration: 180000,
+            repeat:   -1,
+            ease:     'Linear',
+        });
+
+        // Mid-field layer — denser, slightly faster wheel, opposite direction.
+        // Built as a RenderTexture centred on screen so rotation pivots correctly.
         const rng2 = new Phaser.Math.RandomDataGenerator(['réaltaí2']);
-        const span = wSize * 0.18;
+        const rt2  = this.add.renderTexture(0, 0, S, S)
+            .setScrollFactor(0).setDepth(4).setOrigin(0.5)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setPosition(W / 2, H / 2);
 
-        // Collect star data so we can tween some of them
-        this._twinkleStars = [];
+        const tmp2 = this.make.graphics({ add: false });
 
-        // Build layer as individual Image objects so we can tween alpha per-star.
-        // For performance, most are drawn into a graphics object; only a random
-        // subset (~12%) are promoted to twinkle candidates.
-        const g2 = this.add.graphics().setDepth(1).setScrollFactor(0.10);
-
-        const starDefs = [
-            { n: 1600, minR: 0.6, maxR: 1.1, minA: 0.15, maxA: 0.38 },
-            { n: 500,  minR: 1.0, maxR: 1.6, minA: 0.22, maxA: 0.50 },
-            { n: 120,  minR: 1.4, maxR: 2.2, minA: 0.28, maxA: 0.58 },
-        ];
-
-        const drawStarDrift = (g, x, y, r, a) => {
-            g.fillStyle(0xffffff, a);
+        const drawStarDrift = (x, y, r, a) => {
+            tmp2.fillStyle(0xffffff, a);
             if (r < 1.2) {
-                g.fillRect(Math.floor(x), Math.floor(y), 2, 2);
+                tmp2.fillRect(Math.floor(x), Math.floor(y), 2, 2);
             } else {
                 const arm = Math.round(r);
-                g.fillRect(Math.floor(x - arm), Math.floor(y), arm * 2 + 1, 1);
-                g.fillRect(Math.floor(x), Math.floor(y - arm), 1, arm * 2 + 1);
+                tmp2.fillRect(Math.floor(x - arm), Math.floor(y), arm * 2 + 1, 1);
+                tmp2.fillRect(Math.floor(x), Math.floor(y - arm), 1, arm * 2 + 1);
             }
         };
 
+        const starDefs = [
+            { n: 1800, minR: 0.6, maxR: 1.1, minA: 0.15, maxA: 0.38 },
+            { n: 600,  minR: 1.0, maxR: 1.6, minA: 0.22, maxA: 0.50 },
+            { n: 150,  minR: 1.4, maxR: 2.2, minA: 0.28, maxA: 0.58 },
+        ];
+
+        // Distribute stars across the full RT area (centred, so from -S/2 to S/2 in local space)
+        // but draw into the RT's local coords [0..S]
         for (const l of starDefs) {
             for (let i = 0; i < l.n; i++) {
-                const x = rng2.realInRange(0, span);
-                const y = rng2.realInRange(0, span);
-                const r = rng2.realInRange(l.minR, l.maxR);
-                const a = rng2.realInRange(l.minA, l.maxA);
-
-                // ~12% of drifting stars become twinkle candidates
-                if (rng2.realInRange(0, 1) < 0.12) {
-                    // Draw as a tiny RenderTexture so we can tween its alpha
-                    const size = r < 1.2 ? 3 : Math.round(r) * 2 + 3;
-                    const trt  = this.add.renderTexture(x, y, size, size)
-                        .setScrollFactor(0.10).setDepth(1).setOrigin(0, 0);
-                    const tg   = this.make.graphics({ add: false });
-                    tg.fillStyle(0xffffff, 1);
-                    if (r < 1.2) {
-                        tg.fillRect(0, 0, 2, 2);
-                    } else {
-                        const arm = Math.round(r);
-                        const cx  = Math.floor(size / 2);
-                        tg.fillRect(cx - arm, cx, arm * 2 + 1, 1);
-                        tg.fillRect(cx, cx - arm, 1, arm * 2 + 1);
-                    }
-                    trt.draw(tg, 0, 0);
-                    tg.destroy();
-                    trt.setAlpha(a);
-                    this._twinkleStars.push({ rt: trt, baseAlpha: a });
-                } else {
-                    drawStarDrift(g2, x, y, r, a);
-                }
+                drawStarDrift(
+                    rng2.realInRange(0, S),
+                    rng2.realInRange(0, S),
+                    rng2.realInRange(l.minR, l.maxR),
+                    rng2.realInRange(l.minA, l.maxA)
+                );
             }
+        }
+        rt2.draw(tmp2, 0, 0);
+        tmp2.destroy();
+
+        // Mid-field counter-wheels — 2 minutes per rotation, opposite direction
+        this._driftWheelRt = rt2;
+        this._driftWheelTween = this.tweens.add({
+            targets:  rt2,
+            angle:    -360,
+            duration: 120000,
+            repeat:   -1,
+            ease:     'Linear',
+        });
+
+        // A sparse set of twinkle stars drawn as individual tiny RTs on top
+        this._twinkleStars = [];
+        const numTwinkle = 200;
+        for (let i = 0; i < numTwinkle; i++) {
+            const r    = rng2.realInRange(0.8, 2.2);
+            const a    = rng2.realInRange(0.18, 0.55);
+            const size = Math.round(r) * 2 + 3;
+            // Position twinkle stars in screen space too
+            const tx = rng2.realInRange(0, W);
+            const ty = rng2.realInRange(0, H);
+            const trt = this.add.renderTexture(tx, ty, size, size)
+                .setScrollFactor(0).setDepth(2).setOrigin(0.5, 0.5);
+            const tg = this.make.graphics({ add: false });
+            tg.fillStyle(0xffffff, 1);
+            const arm = Math.round(r);
+            const cx  = Math.floor(size / 2);
+            tg.fillRect(cx - arm, cx, arm * 2 + 1, 1);
+            tg.fillRect(cx, cx - arm, 1, arm * 2 + 1);
+            trt.draw(tg, 0, 0);
+            tg.destroy();
+            trt.setAlpha(a);
+            this._twinkleStars.push({ rt: trt, baseAlpha: a });
         }
 
         // Schedule staggered slow twinkles
-        this._twinkleStars.forEach((s, idx) => {
-            const delay  = rng2.integerInRange(0, 12000);
-            const dur    = rng2.integerInRange(1800, 4500);
-            const loAlpha = Math.max(0.03, s.baseAlpha * 0.25);
+        this._twinkleStars.forEach((s) => {
+            const delay   = rng2.integerInRange(0, 12000);
+            const dur     = rng2.integerInRange(2000, 5000);
+            const loAlpha = Math.max(0.03, s.baseAlpha * 0.2);
             this.time.delayedCall(delay, () => {
                 this.tweens.add({
-                    targets:  s.rt,
-                    alpha:    loAlpha,
-                    duration: dur,
-                    ease:     'Sine.easeInOut',
-                    yoyo:     true,
-                    repeat:   -1,
+                    targets:     s.rt,
+                    alpha:       loAlpha,
+                    duration:    dur,
+                    ease:        'Sine.easeInOut',
+                    yoyo:        true,
+                    repeat:      -1,
                     repeatDelay: rng2.integerInRange(3000, 9000),
                 });
             });
@@ -1099,6 +1180,9 @@ export class ConstellationScene extends Phaser.Scene {
         this.tweens.killTweensOf(cam);
         this.tweens.killTweensOf(prog);
 
+        // Resume wheeling during the pan — gives parallax sweep feel
+        this._setBgWheelPaused(false);
+
         this.tweens.add({
             targets:  prog,
             t:        1,
@@ -1110,6 +1194,10 @@ export class ConstellationScene extends Phaser.Scene {
                 // Quadratic Bézier: B(t) = (1-t)²·P0 + 2(1-t)t·Pm + t²·P1
                 cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
                 cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
+            },
+            onComplete: () => {
+                // Pan done — stars come to rest, ready for player
+                this._setBgWheelPaused(true);
             },
         });
     }
@@ -1133,6 +1221,10 @@ export class ConstellationScene extends Phaser.Scene {
     startSequencePulse() {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer = null; }
         this.pulseIdx = 0;
+        // Mark that player has taken control — from now on wheels pause while working
+        this._interactionStarted = true;
+        // Stars still while player works, wheel during pans
+        this._setBgWheelPaused(true);
 
         // Show waiting texts for the current constellation
         const c = this.constellations[this.currentIndex];
@@ -1221,6 +1313,16 @@ export class ConstellationScene extends Phaser.Scene {
                 this.tweens.killTweensOf(star);
                 star.brightness = 2.0;
                 this.spawnRipple(star.wx, star.wy);
+                // Play a note immediately if this forms a valid pending connection
+                if (this.strokeHits.length >= 2) {
+                    const prev = this.strokeHits[this.strokeHits.length - 2];
+                    const a = prev.index, b = star.index;
+                    const pendingConn = c.connections.find(
+                        cn => !cn.completed &&
+                              ((cn.from === a && cn.to === b) || (cn.from === b && cn.to === a))
+                    );
+                    if (pendingConn) this.playStarNote();
+                }
             }
         }
     }
@@ -1260,6 +1362,10 @@ export class ConstellationScene extends Phaser.Scene {
             if (conn) {
                 conn.completed = true;
                 anyMatched = true;
+                // Note already played in onPointerMove for multi-star gestures.
+                // For single-step connections (pointerDown→pointerUp on same star),
+                // we need to play here since onPointerMove never fired.
+                if (this.strokeHits.length <= 2) this.playStarNote();
             }
         }
 
@@ -1354,7 +1460,227 @@ export class ConstellationScene extends Phaser.Scene {
         try {
             const AC = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AC();
+
+            // Master gain for all constellation sounds
+            this._sfxGain = this.audioContext.createGain();
+            this._sfxGain.gain.value = 0.28;
+            this._sfxGain.connect(this.audioContext.destination);
+
+            // ── My Lagan Love (Cmaj) — pre-parsed note frequencies ────────────────
+            // Parsed from ABC: K:Cmaj, L:1/8. Uppercase=C4 oct, lower=C5 oct.
+            // B, = B3 (below middle C). _B = Bb, _e = Eb.
+            this._starNotes = [
+                392.00, 440.01, 493.89, 523.26, 392.00, 349.23, 329.63,  // G A B c G F E
+                261.63, 246.95, 261.63, 329.63, 349.23, 329.63,           // C B, C E F E
+                261.63, 261.63, 261.63, 261.63,                            // C C C C
+                392.00, 440.01, 466.17, 440.01, 493.89, 523.26,           // G A _B A B c
+                392.00, 349.23, 329.63, 261.63, 246.95, 261.63,           // G F E C B, C
+                329.63, 349.23, 329.63, 261.63, 261.63, 261.63, 261.63,   // E F E C C C C
+                329.63, 349.23, 440.01, 392.00, 392.00, 349.23, 329.63,   // E F A G G F E
+                349.23, 440.01, 493.89, 523.26, 349.23, 440.01, 392.00,   // F A B c F A G
+                440.01, 493.89, 523.26, 622.26, 523.26, 493.89,           // A B c _e c B
+                523.26, 392.00, 349.23, 329.63, 261.63, 246.95, 261.63,   // c G F E C B, C
+                329.63, 349.23, 329.63, 261.63, 261.63, 261.63,           // E F E C C C
+            ];
+
+            this._noteIndex = 0;  // steps forward on each successful star connection
+
         } catch (e) { console.warn('[audio]', e); }
+    }
+
+    // Queue a note — plays at tune tempo regardless of gesture speed
+    playStarNote() {
+        const ac = this.audioContext;
+        if (!ac || !this._sfxGain) return;
+        try {
+            if (ac.state === 'suspended') { ac.resume(); }
+            // Get the next note frequency from the tune
+            const freq = this._starNotes[this._noteIndex % this._starNotes.length];
+            this._noteIndex++;
+            // Schedule it at the next available slot in the note queue
+            this._scheduleNote(freq);
+        } catch (e) { console.warn('[audio] playStarNote:', e); }
+    }
+
+    // Schedule a note at the next available beat slot — never drops, never rushes
+    _scheduleNote(freq) {
+        const ac = this.audioContext;
+        if (!ac) return;
+        const NOTE_INTERVAL = 0.32; // seconds per note (~half-note at 90bpm — dignified)
+        const now = ac.currentTime;
+        // Next available slot: either now, or after the last scheduled note
+        if (!this._nextNoteTime || this._nextNoteTime < now) {
+            this._nextNoteTime = now + 0.04; // tiny lead to avoid scheduling in past
+        }
+        const startAt = this._nextNoteTime;
+        this._nextNoteTime += NOTE_INTERVAL;
+
+        // Harp pluck: triangle core + faint sawtooth shimmer
+        const gain = ac.createGain();
+        gain.connect(this._sfxGain);
+
+        const osc1 = ac.createOscillator();
+        osc1.type = 'triangle';
+        osc1.frequency.value = freq;
+        osc1.connect(gain);
+
+        const osc2 = ac.createOscillator();
+        osc2.type = 'sawtooth';
+        osc2.frequency.value = freq * 2.001;
+        const osc2g = ac.createGain();
+        osc2g.gain.value = 0.06;
+        osc2.connect(osc2g);
+        osc2g.connect(gain);
+
+        gain.gain.setValueAtTime(0, startAt);
+        gain.gain.linearRampToValueAtTime(0.85, startAt + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startAt + 1.8);
+
+        osc1.start(startAt); osc1.stop(startAt + 1.9);
+        osc2.start(startAt); osc2.stop(startAt + 1.9);
+    }
+
+    // Strum a resonant chord when a constellation is fully connected,
+    // preceded by the remaining notes of the current musical phrase.
+    playCompletionChord() {
+        const ac = this.audioContext;
+        if (!ac || !this._sfxGain) return;
+        try {
+            if (ac.state === 'suspended') { ac.resume(); }
+
+            // ── First: complete the current phrase (fill to next multiple of 8) ─
+            const PHRASE = 8;
+            const notesRemaining = (PHRASE - (this._noteIndex % PHRASE)) % PHRASE;
+            for (let i = 0; i < notesRemaining; i++) {
+                const freq = this._starNotes[this._noteIndex % this._starNotes.length];
+                this._noteIndex++;
+                this._scheduleNote(freq);
+            }
+            // Chord starts after the phrase finishes
+            const phraseEndTime = this._nextNoteTime || 0;
+
+            const now = ac.currentTime;
+            const chordAt = Math.max(now + 0.1, phraseEndTime);
+
+            // E minor pentatonic chord: E2 B2 E3 G#3 B3 E4 (harp strum, low to high)
+            const chordFreqs = [
+                82.41,  // E2
+                123.47, // B2
+                164.81, // E3
+                207.65, // G#3
+                246.94, // B3
+                329.63, // E4
+                415.30, // G#4
+                493.88, // B4
+            ];
+
+            const masterGain = ac.createGain();
+            masterGain.connect(this._sfxGain);
+            masterGain.gain.setValueAtTime(0.55, chordAt);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, chordAt + 5.5);
+
+            // Add a touch of reverb-like delay for resonance
+            const delay = ac.createDelay(0.5);
+            delay.delayTime.value = 0.22;
+            const delayGain = ac.createGain();
+            delayGain.gain.value = 0.25;
+            masterGain.connect(delay);
+            delay.connect(delayGain);
+            delayGain.connect(masterGain);
+
+            chordFreqs.forEach((freq, i) => {
+                const stagger = i * 0.055;
+                const g = ac.createGain();
+                g.connect(masterGain);
+
+                const osc = ac.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                osc.connect(g);
+
+                const osc2 = ac.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.value = freq * 2;
+                const g2 = ac.createGain();
+                g2.gain.value = 0.18;
+                osc2.connect(g2);
+                g2.connect(g);
+
+                const start = chordAt + stagger;
+                g.gain.setValueAtTime(0, start);
+                g.gain.linearRampToValueAtTime(1.0, start + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.001, start + 4.5);
+
+                osc.start(start);  osc.stop(start + 4.6);
+                osc2.start(start); osc2.stop(start + 4.6);
+            });
+
+            // Advance index to start of next phrase for the next constellation
+            this._noteIndex = Math.ceil(this._noteIndex / PHRASE) * PHRASE;
+            this._nextNoteTime = null; // reset queue after chord
+
+        } catch (e) { console.warn('[audio] playCompletionChord:', e); }
+    }
+
+    _startPostSettleSequence(moonEl, endX, endY, W, H) {
+        // Called once the moon rAF animation completes — no jumping possible
+        [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
+        if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
+
+        // ── Very slow moon drift upward over the whole scene ─────────────────
+        // We animate via rAF so it stays perfectly in sync, no CSS jump-to-from.
+        const DRIFT_MS    = 480000;  // 8 minutes
+        const moonDriftPx = Math.round(H * 0.06);  // drifts up ~6% of screen height
+        const driftStart  = performance.now();
+        const driftFromY  = endY;
+        const driftToY    = Math.max(0, endY - moonDriftPx);
+
+        const driftLoop = (now) => {
+            if (!this.moonEl) return;  // scene shut down
+            const t = Math.min((now - driftStart) / DRIFT_MS, 1);
+            this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
+            if (t < 1) requestAnimationFrame(driftLoop);
+        };
+        requestAnimationFrame(driftLoop);
+
+        // ── Camera drifts slowly downward — the sky is revealing itself below ─
+        const camDriftProg = { t: 0 };
+        const camDriftRange = H * 0.14;
+        this._moonDriftTween = this.tweens.add({
+            targets:  camDriftProg,
+            t:        1,
+            duration: DRIFT_MS,
+            ease:     'Linear',
+            onUpdate: () => {
+                if (!this.canInteract) return;
+                const base = this.constellations[this.currentIndex]
+                    ? this.constellations[this.currentIndex].wcy - this.H / 2
+                    : this.constellations[0].wcy - this.H / 2;
+                this.cameras.main.scrollY = base + camDriftProg.t * camDriftRange;
+            },
+        });
+
+        // Fade in the world graphics (stars)
+        this.tweens.add({
+            targets:  this.worldG,
+            alpha:    1,
+            duration: 1200,
+            ease:     'Sine.easeIn',
+            onComplete: () => {
+                this.canInteract = true;
+                this.startSequencePulse();
+            },
+        });
+    }
+
+    _setBgWheelPaused(paused) {
+        // Pause = still sky while player works; resume = sky wheels during pan.
+        // Before first interaction the sky always wheels freely.
+        if (paused && !this._interactionStarted) return;
+        for (const tw of [this._nebulaWheelTween, this._bgWheelTween, this._driftWheelTween]) {
+            if (!tw) continue;
+            if (paused) tw.pause(); else tw.resume();
+        }
     }
 
     spawnRipple(wx, wy) {

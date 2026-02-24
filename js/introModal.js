@@ -306,25 +306,26 @@ const CONSTELLATION_DATA = [
     },
 
     // ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
-    {
-        id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
-        waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
-        waitingEn: 'He carries the darkest sword in the sky',
-        cameraOffsetY: -0.18,  // shift view upward so foot star stays on screen
-        starOffsets: [
-            { lx:   0.78, ly:  -1.10 },  // 0 Gamma Per — head
-            { lx:   0.21, ly:  -0.68 },  // 1 Mirfak — shoulder (brightest)
-            { lx:  -0.33, ly:  -0.44 },  // 2 Delta Per — body upper
-            { lx:   0.71, ly:   0.35 },  // 3 Algol — raised sword arm (demon star)
-            { lx:  -0.74, ly:   0.46 },  // 4 Epsilon Per — body lower
-            { lx:  -0.64, ly:   1.40 },  // 5 Zeta Per — foot
-        ],
-        connections: [
-            { from: 0, to: 1 }, { from: 1, to: 2 },
-            { from: 1, to: 3 },
-            { from: 2, to: 4 }, { from: 4, to: 5 },
-        ],
-    },
+// ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
+{
+    id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
+    waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
+    waitingEn: 'He carries the darkest sword in the sky',
+    starOffsets: [
+        { lx:   0.78, ly:  -1.45 },  // 0 Gamma Per — head
+        { lx:   0.21, ly:  -1.03 },  // 1 Mirfak — shoulder (brightest)
+        { lx:  -0.33, ly:  -0.79 },  // 2 Delta Per — body upper
+        { lx:   0.71, ly:   0.00 },  // 3 Algol — raised sword arm (demon star)
+        { lx:  -0.74, ly:   0.11 },  // 4 Epsilon Per — body lower
+        { lx:  -0.64, ly:   1.05 },  // 5 Zeta Per — foot
+    ],
+    connections: [
+        { from: 0, to: 1 }, { from: 1, to: 2 },
+        { from: 1, to: 3 },
+        { from: 2, to: 4 }, { from: 4, to: 5 },
+    ],
+},   
+
 ];
 
 const SPIRAL_A    = 550;
@@ -1127,8 +1128,9 @@ export class ConstellationScene extends Phaser.Scene {
         const usable = Math.min(this.W, this.H) * 0.68;
         this.constellations = CONSTELLATION_DATA.map((data, idx) => {
             const theta = SPIRAL_B + idx * SPIRAL_STEP;
-            const r     = SPIRAL_A * (1 + idx * 0.4);
-            const wcx   = this.worldCX + Math.cos(theta) * r;
+            
+const r = SPIRAL_A * (1 + idx * 0.25);
+const wcx   = this.worldCX + Math.cos(theta) * r;
             const wcy   = this.worldCY + Math.sin(theta) * r;
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

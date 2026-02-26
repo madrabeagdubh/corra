@@ -364,7 +364,6 @@ const AMERGIN_LINES = [
     { ga: 'Cá dú dul faoi na gréine?',              en: 'Who knows where the sun rests?' },
     { ga: 'Cé beir buar ó thigh Teathra?',          en: 'Who can raid the house of Teathra?' },
     { ga: 'Cé buar Teathra le gean?',               en: 'Who can charm the sunless king?' },
-    { ga: 'Cé daon? Cé dia, dealbhóir arm faobhrach?', en: 'What people? What god sculpts keen weapons?' },
 ];
 
 export class ConstellationScene extends Phaser.Scene {
@@ -552,7 +551,7 @@ irishEl.style.cssText = [
     'pointer-events:none;',
     'opacity:1;transition:opacity 0.8s ease-in-out;',
     'position:absolute;',
-    `top:${Math.round(H * 0.68)}px;`, // Moved from 0.12 to 0.68
+    `top:${Math.round(H * 0.45)}px;`, // Moved from 0.12 to 0.68
     'left:0;right:0;',
 ].join('');
 this.irishOverlayEl = irishEl;
@@ -774,7 +773,7 @@ this.englishEl = enEl;
             const ac = this.audioContext;
             const doStart = () => this._startDrone();
             if (ac && ac.state === 'suspended') {
-                ac.resume().then(doStart);
+                ac.resume();
             } else {
                 doStart();
             }
@@ -1586,7 +1585,7 @@ this.englishEl = enEl;
     async _startDrone() {
         this._initAudioContext();
         await this._startHarpSilent();
-        await this._startDronePlayer();
+       // await this._startDronePlayer();
     }
 
     // Load and play harp fresh inside the gesture callstack.

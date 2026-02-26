@@ -14,7 +14,7 @@ const ENSEMBLE_PRESETS = {
     slide:     [46, 0, 105],
     barndance: [46, 0, 105],
 
-air: [46, 46, 94], // Harp 1, Harp 2, and a tiny bit of Halo Pad
+air: [46, 0, 94], // Harp 1, Harp 2, and a tiny bit of Halo Pad
 
 drone:     [92, 94],
     defaultPreset: [46, 0, 105],

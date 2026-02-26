@@ -14,9 +14,6 @@ const ENSEMBLE_PRESETS = {
     slide:     [46, 0, 105],
     barndance: [46, 0, 105],
     air:       [46, 0, 105],
-    // Drone: two sustaining pad patches only — no harp/piano/banjo.
-    // Patch 92 = Pad 5 (Bowed), Patch 94 = Pad 7 (Halo).
-    // These are GM pads designed to sustain indefinitely — ideal for ambient drone.
     drone:     [92, 94],
     defaultPreset: [46, 0, 105],
 };
@@ -41,16 +38,12 @@ const TEMPO_SETTINGS = {
     slide:     1000,
     barndance: 1200,
     air:       1500,
-    // Drone: very slow — 8000ms/measure means whole notes last ~8s each
     drone:     8000,
     defaultTempo: 1300,
 };
 
 export class TradSessionPlayer {
     constructor() {
-        // AudioContext is NOT created here — deferred until play() or loadTune()
-        // so it always happens inside a user gesture callstack, satisfying
-        // iOS/mobile autoplay policy and preventing DOMException on resume().
         this.audioContext = null;
         this.engine       = null;
         this.tracks       = [];
@@ -64,7 +57,6 @@ export class TradSessionPlayer {
         document.body.appendChild(this.stage);
     }
 
-    // ── Lazily create AudioContext + MusicEngine on first use ────────────────
     _ensureAudioContext() {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -74,9 +66,6 @@ export class TradSessionPlayer {
 
     async loadTune(tuneKey, preservePlayback = false) {
         console.log(`[TradSessionPlayer] Loading tune: ${tuneKey}`);
-
-        // Create context here so soundfont fetches use it — but it may still
-        // be suspended until play() is called inside a gesture.
         this._ensureAudioContext();
 
         try {
@@ -85,16 +74,11 @@ export class TradSessionPlayer {
             }
 
             const tuneData = allTunes[tuneKey];
-            if (!tuneData) {
-                throw new Error(`Tune "${tuneKey}" not found`);
-            }
+            if (!tuneData) throw new Error(`Tune "${tuneKey}" not found`);
 
             const baseMusic = typeof tuneData === 'string' ? tuneData : tuneData.abc;
-            if (!baseMusic) {
-                throw new Error(`Tune has no ABC notation`);
-            }
+            if (!baseMusic) throw new Error(`Tune has no ABC notation`);
 
-            // Extract tune type
             let tuneType = 'reel';
             const rhythmMatch = baseMusic.match(/^R:\s*(.+)$/m);
             if (rhythmMatch && rhythmMatch[1]) {
@@ -130,7 +114,6 @@ export class TradSessionPlayer {
                     for (const soundFontUrl of soundFontUrls) {
                         try {
                             synth = new abcjs.synth.CreateSynth();
-
                             const visualObj = abcjs.parseOnly(instrumentABC)[0];
 
                             if (!visualObj || !visualObj.lines || visualObj.lines.length === 0) {
@@ -139,18 +122,15 @@ export class TradSessionPlayer {
 
                             await synth.init({
                                 audioContext: this.audioContext,
-                                visualObj:    visualObj,
+                                visualObj,
                                 millisecondsPerMeasure: tempoMs,
-                                options: {
-                                    soundFontUrl: soundFontUrl,
-                                    program:      patchId,
-                                },
+                                options: { soundFontUrl, program: patchId },
                             });
 
                             initSuccess = true;
                             break;
                         } catch (error) {
-                            console.warn(`[Track ${index}] Failed with ${soundFontUrl}`);
+                            console.warn(`[Track ${index}] Failed with ${soundFontUrl}:`, error.message);
                         }
                     }
 
@@ -158,16 +138,12 @@ export class TradSessionPlayer {
                         throw new Error(`Failed to init synth for ${PATCH_NAMES[patchId] || patchId}`);
                     }
 
-console.log('[audio] context state at play():', this.audioContext.state);
+                    // NOTE: we do NOT prime here. Priming is done immediately
+                    // before start() in play(), to avoid the buffer expiring
+                    // between loadTune() and play() being called.
 
-
-                    await synth.prime();
-                    console.log(`[Track ${index}] Primed`);
-
-                    // Only capture duration from track 0 for non-drone tunes.
-                    // Drone duration is hardcoded below — abcjs mis-reports sustain length.
-                    if (index === 0 && synth.duration && tuneType !== 'drone') {
-                        this.tuneDuration = synth.duration;
+                    if (index === 0 && tuneType !== 'drone') {
+                        // Duration will be read after prime in play()
                     }
 
                     this.tracks[index] = {
@@ -189,10 +165,6 @@ console.log('[audio] context state at play():', this.audioContext.state);
 
             await Promise.all(promises);
 
-            // Hardcode drone duration: 8 measures × 8s = 64s.
-            // abcjs reports the note-onset window, not the full sustain tail,
-            // so synth.duration comes back ~4s for whole-note pads — causing the
-            // loop timer to fire before the notes have barely begun.
             if (tuneType === 'drone') {
                 this.tuneDuration = 64;
                 console.log('[TradSessionPlayer] Drone duration hardcoded to 64s');
@@ -241,12 +213,8 @@ console.log('[audio] context state at play():', this.audioContext.state);
 
     async play() {
         console.log('[TradSessionPlayer] Playing with scheduled start...');
-
-        // Ensure context exists — critical if play() is the first call
         this._ensureAudioContext();
 
-        // Resume must happen here, inside the gesture callstack.
-        // On iOS, audioContext.resume() only works synchronously in a touch handler.
         if (this.audioContext.state !== 'running') {
             try {
                 await this.audioContext.resume();
@@ -255,12 +223,32 @@ console.log('[audio] context state at play():', this.audioContext.state);
             }
         }
 
+        console.log('[TradSessionPlayer] AudioContext state at play():', this.audioContext.state);
+
         try {
-            if (this.tracks.length === 0) {
-                throw new Error('No tracks loaded');
-            }
+            if (this.tracks.length === 0) throw new Error('No tracks loaded');
 
             this.isPlaying = true;
+
+            // ── Prime all synths immediately before start ─────────────────────
+            // This must happen as close to start() as possible. Priming in
+            // loadTune() leaves a gap during which the AudioContext may process
+            // other audio (e.g. drone loading in parallel), invalidating the
+            // AudioBufferSourceNodes that abcjs prepared internally.
+            console.log('[TradSessionPlayer] Priming all tracks...');
+            for (let i = 0; i < this.tracks.length; i++) {
+                try {
+                    await this.tracks[i].synth.prime();
+                    console.log(`[Track ${i}] Primed`);
+                    // Capture duration from track 0 for non-drone tunes
+                    if (i === 0 && this._tuneType !== 'drone' && this.tracks[i].synth.duration) {
+                        this.tuneDuration = this.tracks[i].synth.duration;
+                    }
+                } catch(e) {
+                    console.error(`[Track ${i}] Prime failed:`, e.name, e.message);
+                    throw e;
+                }
+            }
 
             const scheduleAhead = 0.1;
             this.scheduledStartTime = this.audioContext.currentTime + scheduleAhead;
@@ -271,7 +259,13 @@ console.log('[audio] context state at play():', this.audioContext.state);
             const startPromises = this.tracks.map(async (track, i) => {
                 const startTime = this.audioContext.currentTime;
                 console.log(`[Track ${i}] Starting at: ${startTime.toFixed(4)}`);
-                await track.synth.start();
+                try {
+                    await track.synth.start();
+                } catch(e) {
+                    // Log the actual DOMException details so we can identify it
+                    console.error(`[Track ${i}] start() threw: name="${e.name}" message="${e.message}"`, e);
+                    throw e;
+                }
                 const endTime = this.audioContext.currentTime;
                 console.log(`[Track ${i}] Start completed in: ${((endTime - startTime) * 1000).toFixed(2)}ms`);
 
@@ -290,7 +284,6 @@ console.log('[audio] context state at play():', this.audioContext.state);
 
             await Promise.all(startPromises);
             console.log('[Scheduled] All synths started');
-            console.log('[Scheduled] Total elapsed:', ((this.audioContext.currentTime - this.scheduledStartTime + 0.1) * 1000).toFixed(2), 'ms');
 
             if (this.tuneDuration > 0) {
                 this.setupLooping();
@@ -300,7 +293,7 @@ console.log('[audio] context state at play():', this.audioContext.state);
 
         } catch (error) {
             console.error('[TradSessionPlayer] Play error:', error);
-            throw error; // re-throw so callers (_startHarpSilent etc.) can handle it
+            throw error;
         }
     }
 
@@ -309,7 +302,6 @@ console.log('[audio] context state at play():', this.audioContext.state);
             clearTimeout(this.loopTimeoutId);
         }
 
-        // Fire 50ms before the tune ends to give abcjs time to re-prime
         const loopTime = (this.tuneDuration * 1000) - 50;
 
         this.loopTimeoutId = setTimeout(async () => {
@@ -317,18 +309,14 @@ console.log('[audio] context state at play():', this.audioContext.state);
 
             console.log('[Loop] Restarting all synths...');
 
-            // Re-prime each synth before restarting — required by abcjs after stop
+            // Re-prime before every restart — mandatory for abcjs
             try {
                 for (const track of this.tracks) {
                     await track.synth.prime();
                 }
             } catch (e) {
-                console.warn('[Loop] Re-prime failed:', e);
+                console.warn('[Loop] Re-prime failed:', e.name, e.message);
             }
-
-            const scheduleAhead = 0.05;
-            this.scheduledStartTime = this.audioContext.currentTime + scheduleAhead;
-            console.log(`[Loop] Scheduled restart at: ${this.scheduledStartTime.toFixed(3)}`);
 
             const startPromises = [];
             for (const track of this.tracks) {
@@ -338,7 +326,7 @@ console.log('[audio] context state at play():', this.audioContext.state);
             try {
                 await Promise.all(startPromises);
             } catch (e) {
-                console.warn('[Loop] Start failed:', e);
+                console.warn('[Loop] Start failed:', e.name, e.message);
                 return;
             }
 
@@ -347,7 +335,6 @@ console.log('[audio] context state at play():', this.audioContext.state);
                     try { track.synth.audioBufferPlayer.disconnect(); } catch (e) {}
                     track.synth.audioBufferPlayer.connect(track.gain);
                 }
-
                 if (track.synth.directSource) {
                     track.synth.directSource.forEach((source) => {
                         try { source.disconnect(); } catch (e) {}
@@ -357,7 +344,7 @@ console.log('[audio] context state at play():', this.audioContext.state);
             }
 
             console.log('[Loop] All synths restarted');
-            this.setupLooping(); // schedule the next loop
+            this.setupLooping();
         }, loopTime);
     }
 

@@ -1489,12 +1489,38 @@ export class ConstellationScene extends Phaser.Scene {
     //   - SFX (chimes, completion chord): use this.audioContext created in
     //     _initAudioContext() during the gesture.
 
+   
+
+
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DROP-IN REPLACEMENT: paste these methods into ConstellationScene,
+// replacing initAudio() through _stopAllAudio() (inclusive).
+// Everything else in the class stays the same.
+// ─────────────────────────────────────────────────────────────────────────────
+
+    // ── Audio ─────────────────────────────────────────────────────────────────
+    // Strategy:
+    //   - Harp: preload soundfonts only (loadTune, no play) so the fonts are
+    //     cached. On moon drag-release (gesture) we DISCARD the preloaded
+    //     AudioContext (which Chrome may have garbage-collected) and create a
+    //     brand-new TradSessionPlayer right there in the gesture callstack.
+    //     The new context is born running so play() succeeds immediately.
+    //   - Drone: same — fresh TradSessionPlayer created in the gesture. We
+    //     manage our own 60s loop and re-prime each synth before restarting,
+    //     which abcjs requires after a buffer has finished playing.
+    //   - SFX (chimes, completion chord): use this.audioContext created in
+    //     _initAudioContext() during the gesture.
+
     initAudio() {
         this.audioContext       = null;
         this._masterGain        = null;
         this._sfxGain           = null;
         this._droneRootIndex    = 0;
-        this._harpPreloadPlayer = null;  // loaded but not playing — waiting for gesture
+        this._harpPreloadPlayer = null;  // soundfonts cached — context discarded on use
         this._harpPlayer        = null;  // the live playing harp player
         this._harpStarted       = false;
         this._harpSilentStarted = false;
@@ -1506,26 +1532,6 @@ export class ConstellationScene extends Phaser.Scene {
         // Begin loading harp soundfont now so it's cached by the time the
         // moon is dragged. We only call loadTune — NOT play() — so the
         // suspended AudioContext never causes a DOMException.
-        this._preloadHarp();
-    }
-
-    async _preloadHarp() {
-        try {
-            const player = new TradSessionPlayer();
-            const loaded = await player.loadTune('myLaganLove');
-            if (!loaded) { console.warn('[audio] Harp preload failed'); return; }
-            // Mute all tracks — this player is silent until gesture
-            for (const track of player.tracks) {
-                track.gain.gain.value = 0;
-                track.active = false;
-            }
-            player.engine.masterGain.gain.value = 0.0001;
-            // Store as the ready-to-play player
-            this._harpPreloadPlayer = player;
-            console.log('[audio] Harp preloaded (soundfont cached, not yet playing)');
-        } catch(e) {
-            console.warn('[audio] _preloadHarp error:', e);
-        }
     }
 
     // Called once inside _startDrone() during the drag-release user gesture.
@@ -1558,52 +1564,41 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     // ── Start drone — called at moon drag release ─────────────────────────────
-    _startDrone() {
+   
+    // ── Start drone — called at moon drag release ─────────────────────────────
+    // IMPORTANT: harp and drone must start sequentially, not in parallel.
+    // If both loadTune() calls run concurrently, whichever finishes first
+    // advances the AudioContext clock, expiring the other's primed buffers
+    // before it can call start(). Sequential loading prevents this race.
+    async _startDrone() {
         this._initAudioContext();
-        this._startHarpSilent();
-        this._startDronePlayer();
+        await this._startHarpSilent();   // wait for harp to finish fully
+        await this._startDronePlayer();  // then start drone
     }
 
-    // ── Start harp silently — resume preloaded player inside gesture ──────────
-   
 
+
+    // ── Start harp silently — create fresh player inside gesture callstack ────
+    // We intentionally do NOT reuse _harpPreloadPlayer's AudioContext here.
+    // Chrome can put a pre-gesture context into a permanently broken state.
+    // A fresh TradSessionPlayer created right now will have a running context.
+   
 
 async _startHarpSilent() {
     if (this._harpSilentStarted) return;
     this._harpSilentStarted = true;
     try {
-        let player = this._harpPreloadPlayer;
-
-        if (player) {
-            console.log('[audio] Harp: using preloaded player');
-            // Resume and wait for the state to actually change
-            if (player.audioContext.state !== 'running') {
-                await player.audioContext.resume();
-                // Wait for state transition — mobile browsers need a moment
-                await new Promise(resolve => setTimeout(resolve, 80));
-            }
-            if (player.audioContext.state !== 'running') {
-                console.warn('[audio] Harp: context still not running after resume, aborting preloaded player');
-                player = null; // fall through to fresh player below
-            }
-        }
-
-        if (!player) {
-            console.log('[audio] Harp: creating fresh player');
-            player = new TradSessionPlayer();
-            const loaded = await player.loadTune('myLaganLove');
-            if (!loaded) {
-                console.warn('[audio] Harp: fresh load failed');
-                return;
-            }
-            // Fresh context was created inside this gesture — should be running
-        }
+        console.log('[audio] Harp: loading fresh inside gesture');
+        const player = new TradSessionPlayer();
+        
+        // Load and play in one go — no gap for buffers to expire
+        const loaded = await player.loadTune('myLaganLove');
+        if (!loaded) { console.warn('[audio] Harp load failed'); return; }
 
         if (player.tracks[1]) { player.tracks[1].gain.gain.value = 0; player.tracks[1].active = false; }
         if (player.tracks[2]) { player.tracks[2].gain.gain.value = 0; player.tracks[2].active = false; }
         player.engine.masterGain.gain.value = 0.0001;
 
-        // Assign BEFORE play() so _startHarp() can find it even if play() throws
         this._harpPlayer        = player;
         this._harpPreloadPlayer = null;
 
@@ -1613,6 +1608,7 @@ async _startHarpSilent() {
         console.warn('[audio] _startHarpSilent error:', e);
     }
 }
+
  
 
     // ── Unmute harp on first star touch ──────────────────────────────────────
@@ -1646,79 +1642,124 @@ async _startHarpSilent() {
     }
 
     // ── Start drone pad player ────────────────────────────────────────────────
+    
+
+
+    // ── Start drone pad player ────────────────────────────────────────────────
+    // Uses raw Web Audio oscillators instead of abcjs/soundfont patches.
+    // abcjs pad patches (92, 94) are sample-based — they fire a short attack
+    // buffer and stop, giving ~1s of audio no matter how long the note is.
+    // Oscillators sustain indefinitely and sound more atmospheric anyway.
     async _startDronePlayer() {
         if (this._dronePlayer) return;
         this._dronePlayer = true;
+
         try {
-            const player = new TradSessionPlayer();
-            const loaded = await player.loadTune('constellationDrone');
-            if (!loaded) {
-                console.warn('[audio] Drone load failed');
-                this._dronePlayer = null;
-                return;
+            const ac = this.audioContext;
+            if (!ac) return;
+
+            // C2 Dorian drone chord: C2, G2, Eb2
+            const freqs = [65.41, 98.00, 77.78];
+
+            // Master drone gain — fades in over 5 seconds
+            const masterGain = ac.createGain();
+            masterGain.gain.setValueAtTime(0.0001, ac.currentTime);
+            masterGain.gain.linearRampToValueAtTime(0.4, ac.currentTime + 1.5);
+            masterGain.gain.linearRampToValueAtTime(0.7, ac.currentTime + 5.0);
+            masterGain.connect(this._masterGain || ac.destination);
+
+            this._droneGainNode  = masterGain;
+            this._droneOscNodes  = [];
+
+            // Reverb-like convolver using a generated impulse
+            let reverbNode = null;
+            try {
+                const reverbLen  = ac.sampleRate * 3.5;
+                const reverbBuf  = ac.createBuffer(2, reverbLen, ac.sampleRate);
+                for (let ch = 0; ch < 2; ch++) {
+                    const data = reverbBuf.getChannelData(ch);
+                    for (let i = 0; i < reverbLen; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / reverbLen, 2.5);
+                    }
+                }
+                reverbNode = ac.createConvolver();
+                reverbNode.buffer = reverbBuf;
+                const reverbGain = ac.createGain();
+                reverbGain.gain.value = 0.28;
+                reverbNode.connect(reverbGain);
+                reverbGain.connect(masterGain);
+            } catch(e) {
+                console.warn('[audio] Drone reverb setup failed (non-critical):', e);
             }
 
-            // Start all pad tracks silent
-            for (const track of player.tracks) {
-                track.gain.gain.value = 0.0001;
-                track.active = false;
-            }
-            player.engine.masterGain.gain.value = 0.0001;
+            freqs.forEach((freq, i) => {
+                // Layer 1: soft sine wave (fundamental)
+                const osc1  = ac.createOscillator();
+                const gain1 = ac.createGain();
+                osc1.type            = 'sine';
+                osc1.frequency.value = freq;
+                // Gentle vibrato
+                const lfo1  = ac.createOscillator();
+                const lfoG1 = ac.createGain();
+                lfo1.frequency.value = 0.18 + i * 0.07;
+                lfoG1.gain.value     = 0.25;
+                lfo1.connect(lfoG1);
+                lfoG1.connect(osc1.frequency);
+                lfo1.start();
 
-            await player.play();
+                gain1.gain.value = i === 0 ? 0.55 : 0.35; // root louder
+                osc1.connect(gain1);
+                gain1.connect(masterGain);
+                if (reverbNode) gain1.connect(reverbNode);
+                osc1.start();
 
-            // Cancel whatever loopTimeoutId TradSessionPlayer scheduled —
-            // tuneDuration from pad patches is unreliable (often just the
-            // attack sample length). We manage looping ourselves at 60s.
-            if (player.loopTimeoutId) {
-                clearTimeout(player.loopTimeoutId);
-                player.loopTimeoutId = null;
-            }
+                // Layer 2: detuned triangle an octave up (warmth/shimmer)
+                const osc2  = ac.createOscillator();
+                const gain2 = ac.createGain();
+                osc2.type            = 'triangle';
+                osc2.frequency.value = freq * 2;
+                osc2.detune.value    = 7; // slight detune for beating
+                gain2.gain.value     = 0.12;
+                osc2.connect(gain2);
+                gain2.connect(masterGain);
+                if (reverbNode) gain2.connect(reverbNode);
+                osc2.start();
 
-            this._dronePlayerObj = player;
-            this._droneGainNode  = player.engine.masterGain;
+                this._droneOscNodes.push(osc1, osc2, lfo1);
+            });
 
-            const ac  = player.audioContext;
-            const now = ac.currentTime;
-
-            // Fade master gain in
-            player.engine.masterGain.gain.cancelScheduledValues(now);
-            player.engine.masterGain.gain.setValueAtTime(0.0001, now);
-            player.engine.masterGain.gain.linearRampToValueAtTime(0.55, now + 1.5);
-            player.engine.masterGain.gain.linearRampToValueAtTime(0.85, now + 5.0);
-
-            // Unmute pad tracks with fade
-            for (const track of player.tracks) {
-                track.active = true;
-                player.engine.applyFade(track.gain, track.gain.targetVolume || 0.6, 2.0);
-            }
-
-            // Fixed 60s loop — restart all synths every 60 seconds
-            const scheduleLoop = () => {
-                this._droneLoopTimer = setTimeout(async () => {
-                    if (!this._dronePlayerObj) return;
-                    try {
-                        for (const track of player.tracks) {
-                            await track.synth.start();
-                            if (track.synth.audioBufferPlayer) {
-                                try { track.synth.audioBufferPlayer.disconnect(); } catch(e) {}
-                                track.synth.audioBufferPlayer.connect(track.gain);
-                            }
-                            if (track.synth.directSource) {
-                                track.synth.directSource.forEach(s => {
-                                    try { s.disconnect(); } catch(e) {}
-                                    s.connect(track.gain);
-                                });
-                            }
-                        }
-                        console.log('[audio] Drone loop restarted');
-                    } catch(e) {}
-                    scheduleLoop();
-                }, 60000);
+            // Slow gain breathing — subtle swell every ~12 seconds
+            const breathe = () => {
+                if (!this._dronePlayerObj) return;
+                const now  = ac.currentTime;
+                const base = 0.7;
+                masterGain.gain.cancelScheduledValues(now);
+                masterGain.gain.setValueAtTime(base, now);
+                masterGain.gain.linearRampToValueAtTime(base * 1.18, now + 6);
+                masterGain.gain.linearRampToValueAtTime(base, now + 12);
+                this._droneBreathTimer = setTimeout(breathe, 12000);
             };
-            scheduleLoop();
+            this._droneBreathTimer = setTimeout(breathe, 5000);
 
-            console.log('[audio] Drone (Pad Bowed + Pad Halo) playing');
+            // Store a mock object so _advanceDrone and _stopAllAudio still work
+            this._dronePlayerObj = {
+                audioContext: ac,
+                stop: async () => {
+                    if (this._droneOscNodes) {
+                        for (const node of this._droneOscNodes) {
+                            try { node.stop(); } catch(e) {}
+                        }
+                        this._droneOscNodes = [];
+                    }
+                    if (this._droneBreathTimer) {
+                        clearTimeout(this._droneBreathTimer);
+                        this._droneBreathTimer = null;
+                    }
+                },
+            };
+
+            console.log('[audio] Drone oscillators started (C Dorian)');
+
         } catch(e) {
             this._dronePlayer = null;
             console.warn('[audio] _startDronePlayer error:', e);
@@ -1731,90 +1772,124 @@ async _startHarpSilent() {
         const ac  = this._dronePlayerObj.audioContext;
         const now = ac.currentTime;
         this._droneGainNode.gain.cancelScheduledValues(now);
+        this._droneGainNode.gain.setValueAtTime(0.7, now);
+        this._droneGainNode.gain.linearRampToValueAtTime(0.35, now + 1.0);
+        this._droneGainNode.gain.linearRampToValueAtTime(0.7, now + 3.5);
+    }
+
+
+    // ── Shift drone gain on constellation change ──────────────────────────────
+    _advanceDrone(constellationIndex) {
+        if (!this._droneGainNode || !this._dronePlayerObj) return;
+        const ac  = this._dronePlayerObj.audioContext;
+        const now = ac.currentTime;
+        this._droneGainNode.gain.cancelScheduledValues(now);
         this._droneGainNode.gain.setValueAtTime(0.85, now);
         this._droneGainNode.gain.linearRampToValueAtTime(0.45, now + 1.0);
         this._droneGainNode.gain.linearRampToValueAtTime(0.85, now + 3.5);
     }
 
-    // ── Modal completion chord — arpeggiated upward from current drone root ───
-    playCompletionChord() {
-        const ac = this.audioContext;
-        if (!ac || !this._sfxGain) return;
-        try {
-            if (ac.state === 'suspended') ac.resume();
-
-            const now     = ac.currentTime;
-            const chordAt = now + 0.15;
-
-            const root = this._getDroneRoot(this._droneRootIndex);
-            const ratios = [1, 1.5, 2, 2.381, 3, 4];
-            const chordFreqs = ratios.map(r => root * r);
-
-            const masterGain = ac.createGain();
-            masterGain.connect(this._sfxGain);
-            masterGain.gain.setValueAtTime(0.45, chordAt);
-            masterGain.gain.exponentialRampToValueAtTime(0.001, chordAt + 6.0);
-
-            const delay = ac.createDelay(0.8);
-            delay.delayTime.value = 0.32;
-            const delayGain = ac.createGain();
-            delayGain.gain.value = 0.18;
-            masterGain.connect(delay);
-            delay.connect(delayGain);
-            delayGain.connect(masterGain);
-
-            chordFreqs.forEach((freq, i) => {
-                const stagger = i * 0.07;
-                const g = ac.createGain();
-                g.connect(masterGain);
-
-                const osc1 = ac.createOscillator();
-                osc1.type = 'triangle';
-                osc1.frequency.value = freq;
-                osc1.connect(g);
-
-                const osc2 = ac.createOscillator();
-                osc2.type = 'sine';
-                osc2.frequency.value = freq;
-                const g2 = ac.createGain();
-                g2.gain.value = 0.4;
-                osc2.connect(g2);
-                g2.connect(g);
-
-                const start = chordAt + stagger;
-                g.gain.setValueAtTime(0, start);
-                g.gain.linearRampToValueAtTime(0.9, start + 0.015);
-                g.gain.exponentialRampToValueAtTime(0.001, start + 5.5);
-
-                osc1.start(start); osc1.stop(start + 5.6);
-                osc2.start(start); osc2.stop(start + 5.6);
-            });
-
-        } catch (e) { console.warn('[audio] playCompletionChord:', e); }
-    }
-
     // ── Clean up all audio on scene end ──────────────────────────────────────
-    _stopAllAudio() {
+      _stopAllAudio() {
         try {
+            // Drone loop timer (legacy — kept in case it's still set)
             if (this._droneLoopTimer) {
                 clearTimeout(this._droneLoopTimer);
                 this._droneLoopTimer = null;
             }
+
+            // Drone breath timer (oscillator-based drone)
+            if (this._droneBreathTimer) {
+                clearTimeout(this._droneBreathTimer);
+                this._droneBreathTimer = null;
+            }
+
+            // Stop drone oscillators via the mock stop() on _dronePlayerObj
             if (this._dronePlayerObj) {
                 this._dronePlayerObj.stop().catch(() => {});
                 this._dronePlayerObj = null;
             }
-            this._dronePlayer = null;
+
+            // Kill any lingering oscillator nodes directly
+            if (this._droneOscNodes) {
+                for (const node of this._droneOscNodes) {
+                    try { node.stop(); } catch(e) {}
+                }
+                this._droneOscNodes = [];
+            }
+
+            this._dronePlayer   = null;
+            this._droneGainNode = null;
+
+            // Stop harp player
             if (this._harpPlayer) {
                 this._harpPlayer.stop().catch(() => {});
                 this._harpPlayer = null;
             }
+
+            // Stop preload player if it never got used
             if (this._harpPreloadPlayer) {
                 this._harpPreloadPlayer.stop().catch(() => {});
                 this._harpPreloadPlayer = null;
             }
         } catch(e) {}
     }
+ 
+playCompletionChord() {
+    const ac = this.audioContext;
+    if (!ac || !this._sfxGain) return;
+    try {
+        if (ac.state === 'suspended') ac.resume();
+
+        const now     = ac.currentTime;
+        const chordAt = now + 0.15;
+
+        const root = this._getDroneRoot(this._droneRootIndex);
+        const ratios = [1, 1.5, 2, 2.381, 3, 4];
+        const chordFreqs = ratios.map(r => root * r);
+
+        const masterGain = ac.createGain();
+        masterGain.connect(this._sfxGain);
+        masterGain.gain.setValueAtTime(0.45, chordAt);
+        masterGain.gain.exponentialRampToValueAtTime(0.001, chordAt + 6.0);
+
+        const delay = ac.createDelay(0.8);
+        delay.delayTime.value = 0.32;
+        const delayGain = ac.createGain();
+        delayGain.gain.value = 0.18;
+        masterGain.connect(delay);
+        delay.connect(delayGain);
+        delayGain.connect(masterGain);
+
+        chordFreqs.forEach((freq, i) => {
+            const stagger = i * 0.07;
+            const g = ac.createGain();
+            g.connect(masterGain);
+
+            const osc1 = ac.createOscillator();
+            osc1.type = 'triangle';
+            osc1.frequency.value = freq;
+            osc1.connect(g);
+
+            const osc2 = ac.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = freq;
+            const g2 = ac.createGain();
+            g2.gain.value = 0.4;
+            osc2.connect(g2);
+            g2.connect(g);
+
+            const start = chordAt + stagger;
+            g.gain.setValueAtTime(0, start);
+            g.gain.linearRampToValueAtTime(0.9, start + 0.015);
+            g.gain.exponentialRampToValueAtTime(0.001, start + 5.5);
+
+            osc1.start(start); osc1.stop(start + 5.6);
+            osc2.start(start); osc2.stop(start + 5.6);
+        });
+
+    } catch (e) { console.warn('[audio] playCompletionChord:', e); }
+}
 
     // ── Soft chime on star connection ─────────────────────────────────────────
     _playConnectionChime() {

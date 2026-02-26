@@ -13,8 +13,10 @@ const ENSEMBLE_PRESETS = {
     march:     [46, 0, 105],
     slide:     [46, 0, 105],
     barndance: [46, 0, 105],
-    air:       [46, 0, 105],
-    drone:     [92, 94],
+
+air: [46, 46, 94], // Harp 1, Harp 2, and a tiny bit of Halo Pad
+
+drone:     [92, 94],
     defaultPreset: [46, 0, 105],
 };
 
@@ -37,8 +39,9 @@ const TEMPO_SETTINGS = {
     march:     1400,
     slide:     1000,
     barndance: 1200,
-    air:       1500,
+    air:       1800,
     drone:     8000,
+bagpipe: 2200,
     defaultTempo: 1300,
 };
 

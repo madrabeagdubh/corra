@@ -17,14 +17,12 @@ export class MusicEngine {
     createTrackGainWithPanning(patchId) {
         const gainNode = this.ctx.createGain();
         gainNode.gain.value = 0; // Start silent
-        
+
         // Create stereo panner for spatial separation
         const panner = this.ctx.createStereoPanner();
-        
-        // Store the target volume for when we fade in
+
         let targetVolume = 1.0;
-        
-        // Position instruments in stereo field
+
         if (patchId === 105) {
             // Banjo: Center-left (lead instrument)
             panner.pan.value = -0.2;
@@ -38,32 +36,39 @@ export class MusicEngine {
             panner.pan.value = 0;
             targetVolume = 0.75;
         } else if (patchId === 22) {
-            // Harmonica: Slight left (concertina-like)
+            // Harmonica: Slight left
             panner.pan.value = -0.3;
-            targetVolume = 0.85; // Boost to cut through
+            targetVolume = 0.85;
+        } else if (patchId === 92) {
+            // Pad 5 Bowed: Wide left — ambient bed, sits behind everything
+            panner.pan.value = -0.5;
+            targetVolume = 0.55;
+        } else if (patchId === 94) {
+            // Pad 7 Halo: Wide right — mirrors the bowed pad
+            panner.pan.value = 0.5;
+            targetVolume = 0.45;
         } else {
-            // Default positioning for any other instruments
+            // Default
             panner.pan.value = 0;
             targetVolume = 0.8;
         }
-        
+
         // Connect: gain -> panner -> master
         gainNode.connect(panner);
         panner.connect(this.masterGain);
-        
-        // Store target volume as a custom property for later use
+
         gainNode.targetVolume = targetVolume;
-        
+
         return gainNode;
     }
 
     applyFade(gainNode, targetVol, duration = 0.5) {
         const now = this.ctx.currentTime;
         gainNode.gain.cancelScheduledValues(now);
-        
+
         const safeTarget = targetVol < 0.0001 ? 0.0001 : targetVol;
-        const safeStart = gainNode.gain.value < 0.0001 ? 0.0001 : gainNode.gain.value;
-        
+        const safeStart  = gainNode.gain.value < 0.0001 ? 0.0001 : gainNode.gain.value;
+
         gainNode.gain.setValueAtTime(safeStart, now);
         gainNode.gain.exponentialRampToValueAtTime(safeTarget, now + duration);
     }
@@ -84,7 +89,7 @@ export class MusicEngine {
 
         osc.start();
         osc.stop(this.ctx.currentTime + 1);
-        console.log("[Test Beep] 440Hz");
+        console.log('[Test Beep] 440Hz');
     }
 }
 

@@ -1,3 +1,5 @@
+import Phaser from 'phaser'
+import './heroSelect.js';
 import BowTutorial from "./game/scenes/locations/bowTutorial.js"
 import WorldScene from "./game/scenes/worldScene.js"
 import BogMeadow from "./game/scenes/locations/bogMeadow.js"

@@ -4,6 +4,11 @@ import * as abcjs from 'abcjs';
 import { champions } from '../data/champions.js';
 import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
+import { levelTunes } from './game/systems/music/levelTunes.js';
+
+// Inject level tunes into allTunes so TradSessionPlayer can find them
+allTunes['myLaganLove']        = levelTunes.myLaganLove;
+allTunes['constellationDrone'] = levelTunes.constellationDrone;
 
 // ── Module-level: runs immediately on import, same as introModal ─────────────
 
@@ -25,13 +30,7 @@ var _fullscreenDone  = false;
 // Preload hero-select assets in the background while the constellation scene plays
 var _preloadedAssets = { spriteSheet: null, atlasData: null, validChampions: null, firstChampionCanvas: null, randomStartIndex: null };
 
-
 var _prewarmedPlayer = null;
-
-
-
-
-
 
 var _heroAssetsReady = (function preloadHeroSelectAssets() {
     const img = new Image();
@@ -75,11 +74,6 @@ var _heroAssetsReady = (function preloadHeroSelectAssets() {
         img.onerror = () => resolve(); // non-fatal
     });
 })();
-
-
-
-
-
 
 export function getPrewarmedPlayer() { return _prewarmedPlayer; }
 export function waitForHeroAssets()  { return _heroAssetsReady; }
@@ -148,16 +142,7 @@ export function initConstellationScene(onComplete) {
         input: { touch: { capture: true } },
     });
 
-    // Pass onComplete into the scene via registry so it can call it from onAllComplete
-
-
-
-
-game.registry.set('onComplete', onComplete);  // ← set it directly, no 'ready' wrapper
-return game;
-
-
-
+    game.registry.set('onComplete', onComplete);
     return game;
 }
 
@@ -168,13 +153,13 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Leanann sé rian na réalt ar feadh na hoíche',
         waitingEn: 'He follows the trail of stars through the night',
         starOffsets: [
-            { lx:  -0.79, ly:  -1.38 },  // 0 Betelgeuse — left shoulder (we flip Y: up=negative)
-            { lx:   0.44, ly:  -1.21 },  // 1 Bellatrix — right shoulder
-            { lx:   0.17, ly:  -0.13 },  // 2 Mintaka — belt right
-            { lx:  -0.00, ly:   0.02 },  // 3 Alnilam — belt mid
-            { lx:  -0.20, ly:   0.14 },  // 4 Alnitak — belt left
-            { lx:   0.88, ly:   1.16 },  // 5 Rigel — right foot
-            { lx:  -0.49, ly:   1.40 },  // 6 Saiph — left foot
+            { lx:  -0.79, ly:  -1.38 },
+            { lx:   0.44, ly:  -1.21 },
+            { lx:   0.17, ly:  -0.13 },
+            { lx:  -0.00, ly:   0.02 },
+            { lx:  -0.20, ly:   0.14 },
+            { lx:   0.88, ly:   1.16 },
+            { lx:  -0.49, ly:   1.40 },
         ],
         connections: [
             { from: 0, to: 2 }, { from: 1, to: 2 },
@@ -189,11 +174,11 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Seolann sí ar abhainn na spéire gan stiúir',
         waitingEn: 'She sails the river of heaven without a rudder',
         starOffsets: [
-            { lx:   1.37, ly:  -0.10 },  // 0 Caph
-            { lx:   0.55, ly:   0.37 },  // 1 Schedar
-            { lx:   0.13, ly:  -0.07 },  // 2 Gamma Cas (middle of W)
-            { lx:  -0.64, ly:  -0.02 },  // 3 Ruchbah
-            { lx:  -1.40, ly:  -0.38 },  // 4 Segin
+            { lx:   1.37, ly:  -0.10 },
+            { lx:   0.55, ly:   0.37 },
+            { lx:   0.13, ly:  -0.07 },
+            { lx:  -0.64, ly:  -0.02 },
+            { lx:  -1.40, ly:  -0.38 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 },
@@ -207,13 +192,13 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Timpeallann sé an pol thuaidh go síoraí',
         waitingEn: 'It wheels around the north pole without rest',
         starOffsets: [
-            { lx:   1.23, ly:  -0.40 },  // 0 Dubhe — bowl rim outer
-            { lx:   1.25, ly:  -0.05 },  // 1 Merak — bowl rim inner
-            { lx:   0.42, ly:   0.12 },  // 2 Phecda — bowl base inner
-            { lx:   0.07, ly:  -0.09 },  // 3 Megrez — bowl base outer / handle join
-            { lx:  -0.54, ly:  -0.02 },  // 4 Alioth — handle 1
-            { lx:  -1.02, ly:   0.04 },  // 5 Mizar — handle 2
-            { lx:  -1.40, ly:   0.40 },  // 6 Alkaid — handle tip
+            { lx:   1.23, ly:  -0.40 },
+            { lx:   1.25, ly:  -0.05 },
+            { lx:   0.42, ly:   0.12 },
+            { lx:   0.07, ly:  -0.09 },
+            { lx:  -0.54, ly:  -0.02 },
+            { lx:  -1.02, ly:   0.04 },
+            { lx:  -1.40, ly:   0.40 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 },
@@ -228,11 +213,11 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Eitlíonn sí ar bhealach na bó finne',
         waitingEn: 'She flies the white cow\'s road across the sky',
         starOffsets: [
-            { lx:  -0.93, ly:  -0.89 },  // 0 Deneb — tail (brightest)
-            { lx:  -0.30, ly:  -0.23 },  // 1 Sadr — body center
-            { lx:   1.40, ly:   1.39 },  // 2 Albireo — head/beak
-            { lx:  -1.09, ly:   0.60 },  // 3 Gienah — right wing tip
-            { lx:   0.93, ly:  -0.87 },  // 4 Delta Cyg — left wing tip
+            { lx:  -0.93, ly:  -0.89 },
+            { lx:  -0.30, ly:  -0.23 },
+            { lx:   1.40, ly:   1.39 },
+            { lx:  -1.09, ly:   0.60 },
+            { lx:   0.93, ly:  -0.87 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 },
@@ -246,11 +231,11 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Léann sé leabhar na spéire roimh an bhfocal',
         waitingEn: 'He reads the book of heaven before the word',
         starOffsets: [
-            { lx:   0.42, ly:   1.13 },  // 0 Arcturus — staff foot / base
-            { lx:   1.05, ly:   1.23 },  // 1 Muphrid — right foot
-            { lx:  -0.46, ly:   0.19 },  // 2 Izar — body
-            { lx:  -0.06, ly:  -1.15 },  // 3 Seginus — left shoulder
-            { lx:  -0.96, ly:  -1.40 },  // 4 Nekkar — head / hood peak
+            { lx:   0.42, ly:   1.13 },
+            { lx:   1.05, ly:   1.23 },
+            { lx:  -0.46, ly:   0.19 },
+            { lx:  -0.06, ly:  -1.15 },
+            { lx:  -0.96, ly:  -1.40 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 0, to: 2 },
@@ -264,11 +249,11 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Cloisimid a ceol i gciúnas na hoíche',
         waitingEn: 'We hear her music in the silence of the night',
         starOffsets: [
-            { lx:   1.31, ly:  -1.28 },  // 0 Vega — top peg (brightest)
-            { lx:   0.45, ly:  -0.77 },  // 1 Zeta Lyr — neck
-            { lx:  -0.08, ly:   1.10 },  // 2 Sheliak — lower left
-            { lx:  -1.07, ly:   1.40 },  // 3 Sulafat — base corner
-            { lx:  -0.61, ly:  -0.45 },  // 4 Delta Lyr — lower right
+            { lx:   1.31, ly:  -1.28 },
+            { lx:   0.45, ly:  -0.77 },
+            { lx:  -0.08, ly:   1.10 },
+            { lx:  -1.07, ly:   1.40 },
+            { lx:  -0.61, ly:  -0.45 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 },
@@ -283,12 +268,12 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Éiríonn sí arís as an luaithreach gach earrach',
         waitingEn: 'She rises again from the ashes each spring',
         starOffsets: [
-            { lx:   0.85, ly:  -0.51 },  // 0 Rasalas — crest tip
-            { lx:   0.39, ly:  -0.31 },  // 1 Adhafera — crest upper
-            { lx:   0.33, ly:  -0.03 },  // 2 Algieba — crest base
-            { lx:   0.55, ly:   0.57 },  // 3 Regulus — heart / base (brightest)
-            { lx:  -0.72, ly:  -0.09 },  // 4 Zosma — body / haunches
-            { lx:  -1.40, ly:   0.37 },  // 5 Denebola — tail tip
+            { lx:   0.85, ly:  -0.51 },
+            { lx:   0.39, ly:  -0.31 },
+            { lx:   0.33, ly:  -0.03 },
+            { lx:   0.55, ly:   0.57 },
+            { lx:  -0.72, ly:  -0.09 },
+            { lx:  -1.40, ly:   0.37 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 },
@@ -302,13 +287,13 @@ const CONSTELLATION_DATA = [
         waitingGa: 'D\'ith sé cnónna na heagna ag tobar an domhain',
         waitingEn: 'He ate the nuts of wisdom at the well of the world',
         starOffsets: [
-            { lx:   1.18, ly:  -0.20 },  // 0 Gamma Psc — west fish near tail
-            { lx:   1.03, ly:  -0.32 },  // 1 Kappa Psc — west fish tail tip
-            { lx:   0.52, ly:   0.03 },  // 2 Omega Psc — west fish head
-            { lx:  -1.40, ly:  -0.23 },  // 3 Alrescha — the knot
-            { lx:   0.06, ly:   0.07 },  // 4 Delta Psc — north fish tail
-            { lx:  -0.48, ly:   0.09 },  // 5 Epsilon Psc — north fish body
-            { lx:  -0.92, ly:  -0.56 },  // 6 Eta Psc — north fish head (brightest)
+            { lx:   1.18, ly:  -0.20 },
+            { lx:   1.03, ly:  -0.32 },
+            { lx:   0.52, ly:   0.03 },
+            { lx:  -1.40, ly:  -0.23 },
+            { lx:   0.06, ly:   0.07 },
+            { lx:  -0.48, ly:   0.09 },
+            { lx:  -0.92, ly:  -0.56 },
         ],
         connections: [
             { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 },
@@ -322,14 +307,14 @@ const CONSTELLATION_DATA = [
         waitingGa: 'Gearrann a starrfhiacla trí dhorchadas an deiscirt',
         waitingEn: 'His tusks cut through the darkness of the south',
         starOffsets: [
-            { lx:   1.14, ly:  -1.40 },  // 0 Graffias — snout right
-            { lx:   1.27, ly:  -1.11 },  // 1 Delta Sco — snout left
-            { lx:   0.53, ly:  -0.73 },  // 2 Antares — heart/eye (red, brightest)
-            { lx:  -0.00, ly:   0.07 },  // 3 Epsilon Sco — body
-            { lx:  -0.10, ly:   0.89 },  // 4 Zeta Sco — hindquarters
-            { lx:  -0.55, ly:   0.98 },  // 5 Eta Sco — tail base
-            { lx:  -1.10, ly:   0.35 },  // 6 Shaula — tail tip / tusk
-            { lx:  -1.19, ly:   0.95 },  // 7 Theta Sco — tail curl
+            { lx:   1.14, ly:  -1.40 },
+            { lx:   1.27, ly:  -1.11 },
+            { lx:   0.53, ly:  -0.73 },
+            { lx:  -0.00, ly:   0.07 },
+            { lx:  -0.10, ly:   0.89 },
+            { lx:  -0.55, ly:   0.98 },
+            { lx:  -1.10, ly:   0.35 },
+            { lx:  -1.19, ly:   0.95 },
         ],
         connections: [
             { from: 0, to: 2 }, { from: 1, to: 2 },
@@ -340,26 +325,24 @@ const CONSTELLATION_DATA = [
     },
 
     // ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
-// ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
-{
-    id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
-    waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
-    waitingEn: 'He carries the darkest sword in the sky',
-    starOffsets: [
-        { lx:   0.78, ly:  -1.45 },  // 0 Gamma Per — head
-        { lx:   0.21, ly:  -1.03 },  // 1 Mirfak — shoulder (brightest)
-        { lx:  -0.33, ly:  -0.79 },  // 2 Delta Per — body upper
-        { lx:   0.71, ly:   0.00 },  // 3 Algol — raised sword arm (demon star)
-        { lx:  -0.74, ly:   0.11 },  // 4 Epsilon Per — body lower
-        { lx:  -0.64, ly:   1.05 },  // 5 Zeta Per — foot
-    ],
-    connections: [
-        { from: 0, to: 1 }, { from: 1, to: 2 },
-        { from: 1, to: 3 },
-        { from: 2, to: 4 }, { from: 4, to: 5 },
-    ],
-},   
-
+    {
+        id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
+        waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
+        waitingEn: 'He carries the darkest sword in the sky',
+        starOffsets: [
+            { lx:   0.78, ly:  -1.45 },
+            { lx:   0.21, ly:  -1.03 },
+            { lx:  -0.33, ly:  -0.79 },
+            { lx:   0.71, ly:   0.00 },
+            { lx:  -0.74, ly:   0.11 },
+            { lx:  -0.64, ly:   1.05 },
+        ],
+        connections: [
+            { from: 0, to: 1 }, { from: 1, to: 2 },
+            { from: 1, to: 3 },
+            { from: 2, to: 4 }, { from: 4, to: 5 },
+        ],
+    },
 ];
 
 const SPIRAL_A    = 550;
@@ -369,13 +352,11 @@ const SPIRAL_STEP = 1.45;
 const TRAIL_SMOOTH  = 0.28;
 const TRAIL_MAX     = 70;
 
-// How long completed lines stay bright before fading (ms)
 const LINE_LINGER_MS = 2800;
 
-// Ripple ring animation
-const RIPPLE_MS    = 900;    // total lifetime
-const RIPPLE_MAX_R = 55;     // world-space radius at full expansion
-const RIPPLE_ALPHA = 0.75;   // peak alpha (at t=0)
+const RIPPLE_MS    = 900;
+const RIPPLE_MAX_R = 55;
+const RIPPLE_ALPHA = 0.75;
 
 const AMERGIN_LINES = [
     { ga: 'Cé an té le nod slí na gcloch sléibhe?', en: 'Who knows the way of the mountain stones?' },
@@ -390,7 +371,7 @@ export class ConstellationScene extends Phaser.Scene {
     constructor() {
         super({ key: 'ConstellationScene' });
         this.currentIndex = 0;
-        this.canInteract  = false;   // blocked until moon phase is set
+        this.canInteract  = false;
 
         this.isDrawing  = false;
         this.strokeHits = [];
@@ -412,15 +393,18 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCX = 0;
         this.worldCY = 0;
 
-        // Moon / English-reveal system
-        this.moonPhase       = 0;      // 0 = crescent, 1 = full
-        this.moonCanvas      = null;   // HTMLCanvasElement drawn each frame
-        this.moonOverlay     = null;   // the DOM overlay container
-        this.moonEl          = null;   // the draggable moon canvas element
-        this.englishEl       = null;   // English translation div
-        this.irishOverlayEl  = null;   // Irish text div (in overlay)
-        this.moonInitDone    = false;  // true once player has released first drag
-        this.spinAngle       = 0;      // current camera rotation degrees
+        this.moonPhase       = 0;
+        this.moonCanvas      = null;
+        this.moonOverlay     = null;
+        this.moonEl          = null;
+        this.englishEl       = null;
+        this.irishOverlayEl  = null;
+        this.moonInitDone    = false;
+        this.spinAngle       = 0;
+
+        // ── Audio state ───────────────────────────────────────────────────────
+        this._harpStarted      = false;
+        this._droneStarted     = false;
     }
 
     get W() { return this.scale.width; }
@@ -431,7 +415,6 @@ export class ConstellationScene extends Phaser.Scene {
         this._onComplete = this.registry.get('onComplete') || null;
         this._frozenAmerginLine = null;
 
-        // Dark sky background — nebula and stars render over this via ADD blend.
         this.cameras.main.setBackgroundColor('#00060f');
 
         const wSize  = 5000;
@@ -439,7 +422,6 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCY = wSize / 2;
         this.cameras.main.setBounds(0, 0, wSize, wSize);
 
-        // (Nebula is rendered by the starfield canvas behind this Phaser canvas)
         this.drawStaticBackground(wSize);
 
         this.worldG  = this.add.graphics().setDepth(10);
@@ -448,10 +430,9 @@ export class ConstellationScene extends Phaser.Scene {
 
         const textSize     = Math.round(Math.min(this.W, this.H) * 0.095);
         const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.062);
-        const textY        = this.H * 0.15;   // top quarter
-        const subY         = this.H * 0.72;   // bottom third
+        const textY        = this.H * 0.15;
+        const subY         = this.H * 0.72;
 
-        // Constellation name texts (shown on completion) — Aonchlo gold / Courier green
         this.irishText = this.add
             .text(this.W / 2, textY, '', {
                 fontFamily: 'Aonchlo, serif',
@@ -468,7 +449,6 @@ export class ConstellationScene extends Phaser.Scene {
             })
             .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
-        // Waiting texts — same font scheme
         this.waitingIrishText = this.add
             .text(this.W / 2, textY, '', {
                 fontFamily: 'Aonchlo, serif',
@@ -489,32 +469,26 @@ export class ConstellationScene extends Phaser.Scene {
             })
             .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
-        // UI camera — never rotates, only renders depth-22 text objects.
-        // Main camera handles everything else (and rotates for the wheeling sky effect).
         this.uiCamera = this.cameras.add(0, 0, this.W, this.H)
             .setName('ui')
             .setBackgroundColor('rgba(0,0,0,0)');
         this.uiCamera.ignore(
             this.children.list.filter(obj => obj.depth !== 22)
         );
-        // Main camera ignores all depth-22 objects
         this.cameras.main.ignore(
             this.children.list.filter(obj => obj.depth === 22)
         );
 
         this.buildConstellations(wSize);
-        // Camera starts at constellation 0 position — settleMoon will pan into it
         const c0 = this.constellations[0];
         this.cameras.main.setScroll(c0.wcx - this.W / 2, c0.wcy - this.H / 2 - this.H * 0.38);
 
-        // Hide all constellation graphics until moon has settled
         this.worldG.setAlpha(0);
 
         this.input.on('pointerdown', this.onPointerDown, this);
         this.input.on('pointermove', this.onPointerMove, this);
         this.input.on('pointerup',   this.onPointerUp,   this);
 
-        // Fullscreen must be triggered from a native DOM event — attach directly to canvas
         const fsHandler = () => {
             _requestFullscreen();
             _unlockAudio();
@@ -524,7 +498,6 @@ export class ConstellationScene extends Phaser.Scene {
         this.game.canvas.addEventListener('pointerdown', fsHandler, { once: true, passive: true });
         this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
 
-        // Build the moon overlay — constellations are blocked until first release
         this.buildMoonOverlay();
     }
 
@@ -536,12 +509,10 @@ export class ConstellationScene extends Phaser.Scene {
         const moonD   = moonR * 2;
         const marginX = Math.round(W * 0.06);
 
-        // ── Cycling Amergin lines (mirrors introModal behaviour exactly) ──────
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
         let line              = AMERGIN_LINES[currentLyricIndex];
         let hasInteracted     = false;
 
-        // Overlay container
         const overlay = document.createElement('div');
         overlay.style.cssText = [
             'position:fixed;inset:0;z-index:99999;',
@@ -549,7 +520,6 @@ export class ConstellationScene extends Phaser.Scene {
         ].join('');
         this.moonOverlay = overlay;
 
-        // Irish text — Aonchlo, gold — in top quarter of screen
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
         irishEl.style.cssText = [
@@ -566,7 +536,6 @@ export class ConstellationScene extends Phaser.Scene {
         ].join('');
         this.irishOverlayEl = irishEl;
 
-        // English text — Courier New, green — in bottom third
         const enEl = document.createElement('div');
         enEl.textContent = line.en;
         enEl.style.cssText = [
@@ -583,7 +552,6 @@ export class ConstellationScene extends Phaser.Scene {
         ].join('');
         this.englishEl = enEl;
 
-        // Cycle lines every 10s until first interaction — exactly as introModal does
         const lyricInterval = setInterval(() => {
             if (hasInteracted) return;
             currentLyricIndex = (currentLyricIndex + 1) % AMERGIN_LINES.length;
@@ -599,7 +567,6 @@ export class ConstellationScene extends Phaser.Scene {
         }, 10000);
         this._lyricInterval = lyricInterval;
 
-        // Moon canvas
         const moonCanvas = document.createElement('canvas');
         moonCanvas.width  = moonD;
         moonCanvas.height = moonD;
@@ -633,7 +600,7 @@ export class ConstellationScene extends Phaser.Scene {
         overlay.appendChild(irishEl);
         overlay.appendChild(enEl);
         document.body.appendChild(overlay);
-        document.body.appendChild(moonCanvas);   // moon lives on body, not in flex overlay
+        document.body.appendChild(moonCanvas);
 
         // ── Drag logic ────────────────────────────────────────────────────────
         let dragging         = false;
@@ -642,14 +609,12 @@ export class ConstellationScene extends Phaser.Scene {
         const trackW         = W - marginX * 2;
 
         const onDragStart = (clientX) => {
-            // CRITICAL: fullscreen + audio unlock must be synchronous on first gesture
             _requestFullscreen();
             _unlockAudio();
 
             if (!hasInteracted) {
                 hasInteracted = true;
                 clearInterval(lyricInterval);
-                // Freeze the current line for passing to onComplete later
                 this._frozenAmerginLine = line;
             }
 
@@ -696,7 +661,6 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     drawMoonPhase(phase) {
-        // phase: 0 = thin crescent, 1 = full moon
         const canvas = this.moonCanvas;
         if (!canvas) return;
         const r   = this._moonR;
@@ -705,7 +669,6 @@ export class ConstellationScene extends Phaser.Scene {
 
         const cx = r, cy = r;
 
-        // Outer glow
         const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.6);
         glow.addColorStop(0,   `rgba(200,220,255,${0.18 + phase * 0.14})`);
         glow.addColorStop(0.5, `rgba(150,180,255,${0.08 + phase * 0.06})`);
@@ -715,38 +678,26 @@ export class ConstellationScene extends Phaser.Scene {
         ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
         ctx.fill();
 
-        // Moon disc — lit surface (always full circle, clipped)
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
         ctx.clip();
 
-        // Base disc: dark side colour — faint blue so crescent shape is always visible
         ctx.fillStyle = '#1a2035';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Lit portion: draw as a lens/crescent using two overlapping circles
-        // phase=0 → hairline crescent on right edge
-        // phase=1 → full disc
         ctx.fillStyle = '#d8e8f8';
 
-        // The lit crescent: right half always lit, left side governed by phase
-        // We draw the lit area as the intersection / union of two arcs
         ctx.beginPath();
         if (phase >= 0.99) {
-            // Full moon
             ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
         } else {
-            // Crescent to gibbous: the terminator is an ellipse
-            // x-radius of terminator ellipse: r when phase=0, -r when phase=0.5 (full half), 0 at phase=0
-            // Maps: phase 0→0.5 = crescent (terminator bulges left), 0.5→1 = gibbous (bulges right)
-            const terminatorX = r * 0.92 * Math.cos(phase * Math.PI);  // r → -r
-            ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);      // right semicircle
+            const terminatorX = r * 0.92 * Math.cos(phase * Math.PI);
+            ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
             ctx.ellipse(cx, cy, Math.abs(terminatorX), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, terminatorX > 0);
         }
         ctx.fill();
 
-        // Subtle surface texture — a few faint mare circles
         if (phase > 0.1) {
             const mare = (mx, my, mr, a) => {
                 ctx.fillStyle = `rgba(160,180,210,${a * phase})`;
@@ -761,7 +712,6 @@ export class ConstellationScene extends Phaser.Scene {
 
         ctx.restore();
 
-        // Thin rim highlight
         ctx.strokeStyle = `rgba(200,220,255,${0.15 + phase * 0.25})`;
         ctx.lineWidth   = 1;
         ctx.beginPath();
@@ -770,13 +720,12 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     positionMoon(phase) {
-        // Move moon to its settled top-strip position based on current phase
         const W = this.W, H = this.H;
         const r = this._moonR, marginX = this._marginX;
         const moonD  = r * 2;
         const trackW = W - marginX * 2;
-        const x = marginX + phase * trackW - r;   // left edge of canvas
-        const y = Math.round(H * 0.01);            // 1% from top
+        const x = marginX + phase * trackW - r;
+        const y = Math.round(H * 0.01);
 
         const el = this.moonEl;
         el.style.position = 'fixed';
@@ -787,11 +736,18 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     settleMoon(phase) {
-        // Called once on first release.
-        // 1. Fade out the text overlay elements, keep moon
-        // 2. Transition moon from centred to its top-strip position
-        // 3. After landing, enable constellations
-
+        // Drone starts immediately here — moon drag release is a genuine touch event
+        // so AudioContext is unlocked. We start now so it rises with the moon.
+        if (!this._droneStarted) {
+            this._droneStarted = true;
+            const ac = this.audioContext;
+            const doStart = () => this._startDrone();
+            if (ac && ac.state === 'suspended') {
+                ac.resume().then(doStart);
+            } else {
+                doStart();
+            }
+        }
         const overlay = this.moonOverlay;
         const moonEl  = this.moonEl;
         const W = this.W, H = this.H;
@@ -801,12 +757,9 @@ export class ConstellationScene extends Phaser.Scene {
         const endX   = marginX + phase * trackW - r;
         const endY   = Math.round(H * 0.01);
 
-        // Text will fade when the moon actually starts moving (after the delay below)
-        // Kill the pulsing invite animation immediately though
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
-        // Step 1: gently reverse the sky rotation back to 0° over ~1.4s
         this.tweens.add({
             targets:  this,
             spinAngle: 0,
@@ -815,8 +768,6 @@ export class ConstellationScene extends Phaser.Scene {
             onUpdate: () => { this.cameras.main.setAngle(this.spinAngle); },
         });
 
-        // Step 2: moon flies to top with dreamlike afterimage trail
-        // We create ghost copies that fade in/out along the path
         const startLeft = parseFloat(moonEl.style.left) || (parseFloat(moonEl.style.left) || 0);
         const startTop  = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
@@ -827,7 +778,6 @@ export class ConstellationScene extends Phaser.Scene {
             ghost.style.pointerEvents = 'none';
             ghost.style.animation     = 'none';
             ghost.style.cursor        = 'default';
-            // Start at same position as moon
             ghost.style.left     = moonEl.style.left;
             ghost.style.top      = moonEl.style.top;
             ghost.style.opacity  = '0';
@@ -837,18 +787,15 @@ export class ConstellationScene extends Phaser.Scene {
             ghosts.push(ghost);
         }
 
-        // Animate moon and ghosts — 2s pause first so user can read the text
-        const MOVE_DURATION = 3500; // ms — slow, dreamy float upward
-        const MOVE_DELAY    = 2000; // ms — wait before starting
+        const MOVE_DURATION = 3500;
+        const MOVE_DELAY    = 2000;
         const moveStart = performance.now() + MOVE_DELAY;
         const fromLeft  = parseFloat(moonEl.style.left) || 0;
         const fromTop   = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
         let _textFaded = false;
         const animateMoonTrail = (now) => {
-            // Sit still until delay has elapsed
             if (now < moveStart) { requestAnimationFrame(animateMoonTrail); return; }
-            // Fade text out exactly as moon begins to move
             if (!_textFaded) {
                 _textFaded = true;
                 [this.irishOverlayEl, this.englishEl].forEach(el => {
@@ -857,7 +804,6 @@ export class ConstellationScene extends Phaser.Scene {
             }
             const elapsed = now - moveStart;
             const rawT    = Math.min(elapsed / MOVE_DURATION, 1);
-            // ease out quad — starts moving confidently, glides to a stop
             const t = 1 - (1 - rawT) * (1 - rawT);
 
             const curLeft = fromLeft + (endX - fromLeft) * t;
@@ -865,16 +811,14 @@ export class ConstellationScene extends Phaser.Scene {
             moonEl.style.left = curLeft + 'px';
             moonEl.style.top  = curTop  + 'px';
 
-            // Each ghost trails behind at a fractional t
             ghosts.forEach((ghost, i) => {
-                const lag  = (i + 1) / (NUM_GHOSTS + 1) * 0.55; // how far behind
+                const lag  = (i + 1) / (NUM_GHOSTS + 1) * 0.55;
                 const gt   = Math.max(0, rawT - lag);
                 const ease = gt < 0.5 ? 4 * gt * gt * gt : 1 - Math.pow(-2 * gt + 2, 3) / 2;
                 const gLeft = fromLeft + (endX - fromLeft) * ease;
                 const gTop  = fromTop  + (endY - fromTop)  * ease;
                 ghost.style.left = gLeft + 'px';
                 ghost.style.top  = gTop  + 'px';
-                // fade: appear during transit, vanish near end
                 const fadeIn  = Math.min(gt * 4, 1);
                 const fadeOut = Math.max(0, 1 - (rawT - 0.5) * 2);
                 ghost.style.opacity = String(fadeIn * fadeOut * (0.5 - i * 0.07));
@@ -883,18 +827,14 @@ export class ConstellationScene extends Phaser.Scene {
             if (rawT < 1) {
                 requestAnimationFrame(animateMoonTrail);
             } else {
-                // rAF complete — moon is exactly at endX/endY with no jump
                 moonEl.style.left = endX + 'px';
                 moonEl.style.top  = endY + 'px';
                 ghosts.forEach(g => g.remove());
-
-                // Now safe to start long drift without any position conflict
                 this._startPostSettleSequence(moonEl, endX, endY, W, H);
             }
         };
         requestAnimationFrame(animateMoonTrail);
 
-        // Step 3: pan camera into first constellation while moon is floating up
         const cam        = this.cameras.main;
         const targetScrollX = this.constellations[0].wcx - this.W / 2;
         const targetScrollY = this.constellations[0].wcy - this.H / 2;
@@ -925,7 +865,6 @@ export class ConstellationScene extends Phaser.Scene {
             this.moonPhase = newPhase;
             this.drawMoonPhase(newPhase);
             this.positionMoon(newPhase);
-            // Update English opacity on any visible text
             if (this.waitingEnglishText.alpha > 0) {
                 this.waitingEnglishText.setAlpha(newPhase);
             }
@@ -960,40 +899,29 @@ export class ConstellationScene extends Phaser.Scene {
         if (this._driftWheelRt) this._driftWheelRt.angle += this._driftWheelSpeed * dt;
         if (this._fgWheelRt)    this._fgWheelRt.angle    += this._fgWheelSpeed    * dt;
 
-        // Rotate camera to carry worldG (constellation) with the stars
         const camDeg = this._driftWheelSpeed * dt;
         this.spinAngle = (this.spinAngle || 0) + camDeg;
         this.cameras.main.setAngle(this.spinAngle);
     }
 
-    // ── Nebula background — very slow parallax, behind all stars ─────────────
     drawNebula(wSize) {
-        // We paint the nebula image onto a RenderTexture tiled across the world.
-        // scrollFactor 0.012 means it barely drifts as the camera pans — looks
-        // like a distant nebula far behind the star field.
-        // We use a plain Graphics soft-glow fallback if the image isn't ready,
-        // then swap in the image once loaded.
-
-        // Nebula fixed to screen centre, large enough to cover at any rotation
         const S   = Math.round(Math.max(this.W, this.H) * 1.5);
         const rt  = this.add.renderTexture(0, 0, S, S)
                         .setScrollFactor(0).setDepth(0).setAlpha(0.7)
                         .setOrigin(0.5).setPosition(this.W / 2, this.H / 2)
                         .setBlendMode(Phaser.BlendModes.SCREEN);
         this._nebulaWheelRt    = rt;
-        this._nebulaWheelSpeed = -360 / 120000;  // 2 min per revolution — slowest
+        this._nebulaWheelSpeed = -360 / 120000;
 
         const paintNebula = (img) => {
             rt.clear();
             if (img) {
-                // Scale image to fill RT
                 const scaleX = S / img.width;
                 const scaleY = S / img.height;
                 const scale  = Math.max(scaleX, scaleY);
                 const dw = img.width * scale, dh = img.height * scale;
                 rt.draw(img, (S - dw) / 2, (S - dh) / 2);
             } else {
-                // Glow fallback — rich colours so nebula is clearly visible
                 const fg = this.make.graphics({ add: false });
                 const glows = [
                     { x:0.35, y:0.38, r:0.38, c1:0x6030c0, c2:0x1a1060 },
@@ -1011,7 +939,6 @@ export class ConstellationScene extends Phaser.Scene {
             }
         };
 
-        // Try to use the nebula image from the HTML page
         if (this.textures.exists('nebula')) {
             paintNebula(this.textures.get('nebula').getSourceImage());
         } else {
@@ -1020,18 +947,15 @@ export class ConstellationScene extends Phaser.Scene {
                 paintNebula(this.textures.get('nebula').getSourceImage());
             });
             this.load.start();
-            paintNebula(null);  // paint glow fallback immediately
+            paintNebula(null);
         }
 
-        // Nebula rotation is driven by updateSpin() — no tween needed
         this._nebulaWheelTween = null;
     }
 
     drawStaticBackground(wSize) {
         const W = this.W;
         const H = this.H;
-        // Must be large enough to cover screen at all rotation angles.
-        // At 45° a square of side S has diagonal S√2 — so use 1.5× for safety.
         const S = Math.round(Math.max(W, H) * 1.5);
 
         const rt  = this.add.renderTexture(0, 0, S, S)
@@ -1041,22 +965,17 @@ export class ConstellationScene extends Phaser.Scene {
         const tmp = this.make.graphics({ add: false });
         const rng = new Phaser.Math.RandomDataGenerator(['oíche2025']);
 
-        // All background stars are square (1×1 or 2×2) or pixel-cross shaped.
-        // No circular blobs — kept small and dim.
         const drawStarStatic = (x, y, r, a) => {
             tmp.fillStyle(0xffffff, a);
             if (r < 1.2) {
-                // tiny square
                 tmp.fillRect(Math.floor(x), Math.floor(y), 2, 2);
             } else {
-                // pixel cross
                 const arm = Math.round(r);
                 tmp.fillRect(Math.floor(x - arm), Math.floor(y), arm * 2 + 1, 1);
                 tmp.fillRect(Math.floor(x), Math.floor(y - arm), 1, arm * 2 + 1);
             }
         };
 
-        // Static layer — boosted brightness so rotation is clearly visible
         for (const l of [
             { n: 600,  minR: 0.6, maxR: 1.0, minA: 0.08, maxA: 0.18 },
             { n: 200,  minR: 1.0, maxR: 1.5, minA: 0.12, maxA: 0.24 },
@@ -1074,13 +993,10 @@ export class ConstellationScene extends Phaser.Scene {
         rt.draw(tmp, 0, 0);
         tmp.destroy();
 
-        // Far-field layer — manual rotation in update(), 90s per revolution CCW
         this._bgWheelRt    = rt;
-        this._bgWheelSpeed = -360 / 180000;   // 3 min per revolution
-        this._bgWheelTween = null;            // no tween — driven by updateSpin()
+        this._bgWheelSpeed = -360 / 180000;
+        this._bgWheelTween = null;
 
-        // Mid-field layer — denser, slightly faster wheel, opposite direction.
-        // Built as a RenderTexture centred on screen so rotation pivots correctly.
         const rng2 = new Phaser.Math.RandomDataGenerator(['réaltaí2']);
         const rt2  = this.add.renderTexture(0, 0, S, S)
             .setScrollFactor(0).setDepth(4).setOrigin(0.5)
@@ -1106,8 +1022,6 @@ export class ConstellationScene extends Phaser.Scene {
             { n: 150,  minR: 1.4, maxR: 2.2, minA: 0.28, maxA: 0.58 },
         ];
 
-        // Distribute stars across the full RT area (centred, so from -S/2 to S/2 in local space)
-        // but draw into the RT's local coords [0..S]
         for (const l of starDefs) {
             for (let i = 0; i < l.n; i++) {
                 drawStarDrift(
@@ -1121,12 +1035,10 @@ export class ConstellationScene extends Phaser.Scene {
         rt2.draw(tmp2, 0, 0);
         tmp2.destroy();
 
-        // Mid-field — manual rotation in update(), 45s per revolution CCW
         this._driftWheelRt    = rt2;
-        this._driftWheelSpeed = -360 / 90000;  // 90s per revolution
-        this._driftWheelTween = null;           // no tween — driven by updateSpin()
+        this._driftWheelSpeed = -360 / 90000;
+        this._driftWheelTween = null;
 
-        // Foreground layer — brightest, fastest rotation, sparse large stars
         const rng3 = new Phaser.Math.RandomDataGenerator(['réaltaí3']);
         const rt3  = this.add.renderTexture(0, 0, S, S)
             .setScrollFactor(0).setDepth(5).setOrigin(0.5)
@@ -1153,7 +1065,6 @@ export class ConstellationScene extends Phaser.Scene {
         rt3.draw(tmp3, 0, 0);
         tmp3.destroy();
 
-        // Foreground rotates fastest — 60s per revolution
         this._fgWheelRt    = rt3;
         this._fgWheelSpeed = -360 / 60000;
     }
@@ -1162,9 +1073,9 @@ export class ConstellationScene extends Phaser.Scene {
         const usable = Math.min(this.W, this.H) * 0.68;
         this.constellations = CONSTELLATION_DATA.map((data, idx) => {
             const theta = SPIRAL_B + idx * SPIRAL_STEP;
-            
-const r = SPIRAL_A * (1 + idx * 0.25);
-const wcx   = this.worldCX + Math.cos(theta) * r;
+
+            const r = SPIRAL_A * (1 + idx * 0.25);
+            const wcx   = this.worldCX + Math.cos(theta) * r;
             const wcy   = this.worldCY + Math.sin(theta) * r;
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -1185,7 +1096,7 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
             const connections = data.connections.map(c => ({
                 from: c.from, to: c.to,
                 completed: false,
-                completedAt: null,   // set to time.now when completed
+                completedAt: null,
             }));
 
             return {
@@ -1207,42 +1118,27 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         const ty = c.wcy - this.H / 2 + (c.cameraOffsetY || 0) * this.H;
         if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
-        // Arc motion: interpolate from current scroll through a perpendicular
-        // midpoint, then into the target — gives a "wheeling through the sky" feel.
         const sx    = this.cameras.main.scrollX;
         const sy    = this.cameras.main.scrollY;
         const dx    = tx - sx, dy = ty - sy;
         const dist  = Math.sqrt(dx * dx + dy * dy) || 1;
 
-        // Perpendicular unit vector (rotate 90°), scaled by ~30% of travel distance
         const arcH  = dist * 0.28;
         const px    = -dy / dist * arcH;
         const py    =  dx / dist * arcH;
 
-        // Mid-arc point (quadratic Bézier control point)
         const mx    = (sx + tx) / 2 + px;
         const my    = (sy + ty) / 2 + py;
 
-        // Animate a progress value 0→1 and evaluate the Bézier each tick
         const cam   = this.cameras.main;
         const prog  = { t: 0 };
 
-        // Kill any ongoing camera tween first
         this.tweens.killTweensOf(cam);
         this.tweens.killTweensOf(prog);
 
-        // ── Parallax sky shift during pan ────────────────────────────────────
-        // The camera moves (sx,sy) → (tx,ty) in world space.
-        // Background layers are scrollFactor(0) so they don't move at all by default.
-        // To fake parallax we temporarily translate them OPPOSITE to camera travel,
-        // at a fraction of the camera displacement — deeper layers move less.
-        // This makes the sky look like it's turning with you, not sitting still
-        // while constellation stars fly across it.
-
-        const camDX = tx - sx;   // total camera travel in world px
+        const camDX = tx - sx;
         const camDY = ty - sy;
 
-        // Snapshot starting positions of all layers
         const bgLayers = [
             { rt: this._bgWheelRt,    depth: 0.25 },
             { rt: this._driftWheelRt, depth: 0.45 },
@@ -1252,12 +1148,10 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         const startAngles  = bgLayers.map(l => l.rt.angle);
         const startCamAngle = this.spinAngle || 0;
 
-        // Rotation sweep proportional to pan distance — further pans = bigger sky turn
         const panDist   = Math.sqrt(camDX * camDX + camDY * camDY);
         const sweepDeg  = Math.min(panDist * 0.018, 55);
-        const sweepSign = -1;  // always CCW
+        const sweepSign = -1;
 
-        // Pause auto-rotation — drive manually during pan
         this._bgWheelsPaused = true;
 
         const PAN_MS = 3000;
@@ -1298,7 +1192,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
     }
 
     showWaitingTexts(c) {
-        // Fade in Irish waiting text fully, English at current moonPhase
         this.waitingIrishText.setText(c.waitingGa).setAlpha(0);
         this.waitingEnglishText.setText(c.waitingEn).setAlpha(0);
         this.tweens.add({ targets: this.waitingIrishText,   alpha: 1,               duration: 900, ease: 'Sine.easeIn' });
@@ -1316,11 +1209,8 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
     startSequencePulse() {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer = null; }
         this.pulseIdx = 0;
-        // Mark that player has taken control — from now on wheels pause while working.
-        // But don't pause immediately — let sky keep spinning freely until first star touch.
         this._interactionStarted = true;
 
-        // Show waiting texts for the current constellation
         const c = this.constellations[this.currentIndex];
         if (c && c.waitingGa) this.showWaitingTexts(c);
 
@@ -1348,7 +1238,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
     getStarSeq(c) {
         const pending = c.connections.filter(cn => !cn.completed);
         if (!pending.length) return [];
-        // Collect all unique star indices that are part of pending connections
         const seen = new Set();
         const seq  = [];
         for (const cn of pending) {
@@ -1360,9 +1249,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
 
     hitR() { return Math.min(this.W, this.H) * 0.09; }
 
-    // Convert a screen-space pointer position to the rotated camera's coordinate space.
-    // trailG is scrollFactor(0) so it renders in the camera's rotated screen space —
-    // pointer.x/y are in unrotated screen space, so we must rotate them to match.
     screenToRotated(sx, sy) {
         const cx = this.W / 2, cy = this.H / 2;
         const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
@@ -1375,7 +1261,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
     }
 
     onPointerDown(pointer) {
-        // Attempt fullscreen on any game touch — catches cases where moon drag didn't trigger it
         _requestFullscreen();
         _unlockAudio();
         if (!this.canInteract) return;
@@ -1395,9 +1280,14 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
                 this.tweens.killTweensOf(star);
                 star.brightness = 2.0;
                 this.spawnRipple(star.wx, star.wy);
-                // Sky and camera still while player draws
                 this._setBgWheelPaused(true);
                 this._frozenSpinAngle = this.spinAngle;
+
+                // First star touch — start the harp if not yet started
+                if (!this._harpStarted) {
+                    this._startHarp();
+                }
+
                 break;
             }
         }
@@ -1429,7 +1319,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
                 this.tweens.killTweensOf(star);
                 star.brightness = 2.0;
                 this.spawnRipple(star.wx, star.wy);
-                // Play a note immediately if this forms a valid pending connection
                 if (this.strokeHits.length >= 2) {
                     const prev = this.strokeHits[this.strokeHits.length - 2];
                     const a = prev.index, b = star.index;
@@ -1437,7 +1326,9 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
                         cn => !cn.completed &&
                               ((cn.from === a && cn.to === b) || (cn.from === b && cn.to === a))
                     );
-                    if (pendingConn) this.playStarNote();
+                    if (pendingConn) {
+                        this._playConnectionChime();
+                    }
                 }
             }
         }
@@ -1466,8 +1357,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         const hits    = this.strokeHits.map(s => s.index);
         if (hits.length < 2) { this.rejectStroke(c); return; }
 
-        // Check every consecutive pair in the stroke against pending connections.
-        // Connections are undirected — either orientation is valid.
         let anyMatched = false;
         for (let i = 0; i < hits.length - 1; i++) {
             const a = hits[i], b = hits[i + 1];
@@ -1478,9 +1367,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
             if (conn) {
                 conn.completed = true;
                 anyMatched = true;
-                // Note is played in onPointerMove when the second star is touched.
-                // For a single-tap on an already-connected pair, play here as fallback.
-                if (this.strokeHits.length === 1) this.playStarNote();
             }
         }
 
@@ -1509,12 +1395,14 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         this.canInteract = false;
         if (this.pulseTimer) this.pulseTimer.remove();
         for (const star of c.stars) { star.completed = true; this.tweens.killTweensOf(star); }
+
+        // Advance drone to next modal root
+        this._droneRootIndex = (this._droneRootIndex || 0) + 1;
+        this._advanceDrone(this._droneRootIndex);
+
         this.playCompletionChord();
 
-        // 1. Fade out waiting texts
         this.hideWaitingTexts(() => {
-
-            // 2. Fade in constellation name (Irish full, English at moonPhase)
             this.time.delayedCall(300, () => {
                 this.irishText.setText(c.irishText).setAlpha(0);
                 this.tweens.add({ targets: this.irishText, alpha: 1, duration: 900 });
@@ -1528,7 +1416,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
                     });
                 }
 
-                // 3. After name has shown, fade it out and advance
                 this.time.delayedCall(LINE_LINGER_MS + 1200, () => {
                     this.tweens.add({ targets: this.irishText,              alpha: 0, duration: 800 });
                     this.tweens.add({ targets: this.englishConstellationText, alpha: 0, duration: 800 });
@@ -1537,7 +1424,6 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
                         this.currentIndex++;
                         if (this.currentIndex < this.constellations.length) {
                             this.panCameraTo(this.currentIndex, true);
-                            // After pan settles, show next waiting texts and re-enable
                             this.time.delayedCall(2200, () => {
                                 this.canInteract = true;
                                 this.startSequencePulse();
@@ -1551,270 +1437,442 @@ const wcx   = this.worldCX + Math.cos(theta) * r;
         });
     }
 
+    onAllComplete() {
+        this._stopAllAudio();
+        this.irishText.setText('Go raibh maith agat').setAlpha(0);
+        this.tweens.add({
+            targets: this.irishText, alpha: 1, duration: 2000,
+            onComplete: () => {
+                this.time.delayedCall(2000, () => {
+                    this.cameras.main.fadeOut(1800, 10, 5, 40);
 
+                    this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.shutdown();
 
+                        if (this.moonEl && this.moonEl.parentNode) {
+                            this.moonEl.parentNode.removeChild(this.moonEl);
+                            this.moonEl = null;
+                        }
 
+                        if (this._onComplete) {
+                            this._onComplete(this.moonPhase, this._frozenAmerginLine);
+                        }
 
+                        const canvas = this.game.canvas;
+                        this.game.destroy(true);
+                        canvas.remove();
 
-
-
-
-
-onAllComplete() {
-    this.irishText.setText('Go raibh maith agat').setAlpha(0);
-    this.tweens.add({
-        targets: this.irishText, alpha: 1, duration: 2000,
-        onComplete: () => {
-            this.time.delayedCall(2000, () => {
-                // Fade to deep indigo
-                this.cameras.main.fadeOut(1800, 10, 5, 40);
-
-                this.cameras.main.once('camerafadeoutcomplete', () => {
-                    // Shut down the moon overlay cleanly
-                    this.shutdown();
-
-                    // Remove the moon canvas directly from body
-                    if (this.moonEl && this.moonEl.parentNode) {
-                        this.moonEl.parentNode.removeChild(this.moonEl);
-                        this.moonEl = null;
-                    }
-
-                    // Fire the callback — this triggers initMainHeroSelect() in heroSelect.js
-                    if (this._onComplete) {
-                        this._onComplete(this.moonPhase, this._frozenAmerginLine);
-                    }
-
-                    // Destroy the Phaser game instance and remove its canvas
-                    const canvas = this.game.canvas;
-                    this.game.destroy(true);
-                    canvas.remove();
-
-                    const gameContainer = document.getElementById('gameContainer');
-                    if (gameContainer) gameContainer.style.display = 'none';
+                        const gameContainer = document.getElementById('gameContainer');
+                        if (gameContainer) gameContainer.style.display = 'none';
+                    });
                 });
-            });
-        },
-    });
-}
-
-
-
-
-
-
+            },
+        });
+    }
 
     shutdown() {
         if (this._lyricInterval)  clearInterval(this._lyricInterval);
+        this._stopAllAudio();
         if (this.moonOverlay)     { this.moonOverlay.remove(); this.moonOverlay = null; }
         if (this._moonStyle)      { this._moonStyle.remove();  this._moonStyle  = null; }
     }
 
+    // ── Audio ─────────────────────────────────────────────────────────────────
+    // Strategy:
+    //   - Harp: preload (loadTune only, no play) into _harpPreloadPlayer at scene
+    //     start so soundfonts are cached. On moon drag-release (gesture), resume
+    //     that player's AudioContext and call play(). This gives instant start
+    //     with no DOMException because play() itself calls resume() internally.
+    //   - Drone: created fresh on gesture (TradSessionPlayer constructor + play
+    //     inside the gesture gives running context). Fixed 60s loop timer
+    //     overrides tuneDuration which can be unreliable with pad patches.
+    //   - SFX (chimes, completion chord): use this.audioContext created in
+    //     _initAudioContext() during the gesture.
+
     initAudio() {
+        this.audioContext       = null;
+        this._masterGain        = null;
+        this._sfxGain           = null;
+        this._droneRootIndex    = 0;
+        this._harpPreloadPlayer = null;  // loaded but not playing — waiting for gesture
+        this._harpPlayer        = null;  // the live playing harp player
+        this._harpStarted       = false;
+        this._harpSilentStarted = false;
+        this._dronePlayer       = false; // boolean lock
+        this._dronePlayerObj    = null;
+        this._droneGainNode     = null;
+        this._droneLoopTimer    = null;
+
+        // Begin loading harp soundfont now so it's cached by the time the
+        // moon is dragged. We only call loadTune — NOT play() — so the
+        // suspended AudioContext never causes a DOMException.
+        this._preloadHarp();
+    }
+
+    async _preloadHarp() {
+        try {
+            const player = new TradSessionPlayer();
+            const loaded = await player.loadTune('myLaganLove');
+            if (!loaded) { console.warn('[audio] Harp preload failed'); return; }
+            // Mute all tracks — this player is silent until gesture
+            for (const track of player.tracks) {
+                track.gain.gain.value = 0;
+                track.active = false;
+            }
+            player.engine.masterGain.gain.value = 0.0001;
+            // Store as the ready-to-play player
+            this._harpPreloadPlayer = player;
+            console.log('[audio] Harp preloaded (soundfont cached, not yet playing)');
+        } catch(e) {
+            console.warn('[audio] _preloadHarp error:', e);
+        }
+    }
+
+    // Called once inside _startDrone() during the drag-release user gesture.
+    // Sets up the scene-level AudioContext used for SFX only (chimes, completion chord).
+    _initAudioContext() {
+        if (this.audioContext) return;
         try {
             const AC = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AC();
 
-            // Master gain for all constellation sounds
+            this._masterGain = this.audioContext.createGain();
+            this._masterGain.gain.value = 1.0;
+            this._masterGain.connect(this.audioContext.destination);
+
             this._sfxGain = this.audioContext.createGain();
-            this._sfxGain.gain.value = 0.28;
-            this._sfxGain.connect(this.audioContext.destination);
+            this._sfxGain.gain.value = 0.6;
+            this._sfxGain.connect(this._masterGain);
 
-            // ── My Lagan Love (Cmaj) — pre-parsed note frequencies ────────────────
-            // Parsed from ABC: K:Cmaj, L:1/8. Uppercase=C4 oct, lower=C5 oct.
-            // B, = B3 (below middle C). _B = Bb, _e = Eb.
-            this._starNotes = [
-                392.00, 440.01, 493.89, 523.26, 392.00, 349.23, 329.63,  // G A B c G F E
-                261.63, 246.95, 261.63, 329.63, 349.23, 329.63,           // C B, C E F E
-                261.63, 261.63, 261.63, 261.63,                            // C C C C
-                392.00, 440.01, 466.17, 440.01, 493.89, 523.26,           // G A _B A B c
-                392.00, 349.23, 329.63, 261.63, 246.95, 261.63,           // G F E C B, C
-                329.63, 349.23, 329.63, 261.63, 261.63, 261.63, 261.63,   // E F E C C C C
-                329.63, 349.23, 440.01, 392.00, 392.00, 349.23, 329.63,   // E F A G G F E
-                349.23, 440.01, 493.89, 523.26, 349.23, 440.01, 392.00,   // F A B c F A G
-                440.01, 493.89, 523.26, 622.26, 523.26, 493.89,           // A B c _e c B
-                523.26, 392.00, 349.23, 329.63, 261.63, 246.95, 261.63,   // c G F E C B, C
-                329.63, 349.23, 329.63, 261.63, 261.63, 261.63,           // E F E C C C
-            ];
-
-            this._noteIndex = 0;  // steps forward on each successful star connection
-
-        } catch (e) { console.warn('[audio]', e); }
+            console.log('[audio] SFX AudioContext created, state:', this.audioContext.state);
+        } catch (e) { console.warn('[audio] _initAudioContext:', e); }
     }
 
-    // Queue a note — plays at tune tempo regardless of gesture speed
-    playStarNote() {
-        const ac = this.audioContext;
-        if (!ac || !this._sfxGain) return;
-        try {
-            if (ac.state === 'suspended') { ac.resume(); }
-            // Get the next note frequency from the tune
-            const freq = this._starNotes[this._noteIndex % this._starNotes.length];
-            this._noteIndex++;
-            // Schedule it at the next available slot in the note queue
-            this._scheduleNote(freq);
-        } catch (e) { console.warn('[audio] playStarNote:', e); }
+    // ── Drone root frequencies — used by chimes and completion chord SFX ──────
+    _getDroneRoot(index) {
+        const roots = [
+            65.41, 65.41, 98.00, 87.31, 77.78,
+            98.00, 58.27, 65.41, 55.00, 73.42, 65.41,
+        ];
+        return roots[Math.min(index, roots.length - 1)];
     }
 
-    // Schedule a note at the next available beat slot — never drops, never rushes
-    _scheduleNote(freq) {
-        const ac = this.audioContext;
-        if (!ac) return;
-        const NOTE_INTERVAL = 0.32; // seconds per note (~half-note at 90bpm — dignified)
-        const now = ac.currentTime;
-        // Next available slot: either now, or after the last scheduled note
-        if (!this._nextNoteTime || this._nextNoteTime < now) {
-            this._nextNoteTime = now + 0.04; // tiny lead to avoid scheduling in past
+    // ── Start drone — called at moon drag release ─────────────────────────────
+    _startDrone() {
+        this._initAudioContext();
+        this._startHarpSilent();
+        this._startDronePlayer();
+    }
+
+    // ── Start harp silently — resume preloaded player inside gesture ──────────
+   
+
+
+async _startHarpSilent() {
+    if (this._harpSilentStarted) return;
+    this._harpSilentStarted = true;
+    try {
+        let player = this._harpPreloadPlayer;
+
+        if (player) {
+            console.log('[audio] Harp: using preloaded player');
+            // Resume and wait for the state to actually change
+            if (player.audioContext.state !== 'running') {
+                await player.audioContext.resume();
+                // Wait for state transition — mobile browsers need a moment
+                await new Promise(resolve => setTimeout(resolve, 80));
+            }
+            if (player.audioContext.state !== 'running') {
+                console.warn('[audio] Harp: context still not running after resume, aborting preloaded player');
+                player = null; // fall through to fresh player below
+            }
         }
-        const startAt = this._nextNoteTime;
-        this._nextNoteTime += NOTE_INTERVAL;
 
-        // Harp pluck: triangle core + faint sawtooth shimmer
-        const gain = ac.createGain();
-        gain.connect(this._sfxGain);
+        if (!player) {
+            console.log('[audio] Harp: creating fresh player');
+            player = new TradSessionPlayer();
+            const loaded = await player.loadTune('myLaganLove');
+            if (!loaded) {
+                console.warn('[audio] Harp: fresh load failed');
+                return;
+            }
+            // Fresh context was created inside this gesture — should be running
+        }
 
-        const osc1 = ac.createOscillator();
-        osc1.type = 'triangle';
-        osc1.frequency.value = freq;
-        osc1.connect(gain);
+        if (player.tracks[1]) { player.tracks[1].gain.gain.value = 0; player.tracks[1].active = false; }
+        if (player.tracks[2]) { player.tracks[2].gain.gain.value = 0; player.tracks[2].active = false; }
+        player.engine.masterGain.gain.value = 0.0001;
 
-        const osc2 = ac.createOscillator();
-        osc2.type = 'sawtooth';
-        osc2.frequency.value = freq * 2.001;
-        const osc2g = ac.createGain();
-        osc2g.gain.value = 0.06;
-        osc2.connect(osc2g);
-        osc2g.connect(gain);
+        // Assign BEFORE play() so _startHarp() can find it even if play() throws
+        this._harpPlayer        = player;
+        this._harpPreloadPlayer = null;
 
-        gain.gain.setValueAtTime(0, startAt);
-        gain.gain.linearRampToValueAtTime(0.85, startAt + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, startAt + 1.8);
+        await player.play();
+        console.log('[audio] Harp running silently');
+    } catch(e) {
+        console.warn('[audio] _startHarpSilent error:', e);
+    }
+}
+ 
 
-        osc1.start(startAt); osc1.stop(startAt + 1.9);
-        osc2.start(startAt); osc2.stop(startAt + 1.9);
+    // ── Unmute harp on first star touch ──────────────────────────────────────
+    async _startHarp() {
+        if (this._harpStarted) return;
+        this._harpStarted = true;
+        try {
+            // Wait up to 3s for the harp player to be ready
+            let waited = 0;
+            while (!this._harpPlayer && waited < 3000) {
+                await new Promise(r => setTimeout(r, 100));
+                waited += 100;
+            }
+            if (!this._harpPlayer) {
+                console.warn('[audio] Harp player never became available');
+                return;
+            }
+            const harpAC = this._harpPlayer.audioContext;
+            if (harpAC && harpAC.state === 'suspended') {
+                await harpAC.resume();
+            }
+            const masterGain = this._harpPlayer.engine.masterGain;
+            const now = harpAC.currentTime;
+            masterGain.gain.cancelScheduledValues(now);
+            masterGain.gain.setValueAtTime(0.0001, now);
+            masterGain.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
+            console.log('[audio] Harp fading in');
+        } catch(e) {
+            console.warn('[audio] _startHarp error:', e);
+        }
     }
 
-    // Strum a resonant C-major chord when a constellation is fully connected.
+    // ── Start drone pad player ────────────────────────────────────────────────
+    async _startDronePlayer() {
+        if (this._dronePlayer) return;
+        this._dronePlayer = true;
+        try {
+            const player = new TradSessionPlayer();
+            const loaded = await player.loadTune('constellationDrone');
+            if (!loaded) {
+                console.warn('[audio] Drone load failed');
+                this._dronePlayer = null;
+                return;
+            }
+
+            // Start all pad tracks silent
+            for (const track of player.tracks) {
+                track.gain.gain.value = 0.0001;
+                track.active = false;
+            }
+            player.engine.masterGain.gain.value = 0.0001;
+
+            await player.play();
+
+            // Cancel whatever loopTimeoutId TradSessionPlayer scheduled —
+            // tuneDuration from pad patches is unreliable (often just the
+            // attack sample length). We manage looping ourselves at 60s.
+            if (player.loopTimeoutId) {
+                clearTimeout(player.loopTimeoutId);
+                player.loopTimeoutId = null;
+            }
+
+            this._dronePlayerObj = player;
+            this._droneGainNode  = player.engine.masterGain;
+
+            const ac  = player.audioContext;
+            const now = ac.currentTime;
+
+            // Fade master gain in
+            player.engine.masterGain.gain.cancelScheduledValues(now);
+            player.engine.masterGain.gain.setValueAtTime(0.0001, now);
+            player.engine.masterGain.gain.linearRampToValueAtTime(0.55, now + 1.5);
+            player.engine.masterGain.gain.linearRampToValueAtTime(0.85, now + 5.0);
+
+            // Unmute pad tracks with fade
+            for (const track of player.tracks) {
+                track.active = true;
+                player.engine.applyFade(track.gain, track.gain.targetVolume || 0.6, 2.0);
+            }
+
+            // Fixed 60s loop — restart all synths every 60 seconds
+            const scheduleLoop = () => {
+                this._droneLoopTimer = setTimeout(async () => {
+                    if (!this._dronePlayerObj) return;
+                    try {
+                        for (const track of player.tracks) {
+                            await track.synth.start();
+                            if (track.synth.audioBufferPlayer) {
+                                try { track.synth.audioBufferPlayer.disconnect(); } catch(e) {}
+                                track.synth.audioBufferPlayer.connect(track.gain);
+                            }
+                            if (track.synth.directSource) {
+                                track.synth.directSource.forEach(s => {
+                                    try { s.disconnect(); } catch(e) {}
+                                    s.connect(track.gain);
+                                });
+                            }
+                        }
+                        console.log('[audio] Drone loop restarted');
+                    } catch(e) {}
+                    scheduleLoop();
+                }, 60000);
+            };
+            scheduleLoop();
+
+            console.log('[audio] Drone (Pad Bowed + Pad Halo) playing');
+        } catch(e) {
+            this._dronePlayer = null;
+            console.warn('[audio] _startDronePlayer error:', e);
+        }
+    }
+
+    // ── Shift drone gain on constellation change ──────────────────────────────
+    _advanceDrone(constellationIndex) {
+        if (!this._droneGainNode || !this._dronePlayerObj) return;
+        const ac  = this._dronePlayerObj.audioContext;
+        const now = ac.currentTime;
+        this._droneGainNode.gain.cancelScheduledValues(now);
+        this._droneGainNode.gain.setValueAtTime(0.85, now);
+        this._droneGainNode.gain.linearRampToValueAtTime(0.45, now + 1.0);
+        this._droneGainNode.gain.linearRampToValueAtTime(0.85, now + 3.5);
+    }
+
+    // ── Modal completion chord — arpeggiated upward from current drone root ───
     playCompletionChord() {
         const ac = this.audioContext;
         if (!ac || !this._sfxGain) return;
         try {
-            if (ac.state === 'suspended') { ac.resume(); }
+            if (ac.state === 'suspended') ac.resume();
 
-            // Wait for any queued star notes to finish before the chord
             const now     = ac.currentTime;
-            const chordAt = Math.max(now + 0.1, this._nextNoteTime || 0);
+            const chordAt = now + 0.15;
 
-            // C major harp strum: C2 G2 C3 E3 G3 C4 E4 G4
-            const chordFreqs = [
-                65.41,  // C2
-                98.00,  // G2
-                130.81, // C3
-                164.81, // E3
-                196.00, // G3
-                261.63, // C4
-                329.63, // E4
-                392.00, // G4
-            ];
+            const root = this._getDroneRoot(this._droneRootIndex);
+            const ratios = [1, 1.5, 2, 2.381, 3, 4];
+            const chordFreqs = ratios.map(r => root * r);
 
             const masterGain = ac.createGain();
             masterGain.connect(this._sfxGain);
-            masterGain.gain.setValueAtTime(0.55, chordAt);
-            masterGain.gain.exponentialRampToValueAtTime(0.001, chordAt + 5.5);
+            masterGain.gain.setValueAtTime(0.45, chordAt);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, chordAt + 6.0);
 
-            // Light reverb delay
-            const delay = ac.createDelay(0.5);
-            delay.delayTime.value = 0.24;
+            const delay = ac.createDelay(0.8);
+            delay.delayTime.value = 0.32;
             const delayGain = ac.createGain();
-            delayGain.gain.value = 0.22;
+            delayGain.gain.value = 0.18;
             masterGain.connect(delay);
             delay.connect(delayGain);
             delayGain.connect(masterGain);
 
             chordFreqs.forEach((freq, i) => {
-                const stagger = i * 0.055;
+                const stagger = i * 0.07;
                 const g = ac.createGain();
                 g.connect(masterGain);
 
-                const osc = ac.createOscillator();
-                osc.type = 'triangle';
-                osc.frequency.value = freq;
-                osc.connect(g);
+                const osc1 = ac.createOscillator();
+                osc1.type = 'triangle';
+                osc1.frequency.value = freq;
+                osc1.connect(g);
 
                 const osc2 = ac.createOscillator();
                 osc2.type = 'sine';
-                osc2.frequency.value = freq * 2;
+                osc2.frequency.value = freq;
                 const g2 = ac.createGain();
-                g2.gain.value = 0.15;
+                g2.gain.value = 0.4;
                 osc2.connect(g2);
                 g2.connect(g);
 
                 const start = chordAt + stagger;
                 g.gain.setValueAtTime(0, start);
-                g.gain.linearRampToValueAtTime(1.0, start + 0.012);
-                g.gain.exponentialRampToValueAtTime(0.001, start + 5.0);
+                g.gain.linearRampToValueAtTime(0.9, start + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.001, start + 5.5);
 
-                osc.start(start);  osc.stop(start + 5.1);
-                osc2.start(start); osc2.stop(start + 5.1);
+                osc1.start(start); osc1.stop(start + 5.6);
+                osc2.start(start); osc2.stop(start + 5.6);
             });
-
-            // Reset note queue so next constellation starts cleanly
-            this._noteIndex    = Math.ceil(this._noteIndex / 8) * 8;
-            this._nextNoteTime = null;
 
         } catch (e) { console.warn('[audio] playCompletionChord:', e); }
     }
 
-    // Schedule a single melody note — harp pluck, same timbre as star notes
-    _scheduleMelodyNote(freq, startAt) {
+    // ── Clean up all audio on scene end ──────────────────────────────────────
+    _stopAllAudio() {
+        try {
+            if (this._droneLoopTimer) {
+                clearTimeout(this._droneLoopTimer);
+                this._droneLoopTimer = null;
+            }
+            if (this._dronePlayerObj) {
+                this._dronePlayerObj.stop().catch(() => {});
+                this._dronePlayerObj = null;
+            }
+            this._dronePlayer = null;
+            if (this._harpPlayer) {
+                this._harpPlayer.stop().catch(() => {});
+                this._harpPlayer = null;
+            }
+            if (this._harpPreloadPlayer) {
+                this._harpPreloadPlayer.stop().catch(() => {});
+                this._harpPreloadPlayer = null;
+            }
+        } catch(e) {}
+    }
+
+    // ── Soft chime on star connection ─────────────────────────────────────────
+    _playConnectionChime() {
         const ac = this.audioContext;
-        if (!ac) return;
+        if (!ac || !this._sfxGain) return;
+        try {
+            if (ac.state === 'suspended') ac.resume();
 
-        const gain = ac.createGain();
-        gain.connect(this._sfxGain);
+            const root = this._getDroneRoot(this._droneRootIndex || 0);
+            this._chimeIndex = ((this._chimeIndex || 0) + 1) % 4;
+            const ratios = [2, 3, 4, 2.381];
+            const freq = root * ratios[this._chimeIndex] * 2;
 
-        const osc1 = ac.createOscillator();
-        osc1.type = 'triangle';
-        osc1.frequency.value = freq;
-        osc1.connect(gain);
+            const now = ac.currentTime;
+            const gain = ac.createGain();
+            gain.connect(this._sfxGain);
 
-        const osc2 = ac.createOscillator();
-        osc2.type = 'sawtooth';
-        osc2.frequency.value = freq * 2.001;
-        const osc2g = ac.createGain();
-        osc2g.gain.value = 0.06;
-        osc2.connect(osc2g);
-        osc2g.connect(gain);
+            const osc1 = ac.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.value = freq;
+            osc1.connect(gain);
 
-        gain.gain.setValueAtTime(0, startAt);
-        gain.gain.linearRampToValueAtTime(0.80, startAt + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.001, startAt + 2.0);
+            const osc2 = ac.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = freq * 2.756;
+            const g2 = ac.createGain();
+            g2.gain.value = 0.15;
+            osc2.connect(g2);
+            g2.connect(gain);
 
-        osc1.start(startAt); osc1.stop(startAt + 2.1);
-        osc2.start(startAt); osc2.stop(startAt + 2.1);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.5, now + 0.008);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+            osc1.start(now); osc1.stop(now + 1.9);
+            osc2.start(now); osc2.stop(now + 1.9);
+
+        } catch(e) { console.warn('[audio] _playConnectionChime:', e); }
     }
 
     _startPostSettleSequence(moonEl, endX, endY, W, H) {
-        // Called once the moon rAF animation completes — no jumping possible
         [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
         if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
 
-        // ── Very slow moon drift upward over the whole scene ─────────────────
-        // We animate via rAF so it stays perfectly in sync, no CSS jump-to-from.
-        const DRIFT_MS    = 480000;  // 8 minutes
-        const moonDriftPx = Math.round(H * 0.06);  // drifts up ~6% of screen height
+        const DRIFT_MS    = 480000;
+        const moonDriftPx = Math.round(H * 0.06);
         const driftStart  = performance.now();
         const driftFromY  = endY;
         const driftToY    = Math.max(0, endY - moonDriftPx);
 
         const driftLoop = (now) => {
-            if (!this.moonEl) return;  // scene shut down
+            if (!this.moonEl) return;
             const t = Math.min((now - driftStart) / DRIFT_MS, 1);
             this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
             if (t < 1) requestAnimationFrame(driftLoop);
         };
         requestAnimationFrame(driftLoop);
 
-        // ── Camera drifts slowly downward — the sky is revealing itself below ─
         const camDriftProg = { t: 0 };
         const camDriftRange = H * 0.14;
         this._moonDriftTween = this.tweens.add({
@@ -1831,7 +1889,6 @@ onAllComplete() {
             },
         });
 
-        // Fade in the world graphics (stars)
         this.tweens.add({
             targets:  this.worldG,
             alpha:    1,
@@ -1845,14 +1902,11 @@ onAllComplete() {
     }
 
     _setBgWheelPaused(paused) {
-        // Before first interaction the sky always wheels freely.
         if (paused && !this._interactionStarted) return;
         this._bgWheelsPaused = paused;
     }
 
     spawnRipple(wx, wy) {
-        // Each ripple lives for RIPPLE_MS ms, expanding from 0 to RIPPLE_MAX_R
-        // and fading from RIPPLE_ALPHA to 0.
         this.ripples.push({ wx, wy, startTime: this.time.now });
     }
 
@@ -1867,18 +1921,15 @@ onAllComplete() {
             if (Math.hypot(c.wcx - (camX + this.W / 2), c.wcy - (camY + this.H / 2)) > cullD) continue;
             const isActive = this.constellations[this.currentIndex] === c && !c.completed;
 
-            // Completed connection lines — bright while lingering, smooth fade to ghost
             for (const conn of c.connections) {
                 if (!conn.completed) continue;
                 const a = c.stars[conn.from], b = c.stars[conn.to];
 
                 let alpha, width;
                 if (conn.completedAt === null) {
-                    // Constellation still in progress — hold at full brightness indefinitely
                     alpha = 0.92;
                     width = 2.5;
                 } else {
-                    // Whole constellation done — linger then fade
                     const age  = now - conn.completedAt;
                     const t    = Math.min(age / LINE_LINGER_MS, 1);
                     const ease = t < 0.7 ? 1 : 1 - ((t - 0.7) / 0.3) ** 2;
@@ -1892,7 +1943,6 @@ onAllComplete() {
                 this.worldG.lineBetween(a.wx, a.wy, b.wx, b.wy);
             }
 
-            // Stars
             for (const star of c.stars) {
                 if (star.completed) {
                     this.worldG.fillStyle(0x8899aa, 0.15);
@@ -1906,30 +1956,25 @@ onAllComplete() {
             }
         }
 
-        // Ripple rings — expand and fade in world space
         this.rippleG.clear();
         this.ripples = this.ripples.filter(rp => {
             const t = (now - rp.startTime) / RIPPLE_MS;
-            if (t >= 1) return false;   // expired
-            const ease  = 1 - (1 - t) * (1 - t);   // ease-out quad: fast expand, slow end
+            if (t >= 1) return false;
+            const ease  = 1 - (1 - t) * (1 - t);
             const r     = RIPPLE_MAX_R * ease;
             const alpha = RIPPLE_ALPHA * (1 - t);
-            // Outer soft halo ring
             this.rippleG.lineStyle(4, 0x99ddff, alpha * 0.28);
             this.rippleG.strokeCircle(rp.wx, rp.wy, r * 1.18);
-            // Main ring
             this.rippleG.lineStyle(1.5, 0xddeeff, alpha);
             this.rippleG.strokeCircle(rp.wx, rp.wy, r);
             return true;
         });
 
-        // Comet trail — segments taper from fat head to invisible tail
         if (this.isDrawing && this.trailPts.length >= 2) {
             this.trailG.clear();
             const pts = this.trailPts;
             const n   = pts.length;
 
-            // Build smoothed points via Catmull-Rom
             const smooth = [pts[0]];
             for (let i = 1; i < n; i++) {
                 const p0 = pts[Math.max(i - 2, 0)];
@@ -1945,9 +1990,8 @@ onAllComplete() {
 
             const sn = smooth.length;
             for (let i = 1; i < sn; i++) {
-                // t=0 at tail, t=1 at head (finger position)
                 const t     = i / (sn - 1);
-                const t2    = t * t;           // quadratic — fade fast at tail
+                const t2    = t * t;
                 const wOuter = 14 * t2;
                 const wCore  =  4 * t2;
                 const wHot   =  1 * t;

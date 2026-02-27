@@ -1,0 +1,867 @@
+Here it is cleaned and line-broken only. No wording changed — just whitespace fixed and numbers/artifacts removed.
+
+---
+
+arsa an cailleach:
+
+From the depths of the sea of Fodhla,
+Two krakens from the depths of Loch Mara,
+Two selkies from the shore of Inis Fail,
+Four sea-maidens from the glistening bay,
+Two kelpies from the waters of Loch Cuan,
+Two *tursach* from the isle of Ard Eireann,
+Two merrows from the coasts of Dun Nua,
+Two *finnbheara* from the caves of Donegal,
+Two sirens from the cliffs of Clew Bay,
+Two leviathans from the deep of Magh Mara,
+Two *siabhra* from the waves of Seire Muire,
+Two *faoladh* from the sands of Muir Bhreac,
+Two owls from the woods of Glanree,
+Two *eacna* from the lake of Eochaill,
+Two spirits from the mist of Glen Da Lough,
+Two *crom cruaich* from the hills of Slieve Bloom,
+Two *pucas* from the marsh of Magh Eochaidh,
+Two *banshees* from the glen of Fionn Uisce,
+Two *sidhe* from the grove of Tír na nÓg,
+Two *firbolgs* from the plains of Magh Tuireadh,
+Two *tuatha* from the lands of Éire,
+Two *aoife* from the shores of Inis Meain,
+Two *fuath* from the river of An Rí,
+Two *cait sidhe* from the fields of Éirinn,
+Two *fomorian* from the depths of Magh Itha,
+Two *dullahan* from the paths of Slí na mBan,
+Two *bansidhe* from the meadow of Glas Gaibhnenn,
+Two *dearg-due* from the valley of Slieve Aughty,
+Two *leannán sídhe* from the isle of Inis Fada,
+Two *bean nighe* from the brook of Dubh Linn,
+Two *clurichaun* from the vineyards of Magh Cuilinn,
+Two *fear gorta* from the hills of Sliabh na mBan.
+
+With these tokens borne from the nether realms,
+A message to the chieftains of Éire sent,
+A warning from the ancient ones,
+The Formorians stir, and with them,
+A storm of shadows looms on the horizon,
+For those who heed not their presence,
+Shall find their lands consumed by night.
+Thus, from the deep and dark, they rise,
+To claim the earth above.
+
+---
+
+What art those brightened shapes aloft,
+O wise Connal of the far-seeing eye?
+In yon skies, where stars do dance,
+What tales doth the Fomorian stars unfold?
+
+'Tis Balor's gaze that doth pierce the night,
+And Ethniu's form beside him stands;
+Of olden wrath and battles fierce,
+Their light recalls the clash of swords.
+
+What constellations mark the south,
+O Connal, keeper of ancient lore?
+With gleaming eyes and fiery breath,
+What might the heavens now reveal?
+
+'Tis Tethra bold, the stormy king,
+And Bres, who once the Tuatha ruled;
+Their stars align in tumult bright,
+A testament to battles past.
+
+And what dread forms to the west arise,
+O Connal, teller of the sagas old?
+With shadows deep and glimmers pale,
+What do these stellar wraiths portend?
+
+'Tis Indech's host, a fearsome sight,
+And Elatha's grace, a spectral glow;
+Their courtly dance upon the dark,
+A tale of power lost and gained.
+
+What of the northern sky's array,
+O Connal, sage of legends grand?
+What storied figures take their place,
+In yonder tapestry of night?
+
+'Tis Fomor's court, in majesty,
+Where giants tread in cosmic bounds;
+A skyward realm of mythic might,
+Where ancient echoes still resound.
+
+Tell me now, O Connal wise,
+What lessons speak these starry forms?
+In tales of yore and constellations bold,
+What wisdom shines from Fomorian skies?
+
+The stars, they whisper of the past,
+Of battles won and kingdoms lost;
+In their eternal, twinkling dance,
+The ancient spirits find their voice.
+
+
+
+ a warrior’s blade.
+~/lit ᐅ cx coire.txt 1200 1310 "formorian constellations"
+What art those brightened shapes aloft,
+O wise Connal of the far-seeing eye?
+In yon skies, where stars do dance,
+What tales doth the Fomorian stars unfold?
+
+'Tis Balor's gaze that doth pierce the night,
+And Ethniu's form beside him stands;
+Of olden wrath and battles fierce,
+Their light recalls the clash of swords.
+
+What constellations mark the south,
+O Connal, keeper of ancient lore?
+With gleaming eyes and fiery breath,
+What might the heavens now reveal?
+
+'Tis Tethra bold, the stormy king,
+And Bres, who once the Tuatha ruled;
+Their stars align in tumult bright,
+A testament to battles past.
+
+And what dread forms to the west arise,
+O Connal, teller of the sagas old?
+With shadows deep and glimmers pale,
+What do these stellar wraiths portend?
+
+'Tis Indech's host, a fearsome sight,
+And Elatha's grace, a spectral glow;
+Their courtly dance upon the dark,
+A tale of power lost and gained.
+
+What of the northern sky's array,
+O Connal, sage of legends grand?
+What storied figures take their place,
+In yonder tapestry of night?
+
+'Tis Fomor's court, in majesty,
+Where giants tread in cosmic bounds;
+A skyward realm of mythic might,
+Where ancient echoes still resound.
+
+Tell me now, O Connal wise,
+What lessons speak these starry forms?
+In tales of yore and constellations bold,
+What wisdom shines from Fomorian skies?
+
+The stars, they whisper of the past,
+Of battles won and kingdoms lost;
+In their eternal, twinkling dance,
+The ancient spirits find their voice.
+~/lit ᐅ cx coire.txt 1200 1310 "formorian omens stargazing"
+What signs dost thou perceive in the night,                                                                                                             O wise seer of the ancient lore?
+Through the darkened veil of sky,
+What whispers the firmament to thee?                                                                                                                    
+'Tis the gaze of the Formorian kin,
+The giants of the shadowed deep;
+In their wake, the stars doth shiver,
+And the moon hides its silver face.                                                                                                                     
+O tell me, learned watcher of worlds,
+What omens stir in the heavens vast?                                                                                                                    What fate do the Formorians weave
+With their dark and dreadful gaze?
+
+In the north, the stars entwine,
+A serpent's coil, a warrior's bane;
+Blood-red Mars doth blaze with ire,
+Portending strife and battles grim.
+
+Turn thine eyes to the western expanse,
+Where a comet's trail doth scar the night;
+Its fiery tail a warning bold,
+Of harvests lost and warriors woe.
+
+In the east, the twin stars dance,
+A shadowed dance, a mournful dirge;
+Their light obscured by veils of dread,
+Promises of sorrow yet to come.
+
+O seer of skies, what shall we do,
+To avert the doom that looms so near?
+What offerings might quell the wrath
+Of those who dwell in shadowed seas?
+
+'Tis said, a sacrifice must be made,
+Of ancient stones and whispered prayers;
+To appease the Formorian gaze,
+And turn aside their baleful plans.
+
+Thus, we gather by the standing stones,
+With offerings of grain and blood;
+With voices raised to the heavens above,
+We seek the mercy of the ancient ones.
+Here it is cleaned and line-broken only. No wording changed — just whitespace removed and wrapped for readability.
+
+---
+
+What hero shall we call upon,
+Against an omen dark and wretched;
+To stand firm with valor's might,
+And defy the shadows' blight?
+
+Is it Cian of the steadfast heart,
+Whose courage never falters;
+A shield in battle's raging storm,
+Against foes, a bulwark unyielding?
+
+Or perhaps Conn of the silver tongue,
+Whose words weave spells of power;
+To turn the tide of fate's cruel hand,
+And bring forth light from darkest hour?
+
+Speak, O Seer, in whispers low,
+Of heroes clad in ancient glow;
+Whose deeds are sung in hallowed halls,
+And whose names the bards extol.
+
+Shall we choose Bran, fleet of foot,
+Who dances 'midst the spears and swords;
+His laughter mocks the very doom,
+That seeks to bind us all in gloom?
+
+Or Fionn, of the eagle's eye,
+Whose arrows pierce the heart of night;
+A guardian of this sacred isle,
+With wisdom deep and vision bright?
+
+Tell us, O spirits of the glen,
+Which hero shall rise, again and again;
+To face the omen with unbending will,
+And with their courage, the darkness kill?
+
+---
+
+What dost thou see, O sage of the stars,
+In the celestial dome above us?
+Speak, for the night is laden with whispers,
+Tell of omens that portend the rise.
+
+Lo, in the heavens, I see a shadow,
+A form obscured by mist and gloom,
+'Tis the visage of the Formorians,
+Ancient foes of Erin's proud sons.
+
+By the light of the waning moon,
+Their grim ascent is marked by signs,
+The stars align in patterns strange,
+Foretelling doom upon this land.
+
+See there the comet with fiery tail,
+A herald of their coming wrath;
+The skies themselves do tremble and weep,
+As the sea churns with restless might.
+
+Great Connal, wise in the ways of war,
+What counsel hast thou for these times dark?
+Shall we muster our kin, our swords unsheathed,
+To stand against the tide that rises?
+
+Fear not, for valor shall light our path,
+Though the Formorians rise with power fierce;
+With courage and cunning we shall stand,
+To guard fair Innisfail from night.
+
+Rally the clans from hill and dale,
+The warriors bold with hearts untamed;
+Let the sound of the war horn echo loud,
+Across the hills and through the glens.
+
+For though the omens do forebode ill,
+We shall not yield to shadow's grasp;
+With strength of arm and spirit bright,
+We shall send them back to the depths whence they came.
+
+So mark the stars and heed their tale,
+Yet let not fear thy heart consume;
+For Erin's sons shall e'er prevail,
+And light shall banish the encroaching gloom.
+
+So rise, ye who would join the fianna,
+And step boldly into the legend that awaits thee.
+In the land of Éire,
+Where the bards sing and the fires of old burn bright,
+Thy destiny calls.
+
+---
+
+Who shall join the Fianna, noble and fierce,
+In lands where the rivers sing sweetly?
+Whose strength shall fill us with awe and fear,
+As we battle 'neath skies cloudy and grey?
+
+'Tis Aedh, the stalwart, of mighty arm,
+Whose fame doth echo in the glens;
+His spear swift as the tempest's wrath,
+A thunderous foe, unmatched and bold.
+
+And see there, Muirenn, of flaxen hair,
+Her beauty as bright as Lugh's own light;
+Yet do not mistake her gentle grace,
+For her arrows strike true as the hawk's dive.
+
+What of Cael, the seer with eyes so keen,
+Who foresees the paths of friend and foe?
+His wisdom guides us through the mists,
+Where danger hides in shadows deep.
+
+And there is fierce Bran, of the hunting hounds,
+Who runs with the wolves 'neath the pale moon;
+His laughter rings like a battle cry,
+As he falls upon foes like a storm-swept tide.
+
+Who shall join the Fianna, to stand as one,
+In the halls of Tara, where legends dwell?
+Let them come forth, the brave and true,
+For the call of the hunt echoes still.
+
+---
+
+Who if not I, do bear the tales of old,
+Of battles fought and warriors bold?
+In the land where the ancient rivers flow,
+'Tis I who recall the deeds of yore.
+
+What shadowed forms dost thou perceive,
+Amidst the mists that the morn doth weave?
+Great Connal, father of valiant kin,
+Reveal to me the fate of men.
+
+Behold the head of Lugh, the swift,
+By my hand, he knew his final shift;
+His golden locks, now stained in red,
+Speak of the valor of the dead.
+
+Who if not I, shall tell of Breas,
+Whose strength did rival the tempest's blast?
+Yet in his ire, he met his doom,
+Upon the fields of Tara's gloom.
+
+Great Connal, tell of the maidens' woe,
+In Innisfail, where the fair winds blow;
+Do they lament the fallen lords,
+Foregone in battle by the swords?
+
+O Evir, my heart does break,
+For the sorrow of the lands I partake;
+My brothers lost, in the earth they lie,
+While I, alone, beneath the sky.
+
+Who if not I, shall sing the lays,
+Of blood-stained nights and sunlit days?
+By my blade, the foes did fall,
+In the shadow of the ancient hall.
+
+Connal, now change thy song of fate,
+Speak of the peace we hope to create;
+For in the end, when all is done,
+May our hearts be as one.
+
+
+
+
+
+
+
+d there is fierce Bran, of the hunting hounds, 
+ Who runs with the wolves 'neath the pale moon;
+ His laughter rings like a battle cry,
+As he falls upon foes like a storm-swept tide.                                                                                                                    Who shall join the Fianna, to stand as one,
+In the halls of Tara, where legends dwell?
+Let them come forth, the brave and true, 
+  For the call of the hunt echoes still.
+ ~/lit ᐅ cx coire.txt 1200 1310 "who if not I"
+Who if not I, do bear the tales of old,
+Of battles fought and warriors bold?
+In the land where the ancient rivers flow,
+'Tis I who recall the deeds of yore.
+
+What shadowed forms dost thou perceive,
+Amidst the mists that the morn doth weave?
+Great Connal, father of valiant kin,
+Reveal to me the fate of men.
+
+Behold the head of Lugh, the swift,
+By my hand, he knew his final shift;
+His golden locks, now stained in red,
+Speak of the valor of the dead.
+
+Who if not I, shall tell of Breas,
+Whose strength did rival the tempest's blast?
+Yet in his ire, he met his doom,
+Upon the fields of Tara's gloom.
+
+Great Connal, tell of the maidens' woe,
+In Innisfail, where the fair winds blow;
+Do they lament the fallen lords,
+Foregone in battle by the swords?
+
+O Evir, my heart does break,
+For the sorrow of the lands I partake;
+My brothers lost, in the earth they lie,
+While I, alone, beneath the sky.
+
+Who if not I, shall sing the lays,
+Of blood-stained nights and sunlit days?
+By my blade, the foes did fall,
+In the shadow of the ancient hall.
+
+Connal, now change thy song of fate,
+Speak of the peace we hope to create;
+For in the end, when all is done,
+May our hearts be as one.
+~/lit ᐅ
+[0] 1:npm  2:vim  3:[tmux]* 4:vim-v
+
+
+
+
+
+Understood — no edits to wording, no added context, just whitespace cleaned and broken into short readable lines.
+
+---
+
+When the mists hung low upon the emerald hills of Éire,
+and the winds carried whispers of ancient tales,
+a hero rose to stand against the dread Formorians.
+
+This hero, noble and fierce,
+bore the name of Conall,
+a name that rang like the clash of iron on iron,
+reverberating through the annals of time.
+
+The Formorians, those dark marauders
+from the shadowed seas,
+had cast their baleful gaze upon the fair lands of Erin,
+seeking to bind her people in chains of despair.
+
+With eyes like smoldering coals
+and hearts as cold as the northern winds,
+they came,
+sowing terror and destruction in their wake.
+
+But Conall, son of the mighty Cormac,
+was not one to cower before such doom.
+
+With a heart ablaze with righteous fury,
+he took up his spear,
+its shaft as straight as the ancient oaks of Tara,
+and its tip as sharp as the biting winds of Samhain.
+
+Clad in armor that gleamed
+like the morning sun upon the dew-kissed fields,
+he set forth,
+a beacon of hope against the gathering darkness.
+
+To the shores of Magh Muirthemne he journeyed,
+where the Formorians had landed,
+their ships like great leviathans
+resting upon the sands.
+
+There, amidst the cries of battle
+and the scent of salt and blood,
+Conall met their champion,
+Balor of the Evil Eye,
+whose gaze alone could turn warriors to stone.
+
+With the swiftness of the falcon
+and the cunning of the fox,
+Conall did engage.
+
+He danced through the fray,
+his spear a blur of death and justice,
+striking down all who dared to stand before him.
+
+The fields ran red,
+but it was the blood of the invader,
+not the defender,
+that stained the earth.
+
+"By the strength of my forefathers
+and the grace of the Tuatha Dé Danann,
+I shall not fail!" cried Conall,
+as he faced Balor upon the hill of destiny.
+
+With a single, mighty thrust,
+he pierced the heart of the beast,
+and the land itself rejoiced,
+shaking off the chains of the Formorian curse.
+
+Thus did Conall achieve his triumph,
+the fields of Erin blazing brightly
+with the light of freedom once more.
+
+Songs were sung of his deeds,
+and his name was etched into the stones of Tara,
+to be remembered for all time
+as the hero who stood alone against the Formorians,
+and prevailed.
+
+---
+
+I cross the narrow sea
+because I am not ready.
+
+Ireland lies behind me —
+The isle of Skye rises before us.
+
+Scáthach waits tall, still,
+her eyes are clear and measuring.
+
+I do not speak.
+
+She turns.
+
+I follow.
+
+---
+
+Fergus:
+"Lo, the night sky's tapestry,
+Spangled bright with stars aglow.
+Fenian constellations weave,
+Tales of heroes long ago."
+
+Medb:
+"Tell, O Fergus, of such stars,
+As do shine with warrior's grace.
+What bright tales doth heaven hold,
+Of the Fianna's storied race?"
+
+Fergus:
+"See yon cluster, grand and bold,
+High above where ravens soar.
+'Tis the Hunter, spear in hand,
+Fionn's own light, forevermore.
+
+Near his side, the faithful hound,
+Bran doth chase the silver stag.
+Ever swift and ever true,
+Through the heavens they do brag."
+
+Medb:
+"A marvel, this celestial sight,
+Such a fair and noble scene.
+But what of those stars that hide,
+In the shadowed space between?"
+
+Fergus:
+"There, the Morrígan's darkened wings,
+Cloaked in night, her watch she keeps.
+She who whispers fate's cruel song,
+In the dreams of those who sleep.
+
+Yet beyond, the Warrior's Shield,
+Gleams with light of battle's fire.
+There, the sons of Gael do stand,
+In the stars, their spirits tire."
+
+Medb:
+"Fergus, wise in tales and stars,
+What forebodes this nightly sky?
+Does it speak of peace or war,
+For us here, who under lie?"
+
+Fergus:
+"Constellations, ancient, old,
+Speak in tongues of mystery.
+Yet they weave a fateful thread,
+Through our mortal history.
+
+Should the Hound of Ulster rise,
+As the stars in line converge,
+Fenian tales of old reborn,
+In a dance of fate's own dirge."
+
+Medb:
+"Then we shall heed the stars' old lore,
+Armed with courage, strong and sure.
+For as long as stars do shine,
+Our own saga shall endure."
+
+---
+
+In the shadowed elder days,
+beneath the ancient skies of Ériu,
+the Fenian constellations did weave their tales
+across the firmament.
+
+'Twas a time when the stars themselves
+bore witness to the deeds of heroes
+and the whispers of the Tuatha Dé Danann.
+
+O Cian, of the fair visage,
+what tales dost thou bring from the night sky?
+
+Speak, if it pleases thee,
+of the constellations that guide the Fian on their quests.
+
+Cian:
+Behold the Sword of Nuada,
+gleaming brightly,
+a harbinger of valor and might.
+
+It is said that when the sword doth shine its fullest,
+the Fian shall emerge victorious in battle.
+
+Lugh's Spear, with its fiery tip,
+doth blaze a path across the heavens.
+
+Woe to him who doth not heed its warning,
+for it foretells of strife and conflict to come.
+
+Oisin:
+Tell me, O Cian,
+of the Great Hound that doth chase the moon.
+Is it not the guardian of the Fian,
+ever watchful, ever loyal?
+
+Cian:
+Indeed, O Oisin,
+the Hound of Culann doth roam the sky,
+a symbol of loyalty and courage.
+
+It watches over the Fian,
+guiding them through darkened woods
+and across treacherous moors.
+
+Fionn Mac Cumhaill:
+What other portents do the stars reveal, O Cian?
+For the night is long,
+and the road ahead fraught with peril.
+
+Cian:
+The Chariot of the Sun King,
+it doth rise in the east,
+promising renewal and hope.
+
+Yet beware the Wailing Woman,
+who weeps among the stars,
+for her tears foretell sorrow and loss.
+
+Thus, the night sky of ancient Ériu
+did tell its tales,
+a tapestry of light and shadow,
+woven with the deeds of heroes
+and the whispers of gods.
+
+And the Fenian warriors,
+under their watchful constellations,
+did tread their fated paths,
+their stories echoing through the ages.
+
+---
+
+O Artán, venerated bard of the Fian,
+speak now of the constellations
+that adorn the night above Éire's valiant host.
+
+What tales do the stars weave
+in the tapestry of the heavens?
+
+Artán:
+Through the cloak of night, O Dubhfhios,
+there emerges the fierce hound of Cú Roí's chase,
+guiding the warriors with its gleaming eyes,
+ever watchful over the plains of Tír na nÓg.
+
+Dubhfhios:
+Tell me, Artán, of the Fenian stars,
+those ancient guardians of the hunt,
+that cast their light upon our noble deeds
+and whisper tales of glory to the night.
+
+Artán:
+In the northern sky, O seer of shadows,
+lies the spear of Fionn, sharp and true,
+pointing ever towards the heart of foes,
+its brilliance a testament to courage untamed.
+
+Dubhfhios:
+And what of the warrior's shield,
+that celestial bulwark against the dark?
+Does it not mirror the valor of our kin,
+defending the land from shadow's grasp?
+
+Artán:
+Aye, the shield shines brightly, O wise Dubhfhios,
+a circle of protection in the starry dome,
+its rim adorned with victories past,
+a beacon for those who march in its light.
+
+Dubhfhios:
+Speak now of the queenly crown
+that graces the heavens with regal might.
+Does it not proclaim the lineage of kings,
+a testament to the blood of Éire's line?
+
+Artán:
+Indeed, the crown glimmers with the fire of Eamhain,
+a circlet of stars that honors the high born,
+its jewels are tales of love and war,
+binding the fates of heroes to the celestial sphere.
+
+Dubhfhios:
+Thus do the Fenian constellations
+watch over us with ancient eyes,
+their stories woven in the night,
+guiding the sons and daughters of Éire
+through the ages in their noble quests.
+
+Here it is cleaned and line-broken only — no wording changed, just whitespace removed and lines wrapped for readability.
+
+---
+
+In the shadowed skies o'er ancient Éire's realm,
+There dance the stars in constellated grace.
+The wise among the Gaels did mark their helm,
+And named them with the tales of olden race.
+
+Behold the Chariot of the Fianna bold,
+Whose wheels do turn with strength of heroes' might.
+The Archer, whose swift arrows ne'er grow cold,
+Guides hunters through the dense and moonlit night.
+
+High in the vault, the Hound of Cu Chulainn runs,
+Chasing the stag 'cross heavens vast and wide.
+His eyes are twin flames, bright as summer suns,
+A beacon for the warriors to abide.
+
+The Harp of Dagda, strung with silver light,
+Plays silent tunes upon the midnight air.
+Its music soothes the weary hearts of knights,
+And fills the bards with songs beyond compare.
+
+Lo, in the north, the Cauldron of the Wise,
+Brims o'er with knowledge, sought by every sage.
+Its gleaming rim reflects the endless skies,
+A font of wisdom for each passing age.
+
+The Sword of Nuada, gleaming in the west,
+Cuts through the dark with edge of starlit steel.
+Its power grants the warriors' hearts no rest,
+For battles fierce, their destinies to seal.
+
+These ancient lights, in Gaelic lore entwined,
+Guide clans and kin beneath the nightly dome.
+Their stories, by the fireside, oft remind,
+Of Éire's past, and call her children home.
+
+---
+
+In the ancient land of Éire,
+where the mists curl around the emerald hills
+and the whispers of the Sidhe linger in the breeze,
+there lies a realm of stars and fate,
+wherein the warriors and chieftains of yore seek guidance.
+
+This is the domain of fenian astrology —
+a tapestry woven in the night sky,
+revealing destinies and omens
+to those who dare to seek.
+
+Beneath the silvered glow of the full moon,
+the druids gather,
+their robes billowing like the clouds that drift above.
+
+Their eyes, sharp as the hawk's gaze,
+turn skyward to read the celestial script.
+
+Here in the sacred grove,
+amid the ancient oaks and whispering leaves,
+they chant the names of heroes and gods,
+beseeching the stars to unveil their mysteries.
+
+"Lo, the Red Branch does tremble,"
+intones the elder druid,
+his voice a deep rumble that echoes through the glade.
+
+"The warrior's path shall be paved with blood,
+and the hounds of Culann shall howl ere the dawn."
+
+The young warriors, eager and untested,
+stand in awe,
+their breath caught in their throats.
+
+They know well the tales of Cú Chulainn,
+the hound of Ulster,
+whose deeds are sung in the halls of kings.
+
+Yet it is the stars that hold their gaze now,
+for in the patterns above,
+they seek signs of their own fates.
+
+"Beware the constellation of the Boar,"
+another druid warns,
+his staff tapping the earth in emphasis.
+
+"For when it ascends,
+the blood of kings shall mingle with the earth,
+and the cries of widows shall rend the air."
+
+The warriors shift uneasily,
+for they understand the weight of such portents.
+
+The stars, immutable and eternal,
+speak truths that mortals cannot ignore.
+
+Thus they listen closely,
+their hearts steeled
+for the trials foretold by the celestial dance.
+
+"And yet," the elder continues,
+raising his arms to the heavens,
+"fear not the shadows,
+for within the dark lies the seed of victory.
+
+The Swan shall rise,
+bearing the promise of new alliances
+and the strength of kin."
+
+Encouraged, the warriors nod,
+their spirits buoyed by the promise of hope.
+
+For in the fenian astrology,
+as in all of life's great sagas,
+there is balance —
+a dance of light and shadow,
+where the brave may yet carve their names upon the stars.
+
+Thus the druids speak,
+their words woven with the magic of the ancients,
+guiding the sons and daughters of Éire
+through the labyrinth of fate.
+
+Under the watchful eyes of the heavens,
+the warriors prepare,
+their hearts aflame with the courage of those who have come before,
+and the promise of those who shall follow.
+
+
+
+
+
+
+
+
+
+
+
+Her kin are mighty, of noble stock. 
+The spirits of the land know her name.
+And the fair folk of the sídhe smile upon her.
+Éabha, bridge between worlds,
+In her heart lies the truth of the land. 
+Éabha, fairest daughter of Éire.
+She shall be a light, Guiding the lost.
+
+
+As teaghlach láidir, de shliocht uasal.
+Aithníonn Banba í. 
+Áthas na sí í.
+Éabha, droichead Tuathail,
+Ina gcroí: fírinne tíre.
+Éabha, iníon Éireann is áille.
+Beidh sí ina solas, dóchas an té caillte.

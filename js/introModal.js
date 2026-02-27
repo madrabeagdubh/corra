@@ -125,7 +125,7 @@ export function initConstellationScene(onComplete) {
     _sceneInitialized = true;
 
     // Load the Aonchlo font before Phaser boots, mirroring introModal's loadFont()
-    document.fonts.load('1.8rem Aonchlo').catch(() => {});
+    document.fonts.load('1.8rem Urchlo').catch(() => {});
 
     const game = new Phaser.Game({
         type:            Phaser.AUTO,
@@ -148,7 +148,7 @@ export function initConstellationScene(onComplete) {
 const CONSTELLATION_DATA =	[
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ─────────────────────
     {
-        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid a spéir. Beidh an tír slán, anocht.', englishText: 'The Hound of the Fianna roams the sky. Tonight the land is safe.',
+        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid. Tá an tír slán anocht.', englishText: 'The Hound of the Fianna roams the sky. Tonight the land is safe.',
         waitingGa: 'Tuar dom, a Chonaill dhíl.',
         waitingEn: 'Prophesise for me, faithful Wolf.',
         starOffsets: [
@@ -212,10 +212,10 @@ const CONSTELLATION_DATA =	[
 //── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ──────────────
 {
     id: 'cuirt',
-    irishText: 'Cad a deir na spéir thuaidh, a Chonaill na fírinne?',
-    englishText: 'What of the northern sky\'s array, o Wolf of the truth?',
-    waitingGa: 'Feicim cúirt na Fomhórach. A bhanríon — tá gach suíochán lán.',
-    waitingEn: 'I see the court of the Fomorians. My queen — every seat is filled',
+    waitingGa: 'Cad a deir na spéir thuaidh, a Chonaill na fírinne?',
+    waitingEn: 'What of the northern sky\'s array, o Wolf of the truth?',
+    irishText: 'Ochón! Cúirt na Fomhórach. A bhanríon — tá gach suíochán lán.',
+    englishText: 'Alas! The Fomorian court. My queen — every seat is filled',
 
     starOffsets: [
         { lx:  -1.30, ly:   0.40 },   // 0 — left end
@@ -325,7 +325,7 @@ const SPIRAL_STEP = 1.45;
 const TRAIL_SMOOTH  = 0.28;
 const TRAIL_MAX     = 70;
 
-const LINE_LINGER_MS = 2800;
+const LINE_LINGER_MS = 7600;
 
 const RIPPLE_MS    = 900;
 const RIPPLE_MAX_R = 55;
@@ -399,38 +399,47 @@ export class ConstellationScene extends Phaser.Scene {
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
 
-        const textSize     = Math.round(Math.min(this.W, this.H) * 0.095);
-        const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.062);
-        const textY        = this.H * 0.15;
+      
+
+
+const textSize     = Math.round(Math.min(this.W, this.H) * 0.072);  // was 0.095
+const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.058);  // was 0.062
+       const textY        = this.H * 0.15;
         const subY         = this.H * 0.78;
 
        
-
-
-
 this.irishText = this.add
-    .text(this.W / 2, subY, '', { // Swapped textY to subY
-        fontFamily: 'Aonchlo, serif',
+    .text(this.W / 2, subY, '', {
+        fontFamily: 'Urchlo, serif',
         fontSize: textSize + 'px',
-        color: '#f5d76e', 
-        stroke: '#000a1a', 
+        color: '#f5d76e',
+        stroke: '#000a1a',
         strokeThickness: 3,
+        wordWrap: { width: this.W * 0.78 },   // add this
+        align: 'center',                        // add this
     })
     .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
+
+
+
+// englishConstellationText — snap to bottom
 this.englishConstellationText = this.add
-    .text(this.W / 2, textY, '', { // Swapped subY to textY
+    .text(this.W / 2, this.H - Math.round(this.H * 0.04), '', {
         fontFamily: '"Courier New",monospace',
         fontSize: subTextSize + 'px',
-        color: '#9b8dbd', // Muted purple
-        stroke: '#000a1a', 
+        color: '#9b8dbd',
+        stroke: '#000a1a',
         strokeThickness: 2,
+        wordWrap: { width: this.W * 0.78 },
+        align: 'center',
     })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
+    .setScrollFactor(0).setDepth(22).setOrigin(0.5, 1).setAlpha(0);
+//                                             ^^^^ origin Y of 1 means bottom-anchored
 
 this.waitingIrishText = this.add
     .text(this.W / 2, subY, '', { // Swapped textY to subY
-        fontFamily: 'Aonchlo, serif',
+        fontFamily: 'Urchlo, serif',
         fontSize: textSize + 'px',
         color: '#f5d76e', 
         stroke: '#000a1a', 
@@ -440,18 +449,19 @@ this.waitingIrishText = this.add
     })
     .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
 
+
+
 this.waitingEnglishText = this.add
-    .text(this.W / 2, textY, '', { // Swapped subY to textY
+    .text(this.W / 2, this.H - Math.round(this.H * 0.04), '', {
         fontFamily: '"Courier New",monospace',
         fontSize: subTextSize + 'px',
-        color: '#9b8dbd', // Muted purple
-        stroke: '#000a1a', 
+        color: '#9b8dbd',
+        stroke: '#000a1a',
         strokeThickness: 2,
-        wordWrap: { width: this.W * 0.82 },
+        wordWrap: { width: this.W * 0.78 },
         align: 'center',
     })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
-
+    .setScrollFactor(0).setDepth(22).setOrigin(0.5, 1).setAlpha(0);
 
 
 
@@ -489,12 +499,29 @@ this.waitingEnglishText = this.add
     }
 
     // ── Moon overlay ─────────────────────────────────────────────────────────
+    // ── Moon overlay ─────────────────────────────────────────────────────────
 
     buildMoonOverlay() {
         const W = this.W, H = this.H;
         const moonR   = Math.round(H * 0.025);
         const moonD   = moonR * 2;
         const marginX = Math.round(W * 0.06);
+        const trackW  = W - marginX * 2;
+
+        // ── Arc: start position (lower left, in from edge) ───────────────────
+        const arcStartX = marginX;
+        const arcStartY = Math.round(H * 0.62);
+
+        // ── Arc: final settled track y position ──────────────────────────────
+        const trackY = Math.round(H * 0.01);
+
+        // ── Arc curve — maps x position (0..1) to a y during first drag ─────
+        // Sine arch: starts at arcStartY, peaks high in the middle, lands at trackY
+       const getArcY = (clientX) => {
+    const t        = Math.max(0, Math.min(1, (clientX - marginX) / trackW));
+    const sineArch = Math.sin(t * Math.PI);          // 0 → 1 → 0, peaks at midpoint
+    return arcStartY - (H * 0.15) * sineArch;        // lifts upward at the middle only
+};;
 
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
         let line              = AMERGIN_LINES[currentLyricIndex];
@@ -507,52 +534,39 @@ this.waitingEnglishText = this.add
         ].join('');
         this.moonOverlay = overlay;
 
+        const irishEl = document.createElement('div');
+        irishEl.textContent = line.ga;
+        irishEl.style.cssText = [
+            'font-family:Aonchlo,serif;',
+            `font-size:${Math.round(Math.min(W, H) * 0.058)}px;`,
+            'color:#d4af37;text-align:center;',
+            'text-shadow:0 0 18px rgba(0,0,0,0.9);',
+            'padding:0 6%;',
+            'pointer-events:none;',
+            'opacity:1;transition:opacity 0.8s ease-in-out;',
+            'position:absolute;',
+        
+`top:${Math.round(H * 0.08)}px;`,
 
+            'left:0;right:0;',
+        ].join('');
+        this.irishOverlayEl = irishEl;
 
-
-
-
-const irishEl = document.createElement('div');
-irishEl.textContent = line.ga;
-irishEl.style.cssText = [
-    'font-family:Aonchlo,serif;',
-    `font-size:${Math.round(Math.min(W, H) * 0.075)}px;`,
-    'color:#d4af37;text-align:center;',
-    'text-shadow:0 0 18px rgba(0,0,0,0.9);',
-    'padding:0 1.5rem;',
-    'pointer-events:none;',
-    'opacity:1;transition:opacity 0.8s ease-in-out;',
-    'position:absolute;',
-    `top:${Math.round(H * 0.45)}px;`, // Moved from 0.12 to 0.68
-    'left:0;right:0;',
-].join('');
-this.irishOverlayEl = irishEl;
-
-const enEl = document.createElement('div');
-enEl.textContent = line.en;
-enEl.style.cssText = [
-    'font-family:"Courier New",monospace;',
-    `font-size:${Math.round(Math.min(W, H) * 0.048)}px;`,
-    'color:#9b8dbd;text-align:center;', // Updated to muted purple
-    'text-shadow:0 0 12px rgba(0,0,0,0.9);',
-    'padding:0 1.5rem;',
-    'pointer-events:none;',
-    'opacity:0.05;transition:opacity 0.5s ease;',
-    'position:absolute;',
-    `top:${Math.round(H * 0.12)}px;`, // Moved from 0.68 to 0.12
-    'left:0;right:0;',
-].join('');
-this.englishEl = enEl;
-
-
-
-
-
-
-
-
-
-
+        const enEl = document.createElement('div');
+        enEl.textContent = line.en;
+       enEl.style.cssText = [
+            'font-family:"Courier New",monospace;',
+            `font-size:${Math.round(Math.min(W, H) * 0.058)}px;`,
+            'color:#9b8dbd;text-align:center;',
+            'text-shadow:0 0 12px rgba(0,0,0,0.9);',
+            'padding:0 6%;',
+            'pointer-events:none;',
+            'opacity:0.05;transition:opacity 0.5s ease;',
+            'position:absolute;',
+`top:${Math.round(H * 0.16)}px;`,            
+'left:0;right:0;',
+        ].join('');
+        this.englishEl = enEl;
 
         const lyricInterval = setInterval(() => {
             if (hasInteracted) return;
@@ -577,8 +591,8 @@ this.englishEl = enEl;
             'cursor:grab;touch-action:none;',
             'pointer-events:all;',
             'position:fixed;',
-            `left:${marginX - moonR}px;`,
-            `top:${Math.round(H * 0.35)}px;`,
+            `left:${arcStartX - moonR}px;`,           // start at arc origin
+            `top:${arcStartY - moonR}px;`,             // start at arc origin
             'animation:moonInvite 2s infinite ease-in-out;',
         ].join('');
         this.moonEl     = moonCanvas;
@@ -608,7 +622,7 @@ this.englishEl = enEl;
         let dragging         = false;
         let dragStartX       = 0;
         let phaseAtDragStart = 0;
-        const trackW         = W - marginX * 2;
+        let arcDone          = false;   // true once player releases for the first time
 
         const onDragStart = (clientX) => {
             _requestFullscreen();
@@ -629,18 +643,39 @@ this.englishEl = enEl;
 
         const onDragMove = (clientX) => {
             if (!dragging) return;
-            const delta    = (clientX - dragStartX) / trackW;
-            const newPhase = Math.max(0, Math.min(1, phaseAtDragStart + delta));
-            this.moonPhase = newPhase;
-            this.drawMoonPhase(newPhase);
-            enEl.style.opacity = String(newPhase);
 
-            this.moonEl.style.left = (marginX + newPhase * trackW - moonR) + 'px';
+            if (!arcDone) {
+                // ── Arc mode: y is derived from x via the curve ───────────────
+                const clampedX  = Math.max(marginX, Math.min(marginX + trackW, clientX));
+                const curY      = getArcY(clampedX);
+                moonCanvas.style.left = (clampedX - moonR) + 'px';
+                moonCanvas.style.top  = (curY      - moonR) + 'px';
 
-            if (!this.moonInitDone) {
-                const targetAngle = newPhase * 13;
+                // Phase and moon face update as they explore
+                const t = (clampedX - marginX) / trackW;
+                this.moonPhase = Math.max(0, Math.min(1, t));
+                this.drawMoonPhase(this.moonPhase);
+                enEl.style.opacity = String(this.moonPhase);
+
+                // Gentle sky spin during arc
+                const targetAngle = this.moonPhase * 13;
                 this.spinAngle = targetAngle;
                 this.cameras.main.setAngle(targetAngle);
+
+            } else {
+                // ── Normal horizontal track mode ──────────────────────────────
+                const delta    = (clientX - dragStartX) / trackW;
+                const newPhase = Math.max(0, Math.min(1, phaseAtDragStart + delta));
+                this.moonPhase = newPhase;
+                this.drawMoonPhase(newPhase);
+                enEl.style.opacity = String(newPhase);
+                this.moonEl.style.left = (marginX + newPhase * trackW - moonR) + 'px';
+
+                if (!this.moonInitDone) {
+                    const targetAngle = newPhase * 13;
+                    this.spinAngle = targetAngle;
+                    this.cameras.main.setAngle(targetAngle);
+                }
             }
         };
 
@@ -648,9 +683,46 @@ this.englishEl = enEl;
             if (!dragging) return;
             dragging = false;
             moonCanvas.style.cursor = 'grab';
-            if (!this.moonInitDone) {
-                this.moonInitDone = true;
-                this.settleMoon(this.moonPhase);
+
+            if (!arcDone) {
+                // ── First release: float moon up to its settled track position ─
+                arcDone = true;
+
+                const fromX = parseFloat(moonCanvas.style.left) + moonR;
+                const fromY = parseFloat(moonCanvas.style.top)  + moonR;
+                const toX   = marginX + this.moonPhase * trackW;
+                const toY   = trackY;
+
+                const floatStart = performance.now();
+                const FLOAT_MS   = 1200;
+
+                const floatLoop = (now) => {
+                    const raw = Math.min((now - floatStart) / FLOAT_MS, 1);
+                    // Ease out cubic — decelerates as it reaches the track
+                    const t   = 1 - Math.pow(1 - raw, 3);
+                    moonCanvas.style.left = (fromX + (toX - fromX) * t - moonR) + 'px';
+                    moonCanvas.style.top  = (fromY + (toY - fromY) * t - moonR) + 'px';
+                    if (raw < 1) {
+                        requestAnimationFrame(floatLoop);
+                    } else {
+                        // Fully settled — hand off to settleMoon for the
+                        // full constellation sequence launch
+                        moonCanvas.style.left = (toX - moonR) + 'px';
+                        moonCanvas.style.top  = (toY - moonR) + 'px';
+                        if (!this.moonInitDone) {
+                            this.moonInitDone = true;
+                            this.settleMoon(this.moonPhase);
+                        }
+                    }
+                };
+                requestAnimationFrame(floatLoop);
+
+            } else {
+                // ── Subsequent releases: normal settle behaviour ───────────────
+                if (!this.moonInitDone) {
+                    this.moonInitDone = true;
+                    this.settleMoon(this.moonPhase);
+                }
             }
         };
 
@@ -661,6 +733,7 @@ this.englishEl = enEl;
         window.addEventListener('touchmove',      (e) => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
         window.addEventListener('touchend',       ()  => { onDragEnd(); });
     }
+
 
     drawMoonPhase(phase) {
         const canvas = this.moonCanvas;
@@ -753,6 +826,12 @@ this.englishEl = enEl;
         const endX   = marginX + phase * trackW - r;
         const endY   = Math.round(H * 0.01);
 
+        // ── Constellation offset — places star pattern in upper third ─────────
+        // Adding to targetScrollY moves camera down in world space,
+        // which places the constellation higher on screen.
+        // Also used in panCameraTo as + this.H * 0.22 — keep in sync.
+        const constellationOffsetY = H * 0.22;
+
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
@@ -764,7 +843,7 @@ this.englishEl = enEl;
             onUpdate: () => { this.cameras.main.setAngle(this.spinAngle); },
         });
 
-        const startLeft = parseFloat(moonEl.style.left) || (parseFloat(moonEl.style.left) || 0);
+        const startLeft = parseFloat(moonEl.style.left) || 0;
         const startTop  = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
         const NUM_GHOSTS = 6;
@@ -774,11 +853,11 @@ this.englishEl = enEl;
             ghost.style.pointerEvents = 'none';
             ghost.style.animation     = 'none';
             ghost.style.cursor        = 'default';
-            ghost.style.left     = moonEl.style.left;
-            ghost.style.top      = moonEl.style.top;
-            ghost.style.opacity  = '0';
-            ghost.style.filter   = 'blur(1px)';
-            ghost.style.transition = '';
+            ghost.style.left          = moonEl.style.left;
+            ghost.style.top           = moonEl.style.top;
+            ghost.style.opacity       = '0';
+            ghost.style.filter        = 'blur(1px)';
+            ghost.style.transition    = '';
             document.body.appendChild(ghost);
             ghosts.push(ghost);
         }
@@ -813,8 +892,8 @@ this.englishEl = enEl;
                 const ease = gt < 0.5 ? 4 * gt * gt * gt : 1 - Math.pow(-2 * gt + 2, 3) / 2;
                 const gLeft = fromLeft + (endX - fromLeft) * ease;
                 const gTop  = fromTop  + (endY - fromTop)  * ease;
-                ghost.style.left = gLeft + 'px';
-                ghost.style.top  = gTop  + 'px';
+                ghost.style.left    = gLeft + 'px';
+                ghost.style.top     = gTop  + 'px';
                 const fadeIn  = Math.min(gt * 4, 1);
                 const fadeOut = Math.max(0, 1 - (rawT - 0.5) * 2);
                 ghost.style.opacity = String(fadeIn * fadeOut * (0.5 - i * 0.07));
@@ -831,21 +910,28 @@ this.englishEl = enEl;
         };
         requestAnimationFrame(animateMoonTrail);
 
-        const cam        = this.cameras.main;
+        const cam           = this.cameras.main;
         const targetScrollX = this.constellations[0].wcx - this.W / 2;
         const targetScrollY = this.constellations[0].wcy - this.H / 2;
-        const panProg    = { t: 0 };
-        cam.setScroll(targetScrollX, targetScrollY - H * 0.38);
+
+        // Adding constellationOffsetY scrolls camera further down in world space,
+        // which places the constellation higher on screen (upper third).
+        const finalScrollY = targetScrollY + constellationOffsetY;
+
+        // Pan entry: start camera above final position (lower scrollY = higher in world)
+        // so constellation enters from above the screen and pans down into upper third.
+        const panStartY = finalScrollY - H * 0.35;
+        const panProg   = { t: 0 };
+        cam.setScroll(targetScrollX, panStartY);
         this.tweens.add({
             targets:  panProg,
             t:        1,
             duration: 1400,
             ease:     'Cubic.easeInOut',
             onUpdate: () => {
-                cam.scrollY = (targetScrollY - H * 0.38) + H * 0.38 * panProg.t;
+                cam.scrollY = panStartY + (finalScrollY - panStartY) * panProg.t;
             },
             onComplete: () => {
-                cam.setScroll(targetScrollX, targetScrollY);
             },
         });
 
@@ -886,6 +972,12 @@ this.englishEl = enEl;
         window.addEventListener('touchmove',  (e) => { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientX); } }, { passive: false });
         window.addEventListener('touchend',   ()  => { onEnd(); });
     }
+      
+
+ 
+ 
+ 
+ 
 
     // ── spin is now driven directly by moonPhase in onDragMove, no physics loop needed
     updateSpin(delta) {
@@ -897,8 +989,12 @@ this.englishEl = enEl;
 
         const camDeg = this._driftWheelSpeed * dt;
         this.spinAngle = (this.spinAngle || 0) + camDeg;
-        this.cameras.main.setAngle(this.spinAngle);
-    }
+    
+
+this.cameras.main.setOrigin(0.5, 0.28);
+this.cameras.main.setAngle(this.spinAngle);
+
+}
 
     drawNebula(wSize) {
         const S   = Math.round(Math.max(this.W, this.H) * 1.5);
@@ -1111,8 +1207,11 @@ this.englishEl = enEl;
         const c = this.constellations[idx];
         if (!c) return;
         const tx = c.wcx - this.W / 2;
-        const ty = c.wcy - this.H / 2 + (c.cameraOffsetY || 0) * this.H;
-        if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
+ 
+const ty = c.wcy - this.H / 2 + this.H * 0.22;
+
+
+if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
         const sx    = this.cameras.main.scrollX;
         const sy    = this.cameras.main.scrollY;
@@ -1667,22 +1766,31 @@ this.englishEl = enEl;
         };
         requestAnimationFrame(driftLoop);
 
-        const camDriftProg = { t: 0 };
-        const camDriftRange = H * 0.14;
-        this._moonDriftTween = this.tweens.add({
-            targets:  camDriftProg,
-            t:        1,
-            duration: DRIFT_MS,
-            ease:     'Linear',
-            onUpdate: () => {
-                if (!this.canInteract) return;
-                const base = this.constellations[this.currentIndex]
-                    ? this.constellations[this.currentIndex].wcy - this.H / 2
-                    : this.constellations[0].wcy - this.H / 2;
-                this.cameras.main.scrollY = base + camDriftProg.t * camDriftRange;
-            },
-        });
+        
 
+
+
+const camDriftProg  = { t: 0 };
+    const camDriftRange = H * 0.14;
+   
+
+
+this._moonDriftTween = this.tweens.add({
+    targets:  camDriftProg,
+    t:        1,
+    duration: DRIFT_MS,
+    ease:     'Linear',
+    onUpdate: () => {
+        if (!this.canInteract) return;
+        const base = this.constellations[this.currentIndex]
+            ? this.constellations[this.currentIndex].wcy - this.H / 2 + this.H * 0.22
+            : baseScrollY;
+        this.cameras.main.scrollY = base + camDriftProg.t * camDriftRange;
+    },
+});
+
+
+ 
         this.tweens.add({
             targets:  this.worldG,
             alpha:    1,

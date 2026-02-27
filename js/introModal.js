@@ -145,12 +145,12 @@ export function initConstellationScene(onComplete) {
     return game;
 }
 
-const CONSTELLATION_DATA = [
+const CONSTELLATION_DATA =	[
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ─────────────────────
     {
-        id: 'cu', irishText: 'Cú na Féinne', englishText: 'The Hound of the Fianna',
-        waitingGa: 'Leanann sé rian na réalt ar feadh na hoíche',
-        waitingEn: 'He follows the trail of stars through the night',
+        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid a spéir. Beidh an tír slán, anocht.', englishText: 'The Hound of the Fianna roams the sky. Tonight the land is safe.',
+        waitingGa: 'Tuar dom, a Chonaill dhíl.',
+        waitingEn: 'Prophesise for me, faithful Wolf.',
         starOffsets: [
             { lx:  -0.79, ly:  -1.38 },
             { lx:   0.44, ly:  -1.21 },
@@ -169,9 +169,9 @@ const CONSTELLATION_DATA = [
 
     // ── An Naomhóg — The Currach (Cassiopeia) ──────────────────────────────
     {
-        id: 'naomhog', irishText: 'An Naomhóg', englishText: 'The Currach',
-        waitingGa: 'Seolann sí ar abhainn na spéire gan stiúir',
-        waitingEn: 'She sails the river of heaven without a rudder',
+        id: 'naomhog', irishText: 'Tá an naomhog ag brú ar sruth na bhFlaitheas, a bhanríon. Á niomramh le cuspóir.', englishText: 'na scéalta a nochtann an oíche?',    englishText: 'The Currach drives hard against the flow of heaven, my queen. She rows with purpose.',
+        waitingGa: 'Agus ar muir? Cad deir bealach na Bó Finne a Chonaill na súile géire?',
+        waitingEn: 'And at sea? What says the river of heaven, o keen eyed Wolf?',
         starOffsets: [
             { lx:   1.37, ly:  -0.10 },
             { lx:   0.55, ly:   0.37 },
@@ -185,11 +185,12 @@ const CONSTELLATION_DATA = [
         ],
     },
 
+
     // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ──────────────
     {
-        id: 'carr', irishText: 'An Carr Mór', englishText: 'The Great Chariot',
-        waitingGa: 'Timpeallann sé an pol thuaidh go síoraí',
-        waitingEn: 'It wheels around the north pole without rest',
+        id: 'carr', irishText: 'Féach Carr Mór na Féinne. Treorí clann agus muintir.', englishText: 'Behold the Chariot of the Fianna bold, guide of clans and kin',
+        waitingGa: 'Cad eile a nochtann na réaltaí, a Chonaill?',
+        waitingEn: 'What other portents do the stars reveal o valient wolf?',
         starOffsets: [
             { lx:   1.23, ly:  -0.40 },
             { lx:   1.25, ly:  -0.05 },
@@ -205,30 +206,43 @@ const CONSTELLATION_DATA = [
             { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
         ],
     },
+ 
 
-    // ── Éan na Stoirme — The Stormbird (Cygnus / Northern Cross) ───────────
-    {
-        id: 'ean', irishText: 'Éan na Stoirme', englishText: 'The Stormbird',
-        waitingGa: 'Eitlíonn sí ar bhealach na bó finne',
-        waitingEn: 'She flies the white cow\'s road across the sky',
-        starOffsets: [
-            { lx:  -0.93, ly:  -0.89 },
-            { lx:  -0.30, ly:  -0.23 },
-            { lx:   1.40, ly:   1.39 },
-            { lx:  -1.09, ly:   0.60 },
-            { lx:   0.93, ly:  -0.87 },
-        ],
-        connections: [
-            { from: 0, to: 1 }, { from: 1, to: 2 },
-            { from: 3, to: 1 }, { from: 1, to: 4 },
-        ],
-    },
 
-    // ── An Draoi — The Druid (Boötes) ──────────────────────────────────────
+//── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ──────────────
+{
+    id: 'cuirt',
+    irishText: 'Cad a deir na spéir thuaidh, a Chonaill na fírinne?',
+    englishText: 'What of the northern sky\'s array, o Wolf of the truth?',
+    waitingGa: 'Feicim cúirt na Fomhórach. A bhanríon — tá gach suíochán lán.',
+    waitingEn: 'I see the court of the Fomorians. My queen — every seat is filled',
+
+    starOffsets: [
+        { lx:  -1.30, ly:   0.40 },   // 0 — left end
+        { lx:  -0.85, ly:  -0.55 },   // 1 — left shoulder
+        { lx:  -0.30, ly:  -1.10 },   // 2 — left of crown
+        { lx:   0.00, ly:  -1.35 },   // 3 — top/centre (Alphecca — brightest)
+        { lx:   0.30, ly:  -1.10 },   // 4 — right of crown
+        { lx:   0.85, ly:  -0.55 },   // 5 — right shoulder
+        { lx:   1.30, ly:   0.40 },   // 6 — right end
+    ],
+    connections: [
+        { from: 0, to: 1 },
+        { from: 1, to: 2 },
+        { from: 2, to: 3 },
+        { from: 3, to: 4 },
+        { from: 4, to: 5 },
+        { from: 5, to: 6 },
+    ],
+},
+
+
+
+   // ── An Draoi — The Druid (Boötes) ──────────────────────────────────────
     {
-        id: 'draoi', irishText: 'An Draoi', englishText: 'The Druid',
-        waitingGa: 'Léann sé leabhar na spéire roimh an bhfocal',
-        waitingEn: 'He reads the book of heaven before the word',
+        id: 'draoi', irishText: 'Seasann an Draoi sa deisceart ach éist! A bhanrionn, chlois na géinna. Níl aon dul as.', englishText: 'The Druid stands in the west but my queen — hush! Hear the geese. There is no turning this aside',
+        waitingGa: 'Chas uain cuirt Tethra a Chonall dhíl. Leigh realtaí an Draoi in a gcoinne! ',
+        waitingEn: 'Turn aside Tethra\'s court, by reading the Druid\'s stars against them!',
         starOffsets: [
             { lx:   0.42, ly:   1.13 },
             { lx:   1.05, ly:   1.23 },
@@ -242,69 +256,11 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ───────────────────
+   // ── An Torc — The Wild Boar (Scorpius) ─────────────────────────────────
     {
-        id: 'clairseach', irishText: 'Cláirseach na Spéire', englishText: 'The Harp of Heaven',
-        waitingGa: 'Cloisimid a ceol i gciúnas na hoíche',
-        waitingEn: 'We hear her music in the silence of the night',
-        starOffsets: [
-            { lx:   1.31, ly:  -1.28 },
-            { lx:   0.45, ly:  -0.77 },
-            { lx:  -0.08, ly:   1.10 },
-            { lx:  -1.07, ly:   1.40 },
-            { lx:  -0.61, ly:  -0.45 },
-        ],
-        connections: [
-            { from: 0, to: 1 }, { from: 1, to: 2 },
-            { from: 2, to: 3 }, { from: 3, to: 4 },
-            { from: 4, to: 1 },
-        ],
-    },
-
-    // ── An Fhéinics — The Phoenix / Rising Fire (Leo) ──────────────────────
-    {
-        id: 'fheinics', irishText: 'An Fhéinics', englishText: 'The Phoenix',
-        waitingGa: 'Éiríonn sí arís as an luaithreach gach earrach',
-        waitingEn: 'She rises again from the ashes each spring',
-        starOffsets: [
-            { lx:   0.85, ly:  -0.51 },
-            { lx:   0.39, ly:  -0.31 },
-            { lx:   0.33, ly:  -0.03 },
-            { lx:   0.55, ly:   0.57 },
-            { lx:  -0.72, ly:  -0.09 },
-            { lx:  -1.40, ly:   0.37 },
-        ],
-        connections: [
-            { from: 0, to: 1 }, { from: 1, to: 2 },
-            { from: 2, to: 3 }, { from: 3, to: 4 }, { from: 4, to: 5 },
-        ],
-    },
-
-    // ── An Bradán Feasa — The Salmon of Knowledge (Pisces) ─────────────────
-    {
-        id: 'bradan', irishText: 'An Bradán Feasa', englishText: 'The Salmon of Knowledge',
-        waitingGa: 'D\'ith sé cnónna na heagna ag tobar an domhain',
-        waitingEn: 'He ate the nuts of wisdom at the well of the world',
-        starOffsets: [
-            { lx:   1.18, ly:  -0.20 },
-            { lx:   1.03, ly:  -0.32 },
-            { lx:   0.52, ly:   0.03 },
-            { lx:  -1.40, ly:  -0.23 },
-            { lx:   0.06, ly:   0.07 },
-            { lx:  -0.48, ly:   0.09 },
-            { lx:  -0.92, ly:  -0.56 },
-        ],
-        connections: [
-            { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 },
-            { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
-        ],
-    },
-
-    // ── An Torc — The Wild Boar (Scorpius) ─────────────────────────────────
-    {
-        id: 'torc', irishText: 'An Torc', englishText: 'The Wild Boar',
-        waitingGa: 'Gearrann a starrfhiacla trí dhorchadas an deiscirt',
-        waitingEn: 'His tusks cut through the darkness of the south',
+        id: 'torc', irishText: 'Éiríonn an Torc, a bhanríon. D\’imíodh do churadh go misniúil,agus chailfar fuil ríoga sa chré.', englishText: 'The Boar ascends, my queen. Your champions would go bravely, and the blood of kings would mingle with the earth.',
+        waitingGa: 'Cuirfimid Tethra faoi mhara go deo!',
+        waitingEn: 'Our champions will send Tethra and his wretched court back to the deep forever.',
         starOffsets: [
             { lx:   1.14, ly:  -1.40 },
             { lx:   1.27, ly:  -1.11 },
@@ -323,11 +279,29 @@ const CONSTELLATION_DATA = [
         ],
     },
 
+     // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ───────────────────
+    {
+        id: 'clairseach', irishText: 'Feicim cláirseach na spéire. Agus réalt gan ainm.', englishText: 'I see the Harp. And yet a star I have no name for.',
+        waitingGa: 'Nach bhfuil aon dóchas?',
+        waitingEn: 'Is there no hope?',
+        starOffsets: [
+            { lx:   1.31, ly:  -1.28 },
+            { lx:   0.45, ly:  -0.77 },
+            { lx:  -0.08, ly:   1.10 },
+            { lx:  -1.07, ly:   1.40 },
+            { lx:  -0.61, ly:  -0.45 },
+        ],
+        connections: [
+            { from: 0, to: 1 }, { from: 1, to: 2 },
+            { from: 2, to: 3 }, { from: 3, to: 4 },
+            { from: 4, to: 1 },
+        ],
+    },
     // ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
     {
-        id: 'laoch', irishText: 'An Laoch', englishText: 'The Warrior',
-        waitingGa: 'Iompraíonn sé an claíomh is dorcha sa spéir',
-        waitingEn: 'He carries the darkest sword in the sky',
+        id: 'laoch', irishText: '...', englishText: '...',
+        waitingGa: 'Cé leis í, a Chonaill? Cé leis an réalta gan ainm?',
+        waitingEn: 'Then who, Conall? Who does the nameless star belong to?',
         starOffsets: [
             { lx:   0.78, ly:  -1.45 },
             { lx:   0.21, ly:  -1.03 },
@@ -1452,11 +1426,11 @@ this.englishEl = enEl;
 
     onAllComplete() {
         this._stopAllAudio();
-        this.irishText.setText('Go raibh maith agat').setAlpha(0);
+        this.irishText.setText('').setAlpha(0);
         this.tweens.add({
             targets: this.irishText, alpha: 1, duration: 2000,
             onComplete: () => {
-                this.time.delayedCall(2000, () => {
+                this.time.delayedCall(1000, () => {
                     this.cameras.main.fadeOut(1800, 10, 5, 40);
 
                     this.cameras.main.once('camerafadeoutcomplete', () => {

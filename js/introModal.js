@@ -6,6 +6,8 @@ import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerSchedul
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 import { levelTunes } from './game/systems/music/levelTunes.js';
 import { triggerMurmuration } from './game/effects/murmuration.js';
+import { ScrollingTextPlayer } from './game/ui/scrollingTextPlayer.js';
+import { constellationTexts } from '../data/constellationTexts.js';
 
 // Inject level tunes into allTunes so TradSessionPlayer can find them
 allTunes['myLaganLove'] = levelTunes.myLaganLove;
@@ -139,19 +141,17 @@ export function initConstellationScene(onComplete) {
             mode:       Phaser.Scale.RESIZE,
             autoCenter: Phaser.Scale.CENTER_BOTH,
         },
-        input: { touch: { capture: true } },
+        input: { touch: true },
     });
 
     game.registry.set('onComplete', onComplete);
     return game;
 }
 
-const CONSTELLATION_DATA =	[
+const CONSTELLATION_DATA = [
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ─────────────────────
     {
-        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid. Beidh an Tír faoi shíochán  anocht.', englishText: 'The Hound of the Fianna roams the sky. The land will be at peace tonight.',
-        waitingGa: 'A Chonaill dhíl, leigh tairngreacht sna réaltaí anocht.',
-        waitingEn: 'O faithful wolf, read prophesy in the stars tonight.',
+        id: 'cu',
         starOffsets: [
             { lx:  -0.79, ly:  -1.38 },
             { lx:   0.44, ly:  -1.21 },
@@ -170,9 +170,7 @@ const CONSTELLATION_DATA =	[
 
     // ── An Naomhóg — The Currach (Cassiopeia) ──────────────────────────────
     {
-        id: 'naomhog', irishText: 'Feicim an naomhog a bhanríonn. Ag brú i gcoinne sruth na bhFlaitheas.',  englishText: 'I see the Currach o queen.\nStriving against the flow of heaven.',
-        waitingGa: 'Agus ar muir? Cad deir bealach na Bó Finne, a Chonaill na súile géire?',
-        waitingEn: 'And at sea? What says the river of heaven, o keen eyed Wolf?',
+        id: 'naomhog',
         starOffsets: [
             { lx:   1.37, ly:  -0.10 },
             { lx:   0.55, ly:   0.37 },
@@ -186,12 +184,9 @@ const CONSTELLATION_DATA =	[
         ],
     },
 
-
-    // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ──────────────
-  /*  {
-        id: 'carr', irishText: 'Féach Carr Mór na Féinne. Treorí clann agus muintir.', englishText: 'Behold the Chariot of the Fianna bold, guide of clans and kin',
-        waitingGa: 'Cad eile a nochtann na réaltaí, a Chonaill?',
-        waitingEn: 'What other portents do the stars reveal o valient wolf?',
+    // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ───────────────
+    {
+        id: 'carr',
         starOffsets: [
             { lx:   1.23, ly:  -0.40 },
             { lx:   1.25, ly:  -0.05 },
@@ -207,43 +202,29 @@ const CONSTELLATION_DATA =	[
             { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
         ],
     },
- */
 
-
-//── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ──────────────
-{
-    id: 'cuirt',
-    waitingGa: 'Cad a deir na spéir thuaidh, a Chonaill na fírinne?',
-    waitingEn: 'What of the northern sky\'s array, o Wolf of the truth?',
-    irishText: 'Feicim Cúirt na Fomhórach. Ár bith-naimhead a bhanríon — agus gach suíochán lán.',
-    englishText: 'I see the Fomorian court. Our arch-enemies my queen, and every seat is filled',
-
-    starOffsets: [
-        { lx:  -1.30, ly:   0.40 },   // 0 — left end
-        { lx:  -0.85, ly:  -0.55 },   // 1 — left shoulder
-        { lx:  -0.30, ly:  -1.10 },   // 2 — left of crown
-        { lx:   0.00, ly:  -1.35 },   // 3 — top/centre (Alphecca — brightest)
-        { lx:   0.30, ly:  -1.10 },   // 4 — right of crown
-        { lx:   0.85, ly:  -0.55 },   // 5 — right shoulder
-        { lx:   1.30, ly:   0.40 },   // 6 — right end
-    ],
-    connections: [
-        { from: 0, to: 1 },
-        { from: 1, to: 2 },
-        { from: 2, to: 3 },
-        { from: 3, to: 4 },
-        { from: 4, to: 5 },
-        { from: 5, to: 6 },
-    ],
-},
-
-
-
-   // ── An Draoi — The Druid (Boötes) ──────────────────────────────────────
+    // ── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ───────────────
     {
-        id: 'draoi', irishText: 'Seasann an Draoi ach éist! A bhanrionn, níl aon dul as.', englishText: 'The Druid stands but hark! O queen, there will be no turning this aside',
-        waitingGa: 'Chas uain a shúile a Chonall glic. Léigh cosaint i realtaí an Draoi. ',
-        waitingEn: 'Turn aside their eyes, cunning wolf. Read our protection in the stars of the Druid.',
+        id: 'cuirt',
+        starOffsets: [
+            { lx:  -1.30, ly:   0.40 },
+            { lx:  -0.85, ly:  -0.55 },
+            { lx:  -0.30, ly:  -1.10 },
+            { lx:   0.00, ly:  -1.35 },
+            { lx:   0.30, ly:  -1.10 },
+            { lx:   0.85, ly:  -0.55 },
+            { lx:   1.30, ly:   0.40 },
+        ],
+        connections: [
+            { from: 0, to: 1 }, { from: 1, to: 2 },
+            { from: 2, to: 3 }, { from: 3, to: 4 },
+            { from: 4, to: 5 }, { from: 5, to: 6 },
+        ],
+    },
+
+    // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────
+    {
+        id: 'draoi',
         starOffsets: [
             { lx:   0.42, ly:   1.13 },
             { lx:   1.05, ly:   1.23 },
@@ -257,11 +238,9 @@ const CONSTELLATION_DATA =	[
         ],
     },
 
-   // ── An Torc — The Wild Boar (Scorpius) ─────────────────────────────────
+    // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
     {
-        id: 'torc', irishText: 'Éiríonn an Torc, a bhanríon. D\’imíodh do churadh agus dhoirtfar fuil uasal.', englishText: 'The Boar ascends, o queen. Your champions would go and noble blood would spill.',
-        waitingGa: 'Mar sin cuirfimid Tethra ar ais faoi mhara go deo!',
-        waitingEn: 'Then our champions will send Tethra back under the ocean forever!',
+        id: 'torc',
         starOffsets: [
             { lx:   1.14, ly:  -1.40 },
             { lx:   1.27, ly:  -1.11 },
@@ -280,11 +259,9 @@ const CONSTELLATION_DATA =	[
         ],
     },
 
-     // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ───────────────────
+    // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ────────────────────
     {
-        id: 'clairseach', irishText: 'Feicim cláirseach na spéire. Agus réalt nach aithním.', englishText: 'I see the Harp. And yet a star I have no name for.',
-        waitingGa: 'Chaith nach feidir a sheachaint nó buachaint? Aimsigh dóchas dom, a Chonall cliste!',
-        waitingEn: 'A fight we can neither avoid nor win? Find me some hope, clever wolf!',
+        id: 'clairseach',
         starOffsets: [
             { lx:   1.31, ly:  -1.28 },
             { lx:   0.45, ly:  -0.77 },
@@ -298,11 +275,10 @@ const CONSTELLATION_DATA =	[
             { from: 4, to: 1 },
         ],
     },
-    // ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
-    
-   {     id: 'laoch', irishText: '  ', englishText: '  ',
-        waitingGa: 'Cé, a Chonaill? Cé ar a lonrainn an réalt ainaithainte?',
-        waitingEn: 'Then who,o wolf? Upon whom does the strange star shine?',
+
+    // ── An Laoch — The Hero / Warrior (Perseus) ──────────────────────────────
+    {
+        id: 'laoch',
         starOffsets: [
             { lx:   0.78, ly:  -1.45 },
             { lx:   0.21, ly:  -1.03 },
@@ -359,7 +335,6 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldG  = null;
         this.trailG  = null;
         this.ripples = [];
-        this.irishText    = null;
         this.constellations = [];
         this.pulseTimer   = null;
         this.pulseIdx     = 0;
@@ -374,6 +349,9 @@ export class ConstellationScene extends Phaser.Scene {
         this.irishOverlayEl  = null;
         this.moonInitDone    = false;
         this.spinAngle       = 0;
+
+        // ── Text player ───────────────────────────────────────────────────────
+        this._textPlayer       = null;
 
         // ── Audio state ───────────────────────────────────────────────────────
         this._harpStarted      = false;
@@ -401,82 +379,14 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
 
-      
-
-
-const textSize     = Math.round(Math.min(this.W, this.H) * 0.072);  // was 0.095
-const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.058);  // was 0.062
-       const textY        = this.H * 0.15;
-        const subY         = this.H * 0.58;
-
-       
-this.irishText = this.add
-    .text(this.W / 2, subY, '', {
-        fontFamily: 'Urchlo, serif',
-        fontSize: textSize + 'px',
-        color: '#f58e6e',
-        stroke: '#000a1a',
-        strokeThickness: 3,
-        wordWrap: { width: this.W * 0.78 },   // add this
-        align: 'center',                        // add this
-    })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
-
-
-
-
-// englishConstellationText — snap to bottom
-this.englishConstellationText = this.add
-    .text(this.W / 2, this.H - Math.round(this.H * 0.04), '', {
-        fontFamily: '"Courier New",monospace',
-        fontSize: subTextSize + 'px',
-        color: '#9b8dbd',
-        stroke: '#000a1a',
-        strokeThickness: 2,
-        wordWrap: { width: this.W * 0.78 },
-        align: 'center',
-    })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5, 1).setAlpha(0);
-//                                             ^^^^ origin Y of 1 means bottom-anchored
-
-this.waitingIrishText = this.add
-    .text(this.W / 2, subY, '', { // Swapped textY to subY
-        fontFamily: 'Urchlo, serif',
-        fontSize: textSize + 'px',
-        color: '#d4af37', 
-        stroke: '#000a1a', 
-        strokeThickness: 3,
-        wordWrap: { width: this.W * 0.82 },
-        align: 'center',
-    })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5).setAlpha(0);
-
-
-
-this.waitingEnglishText = this.add
-    .text(this.W / 2, this.H - Math.round(this.H * 0.04), '', {
-        fontFamily: '"Courier New",monospace',
-        fontSize: subTextSize + 'px',
-        color: '#9b8dbd',
-        stroke: '#000a1a',
-        strokeThickness: 2,
-        wordWrap: { width: this.W * 0.78 },
-        align: 'center',
-    })
-    .setScrollFactor(0).setDepth(22).setOrigin(0.5, 1).setAlpha(0);
-
-
-
+        // All dialogue (waiting and completion) is handled by ScrollingTextPlayer DOM overlays.
+        // No Phaser text objects needed.
 
         this.uiCamera = this.cameras.add(0, 0, this.W, this.H)
             .setName('ui')
             .setBackgroundColor('rgba(0,0,0,0)');
-        this.uiCamera.ignore(
-            this.children.list.filter(obj => obj.depth !== 22)
-        );
-        this.cameras.main.ignore(
-            this.children.list.filter(obj => obj.depth === 22)
-        );
+        this.uiCamera.ignore(this.children.list.filter(obj => obj.depth !== 22));
+        this.cameras.main.ignore(this.children.list.filter(obj => obj.depth === 22));
 
         this.buildConstellations(wSize);
         const c0 = this.constellations[0];
@@ -503,25 +413,19 @@ this.waitingEnglishText = this.add
 
 
 
-/*    
 
- const { width, height } = this.scale;
-
-    if (this.textures.exists('shadowHill')) {
-        this.shadowHill = this.add.image(0, 0, 'shadowHill');
-        this.shadowHill.setScrollFactor(0);
-        this.shadowHill.setOrigin(0, 1);
-        this.shadowHill.setPosition(0, height);
-this.shadowHill.setScale(0.8)
-
-    } else {
-        console.warn('shadowHill texture not loaded!');
-    }
-
-
-
-
-*/
+        const { width, height } = this.scale;
+        if (this.textures.exists('shadowHill')) {
+            this.shadowHill = this.add.image(0, 0, 'shadowHill')
+                .setScrollFactor(0)
+                .setOrigin(0, 1)
+                .setPosition(0, height)
+                .setScale(0.8)
+                .setDepth(23);
+            // Ignore lists were built before this object existed, so register explicitly.
+            this.cameras.main.ignore(this.shadowHill);  // main camera never sees it
+            // uiCamera renders it automatically.
+        }
 
 
  }
@@ -619,8 +523,9 @@ this.shadowHill.setScale(0.8)
             'cursor:grab;touch-action:none;',
             'pointer-events:all;',
             'position:fixed;',
-            `left:${arcStartX - moonR}px;`,           // start at arc origin
-            `top:${arcStartY - moonR}px;`,             // start at arc origin
+            'z-index:99997;',
+            `left:${arcStartX - moonR}px;`,
+            `top:${arcStartY - moonR}px;`,
             'animation:moonInvite 2s infinite ease-in-out;',
         ].join('');
         this.moonEl     = moonCanvas;
@@ -965,12 +870,7 @@ this.shadowHill.setScale(0.8)
             this.moonPhase = newPhase;
             this.drawMoonPhase(newPhase);
             this.positionMoon(newPhase);
-            if (this.waitingEnglishText.alpha > 0) {
-                this.waitingEnglishText.setAlpha(newPhase);
-            }
-            if (this.englishConstellationText.alpha > 0) {
-                this.englishConstellationText.setAlpha(newPhase);
-            }
+            // ScrollingTextPlayer reads moonPhase live via getMoonPhase() — no manual update needed.
         };
         const onStart = (clientX) => {
             dragging     = true;
@@ -998,7 +898,6 @@ this.shadowHill.setScale(0.8)
 
     _startPostSettleSequence(moonEl, endX, endY, W, H, baseScrollY) {
 
-console.log('settle scrollY:', this.cameras.main.scrollY);
         [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
         if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
 
@@ -1016,37 +915,31 @@ console.log('settle scrollY:', this.cameras.main.scrollY);
         };
         requestAnimationFrame(driftLoop);
 
-        const camDriftProg  = { t: 0 };
         const camDriftRange = H * 0.14;
-
-        // Capture the camera's actual scrollY right now — this is the jumpless baseline.
-        // We do NOT recalculate from wcy here, which was the source of the jump.
-        const driftBaseScrollY = this.cameras.main.scrollY;
-
-      this._moonDriftTween = this.tweens.add({
-    targets:  camDriftProg,
-    t:        1,
-    duration: DRIFT_MS,
-    ease:     'Linear',
-    onUpdate: () => {
-        if (!this.canInteract) return;
-        this.cameras.main.scrollY = driftBaseScrollY + camDriftProg.t * camDriftRange;
-    },
-});;
 
         this.tweens.add({
             targets:  this.worldG,
             alpha:    1,
             duration: 1200,
             ease:     'Sine.easeIn',
+            onComplete: () => {
+                // Capture scrollY here — after all panning has fully settled —
+                // so the drift tween starts from a stable, accurate baseline.
+                const driftBaseScrollY = this.cameras.main.scrollY;
+                const camDriftProg = { t: 0 };
 
-onComplete: () => {
-    console.log('canInteract=true, scrollY now:', this.cameras.main.scrollY);
-    this.canInteract = true;
-    this.startSequencePulse();
-},
+                this._moonDriftTween = this.tweens.add({
+                    targets:  camDriftProg,
+                    t:        1,
+                    duration: DRIFT_MS,
+                    ease:     'Linear',
+                    onUpdate: () => {
+                        this.cameras.main.scrollY = driftBaseScrollY + camDriftProg.t * camDriftRange;
+                    },
+                });
 
-
+                this.startSequencePulse();
+            },
         });
     }
  
@@ -1271,10 +1164,6 @@ this.cameras.main.setAngle(this.spinAngle);
 
             return {
                 id: data.id,
-                irishText: data.irishText,
-                englishText: data.englishText || '',
-                waitingGa: data.waitingGa || '',
-                waitingEn: data.waitingEn || '',
                 cameraOffsetY: data.cameraOffsetY || 0,
                 wcx, wcy, stars, connections, completed: false,
             };
@@ -1390,29 +1279,49 @@ this.tweens.add({
 
     }
 
-    showWaitingTexts(c) {
-        this.waitingIrishText.setText(c.waitingGa).setAlpha(0);
-        this.waitingEnglishText.setText(c.waitingEn).setAlpha(0);
-        this.tweens.add({ targets: this.waitingIrishText,   alpha: 1,               duration: 900, ease: 'Sine.easeIn' });
-        this.tweens.add({ targets: this.waitingEnglishText, alpha: this.moonPhase,  duration: 900, ease: 'Sine.easeIn' });
+    showWaitingTexts(c, onComplete) {
+        if (this._textPlayer) {
+            this._textPlayer.destroy();
+            this._textPlayer = null;
+        }
+
+        const texts = constellationTexts[c.id];
+        const lines = (texts && texts.waiting && texts.waiting.length)
+            ? texts.waiting
+            : null;
+
+        if (!lines) {
+            // No waiting text for this constellation — proceed immediately.
+            if (onComplete) onComplete();
+            return;
+        }
+
+        this._textPlayer = new ScrollingTextPlayer({
+            lines,
+            getMoonPhase: () => this.moonPhase,
+            onComplete:   onComplete || (() => {}),
+        });
+        this._textPlayer.start();
     }
 
     hideWaitingTexts(onComplete) {
-        this.tweens.add({
-            targets: [this.waitingIrishText, this.waitingEnglishText],
-            alpha: 0, duration: 600, ease: 'Sine.easeOut',
-            onComplete,
-        });
+        if (this._textPlayer) {
+            this._textPlayer.destroy();
+            this._textPlayer = null;
+        }
+        if (onComplete) onComplete();
     }
 
     startSequencePulse() {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer = null; }
         this.pulseIdx = 0;
         this._interactionStarted = true;
+        this.canInteract = true;
 
         const c = this.constellations[this.currentIndex];
-        if (c && c.waitingGa) this.showWaitingTexts(c);
-
+        // Show waiting text concurrently — stars are interactive immediately.
+        // onComplete is a no-op here; star drawing is what advances the scene.
+        this.showWaitingTexts(c, () => {});
         this.runPulseStep();
     }
 
@@ -1596,84 +1505,72 @@ screenToRotated(sx, sy) {
         for (const star of c.stars) { star.completed = true; this.tweens.killTweensOf(star); }
 
         this.playCompletionChord();
-if (c.id === 'draoi') {
-    triggerMurmuration(this.audioContext);
-}
+        if (c.id === 'draoi') {
+            triggerMurmuration(this.audioContext);
+        }
 
+        const texts       = constellationTexts[c.id];
+        const completion  = texts && texts.completion ? texts.completion : [];
+        const hasDialogue = completion.length > 0;
 
         this.hideWaitingTexts(() => {
+            // Silent constellation (empty completion array) — fade straight out.
+            if (!hasDialogue) {
+                this.time.delayedCall(600, () => this.onAllComplete());
+                return;
+            }
+
             this.time.delayedCall(300, () => {
-                this.irishText.setText(c.irishText).setAlpha(0);
-                this.tweens.add({ targets: this.irishText, alpha: 1, duration: 900 });
-
-                if (c.englishText) {
-                    this.englishConstellationText.setText(c.englishText).setAlpha(0);
-                    this.tweens.add({
-                        targets: this.englishConstellationText,
-                        alpha: this.moonPhase,
-                        duration: 900,
-                    });
-                }
-
-                this.time.delayedCall(LINE_LINGER_MS + 1200, () => {
-                    this.tweens.add({ targets: this.irishText,              alpha: 0, duration: 800 });
-                    this.tweens.add({ targets: this.englishConstellationText, alpha: 0, duration: 800 });
-
-                    this.time.delayedCall(900, () => {
-                        this.currentIndex++;
-                        if (this.currentIndex < this.constellations.length) {
-                            this.panCameraTo(this.currentIndex, true);
-                            this.time.delayedCall(2200, () => {
-                                this.canInteract = true;
-                                this.startSequencePulse();
-                            });
-                        } else {
-                            this.onAllComplete();
-                        }
-                    });
+                const completionPlayer = new ScrollingTextPlayer({
+                    lines:        completion,
+                    getMoonPhase: () => this.moonPhase,
+                    onComplete:   () => {
+                        this.time.delayedCall(400, () => {
+                            this.currentIndex++;
+                            if (this.currentIndex < this.constellations.length) {
+                                this.panCameraTo(this.currentIndex, true);
+                                this.time.delayedCall(2200, () => {
+                                    this.startSequencePulse();
+                                });
+                            } else {
+                                this.onAllComplete();
+                            }
+                        });
+                    },
                 });
+                completionPlayer.start();
             });
         });
-   
-
-
- }
+    }
 
     onAllComplete() {
         this._stopAllAudio();
-        this.irishText.setText('').setAlpha(0);
-        this.tweens.add({
-            targets: this.irishText, alpha: 1, duration: 2000,
-            onComplete: () => {
-                this.time.delayedCall(1000, () => {
-                    this.cameras.main.fadeOut(1800, 10, 5, 40);
+        if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null; }
+        this.cameras.main.fadeOut(1800, 10, 5, 40);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.shutdown();
 
-                    this.cameras.main.once('camerafadeoutcomplete', () => {
-                        this.shutdown();
+            if (this.moonEl && this.moonEl.parentNode) {
+                this.moonEl.parentNode.removeChild(this.moonEl);
+                this.moonEl = null;
+            }
 
-                        if (this.moonEl && this.moonEl.parentNode) {
-                            this.moonEl.parentNode.removeChild(this.moonEl);
-                            this.moonEl = null;
-                        }
+            if (this._onComplete) {
+                this._onComplete(this.moonPhase, this._frozenAmerginLine);
+            }
 
-                        if (this._onComplete) {
-                            this._onComplete(this.moonPhase, this._frozenAmerginLine);
-                        }
+            const canvas = this.game.canvas;
+            this.game.destroy(true);
+            canvas.remove();
 
-                        const canvas = this.game.canvas;
-                        this.game.destroy(true);
-                        canvas.remove();
-
-                        const gameContainer = document.getElementById('gameContainer');
-                        if (gameContainer) gameContainer.style.display = 'none';
-                    });
-                });
-            },
+            const gameContainer = document.getElementById('gameContainer');
+            if (gameContainer) gameContainer.style.display = 'none';
         });
     }
 
     shutdown() {
         if (this._lyricInterval)  clearInterval(this._lyricInterval);
+        if (this._textPlayer)     { this._textPlayer.destroy(); this._textPlayer = null; }
         this._stopAllAudio();
         if (this.moonOverlay)     { this.moonOverlay.remove(); this.moonOverlay = null; }
         if (this._moonStyle)      { this._moonStyle.remove();  this._moonStyle  = null; }

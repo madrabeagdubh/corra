@@ -5,6 +5,7 @@ import { champions } from '../data/champions.js';
 import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 import { levelTunes } from './game/systems/music/levelTunes.js';
+import { triggerMurmuration } from './game/effects/murmuration.js';
 
 // Inject level tunes into allTunes so TradSessionPlayer can find them
 allTunes['myLaganLove'] = levelTunes.myLaganLove;
@@ -124,7 +125,7 @@ export function initConstellationScene(onComplete) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
 
-    // Load the Aonchlo font before Phaser boots, mirroring introModal's loadFont()
+    // Load the font before Phaser boots, mirroring introModal's loadFont()
     document.fonts.load('1.8rem Urchlo').catch(() => {});
 
     const game = new Phaser.Game({
@@ -148,9 +149,9 @@ export function initConstellationScene(onComplete) {
 const CONSTELLATION_DATA =	[
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ─────────────────────
     {
-        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid. Tá an tír slán anocht.', englishText: 'The Hound of the Fianna roams the sky. Tonight the land is safe.',
-        waitingGa: 'Tuar dom, a Chonaill dhíl.',
-        waitingEn: 'Prophesise for me, faithful Wolf.',
+        id: 'cu', irishText: 'Tá Cú na Féinne ar bráid. Beidh an Tír faoi shíochán  anocht.', englishText: 'The Hound of the Fianna roams the sky. The land will be at peace tonight.',
+        waitingGa: 'A Chonaill dhíl, leigh tairngreacht sna réaltaí anocht.',
+        waitingEn: 'O faithful wolf, read prophesy in the stars tonight.',
         starOffsets: [
             { lx:  -0.79, ly:  -1.38 },
             { lx:   0.44, ly:  -1.21 },
@@ -169,8 +170,8 @@ const CONSTELLATION_DATA =	[
 
     // ── An Naomhóg — The Currach (Cassiopeia) ──────────────────────────────
     {
-        id: 'naomhog', irishText: 'Tá an naomhog ag brú ar sruth na bhFlaitheas, a bhanríon. Á niomramh le cuspóir.', englishText: 'na scéalta a nochtann an oíche?',    englishText: 'The Currach drives hard against the flow of heaven, my queen. She rows with purpose.',
-        waitingGa: 'Agus ar muir? Cad deir bealach na Bó Finne a Chonaill na súile géire?',
+        id: 'naomhog', irishText: 'Feicim an naomhog a bhanríonn. Ag brú i gcoinne sruth na bhFlaitheas.',  englishText: 'I see the Currach o queen.\nStriving against the flow of heaven.',
+        waitingGa: 'Agus ar muir? Cad deir bealach na Bó Finne, a Chonaill na súile géire?',
         waitingEn: 'And at sea? What says the river of heaven, o keen eyed Wolf?',
         starOffsets: [
             { lx:   1.37, ly:  -0.10 },
@@ -187,7 +188,7 @@ const CONSTELLATION_DATA =	[
 
 
     // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ──────────────
-    {
+  /*  {
         id: 'carr', irishText: 'Féach Carr Mór na Féinne. Treorí clann agus muintir.', englishText: 'Behold the Chariot of the Fianna bold, guide of clans and kin',
         waitingGa: 'Cad eile a nochtann na réaltaí, a Chonaill?',
         waitingEn: 'What other portents do the stars reveal o valient wolf?',
@@ -206,7 +207,7 @@ const CONSTELLATION_DATA =	[
             { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
         ],
     },
- 
+ */
 
 
 //── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ──────────────
@@ -214,8 +215,8 @@ const CONSTELLATION_DATA =	[
     id: 'cuirt',
     waitingGa: 'Cad a deir na spéir thuaidh, a Chonaill na fírinne?',
     waitingEn: 'What of the northern sky\'s array, o Wolf of the truth?',
-    irishText: 'Ochón! Cúirt na Fomhórach. A bhanríon — tá gach suíochán lán.',
-    englishText: 'Alas! The Fomorian court. My queen — every seat is filled',
+    irishText: 'Feicim Cúirt na Fomhórach. Ár bith-naimhead a bhanríon — agus gach suíochán lán.',
+    englishText: 'I see the Fomorian court. Our arch-enemies my queen, and every seat is filled',
 
     starOffsets: [
         { lx:  -1.30, ly:   0.40 },   // 0 — left end
@@ -240,9 +241,9 @@ const CONSTELLATION_DATA =	[
 
    // ── An Draoi — The Druid (Boötes) ──────────────────────────────────────
     {
-        id: 'draoi', irishText: 'Seasann an Draoi sa deisceart ach éist! A bhanrionn, chlois na géinna. Níl aon dul as.', englishText: 'The Druid stands in the west but my queen — hush! Hear the geese. There is no turning this aside',
-        waitingGa: 'Chas uain cuirt Tethra a Chonall dhíl. Leigh realtaí an Draoi in a gcoinne! ',
-        waitingEn: 'Turn aside Tethra\'s court, by reading the Druid\'s stars against them!',
+        id: 'draoi', irishText: 'Seasann an Draoi ach éist! A bhanrionn, níl aon dul as.', englishText: 'The Druid stands but hark! O queen, there will be no turning this aside',
+        waitingGa: 'Chas uain a shúile a Chonall glic. Léigh cosaint i realtaí an Draoi. ',
+        waitingEn: 'Turn aside their eyes, cunning wolf. Read our protection in the stars of the Druid.',
         starOffsets: [
             { lx:   0.42, ly:   1.13 },
             { lx:   1.05, ly:   1.23 },
@@ -258,9 +259,9 @@ const CONSTELLATION_DATA =	[
 
    // ── An Torc — The Wild Boar (Scorpius) ─────────────────────────────────
     {
-        id: 'torc', irishText: 'Éiríonn an Torc, a bhanríon. D\’imíodh do churadh go misniúil,agus chailfar fuil ríoga sa chré.', englishText: 'The Boar ascends, my queen. Your champions would go bravely, and the blood of kings would mingle with the earth.',
-        waitingGa: 'Cuirfimid Tethra faoi mhara go deo!',
-        waitingEn: 'Our champions will send Tethra and his wretched court back to the deep forever.',
+        id: 'torc', irishText: 'Éiríonn an Torc, a bhanríon. D\’imíodh do churadh agus dhoirtfar fuil uasal.', englishText: 'The Boar ascends, o queen. Your champions would go and noble blood would spill.',
+        waitingGa: 'Mar sin cuirfimid Tethra ar ais faoi mhara go deo!',
+        waitingEn: 'Then our champions will send Tethra back under the ocean forever!',
         starOffsets: [
             { lx:   1.14, ly:  -1.40 },
             { lx:   1.27, ly:  -1.11 },
@@ -281,9 +282,9 @@ const CONSTELLATION_DATA =	[
 
      // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ───────────────────
     {
-        id: 'clairseach', irishText: 'Feicim cláirseach na spéire. Agus réalt gan ainm.', englishText: 'I see the Harp. And yet a star I have no name for.',
-        waitingGa: 'Nach bhfuil aon dóchas?',
-        waitingEn: 'Is there no hope?',
+        id: 'clairseach', irishText: 'Feicim cláirseach na spéire. Agus réalt nach aithním.', englishText: 'I see the Harp. And yet a star I have no name for.',
+        waitingGa: 'Chaith nach feidir a sheachaint nó buachaint? Aimsigh dóchas dom, a Chonall cliste!',
+        waitingEn: 'A fight we can neither avoid nor win? Find me some hope, clever wolf!',
         starOffsets: [
             { lx:   1.31, ly:  -1.28 },
             { lx:   0.45, ly:  -0.77 },
@@ -298,10 +299,10 @@ const CONSTELLATION_DATA =	[
         ],
     },
     // ── An Laoch — The Hero / Warrior (Perseus) ─────────────────────────────
-    {
-        id: 'laoch', irishText: '...', englishText: '...',
-        waitingGa: 'Cé leis í, a Chonaill? Cé leis an réalta gan ainm?',
-        waitingEn: 'Then who, Conall? Who does the nameless star belong to?',
+    
+   {     id: 'laoch', irishText: '  ', englishText: '  ',
+        waitingGa: 'Cé, a Chonaill? Cé ar a lonrainn an réalt ainaithainte?',
+        waitingEn: 'Then who,o wolf? Upon whom does the strange star shine?',
         starOffsets: [
             { lx:   0.78, ly:  -1.45 },
             { lx:   0.21, ly:  -1.03 },
@@ -380,7 +381,8 @@ export class ConstellationScene extends Phaser.Scene {
 
     get W() { return this.scale.width; }
     get H() { return this.scale.height; }
-
+preload(){this.load.image('shadowHill', './assets/shadowHill.png');
+}
     create() {
         this.initAudio();
         this._onComplete = this.registry.get('onComplete') || null;
@@ -405,14 +407,14 @@ export class ConstellationScene extends Phaser.Scene {
 const textSize     = Math.round(Math.min(this.W, this.H) * 0.072);  // was 0.095
 const subTextSize  = Math.round(Math.min(this.W, this.H) * 0.058);  // was 0.062
        const textY        = this.H * 0.15;
-        const subY         = this.H * 0.78;
+        const subY         = this.H * 0.58;
 
        
 this.irishText = this.add
     .text(this.W / 2, subY, '', {
         fontFamily: 'Urchlo, serif',
         fontSize: textSize + 'px',
-        color: '#f5d76e',
+        color: '#f58e6e',
         stroke: '#000a1a',
         strokeThickness: 3,
         wordWrap: { width: this.W * 0.78 },   // add this
@@ -441,7 +443,7 @@ this.waitingIrishText = this.add
     .text(this.W / 2, subY, '', { // Swapped textY to subY
         fontFamily: 'Urchlo, serif',
         fontSize: textSize + 'px',
-        color: '#f5d76e', 
+        color: '#d4af37', 
         stroke: '#000a1a', 
         strokeThickness: 3,
         wordWrap: { width: this.W * 0.82 },
@@ -496,7 +498,33 @@ this.waitingEnglishText = this.add
         this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
 
         this.buildMoonOverlay();
+   
+
+
+
+
+/*    
+
+ const { width, height } = this.scale;
+
+    if (this.textures.exists('shadowHill')) {
+        this.shadowHill = this.add.image(0, 0, 'shadowHill');
+        this.shadowHill.setScrollFactor(0);
+        this.shadowHill.setOrigin(0, 1);
+        this.shadowHill.setPosition(0, height);
+this.shadowHill.setScale(0.8)
+
+    } else {
+        console.warn('shadowHill texture not loaded!');
     }
+
+
+
+
+*/
+
+
+ }
 
     // ── Moon overlay ─────────────────────────────────────────────────────────
     // ── Moon overlay ─────────────────────────────────────────────────────────
@@ -510,10 +538,10 @@ this.waitingEnglishText = this.add
 
         // ── Arc: start position (lower left, in from edge) ───────────────────
         const arcStartX = marginX;
-        const arcStartY = Math.round(H * 0.62);
+        const arcStartY = Math.round(H * 0.32);
 
         // ── Arc: final settled track y position ──────────────────────────────
-        const trackY = Math.round(H * 0.01);
+        const trackY = Math.round(H * 0.04);
 
         // ── Arc curve — maps x position (0..1) to a y during first drag ─────
         // Sine arch: starts at arcStartY, peaks high in the middle, lands at trackY
@@ -537,8 +565,8 @@ this.waitingEnglishText = this.add
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
         irishEl.style.cssText = [
-            'font-family:Aonchlo,serif;',
-            `font-size:${Math.round(Math.min(W, H) * 0.058)}px;`,
+            'font-family:Urchlo,serif;',
+            `font-size:${Math.round(Math.min(W, H) * 0.072)}px;`,
             'color:#d4af37;text-align:center;',
             'text-shadow:0 0 18px rgba(0,0,0,0.9);',
             'padding:0 6%;',
@@ -546,7 +574,7 @@ this.waitingEnglishText = this.add
             'opacity:1;transition:opacity 0.8s ease-in-out;',
             'position:absolute;',
         
-`top:${Math.round(H * 0.08)}px;`,
+`top:${Math.round(H * 0.1)}px;`,
 
             'left:0;right:0;',
         ].join('');
@@ -563,7 +591,7 @@ this.waitingEnglishText = this.add
             'pointer-events:none;',
             'opacity:0.05;transition:opacity 0.5s ease;',
             'position:absolute;',
-`top:${Math.round(H * 0.16)}px;`,            
+`top:${Math.round(H * 0.2)}px;`,            
 'left:0;right:0;',
         ].join('');
         this.englishEl = enEl;
@@ -694,7 +722,7 @@ this.waitingEnglishText = this.add
                 const toY   = trackY;
 
                 const floatStart = performance.now();
-                const FLOAT_MS   = 1200;
+                const FLOAT_MS   = 4200;
 
                 const floatLoop = (now) => {
                     const raw = Math.min((now - floatStart) / FLOAT_MS, 1);
@@ -810,9 +838,9 @@ this.waitingEnglishText = this.add
         el.style.height   = moonD + 'px';
     }
 
+       // ── settleMoon ────────────────────────────────────────────────────────────
+
     settleMoon(phase) {
-        // Harp starts immediately here — moon drag release is a genuine touch event
-        // so AudioContext is unlocked. We start now so it rises with the moon.
         if (!this._harpSilentStarted) {
             this._initAudioContext();
             this._startHarpOnSwipe();
@@ -826,25 +854,18 @@ this.waitingEnglishText = this.add
         const endX   = marginX + phase * trackW - r;
         const endY   = Math.round(H * 0.01);
 
-        // ── Constellation offset — places star pattern in upper third ─────────
-        // Adding to targetScrollY moves camera down in world space,
-        // which places the constellation higher on screen.
-        // Also used in panCameraTo as + this.H * 0.22 — keep in sync.
         const constellationOffsetY = H * 0.22;
 
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
         this.tweens.add({
-            targets:  this,
+            targets:   this,
             spinAngle: 0,
-            duration: 1400,
-            ease:     'Sine.easeInOut',
-            onUpdate: () => { this.cameras.main.setAngle(this.spinAngle); },
+            duration:  1400,
+            ease:      'Sine.easeInOut',
+            onUpdate:  () => { this.cameras.main.setAngle(this.spinAngle); },
         });
-
-        const startLeft = parseFloat(moonEl.style.left) || 0;
-        const startTop  = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
         const NUM_GHOSTS = 6;
         const ghosts = [];
@@ -868,6 +889,12 @@ this.waitingEnglishText = this.add
         const fromLeft  = parseFloat(moonEl.style.left) || 0;
         const fromTop   = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
+        // Compute finalScrollY up here so animateMoonTrail can close over it
+        const cam           = this.cameras.main;
+        const targetScrollX = this.constellations[0].wcx - this.W / 2;
+        const targetScrollY = this.constellations[0].wcy - this.H / 2;
+        const finalScrollY  = targetScrollY + constellationOffsetY;
+
         let _textFaded = false;
         const animateMoonTrail = (now) => {
             if (now < moveStart) { requestAnimationFrame(animateMoonTrail); return; }
@@ -879,7 +906,7 @@ this.waitingEnglishText = this.add
             }
             const elapsed = now - moveStart;
             const rawT    = Math.min(elapsed / MOVE_DURATION, 1);
-            const t = 1 - (1 - rawT) * (1 - rawT);
+            const t       = 1 - (1 - rawT) * (1 - rawT);
 
             const curLeft = fromLeft + (endX - fromLeft) * t;
             const curTop  = fromTop  + (endY - fromTop)  * t;
@@ -887,9 +914,9 @@ this.waitingEnglishText = this.add
             moonEl.style.top  = curTop  + 'px';
 
             ghosts.forEach((ghost, i) => {
-                const lag  = (i + 1) / (NUM_GHOSTS + 1) * 0.55;
-                const gt   = Math.max(0, rawT - lag);
-                const ease = gt < 0.5 ? 4 * gt * gt * gt : 1 - Math.pow(-2 * gt + 2, 3) / 2;
+                const lag   = (i + 1) / (NUM_GHOSTS + 1) * 0.55;
+                const gt    = Math.max(0, rawT - lag);
+                const ease  = gt < 0.5 ? 4 * gt * gt * gt : 1 - Math.pow(-2 * gt + 2, 3) / 2;
                 const gLeft = fromLeft + (endX - fromLeft) * ease;
                 const gTop  = fromTop  + (endY - fromTop)  * ease;
                 ghost.style.left    = gLeft + 'px';
@@ -905,21 +932,13 @@ this.waitingEnglishText = this.add
                 moonEl.style.left = endX + 'px';
                 moonEl.style.top  = endY + 'px';
                 ghosts.forEach(g => g.remove());
-                this._startPostSettleSequence(moonEl, endX, endY, W, H);
+                // Pass finalScrollY so drift tween starts from exactly this value
+                this._startPostSettleSequence(moonEl, endX, endY, W, H, finalScrollY);
             }
         };
         requestAnimationFrame(animateMoonTrail);
 
-        const cam           = this.cameras.main;
-        const targetScrollX = this.constellations[0].wcx - this.W / 2;
-        const targetScrollY = this.constellations[0].wcy - this.H / 2;
-
-        // Adding constellationOffsetY scrolls camera further down in world space,
-        // which places the constellation higher on screen (upper third).
-        const finalScrollY = targetScrollY + constellationOffsetY;
-
-        // Pan entry: start camera above final position (lower scrollY = higher in world)
-        // so constellation enters from above the screen and pans down into upper third.
+        // Start above final position, pan downward into upper third
         const panStartY = finalScrollY - H * 0.35;
         const panProg   = { t: 0 };
         cam.setScroll(targetScrollX, panStartY);
@@ -931,8 +950,7 @@ this.waitingEnglishText = this.add
             onUpdate: () => {
                 cam.scrollY = panStartY + (finalScrollY - panStartY) * panProg.t;
             },
-            onComplete: () => {
-            },
+            // No onComplete snap — final onUpdate frame lands at finalScrollY exactly
         });
 
         // Re-wire drag for settled moon along top strip
@@ -972,6 +990,66 @@ this.waitingEnglishText = this.add
         window.addEventListener('touchmove',  (e) => { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientX); } }, { passive: false });
         window.addEventListener('touchend',   ()  => { onEnd(); });
     }
+
+    // ── _startPostSettleSequence ──────────────────────────────────────────────
+    // baseScrollY is the exact scrollY the camera is at when this is called.
+    // The drift tween reads the camera's actual position at start time rather
+    // than recalculating from wcy, so there is no jump on the first frame.
+
+    _startPostSettleSequence(moonEl, endX, endY, W, H, baseScrollY) {
+
+console.log('settle scrollY:', this.cameras.main.scrollY);
+        [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
+        if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
+
+        const DRIFT_MS    = 480000;
+        const moonDriftPx = Math.round(H * 0.06);
+        const driftStart  = performance.now();
+        const driftFromY  = endY;
+        const driftToY    = Math.max(0, endY - moonDriftPx);
+
+        const driftLoop = (now) => {
+            if (!this.moonEl) return;
+            const t = Math.min((now - driftStart) / DRIFT_MS, 1);
+            this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
+            if (t < 1) requestAnimationFrame(driftLoop);
+        };
+        requestAnimationFrame(driftLoop);
+
+        const camDriftProg  = { t: 0 };
+        const camDriftRange = H * 0.14;
+
+        // Capture the camera's actual scrollY right now — this is the jumpless baseline.
+        // We do NOT recalculate from wcy here, which was the source of the jump.
+        const driftBaseScrollY = this.cameras.main.scrollY;
+
+      this._moonDriftTween = this.tweens.add({
+    targets:  camDriftProg,
+    t:        1,
+    duration: DRIFT_MS,
+    ease:     'Linear',
+    onUpdate: () => {
+        if (!this.canInteract) return;
+        this.cameras.main.scrollY = driftBaseScrollY + camDriftProg.t * camDriftRange;
+    },
+});;
+
+        this.tweens.add({
+            targets:  this.worldG,
+            alpha:    1,
+            duration: 1200,
+            ease:     'Sine.easeIn',
+
+onComplete: () => {
+    console.log('canInteract=true, scrollY now:', this.cameras.main.scrollY);
+    this.canInteract = true;
+    this.startSequencePulse();
+},
+
+
+        });
+    }
+ 
       
 
  
@@ -1203,15 +1281,21 @@ this.cameras.main.setAngle(this.spinAngle);
         });
     }
 
-    panCameraTo(idx, animate = true) {
-        const c = this.constellations[idx];
-        if (!c) return;
-        const tx = c.wcx - this.W / 2;
- 
-const ty = c.wcy - this.H / 2 + this.H * 0.22;
+  
 
+panCameraTo(idx, animate = true) {
+    const c = this.constellations[idx];
+    if (!c) return;
+    const tx = c.wcx - this.W / 2;
+    const ty = c.wcy - this.H / 2 + this.H * 0.22;
+    if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
-if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
+    // Kill the drift tween so it doesn't fight the pan
+    if (this._moonDriftTween) {
+        this._moonDriftTween.stop();
+        this._moonDriftTween = null;
+    }
+
 
         const sx    = this.cameras.main.scrollX;
         const sy    = this.cameras.main.scrollY;
@@ -1272,18 +1356,38 @@ if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
             },
         });
 
-        this.tweens.add({
-            targets:  prog,
-            t:        1,
-            duration: PAN_MS,
-            ease:     'Cubic.easeInOut',
-            onUpdate: () => {
-                const t  = prog.t;
-                const it = 1 - t;
-                cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
-                cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
-            },
-        });
+       
+this.tweens.add({
+        targets:  prog,
+        t:        1,
+        duration: PAN_MS,
+        ease:     'Cubic.easeInOut',
+        onUpdate: () => {
+            const t  = prog.t;
+            const it = 1 - t;
+            cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
+            cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
+        },
+        onComplete: () => {
+            // Restart drift tween from exactly where the pan landed
+            const newBase  = this.cameras.main.scrollY;
+            const driftProg = { t: 0 };
+            this._moonDriftTween = this.tweens.add({
+                targets:  driftProg,
+                t:        1,
+                duration: 480000,
+                ease:     'Linear',
+                onUpdate: () => {
+                    if (!this.canInteract) return;
+                    this.cameras.main.scrollY = newBase + driftProg.t * (this.H * 0.14);
+                },
+            });
+        },
+    });
+
+
+
+
     }
 
     showWaitingTexts(c) {
@@ -1344,16 +1448,21 @@ if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
     hitR() { return Math.min(this.W, this.H) * 0.09; }
 
-    screenToRotated(sx, sy) {
-        const cx = this.W / 2, cy = this.H / 2;
-        const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
-        const cos = Math.cos(rad), sin = Math.sin(rad);
-        const dx = sx - cx, dy = sy - cy;
-        return {
-            x: cx + dx * cos + dy * sin,
-            y: cy - dx * sin + dy * cos,
-        };
-    }
+   
+
+
+
+screenToRotated(sx, sy) {
+    const cx  = this.W / 2;
+    const cy  = this.H * 0.28;          // match setOrigin(0.5, 0.28)
+    const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const dx  = sx - cx, dy = sy - cy;
+    return {
+        x: cx + dx * cos + dy * sin,
+        y: cy - dx * sin + dy * cos,
+    };
+}
 
     onPointerDown(pointer) {
         _requestFullscreen();
@@ -1487,6 +1596,10 @@ if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
         for (const star of c.stars) { star.completed = true; this.tweens.killTweensOf(star); }
 
         this.playCompletionChord();
+if (c.id === 'draoi') {
+    triggerMurmuration(this.audioContext);
+}
+
 
         this.hideWaitingTexts(() => {
             this.time.delayedCall(300, () => {
@@ -1521,7 +1634,10 @@ if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
                 });
             });
         });
-    }
+   
+
+
+ }
 
     onAllComplete() {
         this._stopAllAudio();
@@ -1748,60 +1864,7 @@ if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
         } catch(e) { console.warn('[audio] _playConnectionChime:', e); }
     }
 
-    _startPostSettleSequence(moonEl, endX, endY, W, H) {
-        [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
-        if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
-
-        const DRIFT_MS    = 480000;
-        const moonDriftPx = Math.round(H * 0.06);
-        const driftStart  = performance.now();
-        const driftFromY  = endY;
-        const driftToY    = Math.max(0, endY - moonDriftPx);
-
-        const driftLoop = (now) => {
-            if (!this.moonEl) return;
-            const t = Math.min((now - driftStart) / DRIFT_MS, 1);
-            this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
-            if (t < 1) requestAnimationFrame(driftLoop);
-        };
-        requestAnimationFrame(driftLoop);
-
-        
-
-
-
-const camDriftProg  = { t: 0 };
-    const camDriftRange = H * 0.14;
    
-
-
-this._moonDriftTween = this.tweens.add({
-    targets:  camDriftProg,
-    t:        1,
-    duration: DRIFT_MS,
-    ease:     'Linear',
-    onUpdate: () => {
-        if (!this.canInteract) return;
-        const base = this.constellations[this.currentIndex]
-            ? this.constellations[this.currentIndex].wcy - this.H / 2 + this.H * 0.22
-            : baseScrollY;
-        this.cameras.main.scrollY = base + camDriftProg.t * camDriftRange;
-    },
-});
-
-
- 
-        this.tweens.add({
-            targets:  this.worldG,
-            alpha:    1,
-            duration: 1200,
-            ease:     'Sine.easeIn',
-            onComplete: () => {
-                this.canInteract = true;
-                this.startSequencePulse();
-            },
-        });
-    }
 
     _setBgWheelPaused(paused) {
         if (paused && !this._interactionStarted) return;

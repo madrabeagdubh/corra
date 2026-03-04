@@ -427,7 +427,12 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
             // uiCamera renders it automatically.
         }
 
-
+        // Keep shadowHill pinned to the bottom whenever the screen resizes (e.g. fullscreen toggle)
+        this.scale.on('resize', (gameSize) => {
+            if (this.shadowHill) {
+                this.shadowHill.setPosition(0, gameSize.height);
+            }
+        });
  }
 
     // ── Moon overlay ─────────────────────────────────────────────────────────
@@ -764,13 +769,12 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
-        this.tweens.add({
-            targets:   this,
-            spinAngle: 0,
-            duration:  1400,
-            ease:      'Sine.easeInOut',
-            onUpdate:  () => { this.cameras.main.setAngle(this.spinAngle); },
-        });
+        // Pause updateSpin so it doesn't fight the unwind tween, then snap
+        // spinAngle to 0 immediately — the star field isn't visible yet so
+        // the jump is invisible. updateSpin resumes once the stars fade in.
+        this._bgWheelsPaused = true;
+        this.spinAngle = 0;
+        this.cameras.main.setAngle(0);
 
         const NUM_GHOSTS = 6;
         const ghosts = [];
@@ -922,6 +926,10 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
             alpha:    1,
             duration: 1200,
             ease:     'Sine.easeIn',
+            onStart: () => {
+                // Stars are now fading in — safe to let updateSpin drive the camera again.
+                this._bgWheelsPaused = false;
+            },
             onComplete: () => {
                 // Capture scrollY here — after all panning has fully settled —
                 // so the drift tween starts from a stable, accurate baseline.

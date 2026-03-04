@@ -17,7 +17,7 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Féach Cú na Féinne, ',
+                ga: 'Féach Cú na Féinne, anocht ag drannadh fiachal',
                 en: 'See the hound of the fianna, tonight he snarls',
                 speaker: 'druid',
             },
@@ -41,8 +41,8 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Leathaíonn Tethra fúair a thiarnas dorcha.',
-                en: 'Cold Tethra spreads his dark dominion.',
+                ga: 'Leathaíonn Tethra tiarnas sa dorchadas.',
+                en: 'Tethra spreads his dominion in the darkness.',
                 speaker: 'druid',
             },
         ],
@@ -54,24 +54,32 @@ export const constellationTexts = {
         waiting: [
             {
                 ga: '?',
-                en: 'Then they shall meet a host of champions, fierce and full of deeds.',
+                en: 'Behold the chariot wheels on the great dark road. Bright their shield among the northern stars,                Bright the hound-hilt gleaming at their side. ',
                 speaker: 'queen',
             },
             {
                 ga: '   ',
-                en: 'And brave the chiefs under my  banner!',
+                en: 'Ne\'er for Ulster\'s weal shall aim be lost, Now their lance is fixed among the fires!', 
                 speaker: 'queen',
-            },
+            {
+                en: 'Tethra will grieve to see that burning point Rise above the hilltops cold and far.',
+                ga: '',
+                speaker: 'queen',
+            }, },
         ],
         completion: [
-            {
-                en: 'Queen, thy men are valiant, bright their deeds in memory, sure their hands in war-craft.',
-                ga: '',
+           {{
+                ga: ' ',
+                en: 'I am not glad to say a thing so bitter, but the Boar does rise with war,',
+                speaker: 'druid',
+            },
+                ga: ' ',
+                en: 'The Fomorian chiefs are marshalled, grim and ready—  Tethra\'s hand is on his sword-hilt in the darkness..',
                 speaker: 'druid',
             },
             {
                 ga: ' ',
-                en: 'But the Boar does rise with war, And war beneath the Boar\'s red rising is doomed.',
+                en: 'Ill the shape of Tethra\'s kin, Rising from their sunken thrones; upon their brow no hero\'s light And war beneath the Boar\'s red rising is doomed.',
                 speaker: 'druid',
             },
         ],
@@ -90,7 +98,7 @@ export const constellationTexts = {
                 ga: '?',
                 en: 'That I who hold the red branch would lay it at the feet of foes?',
                 speaker: 'queen',
-            }
+            },{ga:'',en:'These are mine and stand with me: a race of champions, fierce and full of deeds. Shall such men turn their faces home and leave their queen to weep upon a cairn?', speaker:'queen'}
         ],
         completion: [
             {
@@ -105,7 +113,7 @@ export const constellationTexts = {
             },
             {
                 ga: 'Agus gach suíochán lán.',
-                en: 'The banished king gathers arms of drowned men, and in the court of tethra, every seat is full.',
+                en: 'And in the court of Tethra, every seat is full.',
                 speaker: 'druid',
             },
         ],
@@ -115,9 +123,9 @@ export const constellationTexts = {
     // The druid's full verdict. The queen's defiant answer.
     draoi: {
         waiting: [
-            { ga: '', en: 'Bright the vault of night', speaker: 'druid' },
-            { ga: '', en: 'Eastward sweep mine eyes in grief, Westward too and over-head;', speaker: 'druid' },
-            { ga: '', en: 'Where among the high-placed ones o faithful wolf, Dwells a sign of mighty deed?', speaker: 'druid' },
+            { ga: '', en: 'Bright the vault of night', speaker: 'queen' },
+            { ga: '', en: 'Eastward sweep mine eyes in grief, Westward too and over-head;', speaker: 'queen' },
+            { ga: '', en: 'Where among the high-placed ones o faithful wolf, Dwells a sign of hope?', speaker: 'queen' },
             { ga: '', en: 'Sea and land have given none; Shall not heaven hear my need? Shall I weep? Shall I wail?', speaker: 'druid' },
         ],
         completion: [
@@ -143,7 +151,7 @@ export const constellationTexts = {
             },
             {
                 ga: '',
-                en: 'I am not glad to say a thing so bitter, That thine armies gather and must turn away. But a stranger thread runs through the loom of battle, And it is that thread alone which will not break. Like a stone cast in the bay of Bantry, So shall one be cast into the sea.',
+                en: 'A stranger thread runs through the loom of battle, And it is that thread alone which will not break.',
                 speaker: 'druid',
             },
             {

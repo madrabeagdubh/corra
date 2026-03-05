@@ -164,7 +164,7 @@ function createStatPopup(statName, englishOpacity) {
     font-size: 1.4rem;
     color: #ffff00;
     line-height: 1.5;
-    font-family: Aonchlo !important;
+    font-family: Urchlo !important;
     text-align: center;
     height: 2.2rem;
     display: flex;
@@ -328,6 +328,7 @@ function initMainHeroSelect() {
 
     container.style.position = 'relative';
     container.style.zIndex = '10002';
+    container.style.opacity = '0';  // stay invisible until veil sequence reveals
 
     sliderTutorialComplete = true; // Skip tutorial, intro handled it
     
@@ -453,7 +454,7 @@ function initMainHeroSelect() {
 }
 
 .champion-name-ga {
-    font-family: Aonchlo, serif; 
+    font-family: Urchlo, serif; 
     font-size: 3rem;
     color: #d4af37; 
     margin: 10px 0 5px 0;
@@ -669,6 +670,7 @@ function drawMoon(phase) {
 
     const bottomPanel = document.createElement('div');
     bottomPanel.className = 'champion-bottom-panel';
+    bottomPanel.style.opacity = '0';  // hidden until atmospheric entrance reveals it
     const chooseButton = document.createElement('button');
     chooseButton.className = 'champion-choose-button';
     chooseButton.textContent = 'Ar Aghaidh';
@@ -676,7 +678,7 @@ function drawMoon(phase) {
         width: 100%; padding: 1.2rem; font-size: 1.3rem; color: #1a1a1a;
         background: linear-gradient(145deg, #8b4513, #d2691e, #8b4513);
         border: 3px solid #d2691e; border-radius: 12px; cursor: pointer;
-        text-transform: uppercase; letter-spacing: 2px; font-family: Aonchlo;
+        text-transform: uppercase; letter-spacing: 2px; font-family: Urchlo;
     `;
 
     chooseButton.onclick = async () => {
@@ -804,27 +806,147 @@ function drawMoon(phase) {
         
         if (!hasScrolled && currentIndex >= (validChampions.length + newStartIndex + 1)) {
             scrollContainer.scrollLeft = targetScroll;
-            scrollContainer.style.opacity = '1';
             hasScrolled = true;
-            
-            updateGlobalStats(firstChamp);
-            if (globalStatsBar) {
-                globalStatsBar.style.opacity = '1';
-                globalStatsBar.style.pointerEvents = 'auto';
-            }
-            
-            // Start music
+
+            // ── Staged atmospheric entrance ───────────────────────────────────
+            // 1. Keep everything hidden. Show a dark veil with a brief Irish
+            //    invocation that bridges from the constellation scene.
+            // 2. After the veil lifts, reveal the champion with a rise-from-mist.
+            // 3. Top panel and stats drift in last so the hero gets the stage.
+
+            const veil = document.createElement('div');
+            veil.style.cssText = `
+                position: fixed; inset: 0; z-index: 99998;
+                background: #00060f;
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 1.8s ease;
+            `;
+
+            // Brief invocation — same style as constellation scene text
+            const invocationWrap = document.createElement('div');
+            invocationWrap.style.cssText = `
+                position: absolute; inset: 0;
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                gap: 1rem; pointer-events: none;
+            `;
+
+            const invocIrish = document.createElement('div');
+            invocIrish.textContent = ' ';
+            invocIrish.style.cssText = `
+                font-family: Urchlo, serif;
+                font-size: clamp(1.6rem, 5vw, 2.6rem);
+                color: #d4af37;
+                text-align: center;
+                padding: 0 8%;
+                opacity: 0;
+                transform: translateY(12px);
+                transition: opacity 1s ease, transform 1s ease;
+                text-shadow: 0 0 30px rgba(212,175,55,0.4);
+            `;
+
+            const invocEnglish = document.createElement('div');
+            invocEnglish.textContent = ' ';
+            invocEnglish.style.cssText = `
+                font-family: "Courier New", monospace;
+                font-size: clamp(0.9rem, 2.8vw, 1.3rem);
+                color: rgba(155, 141, 189, ${initialSliderValue});
+                text-align: center;
+                padding: 0 8%;
+                opacity: 0;
+                transform: translateY(8px);
+                transition: opacity 0.8s ease 0.4s, transform 0.8s ease 0.4s;
+            `;
+
+            invocationWrap.appendChild(invocIrish);
+            invocationWrap.appendChild(invocEnglish);
+            veil.appendChild(invocationWrap);
+            document.body.appendChild(veil);
+
+            // Hide all UI until veil lifts
+            scrollContainer.style.opacity = '0';
+            scrollContainer.style.transform = 'translateY(28px)';
+            scrollContainer.style.transition = 'opacity 1.4s ease, transform 1.4s ease';
+            topPanel.style.opacity = '0';
+            topPanel.style.transition = 'opacity 1s ease';
+            bottomPanel.style.opacity = '0';
+            bottomPanel.style.transition = 'opacity 1s ease';
+
+            // Start music immediately (under the veil, seamless from constellation)
             try {
                 const tuneKey = getTuneKeyForChampion(firstChamp);
                 if (tuneKey && !musicPlayer.isPlaying) {
-                    console.log('[HeroSelect] Starting tune for:', firstChamp.nameEn, '- tune:', tuneKey);
                     playChampionTune(tuneKey);
                 }
             } catch (e) {
                 console.error('[HeroSelect] Error starting music:', e);
             }
-            
-            console.log('[HeroSelect] ✓ First champion visible!');
+
+            // Phase 1 (0ms): fade in the invocation text
+            requestAnimationFrame(() => {
+                invocIrish.style.opacity   = '1';
+                invocIrish.style.transform = 'translateY(0)';
+                setTimeout(() => {
+                    invocEnglish.style.opacity   = '1';
+                    invocEnglish.style.transform = 'translateY(0)';
+                }, 300);
+            });
+
+            // Phase 2 (1800ms): fade out invocation, lift veil
+            setTimeout(() => {
+                invocIrish.style.transition   = 'opacity 0.9s ease, transform 0.9s ease';
+                invocEnglish.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+                invocIrish.style.opacity      = '0';
+                invocIrish.style.transform    = 'translateY(-10px)';
+                invocEnglish.style.opacity    = '0';
+                invocEnglish.style.transform  = 'translateY(-8px)';
+
+                setTimeout(() => {
+                    veil.style.opacity = '0';
+
+                    // Phase 3 (2200ms): champion rises from mist
+                    setTimeout(() => {
+                        // Reveal outer container first so children can be seen
+                        const heroContainer = document.getElementById('heroSelect');
+                        if (heroContainer) {
+                            heroContainer.style.transition = 'opacity 0.01s';
+                            heroContainer.style.opacity = '1';
+                        }
+                        scrollContainer.style.opacity   = '1';
+                        scrollContainer.style.transform = 'translateY(0)';
+
+                        updateGlobalStats(firstChamp);
+
+                        // Phase 4 (3400ms): top panel and stats settle in
+                        setTimeout(() => {
+                            topPanel.style.opacity = '1';
+
+                            if (globalStatsBar) {
+                                globalStatsBar.style.opacity      = '0';
+                                globalStatsBar.style.transform    = 'translateY(10px)';
+                                globalStatsBar.style.transition   = 'opacity 0.9s ease, transform 0.9s ease';
+                                globalStatsBar.style.pointerEvents = 'auto';
+                                requestAnimationFrame(() => {
+                                    globalStatsBar.style.opacity   = '1';
+                                    globalStatsBar.style.transform = 'translateY(0)';
+                                });
+                            }
+
+                            // Phase 5 (3900ms): action button last
+                            setTimeout(() => {
+                                bottomPanel.style.opacity = '1';
+                                veil.remove();
+                            }, 500);
+
+                        }, 1200);
+
+                    }, 400);
+                }, 700);
+
+            }, 1800);
+
+            console.log('[HeroSelect] ✓ Atmospheric entrance sequence started');
         }
         
         if (currentIndex < infiniteChampions.length) {
@@ -835,7 +957,7 @@ function drawMoon(phase) {
             initBackgroundParticles();
             setTimeout(() => {
                 runSwipeNudge();
-            }, 1000);
+            }, 5200);  // after atmospheric entrance completes
         }
     }
     
@@ -844,24 +966,59 @@ function drawMoon(phase) {
 
 function runSwipeNudge() {
     if (!scrollContainer) return;
-    
-    const dist = window.innerWidth * 0.45;
-    const start = scrollContainer.scrollLeft;
 
-    scrollContainer.style.scrollSnapType = 'none';
-    scrollContainer.style.scrollBehavior = 'smooth';
+    // Subtle: a drifting star-trail hint appears briefly at the edge of the
+    // current card rather than physically jerking the scroll container.
+    const hint = document.createElement('div');
+    hint.style.cssText = `
+        position: fixed;
+        bottom: 200px;
+        right: 18px;
+        z-index: 10010;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        opacity: 0;
+        transform: translateX(8px);
+        transition: opacity 0.8s ease, transform 0.8s ease;
+    `;
 
-    scrollContainer.scrollLeft = start - dist;
+    for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('div');
+        dot.style.cssText = `
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #d4af37;
+            opacity: ${0.9 - i * 0.28};
+            transform: scale(${1 - i * 0.2});
+        `;
+        hint.appendChild(dot);
+    }
+
+    const hintLabel = document.createElement('div');
+    hintLabel.textContent = 'scroll';
+    hintLabel.style.cssText = `
+        font-family: "Courier New", monospace;
+        font-size: 0.55rem;
+        color: rgba(212,175,55,0.5);
+        letter-spacing: 0.12em;
+        margin-top: 4px;
+        text-transform: lowercase;
+    `;
+    hint.appendChild(hintLabel);
+    document.body.appendChild(hint);
+
     setTimeout(() => {
-        scrollContainer.scrollLeft = start + dist;
+        hint.style.opacity   = '1';
+        hint.style.transform = 'translateX(0)';
         setTimeout(() => {
-            scrollContainer.scrollLeft = start;
-            setTimeout(() => {
-                scrollContainer.style.scrollSnapType = 'x proximity';
-                scrollContainer.style.scrollBehavior = 'auto';
-            }, 600);
-        }, 700);
-    }, 700);
+            hint.style.opacity   = '0';
+            hint.style.transform = 'translateX(8px)';
+            setTimeout(() => hint.remove(), 900);
+        }, 2800);
+    }, 600);
 }
 
 function initSwipe(scrollContainer, champCount) {
@@ -1087,51 +1244,107 @@ async function unmutePiano() {
 function finalize(champ) {
     console.log('[HeroSelect] === FINALIZE CALLED ===');
 
-    if (globalStatsBar) {
-        globalStatsBar.style.opacity = '0';
-        globalStatsBar.style.pointerEvents = 'none';
-    }
-
-    const heroSelectContainer = document.getElementById('heroSelect');
-    if (heroSelectContainer) {
-        heroSelectContainer.style.opacity = '0';
-        heroSelectContainer.style.pointerEvents = 'none';
-    }
-    
     const slider = document.querySelector('.champion-slider');
     const currentSliderValue = slider ? parseFloat(slider.value) : 0.15;
-    
-    import('./tutorialOrAdventure.js').then(module => {
-        module.initTutorialOrAdventure(champ, currentSliderValue, currentAmerginLineForExport);
+
+    // Graceful exit — dark veil descends before handing off
+    const exitVeil = document.createElement('div');
+    exitVeil.id = 'heroSelectExitVeil';  // ID so showHeroSelect can remove it
+    exitVeil.style.cssText = [
+        'position:fixed;inset:0;z-index:99999;',
+        'background:#00060f;',
+        'pointer-events:all;',
+        'opacity:0;',
+        'transition:opacity 1.2s ease;',
+    ].join('');
+    document.body.appendChild(exitVeil);
+
+    requestAnimationFrame(() => {
+        exitVeil.style.opacity = '1';
     });
+
+    setTimeout(() => {
+        if (globalStatsBar) {
+            globalStatsBar.style.opacity = '0';
+            globalStatsBar.style.pointerEvents = 'none';
+        }
+        const heroSelectContainer = document.getElementById('heroSelect');
+        if (heroSelectContainer) {
+            heroSelectContainer.style.opacity = '0';
+            heroSelectContainer.style.pointerEvents = 'none';
+        }
+
+        import('./tutorialOrAdventure.js').then(module => {
+            module.initTutorialOrAdventure(champ, currentSliderValue, currentAmerginLineForExport);
+        });
+    }, 1100);
 }
 
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called - making visible again');
-    
-    const container = document.querySelector('.hero-select-container');
+
+    // Remove any exitVeil left behind by finalize() — this is the black screen bug
+    const staleVeil = document.getElementById('heroSelectExitVeil');
+    if (staleVeil) staleVeil.remove();
+
+    // Fade back in with a brief dark veil so the return isn't a hard pop
+    const returnVeil = document.createElement('div');
+    returnVeil.style.cssText = [
+        'position:fixed;inset:0;z-index:99999;',
+        'background:#00060f;pointer-events:all;',
+        'opacity:1;transition:opacity 1.1s ease;',
+    ].join('');
+    document.body.appendChild(returnVeil);
+
+    // Restore all layers that finalize() hid
+    const container = document.getElementById('heroSelect');
     if (container) {
+        container.style.transition = 'opacity 0.01s';
         container.style.opacity = '1';
         container.style.pointerEvents = 'auto';
     }
-    
+    if (scrollContainer) {
+        scrollContainer.style.opacity = '1';
+        scrollContainer.style.transform = 'translateY(0)';
+    }
+    // Restore top and bottom panels (they may still be at 0 from first entrance)
+    const topPanel = document.querySelector('.champion-top-panel');
+    if (topPanel) topPanel.style.opacity = '1';
+    const bottomPanel = document.querySelector('.champion-bottom-panel');
+    if (bottomPanel) bottomPanel.style.opacity = '1';
+
     if (globalStatsBar) {
         globalStatsBar.style.opacity = '1';
         globalStatsBar.style.pointerEvents = 'auto';
     }
+
+    // Lift the veil
+    requestAnimationFrame(() => {
+        returnVeil.style.opacity = '0';
+        setTimeout(() => returnVeil.remove(), 1200);
+    });
 }
 
 function initBackgroundParticles() {
+    // Soft nebula gradient backdrop — matches constellation scene colour palette
+    const nebula = document.createElement('div');
+    nebula.style.cssText = [
+        'position:fixed;inset:0;z-index:-2;pointer-events:none;',
+        'background:radial-gradient(ellipse 80% 60% at 30% 40%, rgba(60,30,120,0.18) 0%, transparent 70%),',
+        'radial-gradient(ellipse 60% 50% at 70% 60%, rgba(20,40,100,0.14) 0%, transparent 65%),',
+        '#00060f;',
+        'opacity:0;transition:opacity 2s ease;',
+    ].join('');
+    document.body.appendChild(nebula);
+    // Fade nebula in after champion appears
+    setTimeout(() => { nebula.style.opacity = '1'; }, 2600);
+
     const canvas = document.createElement('canvas');
-    canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        pointer-events: none;
-    `;
+    canvas.style.cssText = [
+        'position:fixed;top:0;left:0;width:100%;height:100%;',
+        'z-index:-1;pointer-events:none;',
+        'opacity:0;transition:opacity 1.8s ease;',
+    ].join('');
     
     const container = document.getElementById('heroSelect');
     if (container) {
@@ -1141,9 +1354,10 @@ function initBackgroundParticles() {
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    
+
+    // More stars, smaller, to echo the constellation starfield
     const particles = [];
-    const particleCount = 10;
+    const particleCount = 40;
     
     class Particle {
         constructor() {
@@ -1153,23 +1367,27 @@ function initBackgroundParticles() {
         reset() {
             this.x = Math.random() * canvas.width;
             this.y = Math.random() * canvas.height;
-            this.vx = (Math.random() - 0.5) * 0.5;
-            this.vy = (Math.random() - 0.5) * 0.5;
-            this.radius = Math.random() * 2 + 1;
-            this.opacity = Math.random() * 0.5 + 0.2;
+            this.vx = (Math.random() - 0.5) * 0.25;
+            this.vy = (Math.random() - 0.5) * 0.25;
+            this.radius = Math.random() * 1.4 + 0.3;
+            this.opacity = Math.random() * 0.35 + 0.08;
+            // Subtle twinkle phase
+            this.twinkleSpeed = 0.008 + Math.random() * 0.012;
+            this.twinkleOffset = Math.random() * Math.PI * 2;
         }
         
-        update() {
+        update(t) {
             this.x += this.vx;
             this.y += this.vy;
-            if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-            if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            if (this.x < 0 || this.x > canvas.width)  this.vx *= -1;
+            if (this.y < 0 || this.y > canvas.height)  this.vy *= -1;
+            this.currentOpacity = this.opacity * (0.7 + 0.3 * Math.sin(t * this.twinkleSpeed + this.twinkleOffset));
         }
         
         draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(212, 175, 55, ${this.opacity})`;
+            ctx.fillStyle = `rgba(200, 220, 255, ${this.currentOpacity})`;
             ctx.fill();
         }
     }
@@ -1178,16 +1396,20 @@ function initBackgroundParticles() {
         particles.push(new Particle());
     }
     
+    let t = 0;
     function animate() {
+        t++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         particles.forEach(p => {
-            p.update();
+            p.update(t);
             p.draw();
         });
         requestAnimationFrame(animate);
     }
-    
+
     animate();
+    // Fade canvas particles in after champion appears
+    setTimeout(() => { canvas.style.opacity = '1'; }, 2600);
 }
 
 document.addEventListener('DOMContentLoaded', initHeroSelect);

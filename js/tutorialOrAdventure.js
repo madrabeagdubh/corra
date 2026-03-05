@@ -2,6 +2,8 @@
 // Using a single state object avoids any re-declaration conflicts
 // if this module is ever evaluated in an unexpected context.
 
+import { initDawnCrossing } from './game/scenes/dawnCrossing.js';
+
 const _state = {
     currentAmerginLine: null,
     initialized: false,
@@ -170,41 +172,113 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         flex-shrink: 0;
     `;
 
-    const slider = document.createElement('input');
-    slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
-    slider.value = _state.englishSliderValue;
-    slider.className = 'champion-slider';
-    slider.style.cssText = `
-        -webkit-appearance: none;
-        width: 80%; max-width: 600px;
-        height: 12px; border-radius: 6px;
-        outline: none; cursor: pointer;
-    `;
+    // ── Moon canvas thumb (mirrors heroSelect) ────────────────────────────
+    const moonR  = Math.round(window.innerHeight * 0.025);
+    const moonD  = moonR * 2;
 
     const sliderThumbStyle = document.createElement('style');
     sliderThumbStyle.id = 'tutorialSliderStyle';
     sliderThumbStyle.textContent = `
+        #championIntro .champion-slider {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            height: 10px !important;
+            background: #444 !important;
+            border-radius: 5px !important;
+            outline: none !important;
+            margin: 0 !important; padding: 0 !important;
+            display: block; cursor: pointer;
+        }
         #championIntro .champion-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none;
-            width: 24px; height: 24px; border-radius: 50%;
-            background: #d4af37; cursor: pointer;
-            border: 2px solid #000;
-            box-shadow: 0 0 8px rgba(212,175,55,0.6);
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            width: 0px !important; height: 0px !important;
+            background: transparent !important;
+            border: none !important; box-shadow: none !important;
         }
         #championIntro .champion-slider::-moz-range-thumb {
-            width: 24px; height: 24px; border-radius: 50%;
-            background: #d4af37; cursor: pointer;
-            border: 2px solid #000; box-shadow: 0 0 8px rgba(212,175,55,0.6);
+            width: 0px !important; height: 0px !important;
+            background: transparent !important;
+            border: none !important; box-shadow: none !important;
         }
     `;
     document.head.appendChild(sliderThumbStyle);
 
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = 0; slider.max = 1; slider.step = 0.05;
+    slider.value = _state.englishSliderValue;
+    slider.className = 'champion-slider';
+    slider.style.cssText = `position: relative; z-index: 1; width: 100%;`;
+
+    const moonCanvas = document.createElement('canvas');
+    moonCanvas.width  = moonD;
+    moonCanvas.height = moonD;
+    moonCanvas.style.cssText = `
+        position: absolute;
+        top: 50%; transform: translateY(-50%);
+        width: ${moonD}px; height: ${moonD}px;
+        pointer-events: none; z-index: 2;
+    `;
+
+    function drawMoon(phase) {
+        const ctx = moonCanvas.getContext('2d');
+        const r = moonR, cx = r, cy = r;
+        ctx.clearRect(0, 0, moonD, moonD);
+        // glow
+        const grd = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.6);
+        grd.addColorStop(0, `rgba(200,220,255,${0.12 + phase * 0.10})`);
+        grd.addColorStop(1, 'rgba(200,220,255,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2); ctx.fill();
+        // dark side
+        ctx.fillStyle = 'rgb(8,4,30)';
+        ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.fill();
+        // lit portion
+        ctx.fillStyle = `rgb(${Math.round(200+phase*35)},${Math.round(210+phase*30)},${Math.round(220+phase*20)})`;
+        ctx.beginPath();
+        if (phase >= 0.99) {
+            ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+        } else {
+            const tx = r * 0.92 * Math.cos(phase * Math.PI);
+            ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
+            ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, tx > 0);
+        }
+        ctx.fill();
+        // rim
+        ctx.strokeStyle = `rgba(200,220,255,${0.15 + phase * 0.25})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Wrapper holds slider + moon canvas stacked
+    const sliderWrapper = document.createElement('div');
+    sliderWrapper.style.cssText = `
+        position: relative;
+        width: 80%; max-width: 600px;
+        display: flex; align-items: center;
+        height: ${moonD + 10}px;
+    `;
+
+    function positionMoon(val) {
+        const trackW = sliderWrapper.offsetWidth;
+        const margin = moonR;
+        const usable = trackW - margin * 2;
+        moonCanvas.style.left = (margin + val * usable - moonR) + 'px';
+        drawMoon(val);
+    }
+
     function refreshSliderTrack() {
         const pct = _state.englishSliderValue * 100;
         slider.style.background = `linear-gradient(to right, #d4af37 0%, #d4af37 ${pct}%, #444 ${pct}%, #444 100%)`;
+        positionMoon(_state.englishSliderValue);
     }
-    refreshSliderTrack();
-    sliderSection.appendChild(slider);
+
+    sliderWrapper.appendChild(slider);
+    sliderWrapper.appendChild(moonCanvas);
+    sliderSection.appendChild(sliderWrapper);
+
+    // Position moon once layout is known
+    requestAnimationFrame(() => positionMoon(_state.englishSliderValue));
 
     // ── AMERGIN TEXT ─────────────────────────
     const textContainer = document.createElement('div');
@@ -221,7 +295,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     const irishTextEl = document.createElement('div');
     irishTextEl.textContent = displayLine.ga;
     irishTextEl.style.cssText = `
-        font-family: Aonchlo, serif;
+        font-family: Urchlo, serif;
         font-size: 1.8rem; color: #d4af37;
         margin-bottom: 0.5rem; line-height: 1.5;
     `;
@@ -243,7 +317,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     const responseIrish = document.createElement('div');
     responseIrish.textContent = 'Cé murach mise.';
     responseIrish.style.cssText = `
-        font-family: Aonchlo, serif;
+        font-family: Urchlo, serif;
         font-size: 1.8rem; color: #ffd700;
         margin-bottom: 1rem; line-height: 1.5;
         opacity: 0; transition: opacity 0.6s ease;
@@ -319,7 +393,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         `;
         const label = document.createElement('div');
         label.textContent = ga;
-        label.style.fontFamily = 'Aonchlo, serif';
+        label.style.fontFamily = 'Urchlo, serif';
         btn.appendChild(label);
         btn.onclick = onClick;
         btn.onmouseenter = () => { btn.style.transform = 'scale(1.02)'; btn.style.boxShadow = '0 0 15px rgba(210,105,30,0.5)'; };
@@ -329,7 +403,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
             setLanguage(opacity) {
                 const isEn = opacity >= 0.5;
                 label.textContent      = isEn ? en : ga;
-                label.style.fontFamily = isEn ? "CourierPrime, 'Courier New', monospace" : 'Aonchlo, serif';
+                label.style.fontFamily = isEn ? "'Courier New', monospace" : 'Urchlo, serif';
             }
         };
     }
@@ -389,15 +463,38 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         blackBg.remove();
         document.getElementById('championIntro')?.remove();
         sliderThumbStyle.remove();
+
+        // Restore gameContainer and bring it above all hero-select DOM layers
+        const gameContainer = document.getElementById('gameContainer');
+        if (gameContainer) {
+            gameContainer.style.display    = '';
+            gameContainer.style.opacity    = '1';
+            gameContainer.style.position   = 'fixed';
+            gameContainer.style.inset      = '0';
+            gameContainer.style.zIndex     = '999999';  // above everything
+        }
+
+        // Remove any lingering hero-select body-level overlays
+        document.getElementById('heroSelectExitVeil')?.remove();
+        document.getElementById('global-stats-bar')?.remove();
+        document.getElementById('statPopup')?.remove();
+        // Background particle/nebula layers (z-index -1/-2, but tidy up anyway)
+        document.getElementById('heroSelect')?.remove();
+        document.querySelectorAll('canvas[style*="z-index: -1"], div[style*="z-index:-2"], div[style*="z-index: -2"]')
+            .forEach(el => el.remove());
+
         callback();
     }
 
     const trainingBtn = createButton('Oiliúint', 'Training', () => {
         showResponseAndProceed(() => {
             cleanupHeroSelect();
-            window.startGame
-                ? window.startGame(champion, { startScene: 'BowTutorial' })
-                : console.error('[TutorialOrAdventure] window.startGame not found!');
+            // Dawn crossing bridge scene — plays before BowTutorial
+            initDawnCrossing(champion, _state.englishSliderValue, () => {
+                window.startGame
+                    ? window.startGame(champion, { startScene: 'BowTutorial' })
+                    : console.error('[TutorialOrAdventure] window.startGame not found!');
+            });
         });
     });
 
@@ -435,7 +532,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     slider.oninput = e => {
         _state.englishSliderValue = parseFloat(e.target.value);
-        refreshSliderTrack();
+        refreshSliderTrack();  // also calls positionMoon
         updateLanguage();
     };
 

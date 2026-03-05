@@ -17,7 +17,7 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Féach Cú na Féinne, anocht ag drannadh fiachal',
+                ga: 'Féach Cú na Féinne, ag drannadh fiachal anocht',
                 en: 'See the hound of the fianna, tonight he snarls',
                 speaker: 'druid',
             },
@@ -52,20 +52,20 @@ export const constellationTexts = {
     carr: {
         waiting: [
             {
-                ga: 'Feach an carr ar an bóthar dubh! Geal an réalt ó Thúaidh, scíath na féine. Geal an cú-dornchla a lionnrann ar thaobh ',
-                en: 'Behold the chariot on the dark road! Bright the fenian shield among the northern stars, Bright the hound-hilt gleaming at their side.',
+                ga: 'Ach feach an carr ar an bóthar dubh! Gille an réalt ó Thúaidh, scíath na féine.',
+                en: 'Behold the chariot on the dark road! Bright the fenian shield among the northern stars',
                 speaker: 'queen',
             },
             {
-                ga: 'Beidh brón ar Tethra an splanc úd, ag éirí go bán os cionn na gcnoc cianta.',
-                en: 'Tethra will grieve to see that burning point Rise above the hilltops cold and far.',
+                ga: 'Beadh brón ar Tethra an splanc úd, ag éirí go bán os cionn na gcnoc cianta.',
+                en: 'Tethra would grieve to see that burning point Rise above the hilltops cold and far.',
                 speaker: 'queen',
             },
         ],
         completion: [
             {
-                ga: 'Ní thugan insint an scéal searabh sásamh dom.',
-                en: 'I am not glad to say a thing so bitter.',
+                ga: 'Tá insint searbh ar an scéal nach tugann sásamh dom.',
+                en: 'I am not glad to say a thing so bitter...',
                 speaker: 'druid',
             },
         ],
@@ -81,15 +81,15 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Feicim taoisigh fomhórach cogairsithe, dúr agus ulamh.',
-                en: 'The Fomorian chiefs are marshalled, grim and ready.',
+                ga: 'Feicim Taoisigh fomhórach cogairsithe, dúr agus ulamh.',
+                en: 'I see Fomorian chiefains arrayed for battle, grim and ready.',
                 speaker: 'druid',
             },
         ],
         completion: [
             {
-                ga: 'Tá teaghlach Tethra anchumtha ag eirí ó cathaoiracha báite, ní beidh rath ar chaith faoí realt dearg na Toirce.',
-                en: 'Ill shaped are Tethra\'s kin, Rising from sunken thrones; And war beneath the Boar\'s red rising is doomed.',
+                ga: 'Tá teaghlach Tethra ag eirí, faoi realt dearg na Toirce.',
+                en: 'Tethra\'s kin, Rise  beneath the Boar\'s red rising.',
                 speaker: 'druid',
             },
         ],
@@ -99,25 +99,25 @@ export const constellationTexts = {
     cuirt: {
         waiting: [
             {
-                ga: 'Tá faitíos ort a dhraoí! An deanfainn umhlú go talamh meas tú? Mar beith gheal lá stoirme?',
-                en: 'Frightened druid! Think ye I shall bend my neck like birch on a stormy day?',
+                ga: 'Draoí faiteach! An deanfainn umhlú go talamh meas tú? Mar beith-gheal lá stoirme?',
+                en: 'Frightened druid! Think ye I shall bend my neck? like birch on a stormy day?',
                 speaker: 'queen',
             },
             {
                 ga: 'An amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
-                en: 'That I who hold the red branch would lay it at the feet of foes?',
+                en: 'Is it that I who hold the red branch should lay it at the feet of foes?',
                 speaker: 'queen',
             },
         ],
         completion: [
             {
                 ga: 'Ní dhéanaim tarcaisne don Chraobh Rua, ná dá ceannaireacht.',
-                en: 'I cast no scorn upon the branch, nor on the chiefs who lead it.',
+                en: 'I cast no scorn upon the branch, nor the chief who weilds it.',
                 speaker: 'druid',
             },
             {
-                ga: 'Seacht réalta ina bhfinnéithe ar an tuar dorcha.',
-                en: 'But seven stars stand witness to the dark foretelling:',
+                ga: 'Ach Seacht réalta ina bhfinnéithe ar an tuar dorcha seo:',
+                en: 'But seven stars stand witness to this dark foretelling:',
                 speaker: 'druid',
             },
             {

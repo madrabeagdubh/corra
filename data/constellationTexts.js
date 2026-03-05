@@ -76,7 +76,7 @@ export const constellationTexts = {
     torc: {
         waiting: [
             {
-                ga: '..ach eiríonn an Torc faoin réalt dearg.',
+                ga: '...ach eiríonn an Torc faoin réalt dearg.',
                 en: 'But the Boar does rise with war.',
                 speaker: 'druid',
             },
@@ -104,7 +104,7 @@ export const constellationTexts = {
                 speaker: 'queen',
             },
             {
-                ga: 'An amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
+                ga: 'Nó an amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
                 en: 'Or that I who hold the Red Branch should let it fall at the feet of foes?',
                 speaker: 'queen',
             },
@@ -134,7 +134,7 @@ export const constellationTexts = {
         waiting: [
             { ga: 'Geal, cruinneach na hoíche', en: 'Bright the vault of night', speaker: 'queen' },
             { ga: 'Chíoraim shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward I sweep mine eyes in grief, Westward too and over-head;', speaker: 'queen' },
-            { ga: 'Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?', en: 'Where among the high-placed ones o faithful wolf, Dwells a sign of hope?', speaker: 'queen' },
+            { ga: 'Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?', en: 'Where among the high-placed ones o faithful wolf, dwells a sign of hope?', speaker: 'queen' },
             { ga: 'Níl teachtaireacht ar muir ná i dtír, An bhfuil na spéartha chomh balbh?', en: 'Sea and land have given none; Shall not heaven hear my need?', speaker: 'queen' },
         ],
         completion: [

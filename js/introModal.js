@@ -203,6 +203,27 @@ const CONSTELLATION_DATA = [
         ],
     },
 
+    // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
+    {
+        id: 'torc',
+        starOffsets: [
+            { lx:   1.14, ly:  -1.40 },
+            { lx:   1.27, ly:  -1.11 },
+            { lx:   0.53, ly:  -0.73 },
+            { lx:  -0.00, ly:   0.07 },
+            { lx:  -0.10, ly:   0.89 },
+            { lx:  -0.55, ly:   0.98 },
+            { lx:  -1.10, ly:   0.35 },
+            { lx:  -1.19, ly:   0.95 },
+        ],
+        connections: [
+            { from: 0, to: 2 }, { from: 1, to: 2 },
+            { from: 2, to: 3 }, { from: 3, to: 4 },
+            { from: 4, to: 5 }, { from: 5, to: 6 },
+            { from: 5, to: 7 },
+        ],
+    },
+
     // ── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ───────────────
     {
         id: 'cuirt',
@@ -235,27 +256,6 @@ const CONSTELLATION_DATA = [
         connections: [
             { from: 0, to: 1 }, { from: 0, to: 2 },
             { from: 2, to: 3 }, { from: 3, to: 4 },
-        ],
-    },
-
-    // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
-    {
-        id: 'torc',
-        starOffsets: [
-            { lx:   1.14, ly:  -1.40 },
-            { lx:   1.27, ly:  -1.11 },
-            { lx:   0.53, ly:  -0.73 },
-            { lx:  -0.00, ly:   0.07 },
-            { lx:  -0.10, ly:   0.89 },
-            { lx:  -0.55, ly:   0.98 },
-            { lx:  -1.10, ly:   0.35 },
-            { lx:  -1.19, ly:   0.95 },
-        ],
-        connections: [
-            { from: 0, to: 2 }, { from: 1, to: 2 },
-            { from: 2, to: 3 }, { from: 3, to: 4 },
-            { from: 4, to: 5 }, { from: 5, to: 6 },
-            { from: 5, to: 7 },
         ],
     },
 

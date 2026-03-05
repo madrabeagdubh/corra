@@ -53,7 +53,7 @@ export const constellationTexts = {
         waiting: [
             {
                 ga: 'Ach feach an carr ar an bóthar dubh! Gille an réalt ó Thúaidh, scíath na féine.',
-                en: 'Behold the chariot on the dark road! Bright the fenian shield among the northern stars',
+                en: 'But see the chariot on the dark road! Bright the fenian shield among the northern stars',
                 speaker: 'queen',
             },
             {
@@ -65,7 +65,7 @@ export const constellationTexts = {
         completion: [
             {
                 ga: 'Tá insint searbh ar an scéal nach tugann sásamh dom.',
-                en: 'I am not glad to say a thing so bitter...',
+                en: 'I am not glad to tell a thing so bitter...',
                 speaker: 'druid',
             },
         ],
@@ -76,7 +76,7 @@ export const constellationTexts = {
     torc: {
         waiting: [
             {
-                ga: 'Ach eiríonn an Torc faoi réalt dearg.',
+                ga: '..ach eiríonn an Torc faoin réalt dearg.',
                 en: 'But the Boar does rise with war.',
                 speaker: 'druid',
             },
@@ -89,7 +89,7 @@ export const constellationTexts = {
         completion: [
             {
                 ga: 'Tá teaghlach Tethra ag eirí, faoi realt dearg na Toirce.',
-                en: 'Tethra\'s kin, Rise  beneath the Boar\'s red rising.',
+                en: 'Tethra\'s kin rise with the red star of The Boar.',
                 speaker: 'druid',
             },
         ],
@@ -100,12 +100,12 @@ export const constellationTexts = {
         waiting: [
             {
                 ga: 'Draoí faiteach! An deanfainn umhlú go talamh meas tú? Mar beith-gheal lá stoirme?',
-                en: 'Frightened druid! Think ye I shall bend my neck? like birch on a stormy day?',
+                en: 'Frightened druid! Think ye I shall bend my neck? Like birch on a stormy day?',
                 speaker: 'queen',
             },
             {
                 ga: 'An amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
-                en: 'Is it that I who hold the red branch should lay it at the feet of foes?',
+                en: 'Or that I who hold the Red Branch should let it fall at the feet of foes?',
                 speaker: 'queen',
             },
         ],
@@ -116,8 +116,8 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Ach Seacht réalta ina bhfinnéithe ar an tuar dorcha seo:',
-                en: 'But seven stars stand witness to this dark foretelling:',
+                ga: 'Tá Seacht réalta ina bhfinnéithe ar an tuar dorcha seo:',
+                en: 'Seven stars stand witness to this dark foretelling:',
                 speaker: 'druid',
             },
             {
@@ -133,7 +133,7 @@ export const constellationTexts = {
     draoi: {
         waiting: [
             { ga: 'Geal, cruinneach na hoíche', en: 'Bright the vault of night', speaker: 'queen' },
-            { ga: 'Chíor mé shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward I sweep mine eyes in grief, Westward too and over-head;', speaker: 'queen' },
+            { ga: 'Chíoraim shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward I sweep mine eyes in grief, Westward too and over-head;', speaker: 'queen' },
             { ga: 'Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?', en: 'Where among the high-placed ones o faithful wolf, Dwells a sign of hope?', speaker: 'queen' },
             { ga: 'Níl teachtaireacht ar muir ná i dtír, An bhfuil na spéartha chomh balbh?', en: 'Sea and land have given none; Shall not heaven hear my need?', speaker: 'queen' },
         ],
@@ -163,7 +163,7 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Tabhair faoi deara an réalta seo in aice na Cláirsí. Tá neach ag teacht le ainm nach bhfuil ráite, laoch roimh nar chan aon bard fáilte.',
+                ga: 'Tabhair faoi deara an réalta seo in aice na Cláirsí. Tá neach ag teacht le ainm nach bhfuil ráite, laoch  nar chanadh aon bard fáilte.',
                 en: 'Mark this unknown star beside the Harp. There is one coming whose name is not yet told us, a hero unsung as yet by any bard.',
                 speaker: 'druid',
             },
@@ -182,8 +182,8 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Sin críoch mo léargais, a bhanríon. Tá an chuid eile i ndán dúinn.',
-                en: 'I have hidden nothing o queen. The rest is our destiny.',
+                ga: 'Sin mo léargais, a bhanríon. Tá an chuid eile i ndán dúinn.',
+                en: 'I have hidden nothing o queen.  What remains is written in our stars.',
                 speaker: 'druid',
             },
         ],

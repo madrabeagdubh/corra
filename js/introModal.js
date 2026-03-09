@@ -167,7 +167,7 @@ const CONSTELLATION_DATA = [
             { from: 4, to: 6 }, { from: 2, to: 5 },
         ],
     },
-/*
+
     // ── An Naomhóg — The Currach (Cassiopeia) ──────────────────────────────
     {
         id: 'naomhog',
@@ -292,7 +292,7 @@ const CONSTELLATION_DATA = [
             { from: 1, to: 3 },
             { from: 2, to: 4 }, { from: 4, to: 5 },
         ],
-    },*/
+    },
 ];
 
 const SPIRAL_A    = 550;

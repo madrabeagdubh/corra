@@ -6,7 +6,7 @@ export const dawnCrossingTexts = {
     crossing: [
             {
             ga: 'Fágaim chladach Éireann roimh éirí na gréinne',
-            en: 'From shore of Éire before the dawn',
+            en: 'I leave the shore of Ireland before the dawn',
             speaker: 'hero',
         },
 

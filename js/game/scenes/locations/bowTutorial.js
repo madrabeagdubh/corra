@@ -493,7 +493,7 @@ showExposition() {
     this.storyPlayer.start();
 
     // ── Speed ─────────────────────────────────────────────────────────────────
-    const vel = 60 / 60;
+    const vel = 50 / 60;
     this.storyPlayer._naturalVel = vel;
     this.storyPlayer._velocity   = vel;
 
@@ -552,7 +552,10 @@ showExposition() {
           alpha = Math.min(alpha, Math.max(0, (MID_PX - y) / FADE_PX));
         }
         entry.gaEl.style.opacity = String(alpha);
-        if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
+        if (entry.enEl) {
+          entry.enEl.style.opacity = String(mp);
+          entry.enEl.style.color   = '#c084fc'; // purple for English text
+        }
       }
     };
 
@@ -652,7 +655,10 @@ showExposition() {
         if (y < CEIL_PX + FADE_PX) alpha = Math.max(0, (y - CEIL_PX) / FADE_PX);
         if (bottom > MID_PX - FADE_PX) alpha = Math.min(alpha, Math.max(0, (MID_PX - y) / FADE_PX));
         entry.gaEl.style.opacity = String(alpha);
-        if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
+        if (entry.enEl) {
+          entry.enEl.style.opacity = String(mp);
+          entry.enEl.style.color   = '#c084fc'; // purple for English text
+        }
       }
     };
 
@@ -1198,9 +1204,8 @@ createScathach() {
       if (this.storyPlayer && this.storyPlayer._lineEls) {
         for (const entry of this.storyPlayer._lineEls) {
           if (entry.enEl) {
-            const rawA   = entry.gaEl.style.opacity;
-            const spatial = rawA !== '' ? parseFloat(rawA) : 1;
-            entry.enEl.style.opacity = String(spatial * opacity);
+            entry.enEl.style.opacity = String(opacity);
+            entry.enEl.style.color   = '#c084fc'; // purple for English text
           }
         }
       }

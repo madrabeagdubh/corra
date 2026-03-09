@@ -2,6 +2,8 @@
 // Using a single state object avoids any re-declaration conflicts
 // if this module is ever evaluated in an unexpected context.
 
+
+import { initReturnCrossing } from './game/scenes/returnCrossing.js';
 import { initDawnCrossing } from './game/scenes/dawnCrossing.js';
 
 const _state = {
@@ -498,15 +500,16 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         });
     });
 
-    const bogBtn = createButton('An Portach', 'The Bog', () => {
-        showResponseAndProceed(() => {
-            cleanupHeroSelect();
+ const bogBtn = createButton('An Portach', 'The Bog', () => {
+    showResponseAndProceed(() => {
+        cleanupHeroSelect();
+        initReturnCrossing(champion, _state.englishSliderValue, () => {
             window.startGame
                 ? window.startGame(champion, { startScene: 'BogMeadow' })
                 : console.error('[TutorialOrAdventure] window.startGame not found!');
         });
     });
-
+});  
     const backBtn = createButton('Ar Ais', 'Back', async () => {
         try {
             const mod = await import('./heroSelect.js');

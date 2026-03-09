@@ -139,15 +139,11 @@ playSwoosh(volume = 0.5) {
   }
 
   showIntroduction() {
-    this.scene.textPanel.show({
-      irish: 'Níl ach ceann scríbe amháin ag an saighead.',
-      english: 'The arrow has but one destiny.',
-      type: 'dialogue',
-      speaker: 'Scáthach',
-      onDismiss: () => {
-        this.isActive = true;
-        this.showNextWord();
-      }
+    this.scene._showStoryLines([
+      { ga: 'Níl ach ceann scríbe amháin ag an saighead.', en: 'The arrow has but one destiny.', speaker: 'queen' }
+    ], () => {
+      this.isActive = true;
+      this.showNextWord();
     });
   }
 
@@ -186,11 +182,7 @@ selectWordPairs() {
 												    this.currentTargetType = showLight ? 'light' : 'dark';
 
 												        // Use archery_prompt type instead of notification
-													    this.scene.textPanel.show({
-													          irish: wordToShow.irish,
-														        english: wordToShow.english,
-															      type: 'archery_prompt'
-															          });
+    this.scene._flashLine(wordToShow.irish, wordToShow.english);
 																    }
 
 
@@ -242,11 +234,7 @@ selectWordPairs() {
       isBullseye = true;
       this.bullseyeHits++;
       console.log('BULLSEYE! Total bullseyes:', this.bullseyeHits);
-       this.scene.textPanel.show({
-    irish: 'Súil na sprice!',
-    english: 'Bullseye!',
-    type: 'dialogue'
-  }); 
+    this.scene._flashLine('Súil na sprice!', 'Bullseye!'); 
     }
     
     this.totalHits++;
@@ -274,11 +262,7 @@ selectWordPairs() {
     });
   } else {
     // Wrong target
-    this.scene.textPanel.show({
-      irish: 'Mícheart! Bain triail eile as.',
-      english: 'Wrong! Try again.',
-      type: 'notification'
-    });
+    this.scene._flashLine('Mícheart! Bain triail eile as.', 'Wrong! Try again.');
   }
 } 
 
@@ -430,20 +414,9 @@ complete() {
 
 
 revealSpear1() {
-  this.scene.textPanel.show({
-
-
-
-   irish: 'Fíor nó bréagach. Bás nó saol. Sin a nochtan an saighead. Sin uile',
-    english: 'True or false. Death or life. So reveals the arrow. Nothing more.',
-   
-
-   type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.spearKata1();
-    }
-  });
+  this.scene._showStoryLines([
+    { ga: 'Fíor nó bréagach. Bás nó saol. Sin a nochtan an saighead. Sin uile', en: 'True or false. Death or life. So reveals the arrow. Nothing more.', speaker: 'queen' }
+  ], () => { this.spearKata1(); });
 }
 
 
@@ -487,15 +460,9 @@ spearKataSimple() {
 
 
 revealSpear3() {
-  this.scene.textPanel.show({
-    irish: 'Óllphéist na nairm í.',
-    english: 'She is the dragon of weapons.',
-    type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.spearKata3();
-    }
-  });
+  this.scene._showStoryLines([
+    { ga: 'Óllphéist na nairm í.', en: 'She is the dragon of weapons.', speaker: 'queen' }
+  ], () => { this.spearKata3(); });
 }
 
 
@@ -1053,25 +1020,13 @@ sliceMountain() {
 
 revealSpear4() {
   if (!this.dragonKataComplete) {
-    this.scene.textPanel.show({
-      irish: 'I fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.',
-      english: 'In fury or restraint you will be known by your spear',
-      type: 'dialogue',
-      speaker: 'Scáthach',
-      onDismiss: () => {
-        this.spearKata4();
-      }
-    });
+    this.scene._showStoryLines([
+      { ga: 'I fraoch nó i bhfriotal\nón slea a thiochfaidh cáil ort.', en: 'In fury or restraint you will be known by your spear', speaker: 'queen' }
+    ], () => { this.spearKata4(); });
   } else {
-    this.scene.textPanel.show({
-      irish: 'Ach ní go fóill.\nMóin Alúinne ar dtús.\nAnsin, an ga.',
-      english: '…but not yet.\nFirst, the Bog of Allen.\nThen the spear',
-      type: 'dialogue',
-      speaker: 'Scáthach',
-      onDismiss: () => {
-        this.grantMagicArrows(); // or whatever comes next
-      }
-    });
+    this.scene._showStoryLines([
+      { ga: 'Ach ní go fóill.\nMóin Alúinne ar dtús.\nAnsin, an ga.', en: '…but not yet.\nFirst, the Bog of Allen.\nThen the spear', speaker: 'queen' }
+    ], () => { this.grantMagicArrows(); });
   }
 } 
 
@@ -1097,18 +1052,9 @@ spearKata1() {
   this.scene.scathach.setFlipX(true);
 
   // Show text immediately
-  this.scene.textPanel.show({
-
-	  irish: 'Ní mar sin an ga.\nGuth na nGael, úfás ár naimhde...',
-    english: 'Not so the spear.\nVoice of our people, terror of our foes...',
- 
- 
-  type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.revealSpear2();
-    }
-  });
+  this.scene._showStoryLines([
+    { ga: 'Ní mar sin an ga.\nGuth na nGael, úfás ár naimhde...', en: 'Not so the spear.\nVoice of our people, terror of our foes...', speaker: 'queen' }
+  ], () => { this.revealSpear2(); });
 
   // Animation plays simultaneously
   this.scene.tweens.add({
@@ -1137,18 +1083,9 @@ spearKata1() {
 
 // KATA 2 — Spinning spear throw and catch
 revealSpear2() {
-  this.scene.textPanel.show({
-
-
-    irish: '...ní dheiltar dán an ga.',
-    english: '...the spear is irreducable.',
- 
-	  type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.revealSpear3();
-    }
-  });
+  this.scene._showStoryLines([
+    { ga: '...ní dheiltar dán an ga.', en: '...the spear is irreducable.', speaker: 'queen' }
+  ], () => { this.revealSpear3(); });
   
   // Start kata 2 animation immediately
   this.spearKata2();
@@ -1261,15 +1198,9 @@ spearKata2() {
 
 // KATA 3 — Rapid spinning attack with multiple strikes
 revealSpear3() {
-  this.scene.textPanel.show({
-      irish: 'Óllphéist na nairm í.',
-    english: 'She is the dragon of weapons.',
-    type: 'dialogue',
-    speaker: 'Scáthach',
-    onDismiss: () => {
-      this.revealSpear4();
-    }
-  });
+  this.scene._showStoryLines([
+    { ga: 'Óllphéist na nairm í.', en: 'She is the dragon of weapons.', speaker: 'queen' }
+  ], () => { this.revealSpear4(); });
   
   // Start kata 3 animation immediately
   this.spearKata3();
@@ -1513,11 +1444,10 @@ grantMagicArrows() {
   
   // Show a brief notification
   if (this.bullseyeHits > 0) {
-    this.scene.textPanel.show({
-      irish: `Bronadh ${this.bullseyeHits} saighead draíochta ort!`,
-      english: `You were presented with ${this.bullseyeHits} magic arrows!`,
-      type: 'notification'
-    });
+    this.scene._flashLine(
+      `Bronadh ${this.bullseyeHits} saighead draíochta ort!`,
+      `You were presented with ${this.bullseyeHits} magic arrows!`
+    );
     
     this.scene.time.delayedCall(4000, () => {
       if (this.scene.showFarewell) {

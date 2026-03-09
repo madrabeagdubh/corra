@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
 import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
+
+import { initReturnCrossing } from '../returnCrossing.js';
+
 import TextPanel from '../../ui/textPanel.js';
+import { ScrollingTextPlayer } from '../../ui/scrollingTextPlayer.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import AdvancedTraining from './advancedTraining.js';
 export default class BowTutorial extends Phaser.Scene {
@@ -338,6 +342,10 @@ this.fogSpeed2 = 0.15; // background: slower = feels further away
     // Initialize text panel system
     this.textPanel = new TextPanel(this);
 
+    // ScrollingTextPlayer for exposition and farewell sequences.
+    // Configured for the top half of the screen — gameplay lives below.
+    this.storyPlayer = null;  // created on demand, destroyed when done
+
     // Track hits
     this.hitCount = 0;
     this.missCount = 0;
@@ -351,6 +359,12 @@ this.bullseyeHits = 0;
 
     // Add settings slider
     this.addSettingsSlider();
+
+    // Destroy storyPlayer if scene shuts down unexpectedly
+    this.events.once('shutdown', () => {
+      if (this.storyPlayer)  { this.storyPlayer.destroy();  this.storyPlayer  = null; }
+      if (this._flashPlayer) { this._flashPlayer.destroy(); this._flashPlayer = null; }
+    });
 
     // Show exposition narrative
     this.showExposition();
@@ -411,65 +425,26 @@ showBullseyeEffect(x, y) {
     onComplete: () => bullseyeText.destroy()
   });
 }
-// Key changes to fix your two issues:
-// 1. Double-tap fix: Remove the input blocker timing issue
-// 2. Target visibility: Only create target after exposition completes
-
-// In your create() method, REMOVE this line (currently line 291):
-// this.createTarget();
-
-// And MODIFY the showExposition() method like this:
-
 showExposition() {
   const exposition = this.tutorialData.narrative.exposition;
   if (!exposition || exposition.length === 0) return;
 
   this.narrativeInProgress = true;
-  this.narrativeQueue = [...exposition];
 
-  const showNext = () => {
-    if (this.narrativeQueue.length === 0) {
-      this.narrativeInProgress = false;
-      console.log('BowTutorial: exposition complete');
-      
-      // ✅ FIX #2: Create target ONLY after exposition finishes
-      this.time.delayedCall(300, () => {
-        this.createTarget();
-      });
-      
-      return;
-    }
+  // Convert exposition array to ScrollingTextPlayer line format.
+  // speaker: 'queen' → gold (Scáthach speaks in gold).
+  const lines = exposition.map(e => ({
+    ga:      e.irish,
+    en:      e.english,
+    speaker: 'queen',
+  }));
 
-    const entry = this.narrativeQueue.shift();
-
-    this.textPanel.show({
-      irish: entry.irish,
-      english: entry.english,
-      type: 'dialogue',
-      speaker: 'Scáthach ',
-      onDismiss: () => {
-        // ✅ FIX #1: Reduce delay to make dismissal feel more responsive
-        // The 300ms delay might be causing the double-tap feeling
-        this.time.delayedCall(100, showNext); // Changed from 300 to 100
-      }
-    });
-  };
-
-  showNext();
+  this._showStoryLines(lines, () => {
+    this.narrativeInProgress = false;
+    console.log('BowTutorial: exposition complete');
+    this.time.delayedCall(300, () => { this.createTarget(); });
+  });
 }
-
-// HOWEVER, the double-tap issue is more likely in your TextPanel class.
-// Please share your textPanel.js file so I can check if there's an
-// input blocking/timing issue there. Common causes:
-// 
-// 1. The panel catches one click to remove input blocker
-// 2. A second click is needed to actually dismiss
-// 
-// OR
-// 
-// 1. There's a cooldown preventing immediate re-interaction
-// 2. First tap starts cooldown, second tap registers
-
 
   getRandomDialogue(pool, usedArray) {
     // Get unused dialogues
@@ -490,73 +465,264 @@ showExposition() {
     return dialogue;
   }
 
-  showHitDialogue() {
-    if (this.narrativeInProgress || this.textPanel.isVisible || this.tutorialComplete) return;
+  // ── _showStoryLines ─────────────────────────────────────────────────────────
+  // Plays bilingual lines using ScrollingTextPlayer.
+  // Text zone: top half of screen (below slider strip), leaving bottom half
+  // fully free for Phaser bow gameplay.
+  // Touch in the top half controls scroll speed/direction.
+  // Touch in the bottom half passes through to Phaser.
+  _showStoryLines(lines, onComplete) {
+    if (this.storyPlayer) {
+      this.storyPlayer.destroy();
+      this.storyPlayer = null;
+    }
 
+    const canvas    = this.sys.game.canvas;
+    const container = canvas.parentElement || document.body;
+
+    this.storyPlayer = new ScrollingTextPlayer({
+      lines,
+      getMoonPhase: () => GameSettings.englishOpacity ?? 0.7,
+      onComplete: () => {
+        this.storyPlayer = null;
+        if (onComplete) onComplete();
+      },
+      container,
+    });
+
+    this.storyPlayer.start();
+
+    // ── Speed ─────────────────────────────────────────────────────────────────
+    const vel = 60 / 60;
+    this.storyPlayer._naturalVel = vel;
+    this.storyPlayer._velocity   = vel;
+
+    // ── No ceiling clamp — text scrolls freely off the top ───────────────────
+    this.storyPlayer._ceilingY       = 999999;
+    this.storyPlayer._onReachCeiling = function() {};
+    this.storyPlayer._onComplete     = function() {};
+
+    // ── Start at mid-screen ───────────────────────────────────────────────────
+    const H = window.innerHeight;
+    this.storyPlayer._scrollY = H * 0.5;
+
+    // ── Constrain hitZone to top half only (below slider) ────────────────────
+    // This means: touch in top half → STP gets it (pause/scrub).
+    //             touch in bottom half → passes through to Phaser canvas.
+    const SLIDER_H = 52;   // height of slider strip
+    const topZoneH = H * 0.5 - SLIDER_H;
+    if (this.storyPlayer._hitZone) {
+      const hz = this.storyPlayer._hitZone;
+      hz.style.top            = SLIDER_H + 'px';
+      hz.style.height         = topZoneH + 'px';
+      hz.style.bottom         = '';
+      hz.style.pointerEvents  = 'all';
+    }
+    // Overlay itself stays pointer-events:none so Phaser bottom half works
+    if (this.storyPlayer._overlay) {
+      this.storyPlayer._overlay.style.pointerEvents = 'none';
+    }
+
+    // ── Patch _render: ceiling at slider strip, fade zone below it ───────────
+    const CEIL_PX  = SLIDER_H + 8;   // a little below the slider strip
+    const FADE_PX  = 80;              // fade zone height in px
+    const FADE_BOT = 0.10;            // bottom-of-zone fade fraction (of H)
+    const MID_PX   = H * 0.5;        // bottom of text zone — fade out here too
+    this.storyPlayer._render = function() {
+      if (!this._overlay) return;
+      const H2 = window.innerHeight;
+      const mp = this._getMoonPhase();
+      for (const entry of this._lineEls) {
+        const y      = this._screenY(entry);
+        const bottom = y + entry.wrapper.offsetHeight;
+        entry.wrapper.style.top = y + 'px';
+        // Cull lines fully outside the text zone
+        if (bottom < 0 || y > MID_PX + 40) {
+          entry.gaEl.style.opacity = '0';
+          if (entry.enEl) entry.enEl.style.opacity = '0';
+          continue;
+        }
+        let alpha = 1;
+        // Fade out near ceiling (top)
+        if (y < CEIL_PX + FADE_PX) {
+          alpha = Math.max(0, (y - CEIL_PX) / FADE_PX);
+        }
+        // Fade out near midscreen (bottom of text zone)
+        if (bottom > MID_PX - FADE_PX) {
+          alpha = Math.min(alpha, Math.max(0, (MID_PX - y) / FADE_PX));
+        }
+        entry.gaEl.style.opacity = String(alpha);
+        if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
+      }
+    };
+
+    // ── Exit poll: once last line scrolls off top, fire onComplete ────────────
+    const stp = this.storyPlayer;
+    const poll = setInterval(() => {
+      if (!stp || !stp._lineEls) { clearInterval(poll); return; }
+      const last = stp._lineEls[stp._lineEls.length - 1];
+      if (!last) return;
+      const y = stp._screenY(last);
+      const h = last.wrapper.offsetHeight || 60;
+      if (y + h < 0) {
+        clearInterval(poll);
+        stp._running = false;
+        if (stp._overlay) {
+          stp._overlay.style.transition = 'opacity 0.8s ease';
+          stp._overlay.style.opacity    = '0';
+        }
+        setTimeout(() => {
+          if (stp.destroy) stp.destroy();
+          if (onComplete) onComplete();
+        }, 900);
+      }
+    }, 150);
+  }
+
+  // ── _flashLine ───────────────────────────────────────────────────────────────
+  // Show a single reactive dialogue line (hit/miss) through storyPlayer.
+  // If a storyPlayer is already running it injects a fresh one on top briefly;
+  // otherwise creates a short-lived one that auto-destroys after the line exits.
+  _flashLine(irish, english) {
+    // Don't interrupt a running narrative sequence
+    if (this.narrativeInProgress) return;
+
+    // Destroy any previous flash player
+    if (this._flashPlayer) {
+      this._flashPlayer.destroy();
+      this._flashPlayer = null;
+    }
+
+    const canvas    = this.sys.game.canvas;
+    const container = canvas.parentElement || document.body;
+    const H         = window.innerHeight;
+    const SLIDER_H  = 52;
+
+    this._flashPlayer = new ScrollingTextPlayer({
+      lines: [{ ga: irish, en: english, speaker: 'queen' }],
+      getMoonPhase: () => GameSettings.englishOpacity ?? 0.7,
+      onComplete: () => { this._flashPlayer = null; },
+      container,
+    });
+
+    this._flashPlayer.start();
+
+    // Fast scroll
+    const vel = 120 / 60;
+    this._flashPlayer._naturalVel = vel;
+    this._flashPlayer._velocity   = vel;
+    this._flashPlayer._ceilingY       = 999999;
+    this._flashPlayer._onReachCeiling = function() {};
+    this._flashPlayer._onComplete     = function() {};
+
+    // Start at mid-screen
+    this._flashPlayer._scrollY = H * 0.5;
+
+    // Top-half hitzone
+    const topZoneH = H * 0.5 - SLIDER_H;
+    if (this._flashPlayer._hitZone) {
+      const hz = this._flashPlayer._hitZone;
+      hz.style.top           = SLIDER_H + 'px';
+      hz.style.height        = topZoneH + 'px';
+      hz.style.bottom        = '';
+      hz.style.pointerEvents = 'all';
+    }
+    if (this._flashPlayer._overlay) {
+      this._flashPlayer._overlay.style.pointerEvents = 'none';
+    }
+
+    // Same render patch
+    const CEIL_PX = SLIDER_H + 8;
+    const FADE_PX = 80;
+    const MID_PX  = H * 0.5;
+    this._flashPlayer._render = function() {
+      if (!this._overlay) return;
+      const H2 = window.innerHeight;
+      const mp = this._getMoonPhase();
+      for (const entry of this._lineEls) {
+        const y      = this._screenY(entry);
+        const bottom = y + entry.wrapper.offsetHeight;
+        entry.wrapper.style.top = y + 'px';
+        if (bottom < 0 || y > MID_PX + 40) {
+          entry.gaEl.style.opacity = '0';
+          if (entry.enEl) entry.enEl.style.opacity = '0';
+          continue;
+        }
+        let alpha = 1;
+        if (y < CEIL_PX + FADE_PX) alpha = Math.max(0, (y - CEIL_PX) / FADE_PX);
+        if (bottom > MID_PX - FADE_PX) alpha = Math.min(alpha, Math.max(0, (MID_PX - y) / FADE_PX));
+        entry.gaEl.style.opacity = String(alpha);
+        if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
+      }
+    };
+
+    // Auto-destroy once line exits top
+    const fp = this._flashPlayer;
+    const poll = setInterval(() => {
+      if (!fp || !fp._lineEls) { clearInterval(poll); return; }
+      const last = fp._lineEls[fp._lineEls.length - 1];
+      if (!last) return;
+      if (fp._screenY(last) + (last.wrapper.offsetHeight || 60) < 0) {
+        clearInterval(poll);
+        fp._running = false;
+        if (fp._overlay) { fp._overlay.style.transition = 'opacity 0.6s'; fp._overlay.style.opacity = '0'; }
+        setTimeout(() => { if (fp.destroy) fp.destroy(); }, 700);
+      }
+    }, 150);
+  }
+
+  showHitDialogue() {
+    if (this.narrativeInProgress || this.tutorialComplete) return;
     const hitDialogues = this.tutorialData.narrative.onHit;
     const dialogue = this.getRandomDialogue(hitDialogues, this.usedHitDialogues);
-
-    this.textPanel.show({
-      irish: dialogue.irish,
-      english: dialogue.english,
-      type: 'dialogue',
-      speaker: 'Scáthach '
-    });
+    this._flashLine(dialogue.irish, dialogue.english);
   }
 
   showMissDialogue() {
-    if (this.narrativeInProgress || this.textPanel.isVisible || this.tutorialComplete) return;
-
+    if (this.narrativeInProgress || this.tutorialComplete) return;
     const missDialogues = this.tutorialData.narrative.onMiss;
     const dialogue = this.getRandomDialogue(missDialogues, this.usedMissDialogues);
-
-    this.textPanel.show({
-      irish: dialogue.irish,
-      english: dialogue.english,
-      type: 'dialogue',
-      speaker: 'Scáthach'
-    });
+    this._flashLine(dialogue.irish, dialogue.english);
   }
 
-  showFarewell() {
-    const farewell = this.tutorialData.narrative.farewell;
-    if (!farewell || farewell.length === 0) return;
 
-    this.tutorialComplete = true;
-    this.narrativeInProgress = true;
-    this.narrativeQueue = [...farewell];
+showFarewell() {
+  const farewell = this.tutorialData.narrative.farewell;
+  if (!farewell || farewell.length === 0) return;
 
-    const showNext = () => {
-      if (this.narrativeQueue.length === 0) {
-        this.narrativeInProgress = false;
-        console.log('BowTutorial: farewell complete - tutorial finished');
-        // Could transition to another scene here
-      
-this.cameras.main.fadeOut(500, 0, 0, 0);
-this.cameras.main.once('camerafadeoutcomplete', () => {
-  this.scene.start('BogMeadow');
+  this.tutorialComplete = true;
+  this.narrativeInProgress = true;
+
+  const lines = farewell.map(e => ({
+    ga: e.irish,
+    en: e.english,
+    speaker: 'queen',
+  }));
+
+  this._showStoryLines(lines, () => {
+    this.narrativeInProgress = false;
+    console.log('BowTutorial: farewell complete');
+
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+  this.cameras.main.once('camerafadeoutcomplete', () => {
+    // Use the value directly from your imported GameSettings object
+    const currentOpacity = GameSettings.englishOpacity;
+
+    initReturnCrossing(this.champion, currentOpacity, () => {
+        if (window.startGame) {
+            window.startGame(this.champion, { startScene: 'BogMeadow' });
+        } else {
+            console.error('[BowTutorial] window.startGame not found!');
+            this.scene.start('BogMeadow'); 
+        }
+    });
 });
 
-  return;
-      }
+  });
+}
 
-      const entry = this.narrativeQueue.shift();
 
-      this.textPanel.show({
-        irish: entry.irish,
-        english: entry.english,
-        type: 'dialogue',
-        speaker: 'Scáthach',
-        onDismiss: () => {
-          this.time.delayedCall(300, showNext);
-        }
-      });
-    };
-
-    showNext();
-  }
-
-  createTarget() {
+   createTarget() {
     this.currentTargetIndex = 0;
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
@@ -566,8 +732,9 @@ this.cameras.main.once('camerafadeoutcomplete', () => {
     this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
     this.target.setStrokeStyle(4, 0xffffff);
     this.target.setData('hit', false);
-    this.bullseye1 = this.add.circle(targetX, targetY, 20, 0xff6600, 0.8);
-    this.bullseye2 = this.add.circle(targetX, targetY, 10, 0xffff00, 0.9);
+    this.target.setDepth(500);
+    this.bullseye1 = this.add.circle(targetX, targetY, 20, 0xff6600, 0.8).setDepth(501);
+    this.bullseye2 = this.add.circle(targetX, targetY, 10, 0xffff00, 0.9).setDepth(502);
 this.bullseye1.setDepth(10);
 this.bullseye2.setDepth(10);
   }
@@ -954,53 +1121,87 @@ createScathach() {
 
 
   addSettingsSlider() {
-    const sliderWidth = this.scale.width * 0.95; // 95% of screen width
-    const sliderHeight = 8;
-    const sliderX = this.scale.width * 0.025; // Center it (2.5% margin on each side)
-    const sliderY = 20;
+    const W          = this.scale.width;
+    const sliderX    = W * 0.04;
+    const sliderW    = W * 0.92;
+    const sliderY    = 26;
+    const initVal    = GameSettings.englishOpacity ?? 0.7;
 
-    // Create background track (dark part)
-    const trackBg = this.add.rectangle(
-      sliderX + sliderWidth / 2,
-      sliderY,
-      sliderWidth,
-      sliderHeight,
-      0x444444
-    ).setScrollFactor(0).setDepth(3500); // Above text panel (which is 3000)
+    // Track background
+    this.add.rectangle(sliderX + sliderW/2, sliderY, sliderW, 6, 0x333333)
+      .setScrollFactor(0).setDepth(3500);
 
-    // Create golden fill (updates based on opacity)
-    const trackFill = this.add.rectangle(
-      sliderX,
-      sliderY,
-      sliderWidth * GameSettings.englishOpacity,
-      sliderHeight,
-      0xd4af37
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(3501);
+    // Gold fill — updated on drag
+    const trackFill = this.add.rectangle(sliderX, sliderY, sliderW * initVal, 6, 0xd4af37)
+      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(3501);
 
-    // Create draggable thumb
-    const thumb = this.add.circle(
-      sliderX + (sliderWidth * GameSettings.englishOpacity),
-      sliderY,
-      15,
-      0xffd700
-    ).setScrollFactor(0).setDepth(3502).setInteractive();
+    // Moon thumb — drawn on a Phaser RenderTexture
+    const moonR  = 14;
+    const moonD  = moonR * 2;
+    const moonRT = this.add.renderTexture(0, 0, moonD, moonD)
+      .setScrollFactor(0).setDepth(3502).setOrigin(0.5, 0.5);
+    moonRT.x = sliderX + sliderW * initVal;
+    moonRT.y = sliderY;
 
-    this.input.setDraggable(thumb);
+    const drawMoon = (phase) => {
+      moonRT.clear();
+      const g = this.add.graphics();
+      // Glow
+      g.fillStyle(0xc8dcff, 0.18 + phase * 0.12);
+      g.fillCircle(moonR, moonR, moonR * 1.5);
+      // Dark disc
+      g.fillStyle(0x08041e, 1);
+      g.fillCircle(moonR, moonR, moonR * 0.92);
+      // Lit face
+      const litR = Math.round(200 + phase*35);
+      const litG = Math.round(210 + phase*30);
+      const litB = Math.round(220 + phase*20);
+      g.fillStyle(Phaser.Display.Color.GetColor(litR, litG, litB), 1);
+      if (phase >= 0.99) {
+        g.fillCircle(moonR, moonR, moonR * 0.92);
+      } else {
+        // Crescent: draw filled semicircle then subtract with dark ellipse
+        // Approximate with Phaser graphics arc
+        g.slice(moonR, moonR, moonR * 0.92,
+          Phaser.Math.DegToRad(-90), Phaser.Math.DegToRad(90), false);
+        g.fillPath();
+        const ex = moonR * 0.92 * Math.cos(phase * Math.PI);
+        g.fillStyle(0x08041e, 1);
+        g.fillEllipse(moonR + ex * 0.5, moonR, Math.abs(ex), moonR * 1.84);
+      }
+      moonRT.draw(g, 0, 0);
+      g.destroy();
+    };
 
-    this.input.on('drag', (pointer, gameObject, dragX) => {
-      if (gameObject === thumb) {
-        const clampedX = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth);
-        thumb.x = clampedX;
+    drawMoon(initVal);
 
-        const opacity = (clampedX - sliderX) / sliderWidth;
-        GameSettings.setEnglishOpacity(opacity);
+    // Make thumb interactive
+    moonRT.setInteractive(
+      new Phaser.Geom.Circle(moonR, moonR, moonR * 1.4),
+      Phaser.Geom.Circle.Contains
+    );
+    this.input.setDraggable(moonRT);
 
-        // Update golden fill width
-        trackFill.width = sliderWidth * opacity;
+    this.input.on('drag', (pointer, obj, dragX) => {
+      if (obj !== moonRT) return;
+      const cx      = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderW);
+      obj.x         = cx;
+      const opacity = (cx - sliderX) / sliderW;
+      GameSettings.setEnglishOpacity(opacity);
+      trackFill.width = sliderW * opacity;
+      drawMoon(opacity);
 
-        // Update any visible English text in real-time
-        if (this.textPanel) {
-          this.textPanel.updateEnglishOpacity();
+      // Update textPanel English opacity
+      if (this.textPanel) this.textPanel.updateEnglishOpacity();
+
+      // Update storyPlayer English opacity immediately
+      if (this.storyPlayer && this.storyPlayer._lineEls) {
+        for (const entry of this.storyPlayer._lineEls) {
+          if (entry.enEl) {
+            const rawA   = entry.gaEl.style.opacity;
+            const spatial = rawA !== '' ? parseFloat(rawA) : 1;
+            entry.enEl.style.opacity = String(spatial * opacity);
+          }
         }
       }
     });

@@ -31,9 +31,9 @@ preload() {
 
 
 // Slot backgrounds
-  this.load.image('slot_equipped', 'public/images/ui/inventory/slot_equipped.png');
-  this.load.image('slot_inventory', 'public/images/ui/inventory/slot_inventory.png');
-  this.load.image('panel_stone', 'public/images/ui/inventory/panel_stone.png');
+  this.load.image('slot_equipped', '/assets/inventory/slot_equipped.png');
+  this.load.image('slot_inventory', '/assets/inventory/slot_inventory.png');
+  this.load.image('panel_stone', '/assets/inventory/panel_stone.png');
   
   // Items (use the item IDs from itemDefinitions.js)
   this.load.image('item_leather_armor', 'assets/inventory/A_Armour02.png');

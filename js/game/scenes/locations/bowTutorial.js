@@ -329,6 +329,7 @@ this.fogSpeed2 = 0.15; // background: slower = feels further away
     // Create player in LOWER third of screen
     const playerX = screenWidth / 2;
     const playerY = screenHeight * 0.75;
+    this.champion = champion;
     this.player = new Player(this, playerX, playerY, champion);
 
     // Disable player movement for tutorial

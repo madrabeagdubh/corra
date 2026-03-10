@@ -636,40 +636,72 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     }
 
     // ── Exit ──────────────────────────────────────────────────────────────────
-    function beginExit() {
-        if (sceneDone) return;
-        sceneDone = true;
-        clearTimeout(textTimer); clearTimeout(hardCap);
-        if (textPlayer) { textPlayer.destroy(); textPlayer=null; }
-        window.removeEventListener('resize', resize);
-        thumbStyle.remove();
-        fontOverride.remove();
-        if (boatAC) {
-            try {
-                if (masterOut) {
-                    masterOut.gain.setValueAtTime(masterOut.gain.value, boatAC.currentTime);
-                    masterOut.gain.linearRampToValueAtTime(0, boatAC.currentTime + 2.5);
-                }
-                setTimeout(() => { try { boatAC.close(); } catch(e){} }, 3000);
-            } catch(e) {}
-        }
-        const veil = document.createElement('div');
-        veil.style.cssText=[
-            'position:fixed;inset:0;z-index:1000000;',
-            'background:#0a120e;opacity:0;transition:opacity 2.8s ease;pointer-events:none;',
-        ].join('');
-        document.body.appendChild(veil);
-        setTimeout(() => {
-            cancelAnimationFrame(rafId);
-            requestAnimationFrame(() => { veil.style.opacity='1'; });
-        }, 500);
-        setTimeout(() => {
-            container.remove(); veil.remove();
-            const gc = document.getElementById('gameContainer');
-            if (gc) { gc.style.display=''; gc.style.opacity='1'; gc.style.position='fixed'; gc.style.inset='0'; gc.style.zIndex='999999'; }
-            if (onComplete) onComplete();
-        }, 3900);
+   function beginExit() {
+    if (sceneDone) return;
+    sceneDone = true;
+    clearTimeout(textTimer); clearTimeout(hardCap);
+    if (textPlayer) { textPlayer.destroy(); textPlayer = null; }
+    window.removeEventListener('resize', resize);
+    thumbStyle.remove();
+    fontOverride.remove();
+
+    // Fade audio
+    if (boatAC) {
+        try {
+            if (masterOut) {
+                masterOut.gain.setValueAtTime(masterOut.gain.value, boatAC.currentTime);
+                masterOut.gain.linearRampToValueAtTime(0, boatAC.currentTime + 2.5);
+            }
+            setTimeout(() => { try { boatAC.close(); } catch(e){} }, 3000);
+        } catch(e) {}
     }
+
+    // Veil
+    const veil = document.createElement('div');
+    veil.style.cssText = [
+        'position:fixed;inset:0;z-index:1000000;',
+        'background:#0a120e;opacity:0;transition:opacity 2.8s ease;pointer-events:none;',
+    ].join('');
+    document.body.appendChild(veil);
+
+    setTimeout(() => {
+        cancelAnimationFrame(rafId);
+        requestAnimationFrame(() => { veil.style.opacity = '1'; });
+    }, 500);
+
+    setTimeout(() => {
+        // Stop canvas loop
+        cancelAnimationFrame(rafId);
+
+        // Remove container
+        container.remove();
+
+        // Nuclear cleanup — remove any stray crossing divs and veils
+        document.querySelectorAll(
+            '#returnCrossing, #dawnCrossing, #returnCrossingFontOverride, #dawnCrossingFontOverride'
+        ).forEach(el => el.remove());
+
+        // Remove any veil divs left at z-index 1000000
+        document.querySelectorAll('body > div').forEach(el => {
+            const z = parseInt(el.style.zIndex || '0', 10);
+            if (z >= 1000000) el.remove();
+        });
+
+        veil.remove();
+
+        // Restore game container
+        const gc = document.getElementById('gameContainer');
+        if (gc) {
+            gc.style.display   = '';
+            gc.style.opacity   = '1';
+            gc.style.position  = 'fixed';
+            gc.style.inset     = '0';
+            gc.style.zIndex    = '999999';
+        }
+
+        if (onComplete) onComplete();
+    }, 3900);
+} 
 
     // ── Ripples — identical La Tène system from dawnCrossing ─────────────────
     const RIPPLE_LIFE   = 9000;    // slightly shorter on choppy water

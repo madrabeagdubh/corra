@@ -33,19 +33,25 @@ const config = {
 
 // ✅ FIX #1: Accept 'options' parameter with default value
 
-
-
-
-
 export function startGame(selectedChampion, options = {}) {
     console.log('startGame called with:', selectedChampion, 'options:', options);
+
+    // Destroy existing game instance before creating a new one
+    if (window.game) {
+        window.game.destroy(true);  // true = remove canvas from DOM
+        window.game = null;
+    }
+
+    // Hide starfield loader
+    const starfieldLoader = document.getElementById('starfieldLoader');
+    if (starfieldLoader) starfieldLoader.style.display = 'none';
 
     // Make sure gameContainer is visible and sized before Phaser boots
     const gameContainer = document.getElementById('gameContainer');
     if (gameContainer) {
-        gameContainer.style.display = 'block';
-        gameContainer.style.width  = window.innerWidth + 'px';
-        gameContainer.style.height = window.innerHeight + 'px';
+        gameContainer.style.display  = 'block';
+        gameContainer.style.width   = window.innerWidth + 'px';
+        gameContainer.style.height  = window.innerHeight + 'px';
     }
 
     window.selectedChampion = selectedChampion;
@@ -79,6 +85,8 @@ export function startGame(selectedChampion, options = {}) {
 
     console.log('Game created, champion stored in registry');
 }
+
+
 window.startGame = startGame;
 
 function resizeGame() {

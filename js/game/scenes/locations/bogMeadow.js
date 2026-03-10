@@ -128,7 +128,7 @@ this.worldButton = new WorldButton(this, {
   }
 
   showIntroNarrative() {
-    const champion = this.registry.get('selectedChampion');
+    const champion = this.registry.get('selectedChampion') || window.selectedChampion;
     const narrativeKey = `bog_intro_seen_${champion.id}`;
 
     if (localStorage.getItem(narrativeKey)) {

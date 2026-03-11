@@ -355,11 +355,28 @@ export class ConstellationScene extends Phaser.Scene {
 
         // ── Audio state ───────────────────────────────────────────────────────
         this._harpStarted      = false;
+
+        // ── Dusk gradient ─────────────────────────────────────────────────────
+        this._duskEl           = null;
+
+        // ── Dark mythos image overlay ─────────────────────────────────────────
+        this._darkImage        = null;
+        this._darkImageEl      = null;
+
+        // ── Moon skip state ───────────────────────────────────────────────────
+        this._moonSkipTriggered    = false;
+        this._moonVerticalDragging = false;
+        this._skipHintEl           = null;
+        this._skipHintVisible      = false;
     }
 
     get W() { return this.scale.width; }
     get H() { return this.scale.height; }
-preload(){this.load.image('shadowHill', './assets/shadowHill.png');
+preload(){
+    this.load.image('shadowHill', './assets/shadowHill.png');
+    // Dark mythos images — fade in after constellation drawn, out on spin away
+    this.load.image('naomhog', './assets/naomhog.png');
+    this.load.image('cuirt',   './assets/cuirt.png');
 }
     create() {
         this.initAudio();
@@ -432,8 +449,111 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
             if (this.shadowHill) {
                 this.shadowHill.setPosition(0, gameSize.height);
             }
+            if (this._duskEl) {
+                this._duskEl.style.height = Math.round(gameSize.height * 0.20) + 'px';
+            }
+            this._updateDusk();
         });
+
+        // ── Dusk atmospheric gradient behind shadowHill — DOM element only ───
+        // We use a fixed DOM div so it never rotates with the Phaser cameras.
+        this._duskEl = document.createElement('div');
+        this._duskEl.style.cssText = [
+            'position:fixed;left:0;right:0;bottom:0;',
+            `height:${Math.round(this.H * 0.20)}px;`,
+            'pointer-events:none;',
+            'z-index:99994;',   // above game canvas (z ~auto), below moon overlay (99997)
+            'opacity:0;',
+            'transition:background 1.8s ease, opacity 0.6s ease;',
+        ].join('');
+        document.body.appendChild(this._duskEl);
+        this._drawDuskGradient(0);
  }
+
+    // ── Dusk gradient — DOM div, never rotates with cameras ─────────────────
+    // progress 0 = first constellation (pale blue dusk glow)
+    // progress 1 = last constellation (deep indigo, nearly gone)
+    _drawDuskGradient(progress) {
+        const el = this._duskEl;
+        if (!el) return;
+        const t = Math.max(0, Math.min(1, progress));
+
+        // Colour stops: bottom edge → top edge
+        // Bottom: pale icy blue → muted indigo
+        const botR = Math.round(Phaser.Math.Linear(140,  40, t));
+        const botG = Math.round(Phaser.Math.Linear(170,  20, t));
+        const botB = Math.round(Phaser.Math.Linear(210,  80, t));
+        const botA = Phaser.Math.Linear(0.28, 0.14, t);
+
+        // Top (where it fades into sky): cool violet → near-black purple
+        const topR = Math.round(Phaser.Math.Linear(60,  20, t));
+        const topG = Math.round(Phaser.Math.Linear(30,   5, t));
+        const topB = Math.round(Phaser.Math.Linear(90,  40, t));
+        const topA = 0.0; // always transparent at top edge
+
+        el.style.background = [
+            `linear-gradient(to bottom,`,
+            `  rgba(${topR},${topG},${topB},${topA}) 0%,`,
+            `  rgba(${botR},${botG},${botB},${botA}) 100%)`,
+        ].join('');
+
+        // Reveal on first call (when constellation sequence starts)
+        if (el.style.opacity === '0') el.style.opacity = '1';
+    }
+
+    // ── Advance dusk to reflect currentIndex ─────────────────────────────────
+    _updateDusk() {
+        const total = this.constellations.length;
+        const prog  = total > 1 ? this.currentIndex / (total - 1) : 0;
+        this._drawDuskGradient(prog);
+    }
+
+    // ── Show the dark mythos image for a given constellation id ──────────────
+    _showDarkImage(constellationId) {
+        // Remove any previous image
+        this._hideDarkImage(true);
+
+        const W = this.W, H = this.H;
+
+        // DOM img — completely outside Phaser cameras, always screen-centred
+        const el = document.createElement('img');
+        // Try named asset first; fall back to sc01.png placeholder
+        el.src = `assets/${constellationId}.png`;
+        el.onerror = () => { el.src = 'assets/sc01.png'; };
+
+        el.style.cssText = [
+            'position:fixed;',
+            'width:auto;',
+            `max-height:${Math.round(H * 0.50)}px;`,
+            `max-width:${Math.round(W * 0.70)}px;`,
+            'left:50%;top:50%;',
+            'transform:translate(-50%,-50%);',
+            'pointer-events:none;',
+            'z-index:99993;',
+            'opacity:0;',
+            'transition:opacity 2.2s ease-in;',
+            'mix-blend-mode:screen;',
+        ].join('');
+
+        document.body.appendChild(el);
+        this._darkImageEl = el;
+        this._darkImage   = true;
+
+        // Trigger fade-in on next frame so transition fires
+        requestAnimationFrame(() => { if (el.parentNode) el.style.opacity = '0.65'; });
+    }
+
+    // ── Fade out and remove the current dark image ────────────────────────────
+    _hideDarkImage(immediate = false) {
+        const el = this._darkImageEl;
+        if (!el) return;
+        this._darkImageEl = null;
+        this._darkImage   = null;
+        if (immediate) { el.remove(); return; }
+        el.style.transition = 'opacity 0.9s ease-out';
+        el.style.opacity    = '0';
+        setTimeout(() => el.remove(), 950);
+    }
 
     // ── Moon overlay ─────────────────────────────────────────────────────────
     // ── Moon overlay ─────────────────────────────────────────────────────────
@@ -562,7 +682,7 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
         let phaseAtDragStart = 0;
         let arcDone          = false;   // true once player releases for the first time
 
-        const onDragStart = (clientX) => {
+        const onDragStart = (clientX, clientY) => {
             _requestFullscreen();
             _unlockAudio();
 
@@ -577,10 +697,17 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
             phaseAtDragStart     = this.moonPhase;
             moonCanvas.style.animation = 'none';
             moonCanvas.style.cursor    = 'grabbing';
+
+            // Track vertical for skip gesture
+            this._moonDragStartY = clientY;
+            this._moonDragCurY   = clientY;
         };
 
-        const onDragMove = (clientX) => {
+        const onDragMove = (clientX, clientY) => {
             if (!dragging) return;
+
+            // Track vertical position for skip gesture
+            if (clientY !== undefined) this._moonDragCurY = clientY;
 
             if (!arcDone) {
                 // ── Arc mode: y is derived from x via the curve ───────────────
@@ -664,11 +791,11 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
             }
         };
 
-        moonCanvas.addEventListener('mousedown',  (e) => { e.preventDefault(); onDragStart(e.clientX); });
-        window.addEventListener('mousemove',      (e) => { if (dragging) onDragMove(e.clientX); });
+        moonCanvas.addEventListener('mousedown',  (e) => { e.preventDefault(); onDragStart(e.clientX, e.clientY); });
+        window.addEventListener('mousemove',      (e) => { if (dragging) onDragMove(e.clientX, e.clientY); });
         window.addEventListener('mouseup',        ()  => { onDragEnd(); });
-        moonCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); onDragStart(e.touches[0].clientX); }, { passive: false });
-        window.addEventListener('touchmove',      (e) => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX); } }, { passive: false });
+        moonCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); onDragStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+        window.addEventListener('touchmove',      (e) => { if (dragging) { e.preventDefault(); onDragMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
         window.addEventListener('touchend',       ()  => { onDragEnd(); });
     }
 
@@ -863,36 +990,221 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
         });
 
         // Re-wire drag for settled moon along top strip
-        let dragging     = false;
-        let dragStartX   = 0;
-        let phaseAtStart = phase;
+        let dragging        = false;
+        let dragStartX      = 0;
+        let dragStartY      = 0;
+        let phaseAtStart    = phase;
+        let moonStartTop    = endY;   // top px when drag began
+        let isVerticalDrag  = false;  // committed to vertical skip drag
 
-        const onMove = (clientX) => {
-            if (!dragging) return;
-            const delta    = (clientX - dragStartX) / trackW;
+        const getSettledTop = () => parseFloat(moonEl.style.top) || endY;
+
+        const onMove = (clientX, clientY) => {
+            if (!dragging || this._moonSkipTriggered) return;
+
+            const dX = clientX - dragStartX;
+            const dY = (clientY || dragStartY) - dragStartY;
+
+            // Once committed to vertical drag, move moon directly with finger — locked to vertical axis
+            if (isVerticalDrag) {
+                const newTop = Math.max(endY, moonStartTop + dY);
+                moonEl.style.top  = newTop + 'px';
+                moonEl.style.left = (this._moonLockedLeft || 0) + 'px';  // enforce X lock
+                this._updateSkipHint();
+                if (newTop > H * 0.65) {
+                    this._triggerMoonSkip(moonEl);
+                }
+                return;
+            }
+
+            // ── Decide gesture direction after sufficient movement ─────────────
+            // Allow vertical skip only when moon is near right edge (phase > 0.85)
+            const isNearRight = this.moonPhase > 0.85;
+            if (isNearRight && Math.abs(dY) > 10 && Math.abs(dY) > Math.abs(dX) * 1.5) {
+                // Commit to vertical — lock horizontal position, re-anchor origins
+                isVerticalDrag = true;
+                this._moonVerticalDragging = true;
+                this._moonLockedLeft = parseFloat(moonEl.style.left) || 0;  // freeze X
+                dragStartY   = clientY || dragStartY;
+                moonStartTop = getSettledTop();
+                moonEl.style.transition = 'none';
+                return;
+            }
+
+            // ── Horizontal phase drag (unchanged from original) ───────────────
+            const delta    = dX / trackW;
             const newPhase = Math.max(0, Math.min(1, phaseAtStart + delta));
             this.moonPhase = newPhase;
             this.drawMoonPhase(newPhase);
             this.positionMoon(newPhase);
-            // ScrollingTextPlayer reads moonPhase live via getMoonPhase() — no manual update needed.
-        };
-        const onStart = (clientX) => {
-            dragging     = true;
-            dragStartX   = clientX;
-            phaseAtStart = this.moonPhase;
-            moonEl.style.cursor = 'grabbing';
-        };
-        const onEnd = () => {
-            dragging = false;
-            moonEl.style.cursor = 'grab';
         };
 
-        moonEl.addEventListener('mousedown',  (e) => { e.preventDefault(); onStart(e.clientX); });
-        window.addEventListener('mousemove',  (e) => { if (dragging) onMove(e.clientX); });
+        const onStart = (clientX, clientY) => {
+            dragging       = true;
+            isVerticalDrag = false;
+            dragStartX     = clientX;
+            dragStartY     = clientY || 0;
+            moonStartTop   = getSettledTop();
+            phaseAtStart   = this.moonPhase;
+            moonEl.style.cursor = 'grabbing';
+            moonEl.style.transition = 'none';
+        };
+
+        const onEnd = () => {
+            if (!dragging) return;
+            dragging = false;
+            this._moonVerticalDragging = false;
+            moonEl.style.cursor = 'grab';
+
+            if (isVerticalDrag && !this._moonSkipTriggered) {
+                // Not dragged far enough — float back smoothly to settled position
+                isVerticalDrag = false;
+                if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
+                this._skipHintVisible = false;
+                const fromTop = parseFloat(moonEl.style.top) || endY;
+                moonEl.style.opacity = '1';
+                const floatBack = performance.now();
+                const BACK_MS = 600;
+                const loop = (now) => {
+                    const raw = Math.min((now - floatBack) / BACK_MS, 1);
+                    const t   = 1 - Math.pow(1 - raw, 3);
+                    moonEl.style.top = (fromTop + (endY - fromTop) * t) + 'px';
+                    if (raw < 1) requestAnimationFrame(loop);
+                    else { moonEl.style.top = endY + 'px'; }
+                };
+                requestAnimationFrame(loop);
+            }
+        };
+
+        moonEl.addEventListener('mousedown',  (e) => { e.preventDefault(); onStart(e.clientX, e.clientY); });
+        window.addEventListener('mousemove',  (e) => { if (dragging) onMove(e.clientX, e.clientY); });
         window.addEventListener('mouseup',    ()  => { onEnd(); });
-        moonEl.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e.touches[0].clientX); }, { passive: false });
-        window.addEventListener('touchmove',  (e) => { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientX); } }, { passive: false });
+        moonEl.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+        window.addEventListener('touchmove',  (e) => { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
         window.addEventListener('touchend',   ()  => { onEnd(); });
+    }
+
+    // ── Skip hint — appears above moon once dragged down 1/4 screen ──────────
+    _buildSkipHint(moonEl, moonX, moonY, W, H) {
+        if (this._skipHintEl) { this._skipHintEl.remove(); this._skipHintEl = null; }
+
+        const moonR  = this._moonR || 20;
+        const svgNS  = 'http://www.w3.org/2000/svg';
+        const svg    = document.createElementNS(svgNS, 'svg');
+        const arrowH = Math.round(H * 0.07);
+        const arrowW = Math.round(moonR * 3.5);
+
+        svg.setAttribute('width',  arrowW);
+        svg.setAttribute('height', arrowH + 28);
+        svg.setAttribute('viewBox', `0 0 ${arrowW} ${arrowH + 28}`);
+
+        // Label at top
+        const text = document.createElementNS(svgNS, 'text');
+        text.setAttribute('x', arrowW / 2);
+        text.setAttribute('y', 14);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-family', 'Urchlo, "Courier New", monospace');
+        text.setAttribute('font-size', '11');
+        text.setAttribute('fill', 'rgba(255,220,60,0.85)');
+        text.setAttribute('letter-spacing', '1.5');
+        text.textContent = 'skip intro';
+        svg.appendChild(text);
+
+        // Dashed vertical line
+        const line = document.createElementNS(svgNS, 'line');
+        const cx = arrowW / 2;
+        line.setAttribute('x1', cx); line.setAttribute('y1', 20);
+        line.setAttribute('x2', cx); line.setAttribute('y2', arrowH + 10);
+        line.setAttribute('stroke', 'rgba(255,210,40,0.65)');
+        line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('stroke-dasharray', '3 5');
+        line.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(line);
+
+        // Arrowhead chevron pointing DOWN
+        const arrow = document.createElementNS(svgNS, 'polyline');
+        const ay = arrowH + 20;
+        arrow.setAttribute('points', `${cx - 7},${ay - 9} ${cx},${ay} ${cx + 7},${ay - 9}`);
+        arrow.setAttribute('stroke', 'rgba(255,210,40,0.75)');
+        arrow.setAttribute('stroke-width', '1.5');
+        arrow.setAttribute('fill', 'none');
+        arrow.setAttribute('stroke-linecap', 'round');
+        arrow.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(arrow);
+
+        svg.style.cssText = [
+            'position:fixed;',
+            'pointer-events:none;',
+            'z-index:99996;',
+            'opacity:0;',
+            'transition:opacity 0.5s ease;',
+            // Fixed in top-right: starts just below the moon's rest position.
+            // Offset left of moon centre so the descending moon doesn't cover it.
+            `right:${Math.round(W - moonX - moonR * 2 + 4)}px;`,
+            `top:${Math.round(moonY + moonR * 2 + 10)}px;`,
+        ].join('');
+
+        document.body.appendChild(svg);
+        this._skipHintEl      = svg;
+        this._skipHintVisible = false;
+        this._skipHintMoonR   = moonR;
+        this._skipHintH       = arrowH + 28;
+        this._skipHintW       = arrowW;
+    }
+
+    _updateSkipHint() {
+        const el = this._skipHintEl;
+        if (!el || this._moonSkipTriggered) return;
+        const moonEl = this.moonEl;
+        if (!moonEl) return;
+
+        const curTop = parseFloat(moonEl.style.top) || 0;
+
+        // Show as soon as moon has moved meaningfully downward from rest
+        const draggedFar = this._moonVerticalDragging && (curTop > this.H * 0.08);
+
+        if (draggedFar && !this._skipHintVisible) {
+            this._skipHintVisible = true;
+            el.style.opacity = '1';
+        } else if (!draggedFar && this._skipHintVisible) {
+            this._skipHintVisible = false;
+            el.style.opacity = '0';
+        }
+    }
+
+    // ── Moon drag-to-bottom: skip to heroSelect ───────────────────────────────
+    _triggerMoonSkip(moonEl) {
+        if (this._moonSkipTriggered) return;
+        this._moonSkipTriggered = true;
+
+        // Hide skip hint
+        if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
+
+        // Set stars spinning fast
+        this._bgWheelsPaused = false;
+        this._bgWheelsSpeedMult = 18;
+
+        // Animate moon falling off screen
+        if (moonEl) {
+            const H = this.H;
+            const startTop = parseFloat(moonEl.style.top) || 0;
+            const fallStart = performance.now();
+            const FALL_MS = 900;
+            const fallLoop = (now) => {
+                const t = Math.min((now - fallStart) / FALL_MS, 1);
+                const ease = t * t;
+                moonEl.style.top  = (startTop + (H + 60 - startTop) * ease) + 'px';
+                moonEl.style.opacity = String(1 - ease);
+                if (t < 1) requestAnimationFrame(fallLoop);
+                else { if (moonEl.parentNode) moonEl.parentNode.removeChild(moonEl); }
+            };
+            requestAnimationFrame(fallLoop);
+        }
+
+        // Fade out and call onComplete after a beat
+        this.time.delayedCall(700, () => {
+            this.onAllComplete();
+        });
     }
 
     // ── _startPostSettleSequence ──────────────────────────────────────────────
@@ -911,10 +1223,18 @@ preload(){this.load.image('shadowHill', './assets/shadowHill.png');
         const driftFromY  = endY;
         const driftToY    = Math.max(0, endY - moonDriftPx);
 
+        // Build the skip hint (hidden initially)
+        this._buildSkipHint(moonEl, endX, endY, W, H);
+
         const driftLoop = (now) => {
             if (!this.moonEl) return;
             const t = Math.min((now - driftStart) / DRIFT_MS, 1);
-            this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
+            // Don't fight the vertical drag gesture
+            if (!this._moonVerticalDragging) {
+                this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
+            }
+            // Show/hide skip hint based on moon phase proximity to right edge
+            this._updateSkipHint();
             if (t < 1) requestAnimationFrame(driftLoop);
         };
         requestAnimationFrame(driftLoop);
@@ -1181,6 +1501,24 @@ this.cameras.main.setAngle(this.spinAngle);
   
 
 panCameraTo(idx, animate = true) {
+    // Fade out any dark image and update dusk as we spin away
+    this._hideDarkImage(false);
+    this.currentIndex = idx;
+    this._updateDusk();
+
+    // Mark completed constellations with pan time so lines start fading NOW
+    // (lines held at full brightness until pan begins)
+    const panNow = this.time.now;
+    for (const c of this.constellations) {
+        if (c.completed) {
+            for (const cn of c.connections) {
+                if (cn.completedAt !== null && cn.panStartTime === undefined) {
+                    cn.panStartTime = panNow;
+                }
+            }
+        }
+    }
+
     const c = this.constellations[idx];
     if (!c) return;
     const tx = c.wcx - this.W / 2;
@@ -1325,6 +1663,8 @@ this.tweens.add({
         this.pulseIdx = 0;
         this._interactionStarted = true;
         this.canInteract = true;
+
+        this._updateDusk();
 
         const c = this.constellations[this.currentIndex];
         // Show waiting text concurrently — stars are interactive immediately.
@@ -1517,6 +1857,9 @@ screenToRotated(sx, sy) {
             triggerMurmuration(this.audioContext);
         }
 
+        // Show dark mythos image for this constellation (if it has one)
+        this.time.delayedCall(800, () => this._showDarkImage(c.id));
+
         const texts       = constellationTexts[c.id];
         const completion  = texts && texts.completion ? texts.completion : [];
         const hasDialogue = completion.length > 0;
@@ -1582,7 +1925,9 @@ screenToRotated(sx, sy) {
         this._stopAllAudio();
         if (this.moonOverlay)     { this.moonOverlay.remove(); this.moonOverlay = null; }
         if (this._moonStyle)      { this._moonStyle.remove();  this._moonStyle  = null; }
-    }
+        if (this._duskEl)         { this._duskEl.remove();     this._duskEl     = null; }
+        if (this._skipHintEl)     { this._skipHintEl.remove(); this._skipHintEl = null; }
+        this._hideDarkImage(true);    }
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     // Strategy:
@@ -1797,10 +2142,16 @@ screenToRotated(sx, sy) {
 
                 let alpha, width;
                 if (conn.completedAt === null) {
+                    // Being drawn right now — full brightness
+                    alpha = 0.92;
+                    width = 2.5;
+                } else if (!conn.panStartTime) {
+                    // Completed, awaiting pan — hold at full brightness
                     alpha = 0.92;
                     width = 2.5;
                 } else {
-                    const age  = now - conn.completedAt;
+                    // Pan has started — fade out over LINE_LINGER_MS
+                    const age  = now - conn.panStartTime;
                     const t    = Math.min(age / LINE_LINGER_MS, 1);
                     const ease = t < 0.7 ? 1 : 1 - ((t - 0.7) / 0.3) ** 2;
                     alpha = 0.12 + ease * 0.80;

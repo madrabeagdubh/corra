@@ -10,7 +10,7 @@
         :root {
             --bg: #121212;
             --card: #1e1e1e;
-            --accent: #2e7d32; /* Irish Green */
+            --accent: #2e7d32;
             --text: #ffffff;
             --off: #333333;
         }
@@ -39,15 +39,6 @@
         h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: var(--accent); }
         #tune-title { margin-bottom: 20px; font-weight: 300; min-height: 1.2em; }
 
-        /* The Instrument Grid */
-        #controls {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        /* Large Touch Buttons */
         button {
             -webkit-appearance: none;
             border: none;
@@ -58,28 +49,23 @@
             color: white;
             background: var(--off);
             transition: all 0.2s ease;
-            touch-action: manipulation; /* Prevents double-tap zoom delay */
+            touch-action: manipulation;
             cursor: pointer;
         }
 
-        button:hover {
-            opacity: 0.9;
-        }
-
-        button.active {
-            background: var(--accent);
-            box-shadow: 0 0 15px rgba(46, 125, 50, 0.4);
-        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .main-actions {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
             border-top: 1px solid #444;
             padding-top: 20px;
         }
 
         .btn-play { background: #1976d2; }
+        .btn-prev { background: #555; }
         .btn-next { background: #555; }
         .btn-beep { background: #d32f2f; margin-top: 10px; }
 
@@ -103,13 +89,9 @@
         }
         
         .console-error { color: #ff6b6b; }
-        .console-warn { color: #ffa500; }
-        .console-log { color: #51cf66; }
-        
-        .loading {
-            color: #888;
-            font-style: italic;
-        }
+        .console-warn  { color: #ffa500; }
+        .console-log   { color: #51cf66; }
+        .loading       { color: #888; font-style: italic; }
     </style>
 </head>
 <body>
@@ -118,9 +100,8 @@
         <h1>🍀 Trad Sesh Debugger</h1>
         <div id="tune-title">Loading...</div>
 
-        <div id="controls"></div>
-
         <div class="main-actions">
+            <button class="btn-prev" id="btn-prev" disabled>⏮ PREV</button>
             <button class="btn-play" id="btn-start" disabled>▶ START</button>
             <button class="btn-next" id="btn-next" disabled>NEXT ⏭</button>
         </div>
@@ -135,7 +116,7 @@
     </div>
 
 <script type="module">
-    import { TradSessionPlayer } from './js/game/systems/music/tradSessionPlayerConductor.js';
+    import { TradSessionPlayer } from './js/game/systems/music/tradSessionPlayerScheduled.js';
     import { allTunes } from './js/game/systems/music/allTunes.js';
 
     console.log('[Main] Script loaded, initializing...');
@@ -143,149 +124,128 @@
     let session = null;
     let tuneKeys = [];
     let currentIdx = 0;
+    let isBusy = false; // guard against overlapping play calls
 
-    // Capture console logs and display in UI
+    // ── Console mirror ────────────────────────────────────────────────────────
     const statusEl = document.getElementById('status-text');
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-    
+    const _log   = console.log;
+    const _error = console.error;
+    const _warn  = console.warn;
+
     function addToConsole(msg, type = 'log') {
         const line = document.createElement('div');
         line.className = `console-line console-${type}`;
         line.textContent = typeof msg === 'object' ? JSON.stringify(msg) : String(msg);
         statusEl.appendChild(line);
         statusEl.scrollTop = statusEl.scrollHeight;
-        
-        // Keep only last 50 lines
-        while (statusEl.children.length > 50) {
-            statusEl.removeChild(statusEl.firstChild);
-        }
+        while (statusEl.children.length > 50) statusEl.removeChild(statusEl.firstChild);
     }
-    
-    console.log = function(...args) {
-        originalLog.apply(console, args);
-        addToConsole(args.join(' '), 'log');
-    };
-    
-    console.error = function(...args) {
-        originalError.apply(console, args);
-        addToConsole(args.join(' '), 'error');
-    };
-    
-    console.warn = function(...args) {
-        originalWarn.apply(console, args);
-        addToConsole(args.join(' '), 'warn');
-    };
 
-    // Initialize the session player
+    console.log   = (...a) => { _log.apply(console, a);   addToConsole(a.join(' '), 'log');   };
+    console.error = (...a) => { _error.apply(console, a); addToConsole(a.join(' '), 'error'); };
+    console.warn  = (...a) => { _warn.apply(console, a);  addToConsole(a.join(' '), 'warn');  };
+
+    // ── Init ──────────────────────────────────────────────────────────────────
     try {
-        session = new TradSessionPlayer();
+        session  = new TradSessionPlayer();
         tuneKeys = Object.keys(allTunes);
-        
+
         console.log('[Main] Available tunes:', tuneKeys.length);
         console.log('[Main] Tune keys:', tuneKeys);
-        
-        // Enable buttons now that everything is loaded
+
         document.getElementById('btn-start').disabled = false;
-        document.getElementById('btn-next').disabled = false;
-        document.getElementById('btn-beep').disabled = false;
-        document.getElementById('btn-note').disabled = false;
-        
+        document.getElementById('btn-prev').disabled  = false;
+        document.getElementById('btn-next').disabled  = false;
+        document.getElementById('btn-beep').disabled  = false;
+        document.getElementById('btn-note').disabled  = false;
+
         document.getElementById('tune-title').textContent = 'Ready! Tap START to begin';
-        
         console.log('[Main] System initialized successfully');
-        
+
     } catch (error) {
         console.error('[Main] Initialization error:', error);
         console.error('[Main] Error stack:', error.stack);
         document.getElementById('tune-title').textContent = 'Error - Check console';
     }
 
-    // UI functions
-    const ui = {
-        async start() {
-            console.log('[UI] Start button clicked');
-            
-            try {
-                const key = tuneKeys[currentIdx];
-                console.log('[UI] Loading tune:', key);
-                document.getElementById('tune-title').textContent = key.toUpperCase();
-                
-                const loaded = await session.loadTune(key);
-                console.log('[UI] Load result:', loaded);
-                
-                if (!loaded) {
-                    console.error('[UI] Failed to load tune');
-                    return;
-                }
-                
-                // Explicitly play
-                console.log('[UI] Calling play()...');
-                await session.play();
-                
-                this.renderButtons();
-                console.log('[UI] Start complete. AudioContext state:', session.audioContext.state);
-                
-            } catch (error) {
-                console.error('[UI] Start error:', error);
-                console.error('[UI] Error stack:', error.stack);
-            }
-        },
-
-        toggle(i) {
-            console.log(`[UI] Toggle button ${i} clicked`);
-            const isActive = session.toggleInstrument(i);
-            const btn = document.getElementById(`btn-${i}`);
-            if (btn && session.tracks[i]) {
-                btn.className = isActive ? 'active' : '';
-                btn.textContent = `${session.tracks[i].name} ${isActive ? 'ON' : 'OFF'}`;
-            }
-        },
-
-        async next() {
-            console.log('[UI] Next button clicked');
-            currentIdx = (currentIdx + 1) % tuneKeys.length;
-            await this.start();
-        },
-
-        renderButtons() {
-            console.log('[UI] Rendering buttons for', session.tracks.length, 'tracks');
-            const container = document.getElementById('controls');
-            container.innerHTML = session.tracks.map((t, i) => 
-                `<button id="btn-${i}" class="${t.active ? 'active' : ''}" onclick="window.uiToggle(${i})">
-                    ${t.name} ${t.active ? 'ON' : 'OFF'}
-                </button>`
-            ).join('');
-        },
-        
-        testBeep() {
-            console.log('[UI] Test beep clicked');
-            session.engine.testBeep();
-        },
-        
-        testNote() {
-            console.log('[UI] Test note clicked');
-            session.testSimpleNote();
+    // ── Core play helper ──────────────────────────────────────────────────────
+    async function playTune(key) {
+        if (isBusy) {
+            console.warn('[UI] Still busy — ignoring request');
+            return;
         }
-    };
-    
-    // Expose functions to global scope for button onclick handlers
-    window.uiToggle = (i) => ui.toggle(i);
-    
-    // Attach event listeners to buttons
-    document.getElementById('btn-start').addEventListener('click', () => ui.start());
-    document.getElementById('btn-next').addEventListener('click', () => ui.next());
-    document.getElementById('btn-beep').addEventListener('click', () => ui.testBeep());
-    document.getElementById('btn-note').addEventListener('click', () => ui.testNote());
-    
+        isBusy = true;
+
+        try {
+            // 1. Stop whatever is currently playing and wait for it to fully release.
+            if (typeof session.stop === 'function') {
+                await session.stop();
+            }
+
+            // 2. Load the new tune (harp only — no instrument grid needed).
+            console.log('[UI] Loading tune:', key);
+            document.getElementById('tune-title').textContent = key.toUpperCase();
+
+            const loaded = await session.loadTune(key);
+            if (!loaded) {
+                console.error('[UI] Failed to load tune:', key);
+                return;
+            }
+
+            // 3. Play and auto-advance when the track finishes.
+            console.log('[UI] Calling play()...');
+            await session.play();
+
+            console.log('[UI] Playback started. AudioContext state:', session.audioContext?.state);
+
+            // Hook into the session's onEnded callback if available,
+            // so we automatically move to the next track when this one finishes.
+            if ('onEnded' in session) {
+                session.onEnded = () => {
+                    console.log('[UI] Track ended — auto-advancing');
+                    currentIdx = (currentIdx + 1) % tuneKeys.length;
+                    playTune(tuneKeys[currentIdx]);
+                };
+            }
+
+        } catch (err) {
+            console.error('[UI] playTune error:', err);
+            console.error('[UI] Error stack:', err.stack);
+        } finally {
+            isBusy = false;
+        }
+    }
+
+    // ── Button handlers ───────────────────────────────────────────────────────
+    document.getElementById('btn-prev').addEventListener('click', () => {
+        currentIdx = (currentIdx - 1 + tuneKeys.length) % tuneKeys.length;
+        playTune(tuneKeys[currentIdx]);
+    });
+
+    document.getElementById('btn-start').addEventListener('click', () => {
+        playTune(tuneKeys[currentIdx]);
+    });
+
+    document.getElementById('btn-next').addEventListener('click', () => {
+        currentIdx = (currentIdx + 1) % tuneKeys.length;
+        playTune(tuneKeys[currentIdx]);
+    });
+
+    document.getElementById('btn-beep').addEventListener('click', () => {
+        console.log('[UI] Test beep clicked');
+        session.engine.testBeep();
+    });
+
+    document.getElementById('btn-note').addEventListener('click', () => {
+        console.log('[UI] Test note clicked');
+        session.testSimpleNote();
+    });
+
     console.log('[Main] UI initialized and ready');
 </script>
 
-                                                  
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>      
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
-
 
 </body>
 </html>

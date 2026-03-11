@@ -256,8 +256,9 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     });
 
     // ── Text (ScrollingTextPlayer) ────────────────────────────────────────────
-    const SCROLLING_TEXT_PATH = '/ui/scrollingTextPlayer.js';
-    const DAWN_TEXTS_PATH     = '/data/dawnCrossingTexts.js';
+   
+const DAWN_TEXTS_PATH = new URL('/data/dawnCrossingTexts.js', import.meta.url).href;
+const SCROLLING_TEXT_PATH = new URL('/ui/scrollingTextPlayer.js', import.meta.url).href;
     let textPlayer = null;
     let sceneDone  = false;
 

@@ -316,9 +316,11 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     cloudImg.onerror = () => {};
 
     // ── Text ──────────────────────────────────────────────────────────────────
-    const SCROLLING_TEXT_PATH   = '/ui/scrollingTextPlayer.js';
-    const RETURN_TEXTS_PATH     = '/data/returnCrossingTexts.js';
-    let textPlayer = null;
+    
+const SCROLLING_TEXT_PATH = new URL('/ui/scrollingTextPlayer.js', import.meta.url).href;
+const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.url).href;
+
+	let textPlayer = null;
     let sceneDone  = false;
 
     const textTimer = setTimeout(async () => {

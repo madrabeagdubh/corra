@@ -192,21 +192,18 @@
                 return;
             }
 
-            // 3. Play and auto-advance when the track finishes.
+            // 3. Single-play mode: auto-advance to next track on completion.
+            session.loop    = false;
+            session.onEnded = () => {
+                console.log('[UI] Track ended — auto-advancing');
+                currentIdx = (currentIdx + 1) % tuneKeys.length;
+                playTune(tuneKeys[currentIdx]);
+            };
+
             console.log('[UI] Calling play()...');
             await session.play();
 
             console.log('[UI] Playback started. AudioContext state:', session.audioContext?.state);
-
-            // Hook into the session's onEnded callback if available,
-            // so we automatically move to the next track when this one finishes.
-            if ('onEnded' in session) {
-                session.onEnded = () => {
-                    console.log('[UI] Track ended — auto-advancing');
-                    currentIdx = (currentIdx + 1) % tuneKeys.length;
-                    playTune(tuneKeys[currentIdx]);
-                };
-            }
 
         } catch (err) {
             console.error('[UI] playTune error:', err);

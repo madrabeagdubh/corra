@@ -518,23 +518,23 @@ preload(){
         // DOM img — completely outside Phaser cameras, always screen-centred
         const el = document.createElement('img');
         // Try named asset first; fall back to sc01.png placeholder
-        el.src = `assets/${constellationId}.png`;
+        el.src = `assets/stars/${constellationId}.png`;
         el.onerror = () => { el.src = 'assets/sc01.png'; };
 
         el.style.cssText = [
+		
             'position:fixed;',
             'width:auto;',
             `max-height:${Math.round(H * 0.50)}px;`,
             `max-width:${Math.round(W * 0.70)}px;`,
-            'left:50%;top:50%;',
-            'transform:translate(-50%,-50%);',
+            'left:50%;top:45%;',
+            'transform:translate(-50%,-50%) scale(2);',
             'pointer-events:none;',
             'z-index:99993;',
             'opacity:0;',
             'transition:opacity 2.2s ease-in;',
             'mix-blend-mode:screen;',
         ].join('');
-
         document.body.appendChild(el);
         this._darkImageEl = el;
         this._darkImage   = true;
@@ -1010,6 +1010,12 @@ preload(){
                 const newTop = Math.max(endY, moonStartTop + dY);
                 moonEl.style.top  = newTop + 'px';
                 moonEl.style.left = (this._moonLockedLeft || 0) + 'px';  // enforce X lock
+
+                // Fade moon as it descends — fully transparent at H/2
+                const dragDist  = newTop - endY;
+                const halfRange = Math.max(H * 0.5 - endY, 1);
+                moonEl.style.opacity = String(Math.max(0, 1 - dragDist / halfRange));
+
                 this._updateSkipHint();
                 if (newTop > H * 0.65) {
                     this._triggerMoonSkip(moonEl);
@@ -1066,11 +1072,18 @@ preload(){
                 const floatBack = performance.now();
                 const BACK_MS = 600;
                 const loop = (now) => {
-                    const raw = Math.min((now - floatBack) / BACK_MS, 1);
-                    const t   = 1 - Math.pow(1 - raw, 3);
-                    moonEl.style.top = (fromTop + (endY - fromTop) * t) + 'px';
+                    const raw    = Math.min((now - floatBack) / BACK_MS, 1);
+                    const t      = 1 - Math.pow(1 - raw, 3);
+                    const curTop = fromTop + (endY - fromTop) * t;
+                    moonEl.style.top = curTop + 'px';
+
+                    // Restore opacity as moon rises back
+                    const dragDist  = curTop - endY;
+                    const halfRange = Math.max(H * 0.5 - endY, 1);
+                    moonEl.style.opacity = String(Math.max(0, 1 - dragDist / halfRange));
+
                     if (raw < 1) requestAnimationFrame(loop);
-                    else { moonEl.style.top = endY + 'px'; }
+                    else { moonEl.style.top = endY + 'px'; moonEl.style.opacity = '1'; }
                 };
                 requestAnimationFrame(loop);
             }
@@ -1184,17 +1197,19 @@ preload(){
         this._bgWheelsPaused = false;
         this._bgWheelsSpeedMult = 18;
 
-        // Animate moon falling off screen
+        // Animate moon falling off screen — continue from whatever opacity it
+        // already has (it may have been partially faded by the drag gesture).
         if (moonEl) {
             const H = this.H;
-            const startTop = parseFloat(moonEl.style.top) || 0;
-            const fallStart = performance.now();
-            const FALL_MS = 900;
+            const startTop     = parseFloat(moonEl.style.top) || 0;
+            const startOpacity = parseFloat(moonEl.style.opacity ?? '1');
+            const fallStart    = performance.now();
+            const FALL_MS      = 600;
             const fallLoop = (now) => {
-                const t = Math.min((now - fallStart) / FALL_MS, 1);
+                const t    = Math.min((now - fallStart) / FALL_MS, 1);
                 const ease = t * t;
-                moonEl.style.top  = (startTop + (H + 60 - startTop) * ease) + 'px';
-                moonEl.style.opacity = String(1 - ease);
+                moonEl.style.top     = (startTop + (H + 60 - startTop) * ease) + 'px';
+                moonEl.style.opacity = String(Math.max(0, startOpacity * (1 - ease)));
                 if (t < 1) requestAnimationFrame(fallLoop);
                 else { if (moonEl.parentNode) moonEl.parentNode.removeChild(moonEl); }
             };

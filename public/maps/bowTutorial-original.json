@@ -1,0 +1,66 @@
+
+{
+  "name": "ScáthachTraining",
+  "type": "tutorial",
+
+  "narrative": {
+    "exposition": [
+     {
+        "irish": "Gan fearg, gan faitíos,\ngan deifir; tarraing síar, agus scaoil an saighead.",
+        "english": "'Without anger, without fear, without haste;\ndraw back, and release the arrow.'"
+      }
+    ],
+
+    "onHit": [
+      {
+        "irish": "Go maith.",
+
+        "english": "Good."
+      },
+      {
+        "irish": "Tá tú ag foghlaim.",
+        "english": "You're learning."
+      },
+      {
+        "irish": "Sin é.",
+        "english": "That's it."
+      }
+    ],
+
+    "onMiss": [
+      {
+        "irish": "Tá tú ag foghlaim.",
+        "english": "You are learning."
+      },
+
+      {
+        "irish": "Haw!",
+        "english": "Ha!"
+      },
+      {
+        "irish": "Arís, le do thoil.",
+        "english": "Again, by your will."
+      },
+           {
+        "irish": "Bíonn gach tús lag.",
+        "english": "Every beginning is weak."
+      }
+      
+    ],   "farewell": [
+      {
+        "irish": "'Choinnaigh faobhar ar do urchar\nagus cothrom na féinne i do chroí.'",
+        "english":"'Keep your aim sharp\nand honour in your heart.'"
+      }
+    ]
+  },
+
+"targetSequence": [
+  { "x": 0.25, "y": 0.4 },
+  { "x": 0.75,  "y": 0.4 },
+  { "x": 0.25,  "y": 0.5 },
+  { "x": 0.75,  "y": 0.5 },
+  { "x": 0.5,  "y": 0.4 }
+] 
+}
+
+

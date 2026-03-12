@@ -39,6 +39,11 @@ let initialSliderValue = 0.05;
 // Module-level scrollContainer reference
 let scrollContainer = null;
 
+// Swipe nudge state
+let swipeNudgeTimer = null;
+let swipeNudgeCancelled = false;
+let swipeNudgePanning = false;   // true while the nudge itself is moving scrollLeft
+
 // Stat descriptions
 const statDescriptions = {
   attack: { irish: "Troid", english: "Fight" },
@@ -100,11 +105,13 @@ function createStatsDisplay(champion, currentOpacity) {
 
             item.onclick = (e) => {
                 e.stopPropagation();
+                cancelSwipeNudge();
                 createStatPopup(statName, currentOpacity);
             };
 
             item.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
+                cancelSwipeNudge();
                 createStatPopup(statName, currentOpacity);
             }, { passive: true });
 
@@ -383,6 +390,16 @@ function initMainHeroSelect() {
     0% { transform: scale(1); filter: brightness(1); }
     30% { transform: scale(1.2); filter: brightness(1.8) drop-shadow(0 0 10px #d4af37); }
     100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes swipeWiggle {
+    0%   { transform: translateX(0) scaleY(1); }
+    12%  { transform: translateX(-32px) scaleY(0.96); }
+    30%  { transform: translateX(26px) scaleY(1.03); }
+    48%  { transform: translateX(-16px) scaleY(0.98); }
+    64%  { transform: translateX(10px) scaleY(1.01); }
+    80%  { transform: translateX(-5px) scaleY(1); }
+    100% { transform: translateX(0) scaleY(1); }
 }
 
 @keyframes championBoogie {
@@ -682,6 +699,7 @@ function drawMoon(phase) {
     `;
 
     chooseButton.onclick = async () => {
+        cancelSwipeNudge();
         console.log('[DEBUG] Continue button clicked');
 
         try {
@@ -903,45 +921,43 @@ function drawMoon(phase) {
                 invocEnglish.style.transform  = 'translateY(-8px)';
 
                 setTimeout(() => {
+                    // Reveal the hero content BEFORE the veil fades — it sits
+                    // under the veil so the starfield is never exposed.
+                    const heroContainer = document.getElementById('heroSelect');
+                    if (heroContainer) {
+                        heroContainer.style.transition = 'opacity 0.01s';
+                        heroContainer.style.opacity = '1';
+                    }
+                    scrollContainer.style.opacity   = '1';
+                    scrollContainer.style.transform = 'translateY(0)';
+                    updateGlobalStats(firstChamp);
+
+                    // Now start the veil fade with content safely underneath
                     veil.style.opacity = '0';
 
-                    // Phase 3 (2200ms): champion rises from mist
+                    // Phase 3 (700ms): top panel settles in as veil clears
                     setTimeout(() => {
-                        // Reveal outer container first so children can be seen
-                        const heroContainer = document.getElementById('heroSelect');
-                        if (heroContainer) {
-                            heroContainer.style.transition = 'opacity 0.01s';
-                            heroContainer.style.opacity = '1';
+                        topPanel.style.opacity = '1';
+
+                        if (globalStatsBar) {
+                            globalStatsBar.style.opacity      = '0';
+                            globalStatsBar.style.transform    = 'translateY(10px)';
+                            globalStatsBar.style.transition   = 'opacity 0.9s ease, transform 0.9s ease';
+                            globalStatsBar.style.pointerEvents = 'auto';
+                            requestAnimationFrame(() => {
+                                globalStatsBar.style.opacity   = '1';
+                                globalStatsBar.style.transform = 'translateY(0)';
+                            });
                         }
-                        scrollContainer.style.opacity   = '1';
-                        scrollContainer.style.transform = 'translateY(0)';
 
-                        updateGlobalStats(firstChamp);
-
-                        // Phase 4 (3400ms): top panel and stats settle in
+                        // Phase 4: action button last
                         setTimeout(() => {
-                            topPanel.style.opacity = '1';
+                            bottomPanel.style.opacity = '1';
+                            veil.remove();
+                            runSwipeNudge();
+                        }, 900);
 
-                            if (globalStatsBar) {
-                                globalStatsBar.style.opacity      = '0';
-                                globalStatsBar.style.transform    = 'translateY(10px)';
-                                globalStatsBar.style.transition   = 'opacity 0.9s ease, transform 0.9s ease';
-                                globalStatsBar.style.pointerEvents = 'auto';
-                                requestAnimationFrame(() => {
-                                    globalStatsBar.style.opacity   = '1';
-                                    globalStatsBar.style.transform = 'translateY(0)';
-                                });
-                            }
-
-                            // Phase 5 (3900ms): action button last
-                            setTimeout(() => {
-                                bottomPanel.style.opacity = '1';
-                                veil.remove();
-                            }, 500);
-
-                        }, 1200);
-
-                    }, 400);
+                    }, 600);
                 }, 700);
 
             }, 1800);
@@ -955,70 +971,73 @@ function drawMoon(phase) {
             console.log('[HeroSelect] ✓ All champions rendered');
             initSwipe(scrollContainer, validChampions.length);
             initBackgroundParticles();
-            setTimeout(() => {
-                runSwipeNudge();
-            }, 5200);  // after atmospheric entrance completes
         }
     }
     
     renderBatch();
 }
 
+function cancelSwipeNudge() {
+    swipeNudgeCancelled = true;
+    swipeNudgePanning = false;
+    if (swipeNudgeTimer) { clearTimeout(swipeNudgeTimer); swipeNudgeTimer = null; }
+    if (scrollContainer) scrollContainer.style.scrollSnapType = 'x proximity';
+}
+
 function runSwipeNudge() {
-    if (!scrollContainer) return;
+    if (!scrollContainer || swipeNudgeCancelled) return;
+    swipeNudgeCancelled = false;
 
-    // Subtle: a drifting star-trail hint appears briefly at the edge of the
-    // current card rather than physically jerking the scroll container.
-    const hint = document.createElement('div');
-    hint.style.cssText = `
-        position: fixed;
-        bottom: 200px;
-        right: 18px;
-        z-index: 10010;
-        pointer-events: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        opacity: 0;
-        transform: translateX(8px);
-        transition: opacity 0.8s ease, transform 0.8s ease;
-    `;
+    // How far to pan — enough to reveal the neighbouring champion's edge + name
+    const PAN_PX    = Math.round(window.innerWidth * 0.42);
+    const EASE_MS   = 380;   // ms per leg of the pan
+    const HOLD_MS   = 120;   // pause at the extremes
+    const REPEAT_MS = 3000;  // gap between full cycles
 
-    for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('div');
-        dot.style.cssText = `
-            width: 5px; height: 5px;
-            border-radius: 50%;
-            background: #d4af37;
-            opacity: ${0.9 - i * 0.28};
-            transform: scale(${1 - i * 0.2});
-        `;
-        hint.appendChild(dot);
+    function easeInOut(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    const hintLabel = document.createElement('div');
-    hintLabel.textContent = 'scroll';
-    hintLabel.style.cssText = `
-        font-family: "Courier New", monospace;
-        font-size: 0.55rem;
-        color: rgba(212,175,55,0.5);
-        letter-spacing: 0.12em;
-        margin-top: 4px;
-        text-transform: lowercase;
-    `;
-    hint.appendChild(hintLabel);
-    document.body.appendChild(hint);
+    function animatePan(fromX, toX, durationMs, onDone) {
+        const start = performance.now();
+        const loop  = (now) => {
+            if (swipeNudgeCancelled) { scrollContainer.scrollLeft = fromX; return; }
+            const raw = Math.min((now - start) / durationMs, 1);
+            scrollContainer.scrollLeft = fromX + (toX - fromX) * easeInOut(raw);
+            if (raw < 1) requestAnimationFrame(loop);
+            else onDone();
+        };
+        requestAnimationFrame(loop);
+    }
 
-    setTimeout(() => {
-        hint.style.opacity   = '1';
-        hint.style.transform = 'translateX(0)';
-        setTimeout(() => {
-            hint.style.opacity   = '0';
-            hint.style.transform = 'translateX(8px)';
-            setTimeout(() => hint.remove(), 900);
-        }, 2800);
-    }, 600);
+    function runCycle() {
+        if (swipeNudgeCancelled || !scrollContainer) return;
+
+        scrollContainer.style.scrollSnapType = 'none';
+        swipeNudgePanning = true;
+
+        const baseX = scrollContainer.scrollLeft;
+
+        animatePan(baseX, baseX - PAN_PX, EASE_MS, () => {
+            if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x proximity'; return; }
+            setTimeout(() => {
+                animatePan(baseX - PAN_PX, baseX + PAN_PX, EASE_MS * 2, () => {
+                    if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x proximity'; return; }
+                    setTimeout(() => {
+                        animatePan(baseX + PAN_PX, baseX, EASE_MS, () => {
+                            swipeNudgePanning = false;
+                            scrollContainer.style.scrollSnapType = 'x proximity';
+                            if (!swipeNudgeCancelled) {
+                                swipeNudgeTimer = setTimeout(runCycle, REPEAT_MS);
+                            }
+                        });
+                    }, HOLD_MS);
+                });
+            }, HOLD_MS);
+        });
+    }
+
+    runCycle();
 }
 
 function initSwipe(scrollContainer, champCount) {
@@ -1027,6 +1046,8 @@ function initSwipe(scrollContainer, champCount) {
     let isScrolling = false;
 
     scrollContainer.addEventListener('scroll', () => {
+        // Ignore scroll events that we triggered ourselves
+        if (!swipeNudgePanning) cancelSwipeNudge();
         isScrolling = true;
         clearTimeout(debounceTimer);
         

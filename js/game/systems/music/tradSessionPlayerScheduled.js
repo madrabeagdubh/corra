@@ -55,6 +55,9 @@ export class TradSessionPlayer {
         this.loopTimeoutId      = null;
         this._tuneType          = null;
 
+        this.loop    = true;   // set false to play once then fire onEnded
+        this.onEnded = null;   // callback fired after a single-play completes
+
         this.stage = document.createElement('div');
         this.stage.style.display = 'none';
         document.body.appendChild(this.stage);
@@ -309,6 +312,16 @@ export class TradSessionPlayer {
 
         this.loopTimeoutId = setTimeout(async () => {
             if (!this.isPlaying) return;
+
+            // Single-play mode: stop and fire onEnded instead of looping.
+            if (!this.loop) {
+                console.log('[TradSessionPlayer] Track ended (loop=false), firing onEnded');
+                this.isPlaying = false;
+                if (typeof this.onEnded === 'function') {
+                    this.onEnded();
+                }
+                return;
+            }
 
             console.log('[Loop] Restarting all synths...');
 

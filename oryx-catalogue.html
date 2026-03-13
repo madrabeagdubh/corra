@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oryx Catalogue — Fenians</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --sidhe: #2d5a3d;
+    --dagda: #c8922a;
+    --morrigan: #6b3fa0;
+    --bg: #0d0f0e;
+    --bg2: #13160f;
+    --bg3: #1a1f17;
+    --border: #2a3028;
+    --text: #c8c4b4;
+    --text-dim: #5a5f52;
+    --highlight: #c8922a;
+    --green-glow: rgba(45,90,61,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  #header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+
+  #header h1 {
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 16px;
+    color: var(--dagda);
+    letter-spacing: 2px;
+    text-shadow: 0 0 12px rgba(200,146,42,0.4);
+  }
+
+  .sheet-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tab {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { border-color: var(--sidhe); color: var(--text); }
+  .tab.active { background: var(--sidhe); border-color: var(--sidhe); color: #fff; }
+
+  .zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .zoom-controls button {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 24px; height: 24px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+
+  .zoom-controls button:hover { border-color: var(--dagda); color: var(--dagda); }
+  #zoom-label { color: var(--text-dim); font-size: 11px; min-width: 36px; text-align: center; }
+
+  /* MAIN LAYOUT */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* CANVAS AREA */
+  #canvas-wrap {
+    flex: 1;
+    overflow: scroll;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(45,90,61,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(107,63,160,0.04) 0%, transparent 50%),
+      var(--bg);
+    position: relative;
+    min-width: 0;
+  }
+
+  #canvas-container {
+    position: relative;
+    display: inline-block;
+    cursor: crosshair;
+  }
+
+  #sheet-canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  #grid-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    image-rendering: pixelated;
+  }
+
+  #hover-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: 260px;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width 0.2s;
+  }
+
+  #sidebar.collapsed {
+    width: 36px;
+    overflow: hidden;
+  }
+
+  #sidebar.collapsed > *:not(#sidebar-toggle-wrap) {
+    display: none;
+  }
+
+  #sidebar-toggle-wrap {
+    padding: 6px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+  }
+
+  #sidebar-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 24px; height: 24px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #sidebar-toggle:hover { border-color: var(--dagda); color: var(--dagda); }
+
+  #tile-preview {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg3);
+  }
+
+  #preview-canvas {
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+    background: repeating-conic-gradient(#1a1f17 0% 25%, #13160f 0% 50%) 0 0 / 8px 8px;
+  }
+
+  #tile-info {
+    text-align: center;
+    width: 100%;
+  }
+
+  #tile-index {
+    font-size: 18px;
+    color: var(--dagda);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  #tile-coords {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  #tile-label-wrap {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  #tile-label {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  #tile-label:focus { border-color: var(--sidhe); }
+  #tile-label::placeholder { color: var(--text-dim); }
+
+  #save-label {
+    background: var(--sidhe);
+    border: none;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    transition: background 0.15s;
+  }
+
+  #save-label:hover { background: #3d7a54; }
+
+  /* CATALOGUE LIST */
+  #catalogue-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  #catalogue-section h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cat-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid rgba(42,48,40,0.5);
+  }
+
+  .cat-entry:hover { background: var(--bg3); }
+  .cat-entry:hover .cat-remove { opacity: 1; }
+
+  .cat-thumb {
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .cat-idx { color: var(--dagda); min-width: 36px; font-size: 11px; }
+  .cat-name { flex: 1; color: var(--text); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cat-remove {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: #c84040;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: opacity 0.15s;
+  }
+
+  /* EXPORT */
+  #export-wrap {
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+  }
+
+  #export-wrap button {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+
+  #export-wrap button:hover { border-color: var(--dagda); color: var(--dagda); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--sidhe); }
+
+  #no-selection {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    text-align: center;
+    padding: 8px 0;
+  }
+
+  .grid-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  #debug-bar {
+    font-size: 10px;
+    color: #5a5f52;
+    margin-left: 8px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>⟨ Oryx Catalogue ⟩</h1>
+  <div class="sheet-tabs" id="sheet-tabs"></div>
+  <label class="grid-toggle">
+    <input type="checkbox" id="grid-toggle" checked> grid
+  </label>
+  <div class="zoom-controls">
+    <button id="zoom-out">−</button>
+    <span id="zoom-label">1×</span>
+    <button id="zoom-in">+</button>
+  </div>
+  <span id="debug-bar">tap a tile…</span>
+</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <div id="canvas-container">
+      <canvas id="sheet-canvas"></canvas>
+      <canvas id="grid-canvas"></canvas>
+      <canvas id="hover-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-toggle-wrap">
+      <button id="sidebar-toggle" title="toggle sidebar">⟩</button>
+    </div>
+    <div id="tile-preview">
+      <canvas id="preview-canvas" width="96" height="96"></canvas>
+      <div id="tile-info">
+        <div id="no-selection">click a tile to inspect</div>
+        <div id="tile-index" style="display:none"></div>
+        <div id="tile-coords" style="display:none"></div>
+        <div id="tile-label-wrap" style="display:none">
+          <input type="text" id="tile-label" placeholder="label this tile…" />
+          <button id="save-label">add</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="catalogue-section">
+      <h2>Catalogue</h2>
+      <div id="catalogue-list"></div>
+    </div>
+
+    <div id="export-wrap">
+      <button id="import-json">import JSON</button>
+      <button id="export-json">export JSON</button>
+      <button id="export-js">export JS</button>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none">
+  </div>
+</div>
+
+<script>
+// ─── SHEET DEFINITIONS ───────────────────────────────────────────────────────
+const SHEETS = [
+  { id: 'world',     label: 'World',     file: '/assets/oryx/oryx_16bit_fantasy_world_trans.png',     tileW: 24, tileH: 24, margin: 24, spacing: 0, firstGid: 1 },
+  { id: 'creatures', label: 'Creatures', file: '/assets/oryx/oryx_16bit_fantasy_creatures_trans.png', tileW: 24, tileH: 24, margin: 0,  spacing: 0, firstGid: 1765 },
+  { id: 'items',     label: 'Items',     file: '/assets/oryx/oryx_16bit_fantasy_items_trans.png',     tileW: 16, tileH: 16, margin: 0,  spacing: 0, firstGid: 2251 },
+  { id: 'fx',        label: 'FX',        file: '/assets/oryx/oryx_16bit_fantasy_fx_trans.png',        tileW: 24, tileH: 24, margin: 0,  spacing: 0, firstGid: 2427 },
+  { id: 'classes',   label: 'Classes',   file: '/assets/oryx/oryx_16bit_fantasy_classes_trans.png',   tileW: 26, tileH: 28, margin: 0,  spacing: 0, firstGid: 3000 },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentSheet = SHEETS[0];
+let zoom = window.innerWidth < 700 ? 1 : 2;
+let showGrid = true;
+let selectedTile = null;
+let hoveredTile = null;
+let catalogue = JSON.parse(localStorage.getItem('oryx-catalogue') || '{}');
+let loadedImages = {};
+
+// ─── ELEMENTS ────────────────────────────────────────────────────────────────
+const sheetCanvas  = document.getElementById('sheet-canvas');
+const gridCanvas   = document.getElementById('grid-canvas');
+const hoverCanvas  = document.getElementById('hover-canvas');
+const previewCanvas = document.getElementById('preview-canvas');
+const sheetCtx     = sheetCanvas.getContext('2d');
+const gridCtx      = gridCanvas.getContext('2d');
+const hoverCtx     = hoverCanvas.getContext('2d');
+const previewCtx   = previewCanvas.getContext('2d');
+
+// ─── SHEET TABS ──────────────────────────────────────────────────────────────
+const tabsEl = document.getElementById('sheet-tabs');
+SHEETS.forEach(s => {
+  const btn = document.createElement('button');
+  btn.className = 'tab' + (s.id === currentSheet.id ? ' active' : '');
+  btn.textContent = s.label;
+  btn.onclick = () => switchSheet(s);
+  tabsEl.appendChild(btn);
+});
+
+function switchSheet(sheet) {
+  currentSheet = sheet;
+  selectedTile = null;
+  hoveredTile = null;
+  tabsEl.querySelectorAll('.tab').forEach((b, i) => {
+    b.classList.toggle('active', SHEETS[i].id === sheet.id);
+  });
+  clearSelection();
+  loadSheet(sheet);
+}
+
+// ─── LOAD & DRAW SHEET ───────────────────────────────────────────────────────
+function loadSheet(sheet) {
+  if (loadedImages[sheet.id]) {
+    drawSheet(sheet, loadedImages[sheet.id]);
+    return;
+  }
+  const img = new Image();
+  img.onload = () => {
+    loadedImages[sheet.id] = img;
+    drawSheet(sheet, img);
+  };
+  img.onerror = () => console.error('Failed to load', sheet.file);
+  img.src = sheet.file;
+}
+
+function getScaledSize(sheet, img) {
+  return { w: img.naturalWidth * zoom, h: img.naturalHeight * zoom };
+}
+
+function drawSheet(sheet, img) {
+  const { w, h } = getScaledSize(sheet, img);
+  [sheetCanvas, gridCanvas, hoverCanvas].forEach(c => {
+    c.width = w; c.height = h;
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+  });
+
+  // Draw image
+  sheetCtx.imageSmoothingEnabled = false;
+  sheetCtx.drawImage(img, 0, 0, w, h);
+
+  drawGrid(sheet, img);
+}
+
+function drawGrid(sheet, img) {
+  if (!img) return;
+  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+  if (!showGrid) return;
+
+  const { tileW, tileH, margin, spacing } = sheet;
+  const { w, h } = getScaledSize(sheet, img);
+  const tw = tileW * zoom;
+  const th = tileH * zoom;
+  const mx = margin * zoom;
+  const my = margin * zoom;
+  const sp = spacing * zoom;
+
+  const cols = Math.floor((img.naturalWidth - margin * 2 + spacing) / (tileW + spacing));
+  const rows = Math.floor((img.naturalHeight - margin * 2 + spacing) / (tileH + spacing));
+
+  gridCtx.strokeStyle = 'rgba(45,90,61,0.5)';
+  gridCtx.lineWidth = 0.5;
+
+  for (let c = 0; c <= cols; c++) {
+    const x = mx + c * (tw + sp);
+    gridCtx.beginPath();
+    gridCtx.moveTo(x, my);
+    gridCtx.lineTo(x, my + rows * (th + sp));
+    gridCtx.stroke();
+  }
+  for (let r = 0; r <= rows; r++) {
+    const y = my + r * (th + sp);
+    gridCtx.beginPath();
+    gridCtx.moveTo(mx, y);
+    gridCtx.lineTo(mx + cols * (tw + sp), y);
+    gridCtx.stroke();
+  }
+
+  // Draw catalogue labels
+  const entries = getCatalogueForSheet(sheet);
+  if (Object.keys(entries).length === 0) return;
+  gridCtx.fillStyle = 'rgba(200,146,42,0.7)';
+  for (const [idx, label] of Object.entries(entries)) {
+    const localIdx = parseInt(idx) - sheet.firstGid;
+    const col = localIdx % cols;
+    const row = Math.floor(localIdx / cols);
+    const x = mx + col * (tw + sp);
+    const y = my + row * (th + sp);
+    gridCtx.fillRect(x, y, 3, 3);
+  }
+}
+
+function getCatalogueForSheet(sheet) {
+  const result = {};
+  for (const [idx, label] of Object.entries(catalogue)) {
+    const n = parseInt(idx);
+    if (n >= sheet.firstGid) result[idx] = label;
+  }
+  return result;
+}
+
+// ─── COORDINATE HELPER ───────────────────────────────────────────────────────
+function clientToCanvas(clientX, clientY, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+function debug(msg) {
+  const el = document.getElementById('debug-bar');
+  if (el) el.textContent = msg;
+}
+
+function handleTileInteraction(clientX, clientY) {
+  const img = loadedImages[currentSheet.id];
+  if (!img) { debug('no image loaded'); return; }
+  const { x, y } = clientToCanvas(clientX, clientY, hoverCanvas);
+  debug(`canvas: ${Math.round(x)},${Math.round(y)}  canvas size: ${hoverCanvas.width}×${hoverCanvas.height}`);
+  const tile = tileAtPoint(x, y, currentSheet, img);
+  if (!tile) { debug('no tile at that point'); return; }
+  debug(`GID ${tile.globalIdx} | col ${tile.col} row ${tile.row}`);
+  selectedTile = tile;
+  drawHover(tile);
+  showTileInfo(tile, img);
+}
+
+// ─── HOVER & CLICK ───────────────────────────────────────────────────────────
+function tileAtPoint(x, y, sheet, img) {
+  const { tileW, tileH, margin, spacing } = sheet;
+  const tw = tileW * zoom;
+  const th = tileH * zoom;
+  const mx = margin * zoom;
+  const my = margin * zoom;
+  const sp = spacing * zoom;
+
+  const cols = Math.floor((img.naturalWidth - margin * 2 + spacing) / (tileW + spacing));
+  const rows = Math.floor((img.naturalHeight - margin * 2 + spacing) / (tileH + spacing));
+
+  const rx = x - mx;
+  const ry = y - my;
+  if (rx < 0 || ry < 0) return null;
+
+  const col = Math.floor(rx / (tw + sp));
+  const row = Math.floor(ry / (th + sp));
+  if (col >= cols || row >= rows) return null;
+
+  const localIdx = row * cols + col;
+  const globalIdx = sheet.firstGid + localIdx;
+  return { col, row, localIdx, globalIdx, cols, rows };
+}
+
+hoverCanvas.addEventListener('mousemove', e => {
+  const img = loadedImages[currentSheet.id];
+  if (!img) return;
+  const { x, y } = clientToCanvas(e.clientX, e.clientY, hoverCanvas);
+  const tile = tileAtPoint(x, y, currentSheet, img);
+  if (!tile) { hoverCtx.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height); return; }
+  hoveredTile = tile;
+  drawHover(tile);
+});
+
+hoverCanvas.addEventListener('mouseleave', () => {
+  hoverCtx.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height);
+});
+
+hoverCanvas.addEventListener('click', e => {
+  handleTileInteraction(e.clientX, e.clientY);
+});
+
+// ─── TOUCH SUPPORT ────────────────────────────────────────────────────────────
+// Listen on the canvas itself but fully passive — never preventDefault
+// Use a movement threshold to distinguish tap from scroll drag
+let touchStartX = 0, touchStartY = 0;
+
+hoverCanvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+hoverCanvas.addEventListener('touchend', e => {
+  const touch = e.changedTouches[0];
+  const dx = Math.abs(touch.clientX - touchStartX);
+  const dy = Math.abs(touch.clientY - touchStartY);
+  // Only treat as a tap if finger barely moved (not a scroll drag)
+  if (dx < 8 && dy < 8) {
+    handleTileInteraction(touch.clientX, touch.clientY);
+  }
+}, { passive: true });
+
+function drawHover(tile) {
+  const { tileW, tileH, margin, spacing } = currentSheet;
+  const tw = tileW * zoom;
+  const th = tileH * zoom;
+  const mx = margin * zoom;
+  const my = margin * zoom;
+  const sp = spacing * zoom;
+
+  hoverCtx.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height);
+
+  // hover highlight
+  const x = mx + tile.col * (tw + sp);
+  const y = my + tile.row * (th + sp);
+
+  hoverCtx.fillStyle = 'rgba(200,146,42,0.15)';
+  hoverCtx.fillRect(x, y, tw, th);
+  hoverCtx.strokeStyle = 'rgba(200,146,42,0.8)';
+  hoverCtx.lineWidth = 1;
+  hoverCtx.strokeRect(x + 0.5, y + 0.5, tw - 1, th - 1);
+
+  // selected highlight
+  if (selectedTile) {
+    const sx = mx + selectedTile.col * (tw + sp);
+    const sy = my + selectedTile.row * (th + sp);
+    hoverCtx.fillStyle = 'rgba(45,90,61,0.2)';
+    hoverCtx.fillRect(sx, sy, tw, th);
+    hoverCtx.strokeStyle = 'rgba(45,90,61,0.9)';
+    hoverCtx.lineWidth = 1.5;
+    hoverCtx.strokeRect(sx + 0.5, sy + 0.5, tw - 1, th - 1);
+  }
+}
+
+// ─── TILE INFO ────────────────────────────────────────────────────────────────
+function showTileInfo(tile, img) {
+  const { tileW, tileH, margin, spacing } = currentSheet;
+  const { col, row, globalIdx } = tile;
+  const sp = spacing;
+
+  // Draw preview (4× scale)
+  const sx = margin + col * (tileW + sp);
+  const sy = margin + row * (tileH + sp);
+  previewCtx.clearRect(0, 0, 96, 96);
+  previewCtx.imageSmoothingEnabled = false;
+  // centre it
+  const scale = Math.floor(96 / Math.max(tileW, tileH));
+  const pw = tileW * scale;
+  const ph = tileH * scale;
+  const ox = Math.floor((96 - pw) / 2);
+  const oy = Math.floor((96 - ph) / 2);
+  previewCtx.drawImage(img, sx, sy, tileW, tileH, ox, oy, pw, ph);
+
+  document.getElementById('no-selection').style.display = 'none';
+  const idxEl = document.getElementById('tile-index');
+  const coordEl = document.getElementById('tile-coords');
+  const labelWrap = document.getElementById('tile-label-wrap');
+  const labelInput = document.getElementById('tile-label');
+
+  idxEl.style.display = '';
+  coordEl.style.display = '';
+  labelWrap.style.display = '';
+
+  idxEl.textContent = `GID ${globalIdx}`;
+  coordEl.textContent = `col ${col}  row ${row}  local ${tile.localIdx}`;
+
+  const existing = catalogue[globalIdx] || '';
+  labelInput.value = existing;
+  // no autofocus — prevents keyboard popping up on mobile
+}
+
+function clearSelection() {
+  document.getElementById('no-selection').style.display = '';
+  document.getElementById('tile-index').style.display = 'none';
+  document.getElementById('tile-coords').style.display = 'none';
+  document.getElementById('tile-label-wrap').style.display = 'none';
+  previewCtx.clearRect(0, 0, 96, 96);
+}
+
+// ─── SAVE LABEL ──────────────────────────────────────────────────────────────
+document.getElementById('save-label').addEventListener('click', saveLabel);
+document.getElementById('tile-label').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveLabel();
+});
+
+function saveLabel() {
+  if (!selectedTile) return;
+  const val = document.getElementById('tile-label').value.trim();
+  if (val) {
+    catalogue[selectedTile.globalIdx] = val;
+  } else {
+    delete catalogue[selectedTile.globalIdx];
+  }
+  localStorage.setItem('oryx-catalogue', JSON.stringify(catalogue));
+  renderCatalogueList();
+  // redraw grid dots
+  const img = loadedImages[currentSheet.id];
+  if (img) drawGrid(currentSheet, img);
+}
+
+// ─── CATALOGUE LIST ───────────────────────────────────────────────────────────
+function renderCatalogueList() {
+  const list = document.getElementById('catalogue-list');
+  list.innerHTML = '';
+  const entries = Object.entries(catalogue).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:8px 4px">no labelled tiles yet</div>';
+    return;
+  }
+
+  entries.forEach(([idx, label]) => {
+    const gid = parseInt(idx);
+    const sheet = SHEETS.slice().reverse().find(s => gid >= s.firstGid) || SHEETS[0];
+    const img = loadedImages[sheet.id];
+
+    const entry = document.createElement('div');
+    entry.className = 'cat-entry';
+    entry.onclick = () => {
+      switchSheet(sheet);
+      // after load, jump to tile
+      setTimeout(() => scrollToTile(gid, sheet), 100);
+    };
+
+    // thumb
+    const thumb = document.createElement('canvas');
+    thumb.className = 'cat-thumb';
+    thumb.width = 24; thumb.height = 24;
+    if (img) {
+      const { tileW, tileH, margin, spacing } = sheet;
+      const localIdx = gid - sheet.firstGid;
+      const cols = Math.floor((img.naturalWidth - margin * 2 + spacing) / (tileW + spacing));
+      const col = localIdx % cols;
+      const row = Math.floor(localIdx / cols);
+      const sx = margin + col * (tileW + spacing);
+      const sy = margin + row * (tileH + spacing);
+      const ctx = thumb.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, sx, sy, tileW, tileH, 0, 0, 24, 24);
+    }
+
+    const idxSpan = document.createElement('span');
+    idxSpan.className = 'cat-idx';
+    idxSpan.textContent = gid;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'cat-name';
+    nameSpan.textContent = label;
+
+    const remove = document.createElement('button');
+    remove.className = 'cat-remove';
+    remove.textContent = '×';
+    remove.onclick = (e) => {
+      e.stopPropagation();
+      delete catalogue[idx];
+      localStorage.setItem('oryx-catalogue', JSON.stringify(catalogue));
+      renderCatalogueList();
+      const img2 = loadedImages[currentSheet.id];
+      if (img2) drawGrid(currentSheet, img2);
+    };
+
+    entry.append(thumb, idxSpan, nameSpan, remove);
+    list.appendChild(entry);
+  });
+}
+
+function scrollToTile(gid, sheet) {
+  const img = loadedImages[sheet.id];
+  if (!img) return;
+  const { tileW, tileH, margin, spacing } = sheet;
+  const localIdx = gid - sheet.firstGid;
+  const cols = Math.floor((img.naturalWidth - margin * 2 + spacing) / (tileW + spacing));
+  const col = localIdx % cols;
+  const row = Math.floor(localIdx / cols);
+  const x = (margin + col * (tileW + spacing)) * zoom;
+  const y = (margin + row * (tileH + spacing)) * zoom;
+  const wrap = document.getElementById('canvas-wrap');
+  wrap.scrollTo({ left: x - 100, top: y - 100, behavior: 'smooth' });
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+// ─── IMPORT ───────────────────────────────────────────────────────────────────
+document.getElementById('import-json').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      const count = Object.keys(imported).length;
+      // Merge with existing (imported wins on conflict)
+      Object.assign(catalogue, imported);
+      localStorage.setItem('oryx-catalogue', JSON.stringify(catalogue));
+      renderCatalogueList();
+      const img = loadedImages[currentSheet.id];
+      if (img) drawGrid(currentSheet, img);
+      debug(`imported ${count} tiles`);
+    } catch(err) {
+      debug('import failed: invalid JSON');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // reset so same file can be re-imported
+});
+
+document.getElementById('export-json').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(catalogue, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'oryx-catalogue.json';
+  a.click();
+});
+
+document.getElementById('export-js').addEventListener('click', () => {
+  const lines = Object.entries(catalogue)
+    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+    .map(([k, v]) => `  ${v.toUpperCase().replace(/\s+/g, '_')}: ${k},`);
+  const js = `// Oryx 16-bit Fantasy — Tile Index Map\nexport const TILES = {\n${lines.join('\n')}\n};\n`;
+  const blob = new Blob([js], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'oryx-tiles.js';
+  a.click();
+});
+
+// ─── ZOOM ─────────────────────────────────────────────────────────────────────
+document.getElementById('zoom-in').addEventListener('click', () => {
+  if (zoom >= 6) return;
+  zoom++;
+  document.getElementById('zoom-label').textContent = zoom + '×';
+  const img = loadedImages[currentSheet.id];
+  if (img) drawSheet(currentSheet, img);
+});
+
+document.getElementById('zoom-out').addEventListener('click', () => {
+  if (zoom <= 1) return;
+  zoom--;
+  document.getElementById('zoom-label').textContent = zoom + '×';
+  const img = loadedImages[currentSheet.id];
+  if (img) drawSheet(currentSheet, img);
+});
+
+// ─── GRID TOGGLE ──────────────────────────────────────────────────────────────
+document.getElementById('grid-toggle').addEventListener('change', e => {
+  showGrid = e.target.checked;
+  const img = loadedImages[currentSheet.id];
+  if (img) drawGrid(currentSheet, img);
+});
+
+// ─── SIDEBAR TOGGLE ───────────────────────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+sidebarToggle.addEventListener('click', () => {
+  sidebar.classList.toggle('collapsed');
+  sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? '⟨' : '⟩';
+});
+
+// Start collapsed on narrow screens
+if (window.innerWidth < 700) {
+  sidebar.classList.add('collapsed');
+  sidebarToggle.textContent = '⟨';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.getElementById('zoom-label').textContent = zoom + '×';
+loadSheet(currentSheet);
+renderCatalogueList();
+</script>
+</body>
+</html>
+

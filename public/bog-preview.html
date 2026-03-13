@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bog Generator — Fenians</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Share+Tech+Mono&display=swap');
+  :root{--bg:#0d0f0e;--bg2:#13160f;--bg3:#1a1f17;--border:#2a3028;--dagda:#c8922a;--sidhe:#2d5a3d;--text:#c8c4b4;--dim:#5a5f52;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  #header{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
+  h1{font-family:'Uncial Antiqua',serif;font-size:15px;color:var(--dagda);text-shadow:0 0 10px rgba(200,146,42,0.4);letter-spacing:2px;}
+  .ctrl{display:flex;align-items:center;gap:5px;}
+  .ctrl label{color:var(--dim);font-size:11px;}
+  input[type=range]{accent-color:var(--sidhe);width:72px;}
+  input[type=number]{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 5px;width:50px;font-family:'Share Tech Mono',monospace;font-size:11px;border-radius:2px;}
+  button{background:var(--sidhe);border:none;color:#fff;padding:5px 12px;border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:12px;transition:background 0.15s;}
+  button:hover{background:#3d7a54;}
+  button.sec{background:var(--bg3);border:1px solid var(--border);color:var(--text);}
+  button.sec:hover{border-color:var(--dagda);color:var(--dagda);}
+  #status{margin-left:auto;color:var(--dim);font-size:11px;}
+  #main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:16px;}
+  canvas{image-rendering:pixelated;display:block;}
+  .zrow{display:flex;align-items:center;gap:5px;}
+  .zrow button{width:22px;height:22px;padding:0;font-size:14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);}
+  #zlabel{color:var(--dim);min-width:26px;text-align:center;font-size:11px;}
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>Portach</h1>
+  <div class="ctrl"><label>w</label><input type="number" id="iw" value="50" min="10" max="120"></div>
+  <div class="ctrl"><label>h</label><input type="number" id="ih" value="50" min="10" max="120"></div>
+  <div class="ctrl"><label>water</label><input type="range" id="ifill" min="25" max="65" value="40"><span id="lfill">40%</span></div>
+  <div class="ctrl"><label>smooth</label><input type="range" id="ismooth" min="1" max="10" value="5"><span id="lsmooth">5</span></div>
+  <button id="btn-gen">generate</button>
+  <button id="btn-exp" class="sec">export</button>
+  <div class="zrow">
+    <button id="zm">-</button>
+    <span id="zlabel">2x</span>
+    <button id="zp">+</button>
+  </div>
+  <span id="status">ready</span>
+</div>
+<div id="main"><canvas id="c0"></canvas></div>
+<script>
+// ─── VERIFIED TILE GIDs ──────────────────────────────────────
+// Sheet: oryx_16bit_fantasy_world_trans.png, 24x24px, 24px margin, 54 cols
+var T = {
+  // BOG WATER — row 6, teal (GIDs 325-351)
+  water: [325,326,327,328,329,330,331,332,333,334,335,336,337,338,339,340,341,342,343,344,345,346,347,348,349,350,351],
+
+  // BOG GROUND — confirmed GID 733, and neighbours in same row
+  ground: [733],
+
+  // SHORE EDGES — earth/water transitions, col 13-15
+  // Row 27: NW corner (land right/below, water top-left)
+  eNW: [1472,1473,1474],
+  // Row 28: N edge (water above)
+  eN:  [1526,1527,1528],
+  // Row 29: SW corner
+  eSW: [1580,1581,1582],
+  // Row 30-31: solid bog ground confirmed
+  bogSolid: [1634,1635,1636,1688,1689,1690],
+  // Row 32: NE corner
+  eNE: [1742,1743,1744],
+  // Row 33: E edge
+  eE:  [1796,1797,1798],
+  // Row 25-26: S bank
+  eS:  [1364,1365,1366,1418,1419,1420],
+  // Row 34-35: W edge (mirrored)
+  eW:  [1850,1851,1852,1904,1905,1906],
+  // Row 36: SE corner
+  eSE: [1958,1959,1960],
+
+  // WATER SURFACE DECOS — lillipads on water
+  lillipads: [54],
+
+  // LAND DECOS — scattered on ground
+  shrubs:  [44,45,46,47,48],        // green shrubs (row 0 cols 43-47)
+  stumps:  [49,50,51,52,53],        // brown stumps/rocks (row 0 cols 48-52)
+  trees:   [209],                   // bog tree
+  treecluster: [321,322,323,324],   // tree cluster and neighbours
+
+  // RUINS — walls/steps scattered on land
+  ruins: [271,272,273,274,275,276,277,278,279,280,281,282,283,284,285,286,287,288,289,290,291,292,293,294,295,296,297],
+
+  // DOORS/PORTALS — placed at special points (1 per map)
+  doors: [137,138,139,140,141,142,143,144,145,146,147,148,149,150]
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function cell(g,x,y){if(x<0||y<0||y>=g.length||x>=g[0].length)return 1;return g[y][x];}
+function wet(g,x,y){return cell(g,x,y)===0;}
+
+// ─── CELLULAR AUTOMATA ───────────────────────────────────────
+function buildStructure(W,H,fill,iters){
+  var g=[];
+  for(var y=0;y<H;y++){
+    g[y]=[];
+    for(var x=0;x<W;x++)
+      g[y][x]=(x===0||y===0||x===W-1||y===H-1)?1:(Math.random()<fill?1:0);
+  }
+  for(var i=0;i<iters;i++){
+    var n=g.map(function(r){return r.slice();});
+    for(var y=1;y<H-1;y++) for(var x=1;x<W-1;x++){
+      var wc=0;
+      for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++) if(g[y+dy][x+dx]===0)wc++;
+      n[y][x]=g[y][x]===0?(wc>=4?0:1):(wc>=5?0:1);
+    }
+    g=n;
+  }
+  return g;
+}
+
+// ─── DISTANCE TO WATER ───────────────────────────────────────
+function distToWater(g,x,y){
+  for(var d=1;d<=8;d++)
+    for(var dy=-d;dy<=d;dy++) for(var dx=-d;dx<=d;dx++)
+      if(Math.abs(dx)+Math.abs(dy)===d&&wet(g,x+dx,y+dy))return d;
+  return 9;
+}
+
+// ─── SHORE TILE ──────────────────────────────────────────────
+function shoreTile(g,x,y){
+  var n=wet(g,x,y-1), ne=wet(g,x+1,y-1), e=wet(g,x+1,y);
+  var se=wet(g,x+1,y+1), s=wet(g,x,y+1), sw=wet(g,x-1,y+1);
+  var w=wet(g,x-1,y), nw=wet(g,x-1,y-1);
+  if(!n&&!ne&&!e&&!se&&!s&&!sw&&!w&&!nw) return null;
+  if(n&&e) return pick(T.eNE);
+  if(s&&e) return pick(T.eSE);
+  if(s&&w) return pick(T.eSW);
+  if(n&&w) return pick(T.eNW);
+  if(n)    return pick(T.eN);
+  if(s)    return pick(T.eS);
+  if(e)    return pick(T.eE);
+  if(w)    return pick(T.eW);
+  if(ne)   return pick(T.eNE);
+  if(se)   return pick(T.eSE);
+  if(sw)   return pick(T.eSW);
+  if(nw)   return pick(T.eNW);
+  return null;
+}
+
+// ─── DECORATE ────────────────────────────────────────────────
+function decorate(struct){
+  var H=struct.length, W=struct[0].length;
+  // Pass 1: base layer
+  var base=[], deco=[];
+  for(var y=0;y<H;y++){
+    base[y]=[]; deco[y]=[];
+    for(var x=0;x<W;x++){
+      deco[y][x]=0;
+      if(struct[y][x]===0){
+        base[y][x]=pick(T.water);
+        // Lillipad on water, rare
+        if(Math.random()<0.03) deco[y][x]=pick(T.lillipads);
+      } else {
+        var d=distToWater(struct,x,y);
+        var shore=shoreTile(struct,x,y);
+        if(shore){
+          base[y][x]=shore;
+        } else {
+          // Inner land: use confirmed solid bog ground
+          base[y][x]=pick(T.bogSolid);
+          // Deco layer on inner land only (dist > 2)
+          if(d>2){
+            var r=Math.random();
+            if(r<0.04)       deco[y][x]=pick(T.shrubs);
+            else if(r<0.06)  deco[y][x]=pick(T.stumps);
+            else if(r<0.065) deco[y][x]=pick(T.trees);
+            else if(r<0.075) deco[y][x]=pick(T.ruins);
+          }
+        }
+      }
+    }
+  }
+  // Place one portal/door on a dry inner tile
+  var placed=false;
+  for(var attempt=0;attempt<200&&!placed;attempt++){
+    var px=Math.floor(Math.random()*(W-4))+2;
+    var py=Math.floor(Math.random()*(H-4))+2;
+    if(struct[py][px]===1 && distToWater(struct,px,py)>3){
+      deco[py][px]=T.doors[T.doors.length-1]; // glowing portal last in array
+      placed=true;
+    }
+  }
+  return {base:base, deco:deco};
+}
+
+function generateBog(w,h,fill,smooth){
+  return decorate(buildStructure(w,h,fill,smooth));
+}
+
+// ─── RENDER ──────────────────────────────────────────────────
+var TW=24,TH=24,MG=24,SC=54;
+var canvas=document.getElementById('c0');
+var ctx=canvas.getContext('2d');
+var zoom=2, layers=null, sheet=null;
+
+var img=new Image();
+img.onload=function(){sheet=img;setStatus('ready — tap generate');};
+img.onerror=function(){setStatus('ERROR: tilesheet not found');};
+img.src='/assets/oryx/oryx_16bit_fantasy_world_trans.png';
+
+function drawTile(gid,x,y,tw,th){
+  if(!gid)return;
+  var li=gid-1, sc=li%SC, sr=Math.floor(li/SC);
+  ctx.drawImage(sheet,MG+sc*TW,MG+sr*TH,TW,TH,x*tw,y*th,tw,th);
+}
+
+function drawMap(){
+  if(!layers||!sheet)return;
+  var base=layers.base, deco=layers.deco;
+  var rows=base.length, cols=base[0].length;
+  var tw=TW*zoom, th=TH*zoom;
+  canvas.width=cols*tw; canvas.height=rows*th;
+  canvas.style.width=canvas.width+'px'; canvas.style.height=canvas.height+'px';
+  ctx.imageSmoothingEnabled=false;
+  // Draw base layer
+  for(var y=0;y<rows;y++) for(var x=0;x<cols;x++) drawTile(base[y][x],x,y,tw,th);
+  // Draw deco layer on top
+  for(var y=0;y<rows;y++) for(var x=0;x<cols;x++) if(deco[y][x]) drawTile(deco[y][x],x,y,tw,th);
+}
+
+function setStatus(m){document.getElementById('status').textContent=m;}
+
+// ─── CONTROLS ────────────────────────────────────────────────
+document.getElementById('ifill').oninput=function(e){document.getElementById('lfill').textContent=e.target.value+'%';};
+document.getElementById('ismooth').oninput=function(e){document.getElementById('lsmooth').textContent=e.target.value;};
+document.getElementById('btn-gen').onclick=function(){
+  var w=+document.getElementById('iw').value;
+  var h=+document.getElementById('ih').value;
+  var fill=+document.getElementById('ifill').value/100;
+  var smooth=+document.getElementById('ismooth').value;
+  setStatus('generating...');
+  var t=performance.now();
+  layers=generateBog(w,h,fill,smooth);
+  setStatus(w+'x'+h+' - '+Math.round(performance.now()-t)+'ms');
+  drawMap();
+};
+document.getElementById('btn-exp').onclick=function(){
+  if(!layers)return;
+  var out=JSON.stringify({base:layers.base,deco:layers.deco},null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([out],{type:'application/json'}));
+  a.download='bog_'+layers.base[0].length+'x'+layers.base.length+'.json';
+  a.click();
+};
+document.getElementById('zp').onclick=function(){zoom=Math.min(6,zoom+1);document.getElementById('zlabel').textContent=zoom+'x';drawMap();};
+document.getElementById('zm').onclick=function(){zoom=Math.max(1,zoom-1);document.getElementById('zlabel').textContent=zoom+'x';drawMap();};
+</script>
+</body>
+</html>
+

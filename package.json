@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "abcjs": "^6.6.0",
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "rot-js": "^2.2.1",
+    "seedrandom": "^3.0.5",
+    "simplex-noise": "^4.0.3"
   }
 }

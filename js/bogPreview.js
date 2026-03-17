@@ -2,7 +2,7 @@ import { Map as ROTMap } from 'rot-js'
 import seedrandom from 'seedrandom'
 import { createNoise2D } from 'simplex-noise'
 
-const MAP_W = 20, MAP_H = 20
+const MAP_W = 40, MAP_H = 30
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 
 const T = {
@@ -72,6 +72,21 @@ const T = {
     N:  266, NE: 268, E:  322,
     SE: 374, S:  375, SW: 376,
     W:  320, NW: 267,
+  },
+
+  // Water margin — reeds, sedge, wet ground for ecology zones
+  // Replace these GIDs once you've catalogued your sheet properly;
+  // these are placeholder foliage tiles that read as "wet edge"
+  margin: {
+    reed:  [49, 50, 51, 52],   // tall reed / rush — right at water edge
+    sedge: [208, 215, 216],    // lower sedge / grass tussock — 1-2 cells out
+  },
+
+  // Landmarks for Wild Bog / Ancient Bog
+  landmark: {
+    stone:   304,              // standing stone (reusing statue GID — swap if you find a menhir)
+    stone2:  [465, 466],       // smaller stones / well
+    bogwood: 209,              // fallen/dead tree stub (isolated tree tile)
   },
 }
 
@@ -586,6 +601,127 @@ function buildMudCellular (coverage) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// ECOLOGY MARGINS
+// Paints a reed strip (dist 1) and sedge strip (dist 2-3)
+// around all water bodies on the deco layer.
+// Call AFTER buildWaterCellular, BEFORE buildForest.
+// ═══════════════════════════════════════════════════════════
+function buildEcologyMargins () {
+  // Build a distance-to-water grid (Manhattan, capped at 4)
+  const dist = Array.from({length:MAP_H}, () => new Array(MAP_W).fill(99))
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++)
+      if (isWater(x, y)) dist[y][x] = 0
+
+  // BFS flood outward — 4 passes is enough for a dist-4 fringe on a 20x20 map
+  for (let pass = 0; pass < 4; pass++)
+    for (let y = 1; y < MAP_H-1; y++)
+      for (let x = 1; x < MAP_W-1; x++)
+        if (!isWater(x, y))
+          for (const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]])
+            dist[y][x] = Math.min(dist[y][x], (dist[y+dy]?.[x+dx] ?? 99) + 1)
+
+  for (let y = 1; y < MAP_H-1; y++) {
+    for (let x = 1; x < MAP_W-1; x++) {
+      if (isWater(x, y) || isPath(x, y) || get(5, x, y)) continue
+      const d = dist[y][x]
+      if (d === 1 && chance(0.55)) {
+        set(5, x, y, pick(T.margin.reed))
+      } else if (d <= 3 && chance(0.25)) {
+        set(5, x, y, pick(T.margin.sedge))
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CENTREPIECE POOL
+// Places one large water body near the map centre first,
+// then lets buildWaterCellular add the satellite pools.
+// Returns the centrepiece centre coords for landmark use.
+// ═══════════════════════════════════════════════════════════
+function buildCentrepiecePool (wetness) {
+  const cx = Math.floor(MAP_W * 0.35 + rng() * MAP_W * 0.3)
+  const cy = Math.floor(MAP_H * 0.35 + rng() * MAP_H * 0.3)
+  // Radius: notably larger than satellite pools
+  const radius = Math.floor(5 + wetness * 6)
+
+  const cell = new ROTMap.Cellular(MAP_W, MAP_H, {
+    born: [5,6,7,8], survive: [4,5,6,7,8],
+  })
+  cell.randomize(0)
+  const map = cell._map
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      const d = Math.sqrt((x-cx)**2 + (y-cy)**2)
+      if (d < radius * 0.55)      map[x][y] = 1
+      else if (d < radius)        map[x][y] = rng() < 0.75 ? 1 : 0
+      else if (d < radius * 1.2)  map[x][y] = rng() < 0.25 ? 1 : 0
+    }
+
+  const merged = Array.from({length:MAP_H}, () => new Array(MAP_W).fill(0))
+  for (let i = 0; i < 5; i++)
+    cell.create((x, y, val) => {
+      if (x < 2 || y < 2 || x >= MAP_W-2 || y >= MAP_H-2) return
+      if (val) merged[y][x] = 1
+    })
+
+  // Erode + commit to waterGrid
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      if (!merged[y][x]) continue
+      let interior = true
+      for (const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]])
+        if (!merged[y+dy]?.[x+dx]) { interior = false; break }
+      if (interior) {
+        waterGrid[y][x] = true
+        set(3, x, y, (x+y) % 2 === 0 ? 1634 : 1688)
+      }
+    }
+
+  buildWaterEdges()
+  return { cx, cy }
+}
+
+// ═══════════════════════════════════════════════════════════
+// WILD BOG LANDMARK
+// Places 2-4 standing stones near the centrepiece pool edge,
+// plus scattered bogwood on dry bog base cells.
+// ═══════════════════════════════════════════════════════════
+function placeBogLandmark (cx, cy) {
+  // Standing stone cluster — search outward from centrepiece centre
+  // for dry non-path cells and stamp stones there
+  let placed = 0
+  const target = 2 + rnd(3)  // 2–4 stones
+  for (let radius = 3; radius <= 9 && placed < target; radius++) {
+    for (let angle = 0; angle < 8 && placed < target; angle++) {
+      const a = (angle / 8) * Math.PI * 2
+      const x = Math.round(cx + Math.cos(a) * radius)
+      const y = Math.round(cy + Math.sin(a) * radius)
+      if (x < 2 || y < 2 || x >= MAP_W-2 || y >= MAP_H-2) continue
+      if (isWater(x, y) || isPath(x, y) || get(5, x, y)) continue
+      const gid = placed === 0
+        ? T.landmark.stone                     // dominant stone first
+        : (chance(0.4) ? pick(T.landmark.stone2) : T.landmark.stone)
+      set(5, x, y, gid)
+      placed++
+    }
+  }
+
+  // Scattered bogwood — a handful of dead stubs on bare bog base
+  const bogwoodCount = 3 + rnd(4)
+  let bw = 0, attempts = 0
+  while (bw < bogwoodCount && attempts < 200) {
+    attempts++
+    const x = 2 + rnd(MAP_W - 4)
+    const y = 2 + rnd(MAP_H - 4)
+    if (isWater(x, y) || isPath(x, y) || get(1, x, y) || get(5, x, y)) continue
+    set(5, x, y, T.landmark.bogwood)
+    bw++
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // WALL AUTOTILER (layer 5)
 // ═══════════════════════════════════════════════════════════
 function isWC (wm, x, y) {
@@ -646,23 +782,40 @@ function buildWallMap (fm) {
 // ═══════════════════════════════════════════════════════════
 function genWildBog (numPools, maxSize) {
   fillBase()
-  const bodies  = 2 + Math.floor(numPools / 3)
   const wetness = 0.4 + (maxSize / 9) * 0.8
-  buildWaterCellular(bodies, wetness)
+
+  // One dominant centrepiece pool first
+  const { cx, cy } = buildCentrepiecePool(wetness)
+
+  // Satellite pools (reduced count — centrepiece already dominates)
+  const satellites = 1 + Math.floor(numPools / 4)
+  buildWaterCellular(satellites, wetness * 0.6)
+
   buildMudCellular(0.65)
-  const rooms = buildClearings()  // carve clearings before forest
-  buildPaths()                    // paths route through clearings
-  buildForest()                   // forest fills remaining mud
+  buildEcologyMargins()          // reeds + sedge before forest
+  const rooms = buildClearings()
+  buildPaths()
+  buildForest()
+  placeBogLandmark(cx, cy)       // stones + bogwood near centrepiece
 }
 
 function genAncientBog (numPools, maxSize) {
   fillBase()
-  const bodies  = 1 + Math.floor(numPools / 5)
   const wetness = 0.2 + (maxSize / 9) * 0.5
-  buildWaterCellular(bodies, wetness)
+
+  // One dominant centrepiece pool first
+  const { cx, cy } = buildCentrepiecePool(wetness)
+
+  // Satellite pools
+  const satellites = Math.floor(numPools / 5)
+  if (satellites > 0) buildWaterCellular(satellites, wetness * 0.5)
+
   buildMudCellular(0.60)
+  buildEcologyMargins()
   buildPaths()
   // buildForest() — ancient bog trees added separately
+
+  // Wall fragments
   const wallMap = Array.from({length:MAP_H}, () => new Array(MAP_W).fill(0))
   for (let i=0; i<3+rnd(4); i++) {
     const wx=3+rnd(MAP_W-6), wy=3+rnd(MAP_H-6)
@@ -673,10 +826,12 @@ function genAncientBog (numPools, maxSize) {
     }
   }
   autotileWalls(wallMap)
-  for (let i=0; i<2; i++) {
+
+  // More ambitious landmark scatter for ancient type
+  for (let i=0; i<3; i++) {
     const x=3+rnd(MAP_W-6), y=3+rnd(MAP_H-6)
     if (!isWater(x,y) && !get(5,x,y))
-      set(5, x, y, chance(0.5) ? T.statue : pick(T.well))
+      set(5, x, y, chance(0.5) ? T.landmark.stone : pick(T.landmark.stone2))
   }
 }
 

@@ -19,7 +19,7 @@ export default class BogMeadow extends BaseLocationScene {
   preload() {
     super.preload();
     console.log('BogMeadow: preload starting');
-    this.load.json('bogMeadowMap', '/maps/bog_xz8hpt.json?v=' + Date.now());
+    this.load.json('bogMeadowMap', '/maps/bogPath1.json?v=' + Date.now());
     this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png');
     this.load.on('complete', () => console.log('BogMeadow: assets loaded'));
     this.load.on('loaderror', (file) => console.error('BogMeadow: load error', file.src));

@@ -296,32 +296,28 @@ isColliding(x, y) {
       const pixelX = obj.x * this.tileSize + this.tileSize / 2;
       const pixelY = obj.y * this.tileSize + this.tileSize / 2;
       
-      let sprite;
-      
-      if (obj.visual.shape === 'circle') {
-        sprite = this.add.circle(
-          pixelX,
-          pixelY,
-          obj.visual.radius,
-          parseInt(obj.visual.color)
-        );
-      } else if (obj.visual.shape === 'rectangle') {
-        sprite = this.add.rectangle(
-          pixelX,
-          pixelY,
-          obj.visual.width,
-          obj.visual.height,
-          parseInt(obj.visual.color)
-        );
+      let interactable;
+
+      if (obj.visual) {
+        // Legacy format — explicit visual shape
+        if (obj.visual.shape === 'circle') {
+          interactable = this.add.circle(pixelX, pixelY, obj.visual.radius, parseInt(obj.visual.color));
+        } else if (obj.visual.shape === 'rectangle') {
+          interactable = this.add.rectangle(pixelX, pixelY, obj.visual.width, obj.visual.height, parseInt(obj.visual.color));
+        }
+        if (interactable) interactable.setDepth(10);
+      } else {
+        // New format — invisible proximity trigger zone
+        interactable = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize);
+        interactable.x = pixelX;
+        interactable.y = pixelY;
       }
-      
-      if (sprite) {
-        sprite.setData('id', obj.id);
-        sprite.setData('type', obj.type);
-        sprite.setData('text', obj.text);
-        sprite.setDepth(10);
-        
-        this.interactables.push(sprite);
+
+      if (interactable) {
+        interactable.setData('id',   obj.id);
+        interactable.setData('type', obj.type);
+        interactable.setData('text', obj.text);
+        this.interactables.push(interactable);
       }
     });
     
@@ -337,16 +333,10 @@ isColliding(x, y) {
       const pixelX = npcData.x * this.tileSize + this.tileSize / 2;
       const pixelY = npcData.y * this.tileSize + this.tileSize / 2;
       
-      let sprite;
-      
-      if (npcData.visual.shape === 'circle') {
-        sprite = this.add.circle(
-          pixelX,
-          pixelY,
-          npcData.visual.radius,
-          parseInt(npcData.visual.color)
-        );
-      }
+      const color  = npcData.visual?.color  ? parseInt(npcData.visual.color)  : 0x4169e1;
+      const radius = npcData.visual?.radius || 16;
+
+      const sprite = this.add.circle(pixelX, pixelY, radius, color);
       
       if (sprite) {
         sprite.setData('id', npcData.id);
@@ -360,7 +350,7 @@ isColliding(x, y) {
         // Add name label above NPC
         const label = this.add.text(
           pixelX,
-          pixelY - 25,
+          pixelY - radius - 6,
           npcData.name,
           {
             fontSize: '12px',

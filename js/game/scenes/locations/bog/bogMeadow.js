@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import BaseLocationScene from './baseLocationScene.js';
-import { GameSettings } from '../../settings/gameSettings.js';
-import BowMechanics from '../../combat/bowMechanics.js';
-import WorldButton from '../../ui/worldButton.js';
-import WorldMenu from '../../ui/worldMenu.js';
+import BaseLocationScene from '../baseLocationScene.js';
+import { GameSettings } from '../../../settings/gameSettings.js';
+import BowMechanics from '../../../combat/bowMechanics.js';
+import WorldButton from '../../../ui/worldButton.js';
+import WorldMenu from '../../../ui/worldMenu.js';
 
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 const SCALE = 2
@@ -19,7 +19,7 @@ export default class BogMeadow extends BaseLocationScene {
   preload() {
     super.preload();
     console.log('BogMeadow: preload starting');
-    this.load.json('bogMeadowMap', '/maps/bogPath1.json?v=' + Date.now());
+    this.load.json('bogMeadowMap', '/maps/bogMaps/bog_threshold.json?v=' + Date.now());
     this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png');
     this.load.on('complete', () => console.log('BogMeadow: assets loaded'));
     this.load.on('loaderror', (file) => console.error('BogMeadow: load error', file.src));

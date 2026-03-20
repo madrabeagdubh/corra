@@ -2,7 +2,7 @@ import Phaser from "phaser"
 
 import Joystick from "../input/joystick.js"
 import Player from "../player/player.js"
-import BogScene from "./locations/bogMeadow.js"
+import BogScene from "./locations/bog/bogMeadow.js"
 import BowTutorial from "./locations/bowTutorial.js"
 
 export default class WorldScene extends Phaser.Scene {

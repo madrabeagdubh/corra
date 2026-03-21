@@ -1,5 +1,10 @@
+ 
 import Phaser from 'phaser'
 import BaseLocationScene from '../baseLocationScene.js'
+import { GameSettings } from '../../../settings/gameSettings.js'
+import WorldButton from '../../../ui/worldButton.js'
+import WorldMenu from '../../../ui/worldMenu.js'
+import BowMechanics from '../../../combat/bowMechanics.js'
 
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 const SCALE = 2
@@ -110,10 +115,59 @@ export default class BogLocationScene extends BaseLocationScene {
     const track = this.getMusicTrack()
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
+    // World menu + button (matches BogMeadow)
+    this._createWorldUI()
+
+    // Bow mechanics
+    this.bowMechanics = new BowMechanics(this, this.player)
+
     this.showIntroNarrative()
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready — ${this.mapData.width}x${this.mapData.height}`)
+  }
+
+  _createWorldUI() {
+    this.worldMenu   = new WorldMenu(this, { player: this.player })
+    this.worldButton = new WorldButton(this, {
+      x: this.scale.width - 50, y: 100, size: 56,
+      onClick: () => this.worldMenu.toggle()
+    })
+    this._addSettingsSlider()
+  }
+
+  _addSettingsSlider() {
+    const padding     = 40
+    const sliderWidth = this.scale.width - padding * 2
+    const sliderX     = padding
+    const sliderY     = 20
+
+    this.add.rectangle(
+      sliderX + sliderWidth / 2, sliderY, sliderWidth, 8, 0x444444
+    ).setScrollFactor(0).setDepth(5000)
+
+    const trackFill = this.add.rectangle(
+      sliderX, sliderY,
+      sliderWidth * GameSettings.englishOpacity, 8, 0xd4af37
+    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(5001)
+
+    const thumb = this.add.circle(
+      sliderX + sliderWidth * GameSettings.englishOpacity,
+      sliderY, 15, 0xffd700
+    ).setScrollFactor(0).setDepth(5002).setInteractive()
+
+    this.input.setDraggable(thumb)
+    this.input.on('drag', (pointer, obj, dragX) => {
+      if (obj !== thumb) return
+      const cx = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth)
+      thumb.x = cx
+      const opacity = (cx - sliderX) / sliderWidth
+      GameSettings.setEnglishOpacity(opacity)
+      trackFill.width = sliderWidth * opacity
+      if (this.textPanel) this.textPanel.updateEnglishOpacity()
+      if (this.worldMenu?.itemDetailPanel)
+        this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+    })
   }
 
   // ── Tilemap ───────────────────────────────────────────────────────
@@ -254,6 +308,14 @@ export default class BogLocationScene extends BaseLocationScene {
     if (!narrative?.length) return
     this.narrativeInProgress = true
     this.narrativeQueue = [...narrative]
+    // Safety valve — force narrative complete after max 30s regardless
+    this._narrativeSafetyTimer = this.time.delayedCall(30000, () => {
+      this.narrativeInProgress = false
+      if (this.textPanel) {
+        this.textPanel._cooldown = false
+        this.textPanel._cooldownId = null
+      }
+    })
     const showNext = () => {
       if (!this.narrativeQueue.length) {
         localStorage.setItem(seenKey, 'true')
@@ -341,11 +403,13 @@ export default class BogLocationScene extends BaseLocationScene {
     super.update(time, delta)
     if (this.playerLight && this.player?.sprite)
       this.playerLight.setPosition(this.player.sprite.x, this.player.sprite.y)
+    if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
   shutdown() {
+    if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
-    super.shutdown?.()
+    if (super.shutdown) super.shutdown()
   }
 }
 

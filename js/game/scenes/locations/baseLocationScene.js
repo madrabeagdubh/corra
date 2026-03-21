@@ -114,15 +114,16 @@ initializeLocation() {
 
 
 
-update() {
+update(time, delta) {
+  // Update text panel cursor animation
+  if (this.textPanel) this.textPanel.update(time, delta);
+
   if (this.player && this.joystick) {
-    // NEW: Don't process movement if text panel is visible
-    if (this.textPanel && this.textPanel.isVisible) {
-      // Still update terrain manager even when text is showing
-      if (this.terrainManager) {
-        this.terrainManager.update();
-      }
-      return; // Block all movement during dialogue/notifications
+    // Block movement only during chat_options (covers screen)
+    if (this.textPanel && this.textPanel.isVisible &&
+        this.textPanel.currentPanelType === 'chat_options') {
+      if (this.terrainManager) this.terrainManager.update();
+      return;
     }
 
     // ALWAYS check collision before any movement
@@ -392,29 +393,30 @@ isColliding(x, y) {
     });
   }
 
+
+
+
 checkProximityInteractions() {
-  // Don't check proximity during narrative
-  if (this.narrativeInProgress) return;
-  
+  if (this.narrativeInProgress) return
+  if (this.textPanel.isVisible || this.textPanelCooldown) return
 
-  // Check for cooldown
-  if (this.textPanel.isVisible || this.textPanelCooldown) return;
-
-  const playerX = this.player.sprite.x;
-  const playerY = this.player.sprite.y;
+  const playerX = this.player.sprite.x
+  const playerY = this.player.sprite.y
 
   this.interactables.forEach(obj => {
-    const dist = Phaser.Math.Distance.Between(
-      playerX, playerY,
-      obj.x, obj.y
-    );
-
+    const dist = Phaser.Math.Distance.Between(playerX, playerY, obj.x, obj.y)
+    if (dist < 100) {  // wider range so we can see it getting close
+      console.log('🔵 NEAR:', obj.getData('id'), 'dist:', Math.round(dist))
+    }
     if (dist < 25) {
-      const text = obj.getData('text');
+      console.log('🔴 TRIGGER:', obj.getData('id'))
+     const text = obj.getData('text');
+      const id   = obj.getData('id');
       if (this.joystick) this.joystick.reset();
       if (this.player)   this.player.isMoving = false;
       this.textPanel.show({
         ...text,
+        id,
         type: 'examine'
       });
     }

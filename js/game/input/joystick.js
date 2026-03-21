@@ -127,4 +127,21 @@ export default class Joystick {
 
     return button;
   }
+
+  // Call this whenever you need to stop joystick movement programmatically
+  // e.g. when text panel opens, scene transitions, NPC dialogue starts
+  reset() {
+    this.force = 0;
+    this.angle = 0;
+    // Return thumb graphic to centre
+    this.thumb.x = this.baseX;
+    this.thumb.y = this.baseY;
+    this.thumb.setFillStyle(0x4a4a4a, 0.8);
+    this.thumb.setScale(1.0);
+    // Reset all directional buttons visually
+    Object.values(this.buttons).forEach(btn => {
+      btn.setFillStyle(0x3a3a3a, 0.5);
+      btn.setScale(1.0);
+    });
+  }
 }

@@ -1,4 +1,4 @@
-{
+ {
   "name": "Great_Open_Bog",
   "width": 60,
   "height": 30,
@@ -69,9 +69,10 @@
     ]
   ],
   "legend": {"732": "grass", "733": "bog", "1379": "mud path", "1634": "water", "0": "empty overlay"},
-  "spawns": {"player": {"x": 56, "y": 14}},
-  "exits": {"west": {"tiles": [[0, 13], [0, 14], [0, 15]], "destination": "Bog_Threshold", "entryPoint": "east"}, "east": {"tiles": [[59, 11], [59, 12], [59, 13]], "destination": "Abandoned_Settlement", "entryPoint": "west"}, "north": {"tiles": [[25, 0], [26, 0], [27, 0]], "destination": "Fairy_Margin", "entryPoint": "south"}, "south": {"tiles": [[40, 29], [41, 29], [42, 29]], "destination": "Fortress_Of_Blood", "entryPoint": "north"}},
+  "spawns": {"player": {"x": 3, "y": 14}},
+  "exits": {"west": {"tiles": [[0, 13], [0, 14], [0, 15]], "destination": "Abandoned_Settlement", "entryPoint": "east"}, "east": {"tiles": [[59, 11], [59, 12], [59, 13]], "destination": "Bog_Threshold", "entryPoint": "west"}, "north": {"tiles": [[25, 0], [26, 0], [27, 0]], "destination": "Fairy_Margin", "entryPoint": "south"}, "south": {"tiles": [[40, 29], [41, 29], [42, 29]], "destination": "Fortress_Of_Blood", "entryPoint": "north"}},
   "objects": [{"id": "bog_body", "type": "examine", "x": 15, "y": 18, "text": {"irish": "Corp fir sa phortach. Tá sé ann le céadta bliain. Tá cuma shuaimhneach air.", "english": "A man's body in the bog. He has been here for hundreds of years. He looks peaceful."}}, {"id": "standing_stone", "type": "examine", "x": 10, "y": 14, "text": {"irish": "Cloch ard chaol. Tá rúin gearrtha inti nach dtuigeann tú.", "english": "A tall thin stone. Runes are carved into it that you cannot understand."}}, {"id": "lost_path", "type": "examine", "x": 30, "y": 20, "text": {"irish": "An raibh cosán anseo uair amháin? Tá an portach ag ithe an talaimh.", "english": "Was there a path here once? The bog is consuming the land."}}, {"id": "dark_pool", "type": "examine", "x": 27, "y": 10, "text": {"irish": "Linn dhorcha gan tóin. Ná féach isteach inti.", "english": "A dark pool with no bottom. Do not look into it."}}],
   "npcs": [],
-  "introNarrative": [{"irish": "Shiúil mé amach as an gcoill agus bhí an portach romham —", "english": "I walked out of the wood and the bog lay before me —"}, {"irish": "fairsinge mharbh gan crann, gan cosán, gan dóchas.", "english": "a dead expanse without tree, without path, without hope."}, {"irish": "Bhí na clocha ina seasamh cosúil le fir a rinneadh de chloch.", "english": "The stones stood like men who had been turned to stone."}]
-}  
+  "introNarrative": [{"irish": "Shiúil mé amach as an gcoill agus bhí an portach romham —", "english": "I walked out of the wood and the bog lay before me —"}, {"irish": "fairsinge mharbh gan crann, gan cosán, gan dóchas.", "english": "a dead expanse without tree, without path, without hope."}, {"irish": "Bhí na clocha ina seasamh cosúil le fir a rinneadh de chloch.", "english": "The stones stood like men who had been turned to stone."}],
+  "entries": {"west": {"x": 1, "yFromSource": true, "y": 14}, "east": {"x": 58, "yFromSource": true, "y": 14}, "north": {"x": 28, "yFromSource": false, "y": 2}, "south": {"x": 40, "yFromSource": false, "y": 27}}
+} 

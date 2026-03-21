@@ -377,6 +377,9 @@ isColliding(x, y) {
     const dialogues = npc.getData('dialogues');
     const index = npc.getData('dialogueIndex') || 0;
     const dialogue = dialogues[index];
+
+    if (this.joystick) this.joystick.reset();
+    if (this.player)   this.player.isMoving = false;
     
     this.textPanel.show({
       ...dialogue,
@@ -408,6 +411,8 @@ checkProximityInteractions() {
 
     if (dist < 25) {
       const text = obj.getData('text');
+      if (this.joystick) this.joystick.reset();
+      if (this.player)   this.player.isMoving = false;
       this.textPanel.show({
         ...text,
         type: 'examine'

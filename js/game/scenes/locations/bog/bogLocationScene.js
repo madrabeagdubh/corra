@@ -32,6 +32,12 @@ export default class BogLocationScene extends BaseLocationScene {
 
   // ── Lifecycle ─────────────────────────────────────────────────────
 
+  init(data) {
+    // Store transition data for use in create()
+    this.entryData = data || {}
+    console.log(`[${this.scene.key}] init — entryEdge: ${data?.entryEdge}`)
+  }
+
   preload() {
     // Load champion and UI assets (replicated from BaseLocationScene to avoid
     // BaseLocationScene attempting to load our map from the wrong path)
@@ -82,6 +88,9 @@ export default class BogLocationScene extends BaseLocationScene {
 
     this.initializeLocation()
 
+    // Override spawn position based on which edge we entered from
+    this.applyEntryPosition()
+
     const pl = this.getPlayerLight()
     this.playerLight = this.lights.addLight(
       this.player.sprite.x, this.player.sprite.y,
@@ -127,6 +136,22 @@ export default class BogLocationScene extends BaseLocationScene {
     }
 
     for (let li = 0; li < this.mapData.layers.length; li++) {
+      // Before layer 0, flood fill with base grass so transparent tiles have something beneath
+      if (li === 0) {
+        const grassFrame = ensureFrame(732)
+        for (let y = 0; y < this.mapData.height; y++) {
+          for (let x = 0; x < this.mapData.width; x++) {
+            const img = this.add.image(
+              x * TW * SCALE + (TW * SCALE) / 2,
+              y * TH * SCALE + (TH * SCALE) / 2,
+              'oryxTiles', grassFrame
+            ).setScale(SCALE).setDepth(-1)
+            if (this.game.renderer.type === Phaser.WEBGL) {
+              img.setPipeline('Light2D')
+            }
+          }
+        }
+      }
       const layer = this.mapData.layers[li]
       for (let y = 0; y < layer.length; y++) {
         for (let x = 0; x < layer[y].length; x++) {
@@ -159,6 +184,45 @@ export default class BogLocationScene extends BaseLocationScene {
     return false
   }
 
+  // ── Entry positioning ─────────────────────────────────────────────
+
+  applyEntryPosition() {
+    const edge = this.entryData?.entryEdge
+    if (!edge || !this.mapData.entries) return
+
+    const entry = this.mapData.entries[edge]
+    if (!entry) return
+
+    const sourceY    = this.entryData.sourceTile?.y
+    const sourceH    = this.entryData.sourceHeight || this.mapData.height
+    const destH      = this.mapData.height
+    const destW      = this.mapData.width
+
+    // Calculate Y — carry fraction across if yFromSource and we have source data
+    let entryY
+    if (entry.yFromSource && sourceY != null) {
+      const fraction = sourceY / sourceH
+      entryY = Math.round(fraction * destH)
+      // Clamp to safe range
+      entryY = Math.max(1, Math.min(destH - 2, entryY))
+    } else {
+      entryY = entry.y ?? Math.floor(destH / 2)
+    }
+
+    // Calculate X — use entry.x, clamp to map bounds
+    const entryX = Math.max(1, Math.min(destW - 2, entry.x ?? Math.floor(destW / 2)))
+
+    // Move player
+    const px = entryX * this.tileSize + this.tileSize / 2
+    const py = entryY * this.tileSize + this.tileSize / 2
+    if (this.player?.sprite) {
+      this.player.sprite.setPosition(px, py)
+      this.cameras.main.centerOn(px, py)
+    }
+
+    console.log(`[${this.scene.key}] entry via ${edge} → tile [${entryX}, ${entryY}]`)
+  }
+
   // ── Exits ─────────────────────────────────────────────────────────
 
   checkExits() {
@@ -168,7 +232,12 @@ export default class BogLocationScene extends BaseLocationScene {
     for (const [dir, exit] of Object.entries(this.mapData.exits)) {
       if (exit.tiles.some(([ex, ey]) => ex === tx && ey === ty)) {
         console.log(`[${this.scene.key}] → ${exit.destination}`)
-        this.scene.start(exit.destination, { entryEdge: exit.entryPoint, sourceTile: { x: tx, y: ty } })
+        this.scene.start(exit.destination, {
+          entryEdge:    exit.entryPoint,
+          sourceTile:   { x: tx, y: ty },
+          sourceHeight: this.mapData.height,
+          sourceWidth:  this.mapData.width,
+        })
         return
       }
     }
@@ -191,6 +260,8 @@ export default class BogLocationScene extends BaseLocationScene {
         this.narrativeInProgress = false
         return
       }
+      if (this.joystick) this.joystick.reset()
+      if (this.player)   this.player.isMoving = false
       const entry = this.narrativeQueue.shift()
       this.textPanel.show({
         irish: entry.irish, english: entry.english,

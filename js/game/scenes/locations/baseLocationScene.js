@@ -376,46 +376,91 @@ isColliding(x, y) {
 
   talkToNPC(npc) {
     const dialogues = npc.getData('dialogues');
-    const index = npc.getData('dialogueIndex') || 0;
-    const dialogue = dialogues[index];
+    const index     = npc.getData('dialogueIndex') || 0;
+    const dialogue  = dialogues[index];
+    const stateKey  = npc.getData('stateKey');
 
     if (this.joystick) this.joystick.reset();
     if (this.player)   this.player.isMoving = false;
-    
+
     this.textPanel.show({
       ...dialogue,
+      // Support both {ga,en} and {irish,english} formats
+      irish:   dialogue.ga   || dialogue.irish   || '',
+      english: dialogue.en   || dialogue.english || '',
       type: 'dialogue',
       speaker: npc.getData('name'),
       onDismiss: () => {
         const nextIndex = (index + 1) % dialogues.length;
         npc.setData('dialogueIndex', nextIndex);
+        // Persist NPC progress across sessions
+        if (stateKey && window.GameState) {
+          window.GameState.setNPCProgress(stateKey, nextIndex);
+        }
       }
     });
   }
 
-
-
-
 checkProximityInteractions() {
-  if (this.narrativeInProgress) return
-  if (this.textPanel.isVisible || this.textPanelCooldown) return
+  // Don't check proximity during narrative
+  if (this.narrativeInProgress) return;
+  
 
-  const playerX = this.player.sprite.x
-  const playerY = this.player.sprite.y
+  // Check for cooldown
+  if (this.textPanel.isVisible || this.textPanelCooldown) return;
+
+  const playerX = this.player.sprite.x;
+  const playerY = this.player.sprite.y;
 
   this.interactables.forEach(obj => {
-    const dist = Phaser.Math.Distance.Between(playerX, playerY, obj.x, obj.y)
-    if (dist < 100) {  // wider range so we can see it getting close
-      console.log('🔵 NEAR:', obj.getData('id'), 'dist:', Math.round(dist))
-    }
-    if (dist < 25) {
-      console.log('🔴 TRIGGER:', obj.getData('id'))
-     const text = obj.getData('text');
-      const id   = obj.getData('id');
+    const dist = Phaser.Math.Distance.Between(
+      playerX, playerY,
+      obj.x, obj.y
+    );
+
+    if (dist < 60) {  // ~1 tile width at SCALE=2 (tileSize=48)
+      const text     = obj.getData('text');
+      const id       = obj.getData('id');
+      const type     = obj.getData('type');
+      const stateKey = obj.getData('stateKey');
+      const note     = obj.getData('note');
+
       if (this.joystick) this.joystick.reset();
       if (this.player)   this.player.isMoving = false;
+
+      // Record story note on examine
+      if (note && window.GameState) window.GameState.addNote(note);
+
+      // Handle collectable — show text, then mark collected and remove
+      if (type === 'collectable') {
+        this.textPanel.show({
+          ...text,
+          irish:   text?.ga    || text?.irish   || '',
+          english: text?.en    || text?.english || '',
+          id,
+          type: 'examine',
+          onDismiss: () => {
+            if (stateKey && window.GameState) {
+              window.GameState.setCollected(stateKey);
+            }
+            const item = obj.getData('item');
+            if (item && this.player?.inventory) {
+              const slot = this.player.inventory.findEmptyInventorySlot();
+              if (slot !== -1) this.player.inventory.setItem(slot, item);
+            }
+            // Remove zone from interactables
+            const idx = this.interactables.indexOf(obj);
+            if (idx > -1) this.interactables.splice(idx, 1);
+          }
+        });
+        return;
+      }
+
+      // Standard examine
       this.textPanel.show({
         ...text,
+        irish:   text?.ga    || text?.irish   || '',
+        english: text?.en    || text?.english || '',
         id,
         type: 'examine'
       });

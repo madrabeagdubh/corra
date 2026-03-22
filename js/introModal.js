@@ -1190,6 +1190,12 @@ preload(){
         if (this._moonSkipTriggered) return;
         this._moonSkipTriggered = true;
 
+        // ── Destroy any active text player immediately so it doesn't bleed into heroSelect
+        if (this._textPlayer) {
+            this._textPlayer.destroy();
+            this._textPlayer = null;
+        }
+
         // Hide skip hint
         if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
 
@@ -1400,7 +1406,7 @@ this.cameras.main.setAngle(this.spinAngle);
         tmp.destroy();
 
         this._bgWheelRt    = rt;
-        this._bgWheelSpeed = -360 / 180000;
+        this._bgWheelSpeed = 360 / 180000;
         this._bgWheelTween = null;
 
         const rng2 = new Phaser.Math.RandomDataGenerator(['réaltaí2']);
@@ -1442,7 +1448,7 @@ this.cameras.main.setAngle(this.spinAngle);
         tmp2.destroy();
 
         this._driftWheelRt    = rt2;
-        this._driftWheelSpeed = -360 / 90000;
+        this._driftWheelSpeed = 360 / 90000;
         this._driftWheelTween = null;
 
         const rng3 = new Phaser.Math.RandomDataGenerator(['réaltaí3']);
@@ -1472,7 +1478,7 @@ this.cameras.main.setAngle(this.spinAngle);
         tmp3.destroy();
 
         this._fgWheelRt    = rt3;
-        this._fgWheelSpeed = -360 / 60000;
+        this._fgWheelSpeed = 360 / 60000;
     }
 
     buildConstellations(wSize) {

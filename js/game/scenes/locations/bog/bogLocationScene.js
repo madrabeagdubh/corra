@@ -1,10 +1,13 @@
- 
 import Phaser from 'phaser'
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import WorldButton from '../../../ui/worldButton.js'
 import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
+import { GameState } from '../../../systems/gameState.js'
+
+// Expose globally so baseLocationScene can access without circular imports
+window.GameState = GameState
 
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 const SCALE = 2
@@ -44,8 +47,7 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   preload() {
-    // Load champion and UI assets (replicated from BaseLocationScene to avoid
-    // BaseLocationScene attempting to load our map from the wrong path)
+    // Load champion and UI assets
     this.load.image('championSheet_armored', 'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
     this.load.json('championAtlas', 'assets/champions/champions0.json')
@@ -63,20 +65,49 @@ export default class BogLocationScene extends BaseLocationScene {
     this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav')
     this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg')
     this.load.audio('parrySound', 'assets/sounds/parry.mp3')
-    // Bog map
+    // Bog map geometry
     const key = this.getMapKey()
     this.bogMapCacheKey = 'bogMap_' + key
     this.load.json(this.bogMapCacheKey, `/maps/bogMaps/${key}.json?v=` + Date.now())
     this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
   }
 
-  create() {
+  async _loadContent() {
+    // Dynamically import the content JS file for this map
+    // e.g. getMapKey() = 'bog_threshold' → import '.../bogThreshold.js'
+    const key      = this.getMapKey()
+    const jsKey    = this.getContentKey()
+    try {
+      const module   = await import(`/data/bog/${jsKey}.js`)
+      const content  = module[jsKey + 'Content'] || {}
+      this.mapData.objects        = content.objects        || []
+      this.mapData.npcs           = content.npcs           || []
+      this.mapData.introNarrative = content.introNarrative || []
+      console.log(`[${this.scene.key}] content loaded — ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
+    } catch(e) {
+      console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
+      this.mapData.objects        = []
+      this.mapData.npcs           = []
+      this.mapData.introNarrative = []
+    }
+  }
+
+  /** Override in child scene if content key differs from camelCase of mapKey */
+  getContentKey() {
+    // 'bog_threshold' → 'bogThreshold'
+    return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+  }
+
+  async create() {
     const key = this.getMapKey()
     this.mapData = this.cache.json.get(this.bogMapCacheKey)
     if (!this.mapData) {
       console.error(`[${this.scene.key}] Map not found at /maps/bogMaps/${key}.json`)
       return
     }
+
+    // Load content (objects, npcs, introNarrative) from separate JS file
+    await this._loadContent()
 
     this.lights.enable()
     this.lights.setAmbientColor(this.getAmbient())
@@ -87,11 +118,14 @@ export default class BogLocationScene extends BaseLocationScene {
     this.mapData.unwalkableTiles = []
 
     if (!this.mapData.spawns)  this.mapData.spawns  = { player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) } }
-    if (!this.mapData.objects) this.mapData.objects  = []
-    if (!this.mapData.npcs)    this.mapData.npcs     = []
     if (!this.mapData.exits)   this.mapData.exits    = {}
 
     this.initializeLocation()
+
+    // Initialise GameState for this champion
+    const champion = this.registry.get('selectedChampion') || window.selectedChampion
+    if (champion?.id) GameState.init(champion.id)
+    GameState.setVisited(this.scene.key)
 
     // Override spawn position based on which edge we entered from
     this.applyEntryPosition()
@@ -326,7 +360,8 @@ export default class BogLocationScene extends BaseLocationScene {
       if (this.player)   this.player.isMoving = false
       const entry = this.narrativeQueue.shift()
       this.textPanel.show({
-        irish: entry.irish, english: entry.english,
+        irish:   entry.ga    || entry.irish   || '',
+        english: entry.en    || entry.english || '',
         type: 'dialogue',
         onDismiss: () => this.time.delayedCall(300, showNext)
       })
@@ -341,14 +376,25 @@ export default class BogLocationScene extends BaseLocationScene {
     this.interactables = []
 
     this.mapData.objects.forEach(obj => {
+      const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
+
+      // Skip collected one-time items
+      if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
+
+      // Skip items gated behind quest state
+      if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
+          !GameState.isQuestComplete(obj.requiresQuest)) return
+
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
       const pixelY = obj.y * this.tileSize + this.tileSize / 2
 
-      // Invisible trigger zone — proximity detection handles interaction
-      const zone = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize)
-      zone.setData('id',   obj.id)
-      zone.setData('type', obj.type)
-      zone.setData('text', obj.text)
+      const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
+      zone.setData('id',       obj.id)
+      zone.setData('type',     obj.type)
+      zone.setData('text',     obj.text)
+      zone.setData('stateKey', stateKey)
+      zone.setData('item',     obj.item || null)
+      zone.setData('note',     obj.note || null)  // story note to record on examine
       zone.x = pixelX
       zone.y = pixelY
 
@@ -363,30 +409,32 @@ export default class BogLocationScene extends BaseLocationScene {
     this.npcs = []
 
     this.mapData.npcs.forEach(npcData => {
+      const stateKey = npcData.stateKey || `${this.getMapKey()}.${npcData.id}`
+
+      // Skip NPCs gated behind quest state
+      if (npcData.requiresQuest && !GameState.isQuestActive(npcData.requiresQuest) &&
+          !GameState.isQuestComplete(npcData.requiresQuest)) return
+
       const pixelX = npcData.x * this.tileSize + this.tileSize / 2
       const pixelY = npcData.y * this.tileSize + this.tileSize / 2
 
-      // Visual — use provided color or default NPC blue
-      const color = npcData.visual?.color
-        ? parseInt(npcData.visual.color)
-        : 0x4169e1
+      const color  = npcData.visual?.color ? parseInt(npcData.visual.color) : 0x4169e1
       const radius = npcData.visual?.radius || 16
 
       const sprite = this.add.circle(pixelX, pixelY, radius, color)
       sprite.setData('id',           npcData.id)
       sprite.setData('name',         npcData.name)
       sprite.setData('dialogues',    npcData.dialogues)
-      sprite.setData('dialogueIndex', 0)
+      sprite.setData('stateKey',     stateKey)
+      // Restore dialogue progress from GameState
+      sprite.setData('dialogueIndex', GameState.getNPCProgress(stateKey))
       sprite.setData('isNPC',        true)
       sprite.setDepth(10)
       sprite.setInteractive()
 
-      // Name label
       this.add.text(pixelX, pixelY - radius - 6, npcData.name, {
-        fontSize: '12px',
-        fontFamily: 'Arial',
-        color: '#ffffff',
-        backgroundColor: '#000000',
+        fontSize: '12px', fontFamily: 'Arial',
+        color: '#ffffff', backgroundColor: '#000000',
         padding: { x: 4, y: 2 }
       }).setOrigin(0.5, 1).setDepth(11)
 

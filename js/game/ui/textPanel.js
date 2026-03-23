@@ -1,307 +1,319 @@
 /**
  * TextPanel — Bilingual scrolling text panel for Fenians.baby
- *
- * Panel sits in TOP 40% of screen — joystick remains usable below.
- * Irish text starts at vertical CENTRE of panel, scrolls upward.
- * Gestures handled via Phaser input (not DOM) so canvas doesn't block.
- *
- * Gestures (within panel bounds):
- *   Tap       → pause scroll for PAUSE_MS then resume
- *   Drag down → rewind content
- *   Fling up  → accelerate scroll
- *   Fast swipe up → dismiss immediately
- *
- * Auto-dismisses HOLD_MS after content reaches top.
- * COOLDOWN_MS prevents immediate re-trigger after dismiss.
+ * Interleaved Irish/English lines, scrolling upward from panel centre.
+ * Gestures via Phaser input. Plain fade in/out, no mask flash.
  */
 
 import Phaser from 'phaser'
 import { GameSettings } from '../settings/gameSettings.js'
+import { COLORS, FONTS, SIZES } from '../systems/gameTypography.js'
 
-// ── Tuning ─────────────────────────────────────────────────────────────────
+// ── Tuning ──────────────────────────────────────────────────────────────────
 const SCROLL_PX_PER_SEC = 28
 const PAUSE_MS          = 4000
 const HOLD_MS           = 3000
-const FADE_OUT_MS       = 500
+const FADE_MS           = 400
 const COOLDOWN_MS       = 1200
-const DISMISS_VEL       = 8       // px/frame upward fling to trigger instant dismiss
+const DISMISS_VEL       = 0.5
 
-// ── Colours ─────────────────────────────────────────────────────────────────
-const IRISH_COLOR   = '#e8dfc0'
-const ENGLISH_COLOR = '#a0c8a0'
-const SPEAKER_COLOR = '#d4af37'
-const PANEL_FILL    = 0x111a11
-const PANEL_BORDER  = 0xb0b0b0
-const PANEL_ALPHA   = 0.97
+// ── Style — sourced from gameTypography ─────────────────────────────────────
+const PANEL_H_FRAC  = 0.60
+const IRISH_COLOR   = COLORS.irish
+const ENGLISH_COLOR = COLORS.english
+const SPEAKER_COLOR = COLORS.speaker
+const PANEL_FILL    = COLORS.panelFill
+const PANEL_BORDER  = COLORS.panelBorder
+const PANEL_ALPHA   = COLORS.panelAlpha
+const IRISH_SIZE    = SIZES.irish
+const ENGLISH_SIZE  = SIZES.english
+const IRISH_FONT    = FONTS.irish
+const ENGLISH_FONT  = FONTS.english
 
 export default class TextPanel {
   constructor(scene) {
     this.scene              = scene
-    this.container          = null
     this.isVisible          = false
     this.currentPanelType   = null
     this.onDismiss          = null
     this.englishOptionTexts = []
-    this.englishTextObject  = null
-    this.irishTextObject    = null
+    this.irishTextObject    = null    // first Irish text (legacy ref)
+    this.englishTextObject  = null    // first English text (legacy ref)
 
-    this._cooldown          = false
-    this._lastTriggerId     = null   // id of last object that triggered show
-    this._cooldownId        = null   // id cooling down (only this id is blocked)
+    // Per-object cooldown
+    this._cooldownId        = null
+    this._lastTriggerId     = null
 
-    // Scroll
+    // All Phaser objects created for current panel (for bulk destroy/fade)
+    this._objects           = []      // everything except _maskGfx
+    this._enObjects         = []      // English lines only (for opacity)
+    this._maskGfx           = null
+
+    // Scroll state
+    this._scrolling         = false
     this._scrollY           = 0
-    this._startOffset       = 0
     this._maxScroll         = 0
-    this._velocity          = 0
-    this._naturalVel        = SCROLL_PX_PER_SEC / 60
+    this._velocity          = SCROLL_PX_PER_SEC / 60
     this._paused            = false
     this._pauseTimer        = null
     this._atTop             = false
     this._holdTimer         = null
     this._rafId             = null
-    this._scrolling         = false
 
-    // Drag (Phaser pointer coords)
+    // Content container position
+    this._contentX          = 0
+    this._contentBaseY      = 0
+    this._contentItems      = []      // { obj, localY } for scroll positioning
+
+    // Gesture state
     this._dragging          = false
+    this._inPanelDrag       = false
+    this._tapStartY         = 0
+    this._tapStartTime      = 0
     this._dragStartY        = 0
     this._dragStartScroll   = 0
     this._lastDragY         = 0
     this._lastDragTime      = 0
     this._dragVelocity      = 0
-    this._tapStartY         = 0
-    this._tapStartTime      = 0
 
-    // Panel bounds (Phaser coords) for hit testing
-    this._panelBounds       = null   // { x, y, w, h }
+    // Panel bounds for hit test and clip
+    this._bounds         = null
+    this._clipTop        = 0
+    this._clipBottom     = 9999
 
-    // Content
-    this._contentContainer  = null
-    this._maskGraphics      = null
-    this._contentBaseY      = 0
-
-    // Cursor
-    this.readingCursor      = null
-    this.cursorParticles    = []
-    this.cursorAnchor       = { x: 0, y: 0 }
-    this.cursorTime         = 0
-
-    // Phaser input handlers (stored for cleanup)
-    this._phaserDown        = null
-    this._phaserMove        = null
-    this._phaserUp          = null
+    // Phaser input refs
+    this._onDown            = null
+    this._onMove            = null
+    this._onUp              = null
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
+  // ── Public ──────────────────────────────────────────────────────────────────
 
   show(config) {
     const {
-      irish, english,
+      irish     = '',
+      english   = '',
       type      = 'dialogue',
       speaker   = null,
       onDismiss = null,
       options   = null,
       onChoice  = null,
-      id        = null
+      id        = null,
     } = config
 
-    // Only block if this exact object is cooling down
     if (id && this._cooldownId === id) return
-
     this._lastTriggerId = id
 
-    // Recycle for consecutive dialogue
-    if (
-      this.isVisible && this.container &&
-      type === 'dialogue' && this.currentPanelType === 'dialogue'
-    ) {
-      this.onDismiss = onDismiss
-      if (this.irishTextObject)   this.irishTextObject.setText(irish)
-      if (this.englishTextObject) {
-        this.englishTextObject.setText(english)
-        this.englishTextObject.setAlpha(GameSettings.englishOpacity)
-      }
-      this._beginScroll()
-      return
-    }
-
-    if (this.isVisible) this._destroyPanel()
+    if (this.isVisible) this._destroyAll()
 
     this.onDismiss        = onDismiss
     this.isVisible        = true
     this.currentPanelType = type
 
-    this.container = this.scene.add.container(0, 0).setDepth(2000).setScrollFactor(0)
-
     const sw = this.scene.scale.width
     const sh = this.scene.scale.height
 
     if (type === 'dialogue' || type === 'examine') {
-      this._createScrollPanel(irish, english, speaker, sw, sh)
+      this._buildScrollPanel(irish, english, speaker, sw, sh)
     } else if (type === 'notification') {
-      this._createNotificationPanel(irish, english, sw, sh)
+      this._buildNotification(irish, english, sw, sh)
     } else if (type === 'chat_options') {
-      this._createChatOptionsPanel(irish, english, options, onChoice, speaker, sw, sh)
+      this._buildChatOptions(irish, english, options, onChoice, speaker, sw, sh)
     } else if (type === 'archery_prompt') {
-      this._createArcheryPromptPanel(irish, english, sw, sh)
+      this._buildArcheryPrompt(irish, english, sw, sh)
     }
-
-    // Note: joystick stays ENABLED — panel is in top half, player can keep moving
   }
 
   hide() {
     if (!this.isVisible) return
     this._stopScroll()
-    this._unbindPhaserInput()
-    this._destroyCursor()
+    this._unbindInput()
     this._startCooldown()
 
-    if (this.container) {
+    const targets = [...this._objects]
+    if (targets.length) {
       this.scene.tweens.add({
-        targets: this.container,
+        targets,
         alpha: 0,
-        duration: FADE_OUT_MS,
-        ease: 'Power2',
+        duration: FADE_MS,
+        ease: 'Linear',
         onComplete: () => {
-          this._destroyPanel()
+          this._destroyAll()
           if (this.onDismiss) this.onDismiss()
         }
       })
     } else {
-      this._destroyPanel()
+      this._destroyAll()
       if (this.onDismiss) this.onDismiss()
     }
   }
 
+  update() { /* cursor removed for simplicity — add back if needed */ }
+
   updateEnglishOpacity() {
-    if (this.englishTextObject) {
-      this.englishTextObject.setAlpha(GameSettings.englishOpacity)
+    const a = GameSettings.englishOpacity
+    // Update baseAlpha on English content items so clip calculation respects it
+    if (this._contentItems) {
+      this._contentItems.forEach(item => {
+        if (this._enObjects.includes(item.obj)) {
+          item.baseAlpha = a
+        }
+      })
     }
-    this.englishOptionTexts.forEach(t => {
-      if (t && t.active) t.setAlpha(GameSettings.englishOpacity)
-    })
-  }
-
-  update(time, delta) {
-    this._updateCursor(delta)
-  }
-
-  // ── Scroll panel ────────────────────────────────────────────────────────────
-
-  _createScrollPanel(irish, english, speaker, sw, sh) {
-    const panelW  = sw * 0.92
-    const panelH  = sh * 0.40
-    const panelX  = sw / 2
-    const panelY  = panelH / 2 + 10
-    const padding = 20
-    const textW   = panelW - padding * 2
-
-    this._panelBounds = {
-      x: panelX - panelW/2,
-      y: panelY - panelH/2,
-      w: panelW,
-      h: panelH
-    }
-
-    // Background
-    const bg = this.scene.add.graphics()
-    bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
-    bg.lineStyle(3, PANEL_BORDER, 0.85)
-    bg.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 10)
-    bg.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 10)
-    this.container.add(bg)
-
-    // Make bg interactive so Phaser receives pointer events within panel
-    bg.setInteractive(
-      new Phaser.Geom.Rectangle(panelX - panelW/2, panelY - panelH/2, panelW, panelH),
-      Phaser.Geom.Rectangle.Contains
-    )
-
-    // Hint
-    const hint = this.scene.add.text(panelX, panelY + panelH/2 - 8,
-      '↑ swipe up to dismiss', {
-        fontSize: '10px', fontFamily: 'monospace', color: '#445544'
+    // Also update non-scroll English objects (chat_options etc)
+    this._enObjects.forEach(o => {
+      if (o?.active && !this._contentItems?.find(i => i.obj === o)) {
+        o.setAlpha(a)
       }
-    ).setOrigin(0.5, 1).setScrollFactor(0).setAlpha(0.45)
-    this.container.add(hint)
+    })
+    this._applyScroll()
+  }
 
-    // Content container
-    const contentX     = panelX - panelW/2 + padding
-    const panelTop     = panelY - panelH/2
-    const panelCentreY = panelTop + panelH / 2
-    this._contentBaseY = panelCentreY   // content base = centre of panel
+  // ── Scroll panel ─────────────────────────────────────────────────────────────
 
-    this._contentContainer = this.scene.add.container(contentX, this._contentBaseY)
-    this._contentContainer.setDepth(2001).setScrollFactor(0)
+  _buildScrollPanel(irish, english, speaker, sw, sh) {
+    const panelW   = Math.round(sw * 0.92)
+    const panelH   = Math.round(sh * PANEL_H_FRAC)
+    const panelX   = Math.round(sw / 2)
+    const panelTop = 10
+    const padding  = 22
+    const textW    = panelW - padding * 2
+    const depth    = 2000
+
+    this._bounds = { x: panelX - panelW/2, y: panelTop, w: panelW, h: panelH }
+
+    // ── Gradient background: opaque at top, transparent at bottom ──
+    const bg = this.scene.add.graphics()
+      .setDepth(depth).setScrollFactor(0)
+    // fillGradientStyle(tl, tr, bl, br, alpha)
+    // Top row opaque, bottom row transparent
+    bg.fillGradientStyle(PANEL_FILL, PANEL_FILL, PANEL_FILL, PANEL_FILL,
+      PANEL_ALPHA, PANEL_ALPHA, 0, 0)
+    bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
+    bg.lineStyle(2, PANEL_BORDER, 0.6)
+    bg.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
+    this._objects.push(bg)
+
+    // ── Hint ──
+    const hint = this.scene.add.text(panelX, panelTop + panelH - 6, '↑ swipe up to dismiss', {
+      fontSize: SIZES.hint, fontFamily: FONTS.english, color: COLORS.hint
+    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 2).setAlpha(0.4)
+    this._objects.push(hint)
+
+    // ── No geometry mask — we clip by fading lines near panel edges in _tick ──
+    // Store panel clip bounds for per-line alpha calculation
+    this._clipTop    = panelTop + padding / 2
+    this._clipBottom = panelTop + panelH - padding
+
+    // ── Content items ──
+    const startX     = panelX - panelW/2 + padding
+    const centreY    = panelTop + panelH / 2
+    this._contentX   = startX
+    this._contentBaseY = centreY
+    this._contentItems = []
+
+    const gaLines = (irish   || '').split('\n')
+    const enLines = (english || '').split('\n')
+    const count   = Math.max(gaLines.length, enLines.length)
+    this._enObjects = []
 
     let cy = 0
 
     if (speaker) {
-      const spEl = this.scene.add.text(0, cy, speaker, {
-        fontSize: '16px', fontFamily: 'Urchlo',
+      const el = this.scene.add.text(startX, centreY + cy, speaker, {
+        fontSize: SIZES.speaker, fontFamily: FONTS.irish,
         color: SPEAKER_COLOR, fontStyle: 'bold',
         wordWrap: { width: textW }
-      }).setOrigin(0, 0)
-      this._contentContainer.add(spEl)
-      cy += spEl.height + 8
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+      this._objects.push(el)
+      this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
+      cy += el.height + 10
     }
 
-    this.irishTextObject = this.scene.add.text(0, cy, irish, {
-      fontSize: '20px', fontFamily: 'Urchlo',
-      color: IRISH_COLOR,
-      wordWrap: { width: textW }, lineSpacing: 6
-    }).setOrigin(0, 0)
-    this._contentContainer.add(this.irishTextObject)
-    cy += this.irishTextObject.height + 14
+    for (let i = 0; i < count; i++) {
+      const ga = (gaLines[i] || '').trim()
+      const en = (enLines[i] || '').trim()
+      if (!ga && !en) { cy += 10; continue }
 
-    this.englishTextObject = this.scene.add.text(0, cy, english, {
-      fontSize: '15px', fontFamily: 'monospace',
-      color: ENGLISH_COLOR,
-      wordWrap: { width: textW }, lineSpacing: 4
-    }).setOrigin(0, 0).setAlpha(GameSettings.englishOpacity)
-    this._contentContainer.add(this.englishTextObject)
-    cy += this.englishTextObject.height
+      if (ga) {
+        const el = this.scene.add.text(startX, centreY + cy, ga, {
+          fontSize: IRISH_SIZE, fontFamily: IRISH_FONT,
+          color: IRISH_COLOR,
+          wordWrap: { width: textW }, lineSpacing: 4
+        }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        this._objects.push(el)
+        this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
+        if (!this.irishTextObject) this.irishTextObject = el
+        cy += el.height + 2
+      }
 
-    // scrollY=0: content starts at panel centre (startOffset=0)
-    // scrollY=maxScroll: content top edge sits at panel top + padding
-    const contentH    = cy + padding
-    const visibleH    = panelH - padding * 2
-    // How far content needs to scroll to reach top of panel
-    this._startOffset = 0   // content begins at panel centre
-    this._maxScroll   = panelH / 2 + Math.max(0, contentH - visibleH)
+      if (en) {
+        const el = this.scene.add.text(startX, centreY + cy, en, {
+          fontSize: ENGLISH_SIZE, fontFamily: ENGLISH_FONT,
+          color: ENGLISH_COLOR,
+          wordWrap: { width: textW }, lineSpacing: 3
+        }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        this._objects.push(el)
+        this._enObjects.push(el)
+        this._contentItems.push({ obj: el, localY: cy, baseAlpha: GameSettings.englishOpacity })
+        if (!this.englishTextObject) this.englishTextObject = el
+        cy += el.height + 10
+      }
+    }
 
-    // Mask
-    const maskGfx = this.scene.add.graphics()
-    maskGfx.fillStyle(0xffffff)
-    maskGfx.fillRect(
-      panelX - panelW/2 + 2, panelTop + 2,
-      panelW - 4, panelH - 4
-    )
-    maskGfx.setScrollFactor(0)
-    this._contentContainer.setMask(maskGfx.createGeometryMask())
-    this._maskGraphics = maskGfx
-
-    this.container.add(this._contentContainer)
+    const visibleH  = panelH - padding * 2
+    const overflow  = Math.max(0, cy - visibleH)
+    this._maxScroll = panelH / 2 + overflow
 
     this._beginScroll()
-    this._bindPhaserInput()
+    this._bindInput()
+  }
+
+  // ── Scroll logic ──────────────────────────────────────────────────────────
+
+  _applyScroll() {
+    if (!this._contentItems) return
+    const clipTop    = this._clipTop    || 0
+    const clipBottom = this._clipBottom || 9999
+    const fadeZone   = 24   // px over which lines fade in/out at edges
+
+    this._contentItems.forEach(({ obj, localY, baseAlpha }) => {
+      if (!obj?.active) return
+      const y = this._contentBaseY + localY - this._scrollY
+      obj.y = y
+
+      // Fade in as line enters from bottom, fade out as it exits top
+      const bottom = y + (obj.height || 20)
+      let a = baseAlpha
+      if (y < clipTop) {
+        // Above top edge — fade out
+        a = Math.max(0, Math.min(a, (y - (clipTop - fadeZone)) / fadeZone))
+      }
+      if (bottom > clipBottom) {
+        // Below bottom edge — fade out
+        a = Math.max(0, Math.min(a, (clipBottom - y) / fadeZone))
+      }
+      obj.setAlpha(Math.max(0, a))
+    })
   }
 
   _beginScroll() {
     this._stopScroll()
-    this._scrollY  = 0
-    this._atTop    = false
-    this._paused   = false
-    this._velocity = this._naturalVel
+    this._scrollY   = 0
+    this._atTop     = false
+    this._paused    = false
+    this._velocity  = SCROLL_PX_PER_SEC / 60
     this._scrolling = true
     this._applyScroll()
-    this._rafId = requestAnimationFrame(this._loop.bind(this))
+    this._rafId = requestAnimationFrame(this._tick.bind(this))
   }
 
-  _loop() {
+  _tick() {
     if (!this._scrolling) return
     if (!this._dragging && !this._paused) {
       this._scrollY += this._velocity
+      if (this._velocity < SCROLL_PX_PER_SEC / 60) {
+        this._velocity += (SCROLL_PX_PER_SEC / 60 - this._velocity) * 0.05
+      }
     }
     if (this._scrollY >= this._maxScroll) {
       this._scrollY = this._maxScroll
@@ -311,135 +323,117 @@ export default class TextPanel {
     }
     if (this._scrollY < 0) {
       this._scrollY = 0
-      this._velocity = this._naturalVel
+      this._velocity = SCROLL_PX_PER_SEC / 60
     }
     this._applyScroll()
-    this._rafId = requestAnimationFrame(this._loop.bind(this))
-  }
-
-  _applyScroll() {
-    if (!this._contentContainer) return
-    this._contentContainer.y = this._contentBaseY - this._scrollY
+    this._rafId = requestAnimationFrame(this._tick.bind(this))
   }
 
   _onReachTop() {
     if (this._atTop) return
     this._atTop    = true
     this._velocity = 0
-    this._holdTimer = setTimeout(() => {
-      this._holdTimer = null
-      this.hide()
-    }, HOLD_MS)
+    this._holdTimer = setTimeout(() => { this._holdTimer = null; this.hide() }, HOLD_MS)
   }
 
   _stopScroll() {
     this._scrolling = false
-    if (this._rafId)      { cancelAnimationFrame(this._rafId); this._rafId = null }
-    if (this._pauseTimer) { clearTimeout(this._pauseTimer);   this._pauseTimer = null }
-    if (this._holdTimer)  { clearTimeout(this._holdTimer);    this._holdTimer  = null }
+    if (this._rafId)      { cancelAnimationFrame(this._rafId); this._rafId      = null }
+    if (this._pauseTimer) { clearTimeout(this._pauseTimer);    this._pauseTimer = null }
+    if (this._holdTimer)  { clearTimeout(this._holdTimer);     this._holdTimer  = null }
   }
 
-  // ── Phaser pointer input ────────────────────────────────────────────────────
+  // ── Input ────────────────────────────────────────────────────────────────
 
-  _bindPhaserInput() {
-    this._unbindPhaserInput()
+  _bindInput() {
+    this._unbindInput()
 
-    this._phaserDown = (pointer) => {
-      if (!this._inPanel(pointer)) {
-        this._dragStartedInPanel = false
+    this._onDown = (p) => {
+      const inside = this._inBounds(p)
+      this._inPanelDrag = inside
+      this._dragging    = inside
+      if (!inside) {
+        // Reset velocity so stale drag state can't affect scroll
+        this._dragVelocity = 0
         return
       }
-      this._dragStartedInPanel  = true
-      this._dragging        = true
-      this._paused          = false
-      this._tapStartY       = pointer.y
+      this._tapStartY       = p.y
       this._tapStartTime    = performance.now()
-      this._dragStartY      = pointer.y
+      this._dragStartY      = p.y
       this._dragStartScroll = this._scrollY
-      this._lastDragY       = pointer.y
+      this._lastDragY       = p.y
       this._lastDragTime    = performance.now()
       this._dragVelocity    = 0
+      this._atTop           = false
       if (this._holdTimer) { clearTimeout(this._holdTimer); this._holdTimer = null }
-      this._atTop = false
       if (!this._rafId && this._scrolling) {
-        this._rafId = requestAnimationFrame(this._loop.bind(this))
+        this._rafId = requestAnimationFrame(this._tick.bind(this))
       }
     }
 
-    this._phaserMove = (pointer) => {
-      if (!this._dragging || !pointer.isDown || !this._dragStartedInPanel) return
+    this._onMove = (p) => {
+      if (!this._dragging || !this._inPanelDrag || !p.isDown) return
       const now = performance.now()
       const dt  = now - this._lastDragTime
-      const dy  = pointer.y - this._lastDragY
+      const dy  = p.y - this._lastDragY
       if (dt > 0) this._dragVelocity = this._dragVelocity * 0.6 + (dy / dt) * 0.4
-      let s = this._dragStartScroll + (this._dragStartY - pointer.y)
-      s = Math.max(0, Math.min(this._maxScroll, s))
-      this._scrollY = s
+      this._scrollY = Math.max(0, Math.min(this._maxScroll,
+        this._dragStartScroll + (this._dragStartY - p.y)))
       this._applyScroll()
-      this._lastDragY    = pointer.y
+      this._lastDragY    = p.y
       this._lastDragTime = now
     }
 
-    this._phaserUp = (pointer) => {
-      if (!this._dragging || !this._dragStartedInPanel) return
-      this._dragging   = false
-      const dy         = Math.abs(pointer.y - this._tapStartY)
-      const dt         = performance.now() - this._tapStartTime
-      const wasTap     = dy < 12 && dt < 300
+    this._onUp = (p) => {
+      if (!this._dragging || !this._inPanelDrag) return
+      this._dragging    = false
+      this._inPanelDrag = false   // always clear on up
+      const dy   = Math.abs(p.y - this._tapStartY)
+      const dt   = performance.now() - this._tapStartTime
+      const tap  = dy < 12 && dt < 300
 
-      if (wasTap) {
+      if (tap) {
         this._paused = true
         if (this._pauseTimer) clearTimeout(this._pauseTimer)
         this._pauseTimer = setTimeout(() => {
-          this._paused     = false
-          this._pauseTimer = null
-          this._velocity   = this._naturalVel
+          this._paused = false; this._pauseTimer = null
+          this._velocity = SCROLL_PX_PER_SEC / 60
           if (this._atTop) this._onReachTop()
-          else if (!this._rafId && this._scrolling) {
-            this._rafId = requestAnimationFrame(this._loop.bind(this))
-          }
+          else if (!this._rafId && this._scrolling)
+            this._rafId = requestAnimationFrame(this._tick.bind(this))
         }, PAUSE_MS)
         return
       }
 
       // Fast upward fling → dismiss
-      // dragVelocity is px/ms, negative = upward
-      if (this._dragVelocity < -(DISMISS_VEL / 60)) {
-        this._stopScroll()
-        this.hide()
-        return
-      }
+      if (this._dragVelocity < -DISMISS_VEL) { this.hide(); return }
 
-      // Apply fling
-      const flingVel = -(this._dragVelocity * (1000 / 60))
-      this._velocity = Math.max(-this._naturalVel * 2, Math.min(this._naturalVel * 14, flingVel))
-      if (!this._rafId && this._scrolling) {
-        this._rafId = requestAnimationFrame(this._loop.bind(this))
-      }
+      // Regular fling
+      const fv = -(this._dragVelocity * (1000 / 60))
+      this._velocity = Math.max(-(SCROLL_PX_PER_SEC / 60) * 2,
+                        Math.min((SCROLL_PX_PER_SEC / 60) * 14, fv))
+      if (!this._rafId && this._scrolling)
+        this._rafId = requestAnimationFrame(this._tick.bind(this))
     }
 
-    this.scene.input.on('pointerdown', this._phaserDown)
-    this.scene.input.on('pointermove', this._phaserMove)
-    this.scene.input.on('pointerup',   this._phaserUp)
+    this.scene.input.on('pointerdown', this._onDown)
+    this.scene.input.on('pointermove', this._onMove)
+    this.scene.input.on('pointerup',   this._onUp)
   }
 
-  _unbindPhaserInput() {
-    if (this._phaserDown) this.scene.input.off('pointerdown', this._phaserDown)
-    if (this._phaserMove) this.scene.input.off('pointermove', this._phaserMove)
-    if (this._phaserUp)   this.scene.input.off('pointerup',   this._phaserUp)
-    this._phaserDown = null
-    this._phaserMove = null
-    this._phaserUp   = null
+  _unbindInput() {
+    if (this._onDown) { this.scene.input.off('pointerdown', this._onDown); this._onDown = null }
+    if (this._onMove) { this.scene.input.off('pointermove', this._onMove); this._onMove = null }
+    if (this._onUp)   { this.scene.input.off('pointerup',   this._onUp);   this._onUp   = null }
   }
 
-  _inPanel(pointer) {
-    if (!this._panelBounds) return false
-    const { x, y, w, h } = this._panelBounds
-    return pointer.x >= x && pointer.x <= x + w &&
-           pointer.y >= y && pointer.y <= y + h
+  _inBounds(p) {
+    if (!this._bounds) return false
+    const { x, y, w, h } = this._bounds
+    return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h
   }
 
-  // ── Cooldown ────────────────────────────────────────────────────────────────
+  // ── Cooldown ─────────────────────────────────────────────────────────────
 
   _startCooldown() {
     if (this._lastTriggerId) {
@@ -448,159 +442,140 @@ export default class TextPanel {
     }
   }
 
-  // ── Other panel types ───────────────────────────────────────────────────────
+  // ── Other panel types ─────────────────────────────────────────────────────
 
-  _createNotificationPanel(irish, english, sw, sh) {
-    const panelW = sw * 0.88
-    const panelH = 80
-    const panelX = sw / 2
-    const panelY = sh * 0.18
+  _buildNotification(irish, english, sw, sh) {
+    const pw = sw * 0.88, ph = 90
+    const px = sw / 2,   py = sh * 0.18
+    const bg = this.scene.add.graphics().setScrollFactor(0).setDepth(2000)
+    bg.fillStyle(0x0a1a0a, 0.95); bg.lineStyle(2, 0x6a9a6a, 0.9)
+    bg.fillRoundedRect(px - pw/2, py - ph/2, pw, ph, 6)
+    bg.strokeRoundedRect(px - pw/2, py - ph/2, pw, ph, 6)
+    this._objects.push(bg)
 
-    const bg = this.scene.add.graphics()
-    bg.fillStyle(0x0a1a0a, 0.95)
-    bg.lineStyle(2, 0x6a9a6a, 0.9)
-    bg.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 6)
-    bg.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 6)
-    this.container.add(bg)
+    const ga = this.scene.add.text(px, py - 14, irish, {
+      fontSize: '18px', fontFamily: IRISH_FONT, color: IRISH_COLOR,
+      wordWrap: { width: pw * 0.85 }
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2001)
+    this._objects.push(ga)
+    this.irishTextObject = ga
 
-    const irishEl = this.scene.add.text(panelX, panelY - 12, irish, {
-      fontSize: '18px', fontFamily: 'Urchlo', color: IRISH_COLOR,
-      wordWrap: { width: panelW * 0.85 }
-    }).setOrigin(0.5, 0)
-    this.container.add(irishEl)
-
-    this.englishTextObject = this.scene.add.text(panelX, panelY + irishEl.height - 8, english, {
-      fontSize: '13px', fontFamily: 'monospace', color: ENGLISH_COLOR,
-      wordWrap: { width: panelW * 0.85 }
-    }).setOrigin(0.5, 0).setAlpha(GameSettings.englishOpacity)
-    this.container.add(this.englishTextObject)
+    const en = this.scene.add.text(px, py + ga.height - 8, english, {
+      fontSize: '14px', fontFamily: ENGLISH_FONT, color: ENGLISH_COLOR,
+      wordWrap: { width: pw * 0.85 }
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2001).setAlpha(GameSettings.englishOpacity)
+    this._objects.push(en); this._enObjects.push(en)
+    this.englishTextObject = en
 
     this.scene.time.delayedCall(3000, () => { if (this.isVisible) this.hide() })
   }
 
-  _createChatOptionsPanel(irish, english, options, onChoice, speaker, sw, sh) {
+  _buildChatOptions(irish, english, options, onChoice, speaker, sw, sh) {
     this.englishOptionTexts = []
-    const panelW = sw * 0.9
-    const panelH = sh * 0.5
-    const panelX = sw / 2
-    const panelY = sh - panelH / 2
+    const pw = sw * 0.9, ph = sh * 0.5
+    const px = sw / 2,   py = sh - ph / 2
 
-    const bg = this.scene.add.graphics()
-    bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
-    bg.lineStyle(4, PANEL_BORDER, 1)
-    bg.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 8)
-    bg.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 8)
-    this.container.add(bg)
+    const bg = this.scene.add.graphics().setScrollFactor(0).setDepth(2000)
+    bg.fillStyle(PANEL_FILL, PANEL_ALPHA); bg.lineStyle(4, PANEL_BORDER, 1)
+    bg.fillRoundedRect(px - pw/2, py - ph/2, pw, ph, 8)
+    bg.strokeRoundedRect(px - pw/2, py - ph/2, pw, ph, 8)
+    this._objects.push(bg)
 
-    let textY  = panelY - panelH/2 + 28
-    const textX = sw * 0.07
+    let ty = py - ph/2 + 28
+    const tx = sw * 0.07
 
     if (speaker) {
-      const spEl = this.scene.add.text(textX, textY, speaker, {
-        fontSize: '18px', fontFamily: 'Urchlo', color: SPEAKER_COLOR, fontStyle: 'bold'
-      }).setOrigin(0, 0)
-      this.container.add(spEl)
-      textY += spEl.height + 8
+      const sp = this.scene.add.text(tx, ty, speaker, {
+        fontSize: '18px', fontFamily: IRISH_FONT, color: SPEAKER_COLOR, fontStyle: 'bold'
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(2001)
+      this._objects.push(sp); ty += sp.height + 8
     }
 
-    const irishEl = this.scene.add.text(textX, textY, irish, {
-      fontSize: '20px', fontFamily: 'Urchlo', color: IRISH_COLOR,
+    const ga = this.scene.add.text(tx, ty, irish, {
+      fontSize: '20px', fontFamily: IRISH_FONT, color: IRISH_COLOR,
       wordWrap: { width: sw * 0.82 }, lineSpacing: 4
-    }).setOrigin(0, 0)
-    this.container.add(irishEl)
+    }).setOrigin(0, 0).setScrollFactor(0).setDepth(2001)
+    this._objects.push(ga); this.irishTextObject = ga
 
-    this.englishTextObject = this.scene.add.text(textX, textY + irishEl.height + 10, english, {
-      fontSize: '15px', fontFamily: 'monospace', color: ENGLISH_COLOR,
+    const en = this.scene.add.text(tx, ty + ga.height + 10, english, {
+      fontSize: '15px', fontFamily: ENGLISH_FONT, color: ENGLISH_COLOR,
       wordWrap: { width: sw * 0.82 }, lineSpacing: 4
-    }).setOrigin(0, 0).setAlpha(GameSettings.englishOpacity)
-    this.container.add(this.englishTextObject)
+    }).setOrigin(0, 0).setScrollFactor(0).setDepth(2001).setAlpha(GameSettings.englishOpacity)
+    this._objects.push(en); this._enObjects.push(en); this.englishTextObject = en
 
-    let optY = textY + irishEl.height + this.englishTextObject.height + 30
-    options.forEach((option, i) => {
-      const btnBg = this.scene.add.rectangle(sw/2, optY, sw * 0.8, 64, 0x1b2a1b, 1)
-      btnBg.setStrokeStyle(2, 0xd4af37).setInteractive({ useHandCursor: true })
-      this.container.add(btnBg)
-      const optIrish = this.scene.add.text(sw/2, optY - 12, option.irish, {
-        fontSize: '18px', fontFamily: 'Urchlo', color: IRISH_COLOR,
+    let oy = ty + ga.height + en.height + 30
+    options.forEach((opt, i) => {
+      const btn = this.scene.add.rectangle(sw/2, oy, sw * 0.8, 64, 0x1b2a1b, 1)
+        .setScrollFactor(0).setDepth(2001)
+        .setStrokeStyle(2, 0xd4af37).setInteractive({ useHandCursor: true })
+      this._objects.push(btn)
+
+      const oga = this.scene.add.text(sw/2, oy - 12, opt.irish || opt.ga || '', {
+        fontSize: '18px', fontFamily: IRISH_FONT, color: IRISH_COLOR,
         wordWrap: { width: sw * 0.72 }
-      }).setOrigin(0.5, 0)
-      this.container.add(optIrish)
-      const optEng = this.scene.add.text(sw/2, optY + optIrish.height - 8, option.english, {
-        fontSize: '14px', fontFamily: 'monospace', color: ENGLISH_COLOR,
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2002)
+      this._objects.push(oga)
+
+      const oen = this.scene.add.text(sw/2, oy + oga.height - 8, opt.english || opt.en || '', {
+        fontSize: '14px', fontFamily: ENGLISH_FONT, color: ENGLISH_COLOR,
         wordWrap: { width: sw * 0.72 }
-      }).setOrigin(0.5, 0).setAlpha(GameSettings.englishOpacity)
-      this.container.add(optEng)
-      this.englishOptionTexts.push(optEng)
-      btnBg.on('pointerover', () => { btnBg.setFillStyle(0x2a3a2a); btnBg.setStrokeStyle(3, 0xffd700) })
-      btnBg.on('pointerout',  () => { btnBg.setFillStyle(0x1b2a1b); btnBg.setStrokeStyle(2, 0xd4af37) })
-      btnBg.on('pointerdown', () => {
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2002).setAlpha(GameSettings.englishOpacity)
+      this._objects.push(oen); this._enObjects.push(oen)
+      this.englishOptionTexts.push(oen)
+
+      btn.on('pointerover', () => btn.setFillStyle(0x2a3a2a).setStrokeStyle(3, 0xffd700))
+      btn.on('pointerout',  () => btn.setFillStyle(0x1b2a1b).setStrokeStyle(2, 0xd4af37))
+      btn.on('pointerdown', () => {
         this.hide()
-        this.scene.time.delayedCall(100, () => { if (onChoice) onChoice(i, option) })
+        this.scene.time.delayedCall(100, () => { if (onChoice) onChoice(i, opt) })
       })
-      optY += 80
+      oy += 80
     })
   }
 
-  _createArcheryPromptPanel(irish, english, sw, sh) {
-    const panelW = sw * 0.9
-    const panelH = 100
-    const panelX = sw / 2
-    const panelY = panelH / 2 + 20
+  _buildArcheryPrompt(irish, english, sw, sh) {
+    const pw = sw * 0.9, ph = 100
+    const px = sw / 2,   py = ph / 2 + 20
 
-    const bg = this.scene.add.graphics()
-    bg.fillStyle(0x1a2a3a, 0.95)
-    bg.lineStyle(4, PANEL_BORDER, 1)
-    bg.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 8)
-    bg.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, 8)
-    this.container.add(bg)
+    const bg = this.scene.add.graphics().setScrollFactor(0).setDepth(2000)
+    bg.fillStyle(0x1a2a3a, 0.95); bg.lineStyle(4, PANEL_BORDER, 1)
+    bg.fillRoundedRect(px - pw/2, py - ph/2, pw, ph, 8)
+    bg.strokeRoundedRect(px - pw/2, py - ph/2, pw, ph, 8)
+    this._objects.push(bg)
 
-    const irishEl = this.scene.add.text(sw/2, 35, irish, {
-      fontSize: '22px', fontFamily: 'Aonchlo', color: IRISH_COLOR, fontStyle: 'bold',
-      wordWrap: { width: panelW * 0.8 }
-    }).setOrigin(0.5, 0)
-    this.container.add(irishEl)
+    const ga = this.scene.add.text(sw/2, 35, irish, {
+      fontSize: '22px', fontFamily: IRISH_FONT, color: IRISH_COLOR,
+      fontStyle: 'bold', wordWrap: { width: pw * 0.8 }
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2001)
+    this._objects.push(ga); this.irishTextObject = ga
 
-    this.englishTextObject = this.scene.add.text(sw/2, 35 + irishEl.height + 6, english, {
-      fontSize: '16px', fontFamily: 'monospace', color: ENGLISH_COLOR,
-      wordWrap: { width: panelW * 0.8 }
-    }).setOrigin(0.5, 0).setAlpha(GameSettings.englishOpacity)
-    this.container.add(this.englishTextObject)
+    const en = this.scene.add.text(sw/2, 35 + ga.height + 6, english, {
+      fontSize: '16px', fontFamily: ENGLISH_FONT, color: ENGLISH_COLOR,
+      wordWrap: { width: pw * 0.8 }
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(2001).setAlpha(GameSettings.englishOpacity)
+    this._objects.push(en); this._enObjects.push(en); this.englishTextObject = en
   }
 
-  // ── Cursor ──────────────────────────────────────────────────────────────────
+  // ── Cleanup ──────────────────────────────────────────────────────────────
 
-  _updateCursor(delta) {
-    if (!this.readingCursor || !this.isVisible) return
-    this.cursorTime += (delta || 16) * 0.002
-    const glow = 0.6 + Math.sin(this.cursorTime * 3) * 0.3
-    this.readingCursor.setAlpha(glow).setScale(0.35 + glow * 0.12)
-    this.readingCursor.x = this.cursorAnchor.x + Math.cos(this.cursorTime * 1.2) * 6
-    this.readingCursor.y = this.cursorAnchor.y + Math.sin(this.cursorTime * 2.5) * 4
-  }
-
-  _destroyCursor() {
-    if (this.readingCursor) { this.readingCursor.destroy(); this.readingCursor = null }
-    this.cursorParticles.forEach(p => p.destroy())
-    this.cursorParticles = []
-  }
-
-  // ── Cleanup ──────────────────────────────────────────────────────────────────
-
-  _destroyPanel() {
+  _destroyAll() {
     this._stopScroll()
-    this._unbindPhaserInput()
-    this._destroyCursor()
-    if (this._maskGraphics)    { this._maskGraphics.destroy();   this._maskGraphics    = null }
-    if (this.container)        { this.container.destroy();       this.container        = null }
-    this._contentContainer  = null
-    this._panelBounds       = null
-    this._dragging          = false
-    this._dragStartedInPanel = false
-    this.irishTextObject    = null
-    this.englishTextObject  = null
+    this._unbindInput()
+    this._objects.forEach(o => { if (o?.active) o.destroy() })
+    this._objects         = []
+    this._enObjects       = []
+    this._contentItems    = []
     this.englishOptionTexts = []
-    this.isVisible          = false
-    this.currentPanelType   = null
+    this.irishTextObject  = null
+    this.englishTextObject = null
+    this._dragging        = false
+    this._inPanelDrag     = false
+    this._dragVelocity    = 0
+    this._bounds          = null
+    this._clipTop         = 0
+    this._clipBottom      = 9999
+    this.isVisible        = false
+    this.currentPanelType = null
   }
 }
 

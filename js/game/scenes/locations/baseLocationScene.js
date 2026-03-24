@@ -88,8 +88,14 @@ initializeLocation() {
   this.terrainManager = new TerrainManager(this, this.player);
 
   // Set up camera
-  this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-  this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
+  
+this._camProxy = this.add.rectangle(playerX, playerY, 1, 1).setVisible(false)
+this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
+
+
+
+
+	this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
 
   // Create joystick
   this.joystick = new Joystick(this, {
@@ -143,9 +149,11 @@ update(time, delta) {
       else if (angle >= -67.5 && angle < -22.5) { dx = 1; dy = -1; }
 
       // Snap to grid and calculate target
-      const currentX = Math.round(this.player.sprite.x / this.player.tileSize) * this.player.tileSize;
-      const currentY = Math.round(this.player.sprite.y / this.player.tileSize) * this.player.tileSize;
-      const targetX = currentX + (dx * this.player.tileSize);
+    
+const currentX = Math.round(this.player.logicalX / this.player.tileSize) * this.player.tileSize;
+const currentY = Math.round(this.player.logicalY / this.player.tileSize) * this.player.tileSize;
+
+  const targetX = currentX + (dx * this.player.tileSize);
       const targetY = currentY + (dy * this.player.tileSize);
 
       // Block movement if target is not walkable
@@ -173,6 +181,10 @@ update(time, delta) {
   }
 
   this.checkItemPickups();
+
+if (this._camProxy && this.player)
+  this._camProxy.setPosition(this.player.logicalX, this.player.logicalY)
+
 }
 
 

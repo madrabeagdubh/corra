@@ -125,6 +125,9 @@ export default class BogLocationScene extends BaseLocationScene {
 
     this.initializeLocation()
 
+if (this.perspectiveGround) {
+  this.perspectiveGround.setPlayer(this.player)
+}
     // Initialise GameState for this champion
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (champion?.id) GameState.init(champion.id)
@@ -148,7 +151,6 @@ export default class BogLocationScene extends BaseLocationScene {
         w.intensity || 0.6
       )
     })
-
     const track = this.getMusicTrack()
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
@@ -226,7 +228,9 @@ export default class BogLocationScene extends BaseLocationScene {
       return key
     }
 
-    for (let li = 0; li < this.mapData.layers.length; li++) {
+for (let li = 0; li < this.mapData.layers.length; li++) {
+  // In perspective mode, PGR handles layers 0 AND 1 — skip both here
+  if (this.usePerspective && (li === 0 || li === 1)) continue
 
       // Layer 0 is handled entirely by PerspectiveGroundRenderer when active —
       // skip both the flood fill and the per-tile images.
@@ -444,7 +448,8 @@ export default class BogLocationScene extends BaseLocationScene {
       sprite.setData('isNPC',        true)
       sprite.setDepth(10)
       sprite.setInteractive()
-
+sprite.setData('logicalX', pixelX)
+sprite.setData('logicalY', pixelY)
       this.add.text(pixelX, pixelY - radius - 6, npcData.name, {
         fontSize: '12px', fontFamily: 'Arial',
         color: '#ffffff', backgroundColor: '#000000',
@@ -459,15 +464,25 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   // ── Update ────────────────────────────────────────────────────────
+update(time, delta) {
+  if (this.perspectiveGround) this.perspectiveGround.update()
+  super.update(time, delta)
 
-  update(time, delta) {
-    // Perspective ground renders first — purely visual, no game logic
-    if (this.perspectiveGround) this.perspectiveGround.update()
-    super.update(time, delta)
-    if (this.playerLight && this.player?.sprite)
-      this.playerLight.setPosition(this.player.sprite.x, this.player.sprite.y)
-    if (this.bowMechanics) this.bowMechanics.update(delta)
+  // Player is rendered by PGR — no applyPerspective needed here
+
+  // NPCs (still Phaser circles for now)
+  if (this.perspectiveGround && this.npcs) {
+    this.npcs.forEach(npc => {
+      const lx = npc.getData('logicalX') ?? npc.x
+      const ly = npc.getData('logicalY') ?? npc.y
+      this.perspectiveGround.applyPerspective(npc, lx, ly, this.tileSize, 32)
+    })
   }
+
+  if (this.playerLight && this.player)
+    this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
+  if (this.bowMechanics) this.bowMechanics.update(delta)
+}
 
   shutdown() {
     if (this.perspectiveGround) {

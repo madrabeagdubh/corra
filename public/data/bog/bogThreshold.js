@@ -6,17 +6,10 @@ export const bogThresholdContent = {
 
   introNarrative: [
     {
-      ga: 'Ar deireadh, ar deireadh thiar, tháinig mé chuige — geata thoir Mhóin Alúine mhóir, agus éiríonn mo chroí chomh beag le hubh dreolín ag an radharc.\n\nÓ, searbh agus leathan agus brónach an méid atá romham anois!',
-      en: 'At last, at last have I come to it — the eastern gate of the great Bog of Allen, and my heart within my breast grows small as a wren\'s egg at the sight of it.\n\nOh, bitter and wide and sorrowful what stretches before me now!',
-    },
-    {
-      ga: 'Cúig chontae a shlogann sé — Cill Dara agus Uíbh Fhailí agus an Mhí agus an Iarmhí agus an Longfort — báite fúthu go léir.\n\nShíl mé go raibh aithne agam ar fairsingeacht — mise a chodail faoin spéir oscailte agus a shiúil bóithre fada Chonnacht. Ach ní raibh a fhios agam faic, faic ar bith, go dtí an uair seo.',
-      en: 'Five counties it swallows whole — Kildare and Offaly and Meath and Westmeath and Longford, all but drowned beneath it, all taken and held.\n\nI thought I knew vastness — I who had slept beneath the open sky and walked the long roads of Connacht. But I knew nothing, nothing at all, till this hour.',
-    },
-    {
-      ga: 'Gheallaigh mé rud is tromchúisí, caithfidh mé mé féin a choinneáil le chéile,\nCé go slogfadh an portach Allen, cnoc agus cuimhne agus deifir.\n\nCuir misneach ionam, éinne, óir casann an cosán tríd an fraoch.',
-      en: 'I have pledged a thing most solemn, I must hold myself together,\nThough the bog would swallow Allen, hill and memory and haste.\n\nOh, put courage in me, someone, for the path winds through the heather.',
-    },
+      ga: 'Ar deireadh thiar,\ngeata thoir Mhóin Alúine mhóir,\néiríonn mo chroí chomh beag le hubh dreolín\nag an radharc\nÓ, an méid atá romham anois! \nCill Dara agus Uíbh Fhailí \nagus an Mhí agus an tIarmhí \nagus an Longfort,\n agus greidhm ag an Móin orthú mar aon.\nShíl mé gur thuigis fairsingeacht\nmise a chodail faoin spéir oscailte\n mise a shiúil bóithre fada Chonnacht.\nAch níor thuigeas tada,\nfaic na ngrást,\ngo dtí an uair seo.\n\nAch thánaigh mé ar shon chúise,\nCé go slogfadh an portach Allen cnoc, cleas agus cuimhne\nCuir misneach ionam,\néinne,\nóir casann an cosán tríd an fraoch.'
+,
+      en: 'At long last,\nthe eastern gate of the great Bog of Allen\nmy heart grows small as a wren\'s egg.\nat the sight\nOh, what stretches before me now!\nKildare and Offaly\nand Meath and Westmeath \nand Longford, \nall held by the bog as one.\nI thought I knew vastness\n I who had slept beneath the open sky\nI who walked the long roads of Connacht.\n But I knew nothing,\nnothing at all,\n till this hour.\n\nBut I have come to pledge a thing most solemn\nThough the bog would swallow Allen, hill, haste and memory.\nOh, put courage in me, \nsomeone,\nfor the path winds through the heather.'
+    }    
   ],
 
   objects: [

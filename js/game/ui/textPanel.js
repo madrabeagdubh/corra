@@ -181,17 +181,26 @@ export default class TextPanel {
 
     this._bounds = { x: panelX - panelW/2, y: panelTop, w: panelW, h: panelH }
 
-    // ── Gradient background: opaque at top, transparent at bottom ──
+    // ── Gradient background — dark panel, fade to transparent at bottom ──
     const bg = this.scene.add.graphics()
       .setDepth(depth).setScrollFactor(0)
-    // fillGradientStyle(tl, tr, bl, br, alpha)
-    // Top row opaque, bottom row transparent
-    bg.fillGradientStyle(PANEL_FILL, PANEL_FILL, PANEL_FILL, PANEL_FILL,
-      PANEL_ALPHA, PANEL_ALPHA, 0, 0)
+    // Solid fill first
+    bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
     bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
-    bg.lineStyle(2, PANEL_BORDER, 0.6)
+    bg.lineStyle(2, PANEL_BORDER, 0.5)
     bg.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
     this._objects.push(bg)
+
+    // Fade overlay — transparent at top, semi-opaque dark at bottom
+    // This softens the bottom edge so text fades into the game world
+    const fadeH = Math.round(panelH * 0.35)
+    const fadeY = panelTop + panelH - fadeH
+    const fade = this.scene.add.graphics()
+      .setDepth(depth + 3).setScrollFactor(0)
+    fade.fillGradientStyle(PANEL_FILL, PANEL_FILL, PANEL_FILL, PANEL_FILL,
+      0, 0, PANEL_ALPHA, PANEL_ALPHA)
+    fade.fillRect(panelX - panelW/2, fadeY, panelW, fadeH)
+    this._objects.push(fade)
 
     // ── Hint ──
     const hint = this.scene.add.text(panelX, panelTop + panelH - 6, '↑ swipe up to dismiss', {
@@ -199,10 +208,13 @@ export default class TextPanel {
     }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 2).setAlpha(0.4)
     this._objects.push(hint)
 
-    // ── No geometry mask — we clip by fading lines near panel edges in _tick ──
-    // Store panel clip bounds for per-line alpha calculation
-    this._clipTop    = panelTop + padding / 2
-    this._clipBottom = panelTop + panelH - padding
+    // ── Geometry mask — clips text hard to panel bounds ──
+    const maskGfx = this.scene.add.graphics().setScrollFactor(0).setDepth(depth - 1)
+    maskGfx.fillStyle(0xffffff)
+    maskGfx.fillRect(panelX - panelW/2, panelTop, panelW, panelH)
+    this._maskGfx = maskGfx
+    this._objects.push(maskGfx)   // include in _objects so it fades and destroys with panel
+    const mask = maskGfx.createGeometryMask()
 
     // ── Content items ──
     const startX     = panelX - panelW/2 + padding
@@ -210,6 +222,8 @@ export default class TextPanel {
     this._contentX   = startX
     this._contentBaseY = centreY
     this._contentItems = []
+    this._clipTop    = panelTop + padding / 2
+    this._clipBottom = panelTop + panelH - padding
 
     const gaLines = (irish   || '').split('\n')
     const enLines = (english || '').split('\n')
@@ -224,6 +238,7 @@ export default class TextPanel {
         color: SPEAKER_COLOR, fontStyle: 'bold',
         wordWrap: { width: textW }
       }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+      el.setMask(mask)
       this._objects.push(el)
       this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
       cy += el.height + 10
@@ -240,6 +255,7 @@ export default class TextPanel {
           color: IRISH_COLOR,
           wordWrap: { width: textW }, lineSpacing: 4
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        el.setMask(mask)
         this._objects.push(el)
         this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
         if (!this.irishTextObject) this.irishTextObject = el
@@ -252,6 +268,7 @@ export default class TextPanel {
           color: ENGLISH_COLOR,
           wordWrap: { width: textW }, lineSpacing: 3
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)
         this._contentItems.push({ obj: el, localY: cy, baseAlpha: GameSettings.englishOpacity })
@@ -385,9 +402,21 @@ export default class TextPanel {
     }
 
     this._onUp = (p) => {
-      if (!this._dragging || !this._inPanelDrag) return
-      this._dragging    = false
-      this._inPanelDrag = false   // always clear on up
+      // Always clear drag state — prevents slider/joystick bleeding into scroll
+      const wasInPanel   = this._dragging && this._inPanelDrag
+      const savedVel     = this._dragVelocity
+      this._dragging     = false
+      this._inPanelDrag  = false
+      this._dragVelocity = 0
+
+      if (!wasInPanel) {
+        // Not our gesture — but ensure scroll resumes if it should be running
+        if (this._scrolling && !this._paused && !this._atTop && !this._rafId) {
+          this._rafId = requestAnimationFrame(this._tick.bind(this))
+        }
+        return
+      }
+
       const dy   = Math.abs(p.y - this._tapStartY)
       const dt   = performance.now() - this._tapStartTime
       const tap  = dy < 12 && dt < 300
@@ -406,10 +435,10 @@ export default class TextPanel {
       }
 
       // Fast upward fling → dismiss
-      if (this._dragVelocity < -DISMISS_VEL) { this.hide(); return }
+      if (savedVel < -DISMISS_VEL) { this.hide(); return }
 
       // Regular fling
-      const fv = -(this._dragVelocity * (1000 / 60))
+      const fv = -(savedVel * (1000 / 60))
       this._velocity = Math.max(-(SCROLL_PX_PER_SEC / 60) * 2,
                         Math.min((SCROLL_PX_PER_SEC / 60) * 14, fv))
       if (!this._rafId && this._scrolling)
@@ -561,6 +590,7 @@ export default class TextPanel {
   _destroyAll() {
     this._stopScroll()
     this._unbindInput()
+    if (this._maskGfx) { this._maskGfx.destroy(); this._maskGfx = null }
     this._objects.forEach(o => { if (o?.active) o.destroy() })
     this._objects         = []
     this._enObjects       = []

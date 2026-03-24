@@ -45,7 +45,8 @@ export function startGame(selectedChampion, options = {}) {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-        backgroundColor: '#222222',
+	    transparent:true,
+//        backgroundColor: '#222222',
         parent: 'gameContainer',
         scene: [
             WorldScene,

@@ -5,7 +5,6 @@ import WorldButton from '../../../ui/worldButton.js'
 import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
-import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
 
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
@@ -113,8 +112,6 @@ export default class BogLocationScene extends BaseLocationScene {
     this.lights.enable()
     this.lights.setAmbientColor(this.getAmbient())
 
-    // Set flag before drawTilemap() so layer 0 is skipped in the flat renderer
-    this.usePerspective = true
     this.drawTilemap()
 
     this.mapData.tiles = this.mapData.layers[0]
@@ -152,7 +149,7 @@ export default class BogLocationScene extends BaseLocationScene {
     const track = this.getMusicTrack()
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
-    // World menu + button
+    // World menu + button (matches BogMeadow)
     this._createWorldUI()
 
     // Bow mechanics
@@ -227,12 +224,7 @@ export default class BogLocationScene extends BaseLocationScene {
     }
 
     for (let li = 0; li < this.mapData.layers.length; li++) {
-
-      // Layer 0 is handled entirely by PerspectiveGroundRenderer when active —
-      // skip both the flood fill and the per-tile images.
-      if (li === 0 && this.usePerspective) continue
-
-      // Flat mode only: flood fill base grass beneath layer 0
+      // Before layer 0, flood fill with base grass so transparent tiles have something beneath
       if (li === 0) {
         const grassFrame = ensureFrame(732)
         for (let y = 0; y < this.mapData.height; y++) {
@@ -248,7 +240,6 @@ export default class BogLocationScene extends BaseLocationScene {
           }
         }
       }
-
       const layer = this.mapData.layers[li]
       for (let y = 0; y < layer.length; y++) {
         for (let x = 0; x < layer[y].length; x++) {
@@ -264,11 +255,6 @@ export default class BogLocationScene extends BaseLocationScene {
           }
         }
       }
-    }
-
-    // Instantiate the perspective renderer after the tileset texture is ready
-    if (this.usePerspective) {
-      this.perspectiveGround = new PerspectiveGroundRenderer(this)
     }
   }
 
@@ -383,7 +369,7 @@ export default class BogLocationScene extends BaseLocationScene {
     showNext()
   }
 
-  // ── Object & NPC creation ─────────────────────────────────────────
+  // ── Object & NPC creation (handles our format — no visual required) ─
 
   createObjects() {
     if (!this.mapData.objects) return
@@ -408,7 +394,7 @@ export default class BogLocationScene extends BaseLocationScene {
       zone.setData('text',     obj.text)
       zone.setData('stateKey', stateKey)
       zone.setData('item',     obj.item || null)
-      zone.setData('note',     obj.note || null)
+      zone.setData('note',     obj.note || null)  // story note to record on examine
       zone.x = pixelX
       zone.y = pixelY
 
@@ -440,6 +426,7 @@ export default class BogLocationScene extends BaseLocationScene {
       sprite.setData('name',         npcData.name)
       sprite.setData('dialogues',    npcData.dialogues)
       sprite.setData('stateKey',     stateKey)
+      // Restore dialogue progress from GameState
       sprite.setData('dialogueIndex', GameState.getNPCProgress(stateKey))
       sprite.setData('isNPC',        true)
       sprite.setDepth(10)
@@ -461,8 +448,6 @@ export default class BogLocationScene extends BaseLocationScene {
   // ── Update ────────────────────────────────────────────────────────
 
   update(time, delta) {
-    // Perspective ground renders first — purely visual, no game logic
-    if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
     if (this.playerLight && this.player?.sprite)
       this.playerLight.setPosition(this.player.sprite.x, this.player.sprite.y)
@@ -470,10 +455,6 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   shutdown() {
-    if (this.perspectiveGround) {
-      this.perspectiveGround.destroy()
-      this.perspectiveGround = null
-    }
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()

@@ -25,8 +25,8 @@ export const FONTS = {
 
 // ── Sizes ─────────────────────────────────────────────────────────────────────
 export const SIZES = {
-  irish:       '25px',
-  english:     '20px',
+  irish:       '23px',
+  english:     '25px',
   speaker:     '16px',
   label:       '0px',
   hint:        '0px',

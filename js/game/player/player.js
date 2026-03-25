@@ -19,7 +19,6 @@ export default class Player {
 
     this.champion  = champion;
     this.scene     = scene;
-    // Use the scene's tileSize so logical coords match the map grid exactly.
     this.tileSize  = scene.tileSize || 48;
 
     this.nameGa    = champion.nameGa;
@@ -38,9 +37,8 @@ export default class Player {
     this.terrainSinkOffset    = 0;
 
     // ── Logical position ──────────────────────────────────────────────────
-    // Canonical world-pixel coords for all game logic (collision, proximity,
-    // exits, camera). sprite.x/y are owned by PerspectiveGroundRenderer and
-    // must never be read back for logic.
+    // Canonical world-pixel coords for all game logic.
+    // sprite.x/y are owned by PerspectiveGroundRenderer — never read back.
     this.logicalX = x;
     this.logicalY = y;
 
@@ -49,6 +47,12 @@ export default class Player {
     this.startX  = x;
     this.startY  = y;
     this.moveProgress = 0;
+
+    // ── Path queue (tap-to-pathfind) ──────────────────────────────────────
+    // Array of {dx, dy} steps produced by PathFinder.
+    // Consumed one step at a time when the player is not moving.
+    // Cleared immediately when joystick input is detected.
+    this.pathQueue = [];
 
     // Screen-space interpolation state (north/south movement)
     this._screenStartY    = null;
@@ -90,9 +94,9 @@ export default class Player {
   }
 
   heal(amount) {
-    const old    = this.currentHP;
+    const old      = this.currentHP;
     this.currentHP = Math.min(this.maxHP, this.currentHP + amount);
-    const gained = this.currentHP - old;
+    const gained   = this.currentHP - old;
     if (gained > 0) {
       console.log(`${this.nameGa} healed ${gained} HP. HP: ${this.currentHP}/${this.maxHP}`);
       if (this.sprite?.setTint) {
@@ -105,7 +109,8 @@ export default class Player {
 
   onDeath() {
     console.log(`${this.nameGa} has died!`);
-    this.isMoving = false;
+    this.isMoving  = false;
+    this.pathQueue = [];
     if (this.sprite) {
       this.scene.tweens.add({
         targets: this.sprite, alpha: 0, duration: 1000,
@@ -190,16 +195,11 @@ export default class Player {
       }
 
       this.sprite = this.scene.add.image(x, y, 'championAtlas_armored', frameName);
-      // Origin (0.5, 0.5): centre. PGR projects logicalX/Y (tile centres) and
-      // the billboard is drawn anchored at bottom-centre in screen space, so
-      // the Phaser sprite origin doesn't affect PGR rendering — it only matters
-      // for any fallback Phaser rendering path.
       this.sprite.setOrigin(0.5, 0.5);
       this.baseDisplaySize = this.tileSize;
       this.sprite.setDisplaySize(this.baseDisplaySize, this.baseDisplaySize);
       this.sprite.setDepth(100);
-      // Hide immediately — PGR owns all player rendering
-      this.sprite.setVisible(false);
+      this.sprite.setVisible(false);  // PGR owns all player rendering
       this.currentFrameName = frameName;
 
       this.bowOverlay = this.scene.add.image(x, y, 'item_simple_bow')
@@ -224,26 +224,22 @@ export default class Player {
       isVisible ? 'championAtlas_armored' : 'championAtlas_unarmored',
       this.currentFrameName
     );
-    // Invalidate PGR player canvas cache so it picks up the new texture
     if (this.scene.perspectiveGround) {
       this.scene.perspectiveGround._playerFrameKey = null;
     }
   }
 
   setEquipmentVisible(slot, isVisible) {
-    // Bow hidden until archery system is updated for perspective
     if (slot === 'weapon' && this.bowOverlay) this.bowOverlay.setVisible(false);
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
   //
-  // All movement operates on logicalX/Y only.
-  //
-  // North/south movement: the perspective formula compresses tile steps
-  // non-linearly near the horizon, so re-projecting logicalY naively each
-  // frame produces a visible jump. Instead we project start and target rows
-  // into screen-Y at step start (frozen camera state), lerp linearly in
-  // screen space during the step, then invert back to world-Y each frame.
+  // Priority order:
+  //   1. Mid-step: finish the current step
+  //   2. Joystick active: cancel path queue, start new joystick step
+  //   3. Path queue has steps: consume next queued step
+  //   (Nothing happens if all three are idle)
 
   update(joystick) {
     if (!joystick)       return;
@@ -259,12 +255,17 @@ export default class Player {
         this.logicalY     = this.targetY;
         this.isMoving     = false;
         this.moveProgress = 0;
-        if (force > 10) this.startNewStep(joystick);
+        if (force > 10) {
+          this.pathQueue = [];
+          this.startNewStep(joystick);
+        } else if (this.pathQueue.length > 0) {
+          this._consumePathStep();
+        }
       } else {
-        // X always linear — perspective doesn't distort horizontal movement
+        // X always linear
         this.logicalX = this.startX + (this.targetX - this.startX) * this.moveProgress;
 
-        // Y: screen-space lerp for north/south, linear fallback otherwise
+        // Y: screen-space lerp for north/south, linear otherwise
         if (this.moveDirection.y !== 0 &&
             this._screenStartY  !== null &&
             this._screenTargetY !== null) {
@@ -276,13 +277,36 @@ export default class Player {
         }
       }
     } else if (force > 10) {
+      // Joystick input cancels pathfinding
+      this.pathQueue = [];
       this.startNewStep(joystick);
+    } else if (this.pathQueue.length > 0) {
+      this._consumePathStep();
     }
   }
 
-  // Invert the perspective projection to get world-Y from a screen-Y.
-  // Uses frozen camera constants captured at step start so mid-step camera
-  // lerp doesn't corrupt the result.
+  // ── Path queue ────────────────────────────────────────────────────────────
+
+  setPath(steps) {
+    this.pathQueue = steps ?? [];
+  }
+
+  clearPath() {
+    this.pathQueue = [];
+  }
+
+  _consumePathStep() {
+    if (!this.pathQueue.length) return;
+    const step = this.pathQueue.shift();
+    const fakeJoystick = {
+      force: 100,
+      angle: Math.atan2(step.dy, step.dx) * (180 / Math.PI)
+    };
+    this.startNewStep(fakeJoystick);
+  }
+
+  // ── Perspective movement helpers ──────────────────────────────────────────
+
   _screenYToWorldY(screenY) {
     const pgr = this.scene.perspectiveGround;
     if (!pgr || this._stepPerspCamRow == null) {
@@ -297,11 +321,7 @@ export default class Player {
     const denom = screenY - horizonPx;
     if (denom <= 0) return this.logicalY;
 
-    // Invert: screenY = horizonPx + groundH * FL / (FL + d)
-    // → d = FL * groundH / (screenY - horizonPx) - FL
     const d        = FL * groundH / denom - FL;
-    // The +1 offset used in projection (south edge of tile) must be
-    // subtracted back out to recover the tile-centre world row.
     const worldRow = perspCamRow - d - 1;
     return worldRow * tileSize;
   }
@@ -319,7 +339,6 @@ export default class Player {
     else if (angle >= -112.5 && angle <  -67.5) {            dy = -1; }
     else if (angle >=  -67.5 && angle <  -22.5) { dx =  1;  dy = -1; }
 
-    // Snap logical position to nearest tile centre
     this.startX   = Math.round(this.logicalX / this.tileSize) * this.tileSize;
     this.startY   = Math.round(this.logicalY / this.tileSize) * this.tileSize;
     this.logicalX = this.startX;
@@ -328,24 +347,18 @@ export default class Player {
     this.targetX = this.startX + dx * this.tileSize;
     this.targetY = this.startY + dy * this.tileSize;
 
-    // For north/south steps: freeze projection state and pre-project both
-    // endpoints into screen-Y so the lerp is linear in screen space.
     const pgr = this.scene.perspectiveGround;
     if (pgr && dy !== 0) {
       const ts = pgr.tileDisplaySize;
-
-      // Freeze now — cam.scrollY will change during the step
       this._stepPerspCamRow = pgr._perspCamRow();
       this._stepHorizonPx   = pgr._horizonPx();
       this._stepGroundH     = pgr._groundH();
 
-      // Use tile-centre rows (logicalY / ts gives centre, +0.5 for south edge)
       const startRow  = this.startY  / ts + 0.5;
       const targetRow = this.targetY / ts + 0.5;
 
       this._screenStartY  = pgr._rowToScreenY(startRow);
       const rawTarget     = pgr._rowToScreenY(targetRow);
-      // Clamp null (row beyond horizon) to just above horizon line
       this._screenTargetY = rawTarget ?? (this._stepHorizonPx + 1);
     } else {
       this._screenStartY    = null;
@@ -354,11 +367,7 @@ export default class Player {
       this._stepHorizonPx   = null;
       this._stepGroundH     = null;
     }
-console.log('[SNAP]', 
-  'logicalX:', this.logicalX, '→', this.startX,
-  'logicalY:', this.logicalY, '→', this.startY,
-  'delta:', this.startX - this.logicalX, this.startY - this.logicalY
-)
+
     this.isMoving      = true;
     this.moveProgress  = 0;
     this.moveDirection = { x: dx, y: dy };
@@ -373,6 +382,7 @@ console.log('[SNAP]',
     this.targetY      = this.startY;
     this.isMoving     = false;
     this.moveProgress = 0;
+    this.pathQueue    = [];
     this._screenStartY    = null;
     this._screenTargetY   = null;
     this._stepPerspCamRow = null;

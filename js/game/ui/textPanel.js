@@ -13,7 +13,7 @@ const SCROLL_PX_PER_SEC = 28
 const PAUSE_MS          = 4000
 const HOLD_MS           = 3000
 const FADE_MS           = 400
-const COOLDOWN_MS       = 1200
+const COOLDOWN_MS       = 4500
 const DISMISS_VEL       = 0.5
 
 // ── Style — sourced from gameTypography ─────────────────────────────────────

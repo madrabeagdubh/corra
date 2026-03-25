@@ -6,7 +6,9 @@ import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
-//import PGRDebugOverlay from '../../../effects/pgrDebugOverlay.js'
+import FovSystem  from '../../../systems/fovSystem.js'
+import PathFinder from '../../../systems/pathFinder.js'
+import FogRenderer from '../../../systems/fogRenderer.js'
 
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
@@ -31,43 +33,39 @@ export default class BogLocationScene extends BaseLocationScene {
 
   // ── Override in child scenes ──────────────────────────────────────
 
-  /** Basename of map JSON file in public/maps/bog/ */
-  getMapKey()          { return 'great_open_bog' }
-  getAmbient()         { return 0x334422 }
-  getPlayerLight()     { return { color: 0xfff2cc, intensity: 2.0, radius: 300 } }
-  getWisps()           { return [] }
-  getMusicTrack()      { return null }
+  getMapKey()              { return 'great_open_bog' }
+  getAmbient()             { return 0x334422 }
+  getPlayerLight()         { return { color: 0xfff2cc, intensity: 2.0, radius: 300 } }
+  getWisps()               { return [] }
+  getMusicTrack()          { return null }
   getExtraUnwalkableGIDs() { return new Set() }
-  onEnter()            {}
+  onEnter()                {}
 
   // ── Lifecycle ─────────────────────────────────────────────────────
 
   init(data) {
-    // Store transition data for use in create()
     this.entryData = data || {}
     console.log(`[${this.scene.key}] init — entryEdge: ${data?.entryEdge}`)
   }
 
   preload() {
-    // Load champion and UI assets
-    this.load.image('championSheet_armored', 'assets/champions/champions-with-kit.png')
+    this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
     this.load.json('championAtlas', 'assets/champions/champions0.json')
-    this.load.image('slot_equipped', '/assets/inventory/slot_equipped.png')
-    this.load.image('slot_inventory', '/assets/inventory/slot_inventory.png')
-    this.load.image('panel_stone', '/assets/inventory/panel_stone.png')
+    this.load.image('slot_equipped',      '/assets/inventory/slot_equipped.png')
+    this.load.image('slot_inventory',     '/assets/inventory/slot_inventory.png')
+    this.load.image('panel_stone',        '/assets/inventory/panel_stone.png')
     this.load.image('item_leather_armor', 'assets/inventory/A_Armour02.png')
-    this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png')
-    this.load.image('item_healing_potion', 'assets/inventory/P_Blue04.png')
-    this.load.image('item_arrows', 'assets/inventory/W_Bow17.png')
-    this.load.image('glowCursor', 'assets/glowCursor.png')
-    this.load.audio('creak1', 'assets/sounds/creak1.wav')
-    this.load.audio('arrowShoot1', 'assets/sounds/arrowShoot1.wav')
-    this.load.audio('arrowShoot2', 'assets/sounds/arrowShoot2.wav')
-    this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav')
+    this.load.image('item_simple_bow',    'assets/inventory/W_Bow02.png')
+    this.load.image('item_healing_potion','assets/inventory/P_Blue04.png')
+    this.load.image('item_arrows',        'assets/inventory/W_Bow17.png')
+    this.load.image('glowCursor',         'assets/glowCursor.png')
+    this.load.audio('creak1',           'assets/sounds/creak1.wav')
+    this.load.audio('arrowShoot1',      'assets/sounds/arrowShoot1.wav')
+    this.load.audio('arrowShoot2',      'assets/sounds/arrowShoot2.wav')
+    this.load.audio('arrowShoot3',      'assets/sounds/arrowShoot3.wav')
     this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg')
-    this.load.audio('parrySound', 'assets/sounds/parry.mp3')
-    // Bog map geometry
+    this.load.audio('parrySound',       'assets/sounds/parry.mp3')
     const key = this.getMapKey()
     this.bogMapCacheKey = 'bogMap_' + key
     this.load.json(this.bogMapCacheKey, `/maps/bogMaps/${key}.json?v=` + Date.now())
@@ -75,13 +73,10 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   async _loadContent() {
-    // Dynamically import the content JS file for this map
-    // e.g. getMapKey() = 'bog_threshold' → import '.../bogThreshold.js'
-    const key      = this.getMapKey()
-    const jsKey    = this.getContentKey()
+    const jsKey = this.getContentKey()
     try {
-      const module   = await import(`/data/bog/${jsKey}.js`)
-      const content  = module[jsKey + 'Content'] || {}
+      const module  = await import(`/data/bog/${jsKey}.js`)
+      const content = module[jsKey + 'Content'] || {}
       this.mapData.objects        = content.objects        || []
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
@@ -94,9 +89,7 @@ export default class BogLocationScene extends BaseLocationScene {
     }
   }
 
-  /** Override in child scene if content key differs from camelCase of mapKey */
   getContentKey() {
-    // 'bog_threshold' → 'bogThreshold'
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
   }
 
@@ -108,91 +101,133 @@ export default class BogLocationScene extends BaseLocationScene {
       return
     }
 
-    // Load content (objects, npcs, introNarrative) from separate JS file
     await this._loadContent()
 
     this.lights.enable()
     this.lights.setAmbientColor(this.getAmbient())
 
-    // Set flag before drawTilemap() so layer 0 is skipped in the flat renderer
     this.usePerspective = true
     this.drawTilemap()
 
-    this.mapData.tiles = this.mapData.layers[0]
+    this.mapData.tiles         = this.mapData.layers[0]
     this.mapData.unwalkableTiles = []
 
-    if (!this.mapData.spawns)  this.mapData.spawns  = { player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) } }
-    if (!this.mapData.exits)   this.mapData.exits    = {}
+    if (!this.mapData.spawns) this.mapData.spawns = { player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) } }
+    if (!this.mapData.exits)  this.mapData.exits  = {}
 
     this.initializeLocation()
 
-if (this.perspectiveGround) {
-  this.perspectiveGround.setPlayer(this.player)
-}
+    // Register player with PGR
+    if (this.perspectiveGround) {
+      this.perspectiveGround.setPlayer(this.player)
+    }
 
-// Force camera to snap to player immediately — prevents PGR rendering
-// from a (0,0) camera position during the lerp warmup frames
-this.cameras.main.centerOn(
-  this.player.logicalX,
-  this.player.logicalY
-)
+    // Snap camera before lerp starts
+    this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
 
+    // ── FOV + Pathfinding + Fog ─────────────────────────────────────────────
+    this.walkGrid   = this._buildWalkGrid()
+    this.fovSystem  = new FovSystem(this.walkGrid)
+    this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
 
+    if (this.perspectiveGround) {
+      this.fogRenderer = new FogRenderer(this.perspectiveGround)
+    }
 
-    // Initialise GameState for this champion
+    // Initial FOV at spawn
+    this._lastFovKey = null
+    this._recomputeFov()
+
+    // Tap-to-pathfind
+    this._setupTapToPath()
+    // ───────────────────────────────────────────────────────────────────────
+
+    // GameState
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (champion?.id) GameState.init(champion.id)
     GameState.setVisited(this.scene.key)
 
-    // Override spawn position based on which edge we entered from
     this.applyEntryPosition()
 
     const pl = this.getPlayerLight()
     this.playerLight = this.lights.addLight(
-      this.player.sprite.x, this.player.sprite.y,
+      this.player.logicalX, this.player.logicalY,
       pl.radius || 300
     ).setIntensity(pl.intensity || 2.0).setColor(pl.color || 0xfff2cc)
 
     const mw = this.mapWidth, mh = this.mapHeight
     this.getWisps().forEach(w => {
-      this.lights.addLight(
-        mw * w.rx, mh * w.ry,
-        w.radius || 180,
-        w.color  || 0x99ff99,
-        w.intensity || 0.6
-      )
+      this.lights.addLight(mw * w.rx, mh * w.ry, w.radius || 180, w.color || 0x99ff99, w.intensity || 0.6)
     })
+
     const track = this.getMusicTrack()
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
-    // World menu + button
     this._createWorldUI()
-
-    // Bow mechanics
     this.bowMechanics = new BowMechanics(this, this.player)
-
     this.showIntroNarrative()
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready — ${this.mapData.width}x${this.mapData.height}`)
-//this.time.delayedCall(100, () => {
- // if (import.meta.env.DEV) {
-   // this.pgrDebug = new PGRDebugOverlay(this.perspectiveGround)
- // }
-//}) 
+  }
 
+  // ── FOV + Pathfinding helpers ──────────────────────────────────────────────
 
+  _buildWalkGrid() {
+    const tiles = this.mapData.layers[0]
+    const h     = tiles.length
+    const w     = tiles[0].length
+    const grid  = []
+    for (let y = 0; y < h; y++) {
+      grid[y] = []
+      for (let x = 0; x < w; x++) {
+        // Passable = not colliding at tile centre
+        grid[y][x] = !this.isColliding(
+          x * this.tileSize + this.tileSize / 2,
+          y * this.tileSize + this.tileSize / 2
+        )
+      }
+    }
+    return grid
+  }
 
-// TEMP: check if stacking context is trapping overlay
-const container = this.game.canvas.parentNode
-console.log('container styles:', 
-  getComputedStyle(container).transform,
-  getComputedStyle(container).isolation,
-  getComputedStyle(container).willChange,
-  getComputedStyle(container).filter
-)
+  _recomputeFov() {
+    if (!this.fovSystem || !this.player) return
+    const tx = Math.floor(this.player.logicalX / this.tileSize)
+    const ty = Math.floor(this.player.logicalY / this.tileSize)
+    this.fovSystem.compute(tx, ty)
+    if (this.fogRenderer) this.fogRenderer.update(this.fovSystem)
+  }
 
- }
+  _setupTapToPath() {
+    this.input.on('pointerdown', (pointer) => {
+      // Ignore taps in joystick zone (bottom-left)
+      if (pointer.x < 220 && pointer.y > this.scale.height - 220) return
+      // Ignore taps on world button (top-right)
+      if (pointer.x > this.scale.width - 120 && pointer.y < 150) return
+      // Ignore if text panel open
+      if (this.textPanel?.isVisible) return
+      // Ignore if no PGR
+      if (!this.perspectiveGround) return
+
+      const tile = PathFinder.screenToTile(
+        pointer.x, pointer.y,
+        this.perspectiveGround,
+        this.tileSize
+      )
+      if (!tile) return
+
+      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
+      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
+
+      const path = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
+      if (path.length > 0) {
+        this.player.setPath(path)
+      }
+    })
+  }
+
+  // ── UI ────────────────────────────────────────────────────────────
 
   _createWorldUI() {
     this.worldMenu   = new WorldMenu(this, { player: this.player })
@@ -209,25 +244,22 @@ console.log('container styles:',
     const sliderX     = padding
     const sliderY     = 20
 
-    this.add.rectangle(
-      sliderX + sliderWidth / 2, sliderY, sliderWidth, 8, 0x444444
-    ).setScrollFactor(0).setDepth(5000)
+    this.add.rectangle(sliderX + sliderWidth / 2, sliderY, sliderWidth, 8, 0x444444)
+      .setScrollFactor(0).setDepth(5000)
 
     const trackFill = this.add.rectangle(
-      sliderX, sliderY,
-      sliderWidth * GameSettings.englishOpacity, 8, 0xd4af37
+      sliderX, sliderY, sliderWidth * GameSettings.englishOpacity, 8, 0xd4af37
     ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(5001)
 
     const thumb = this.add.circle(
-      sliderX + sliderWidth * GameSettings.englishOpacity,
-      sliderY, 15, 0xffd700
+      sliderX + sliderWidth * GameSettings.englishOpacity, sliderY, 15, 0xffd700
     ).setScrollFactor(0).setDepth(5002).setInteractive()
 
     this.input.setDraggable(thumb)
     this.input.on('drag', (pointer, obj, dragX) => {
       if (obj !== thumb) return
-      const cx = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth)
-      thumb.x = cx
+      const cx      = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth)
+      thumb.x       = cx
       const opacity = (cx - sliderX) / sliderWidth
       GameSettings.setEnglishOpacity(opacity)
       trackFill.width = sliderWidth * opacity
@@ -256,15 +288,10 @@ console.log('container styles:',
       return key
     }
 
-for (let li = 0; li < this.mapData.layers.length; li++) {
-  // In perspective mode, PGR handles layers 0 AND 1 — skip both here
-  if (this.usePerspective && (li === 0 || li === 1)) continue
+    for (let li = 0; li < this.mapData.layers.length; li++) {
+      // In perspective mode, PGR handles layers 0 AND 1 — skip both here
+      if (this.usePerspective && (li === 0 || li === 1)) continue
 
-      // Layer 0 is handled entirely by PerspectiveGroundRenderer when active —
-      // skip both the flood fill and the per-tile images.
-      if (li === 0 && this.usePerspective) continue
-
-      // Flat mode only: flood fill base grass beneath layer 0
       if (li === 0) {
         const grassFrame = ensureFrame(732)
         for (let y = 0; y < this.mapData.height; y++) {
@@ -274,9 +301,7 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
               y * TH * SCALE + (TH * SCALE) / 2,
               'oryxTiles', grassFrame
             ).setScale(SCALE).setDepth(-1)
-            if (this.game.renderer.type === Phaser.WEBGL) {
-              img.setPipeline('Light2D')
-            }
+            if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
           }
         }
       }
@@ -291,14 +316,11 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
             y * TH * SCALE + (TH * SCALE) / 2,
             'oryxTiles', ensureFrame(gid)
           ).setScale(SCALE).setDepth(li)
-          if (this.game.renderer.type === Phaser.WEBGL) {
-            img.setPipeline('Light2D')
-          }
+          if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
         }
       }
     }
 
-    // Instantiate the perspective renderer after the tileset texture is ready
     if (this.usePerspective) {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
     }
@@ -327,39 +349,36 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
     const entry = this.mapData.entries[edge]
     if (!entry) return
 
-    const sourceY    = this.entryData.sourceTile?.y
-    const sourceH    = this.entryData.sourceHeight || this.mapData.height
-    const destH      = this.mapData.height
-    const destW      = this.mapData.width
+    const sourceY = this.entryData.sourceTile?.y
+    const sourceH = this.entryData.sourceHeight || this.mapData.height
+    const destH   = this.mapData.height
+    const destW   = this.mapData.width
 
-    // Calculate Y — carry fraction across if yFromSource and we have source data
     let entryY
     if (entry.yFromSource && sourceY != null) {
       const fraction = sourceY / sourceH
       entryY = Math.round(fraction * destH)
-      // Clamp to safe range
       entryY = Math.max(1, Math.min(destH - 2, entryY))
     } else {
       entryY = entry.y ?? Math.floor(destH / 2)
     }
 
-    // Calculate X — use entry.x, clamp to map bounds
     const entryX = Math.max(1, Math.min(destW - 2, entry.x ?? Math.floor(destW / 2)))
+    const px     = entryX * this.tileSize + this.tileSize / 2
+    const py     = entryY * this.tileSize + this.tileSize / 2
 
-    // Move player
-    const px = entryX * this.tileSize + this.tileSize / 2
-    const py = entryY * this.tileSize + this.tileSize / 2
-    if (this.player?.sprite) {
-      this.player.sprite.setPosition(px, py)
+    if (this.player) {
+      this.player.logicalX = px
+      this.player.logicalY = py
+      this.player.targetX  = px
+      this.player.targetY  = py
+      this.player.startX   = px
+      this.player.startY   = py
       this.cameras.main.centerOn(px, py)
     }
 
     console.log(`[${this.scene.key}] entry via ${edge} → tile [${entryX}, ${entryY}]`)
   }
-
-  // ── Exits ─────────────────────────────────────────────────────────
-
- 
 
   // ── Narrative ─────────────────────────────────────────────────────
 
@@ -372,11 +391,10 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
     if (!narrative?.length) return
     this.narrativeInProgress = true
     this.narrativeQueue = [...narrative]
-    // Safety valve — force narrative complete after max 30s regardless
     this._narrativeSafetyTimer = this.time.delayedCall(30000, () => {
       this.narrativeInProgress = false
       if (this.textPanel) {
-        this.textPanel._cooldown = false
+        this.textPanel._cooldown   = false
         this.textPanel._cooldownId = null
       }
     })
@@ -407,11 +425,7 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
 
     this.mapData.objects.forEach(obj => {
       const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-
-      // Skip collected one-time items
       if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
-
-      // Skip items gated behind quest state
       if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
           !GameState.isQuestComplete(obj.requiresQuest)) return
 
@@ -425,6 +439,8 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
       zone.setData('stateKey', stateKey)
       zone.setData('item',     obj.item || null)
       zone.setData('note',     obj.note || null)
+      zone.setData('logicalX', pixelX)
+      zone.setData('logicalY', pixelY)
       zone.x = pixelX
       zone.y = pixelY
 
@@ -440,28 +456,26 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
 
     this.mapData.npcs.forEach(npcData => {
       const stateKey = npcData.stateKey || `${this.getMapKey()}.${npcData.id}`
-
-      // Skip NPCs gated behind quest state
       if (npcData.requiresQuest && !GameState.isQuestActive(npcData.requiresQuest) &&
           !GameState.isQuestComplete(npcData.requiresQuest)) return
 
       const pixelX = npcData.x * this.tileSize + this.tileSize / 2
       const pixelY = npcData.y * this.tileSize + this.tileSize / 2
-
       const color  = npcData.visual?.color ? parseInt(npcData.visual.color) : 0x4169e1
       const radius = npcData.visual?.radius || 16
 
       const sprite = this.add.circle(pixelX, pixelY, radius, color)
-      sprite.setData('id',           npcData.id)
-      sprite.setData('name',         npcData.name)
-      sprite.setData('dialogues',    npcData.dialogues)
-      sprite.setData('stateKey',     stateKey)
+      sprite.setData('id',            npcData.id)
+      sprite.setData('name',          npcData.name)
+      sprite.setData('dialogues',     npcData.dialogues)
+      sprite.setData('stateKey',      stateKey)
       sprite.setData('dialogueIndex', GameState.getNPCProgress(stateKey))
-      sprite.setData('isNPC',        true)
+      sprite.setData('isNPC',         true)
+      sprite.setData('logicalX',      pixelX)
+      sprite.setData('logicalY',      pixelY)
       sprite.setDepth(10)
       sprite.setInteractive()
-sprite.setData('logicalX', pixelX)
-sprite.setData('logicalY', pixelY)
+
       this.add.text(pixelX, pixelY - radius - 6, npcData.name, {
         fontSize: '12px', fontFamily: 'Arial',
         color: '#ffffff', backgroundColor: '#000000',
@@ -476,31 +490,40 @@ sprite.setData('logicalY', pixelY)
   }
 
   // ── Update ────────────────────────────────────────────────────────
-update(time, delta) {
-  if (this.perspectiveGround) this.perspectiveGround.update()
-  super.update(time, delta)
 
-  // Player is rendered by PGR — no applyPerspective needed here
+  update(time, delta) {
+    if (this.perspectiveGround) this.perspectiveGround.update()
+    super.update(time, delta)
 
-  // NPCs (still Phaser circles for now)
-  if (this.perspectiveGround && this.npcs) {
-    this.npcs.forEach(npc => {
-      const lx = npc.getData('logicalX') ?? npc.x
-      const ly = npc.getData('logicalY') ?? npc.y
-      this.perspectiveGround.applyPerspective(npc, lx, ly, this.tileSize, 32)
-    })
+    // Recompute FOV when player moves to a new tile
+    if (this.fovSystem && this.player) {
+      const tx  = Math.floor(this.player.logicalX / this.tileSize)
+      const ty  = Math.floor(this.player.logicalY / this.tileSize)
+      const key = `${tx},${ty}`
+      if (key !== this._lastFovKey) {
+        this._lastFovKey = key
+        this._recomputeFov()
+      }
+    }
+
+    if (this.playerLight && this.player)
+      this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
+    if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
-  if (this.playerLight && this.player)
-    this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
-  if (this.bowMechanics) this.bowMechanics.update(delta)
-}
+  // ── Shutdown ──────────────────────────────────────────────────────
 
   shutdown() {
     if (this.perspectiveGround) {
       this.perspectiveGround.destroy()
       this.perspectiveGround = null
     }
+    if (this.fogRenderer) {
+      this.fogRenderer.destroy()
+      this.fogRenderer = null
+    }
+    if (this.fovSystem)  { this.fovSystem  = null }
+    if (this.pathFinder) { this.pathFinder = null }
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()

@@ -1,43 +1,37 @@
 // PerspectiveGroundRenderer.js  (v8)
 //
-// Full DOM-canvas renderer with:
-//   - Layer 0: trapezoid-warped ground  (pgr-ground,   z-index:1)
-//   - Layer 1: upright billboard tiles  (pgr-objects,  z-index:2)
-//   - Player:  drawn in row-order so near objects occlude them correctly
-//   - Lighting: radial gradient DOM overlay (pgr-light, z-index:3)
+// Two-canvas architecture:
+//   pgr-ground   z-index:1  — layer 0 ground tiles (trapezoid-warped)
+//   pgr-objects  z-index:2  — layer 1 tiles as upright billboards + player
+//   pgr-light    z-index:3  — radial gradient lighting overlay (DOM div)
 //
 // Phaser canvas sits at z-index:10 — UI, joystick, inventory all unaffected.
 // Player's Phaser sprite is hidden; PGR owns all player rendering.
 //
+// Player logical coords are tile-centre pixel values (spawn.x * 48 + 24).
+// PGR projects these using a -0.5 tile offset so the billboard foot lands
+// on the correct tile's ground line, not half a tile south.
+//
 // Usage:
 //   const pgr = new PerspectiveGroundRenderer(scene)
 //   pgr.setPlayer(this.player)   ← call after initializeLocation()
-//
-// Tuning constants (adjust to taste):
-//   TILES_ACROSS      — fewer = more zoomed in
-//   CAMERA_ROW_OFFSET — lower = horizon closer to player
-//   FOCAL_LENGTH      — lower = more dramatic vanishing point
-//   HORIZON_Y_FRAC    — higher = more sky visible
-//   HEIGHT_MULTIPLIER — taller object billboards
-//   LIGHT_RADIUS      — how far the player light reaches (0..1, fraction of screen)
-//   LIGHT_DARKNESS    — how dark unlit areas are (0=transparent, 1=black)
 
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
 
   // ── Perspective ───────────────────────────────────────────────────────────
-  static CAMERA_ROW_OFFSET = 12
-  static TILES_ACROSS      = 5
-  static PLAYER_DIST_TILES = 5
-  static FOCAL_LENGTH      = 14
-  static HORIZON_Y_FRAC    = 0.25
-  static HEIGHT_MULTIPLIER = 1.5
+  static CAMERA_ROW_OFFSET    = 10.5
+  static TILES_ACROSS         = 6.5
+  static PLAYER_DIST_TILES    = 4.1
+  static FOCAL_LENGTH         = 7.5
+  static HORIZON_Y_FRAC       = 0
+  static HEIGHT_MULTIPLIER    = 1.6
 
   // ── Lighting ──────────────────────────────────────────────────────────────
-  static LIGHT_RADIUS   = 0.25   // fraction of screen half-diagonal
-  static LIGHT_DARKNESS = 0.82   // opacity of dark area (0=none, 1=pitch black)
-  static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'  // warm inner glow tint
+  static LIGHT_RADIUS   = 0.45
+  static LIGHT_DARKNESS = 0.82
+  static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
 
   // ── Tileset ───────────────────────────────────────────────────────────────
   static TW         = 24
@@ -50,9 +44,9 @@ export default class PerspectiveGroundRenderer {
 
   constructor(scene) {
     this.scene           = scene
-    this._player         = null   // set via setPlayer()
-    this._playerCanvas   = null   // offscreen canvas of current player frame
-    this._playerFrameKey = null   // track frame changes
+    this._player         = null
+    this._playerCanvas   = null
+    this._playerFrameKey = null
 
     const phaserCanvas   = scene.game.canvas
     this._sw             = phaserCanvas.width
@@ -63,7 +57,6 @@ export default class PerspectiveGroundRenderer {
     this._tileCache  = new Map()
     this._ready      = false
 
-    // Load tileset
     if (PerspectiveGroundRenderer.DEBUG_RECTS) {
       this._ready = true
     } else {
@@ -83,23 +76,25 @@ export default class PerspectiveGroundRenderer {
     // ── DOM layer stack ───────────────────────────────────────────────────
     const container = phaserCanvas.parentNode
 
-    // Push Phaser canvas to z-index:10 (UI lives here — untouched)
-    Array.from(container.querySelectorAll('canvas')).forEach(c => {
-      c.style.position   = 'absolute'
-      c.style.top        = '0'
-      c.style.left       = '0'
-      c.style.zIndex     = '10'
-      c.style.background = 'transparent'
-    })
+    // Set Phaser canvas style directly — targeting phaserCanvas specifically
+    // ensures it works on scene transition when new canvases are added later.
+    phaserCanvas.style.position   = 'absolute'
+    phaserCanvas.style.top        = '0'
+    phaserCanvas.style.left       = '0'
+    phaserCanvas.style.zIndex     = '10'
+    phaserCanvas.style.background = 'transparent'
 
-    this._groundCanvas  = this._makeCanvas(container, 'pgr-ground',   1)
-    this._objectCanvas  = this._makeCanvas(container, 'pgr-objects',  2)
-    this._gCtx          = this._groundCanvas.getContext('2d')
-    this._oCtx          = this._objectCanvas.getContext('2d')
+    this._groundCanvas = this._makeCanvas(container, 'pgr-ground',  1)
+    this._objectCanvas = this._makeCanvas(container, 'pgr-objects', 2)
+    this._gCtx         = this._groundCanvas.getContext('2d')
+    this._oCtx         = this._objectCanvas.getContext('2d')
     this._gCtx.imageSmoothingEnabled = false
     this._oCtx.imageSmoothingEnabled = false
 
-    // Lighting overlay — regular div with radial-gradient background
+    // Sky + vignette — sits behind everything at z-index:0
+    this._skyDiv = this._buildSkyVignette(container)
+
+    // Lighting overlay
     this._lightDiv = document.createElement('div')
     this._lightDiv.id = 'pgr-light'
     this._lightDiv.style.cssText = [
@@ -118,10 +113,10 @@ export default class PerspectiveGroundRenderer {
   }
 
   _makeCanvas(container, id, zIndex) {
-    const c        = document.createElement('canvas')
-    c.width        = this._sw
-    c.height       = this._sh
-    c.id           = id
+    const c = document.createElement('canvas')
+    c.width  = this._sw
+    c.height = this._sh
+    c.id     = id
     c.style.cssText = [
       'position:absolute', 'top:0', 'left:0',
       `z-index:${zIndex}`, 'pointer-events:none',
@@ -131,45 +126,103 @@ export default class PerspectiveGroundRenderer {
     return c
   }
 
+  // ── Sky + vignette ───────────────────────────────────────────────────────
+  //
+  // A single CSS div at z-index:0, behind all canvases.
+  // Top portion: deep night sky gradient fading toward horizon.
+  // Perimeter: dark vignette that hides the hard map edge.
+  // No per-frame updates needed — pure CSS.
+
+  _buildSkyVignette(container) {
+    const sw = this._sw
+    const sh = this._sh
+
+    // ── Sky image ─────────────────────────────────────────────────────────
+    // fog0.png sits behind everything, covering the full viewport.
+    // object-fit:cover keeps it filling the screen at any aspect ratio.
+    // It fades to transparent at the bottom so it blends into the ground.
+    // ── Sky image ─────────────────────────────────────────────────────────
+    // Sits at z-index:4 — above ground canvas (1), objects (2), lighting (3),
+    // but below Phaser canvas (10). The Phaser game config must set
+    // backgroundColor: 'transparent' (or use Phaser.CANVAS type) so the
+    // sky shows through the Phaser canvas above the horizon.
+    const img = document.createElement('img')
+    img.id  = 'pgr-sky-img'
+    img.src = '/assets/bg0.png'
+    Object.assign(img.style, {
+      position:        'absolute',
+      top:             '0',
+      left:            '0',
+      width:           sw + 'px',
+      height:          sh + 'px',
+      zIndex:          '4',
+      pointerEvents:   'none',
+      objectFit:       'cover',
+      objectPosition:  'center top',
+      // Fade bottom third into the ground layer
+      WebkitMaskImage: 'linear-gradient(to bottom, black 35%, transparent 68%)',
+      maskImage:       'linear-gradient(to bottom, black 35%, transparent 68%)',
+      opacity:         '0.88',
+    })
+    container.appendChild(img)
+    this._skyImg = img
+
+    // ── Gradient overlay ──────────────────────────────────────────────────
+    // z-index:5 — on top of sky image, adds vignette + colour wash
+    const div = document.createElement('div')
+    div.id = 'pgr-sky'
+    Object.assign(div.style, {
+      position:      'absolute',
+      top:           '0',
+      left:          '0',
+      width:         sw + 'px',
+      height:        sh + 'px',
+      zIndex:        '5',
+      pointerEvents: 'none',
+      background: [
+        'radial-gradient(ellipse 100% 85% at 50% 55%,' +
+          'transparent 35%,' +
+          'rgba(0,0,0,0.45) 70%,' +
+          'rgba(0,0,0,0.88) 100%)',
+        'linear-gradient(to bottom,' +
+          'rgba(5,8,20,0.55) 0%,' +
+          'rgba(15,20,45,0.25) 40%,' +
+          'transparent 60%)',
+      ].join(','),
+    })
+
+    container.appendChild(div)
+    return div
+  }
+
   // ── Player registration ───────────────────────────────────────────────────
 
   setPlayer(player) {
     this._player = player
-    // Hide the Phaser sprite — PGR draws the player from now on
-    if (player.sprite) {
-      player.sprite.setVisible(false)
-      // Also hide bow overlay — we'll draw it manually
-      if (player.bowOverlay) player.bowOverlay.setVisible(false)
-    }
+    if (player.sprite)      player.sprite.setVisible(false)
+    if (player.bowOverlay)  player.bowOverlay.setVisible(false)
     console.log('[PGR v8] player registered')
   }
 
-  // Build (or rebuild) the offscreen canvas for the current player frame.
-  // Called whenever the frame key changes (armor swap, etc.).
   _refreshPlayerCanvas() {
-    if (!this._player) return
+    if (!this._player?.sprite) return
 
-    const sprite    = this._player.sprite
-    if (!sprite) return
-
-    // Determine the current texture + frame
-    const texKey    = sprite.texture?.key
-    const frameKey  = sprite.frame?.name ?? this._player.currentFrameName
-    const cacheKey  = `${texKey}::${frameKey}`
+    const sprite   = this._player.sprite
+    const texKey   = sprite.texture?.key
+    const frameKey = sprite.frame?.name ?? this._player.currentFrameName
+    const cacheKey = `${texKey}::${frameKey}`
     if (cacheKey === this._playerFrameKey && this._playerCanvas) return
 
     try {
-      // Get the source image from Phaser's texture manager
-      const tex       = this.scene.textures.get(texKey)
-      const frame     = tex.get(frameKey)
-      const src       = tex.getSourceImage()
-
+      const tex              = this.scene.textures.get(texKey)
+      const frame            = tex.get(frameKey)
+      const src              = tex.getSourceImage()
       const { cutX, cutY, cutWidth, cutHeight } = frame
 
-      const tc        = document.createElement('canvas')
-      tc.width        = cutWidth
-      tc.height       = cutHeight
-      const tCtx      = tc.getContext('2d')
+      const tc   = document.createElement('canvas')
+      tc.width   = cutWidth
+      tc.height  = cutHeight
+      const tCtx = tc.getContext('2d')
       tCtx.imageSmoothingEnabled = false
       tCtx.drawImage(src, cutX, cutY, cutWidth, cutHeight, 0, 0, cutWidth, cutHeight)
 
@@ -184,9 +237,9 @@ export default class PerspectiveGroundRenderer {
 
   // ── Projection ────────────────────────────────────────────────────────────
 
-  _zoom()        { return this.scene.cameras.main.zoom || 1 }
-  _horizonPx()   { return Math.floor(this._sh * PerspectiveGroundRenderer.HORIZON_Y_FRAC) }
-  _groundH()     { return this._sh - this._horizonPx() }
+  _zoom()      { return this.scene.cameras.main.zoom || 1 }
+  _horizonPx() { return Math.floor(this._sh * PerspectiveGroundRenderer.HORIZON_Y_FRAC) }
+  _groundH()   { return this._sh - this._horizonPx() }
 
   _pxPerTileAtPlayer() {
     return (this._sw * this._zoom()) / PerspectiveGroundRenderer.TILES_ACROSS
@@ -222,6 +275,8 @@ export default class PerspectiveGroundRenderer {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
 
+  // Project a tile's bottom-centre to screen space.
+  // worldTileX/Y are integer tile indices (NOT pixel coords).
   perspectiveProject(worldTileX, worldTileY) {
     const screenY = this._rowToScreenY(worldTileY + 1)
     if (screenY === null || screenY < this._horizonPx() || screenY > this._sh + this.tileDisplaySize) return null
@@ -230,14 +285,20 @@ export default class PerspectiveGroundRenderer {
     return { screenX, screenY, scale }
   }
 
-  // ── applyPerspective (Phaser sprites — NPCs, items, etc.) ─────────────────
-  //
-  // Still useful for any Phaser GameObjects you want perspective-placed.
-  // Pass logical world-pixel coords, NOT sprite.x/y.
-  // Sprite origin must be (0.5, 1).
+  // Project logical pixel coords (tile-centre values) to screen space.
+  // Subtracts 0.5 tile so the billboard foot lands on the correct tile line,
+  // not half a tile south of it.
+  _projectLogical(logicalPixelX, logicalPixelY) {
+    const ts         = this.tileDisplaySize
+    const worldTileX = logicalPixelX / ts - 0.5
+    const worldTileY = logicalPixelY / ts - 0.5
+    return this.perspectiveProject(worldTileX, worldTileY)
+  }
+
+  // ── applyPerspective (Phaser sprites — NPCs etc.) ─────────────────────────
 
   applyPerspective(sprite, worldPixelX, worldPixelY, tileSize, baseDisplaySize) {
-    const proj = this.perspectiveProject(worldPixelX / tileSize, worldPixelY / tileSize)
+    const proj = this._projectLogical(worldPixelX, worldPixelY)
     if (!proj) { sprite.setVisible(false); return false }
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
@@ -270,7 +331,12 @@ export default class PerspectiveGroundRenderer {
     return tc
   }
 
-  // ── Affine triangle (ground) ──────────────────────────────────────────────
+  // ── Affine triangle (ground tiles) ───────────────────────────────────────
+  //
+  // Each trapezoid is split into two triangles. To eliminate the sub-pixel
+  // seam along the shared diagonal, we expand the clip region of each
+  // triangle by SEAM_BLEED pixels outward so they overlap slightly.
+  // The texture mapping is unchanged — only the clip shape is expanded.
 
   _drawAffineTriangle(ctx, img, t0, t1, t2, p0, p1, p2) {
     const { u: u0, v: v0 } = t0, { u: u1, v: v1 } = t1, { u: u2, v: v2 } = t2
@@ -282,9 +348,20 @@ export default class PerspectiveGroundRenderer {
     const b = (p0.y*(v1-v2) + p1.y*(v2-v0) + p2.y*(v0-v1)) / det
     const d = (p0.y*(u2-u1) + p1.y*(u0-u2) + p2.y*(u1-u0)) / det
     const f =  p0.y - b*u0 - d*v0
+
+    // Expand each triangle clip by 0.75px to cover the sub-pixel seam gap
+    const BLEED = 1.75
+    const cx    = (p0.x + p1.x + p2.x) / 3
+    const cy    = (p0.y + p1.y + p2.y) / 3
+    const expand = (p) => ({
+      x: p.x + (p.x - cx < 0 ? -BLEED : BLEED),
+      y: p.y + (p.y - cy < 0 ? -BLEED : BLEED),
+    })
+    const e0 = expand(p0), e1 = expand(p1), e2 = expand(p2)
+
     ctx.save()
     ctx.beginPath()
-    ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y)
+    ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y)
     ctx.closePath(); ctx.clip()
     ctx.setTransform(a, b, c, d, e, f)
     ctx.drawImage(img, 0, 0)
@@ -297,7 +374,7 @@ export default class PerspectiveGroundRenderer {
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:H},{u:0,v:H}, tl, br, bl)
   }
 
-  // ── Billboard (objects + player) ──────────────────────────────────────────
+  // ── Billboard (object tiles + player) ────────────────────────────────────
 
   _drawBillboard(ctx, img, screenX, screenY, scaledTileW, heightMult) {
     const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
@@ -309,22 +386,16 @@ export default class PerspectiveGroundRenderer {
   // ── Lighting overlay ──────────────────────────────────────────────────────
 
   _updateLight(playerScreenX, playerScreenY) {
-    const sw      = this._sw
-    const sh      = this._sh
-    const radius  = Math.sqrt(sw * sw + sh * sh) * PerspectiveGroundRenderer.LIGHT_RADIUS
-    const dark    = PerspectiveGroundRenderer.LIGHT_DARKNESS
-    const glow    = PerspectiveGroundRenderer.LIGHT_COLOR
-    const px      = playerScreenX.toFixed(1)
-    const py      = playerScreenY.toFixed(1)
-    const r       = radius.toFixed(1)
-
-    // Radial gradient: transparent at player, dark at edges
+    const sw     = this._sw
+    const sh     = this._sh
+    const radius = Math.sqrt(sw * sw + sh * sh) * PerspectiveGroundRenderer.LIGHT_RADIUS
+    const dark   = PerspectiveGroundRenderer.LIGHT_DARKNESS
+    const glow   = PerspectiveGroundRenderer.LIGHT_COLOR
     this._lightDiv.style.background = [
-      `radial-gradient(ellipse ${r}px ${r * 0.6}px at ${px}px ${py}px,`,
-      `  ${glow} 0%,`,
-      `  transparent 35%,`,
-      `  rgba(0,0,0,${dark}) 100%)`
-    ].join('\n')
+      `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
+      ` at ${playerScreenX.toFixed(1)}px ${playerScreenY.toFixed(1)}px,`,
+      ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
+    ].join('')
   }
 
   // ── Main render ───────────────────────────────────────────────────────────
@@ -344,7 +415,6 @@ export default class PerspectiveGroundRenderer {
     this._lastCamY    = cam.scrollY
     this._lastCamZoom = zoom
 
-    // Refresh player canvas if frame changed (armor swap etc.)
     this._refreshPlayerCanvas()
 
     const sw        = this._sw
@@ -361,29 +431,31 @@ export default class PerspectiveGroundRenderer {
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    this._gCtx.clearRect(0, 0, sw, sh)
+    // Fill ground canvas with a dark bog colour before drawing tiles.
+    // Any sub-pixel gaps between tiles will show this instead of black.
+    this._gCtx.fillStyle = '#2a3a1a'
+    this._gCtx.fillRect(0, 0, sw, sh)
     this._oCtx.clearRect(0, 0, sw, sh)
 
     const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
     const tileRowStart = Math.max(0, Math.floor(camRow - FL * 15))
 
-    // ── Player tile row ───────────────────────────────────────────────────
-    // We draw the player when the row loop reaches their tile row,
-    // so objects on nearer rows (drawn later) naturally overdraw them.
-    const p             = this._player
-    const playerTileRow = p ? Math.floor(p.logicalY / this.tileDisplaySize) : -1
-    const playerTileCol = p ? p.logicalX / this.tileDisplaySize : -1
-    let   playerDrawn   = false
-
-    // Screen position of player (for lighting + sub-tile interpolation)
-    let playerScreenX = sw / 2
-    let playerScreenY = sh / 2
+    // ── Player projection ─────────────────────────────────────────────────
+    // Use _projectLogical to account for the -0.5 tile offset that aligns
+    // the billboard foot with the correct ground line.
+    const p = this._player
+    let playerTileRow   = -1
+    let playerScreenX   = sw / 2
+    let playerScreenY   = sh / 2
+    let playerDrawn     = false
 
     if (p) {
-      const proj = this.perspectiveProject(playerTileCol, playerTileRow)
+      const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY
+        // The tile row the player visually sits on (for painter's order)
+        playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize - 0.5)
       }
     }
 
@@ -391,7 +463,6 @@ export default class PerspectiveGroundRenderer {
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
 
-      // ── Ground geometry ─────────────────────────────────────────────────
       const yTop = this._rowToScreenY(tileRow)
       const yBot = this._rowToScreenY(tileRow + 1)
 
@@ -410,6 +481,15 @@ export default class PerspectiveGroundRenderer {
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
 
+        // ── Edge fade opacity ───────────────────────────────────────────
+        // Tiles within 3 of any map edge fade out to hide the hard border.
+        // Ring 0 (outermost) = 0.08, ring 1 = 0.3, ring 2 = 0.55, ring 3+ = 1.0
+        const edgeDist = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
+        const tileAlpha = edgeDist === 0 ? 0.08
+                        : edgeDist === 1 ? 0.30
+                        : edgeDist === 2 ? 0.55
+                        : 1.0
+
         // ── Ground tile ─────────────────────────────────────────────────
         const gid0 = layer0[tileRow]?.[tileCol]
         if (gid0) {
@@ -418,6 +498,7 @@ export default class PerspectiveGroundRenderer {
           const xBL = this._colToScreenX(tileCol,     tileRow + 1)
           const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
 
+          this._gCtx.globalAlpha = tileAlpha
           if (PerspectiveGroundRenderer.DEBUG_RECTS) {
             const colors = ['rgba(255,0,0,0.5)','rgba(0,200,0,0.5)',
                             'rgba(0,100,255,0.5)','rgba(255,200,0,0.5)']
@@ -433,19 +514,15 @@ export default class PerspectiveGroundRenderer {
               {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
               {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
           }
+          this._gCtx.globalAlpha = 1.0
           groundCount++
         }
 
         // ── Player (drawn at their tile row, before same-row objects) ───
-        // This means objects on the same tile as the player will appear
-        // in front of them, and all objects on nearer rows will too.
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-          this._drawBillboard(
-            this._oCtx, this._playerCanvas,
-            playerScreenX, playerScreenY,
-            scaledTileW, 1.8
-          )
+          this._drawBillboard(this._oCtx, this._playerCanvas,
+            playerScreenX, playerScreenY, scaledTileW, 1.8)
           playerDrawn = true
         }
 
@@ -456,27 +533,41 @@ export default class PerspectiveGroundRenderer {
             const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
             const screenY     = this._rowToScreenY(tileRow + 1)
             const scaledTileW = this._scaleAtRow(tileRow + 1)
-            if (screenY !== null && screenY >= horizonPx && screenY <= sh + this.tileDisplaySize * 2) {
-              this._drawBillboard(this._oCtx, this._getTileCanvas(gid1), screenX, screenY, scaledTileW)
+            if (screenY !== null &&
+                screenY >= horizonPx &&
+                screenY <= sh + this.tileDisplaySize * 2) {
+              this._oCtx.globalAlpha = tileAlpha
+              this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
+                screenX, screenY, scaledTileW)
+              this._oCtx.globalAlpha = 1.0
               objectCount++
             }
           }
         }
 
       } // tileCol
+
+      // Draw player after last column if their row matched this row but
+      // no column loop ran (e.g. player is off to the side of the map)
+      if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
+        const scaledTileW = this._scaleAtRow(playerTileRow + 1)
+        this._drawBillboard(this._oCtx, this._playerCanvas,
+          playerScreenX, playerScreenY, scaledTileW, 1.8)
+        playerDrawn = true
+      }
+
     } // tileRow
 
-    // Fallback: draw player if their row was outside the visible range
-    // (shouldn't normally happen but prevents disappearing at map edges)
+    // Fallback: player row outside visible range
     if (!playerDrawn && this._playerCanvas && p) {
-      const proj = this.perspectiveProject(playerTileCol, playerTileRow)
+      const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-        this._drawBillboard(this._oCtx, this._playerCanvas, proj.screenX, proj.screenY, scaledTileW, 1.8)
+        this._drawBillboard(this._oCtx, this._playerCanvas,
+          proj.screenX, proj.screenY, scaledTileW, 1.8)
       }
     }
 
-    // ── Update lighting overlay ───────────────────────────────────────────
     this._updateLight(playerScreenX, playerScreenY)
 
     if (!this._debugged) {
@@ -498,9 +589,13 @@ export default class PerspectiveGroundRenderer {
       if (c?.parentNode) c.parentNode.removeChild(c)
     })
     if (this._lightDiv?.parentNode) this._lightDiv.parentNode.removeChild(this._lightDiv)
+    if (this._skyDiv?.parentNode)   this._skyDiv.parentNode.removeChild(this._skyDiv)
+    if (this._skyImg?.parentNode)   this._skyImg.parentNode.removeChild(this._skyImg)
     this._groundCanvas = null
     this._objectCanvas = null
     this._lightDiv     = null
+    this._skyDiv       = null
+    this._skyImg       = null
     this._gCtx         = null
     this._oCtx         = null
     this._player       = null

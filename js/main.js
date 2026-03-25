@@ -36,6 +36,9 @@ export function startGame(selectedChampion, options = {}) {
         gameContainer.style.display = 'block'
         gameContainer.style.width   = window.innerWidth + 'px'
         gameContainer.style.height  = window.innerHeight + 'px'
+	    gameContainer.style.background = 'transparent'  // ← add this
+    gameContainer.style.position   = 'relative'      // ← needed for absolute children
+
     }
 
     window.selectedChampion = selectedChampion

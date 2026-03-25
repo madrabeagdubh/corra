@@ -130,7 +130,12 @@ if (this.perspectiveGround) {
   this.perspectiveGround.setPlayer(this.player)
 }
 
-
+// Force camera to snap to player immediately — prevents PGR rendering
+// from a (0,0) camera position during the lerp warmup frames
+this.cameras.main.centerOn(
+  this.player.logicalX,
+  this.player.logicalY
+)
 
 
 

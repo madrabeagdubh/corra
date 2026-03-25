@@ -48,6 +48,13 @@ export default class PerspectiveGroundRenderer {
     this._playerCanvas   = null
     this._playerFrameKey = null
 
+    // Nuke any lingering DOM elements from a previous PGR instance.
+    // This guards against double-stacking when scene transitions overlap.
+    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img'].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.parentNode?.removeChild(el)
+    })
+
     const phaserCanvas   = scene.game.canvas
     this._sw             = phaserCanvas.width
     this._sh             = phaserCanvas.height
@@ -215,7 +222,15 @@ export default class PerspectiveGroundRenderer {
 
     try {
       const tex              = this.scene.textures.get(texKey)
+      if (!tex || tex.key === '__MISSING') {
+        console.warn('[PGR v8] player texture not found:', texKey)
+        return
+      }
       const frame            = tex.get(frameKey)
+      if (!frame) {
+        console.warn('[PGR v8] player frame not found:', frameKey)
+        return
+      }
       const src              = tex.getSourceImage()
       const { cutX, cutY, cutWidth, cutHeight } = frame
 

@@ -1,147 +1,198 @@
+// Joystick.js
+//
+// 8-directional d-pad with:
+//   - 4 cardinal buttons (up/down/left/right) — rectangular
+//   - 4 diagonal buttons (corners) — smaller, between the cardinals
+//   - Hold-state: force/angle stay active while finger is down, zero on release
+//   - Gold glow feedback on active button
+//   - Drag-thumb analog mode still works alongside buttons
+
 export default class Joystick {
   constructor(scene, config) {
-    this.scene = scene;
+    this.scene  = scene;
     this.radius = config.radius || 60;
-    this.baseX = config.x;
-    this.baseY = config.y;
+    this.baseX  = config.x;
+    this.baseY  = config.y;
 
     this.force = 0;
     this.angle = 0;
 
-    // Base circle (outer ring) - dark with border
-    this.base = scene.add.circle(this.baseX, this.baseY, this.radius, 0x2a2a2a, 0.6);
-    this.base.setStrokeStyle(3, 0x555555, 0.8);
+    // Track which button is currently held
+    this._activeButton = null;
+
+    // ── Base ring ─────────────────────────────────────────────────────────────
+    this.base = scene.add.circle(this.baseX, this.baseY, this.radius, 0x1a1a2e, 0.7);
+    this.base.setStrokeStyle(2, 0x4a4a6a, 0.9);
     this.base.setScrollFactor(0);
     this.base.setDepth(1000);
 
-    // Create directional buttons (cross shape)
-    const buttonSize = this.radius * 0.6;
-    const buttonOffset = this.radius * 0.7;
+    // ── Directional buttons ───────────────────────────────────────────────────
+    //
+    // Cardinal buttons: large squares at N/S/E/W
+    // Diagonal buttons: smaller squares at NE/NW/SE/SW
+    //
+    // Angles follow Phaser convention (0° = right, clockwise):
+    //   right=0, down=90, left=180/-180, up=-90
+    //   diagonals: NE=-45, SE=45, SW=135, NW=-135
 
-    this.buttons = {
-      up: this.createDirectionalButton(this.baseX, this.baseY - buttonOffset, buttonSize),
-      down: this.createDirectionalButton(this.baseX, this.baseY + buttonOffset, buttonSize),
-      left: this.createDirectionalButton(this.baseX - buttonOffset, this.baseY, buttonSize),
-      right: this.createDirectionalButton(this.baseX + buttonOffset, this.baseY, buttonSize)
-    };
+    const R  = this.radius;
+    const bx = this.baseX;
+    const by = this.baseY;
 
-    // Draggable thumb (inner circle) - lighter with border
-    this.thumb = scene.add.circle(this.baseX, this.baseY, this.radius / 2.5, 0x4a4a4a, 0.8);
-    this.thumb.setStrokeStyle(3, 0x888888, 0.9);
+    // Cardinal offsets
+    const cardOff  = R * 0.72;   // distance from centre
+    const cardSize = R * 0.55;   // button size
+
+    // Diagonal offsets (closer in, between cardinals)
+    const diagOff  = R * 0.72;
+    const diagSize = R * 0.38;
+    const diagXY   = diagOff * Math.cos(Math.PI / 4);  // 45° component
+
+    this.buttons = {};
+
+    // Cardinals
+    this.buttons.up    = this._makeButton(bx,           by - cardOff, cardSize, -90);
+    this.buttons.down  = this._makeButton(bx,           by + cardOff, cardSize,  90);
+    this.buttons.left  = this._makeButton(bx - cardOff, by,           cardSize, 180);
+    this.buttons.right = this._makeButton(bx + cardOff, by,           cardSize,   0);
+
+    // Diagonals — invisible hit areas between the cardinal buttons
+    this.buttons.upRight   = this._makeButton(bx + diagXY, by - diagXY, diagSize, -45,  true);
+    this.buttons.downRight = this._makeButton(bx + diagXY, by + diagXY, diagSize,  45,  true);
+    this.buttons.downLeft  = this._makeButton(bx - diagXY, by + diagXY, diagSize, 135,  true);
+    this.buttons.upLeft    = this._makeButton(bx - diagXY, by - diagXY, diagSize, -135, true);
+
+    // ── Centre thumb ──────────────────────────────────────────────────────────
+    this.thumb = scene.add.circle(bx, by, R * 0.22, 0x2a2a4a, 0.85);
+    this.thumb.setStrokeStyle(2, 0x6a6a9a, 0.9);
     this.thumb.setScrollFactor(0);
-    this.thumb.setDepth(1002);
+    this.thumb.setDepth(1003);
 
-    // Make thumb interactive and draggable
+    // ── Drag (analog) mode ────────────────────────────────────────────────────
     this.thumb.setInteractive();
     scene.input.setDraggable(this.thumb);
 
-    // Visual feedback for thumb drag
-    scene.input.on('dragstart', (pointer, gameObject) => {
-      if (gameObject === this.thumb) {
-        this.thumb.setFillStyle(0x6a6a6a, 0.9);
-        this.thumb.setScale(1.1);
-      }
+    scene.input.on('dragstart', (pointer, obj) => {
+      if (obj !== this.thumb) return;
+      this.thumb.setFillStyle(0x4a4a8a, 0.95);
+      this.thumb.setScale(1.1);
     });
 
-    // Handle drag for analog movement
-    scene.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-      if (gameObject !== this.thumb) return;
+    scene.input.on('drag', (pointer, obj, dragX, dragY) => {
+      if (obj !== this.thumb) return;
 
-      const screenX = pointer.x;
-      const screenY = pointer.y;
+      // Release any held button when drag starts
+      if (this._activeButton) this._releaseButton(this._activeButton);
 
-      const dx = screenX - this.baseX;
-      const dy = screenY - this.baseY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const dx  = pointer.x - bx;
+      const dy  = pointer.y - by;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ang  = Math.atan2(dy, dx);
 
-      if (distance < this.radius) {
-        this.thumb.x = screenX;
-        this.thumb.y = screenY;
-        this.force = distance;
+      if (dist < R) {
+        this.thumb.x = pointer.x;
+        this.thumb.y = pointer.y;
+        this.force   = dist;
       } else {
-        const angle = Math.atan2(dy, dx);
-        this.thumb.x = this.baseX + Math.cos(angle) * this.radius;
-        this.thumb.y = this.baseY + Math.sin(angle) * this.radius;
-        this.force = this.radius;
+        this.thumb.x = bx + Math.cos(ang) * R;
+        this.thumb.y = by + Math.sin(ang) * R;
+        this.force   = R;
       }
-
-      this.angle = Math.atan2(this.thumb.y - this.baseY, this.thumb.x - this.baseX) * (180 / Math.PI);
+      this.angle = Math.atan2(this.thumb.y - by, this.thumb.x - bx) * (180 / Math.PI);
     });
 
-    scene.input.on('dragend', (pointer, gameObject) => {
-      if (gameObject === this.thumb) {
-        this.thumb.x = this.baseX;
-        this.thumb.y = this.baseY;
-        this.thumb.setFillStyle(0x4a4a4a, 0.8);
-        this.thumb.setScale(1.0);
-        this.force = 0;
-        this.angle = 0;
-      }
+    scene.input.on('dragend', (pointer, obj) => {
+      if (obj !== this.thumb) return;
+      this._resetThumb();
+      this.force = 0;
+      this.angle = 0;
     });
   }
 
-  createDirectionalButton(x, y, size) {
-    // Button square - subtle, minimal style
-    const button = this.scene.add.rectangle(x, y, size, size, 0x3a3a3a, 0.5);
-    button.setStrokeStyle(2, 0x666666, 0.7);
-    button.setScrollFactor(0);
-    button.setDepth(1001);
-    button.setInteractive();
+  // ── Button factory ────────────────────────────────────────────────────────
 
-    // Calculate direction based on position relative to center
-    const dx = x - this.baseX;
-    const dy = y - this.baseY;
-    const direction = Math.atan2(dy, dx) * (180 / Math.PI);
+  _makeButton(x, y, size, angleDeg, invisible = false) {
+    const alpha = invisible ? 0 : 0.6;
+    const btn = this.scene.add.rectangle(x, y, size, size, 0x1e1e3a, alpha);
+    btn.setStrokeStyle(1.5, invisible ? 0x000000 : 0x4a4a7a, invisible ? 0 : 0.8);
+    btn._invisible = invisible;
+    btn.setScrollFactor(0);
+    btn.setDepth(1001);
+    btn.setInteractive();
 
-    // Touch feedback
-    button.on('pointerdown', () => {
-      // Visual feedback - brighten and scale
-      button.setFillStyle(0x6a6a6a, 0.9);
-      button.setScale(1.15);
-      
-      // Trigger movement in this direction
-      this.force = this.radius;
-      this.angle = direction;
-      
-      // Reset after brief moment
-      this.scene.time.delayedCall(100, () => {
-        button.setFillStyle(0x3a3a3a, 0.5);
-        button.setScale(1.0);
-        this.force = 0;
-        this.angle = 0;
-      });
+    btn.on('pointerdown', () => {
+      this._pressButton(btn, angleDeg);
     });
 
-    // Hover effect (for desktop testing)
-    button.on('pointerover', () => {
-      if (!this.scene.input.activePointer.isDown) {
-        button.setFillStyle(0x4a4a4a, 0.7);
-      }
+    btn.on('pointerup',   () => { if (this._activeButton === btn) this._releaseButton(btn); });
+    btn.on('pointerout',  () => { if (this._activeButton === btn) this._releaseButton(btn); });
+
+    // Hover (desktop)
+    btn.on('pointerover', () => {
+      if (this._activeButton !== btn && !btn._invisible)
+        btn.setFillStyle(0x2e2e5a, 0.8);
     });
 
-    button.on('pointerout', () => {
-      if (!this.scene.input.activePointer.isDown) {
-        button.setFillStyle(0x3a3a3a, 0.5);
-      }
-    });
-
-    return button;
+    return btn;
   }
 
-  // Call this whenever you need to stop joystick movement programmatically
-  // e.g. when text panel opens, scene transitions, NPC dialogue starts
+  _pressButton(btn, angleDeg) {
+    // Release previously held button if any
+    if (this._activeButton && this._activeButton !== btn)
+      this._releaseButton(this._activeButton);
+
+    this._activeButton = btn;
+
+    // Gold glow — active state (only visible on cardinal buttons)
+    if (!btn._invisible) {
+      btn.setFillStyle(0x3a3000, 0.95);
+      btn.setStrokeStyle(2, 0xd4af37, 1.0);
+      btn.setScale(1.12);
+    }
+
+    this.force = this.radius;
+    this.angle = angleDeg;
+  }
+
+  _releaseButton(btn) {
+    if (!btn) return;
+    if (!btn._invisible) {
+      btn.setFillStyle(0x1e1e3a, 0.6);
+      btn.setStrokeStyle(1.5, 0x4a4a7a, 0.8);
+      btn.setScale(1.0);
+    }
+
+    if (this._activeButton === btn) {
+      this._activeButton = null;
+      this.force = 0;
+      this.angle = 0;
+    }
+  }
+
+  _resetThumb() {
+    this.thumb.x = this.baseX;
+    this.thumb.y = this.baseY;
+    this.thumb.setFillStyle(0x2a2a4a, 0.85);
+    this.thumb.setScale(1.0);
+  }
+
+  // ── Public API ────────────────────────────────────────────────────────────
+
   reset() {
     this.force = 0;
     this.angle = 0;
-    // Return thumb graphic to centre
-    this.thumb.x = this.baseX;
-    this.thumb.y = this.baseY;
-    this.thumb.setFillStyle(0x4a4a4a, 0.8);
-    this.thumb.setScale(1.0);
-    // Reset all directional buttons visually
+    this._resetThumb();
+    if (this._activeButton) {
+      this._releaseButton(this._activeButton);
+      this._activeButton = null;
+    }
     Object.values(this.buttons).forEach(btn => {
-      btn.setFillStyle(0x3a3a3a, 0.5);
-      btn.setScale(1.0);
+      if (!btn._invisible) {
+        btn.setFillStyle(0x1e1e3a, 0.6);
+        btn.setStrokeStyle(1.5, 0x4a4a7a, 0.8);
+        btn.setScale(1.0);
+      }
     });
   }
 }
+

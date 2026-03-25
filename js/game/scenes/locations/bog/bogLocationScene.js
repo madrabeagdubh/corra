@@ -6,6 +6,7 @@ import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
+//import PGRDebugOverlay from '../../../effects/pgrDebugOverlay.js'
 
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
@@ -128,6 +129,11 @@ export default class BogLocationScene extends BaseLocationScene {
 if (this.perspectiveGround) {
   this.perspectiveGround.setPlayer(this.player)
 }
+
+
+
+
+
     // Initialise GameState for this champion
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (champion?.id) GameState.init(champion.id)
@@ -164,7 +170,24 @@ if (this.perspectiveGround) {
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready — ${this.mapData.width}x${this.mapData.height}`)
-  }
+//this.time.delayedCall(100, () => {
+ // if (import.meta.env.DEV) {
+   // this.pgrDebug = new PGRDebugOverlay(this.perspectiveGround)
+ // }
+//}) 
+
+
+
+// TEMP: check if stacking context is trapping overlay
+const container = this.game.canvas.parentNode
+console.log('container styles:', 
+  getComputedStyle(container).transform,
+  getComputedStyle(container).isolation,
+  getComputedStyle(container).willChange,
+  getComputedStyle(container).filter
+)
+
+ }
 
   _createWorldUI() {
     this.worldMenu   = new WorldMenu(this, { player: this.player })
@@ -331,23 +354,7 @@ for (let li = 0; li < this.mapData.layers.length; li++) {
 
   // ── Exits ─────────────────────────────────────────────────────────
 
-  checkExits() {
-    if (!this.player || !this.mapData.exits) return
-    const tx = Math.floor(this.player.sprite.x / this.tileSize)
-    const ty = Math.floor(this.player.sprite.y / this.tileSize)
-    for (const [dir, exit] of Object.entries(this.mapData.exits)) {
-      if (exit.tiles.some(([ex, ey]) => ex === tx && ey === ty)) {
-        console.log(`[${this.scene.key}] → ${exit.destination}`)
-        this.scene.start(exit.destination, {
-          entryEdge:    exit.entryPoint,
-          sourceTile:   { x: tx, y: ty },
-          sourceHeight: this.mapData.height,
-          sourceWidth:  this.mapData.width,
-        })
-        return
-      }
-    }
-  }
+ 
 
   // ── Narrative ─────────────────────────────────────────────────────
 

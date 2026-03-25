@@ -126,6 +126,7 @@ var _sceneInitialized = false;
 export function initConstellationScene(onComplete) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
+	 _fullscreenDone = false;
 
     // Load the font before Phaser boots, mirroring introModal's loadFont()
     document.fonts.load('1.8rem Urchlo').catch(() => {});

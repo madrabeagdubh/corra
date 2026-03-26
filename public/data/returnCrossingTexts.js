@@ -12,7 +12,7 @@ export const returnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'Cá leagfaidh mé chos amárach?\n Sa phortach gan tóin,\n plodach a shlogann Gael bródach.',
+            ga: 'Cá leagfaidh mé chos amárach?\n Sa phortach gan tóin,\n plodach a shlogann Gael bródúl.',
             en: 'Where shall I set my foot tomorrow?\nInto the bog that has no bottom,\nIn a mire that swallows proud Gaels.',
             speaker: 'hero',
         },
@@ -28,12 +28,12 @@ export const returnCrossingTexts = {
         },
         {
             ga: 'Ar thóir an focal\nar gá a thuilleamh as an nua gach maidin.',
-            en: 'In persuit of the word which must be earned again each morning.',
+            en: 'In pursuit of the word which must be earned again each morning.',
             speaker: 'hero',
         },
  
        {
-            ga: 'Ach rachaidh mé mar a théann an chorr réisc\n ciúin 7 ar aire.',
+            ga: 'Ach rachaidh mé mar a théann an chorr réisc,\n ciúin ⁊ ar aire.',
             en: 'But I shall go as the grey heron goes, \nquiet and alert.',
             speaker: 'hero',
         },
@@ -44,7 +44,7 @@ export const returnCrossingTexts = {
             speaker: 'hero',
         },
 	    {
-            ga: 'Tarraingím na maidí tríd an uisce dhubh,',
+            ga: 'Tarraingím na maidí tríd an uisce dhubh',
             en: 'I pull the oars through the black water',
             speaker: 'hero',
         },

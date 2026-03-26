@@ -25,8 +25,8 @@ export const FONTS = {
 
 // ── Sizes ─────────────────────────────────────────────────────────────────────
 export const SIZES = {
-  irish:       '23px',
-  english:     '25px',
+  irish:       '24px',
+  english:     '27px',
   speaker:     '16px',
   label:       '0px',
   hint:        '0px',
@@ -66,15 +66,15 @@ export const COLORS = {
 // px values used in both Phaser text and DOM elements
 export const TYPE = {
   title:    { size: '28px', font: FONTS.title,   lineSpacing: 8  },
-  heading:  { size: '22px', font: FONTS.irish,   lineSpacing: 6  },
-  body:     { size: '20px', font: FONTS.irish,   lineSpacing: 5  },
-  bodyEn:   { size: '15px', font: FONTS.english, lineSpacing: 4  },
+  heading:  { size: '25px', font: FONTS.irish,   lineSpacing: 6  },
+  body:     { size: '25px', font: FONTS.irish,   lineSpacing: 5  },
+  bodyEn:   { size: '22px', font: FONTS.english, lineSpacing: 4  },
   speaker:  { size: '16px', font: FONTS.irish,   lineSpacing: 4  },
   label:    { size: '13px', font: FONTS.ui,      lineSpacing: 2  },
   hint:     { size: '10px', font: FONTS.ui,      lineSpacing: 2  },
   // ScrollingTextPlayer / constellationScene sizes (rem-based for DOM)
-  domBody:  { size: '1.35rem', font: FONTS.irish   },
-  domBodyEn:{ size: '1.05rem', font: FONTS.english },
+  domBody:  { size: '1.45rem', font: FONTS.irish   },
+  domBodyEn:{ size: '1.25rem', font: FONTS.english },
 }
 
 // ── Phaser text style factory ────────────────────────────────────────────────

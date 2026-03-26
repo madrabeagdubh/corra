@@ -6,7 +6,7 @@
 
 export default class FovSystem {
 
-  static FOV_RADIUS = 8
+  static FOV_RADIUS = 6
   static FADE_MS    = 1600  // fog dissolve duration (enter)
   static TINT_MS    = 800   // tint appear duration (exit)
 

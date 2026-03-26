@@ -3,6 +3,7 @@
 //
 // The return journey: Skye → Éire. Top-centre to bottom-left.
 // Choppy day, light swell, wind from the north-east.
+import { FONTS, COLORS } from '../systems/gameTypography.js';
 // No stars. No lightning. Just a small boat on grey-green water.
 //
 // New vs dawnCrossing:
@@ -76,13 +77,18 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     const gaFontPx = Math.round(base * 0.072);
     const enFontPx = Math.round(base * 0.052);
 
+    // Scene-specific colour overrides — intentionally cooler/icier than COLORS defaults
+    // to match the grey-green crossing palette. Font families from gameTypography.
+    const SCENE_IRISH_COLOR = '#d8e8f0';   // icy silver-white (vs COLORS.irish warm parchment)
+    const SCENE_EN_COLOR    = '#8a9a8e';   // muted sea-grey  (vs COLORS.english sage)
+
     const fontOverride = document.createElement('style');
     fontOverride.id = 'returnCrossingFontOverride';
     fontOverride.textContent = `
         /* Irish — cold silver-white, with icy glow */
         #returnCrossing div div div:first-child {
             font-size:${gaFontPx}px !important;
-            color:#d8e8f0 !important;
+            color:${SCENE_IRISH_COLOR} !important;
             text-shadow:
                 0 0 22px rgba(160,200,230,0.85),
                 0 0  8px rgba(100,160,200,0.6),
@@ -94,8 +100,8 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         /* English — muted warm grey, subordinate */
         #returnCrossing div div div:nth-child(2) {
             font-size:${enFontPx}px !important;
-            color:#8a9a8e !important;
-            font-family:Urchlo,serif !important;
+            color:${SCENE_EN_COLOR} !important;
+            font-family:${FONTS.english} !important;
             text-shadow:
                 0 0 10px rgba(0,0,0,0.95),
                 1px  1px 0 rgba(0,0,0,0.8),
@@ -114,7 +120,8 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
 
     const sliderStrip = document.createElement('div');
     sliderStrip.style.cssText = [
-        'position:fixed;top:0;left:0;right:0;height:52px;z-index:999998;',
+        'position:fixed;top:0;left:0;right:0;z-index:999998;',
+        `padding:${Math.round((52 - moonD) / 2)}px 0;`,
         'display:flex;align-items:center;justify-content:center;',
         'background:rgba(0,0,0,0.32);pointer-events:all;',
     ].join('');
@@ -180,7 +187,8 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     const sliderWrapper = document.createElement('div');
     sliderWrapper.style.cssText=[
         'position:relative;width:80%;max-width:580px;',
-        `height:${moonD+8}px;display:flex;align-items:center;`,
+        `height:${moonD+8}px;max-height:${moonD+8}px;`,
+        'display:flex;align-items:center;overflow:hidden;flex-shrink:0;',
     ].join('');
     sliderWrapper.appendChild(localSlider);
     sliderWrapper.appendChild(moonCanvas);
@@ -252,6 +260,35 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         alpha:  rnd(0.04, 0.11),
         bright: rnd(0.5, 1.0),                     // whitecap brightness multiplier
     }));
+
+    // ── Foam lines: persistent drifting pixel dashes ─────────────────────────
+    // Flat _ and - shapes drifting slowly northward (upward). No angle.
+    const FOAM_COUNT = 42;
+    const foamLines  = Array.from({ length: FOAM_COUNT }, () => ({
+        x:      rnd(0, 1),           // normalised x
+        y:      rnd(0.50, 0.95),     // normalised y — water surface only
+        len:    rnd(0.018, 0.050),   // normalised length (horizontal only)
+        speedX: rnd(0.000004, 0.000010), // very slow leftward drift (wind)
+        speedY: rnd(0.000003, 0.000008), // slow northward (upward) drift
+        alpha:  rnd(0.07, 0.20),
+    }));
+
+    // ── Wave crests: occasional larger white-cap events ───────────────────────
+    // ~8 simultaneous crests, each a short-lived bright arc that swells and fades.
+    const CREST_COUNT = 8;
+    const waveCrests  = Array.from({ length: CREST_COUNT }, () => makeCrest(rnd(0, 6000)));
+
+    function makeCrest(bornOffset) {
+        return {
+            x:       rnd(0.05, 0.92),     // normalised x
+            y:       rnd(0.55, 0.90),     // normalised y
+            width:   rnd(0.06, 0.14),     // normalised arc width
+            height:  rnd(0.006, 0.014),   // normalised arc height (very flat)
+            life:    0 - bornOffset,      // starts negative so they stagger
+            maxLife: rnd(1800, 3200),
+            alpha:   rnd(0.18, 0.38),
+        };
+    }
 
     // ── Wave splash: occasional burst spray ──────────────────────────────────
     // A single energetic splash every 7–10 seconds. Each splash fires a burst
@@ -721,8 +758,8 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
         ripples.push({
             x, y, born: performance.now(), angle,
             hueOffset: 180 + Math.random() * 60,  // cooler blue-grey hues
-            scaleX:    0.85 + Math.random() * 0.18,
-            scaleY:    0.38 + Math.random() * 0.14,
+            scaleX:    0.90 + Math.random() * 0.16,
+            scaleY:    0.15 + Math.random() * 0.06,  // pronounced foreshortening
             sqPhase:   Math.random() * Math.PI * 2,
             sqPhase2:  Math.random() * Math.PI * 2,
         });
@@ -823,9 +860,9 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
                     if (wave < 0.3) continue;
                     const wAlpha = (wave - 0.3) / 0.7 * w.alpha * (fy > 0.7 ? 1 : fy/0.7);
                     // Whitecap: brighter near the crest
-                    const wR = Math.round(lerp(sr, 200, wave * w.bright * 0.22));
-                    const wG = Math.round(lerp(sg, 215, wave * w.bright * 0.22));
-                    const wB = Math.round(lerp(sb, 220, wave * w.bright * 0.28));
+                    const wR = Math.round(lerp(sr, 210, wave * w.bright * 0.55));
+                    const wG = Math.round(lerp(sg, 220, wave * w.bright * 0.55));
+                    const wB = Math.round(lerp(sb, 228, wave * w.bright * 0.65));
                     // Lateral shimmer — slight x-offset per strip
                     const dx = Math.sin(fy * 7.3 + elapsed * 0.0004) * W * 0.012;
                     ctx.fillStyle = `rgba(${wR},${wG},${wB},${wAlpha.toFixed(3)})`;
@@ -846,6 +883,78 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
             ctx.fillRect(Math.round(dx), Math.round(y), W+6, Math.ceil(H/140+1));
         }
 
+        // ── Foam lines ────────────────────────────────────────────────────────
+        {
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            for (const fl of foamLines) {
+                fl.x -= fl.speedX * 0.25 * dt;
+                fl.y -= fl.speedY * 0.25 * dt;   // drift north (upward)
+                // Wrap horizontally
+                if (fl.x + fl.len < 0) fl.x = 1.0 + rnd(0, 0.08);
+                // Wrap vertically — when it drifts off the top of the water band, respawn at bottom
+                if (fl.y < 0.48) {
+                    fl.y = rnd(0.88, 0.96);
+                    fl.x = rnd(0, 1);
+                }
+
+                const x0 = Math.round(fl.x * W);
+                const y0 = Math.round(fl.y * H);
+                const pw = Math.round(fl.len * W);  // pixel width of dash
+
+                // Depth fade: lines near horizon are fainter
+                const depthFade = clamp((fl.y - 0.50) / 0.40, 0, 1);
+                if (depthFade < 0.01) continue;
+
+                const PIXEL = Math.max(1, Math.round(W / 280));
+                ctx.globalAlpha = fl.alpha * depthFade;
+                ctx.fillStyle = `rgb(200,210,218)`;
+                // Purely horizontal pixel dash — _ or - shape
+                ctx.fillRect(x0, y0, pw, PIXEL);
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // ── Wave crests ───────────────────────────────────────────────────────
+        {
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            for (const cr of waveCrests) {
+                cr.life += dt * 0.25;  // ¼ speed
+                if (cr.life > cr.maxLife) {
+                    Object.assign(cr, makeCrest(0));
+                    cr.life = 0;
+                    continue;
+                }
+                if (cr.life < 0) continue;
+
+                const t = cr.life / cr.maxLife;
+                const env = t < 0.18 ? t / 0.18 : 1 - Math.pow((t - 0.18) / 0.82, 0.7);
+                if (env < 0.01) continue;
+
+                const cx  = Math.round(cr.x * W);
+                const cy  = Math.round(cr.y * H);
+                const rx  = Math.round(cr.width  * W * 0.5 * (0.7 + env * 0.3));
+                const ry  = Math.max(1, Math.round(cr.height * H * env));
+
+                // Pixelated: draw as a row of square pixels along the crest arc
+                const PIXEL = Math.max(2, Math.round(W / 220));
+                const bright = Math.round(lerp(185, 240, env));
+                // Flat horizontal bar — no curve at all
+                const barH = Math.max(PIXEL, Math.round(PIXEL * 1.5));
+                ctx.globalAlpha = cr.alpha * env;
+                ctx.fillStyle = `rgb(${bright},${bright+5},${bright+10})`;
+                ctx.fillRect(cx - rx, cy, rx * 2, barH);
+                // Slightly brighter 1px highlight on top edge
+                ctx.globalAlpha = cr.alpha * env * 0.5;
+                ctx.fillStyle = `rgb(${Math.min(255,bright+20)},${Math.min(255,bright+25)},${Math.min(255,bright+28)})`;
+                ctx.fillRect(cx - rx, cy, rx * 2, PIXEL);
+            }
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
         // ── Clouds ────────────────────────────────────────────────────────────
         {
             ctx.save();
@@ -856,7 +965,7 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
                 const cx   = cl.x * W;
                 const cy   = cl.y * H;
                 const cw   = cl.w * W;
-                const ch   = cl.h * H;
+                const ch   = cl.h * W;   // W-relative, not H — prevents portrait stretch
 
                 if (cloudLoaded) {
                     // Use cloud asset if available
@@ -900,7 +1009,6 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
                 const sqTime = elapsed * 0.0022 + rip.sqPhase;
                 ctx.save();
                 ctx.translate(rip.x, rip.y);
-                ctx.scale(rip.scaleX, rip.scaleY);
                 for (let ring = 0; ring < RINGS; ring++) {
                     const ringDelay = (ring/RINGS)*0.35;
                     const ringT     = clamp((lifeT-ringDelay)/(1-ringDelay),0,1);
@@ -908,12 +1016,15 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
                     const R     = maxR * ringT;
                     const hue   = rip.hueOffset + elapsed*0.012 + ring*28;
                     const lw    = Math.max(0.3,(1-ringT*0.65)*2.4);
-                    const alpha = fadeA*(1-ringT*0.45)*(0.52-ring*0.05);
+                    const alpha = fadeA*(1-ringT*0.45)*(0.72-ring*0.06);
                     if (alpha<0.004||R<1) continue;
                     const sqAmp  = R*(0.07+ringT*0.14);
                     const sqFreq = 2.7+ring*1.7;
                     const sqPh   = rip.sqPhase+ring*1.4;
                     const sqPh2  = rip.sqPhase2+ring*0.9;
+                    // Outer rings slightly flatter — reinforces water-surface recession
+                    ctx.save();
+                    ctx.scale(rip.scaleX, rip.scaleY * (1 - ring * 0.04));
                     // Upper semicircle — wake trails above/behind as boat moves down-screen
                     const arcS=Math.PI, arcE=Math.PI*2;
                     ctx.lineWidth=lw*8;
@@ -931,6 +1042,7 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
                         ctx.lineWidth=Math.max(0.3,lw*0.45);
                         drawSquirmArc(ctx,R*0.80,arcS2,arcE2,sqAmp*1.3,sqFreq+1,sqTime*1.2,sqPh2,sqPh,alpha2*0.78,(h2+25)%360);
                     }
+                    ctx.restore();
                 }
                 ctx.restore();
             }
@@ -994,10 +1106,13 @@ const RETURN_TEXTS_PATH   = new URL('/data/returnCrossingTexts.js', import.meta.
             const prevX   = lerp(W*0.50, W*0.14, prevE);
             const prevY   = lerp(H*0.48, H*0.82, prevE);
             const boatAng = Math.atan2(boatY - prevY, boatX - prevX);
-            spawnRipple(boatX - 16, boatY + 5, boatAng);
-            // Only spawn starboard ripple when not suppressing port
+            // Spawn BEHIND the boat: opposite travel direction, ~28px back
+            const behindDist = Math.max(1, Math.round((W/145) * lerp(0.22, 1.0, boatE))) * 14;
+            const behindX = boatX - Math.cos(boatAng) * behindDist;
+            const behindY = boatY - Math.sin(boatAng) * behindDist;
+            spawnRipple(behindX - 12, behindY, boatAng);
             if (!suppressPort) {
-                spawnRipple(boatX + 16, boatY + 5, boatAng);
+                spawnRipple(behindX + 12, behindY, boatAng);
             }
         }
 

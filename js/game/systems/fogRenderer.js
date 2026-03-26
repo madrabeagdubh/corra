@@ -16,8 +16,8 @@ export default class FogRenderer {
 
   static PHASER_TEXTURE_KEY = 'fogTexture'
   static BLUR_PX            = 10
-  static HIDDEN_OPACITY     = 0.97   // fog texture opacity over hidden tiles
-  static VISITED_TINT       = 0.32   // max dark tint alpha over visited tiles
+  static HIDDEN_OPACITY     = 0.87   // fog texture opacity over hidden tiles
+  static VISITED_TINT       = 0.22   // max dark tint alpha over visited tiles
   static VISITED_TINT_COL   = '5,5,18'
 
   constructor(pgr) {

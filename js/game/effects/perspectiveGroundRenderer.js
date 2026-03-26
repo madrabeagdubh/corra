@@ -174,58 +174,43 @@ export default class PerspectiveGroundRenderer {
     const sh = this._sh
 
     // ── Sky image ─────────────────────────────────────────────────────────
-    // fog0.png sits behind everything, covering the full viewport.
-    // object-fit:cover keeps it filling the screen at any aspect ratio.
-    // It fades to transparent at the bottom so it blends into the ground.
-    // ── Sky image ─────────────────────────────────────────────────────────
-    // Sits at z-index:4 — above ground canvas (1), objects (2), lighting (3),
-    // but below Phaser canvas (10). The Phaser game config must set
-    // backgroundColor: 'transparent' (or use Phaser.CANVAS type) so the
-    // sky shows through the Phaser canvas above the horizon.
+    // z-index:-1 puts this behind the ground canvas (z-index:1).
+    // The ground canvas only fills from the horizon downward, so the sky
+    // image shows through above the horizon line.
+    // container must have background:transparent (set in main.js startGame).
     const img = document.createElement('img')
     img.id  = 'pgr-sky-img'
-    img.src = '/assets/bg0.png'
-    Object.assign(img.style, {
-      position:        'absolute',
-      top:             '0',
-      left:            '0',
-      width:           sw + 'px',
-      height:          sh + 'px',
-      zIndex:          '0',
-      pointerEvents:   'none',
-      objectFit:       'cover',
-      objectPosition:  'center top',
-      // Fade bottom third into the ground layer
-   
-WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 60%)',
-maskImage:       'linear-gradient(to bottom, black 0%, black 45%, transparent 60%)',      opacity:         '0.88',
-    })
+    img.src = '/assets/fog3.png'
+    img.style.cssText = [
+      'position:absolute',
+      'top:0',
+      'left:0',
+      `width:${sw}px`,
+      `height:${sh}px`,
+      'z-index:-1',
+      'pointer-events:none',
+      'object-fit:cover',
+      'object-position:center top',
+      'opacity:0.9',
+    ].join(';')
     container.appendChild(img)
     this._skyImg = img
 
     // ── Gradient overlay ──────────────────────────────────────────────────
-    // z-index:5 — on top of sky image, adds vignette + colour wash
+    // Subtle dark fade at horizon where sky meets ground.
+    // z-index:-1 same as sky so it sits just above it (appended after).
     const div = document.createElement('div')
     div.id = 'pgr-sky'
-    Object.assign(div.style, {
-      position:      'absolute',
-      top:           '0',
-      left:          '0',
-      width:         sw + 'px',
-      height:        sh + 'px',
-      zIndex:        '1',
-      pointerEvents: 'none',
-      background: [
-        'radial-gradient(ellipse 100% 85% at 50% 55%,' +
-          'transparent 35%,' +
-          'rgba(0,0,0,0.45) 70%,' +
-          'rgba(0,0,0,0.88) 100%)',
-        'linear-gradient(to bottom,' +
-          'rgba(5,8,20,0.55) 0%,' +
-          'rgba(15,20,45,0.25) 40%,' +
-          'transparent 60%)',
-      ].join(','),
-    })
+    div.style.cssText = [
+      'position:absolute',
+      'top:0',
+      'left:0',
+      `width:${sw}px`,
+      `height:${sh}px`,
+      'z-index:-1',
+      'pointer-events:none',
+      `background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.7) 70%,rgba(0,0,0,0.95) 85%)`,
+    ].join(';')
 
     container.appendChild(div)
     return div
@@ -475,10 +460,12 @@ maskImage:       'linear-gradient(to bottom, black 0%, black 45%, transparent 60
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    // Fill ground canvas with a dark bog colour before drawing tiles.
-    // Any sub-pixel gaps between tiles will show this instead of black.
+    // Fill ground canvas only below the horizon — above is transparent
+    // so the sky image behind the canvas shows through.
+    const horizonFill = this._horizonPx()
+    this._gCtx.clearRect(0, 0, sw, sh)
     this._gCtx.fillStyle = '#2a3a1a'
-    this._gCtx.fillRect(0, 0, sw, sh)
+    this._gCtx.fillRect(0, horizonFill, sw, sh - horizonFill)
     this._oCtx.clearRect(0, 0, sw, sh)
 
     const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)

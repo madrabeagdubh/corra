@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { FONTS, COLORS, TYPE } from './game/systems/gameTypography.js';
 import { allTunes } from './game/systems/music/allTunes.js';
 import * as abcjs from 'abcjs';
 import { champions } from '../data/champions.js';
@@ -342,7 +343,7 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCX = 0;
         this.worldCY = 0;
 
-        this.moonPhase       = 0;
+        this.moonPhase = 0;
         this.moonCanvas      = null;
         this.moonOverlay     = null;
         this.moonEl          = null;
@@ -392,6 +393,7 @@ preload(){
         this.cameras.main.setBounds(0, 0, wSize, wSize);
 
         this.drawStaticBackground(wSize);
+        this.drawNebula(wSize);
 
         this.worldG  = this.add.graphics().setDepth(10);
         this.rippleG = this.add.graphics().setDepth(11);
@@ -595,9 +597,9 @@ preload(){
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
         irishEl.style.cssText = [
-            'font-family:Urchlo,serif;',
+            `font-family:${FONTS.irish};`,
             `font-size:${Math.round(Math.min(W, H) * 0.072)}px;`,
-            'color:#d4af37;text-align:center;',
+            `color:${COLORS.irish};text-align:center;`,
             'text-shadow:0 0 18px rgba(0,0,0,0.9);',
             'padding:0 6%;',
             'pointer-events:none;',
@@ -613,9 +615,9 @@ preload(){
         const enEl = document.createElement('div');
         enEl.textContent = line.en;
        enEl.style.cssText = [
-            'font-family:"Courier New",monospace;',
+            `font-family:${FONTS.english};`,
             `font-size:${Math.round(Math.min(W, H) * 0.058)}px;`,
-            'color:#9b8dbd;text-align:center;',
+            `color:${COLORS.druid};text-align:center;`,
             'text-shadow:0 0 12px rgba(0,0,0,0.9);',
             'padding:0 6%;',
             'pointer-events:none;',
@@ -652,7 +654,7 @@ preload(){
             'z-index:99997;',
             `left:${arcStartX - moonR}px;`,
             `top:${arcStartY - moonR}px;`,
-            'animation:moonInvite 2s infinite ease-in-out;',
+            'animation:moonInvite 6.5s infinite ease-in-out;',
         ].join('');
         this.moonEl     = moonCanvas;
         this.moonCanvas = moonCanvas;
@@ -663,8 +665,14 @@ preload(){
         style.id = 'moon-style';
         style.textContent = `
             @keyframes moonInvite {
-                0%,100% { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4)); transform: scale(1); }
-                50%      { filter: drop-shadow(0 0 ${moonR*1.1}px rgba(200,220,255,0.85)); transform: scale(1.08); }
+                0%   { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
+                       transform: scale(1) translateX(0); }
+                61%  { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
+                       transform: scale(1) translateX(0); }
+                80%  { filter: drop-shadow(0 0 ${moonR*2.0}px rgba(200,220,255,0.88));
+                       transform: scale(1.13) translateX(${Math.round(moonR * 1.8)}px); }
+                100% { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
+                       transform: scale(1) translateX(0); }
             }
         `;
         document.head.appendChild(style);
@@ -921,7 +929,7 @@ preload(){
         }
 
         const MOVE_DURATION = 3500;
-        const MOVE_DELAY    = 2000;
+        const MOVE_DELAY    = 800;
         const moveStart = performance.now() + MOVE_DELAY;
         const fromLeft  = parseFloat(moonEl.style.left) || 0;
         const fromTop   = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
@@ -1117,7 +1125,7 @@ preload(){
         text.setAttribute('x', arrowW / 2);
         text.setAttribute('y', 14);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-family', 'Urchlo, "Courier New", monospace');
+        text.setAttribute('font-family', FONTS.ui);
         text.setAttribute('font-size', '11');
         text.setAttribute('fill', 'rgba(255,220,60,0.85)');
         text.setAttribute('letter-spacing', '1.5');
@@ -1320,9 +1328,9 @@ this.cameras.main.setAngle(this.spinAngle);
     drawNebula(wSize) {
         const S   = Math.round(Math.max(this.W, this.H) * 1.5);
         const rt  = this.add.renderTexture(0, 0, S, S)
-                        .setScrollFactor(0).setDepth(0).setAlpha(0.7)
+                        .setScrollFactor(0).setDepth(2).setAlpha(0.55)
                         .setOrigin(0.5).setPosition(this.W / 2, this.H / 2)
-                        .setBlendMode(Phaser.BlendModes.SCREEN);
+                        .setBlendMode(Phaser.BlendModes.ADD);
         this._nebulaWheelRt    = rt;
         this._nebulaWheelSpeed = -360 / 120000;
 
@@ -1360,7 +1368,8 @@ this.cameras.main.setAngle(this.spinAngle);
                 paintNebula(this.textures.get('nebula').getSourceImage());
             });
             this.load.start();
-            paintNebula(null);
+            // Don't call paintNebula(null) — procedural fallback causes a flash of
+            // blue polygons for 1-2 frames before the real image loads.
         }
 
         this._nebulaWheelTween = null;
@@ -1898,11 +1907,11 @@ screenToRotated(sx, sy) {
                     lines:        completion,
                     getMoonPhase: () => this.moonPhase,
                     onComplete:   () => {
-                        this.time.delayedCall(400, () => {
+                        this.time.delayedCall(200, () => {
                             this.currentIndex++;
                             if (this.currentIndex < this.constellations.length) {
                                 this.panCameraTo(this.currentIndex, true);
-                                this.time.delayedCall(2200, () => {
+                                this.time.delayedCall(800, () => {
                                     this.startSequencePulse();
                                 });
                             } else {

@@ -1,61 +1,80 @@
-// FogRenderer.js
+// FogRenderer.js  (v5)
 //
-// Renders fog of war on a dedicated DOM canvas (z-index between ground and objects).
-// Three tile states:
-//   HIDDEN  — never seen: full dark overlay
-//   VISITED — seen before: greyed/desaturated overlay
-//   VISIBLE — currently in FOV: clear (no overlay)
+// Three tile states, clearly separated:
 //
-// Redraws whenever the player moves (FOV changes).
-// Works in screen space using PGR's projection — no Phaser involvement.
+//   HIDDEN  — never visited: draw fog texture at full opacity
+//   VISITED — explored, not in FOV: draw dark tint only (no fog texture)
+//             tint fades IN  when tile leaves FOV  (via getTintProgress)
+//             tint fades OUT when tile enters FOV  (handled by not drawing it)
+//   VISIBLE — currently in FOV: draw nothing (fully clear)
+//             EXCEPT during fade-in: draw fog texture at decreasing opacity
 //
-// Usage:
-//   const fog = new FogRenderer(pgrInstance)
-//   fog.update(fovSystem)   // call after fov.compute() each move
-//   fog.destroy()
+// No flood fill. No erase compositing. Each tile drawn once with correct alpha.
+// CSS blur gives soft edges.
 
 export default class FogRenderer {
 
-  // Overlay alpha values
-  static HIDDEN_ALPHA  = 0.96   // near-black for unseen tiles
-  static VISITED_ALPHA = 0.55   // grey wash for visited tiles
-  static HIDDEN_COLOR  = '10,8,20'    // dark blue-black
-  static VISITED_COLOR = '20,18,30'   // slightly lighter
+  static PHASER_TEXTURE_KEY = 'fogTexture'
+  static BLUR_PX            = 10
+  static HIDDEN_OPACITY     = 0.97   // fog texture opacity over hidden tiles
+  static VISITED_TINT       = 0.32   // max dark tint alpha over visited tiles
+  static VISITED_TINT_COL   = '5,5,18'
 
   constructor(pgr) {
-    this._pgr = pgr
+    this._pgr     = pgr
+    this._pattern = null
+    this._ready   = false
 
     const phaserCanvas = pgr.scene.game.canvas
     const container    = phaserCanvas.parentNode
-    const sw           = pgr._sw
-    const sh           = pgr._sh
+    this._sw = pgr._sw
+    this._sh = pgr._sh
 
     this._canvas        = document.createElement('canvas')
-    this._canvas.width  = sw
-    this._canvas.height = sh
+    this._canvas.width  = this._sw
+    this._canvas.height = this._sh
     this._canvas.id     = 'pgr-fog'
     Object.assign(this._canvas.style, {
       position:      'absolute',
       top:           '0',
       left:          '0',
-      zIndex:        '6',   // above sky(4,5), below Phaser(10)
+      zIndex:        '6',
       pointerEvents: 'none',
-      imageRendering: 'pixelated',
-	    filter:        'blur(12px)',
+      filter:        `blur(${FogRenderer.BLUR_PX}px)`,
     })
     container.appendChild(this._canvas)
     this._ctx = this._canvas.getContext('2d')
 
-    console.log('[FogRenderer] constructed')
+    this._initPattern()
+    console.log('[FogRenderer v5] constructed')
+  }
+
+  _initPattern() {
+    try {
+      const tex = this._pgr.scene.textures.get(FogRenderer.PHASER_TEXTURE_KEY)
+      if (!tex || tex.key === '__MISSING') {
+        console.warn('[FogRenderer v5] fogTexture missing — flat colour fallback')
+        this._ready = true
+        return
+      }
+      this._pattern = this._ctx.createPattern(tex.getSourceImage(), 'repeat')
+      this._ready   = true
+      console.log('[FogRenderer v5] pattern ready')
+    } catch(e) {
+      console.warn('[FogRenderer v5] pattern failed:', e.message)
+      this._ready = true
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   update(fovSystem) {
+    if (!this._ready) return
+
     const pgr    = this._pgr
     const ctx    = this._ctx
-    const sw     = pgr._sw
-    const sh     = pgr._sh
+    const sw     = this._sw
+    const sh     = this._sh
 
     const layer0 = pgr.scene.mapData?.layers?.[0]
     if (!layer0) return
@@ -67,15 +86,17 @@ export default class FogRenderer {
     const FL        = pgr.constructor.FOCAL_LENGTH
     const horizonPx = pgr._horizonPx()
 
-    ctx.clearRect(0, 0, sw, sh)
-
     const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
     const tileRowStart = Math.max(0, Math.floor(camRow - FL * 15))
+
+    ctx.clearRect(0, 0, sw, sh)
+    ctx.globalCompositeOperation = 'source-over'
+
+    const fogFill  = this._pattern ?? 'rgba(5,5,18,1)'
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
       const yTop = pgr._rowToScreenY(tileRow)
       const yBot = pgr._rowToScreenY(tileRow + 1)
-
       if (yBot === null) continue
       if (yTop !== null && yTop > sh) continue
       if (yBot < horizonPx) continue
@@ -90,46 +111,66 @@ export default class FogRenderer {
       const colEnd    = Math.min(mapW-1, Math.ceil (camCol + halfCols))
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
-        // Skip if visible — no fog overlay needed
-        if (fovSystem.isVisible(tileCol, tileRow)) continue
 
-        const isVisited = fovSystem.isVisited(tileCol, tileRow)
-        const alpha     = isVisited
-          ? FogRenderer.VISITED_ALPHA
-          : FogRenderer.HIDDEN_ALPHA
-        const color     = isVisited
-          ? FogRenderer.VISITED_COLOR
-          : FogRenderer.HIDDEN_COLOR
+        const hidden  = fovSystem.isHidden(tileCol, tileRow)
+        const visible = !hidden && fovSystem.isVisible(tileCol, tileRow)
+        const visited = !hidden && !visible  // visited but not currently visible
 
+        // Get trapezoid corners (used by all three branches)
         const xTL = pgr._colToScreenX(tileCol,     tileRow)
         const xTR = pgr._colToScreenX(tileCol + 1, tileRow)
         const xBL = pgr._colToScreenX(tileCol,     tileRow + 1)
         const xBR = pgr._colToScreenX(tileCol + 1, tileRow + 1)
 
-        ctx.fillStyle = `rgba(${color},${alpha})`
-        ctx.beginPath()
-        ctx.moveTo(xTL, yTopClamped)
-        ctx.lineTo(xTR, yTopClamped)
-        ctx.lineTo(xBR, yBotClamped)
-        ctx.lineTo(xBL, yBotClamped)
-        ctx.closePath()
-        ctx.fill()
+        if (hidden) {
+          // ── HIDDEN: full fog texture ──────────────────────────────────
+          ctx.globalAlpha = FogRenderer.HIDDEN_OPACITY
+          ctx.fillStyle   = fogFill
+          ctx.beginPath()
+          ctx.moveTo(xTL, yTopClamped); ctx.lineTo(xTR, yTopClamped)
+          ctx.lineTo(xBR, yBotClamped); ctx.lineTo(xBL, yBotClamped)
+          ctx.closePath(); ctx.fill()
+
+        } else if (visible) {
+          // ── VISIBLE: clear — fade fog out only on FIRST discovery ─────
+          // If tile was already visited before this FOV entry, skip fade
+          // entirely — it was already revealed, no need to show fog again.
+          const wasVisitedBefore = fovSystem.wasVisitedBeforeCurrentEntry(tileCol, tileRow)
+          if (wasVisitedBefore) continue  // already known, always clear
+          const fade = fovSystem.getFadeProgress(tileCol, tileRow)
+          if (fade >= 1.0) continue
+          ctx.globalAlpha = FogRenderer.HIDDEN_OPACITY * (1.0 - fade)
+          ctx.fillStyle   = fogFill
+          ctx.beginPath()
+          ctx.moveTo(xTL, yTopClamped); ctx.lineTo(xTR, yTopClamped)
+          ctx.lineTo(xBR, yBotClamped); ctx.lineTo(xBL, yBotClamped)
+          ctx.closePath(); ctx.fill()
+
+        } else if (visited) {
+          // ── VISITED: dark tint only, no fog texture ───────────────────
+          // Tint fades IN as tile leaves FOV (tintProgress 0→1)
+          const tintP = fovSystem.getTintProgress(tileCol, tileRow)
+          if (tintP <= 0.001) continue  // just left FOV, still clear
+          ctx.globalAlpha = FogRenderer.VISITED_TINT * tintP
+          ctx.fillStyle   = `rgb(${FogRenderer.VISITED_TINT_COL})`
+          ctx.beginPath()
+          ctx.moveTo(xTL, yTopClamped); ctx.lineTo(xTR, yTopClamped)
+          ctx.lineTo(xBR, yBotClamped); ctx.lineTo(xBL, yBotClamped)
+          ctx.closePath(); ctx.fill()
+        }
       }
     }
 
-    // Fill above horizon with full dark (sky area for hidden tiles)
-    ctx.fillStyle = `rgba(${FogRenderer.HIDDEN_COLOR},${FogRenderer.HIDDEN_ALPHA})`
-    ctx.fillRect(0, 0, sw, horizonPx)
+    ctx.globalAlpha = 1.0
   }
-
-  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   destroy() {
     if (this._canvas?.parentNode)
       this._canvas.parentNode.removeChild(this._canvas)
-    this._canvas = null
-    this._ctx    = null
-    console.log('[FogRenderer] destroyed')
+    this._pattern = null
+    this._canvas  = null
+    this._ctx     = null
+    console.log('[FogRenderer v5] destroyed')
   }
 }
 

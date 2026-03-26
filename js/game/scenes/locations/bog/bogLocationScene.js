@@ -69,7 +69,9 @@ export default class BogLocationScene extends BaseLocationScene {
     const key = this.getMapKey()
     this.bogMapCacheKey = 'bogMap_' + key
     this.load.json(this.bogMapCacheKey, `/maps/bogMaps/${key}.json?v=` + Date.now())
-    this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
+    this.load.image('oryxTiles',   '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
+    this.load.image('fogTexture', '/assets/bg0.png')
+    this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
   }
 
   async _loadContent() {
@@ -196,6 +198,8 @@ export default class BogLocationScene extends BaseLocationScene {
     const tx = Math.floor(this.player.logicalX / this.tileSize)
     const ty = Math.floor(this.player.logicalY / this.tileSize)
     this.fovSystem.compute(tx, ty)
+    // Render fog immediately after compute so there is zero gap between
+    // FOV state changing and fog canvas reflecting it — prevents flash
     if (this.fogRenderer) this.fogRenderer.update(this.fovSystem)
   }
 
@@ -504,6 +508,10 @@ export default class BogLocationScene extends BaseLocationScene {
         this._lastFovKey = key
         this._recomputeFov()
       }
+    }
+    // Fog renders every frame — handles fade animation and camera movement
+    if (this.fogRenderer && this.fovSystem) {
+      this.fogRenderer.update(this.fovSystem)
     }
 
     if (this.playerLight && this.player)

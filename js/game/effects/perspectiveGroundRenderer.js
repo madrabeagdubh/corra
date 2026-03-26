@@ -64,6 +64,10 @@ export default class PerspectiveGroundRenderer {
     this._tileCache  = new Map()
     this._ready      = false
 
+    // Build flat GID set from oryxCatalogue if loaded
+    this._flatGids = new Set()
+    this._loadCatalogue()
+
     if (PerspectiveGroundRenderer.DEBUG_RECTS) {
       this._ready = true
     } else {
@@ -119,6 +123,31 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR v8] constructed —', this._sw, 'x', this._sh)
   }
 
+  // ── Catalogue ─────────────────────────────────────────────────────────
+  // Load oryxCatalogue.json from Phaser cache and build _flatGids Set.
+  // Call once at construction — catalogue must be preloaded in preload():
+  //   this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
+
+  _loadCatalogue() {
+    try {
+      const catalogue = this.scene.cache.json.get('oryxCatalogue')
+      if (!catalogue) {
+        console.warn('[PGR] oryxCatalogue not in cache — all layer 1 tiles will be billboards')
+        return
+      }
+      let flatCount = 0
+      for (const [gidStr, entry] of Object.entries(catalogue)) {
+        if (entry?.flat === true) {
+          this._flatGids.add(parseInt(gidStr))
+          flatCount++
+        }
+      }
+      console.log(`[PGR] catalogue loaded — ${flatCount} flat GIDs, ${Object.keys(catalogue).length - flatCount} billboard GIDs`)
+    } catch(e) {
+      console.warn('[PGR] catalogue load failed:', e.message)
+    }
+  }
+
   _makeCanvas(container, id, zIndex) {
     const c = document.createElement('canvas')
     c.width  = this._sw
@@ -162,14 +191,14 @@ export default class PerspectiveGroundRenderer {
       left:            '0',
       width:           sw + 'px',
       height:          sh + 'px',
-      zIndex:          '4',
+      zIndex:          '0',
       pointerEvents:   'none',
       objectFit:       'cover',
       objectPosition:  'center top',
       // Fade bottom third into the ground layer
-      WebkitMaskImage: 'linear-gradient(to bottom, black 35%, transparent 68%)',
-      maskImage:       'linear-gradient(to bottom, black 35%, transparent 68%)',
-      opacity:         '0.88',
+   
+WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 60%)',
+maskImage:       'linear-gradient(to bottom, black 0%, black 45%, transparent 60%)',      opacity:         '0.88',
     })
     container.appendChild(img)
     this._skyImg = img
@@ -184,7 +213,7 @@ export default class PerspectiveGroundRenderer {
       left:          '0',
       width:         sw + 'px',
       height:        sh + 'px',
-      zIndex:        '5',
+      zIndex:        '1',
       pointerEvents: 'none',
       background: [
         'radial-gradient(ellipse 100% 85% at 50% 55%,' +
@@ -415,7 +444,7 @@ export default class PerspectiveGroundRenderer {
 
   // ── Main render ───────────────────────────────────────────────────────────
 
-  update() {
+  update(fov) {
     if (!this._ready) return
 
     const cam  = this.scene.cameras.main
@@ -497,13 +526,17 @@ export default class PerspectiveGroundRenderer {
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
 
         // ── Edge fade opacity ───────────────────────────────────────────
-        // Tiles within 3 of any map edge fade out to hide the hard border.
-        // Ring 0 (outermost) = 0.08, ring 1 = 0.3, ring 2 = 0.55, ring 3+ = 1.0
-        const edgeDist = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
-        const tileAlpha = edgeDist === 0 ? 0.08
+        const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
+        const edgeAlpha = edgeDist === 0 ? 0.08
                         : edgeDist === 1 ? 0.30
                         : edgeDist === 2 ? 0.55
                         : 1.0
+
+        // FOV: skip hidden tiles entirely (fog covers them).
+        // Visited tiles draw at full brightness — fog canvas handles dimming.
+        if (fov && fov.isHidden(tileCol, tileRow)) continue
+
+        const tileAlpha = edgeAlpha
 
         // ── Ground tile ─────────────────────────────────────────────────
         const gid0 = layer0[tileRow]?.[tileCol]
@@ -541,22 +574,36 @@ export default class PerspectiveGroundRenderer {
           playerDrawn = true
         }
 
-        // ── Object tile (billboard) ─────────────────────────────────────
+        // ── Object tile — flat or billboard depending on catalogue ────────
         if (layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
-            const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-            const screenY     = this._rowToScreenY(tileRow + 1)
-            const scaledTileW = this._scaleAtRow(tileRow + 1)
-            if (screenY !== null &&
-                screenY >= horizonPx &&
-                screenY <= sh + this.tileDisplaySize * 2) {
-              this._oCtx.globalAlpha = tileAlpha
-              this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
-                screenX, screenY, scaledTileW)
-              this._oCtx.globalAlpha = 1.0
-              objectCount++
+            if (this._flatGids.has(gid1)) {
+              // ── FLAT: draw as perspective trapezoid on ground canvas ────
+              const xTL = this._colToScreenX(tileCol,     tileRow)
+              const xTR = this._colToScreenX(tileCol + 1, tileRow)
+              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
+              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+              this._gCtx.globalAlpha = tileAlpha
+              this._drawTrapezoid(this._gCtx, gid1,
+                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
+                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
+              this._gCtx.globalAlpha = 1.0
+            } else {
+              // ── BILLBOARD: draw upright on objects canvas ───────────────
+              const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+              const screenY     = this._rowToScreenY(tileRow + 1)
+              const scaledTileW = this._scaleAtRow(tileRow + 1)
+              if (screenY !== null &&
+                  screenY >= horizonPx &&
+                  screenY <= sh + this.tileDisplaySize * 2) {
+                this._oCtx.globalAlpha = tileAlpha
+                this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
+                  screenX, screenY, scaledTileW)
+                this._oCtx.globalAlpha = 1.0
+              }
             }
+            objectCount++
           }
         }
 

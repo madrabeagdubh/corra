@@ -1,3 +1,4 @@
+
 /**
  * ScrollingTextPlayer
  *
@@ -22,9 +23,11 @@
  *   druid  →  grey  (#a0a0b8)
  */
 
+import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn } from '../systems/gameTypography.js';
+
 // ── Tuning ─────────────────────────────────────────────────────────────────────
 
-const SCROLL_PX_PER_SEC = 32;    // upward scroll speed — comfortable reading pace
+const SCROLL_PX_PER_SEC = 30;    // upward scroll speed — comfortable reading pace
 const PAUSE_MS          = 5000;  // tap-to-pause duration before auto-resume
 const RESUME_EASE_MS    = 1600;  // ms to ease back to natural speed after a fling
 const HOLD_MS           = 4000;  // ms to hold at ceiling before fading out
@@ -38,13 +41,13 @@ const FADE_ZONE_TOP     = 0.10;  // lines fade out over this fraction as they ap
 const MOON_SAFE_ZONE    = 0.13;  // top strip reserved for moon — excluded from hit zone
 const HIT_ZONE_TOP      = 0.50;  // hit zone starts at midpoint — bottom half only
 
-// Typography
+// Typography — sourced from gameTypography.js
 const LINE_GAP_PX       = 10;
 const PAIR_GAP_PX       = 42;
-const IRISH_FONT_SIZE   = '1.35rem';
-const ENGLISH_FONT_SIZE = '1.05rem';
-const QUEEN_COLOR       = '#d4af37';
-const DRUID_COLOR       = '#a0a0b8';
+const IRISH_FONT_SIZE   = TYPE.domBody.size;
+const ENGLISH_FONT_SIZE = TYPE.domBodyEn.size;
+const IRISH_FONT        = FONTS.irish;
+const ENGLISH_FONT      = FONTS.english;
 const STROKE_COLOR      = 'rgba(0,6,26,0.9)';
 
 // ── ScrollingTextPlayer ────────────────────────────────────────────────────────
@@ -184,15 +187,15 @@ export class ScrollingTextPlayer {
                 'pointer-events:none;',
             ].join('');
 
-            const gaColor = line.speaker === 'queen' ? QUEEN_COLOR : DRUID_COLOR;
+            const gaColor = speakerColor(line.speaker);
             const gaEl = document.createElement('div');
             gaEl.textContent = line.ga;
             gaEl.style.cssText = [
-                'font-family:Urchlo,serif;',
+                `font-family:${IRISH_FONT};`,
                 `font-size:${IRISH_FONT_SIZE};`,
                 `color:${gaColor};`,
                 `text-shadow:0 0 18px ${STROKE_COLOR},0 0 8px ${STROKE_COLOR};`,
-                'line-height:1.45;',
+                `line-height:${SPACING.irishLineHeight};`,
                 'opacity:0;',
             ].join('');
             wrapper.appendChild(gaEl);
@@ -201,14 +204,14 @@ export class ScrollingTextPlayer {
             if (line.en) {
                 enEl = document.createElement('div');
                 enEl.textContent = line.en;
-                const enColor = line.speaker === 'queen' ? '#b8966a' : '#9b8dbd';
+                const enColor = speakerColorEn(line.speaker);
                 enEl.style.cssText = [
-                    'font-family:"Courier New",monospace;',
+                    `font-family:${ENGLISH_FONT};`,
                     `font-size:${ENGLISH_FONT_SIZE};`,
                     `color:${enColor};`,
                     `text-shadow:0 0 12px ${STROKE_COLOR};`,
                     `margin-top:${LINE_GAP_PX}px;`,
-                    'line-height:1.4;',
+                    `line-height:${SPACING.englishLineHeight};`,
                     'opacity:0;',
                 ].join('');
                 wrapper.appendChild(enEl);

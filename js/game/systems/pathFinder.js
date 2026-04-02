@@ -164,22 +164,25 @@ export default class PathFinder {
     const ts         = pgr.tileDisplaySize
 
     // Invert: screenY = horizonPx + groundH * FL / (FL + d)
-    // → d = FL * groundH / (screenY - horizonPx) - FL
-    const denom = screenY - horizonPx
+    // where d = perspCamRow - tileRow
+    // → tileRow = perspCamRow - (FL * groundH / (screenY - horizonPx) - FL)
+    const denom    = screenY - horizonPx
     if (denom <= 0) return null
-    const d       = FL * groundH / denom - FL
-    const worldRow = perspCamRow - d - 1   // -1 for the south-edge offset
+    const d        = FL * groundH / denom - FL
+    const worldRow = perspCamRow - d
 
-    const ty = Math.floor(worldRow)
+    // Use round not floor — gives the tile whose centre is closest to the tap
+    const ty = Math.round(worldRow - 0.5)
 
     // Find column: invert colToScreenX
-    // screenX = sw/2 + (worldCol + 0.5 - camCol) * scaleAtRow
-    const camCol   = pgr._perspCamCol()
-    const scale    = pgr._scaleAtRow(worldRow + 1)
+    // screenX = sw/2 + (worldCol - camCol) * scaleAtRow
+    // where tiles are projected at their bottom edge (worldRow + 1 scale)
+    const camCol = pgr._perspCamCol()
+    const scale  = pgr._scaleAtRow(worldRow)
     if (scale < 0.001) return null
 
-    const worldCol = (screenX - pgr._sw / 2) / scale + camCol - 0.5
-    const tx       = Math.floor(worldCol)
+    const worldCol = (screenX - pgr._sw / 2) / scale + camCol
+    const tx       = Math.round(worldCol - 0.5)
 
     return { tx, ty }
   }

@@ -3,7 +3,7 @@
 //
 // The return journey: Skye → Éire. Top-centre to bottom-left.
 // Choppy day, light swell, wind from the north-east.
-import { FONTS, COLORS } from '../systems/gameTypography.js';
+import { FONTS, COLORS, SPACING, TYPE } from '../systems/gameTypography.js';
 // No stars. No lightning. Just a small boat on grey-green water.
 //
 // New vs dawnCrossing:
@@ -74,8 +74,8 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     // ── Font override for ScrollingTextPlayer ─────────────────────────────────
     const W0 = window.innerWidth, H0 = window.innerHeight;
     const base = Math.min(W0, H0);
-    const gaFontPx = Math.round(base * 0.072);
-    const enFontPx = Math.round(base * 0.052);
+    const gaFontPx = TYPE.domBody.sizePx;
+    const enFontPx = TYPE.domBodyEn.sizePx;
 
     // Scene-specific colour overrides — intentionally cooler/icier than COLORS defaults
     // to match the grey-green crossing palette. Font families from gameTypography.
@@ -89,6 +89,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         #returnCrossing div div div:first-child {
             font-size:${gaFontPx}px !important;
             color:${SCENE_IRISH_COLOR} !important;
+            line-height:${SPACING.irishLineHeight} !important;
             text-shadow:
                 0 0 22px rgba(160,200,230,0.85),
                 0 0  8px rgba(100,160,200,0.6),
@@ -102,6 +103,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             font-size:${enFontPx}px !important;
             color:${SCENE_EN_COLOR} !important;
             font-family:${FONTS.english} !important;
+            line-height:${SPACING.englishLineHeight} !important;
             text-shadow:
                 0 0 10px rgba(0,0,0,0.95),
                 1px  1px 0 rgba(0,0,0,0.8),

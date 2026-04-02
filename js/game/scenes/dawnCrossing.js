@@ -1,5 +1,6 @@
 // dawnCrossing.js  — v8
 // Call: initDawnCrossing(champion, sliderValue, onComplete)
+import { FONTS, SPACING, TYPE } from '../systems/gameTypography.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BOAT
@@ -69,17 +70,21 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     // We inject a scoped override matching introModal's viewport-relative sizes.
     const W0 = window.innerWidth, H0 = window.innerHeight;
     const base = Math.min(W0, H0);
-    const gaFontPx = Math.round(base * 0.072);  // matches introModal Irish size
-    const enFontPx = Math.round(base * 0.052);  // smaller, subordinate to Irish
-    // Dark red for English — the hero's voice, readable on any grey sea.
-    // Harmonious border: deep burgundy-shadow so it lifts off the background.
+    const gaFontPx = TYPE.domBody.sizePx;
+    const enFontPx = TYPE.domBodyEn.sizePx;
+    // Scene-specific colour overrides — warm gold Irish, steel-blue English
+    // to match the dawn sea palette. Font families and spacing from gameTypography.
+    const SCENE_IRISH_COLOR = '#e8c84a';   // warm gold (dawn light)
+    const SCENE_EN_COLOR    = '#9ab4c8';   // soft steel-blue
+
     const fontOverride = document.createElement('style');
     fontOverride.id = 'dawnCrossingFontOverride';
     fontOverride.textContent = `
         /* Irish — bright gold, eyecatching, with warm glow */
         #dawnCrossing div div div:first-child {
             font-size:${gaFontPx}px !important;
-            color:#e8c84a !important;
+            color:${SCENE_IRISH_COLOR} !important;
+            line-height:${SPACING.irishLineHeight} !important;
             text-shadow:
                 0 0 22px rgba(240,180,20,0.9),
                 0 0  8px rgba(200,140,0,0.7),
@@ -91,8 +96,9 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         /* English — soft steel-blue, muted, subordinate */
         #dawnCrossing div div div:nth-child(2) {
             font-size:${enFontPx}px !important;
-            color:#9ab4c8 !important;
-            font-family:Urchlo,serif !important;
+            color:${SCENE_EN_COLOR} !important;
+            font-family:${FONTS.english} !important;
+            line-height:${SPACING.englishLineHeight} !important;
             text-shadow:
                 0 0 10px rgba(0,0,0,0.95),
                 1px  1px 0 rgba(0,0,0,0.8),

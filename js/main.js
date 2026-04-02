@@ -17,14 +17,24 @@ import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
 import OakWood             from './game/scenes/locations/bog/oakWood.js'
 import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
 
-export function startGame(selectedChampion, options = {}) {
-    console.log('startGame called with:', selectedChampion, 'options:', options)
 
-    // Destroy existing game instance before creating a new one
+
+
+
+
+export function startGame(selectedChampion, options = {}) {
     if (window.game) {
         window.game.destroy(true)
         window.game = null
+        // Wait for Phaser to fully clean up before creating new instance
+        setTimeout(() => _createGame(selectedChampion, options), 100)
+        return
     }
+    _createGame(selectedChampion, options)
+}
+
+function _createGame(selectedChampion, options) {
+ 
 
     // Hide starfield loader
     const starfieldLoader = document.getElementById('starfieldLoader')
@@ -36,7 +46,10 @@ export function startGame(selectedChampion, options = {}) {
         gameContainer.style.display = 'block'
         gameContainer.style.width   = window.innerWidth + 'px'
         gameContainer.style.height  = window.innerHeight + 'px'
-	    gameContainer.style.background = 'transparent'  // ← add this
+	    gameContainer.style.background = 'transparent'  //
+
+
+	    gameContainer.style.background = '#1a2a3a'  // dark grey-blue — visible as sky above horizon
     gameContainer.style.position   = 'relative'      // ← needed for absolute children
 
     }

@@ -6,7 +6,8 @@ import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
-import FovSystem  from '../../../systems/fovSystem.js'
+import FovSystem       from '../../../systems/fovSystem.js'
+import ItemSheetHelper from '../../../ui/inventory/itemSheetHelper.js'
 import PathFinder from '../../../systems/pathFinder.js'
 import FogRenderer from '../../../systems/fogRenderer.js'
 
@@ -72,6 +73,7 @@ export default class BogLocationScene extends BaseLocationScene {
     this.load.image('oryxTiles',   '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
     this.load.image('fogTexture', '/assets/bg0.png')
     this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
+    this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
   async _loadContent() {
@@ -123,6 +125,9 @@ export default class BogLocationScene extends BaseLocationScene {
     if (this.perspectiveGround) {
       this.perspectiveGround.setPlayer(this.player)
     }
+
+    // Item sheet helper — used by PGR weapon overlay and inventory grid
+    this.itemSheet = new ItemSheetHelper(this)
 
     // Snap camera before lerp starts
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
@@ -213,6 +218,8 @@ export default class BogLocationScene extends BaseLocationScene {
       if (this.textPanel?.isVisible) return
       // Ignore if no PGR
       if (!this.perspectiveGround) return
+      // Ignore if player is aiming bow
+      if (this._bowAiming) return
 
       const tile = PathFinder.screenToTile(
         pointer.x, pointer.y,
@@ -530,6 +537,7 @@ export default class BogLocationScene extends BaseLocationScene {
       this.fogRenderer.destroy()
       this.fogRenderer = null
     }
+    if (this.itemSheet)  { this.itemSheet.clear(); this.itemSheet = null }
     if (this.fovSystem)  { this.fovSystem  = null }
     if (this.pathFinder) { this.pathFinder = null }
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }

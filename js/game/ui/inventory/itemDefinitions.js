@@ -1,17 +1,23 @@
 // js/game/ui/inventory/itemDefinitions.js
 import Item from './item.js';
+import { TILES } from '../../../../data/oryx-tiles.js'
+console.log('[itemDefs] TILES.BOW:', TILES?.BOW, 'TILES defined:', !!TILES)
 
 /**
  * ITEM_DEFS
- * * Slots 0-1: Hands (0=Right, 1=Left)
+ * Slots 0-1: Hands (0=Right, 1=Left)
  * Slot 2: Armor
  * Slots 3-4: Accessories/Quivers
  * Slots 5-24: General Inventory
+ *
+ * itemGid: GID on oryx_16bit_fantasy_items_trans.png (from TILES constants)
+ * spriteKey: fallback individual PNG texture key (legacy)
  */
 export const ITEM_DEFS = {
   leather_armor: {
     id: 'leather_armor',
-    spriteKey: "item_leather_armor",
+    spriteKey: 'item_leather_armor',
+    itemGid: TILES.LEATHER_ARMOUR,          // 2564
     type: 'armor',
     subtype: 'chest',
     nameEn: 'Armor',
@@ -27,22 +33,25 @@ export const ITEM_DEFS = {
 
   simple_bow: {
     id: 'simple_bow',
+    spriteKey: 'item_simple_bow',
+    itemGid: TILES.BOW,                      // 2482
     type: 'weapon',
     subtype: 'bow',
     nameEn: 'Bow',
     nameGa: 'Bogha',
     descEn: 'Behold the wooden bow! \nof yew-tree fair,\nCrafted by hands skilled in war\'s dire art,\nA weapon of old,\nof doom and destiny.',
-    descGa: 'Féach an bogha adhmaid! \nd\'iúr ghlan,\nceaptha ag lámh i ndán an chogaidh,\narm an tsean-aimsir,\nde uafáis agus fáil.',
+    descGa: 'Féach an bogha adhmaid! \nd\'iúr ghlan,\nceaptha ag láimh i ndán an chogaidh,\narm an tsean-aimsir,\nde uafáis agus fáil.',
     stats: { attack: 4, range: 5 },
     equipSlot: 'rightHand',
     allowedSlots: [0],
     actions: ['equip', 'drop', 'throw'],
-    spriteKey: 'item_simple_bow',
     color: 0x8B4513
   },
 
   arrows: {
     id: 'arrows',
+    spriteKey: 'item_arrows',
+    itemGid: TILES.QUIVER_ARROWS_WHITE,      // 2444
     type: 'ammunition',
     subtype: 'arrow',
     nameEn: 'Arrows',
@@ -54,12 +63,13 @@ export const ITEM_DEFS = {
     quantity: 30,
     allowedSlots: [],
     actions: ['drop', 'throw'],
-    spriteKey: 'item_arrows',
     color: 0xA0522D
   },
 
   healing_potion: {
     id: 'healing_potion',
+    spriteKey: 'item_healing_potion',
+    itemGid: TILES.MEDIUM_RED_POTION,        // 2284
     type: 'consumable',
     subtype: 'potion',
     nameEn: 'Healing Potion',
@@ -72,41 +82,30 @@ export const ITEM_DEFS = {
     quantity: 1,
     allowedSlots: [],
     actions: ['drink', 'drop', 'throw'],
-    spriteKey: 'item_healing_potion',
     color: 0xFF0000
   }
 };
 
-/**
- * Helper to create an instance of an item
- */
 export function createItem(itemId, quantity = null) {
   const def = ITEM_DEFS[itemId];
   if (!def) {
     console.error(`Item definition not found: ${itemId}`);
     return null;
   }
-
   const itemData = JSON.parse(JSON.stringify(def));
-  
-  if (quantity !== null) {
-    itemData.quantity = quantity;
-  }
-
+  if (quantity !== null) itemData.quantity = quantity;
   return new Item(itemData);
 }
 
-/**
- * Returns the default starting loadout for a new player
- */
 export function createStartingInventory() {
   return [
-    createItem('simple_bow'),     // Slot 0
-    null,                         // Slot 1
-    createItem('leather_armor'),  // Slot 2
-    null,                         // Slot 3
-    null,                         // Slot 4
-    createItem('healing_potion'), // Slot 5 (Start of bag)
-    createItem('arrows', 30),     // Slot 6
+    createItem('simple_bow'),      // Slot 0 — rightHand
+    null,                           // Slot 1 — leftHand
+    createItem('leather_armor'),   // Slot 2 — armor
+    null,                           // Slot 3
+    null,                           // Slot 4
+    createItem('healing_potion'),  // Slot 5
+    createItem('arrows', 30),      // Slot 6
   ];
 }
+

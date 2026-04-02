@@ -25,7 +25,7 @@ export default class PerspectiveGroundRenderer {
   static TILES_ACROSS         = 6.5
   static PLAYER_DIST_TILES    = 4.1
   static FOCAL_LENGTH         = 7.5
-  static HORIZON_Y_FRAC       = 0
+  static HORIZON_Y_FRAC       = 0.3   // sky visible above 30% line
   static HEIGHT_MULTIPLIER    = 1.6
 
   // ── Lighting ──────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ export default class PerspectiveGroundRenderer {
 
     // Nuke any lingering DOM elements from a previous PGR instance.
     // This guards against double-stacking when scene transitions overlap.
-    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img'].forEach(id => {
+    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
       const el = document.getElementById(id)
       if (el) el.parentNode?.removeChild(el)
     })
@@ -174,20 +174,18 @@ export default class PerspectiveGroundRenderer {
     const sh = this._sh
 
     // ── Sky image ─────────────────────────────────────────────────────────
-    // z-index:-1 puts this behind the ground canvas (z-index:1).
-    // The ground canvas only fills from the horizon downward, so the sky
-    // image shows through above the horizon line.
-    // container must have background:transparent (set in main.js startGame).
+    // z-index:0 — behind ground canvas (z-index:1) but above container bg.
+    // Negative z-index would hide behind the stacking context background.
     const img = document.createElement('img')
     img.id  = 'pgr-sky-img'
-    img.src = '/assets/fog3.png'
+    img.src = '/assets/bg0.png'
     img.style.cssText = [
       'position:absolute',
       'top:0',
       'left:0',
       `width:${sw}px`,
       `height:${sh}px`,
-      'z-index:-1',
+      'z-index:0',
       'pointer-events:none',
       'object-fit:cover',
       'object-position:center top',
@@ -197,8 +195,7 @@ export default class PerspectiveGroundRenderer {
     this._skyImg = img
 
     // ── Gradient overlay ──────────────────────────────────────────────────
-    // Subtle dark fade at horizon where sky meets ground.
-    // z-index:-1 same as sky so it sits just above it (appended after).
+    // z-index:0 same as sky — sits just above it (appended after).
     const div = document.createElement('div')
     div.id = 'pgr-sky'
     div.style.cssText = [
@@ -207,13 +204,21 @@ export default class PerspectiveGroundRenderer {
       'left:0',
       `width:${sw}px`,
       `height:${sh}px`,
-      'z-index:-1',
+      'z-index:0',
       'pointer-events:none',
       `background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.7) 70%,rgba(0,0,0,0.95) 85%)`,
     ].join(';')
 
     container.appendChild(div)
     return div
+  }
+
+  // ── Lighting overrides ──────────────────────────────────────────────────────
+  // Call from scene to override default dark bog lighting
+  setLighting({ darkness, radius, groundColour } = {}) {
+    if (darkness    != null) this._lightDarkness  = darkness
+    if (radius      != null) this._lightRadius    = radius
+    if (groundColour != null) this._groundColour  = groundColour
   }
 
   // ── Player registration ───────────────────────────────────────────────────
@@ -223,6 +228,17 @@ export default class PerspectiveGroundRenderer {
     if (player.sprite)      player.sprite.setVisible(false)
     if (player.bowOverlay)  player.bowOverlay.setVisible(false)
     console.log('[PGR v8] player registered')
+  }
+
+  // Set player billboard height multiplier (default 1.8)
+  setPlayerScale(mult) {
+    this._playerHeightMult = mult ?? 1.8
+    this._playerFrameKey = null  // force canvas refresh
+  }
+
+  // Call this after equipping/unequipping items to force overlay refresh
+  invalidatePlayerCanvas() {
+    this._playerFrameKey = null
   }
 
   _refreshPlayerCanvas() {
@@ -254,6 +270,9 @@ export default class PerspectiveGroundRenderer {
       const tCtx = tc.getContext('2d')
       tCtx.imageSmoothingEnabled = false
       tCtx.drawImage(src, cutX, cutY, cutWidth, cutHeight, 0, 0, cutWidth, cutHeight)
+
+      // Weapon overlay is drawn separately each frame in _drawWeaponOverlay
+      // so it can rotate without invalidating this canvas.
 
       this._playerCanvas   = tc
       this._playerFrameKey = cacheKey
@@ -417,8 +436,8 @@ export default class PerspectiveGroundRenderer {
   _updateLight(playerScreenX, playerScreenY) {
     const sw     = this._sw
     const sh     = this._sh
-    const radius = Math.sqrt(sw * sw + sh * sh) * PerspectiveGroundRenderer.LIGHT_RADIUS
-    const dark   = PerspectiveGroundRenderer.LIGHT_DARKNESS
+    const radius = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
+    const dark   = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
     const glow   = PerspectiveGroundRenderer.LIGHT_COLOR
     this._lightDiv.style.background = [
       `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
@@ -435,10 +454,13 @@ export default class PerspectiveGroundRenderer {
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
 
+    // Also redraw when bow is aiming so weapon rotation updates
+    const bowAiming = this.scene.bowMechanics?.isAiming ?? false
     if (cam.scrollX === this._lastCamX &&
         cam.scrollY === this._lastCamY &&
         zoom        === this._lastCamZoom &&
-        !this._player?.isMoving) return
+        !this._player?.isMoving &&
+        !bowAiming) return
 
     this._lastCamX    = cam.scrollX
     this._lastCamY    = cam.scrollY
@@ -464,7 +486,7 @@ export default class PerspectiveGroundRenderer {
     // so the sky image behind the canvas shows through.
     const horizonFill = this._horizonPx()
     this._gCtx.clearRect(0, 0, sw, sh)
-    this._gCtx.fillStyle = '#2a3a1a'
+    this._gCtx.fillStyle = this._groundColour ?? '#2a3a1a'
     this._gCtx.fillRect(0, horizonFill, sw, sh - horizonFill)
     this._oCtx.clearRect(0, 0, sw, sh)
 
@@ -556,8 +578,16 @@ export default class PerspectiveGroundRenderer {
         // ── Player (drawn at their tile row, before same-row objects) ───
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
+          const playerHM = this._playerHeightMult ?? 1.8
+          // Draw weapon FIRST (behind player)
+          const aimAngle = this.scene.bowMechanics?.isAiming
+            ? this.scene.bowMechanics._currentAimAngle ?? null
+            : null
+          // Weapon behind player
+          this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle)
+          // Player on top
           this._drawBillboard(this._oCtx, this._playerCanvas,
-            playerScreenX, playerScreenY, scaledTileW, 1.8)
+            playerScreenX, playerScreenY, scaledTileW, playerHM)
           playerDrawn = true
         }
 
@@ -600,8 +630,10 @@ export default class PerspectiveGroundRenderer {
       // no column loop ran (e.g. player is off to the side of the map)
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
+        const playerHM2 = this._playerHeightMult ?? 1.8
+        this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, null)
         this._drawBillboard(this._oCtx, this._playerCanvas,
-          playerScreenX, playerScreenY, scaledTileW, 1.8)
+          playerScreenX, playerScreenY, scaledTileW, playerHM2)
         playerDrawn = true
       }
 
@@ -631,6 +663,57 @@ export default class PerspectiveGroundRenderer {
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
+
+  // ── Weapon billboard ─────────────────────────────────────────────────────
+  // Called from update() to draw the equipped weapon separately so it can
+  // rotate to match the bow aim angle without invalidating the player canvas.
+  //
+  // aimAngle: radians (fire direction), or null for resting position
+  _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) {
+    const inv = this.scene.player?.inventory
+    if (!inv) return
+    const item = inv.getEquippedItem?.('rightHand')
+    if (!item) return
+
+    try {
+      // Prefer itemGid on items sheet over individual spriteKey texture
+      let itemImg = null
+      if (item.itemGid && this.scene.itemSheet?.isReady) {
+        itemImg = this.scene.itemSheet.getCanvas(item.itemGid)
+      } else if (item.spriteKey) {
+        const itemTex = this.scene.textures.get(item.spriteKey)
+        if (itemTex && itemTex.key !== '__MISSING') {
+          itemImg = itemTex.getSourceImage()
+        }
+      }
+      if (!itemImg?.width) return
+
+      const ctx  = this._oCtx
+      const iw   = scaledTileW * 0.9
+      const ih   = iw * (itemImg.height / itemImg.width)
+
+      // Resting angle: bow held at ~7 o'clock = 210deg = pointing SW
+      // When aiming, rotate to fire direction
+      // 210deg offset aligns bow grip with hand naturally
+      const REST_ANGLE = (345 * Math.PI) / 180
+      const angle      = aimAngle != null ? aimAngle + (Math.PI / 2) + (135 * Math.PI / 180) : REST_ANGLE
+
+      // Position at sprite centre (foot - half sprite height) with slight right offset
+      const spriteCentreY = playerScreenY - scaledTileW * 1.8 * 0.5
+      const offsetX       = scaledTileW * 0.12
+
+      ctx.save()
+      ctx.translate(playerScreenX + offsetX, spriteCentreY)
+      ctx.rotate(angle)
+      ctx.globalAlpha = 0.95
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(itemImg, -iw / 2, -ih / 2, iw, ih)
+      ctx.globalAlpha = 1.0
+      ctx.restore()
+    } catch(e) {
+      // non-fatal
+    }
+  }
 
   destroy() {
     this._tileCache.clear()

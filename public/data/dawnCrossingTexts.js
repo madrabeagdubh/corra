@@ -10,22 +10,6 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
 
-	        {
-            ga: 'Breathíonn dhá rón orm ag imeacht, ó na carraigreacha dubha',
-            en: 'Two seals from the black rocks watch me go',
-            speaker: 'hero',
-        },
-
-        
-        {
-            ga: 'Péire ghainéad cosúl le shleánna bána chaite ós mo chionn',
-            en: 'Two gannets above like thrown spears white',
-            speaker: 'hero',
-        },{
-            ga: 'Bád beag, croí cróga, agus sin uile.',
-            en: 'Small boat, brave heart, and nothing more.',
-            speaker: 'hero',
-        },
         {
             ga: 'Fada an turas treasna an t-uisce',
             en: 'Long is the journey across the water',

@@ -62,6 +62,13 @@ export const COLORS = {
   panelAlpha:   0.97,
 }
 
+export const SPACING = {
+  linePairGap:    42,
+  lineInnerGap:   10,
+  irishLineHeight:  1.45,   // line-height for Irish text
+  englishLineHeight: 1.2,   // line-height for English text (tighter)
+}
+
 // ── Type scale ───────────────────────────────────────────────────────────────
 // px values used in both Phaser text and DOM elements
 export const TYPE = {
@@ -73,8 +80,10 @@ export const TYPE = {
   label:    { size: '13px', font: FONTS.ui,      lineSpacing: 2  },
   hint:     { size: '10px', font: FONTS.ui,      lineSpacing: 2  },
   // ScrollingTextPlayer / constellationScene sizes (rem-based for DOM)
-  domBody:  { size: '1.45rem', font: FONTS.irish   },
-  domBodyEn:{ size: '1.25rem', font: FONTS.english },
+
+domBody:  { size: '1.8rem', sizePx: 29, font: FONTS.irish   },
+domBodyEn:{ size: '1.7rem', sizePx: 27, font: FONTS.english },
+
 }
 
 // ── Phaser text style factory ────────────────────────────────────────────────

@@ -16,8 +16,8 @@ export default class FogRenderer {
 
   static PHASER_TEXTURE_KEY = 'fogTexture'
   static BLUR_PX            = 10
-  static HIDDEN_OPACITY     = 0.87   // fog texture opacity over hidden tiles
-  static VISITED_TINT       = 0.22   // max dark tint alpha over visited tiles
+  static HIDDEN_OPACITY     = 0.97   // fog texture opacity over hidden tiles
+  static VISITED_TINT       = 0.32   // max dark tint alpha over visited tiles
   static VISITED_TINT_COL   = '5,5,18'
 
   constructor(pgr) {
@@ -29,6 +29,10 @@ export default class FogRenderer {
     const container    = phaserCanvas.parentNode
     this._sw = pgr._sw
     this._sh = pgr._sh
+
+    // Nuke any existing fog canvas before creating new one
+    const oldFog = document.getElementById('pgr-fog')
+    if (oldFog) oldFog.parentNode?.removeChild(oldFog)
 
     this._canvas        = document.createElement('canvas')
     this._canvas.width  = this._sw

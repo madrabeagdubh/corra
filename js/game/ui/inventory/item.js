@@ -1,7 +1,8 @@
 // js/game/ui/inventory/item.js
 export default class Item {
   constructor(data) {
-    this.id = data.id;
+this.itemGid = data.itemGid || null;
+	  this.id = data.id;
     this.type = data.type;
     this.subtype = data.subtype;
 
@@ -33,6 +34,7 @@ export default class Item {
 
   clone() {
     return new Item({
+	    itemGid: this.itemGid,
       id: this.id,
       type: this.type,
       subtype: this.subtype,

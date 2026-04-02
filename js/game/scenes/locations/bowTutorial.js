@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
 import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js';
+import CreatureSheetHelper from '../../ui/inventory/creatureSheetHelper.js';
 import ItemSheetHelper from '../../ui/inventory/itemSheetHelper.js';
 
 import { initReturnCrossing } from '../returnCrossing.js';
@@ -51,14 +52,12 @@ this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png');
     this.load.spritesheet('dragon', 'assets/dragonFrames.png', {
       frameWidth: 500, frameHeight: 359
     });
-    // Tutorial target sprites (gun-range style popups)
-    for (let i = 0; i <= 4; i++) {
-      this.load.image(`target${i}`, `assets/targets/target${i}.png`);
-    }
+    // Target sprites come from oryxCreatures sheet (GIDs 1987-1991)
     // Sky background layers
     // Oryx tileset for PGR
     this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png');
     this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png');
+    this.load.image('oryxCreatures', '/assets/oryx/oryx_16bit_fantasy_creatures_trans.png');
     this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json');
     // Load tutorial data
     this.load.json('bowTutorialData', '/maps/bowTutorial.json?v=' + Date.now());
@@ -340,6 +339,8 @@ this.hitTrackerComplete = false;
 
     // ItemSheetHelper for weapon overlay
     this.itemSheet = new ItemSheetHelper(this);
+    // CreatureSheetHelper for target sprites
+    this.creatureSheet = new CreatureSheetHelper(this);
 
     // ── Sky + mountain background ─────────────────────────────────────────
     // Drawn on Phaser canvas (transparent, z-index 10).
@@ -390,6 +391,7 @@ this.bullseyeHits = 0;
       if (this._flashPlayer)      { this._flashPlayer.destroy();      this._flashPlayer      = null; }
       if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null; }
       if (this.itemSheet)         { this.itemSheet.clear();           this.itemSheet         = null; }
+      if (this.creatureSheet)     { this.creatureSheet.clear();       this.creatureSheet     = null; }
       // blur handler cleaned up by BowMechanics.destroy()
     });
 
@@ -765,6 +767,9 @@ showFarewell() {
 }
 
 
+  // Creature GIDs from oryxCreatures sheet
+  _targetGids() { return [1987, 1988, 1989, 1990, 1991] }
+
   createTarget() {
     if (this.target) {
       if (this._targetTween) { this._targetTween.stop(); this._targetTween = null; }
@@ -773,86 +778,97 @@ showFarewell() {
     this.currentTargetIndex = (this.currentTargetIndex ?? -1) + 1;
     if (this.currentTargetIndex >= 5) this.currentTargetIndex = 0;
 
-    // World-space positions — tiles relative to player spawn (col=4, row=16)
-    // Each target is placed at a different distance/angle from player
-    const SPAWN_LX = 4 * 48 + 24;   // player logicalX
-    const SPAWN_LY = 16 * 48 + 24;  // player logicalY
+    const SPAWN_LX = 4 * 48 + 24;
+    const SPAWN_LY = 16 * 48 + 24;
     const positions = [
-      { dx:  0, dy: -10 },  // straight north, mid distance
-      { dx: -3, dy: -10 },  // northwest
-      { dx:  3, dy: -10 },  // northeast
-      { dx: -4, dy: -12 },  // far northwest
-      { dx:  4, dy: -12 },  // far northeast
+      { dx:  0, dy: -10 },
+      { dx: -3, dy: -10 },
+      { dx:  3, dy: -10 },
+      { dx: -4, dy: -12 },
+      { dx:  4, dy: -12 },
     ];
-    const pos = positions[this.currentTargetIndex];
+    const pos      = positions[this.currentTargetIndex];
     const logicalX = SPAWN_LX + pos.dx * 48;
     const logicalY = SPAWN_LY + pos.dy * 48;
 
-    // Pick sprite — cycle through target0-4
-    const spriteKey = this.textures.exists(`target${this.currentTargetIndex}`)
-      ? `target${this.currentTargetIndex}`
-      : null;
+    const pgr     = this.perspectiveGround;
+    const proj    = pgr?._projectLogical(logicalX, logicalY);
+    const ts      = pgr?.tileDisplaySize ?? 48;
+    const tileRow = logicalY / ts - 0.5;
+    const scaledW = pgr?._scaleAtRow(tileRow + 1) ?? 20;
+    const scale   = (scaledW / ts) * 3.0;
 
-    if (spriteKey) {
-      this.target = this.add.image(0, 0, spriteKey).setDepth(10).setScale(0.5);
+    const screenX = proj?.screenX ?? this.scale.width / 2;
+    const screenY = proj?.screenY ?? this.scale.height * 0.45;
+    const standY  = screenY - scaledW * 0.3;
+    const buriedY = screenY + scaledW * 2;
+
+    // Build creature texture from sheet
+    const gid    = this._targetGids()[this.currentTargetIndex];
+    const canvas = this.creatureSheet?.getCanvas(gid);
+    let target;
+
+    if (canvas) {
+      const texKey = `creature_${gid}`;
+      if (!this.textures.exists(texKey)) this.textures.addCanvas(texKey, canvas);
+      target = this.add.image(screenX, buriedY, texKey)
+        .setDepth(10).setScale(scale).setOrigin(0.5, 1);
     } else {
-      // Fallback geometric target
-      this.target = this.add.circle(0, 0, 28, 0xcc2200, 0.9)
-        .setStrokeStyle(3, 0xffffff).setDepth(10);
+      target = this.add.circle(screenX, buriedY, 22, 0xcc2200, 0.9)
+        .setStrokeStyle(2, 0xffffff).setDepth(10);
     }
 
-    // Store world coords for projection only — NOT for hit detection.
-    // Hit detection uses screen coords (landScreenX/Y vs target.x/y)
-    // because the arrow's screen path is what the player sees.
-    this.target._worldLogicalX = logicalX;
-    this.target._worldLogicalY = logicalY;
-    // logicalX intentionally NOT set so checkHit uses screen-space comparison
-    this.target.setData('hit', false);
+    target._worldLogicalX = logicalX;
+    target._worldLogicalY = logicalY;
+    target._standY        = standY;
+    target._scaledW       = scaledW;
+    target.setData('hit', false);
+    this.target = target;
 
-    // Position on screen via PGR projection
-    this._updateTargetScreenPos();
+    // Pop up from ground
+    this.tweens.add({
+      targets: target, y: standY, duration: 350, ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!this.target) return;
+        const range = Phaser.Math.Between(70, 130);
+        const speed = Phaser.Math.Between(1800, 3200);
+        this._targetTween = this.tweens.add({
+          targets: this.target, x: screenX + range,
+          duration: speed, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+      }
+    });
+  }
 
-    // Carnival-style side-to-side movement
-    if (this.target) {
-      const baseX   = this.target.x
-      const range   = Phaser.Math.Between(80, 140)   // wider movement
-      const speed   = Phaser.Math.Between(1800, 3200) // slower, more deliberate
-      this._targetTween = this.tweens.add({
-        targets:  this.target,
-        x:        baseX + range,
-        duration: speed,
-        yoyo:     true,
-        repeat:   -1,
-        ease:     'Sine.easeInOut'
-      })
-    }
+  // Called when target is hit — knockdown animation
+  _knockdownTarget() {
+    const t = this.target;
+    if (!t) return;
+    if (this._targetTween) { this._targetTween.stop(); this._targetTween = null; }
+    this.target = null;
+    this.tweens.add({
+      targets: t,
+      angle:   -90,
+      y:       t.y + (t._scaledW ?? 20) * 2,
+      alpha:   0,
+      duration: 400, ease: 'Power2.easeIn',
+      onComplete: () => { if (t?.scene) t.destroy(); }
+    });
   }
 
   _updateTargetScreenPos() {
-    if (!this.target || !this.perspectiveGround) return;
-    const pgr  = this.perspectiveGround;
-    const proj = pgr._projectLogical(this.target._worldLogicalX, this.target._worldLogicalY);
-    if (proj) {
-      // Target sits on the ground — offset upward slightly so it appears as a popup
-      const ts      = pgr.tileDisplaySize;
-      const tileRow = this.target._worldLogicalY / ts - 0.5;
-      const scaledW = pgr._scaleAtRow(tileRow + 1);
-      this.target.setPosition(proj.screenX, proj.screenY - scaledW * 0.8);
-      this.target.setVisible(true);
-      // Scale with perspective
-      if (this.target.type === 'Image') {
-        this.target.setScale(scaledW / ts * 1.5);
-      }
-    }
+    // Targets positioned once at creation — no per-frame update needed
   }
 
   moveTargetToNext() {
-    // Brief pop-out tween then create new target at next position
+    // Duck target back down then create next one
     if (this.target) {
+      if (this._targetTween) { this._targetTween.stop(); this._targetTween = null; }
+      const t = this.target; this.target = null;
       this.tweens.add({
-        targets: this.target, scaleX: 0, scaleY: 0,
-        duration: 200, ease: 'Back.easeIn',
-        onComplete: () => { this.createTarget(); }
+        targets: t, y: t.y + (t._scaledW ?? 20) * 3, alpha: 0,
+        duration: 300, ease: 'Power2.easeIn',
+        onComplete: () => { t.destroy(); this.createTarget(); }
       });
     } else {
       this.createTarget();
@@ -885,9 +901,6 @@ update(time, delta) {
   } else if (this.predictionDot) {
     this.predictionDot.setVisible(false);
   }
-  // Update world-space target screen position each frame
-  if (this.target?.logicalX) this._updateTargetScreenPos();
-
   // Update Scáthach hitbox to follow sprite position
   if (this.scathach && this.scathachHitbox) {
     this.scathachHitbox.x = this.scathach.x;
@@ -984,13 +997,8 @@ onTargetHit(hitData) {
   this.consecutiveMisses = 0;
 
   this.updateHitTracker(this.consecutiveHits);
-  // Flash target green on hit
-  if (this.target?.setFillStyle) this.target.setFillStyle(0x00ff00, 0.9);
-  if (this.target?.setTint) this.target.setTint(0x00ff00);
-  this.time.delayedCall(300, () => {
-    if (this.target?.clearTint) this.target.clearTint();
-    if (this.target?.setFillStyle) this.target.setFillStyle(0xcc2200, 0.9);
-  });
+  // Knockdown animation on hit
+  this._knockdownTarget();
 
   // Check win condition first
   if (this.consecutiveHits >= 4 && !this.tutorialComplete) {
@@ -1033,10 +1041,10 @@ onTargetHit(hitData) {
     this.showHitDialogue();
   }
 
-  // Move to next target after short delay
-  this.time.delayedCall(800, () => {
+  // Move to next target after knockdown completes
+  this.time.delayedCall(600, () => {
     this.hitLocked = false;
-    this.moveTargetToNext();
+    this.createTarget();
   });
 
   console.log(

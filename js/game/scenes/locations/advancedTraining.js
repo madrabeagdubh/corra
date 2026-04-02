@@ -37,6 +37,20 @@ playSwoosh(volume = 0.5) {
 
   start() {
     console.log('AdvancedTraining: starting');
+
+    // Create dragon animations if not already created
+    if (!this.scene.anims.exists('dragon_idle')) {
+      this.scene.anims.create({
+        key: 'dragon_idle',
+        frames: [{ key: 'dragon', frame: 0 }],
+        frameRate: 1, repeat: -1
+      })
+      this.scene.anims.create({
+        key: 'dragon_roar',
+        frames: this.scene.anims.generateFrameNumbers('dragon', { start: 0, end: 1 }),
+        frameRate: 4, repeat: -1
+      })
+    }
     
     // Clean up old tutorial elements
     this.cleanupTutorialElements();
@@ -88,31 +102,51 @@ playSwoosh(volume = 0.5) {
   }
 
   createTargets() {
-    const playerX = this.scene.player.sprite.x;
-    const playerY = this.scene.player.sprite.y;
-    
-    const darkX = playerX - 150;
-    const darkY = playerY - 150;
-    const lightX = playerX + 150;
-    const lightY = playerY - 150;
-    
-    // Create dark target (black and blue stripes)
+    // Position targets in screen space north of player using PGR projection
+    const pgr = this.scene.perspectiveGround
+    const ts  = this.scene.tileSize ?? 48
+
+    // Player spawn is at col=4, row=16. Place targets 7 tiles north, ±2.5 tiles side.
+    const SPAWN_LX = 4 * ts + ts / 2
+    const SPAWN_LY = 16 * ts + ts / 2
+
+    const darkLogX  = SPAWN_LX - 2.5 * ts
+    const darkLogY  = SPAWN_LY - 11 * ts
+    const lightLogX = SPAWN_LX + 2.5 * ts
+    const lightLogY = SPAWN_LY - 11 * ts
+
+    // Project to screen
+    const darkProj  = pgr?._projectLogical(darkLogX,  darkLogY)
+    const lightProj = pgr?._projectLogical(lightLogX, lightLogY)
+
+    const sw = this.scene.scale.width
+    const sh = this.scene.scale.height
+
+    const darkX  = darkProj?.screenX  ?? sw * 0.35
+    const darkY  = darkProj?.screenY  ?? sh * 0.45
+    const lightX = lightProj?.screenX ?? sw * 0.65
+    const lightY = lightProj?.screenY ?? sh * 0.45
+
+    // Create dark target
     this.darkTarget = this.scene.add.graphics();
     this.darkTarget.setPosition(darkX, darkY);
+    this.darkTarget.setScrollFactor(0);
     this.darkTarget.setDepth(100);
     this.drawTarget(this.darkTarget, 'dark');
     this.darkTarget.setData('hit', false);
     this.darkTarget.setData('type', 'dark');
-    
-    // Create light target (white and blue stripes)
+    // No logicalX — use screen coords for hit detection
+
+    // Create light target
     this.lightTarget = this.scene.add.graphics();
     this.lightTarget.setPosition(lightX, lightY);
+    this.lightTarget.setScrollFactor(0);
     this.lightTarget.setDepth(100);
     this.drawTarget(this.lightTarget, 'light');
     this.lightTarget.setData('hit', false);
     this.lightTarget.setData('type', 'light');
-    
-    console.log('Targets created at:', darkX, darkY, lightX, lightY);
+
+    console.log('Targets created at:', darkX.toFixed(0), darkY.toFixed(0), lightX.toFixed(0), lightY.toFixed(0));
   }
 
   drawTarget(target, type) {
@@ -215,41 +249,26 @@ selectWordPairs() {
     let hitDistance = 999; // Default to far away
     
     this.scene.bowMechanics.arrows.forEach(arrow => {
+      // Use landing screen position, not arrow.x/y (Graphics object)
+      const lsx = arrow.getData('landScreenX') ?? arrow.getData('prevScreenX')
+      const lsy = arrow.getData('landScreenY') ?? arrow.getData('prevScreenY')
+      if (lsx == null) return
       const distance = Phaser.Math.Distance.Between(
-        arrow.x, arrow.y,
+        lsx, lsy,
         target.x, target.y
       );
-      
-      // If arrow is very close to target, it's our hit
-      if (distance < 35) {
+      if (distance < hitDistance) {
         hitDistance = distance;
       }
     });
     
-    console.log('Hit distance from center:', hitDistance);
-    
-    // Check if it's a bullseye (center circle)
-    let isBullseye = false;
-    if (hitDistance <= 5) { // Testing with 20 pixels
-      isBullseye = true;
-      this.bullseyeHits++;
-      console.log('BULLSEYE! Total bullseyes:', this.bullseyeHits);
-    this.scene._flashLine('Súil na sprice!', 'Bullseye!'); 
-    }
-    
     this.totalHits++;
-    
-    // Visual feedback - gold flash for bullseye, green for regular hit
+
+    // Green flash on hit
     target.clear();
-    const hitColor = isBullseye ? 0xffd700 : 0x00ff00;
-    target.fillStyle(hitColor, 1);
+    target.fillStyle(0x00ff00, 1);
     target.fillCircle(0, 0, 25);
     target.setData('hit', true);
-    
-    // Show bullseye notification
-    if (isBullseye) {
-      this.showBullseyeEffect(target.x, target.y);
-    }
     
     // Move to next word after delay
     this.scene.time.delayedCall(1500, () => {
@@ -468,40 +487,7 @@ revealSpear3() {
 
 
 
-sliceMountain() {
-  // NOTE: The slice line is now created in createMountainSlash()
-  // so we don't draw it again here
-  
-  // Slide the top of the mountain down
-  this.scene.tweens.add({
-    targets: this.mountainTop,
-    y: this.mountainTop.y + 30,
-    x: this.mountainTop.x - 20,
-    angle: -5,
-    duration: 1500,
-    ease: 'Cubic.easeIn',
-    onComplete: () => {
-      // Destroy the OLD mountains from bowTutorial
-      console.log('Checking old mountains:', this.scene.mountainTop, this.scene.mountainBottom);
-
-      if (this.scene.mountainTop) {
-        console.log('Destroying scene.mountainTop');
-        this.scene.mountainTop.destroy();
-        this.scene.mountainTop = null;
-      }
-      if (this.scene.mountainBottom) {
-        console.log('Destroying scene.mountainBottom');
-        this.scene.mountainBottom.destroy();
-        this.scene.mountainBottom = null;
-      }
-    }
-  });
-
-  // Continue to next part of the sequence
-  this.scene.time.delayedCall(4500, () => {
-    this.revealSpear4();
-  });
-}
+// sliceMountain removed
 
 
 
@@ -534,69 +520,35 @@ drawSlashEffect(x, y, angleOffset, color) {
 }
 
 spearKata4() {
-  // THE DRAGON SEQUENCE
+  // THE DRAGON SEQUENCE — simplified (no mountain drama for now)
   const scathachX = this.scene.scathach.x;
   const scathachY = this.scene.scathach.y;
 
-  const screenWidth = this.scene.scale.width;
-  const screenHeight = this.scene.scale.height;
+  // Subtle ethereal glow
+  this.etherealGlow = this.scene.add.circle(scathachX, scathachY, 70, 0xffffff, 0.12);
+  this.etherealGlow.setDepth(18);
 
-  // HIDE the original mountains from bowTutorial
-  if (this.scene.mountainTop) this.scene.mountainTop.setVisible(false);
-  if (this.scene.mountainBottom) this.scene.mountainBottom.setVisible(false);
-
-  // Create NEW mountain pieces for the animation
-  this.mountainTop = this.scene.add.image(
-    screenWidth / 2,
-    screenHeight / 2,
-    'skyeMountainBottom'
-  );
-  this.mountainTop.setDepth(5);
-  this.mountainTop.setDisplaySize(screenWidth, screenHeight);
-
-  this.mountainBottom = this.scene.add.image(
-    screenWidth / 2,
-    screenHeight / 2,
-    'skyeMountainTop'
-  );
-  this.mountainBottom.setDepth(5);
-  this.mountainBottom.setDisplaySize(screenWidth, screenHeight);
-
-
-
-
-
-
-// Darken the sky - just create it dark
-this.darkOverlay = this.scene.add.rectangle(
-  screenWidth / 2,
-  screenHeight / 2,
-  screenWidth,
-  screenHeight,
-  0x000000,
-  0.1  // Just create it at target alpha
-);
-this.darkOverlay.setDepth(189);
-
-// Ethereal glow around Scáthach - just create it glowing
-this.etherealGlow = this.scene.add.circle(scathachX, scathachY, 90, 0xffffff, 0.1);  // scale 1.5 = radius 90
-this.etherealGlow.setDepth(18);
-
-
-
-
-
-
-
+    // Mark complete so revealSpear4 takes the "go to bog" path
+  this.dragonKataComplete = true;
 
   // Levitate upward - Scáthach
   this.scene.tweens.add({
     targets: this.scene.scathach,
-    y: scathachY - 150,
-    duration: 1500,
+    y: scathachY - 80,
+    duration: 1000,
     ease: 'Sine.easeOut',
     onComplete: () => {
-      this.executeThreeSlashes(scathachX, scathachY - 150);
+      this.executeThreeSlashes(scathachX, scathachY - 80);
+      // Land and go to finale
+      this.scene.time.delayedCall(1500, () => {
+        this.scene.tweens.add({
+          targets: this.scene.scathach,
+          y: scathachY,
+          duration: 600,
+          ease: 'Bounce.easeOut',
+          onComplete: () => { this.revealSpear4(); }
+        });
+      });
     }
   });
 
@@ -726,7 +678,7 @@ hurlSpearAtMountain(x, y) {
     ease: 'Power2.easeIn',
     onComplete: () => {
       // Spear hits mountain - create white slash
-      this.createMountainSlash(targetX, targetY);
+      this.showDragonSilhouette(targetX, targetY);
       thrownSpear.setVisible(false);
 
       // Return spear after slash
@@ -738,60 +690,7 @@ hurlSpearAtMountain(x, y) {
 }
 
 
-createMountainSlash(x, y) {
-  // White flash
-  const flash = this.scene.add.rectangle(
-    this.scene.scale.width / 2,
-    this.scene.scale.height / 2,
-    this.scene.scale.width,
-    this.scene.scale.height,
-    0xffffff,
-    0
-  );
-  flash.setDepth(30);
-
-
-
-
-this.scene.tweens.add({
-  targets: flash,
-    alpha: 1,
-      duration: 100,
-        yoyo: true,
-	  onComplete: () => {                  // <-- Add opening brace
-	      flash.destroy();                   // <-- Add semicolon
-	          this.showDragonSilhouette(x, y);   // <-- Now inside callback
-		    }                                    // <-- Add closing brace
-		    });
-
-
-
-
-
-
-
-
-  ;
-
-  // Diagonal slash line (steeper angle, higher up, right side higher)
-  const sliceLine = this.scene.add.graphics();
-  sliceLine.setDepth(28);
-  sliceLine.lineStyle(3, 0xffffff, 1);
-  
-  const leftY = this.scene.scale.height * 0.26;  // Higher on left
-  const rightY = this.scene.scale.height * 0.18; // Even higher on right - steeper angle
-  
-  sliceLine.lineBetween(0, leftY, this.scene.scale.width, rightY);
-
-  this.scene.time.delayedCall(500, () => {
-    sliceLine.destroy();
-  });
-
-  // Trigger mountain split
-  this.scene.time.delayedCall(200, () => {
-    this.landAndSliceMountain();
-  });
-}
+// createMountainSlash removed
 
 
 
@@ -829,53 +728,7 @@ returnSpearToScathach(thrownSpear, scathachX, scathachY) {
 
 
 
-landAndSliceMountain() {
-  const originalY = this.scene.scale.height * 0.45;
-
-  // Scáthach lands gracefully
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    y: originalY,
-    duration: 600,
-    ease: 'Bounce.easeOut'
-  });
-
-  // Spear lands with her
-  if (this.spear) {
-    this.scene.tweens.add({
-      targets: this.spear,
-      y: originalY + 20,
-      duration: 600,
-      ease: 'Bounce.easeOut'
-    });
-  }
-
-  // Clear sky
-  this.scene.tweens.add({
-    targets: this.darkOverlay,
-    alpha: 0,
-    duration: 1000,
-    onComplete: () => {
-      this.darkOverlay.destroy();
-      this.darkOverlay = null;
-    }
-  });
-
-  this.scene.tweens.add({
-    targets: this.etherealGlow,
-    alpha: 0,
-    duration: 800,
-    onComplete: () => {
-      this.etherealGlow.destroy();
-      this.etherealGlow = null;
-    }
-  });
-
-  // Wait a beat, THEN slice the mountain (which already happened visually)
-  this.scene.time.delayedCall(1000, () => {
-    this.sliceMountain();
-  });
-}
+// landAndSliceMountain removed — no mountain sequence
 
 
 
@@ -887,137 +740,206 @@ landAndSliceMountain() {
 
 
 createDragonSlash(x, y) {
-  // White flash
-  const flash = this.scene.add.rectangle(
-    this.scene.scale.width / 2,
-    this.scene.scale.height / 2,
-    this.scene.scale.width,
-    this.scene.scale.height,
-    0xffffff,
-    0
-  );
-  flash.setDepth(30);
-  
-  this.scene.tweens.add({
-    targets: flash,
-    alpha: 1,
-    duration: 100,
-    yoyo: true,
-    onComplete: () => {
-      this.showDragonSilhouette(x, y);
-      flash.destroy();
+  // Trigger the dragon cinematic — it handles everything internally
+  this.showDragonSilhouette(x, y)
+
+  // While dragon is doing its thing, land Scáthach
+  this.scene.time.delayedCall(3800, () => {
+    if (this.scene.scathach) {
+      this.scene.tweens.add({
+        targets: this.scene.scathach,
+        y: this.scene.scale.height * 0.58,
+        duration: 600,
+        ease: 'Bounce.easeOut'
+      })
     }
-  });
-  
-  // Massive screen shake
-  this.scene.cameras.main.shake(500, 0.02);
-  
-  // Land and clear sky
-  this.scene.time.delayedCall(1200, () => {
-    this.landAndSliceMountain();
-  });
+    if (this.etherealGlow) {
+      this.scene.tweens.add({
+        targets: this.etherealGlow, alpha: 0, duration: 600,
+        onComplete: () => { this.etherealGlow?.destroy(); this.etherealGlow = null; }
+      })
+    }
+    if (this.spear) {
+      this.spear.setVisible(true)
+      if (this.scene.scathach) {
+        this.spear.x = this.scene.scathach.x - 5
+        this.spear.y = this.scene.scathach.y + 20
+      }
+      this.spear.angle = 0
+    }
+  })
+
+  // Final speech after dragon withdraws
+  this.scene.time.delayedCall(5200, () => { this.revealSpear4(); })
 }
 
 showDragonSilhouette(x, y) {
-  // Placeholder dragon - simple triangular shape
-  const dragon = this.scene.add.graphics();
-  dragon.setDepth(429);
-  dragon.fillStyle(0xff0000, 0.8);
-  
-  // Dragon body (triangle)
-  dragon.fillTriangle(x, y - 100, x - 80, y + 50, x + 80, y + 50);
-  
-  // Left wing
-  dragon.fillTriangle(x - 80, y, x - 150, y - 40, x - 80, y + 50);
-  
-  // Right wing
-  dragon.fillTriangle(x + 80, y, x + 150, y - 40, x + 80, y + 50);
-  
-  // Eyes glow
-  dragon.fillStyle(0xffff00, 1);
-  dragon.fillCircle(x - 20, y - 30, 5);
-  dragon.fillCircle(x + 20, y - 30, 5);
-  
+  const sw = this.scene.scale.width
+  const sh = this.scene.scale.height
+
+  // ── Dark overlay ──────────────────────────────────────────────────────────
+  const dark = this.scene.add.rectangle(sw/2, sh/2, sw, sh, 0x000000, 0)
+  dark.setDepth(420)
+  this.scene.tweens.add({ targets: dark, alpha: 0.75, duration: 800 })
+
+  // ── Dragon sprite ─────────────────────────────────────────────────────────
+  // Rotated 45° CCW (angle: -45) so the head faces down-left and
+  // the neck exits off the top-right — no severed neck visible.
+  // Enters from top-right, strafes left, exits top-left.
+  const dragonScale = (sw * 1.1) / 500
+  const dragonH     = 359 * dragonScale
+
+  let dragon
+  if (this.scene.textures.exists('dragon')) {
+    dragon = this.scene.add.sprite(sw + 400, -300, 'dragon')  // far off screen so neck hidden
+    dragon.setScale(dragonScale)
+    dragon.setOrigin(0.5, 0)
+    dragon.setDepth(430)
+    dragon.setAngle(-45)   // 45° CCW — head points down-left, body exits top-right
+    dragon.setFlipX(false)
+    dragon.play('dragon_idle')
+  } else {
+    dragon = this.scene.add.graphics().setDepth(430)
+    dragon.fillStyle(0x8b0000, 0.9)
+    dragon.fillTriangle(0, 0, -120, 200, 120, 200)
+    dragon.x = sw + 200; dragon.y = -100
+    dragon.angle = -45
+  }
+
+  // ── Rumble as it approaches ───────────────────────────────────────────────
+  this.scene.cameras.main.shake(400, 0.005)
+
+  // ── Strafe across — enter top-right, exit top-left ────────────────────────
+  // Phase 1: glide menacingly into view (mouth closed)
   this.scene.tweens.add({
     targets: dragon,
-    alpha: 0,
-    duration: 500,
-    onComplete: () => dragon.destroy()
-  });
-}
-
-landAndSliceMountain() {
-  const originalY = this.scene.scale.height * 0.45;
-  
-  // Scáthach lands gracefully
-  this.scene.tweens.add({
-    targets: this.scene.scathach,
-    y: originalY,
-    duration: 600,
-    ease: 'Bounce.easeOut'
-  });
-  
-  // Clear sky
-  this.scene.tweens.add({
-    targets: this.darkOverlay,
-    alpha: 0,
-    duration: 1000,
+    x: sw * 0.55,
+    y: sh * 0.08,
+    duration: 2800,
+    ease: 'Sine.easeIn',
     onComplete: () => {
-      this.darkOverlay.destroy();
-      this.darkOverlay = null;
+
+      // ── Mid-screen — open mouth, chomp, fire ─────────────────────────────
+      if (dragon.play) dragon.play('dragon_roar')
+      this.scene.cameras.main.shake(1400, 0.02)
+
+      const flash = this.scene.add.rectangle(sw/2, sh/2, sw, sh, 0xff2200, 0)
+      flash.setDepth(425)
+      this.scene.tweens.add({
+        targets: flash, alpha: 0.4, duration: 100,
+        yoyo: true, repeat: 3,
+        onComplete: () => flash.destroy()
+      })
+
+      // Fire breath — streams down-left from mouth
+      this._spawnDragonFire(dragon, sw, sh, dragonScale, dragonH)
+
+      // ── Phase 2: continue strafing left, exit top-left ───────────────────
+      this.scene.time.delayedCall(1800, () => {
+        if (dragon.play) dragon.play('dragon_idle')
+        this.scene.cameras.main.shake(400, 0.01)
+
+        this.scene.tweens.add({
+          targets: dragon,
+          x: -sw * 0.8,   // far enough left that neck exits before head visible
+          y: -400,
+          duration: 2400,
+          ease: 'Sine.easeOut',
+          onComplete: () => {
+            dragon.destroy()
+            // Lights come back
+            this.scene.tweens.add({
+              targets: dark, alpha: 0, duration: 1600,
+              onComplete: () => dark.destroy()
+            })
+          }
+        })
+      })
     }
-  });
-  
-  this.scene.tweens.add({
-    targets: this.etherealGlow,
-    alpha: 0,
-    duration: 800,
-    onComplete: () => {
-      this.etherealGlow.destroy();
-      this.etherealGlow = null;
-    }
-  });
-  
-  // Wait a beat, THEN slice the mountain
-  this.scene.time.delayedCall(1000, () => {
-    this.sliceMountain();
-  });
+  })
 }
 
-sliceMountain() {
+_spawnDragonFire(dragon, sw, sh, dragonScale, dragonH) {
+  // Fire tracks dragon mouth dynamically using a repeating timer
+  // Mouth is at the tip of the head — offset based on -45deg rotation
+  // At -45deg, the head points down-left, mouth at roughly:
+  //   x = dragon.x - cos(45) * dragonH * 0.85
+  //   y = dragon.y + sin(45) * dragonH * 0.85
 
-  // Slide the top of the mountain down
-  this.scene.tweens.add({
-    targets: this.mountainTop,
-    y: this.mountainTop.y + 30,
-    x: this.mountainTop.x - 20,
-    angle: -5,
-    duration: 1500,
-    ease: 'Cubic.easeIn',
-   onComplete: () => {
-  // Destroy the OLD mountains from bowTutorial
-  console.log('Checking old mountains:', this.scene.mountainTop, this.scene.mountainBottom);
-  
-  if (this.scene.mountainTop) {
-    console.log('Destroying scene.mountainTop');
-    this.scene.mountainTop.destroy();
-    this.scene.mountainTop = null;
+  const BURSTS     = 18    // number of fire bursts over the roar period
+  const BURST_MS   = 120   // ms between bursts
+
+  for (let b = 0; b < BURSTS; b++) {
+    this.scene.time.delayedCall(b * BURST_MS, () => {
+      if (!dragon?.active && !dragon?.scene) return
+
+      // Sample dragon mouth position right now
+      // Sprite local mouth = (0px, 160px) i.e. left edge, halfway up
+      // Origin (0.5, 0) means local (-250, 160) from origin
+      // Rotated -45deg: rotate local offset then add to dragon world pos
+      const scale  = dragonScale
+      const lx     = -250 * scale   // left edge from centre
+      const ly     =  160 * scale   // 160px down
+      const cos45  = 0.7071
+      const sin45  = 0.7071
+      const mouthX = dragon.x + cos45 * lx + sin45 * ly
+      const mouthY = dragon.y - sin45 * lx + cos45 * ly
+
+      // 4-6 fire particles per burst
+      const count = Phaser.Math.Between(4, 7)
+      for (let i = 0; i < count; i++) {
+        const size = Phaser.Math.Between(8, 22)
+        const p = this.scene.add.rectangle(
+          mouthX + Phaser.Math.Between(-12, 12),
+          mouthY + Phaser.Math.Between(-8, 8),
+          size, size,
+          Phaser.Utils.Array.GetRandom([0xff4400, 0xff8800, 0xffcc00, 0xff2200, 0xff0000]),
+          0.95
+        )
+        p.setDepth(435)
+        p.setOrigin(0.5)
+
+        // Stream down-left from mouth
+        const spread = sh * 0.45
+        this.scene.tweens.add({
+          targets: p,
+          x: mouthX + Phaser.Math.Between(-sw * 0.45, -sw * 0.05),
+          y: mouthY + Phaser.Math.Between(spread * 0.2, spread),
+          scaleX: Phaser.Math.FloatBetween(0.05, 0.4),
+          scaleY: Phaser.Math.FloatBetween(0.05, 0.4),
+          alpha: 0,
+          duration: Phaser.Math.Between(700, 1400),
+          ease: 'Power1.easeOut',
+          onComplete: () => p.destroy()
+        })
+      }
+
+      // Ember sparks
+      for (let i = 0; i < 2; i++) {
+        const spark = this.scene.add.circle(
+          mouthX + Phaser.Math.Between(-15, 15),
+          mouthY + Phaser.Math.Between(-5, 15),
+          Phaser.Math.Between(2, 5),
+          Phaser.Utils.Array.GetRandom([0xffffff, 0xffff00, 0xff8800]), 1
+        )
+        spark.setDepth(436)
+        this.scene.tweens.add({
+          targets: spark,
+          x: spark.x + Phaser.Math.Between(-180, 20),
+          y: spark.y + Phaser.Math.Between(80, sh * 0.55),
+          alpha: 0, scale: 0,
+          duration: Phaser.Math.Between(900, 1800),
+          ease: 'Power2.easeOut',
+          onComplete: () => spark.destroy()
+        })
+      }
+    })
   }
-  if (this.scene.mountainBottom) {
-    console.log('Destroying scene.mountainBottom');
-    this.scene.mountainBottom.destroy();
-    this.scene.mountainBottom = null;
-  }
-} 
-  });
-
-
-  // Continue to next part of the sequence
-  this.scene.time.delayedCall(4500, () => {
-    this.revealSpear4();
-  });
 }
 
+// landAndSliceMountain removed (duplicate)
+
+// sliceMountain removed
 revealSpear4() {
   if (!this.dragonKataComplete) {
     this.scene._showStoryLines([
@@ -1025,7 +947,7 @@ revealSpear4() {
     ], () => { this.spearKata4(); });
   } else {
     this.scene._showStoryLines([
-      { ga: 'Ach ní go fóill.\nMóin Alúinne ar dtús.\nAnsin, an ga.', en: '…but not yet.\nFirst, the Bog of Allen.\nThen the spear', speaker: 'queen' }
+      { ga: 'Ach ní go fóill. Móin Alúinne ar dtús. Ansin, an ga.', en: '...but not yet.First, the Bog of Allen.Then the spear.', speaker: 'queen' }
     ], () => { this.grantMagicArrows(); });
   }
 } 
@@ -1395,6 +1317,11 @@ onComplete: () => {
     this.slashEffect.destroy();
     this.slashEffect = null;
   }
+
+  // Clean up any lingering graphics from spear sequence
+  ;['animMountainTop','animMountainBottom','etherealGlow','darkOverlay'].forEach(k => {
+    if (this[k]) { this[k].destroy(); this[k] = null; }
+  })
 }
 
 
@@ -1477,6 +1404,11 @@ cleanup() {
     this.slashEffect.destroy();
     this.slashEffect = null;
   }
+
+  // Clean up any lingering graphics from spear sequence
+  ;['animMountainTop','animMountainBottom','etherealGlow','darkOverlay'].forEach(k => {
+    if (this[k]) { this[k].destroy(); this[k] = null; }
+  })
   
   if (this.darkOverlay) {
     this.darkOverlay.destroy();

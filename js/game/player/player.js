@@ -130,13 +130,15 @@ export default class Player {
 
   initializeInventory() {
     this.inventory = new Inventory({ rows: 5, cols: 5 });
-    this.inventory.setItem(0, createItem('simple_bow'));
-    this.inventory.setItem(1, null);
-    this.inventory.setItem(2, createItem('leather_armor'));
+    // Place items directly in equipment slots (0=rightHand, 1=leftHand, 2=armor)
+    // and inventory slots (5+). Using setItem so they're treated as equipped.
+    this.inventory.setItem(0, createItem('simple_bow'));     // rightHand equipped
+    this.inventory.setItem(1, null);                          // leftHand empty
+    this.inventory.setItem(2, createItem('leather_armor'));  // armor equipped
     this.inventory.setItem(3, null);
     this.inventory.setItem(4, null);
     this.inventory.setItem(5, createItem('healing_potion'));
-    this.inventory.setItem(6, createItem('arrows', 50));
+    this.inventory.setItem(6, createItem('arrows', 30));
     this.updateStatsFromEquipment();
   }
 

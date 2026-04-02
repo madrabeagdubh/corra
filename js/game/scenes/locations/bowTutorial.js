@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
+import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js';
+import ItemSheetHelper from '../../ui/inventory/itemSheetHelper.js';
 
 import { initReturnCrossing } from '../returnCrossing.js';
 
@@ -35,12 +37,7 @@ this.load.image('item_simple_bow', 'assets/inventory/W_Bow02.png');
   this.load.audio('arrowShoot3', 'assets/sounds/arrowShoot3.wav');
   this.load.audio('pumpkin_break_01', 'assets/sounds/pumpkin_break_01.ogg');
    this.load.audio('parrySound', 'assets/sounds/parry.mp3');
-    this.load.image('skyeBackground', 'assets/skye1.png');
 
-this.load.image('skyeMountainTop', 'assets/skye1.png');   
-this.load.image('skyeMountainBottom', 'assets/skye2.png');
-// skyeClouds removed — replaced by fog layer
-this.load.image('fog', 'assets/fog01.png');
 
 
     this.load.image('cape', 'assets/cape.png');
@@ -51,6 +48,18 @@ this.load.image('fog', 'assets/fog01.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
 
     this.load.image('scathach', 'assets/sc01.png');
+    this.load.spritesheet('dragon', 'assets/dragonFrames.png', {
+      frameWidth: 500, frameHeight: 359
+    });
+    // Tutorial target sprites (gun-range style popups)
+    for (let i = 0; i <= 4; i++) {
+      this.load.image(`target${i}`, `assets/targets/target${i}.png`);
+    }
+    // Sky background layers
+    // Oryx tileset for PGR
+    this.load.image('oryxTiles', '/assets/oryx/oryx_16bit_fantasy_world_trans.png');
+    this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png');
+    this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json');
     // Load tutorial data
     this.load.json('bowTutorialData', '/maps/bowTutorial.json?v=' + Date.now());
   }
@@ -259,58 +268,7 @@ this.hitTrackerComplete = false;
     const screenWidth = this.scale.width;
     const screenHeight = this.scale.height;
 
-// --- BACKGROUND: wintry tinted mountains (no clouds) ---
-
-// Atmospheric depth haze — Oileán an Cheo (Isle of Mist)
-// Baked into a RenderTexture so the gradient is smooth with zero hard edges.
-// Two vertical strips (top-half and bottom-half) drawn into one texture,
-// creating a bell-curve opacity that peaks in the middle of the screen.
-const hazeRT = this.add.renderTexture(0, 0, screenWidth, screenHeight)
-    .setDepth(0.5).setOrigin(0, 0);
-
-const hazeGfx = this.add.graphics();
-
-// Top half: alpha 0 → 0.75 (transparent sky fading into mist)
-hazeGfx.fillGradientStyle(0xaabbc8, 0xaabbc8, 0xaabbc8, 0xaabbc8, 0, 0, 0.75, 0.75);
-hazeGfx.fillRect(0, 0, screenWidth, screenHeight * 0.5);
-hazeRT.draw(hazeGfx, 0, 0);
-
-// Bottom half: alpha 0.75 → 0 (mist clearing toward the ground / gameplay area)
-hazeGfx.clear();
-hazeGfx.fillGradientStyle(0xaabbc8, 0xaabbc8, 0xaabbc8, 0xaabbc8, 0.75, 0.75, 0, 0);
-hazeGfx.fillRect(0, 0, screenWidth, screenHeight * 0.5);
-hazeRT.draw(hazeGfx, 0, screenHeight * 0.5);
-
-hazeGfx.destroy(); // no longer needed after baking
-
-this.mountainBottom = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainBottom');
-this.mountainBottom.setDisplaySize(screenWidth, screenHeight);
-this.mountainBottom.setDepth(0);
-this.mountainBottom.setTint(0x8899aa); // cool grey-blue winter tint
-
-this.mountainTop = this.add.image(screenWidth / 2, screenHeight / 2, 'skyeMountainTop');
-this.mountainTop.setDisplaySize(screenWidth, screenHeight);
-this.mountainTop.setDepth(0);
-this.mountainTop.setTint(0x99aabb); // slightly lighter/cooler at the peaks
-
-// --- FOG LAYERS: two-layer parallax, scrolling left ---
-// Fog graphic is 1024x512. We scale it to 1.5× screen width so the two
-// panels always overlap and the seam never shows on any screen size.
-const fogScaleW = screenWidth * 1.5;
-const fogScaleH = screenHeight * 0.45; // natural-ish aspect for 1024x512
-
-// Layer 1 — foreground fog, normal orientation, slightly faster
-const fogY1 = screenHeight * 0.78;
-this.fog1a = this.add.image(0, fogY1, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.28).setDepth(1);
-this.fog1b = this.add.image(fogScaleW, fogY1, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.28).setDepth(1);
-
-// Layer 2 — background fog, flipped horizontally, slower (parallax depth cue)
-const fogY2 = screenHeight * 0.85;
-this.fog2a = this.add.image(0, fogY2, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.18).setDepth(2).setFlipX(true);
-this.fog2b = this.add.image(fogScaleW, fogY2, 'fog').setOrigin(0, 0.5).setDisplaySize(fogScaleW, fogScaleH).setAlpha(0.18).setDepth(2).setFlipX(true);
-
-this.fogSpeed1 = 0.3;  // foreground: faster
-this.fogSpeed2 = 0.15; // background: slower = feels further away
+// Background handled by PGR sky vignette
 
 
 
@@ -326,17 +284,73 @@ this.fogSpeed2 = 0.15; // background: slower = feels further away
                      window.selectedChampion ||
                      { id: 'demo', nameGa: 'Demo', row: 0, col: 0 };
 
-    // Create player in LOWER third of screen
-    const playerX = screenWidth / 2;
-    const playerY = screenHeight * 0.75;
     this.champion = champion;
-    this.player = new Player(this, playerX, playerY, champion);
+    this.tileSize = 48;
 
-    // Disable player movement for tutorial
+    // ── Inline map — bog floor for PGR ───────────────────────────────────────
+    // MH=22 ensures row 16 exists for player spawn
+    const MW = 20, MH = 22, BOG = 733;
+    const layer0 = Array.from({length: MH}, () => Array(MW).fill(BOG));
+    this.mapData = {
+      width: MW, height: MH,
+      layers: [layer0, Array.from({length: MH}, () => Array(MW).fill(0))],
+      tiles: layer0,
+    };
+
+    // With camera at (0,0), perspCamRow ≈ 19.
+    // Col 4 centres horizontally, row 16 projects to lower third.
+    const playerX = 4 * this.tileSize + this.tileSize / 2;   // = 216
+    const playerY = 16 * this.tileSize + this.tileSize / 2;  // = 792
+
+    try {
+      this.player = new Player(this, playerX, playerY, champion);
+    } catch(e) {
+      console.error('[BowTutorial] Player constructor error:', e);
+      return;
+    }
+    if (!this.player) {
+      console.error('[BowTutorial] Player is undefined after construction');
+      return;
+    }
     this.player.canMove = false;
+
+    // Keep camera at (0,0) so Phaser GameObjects (Scáthach etc.) stay in place.
+    // PGR reads camera scroll for projection — at (0,0) the player tile
+    // will project based on CAMERA_ROW_OFFSET relative to scroll origin.
+
+    // PGR — ground + player billboard + weapon overlay
+    this.perspectiveGround = new PerspectiveGroundRenderer(this);
+    this.perspectiveGround.setPlayer(this.player);
+
+    // Sky colour — visible above horizon through transparent Phaser canvas
+    this.game.renderer.gl?.clearColor(0, 0, 0, 0);
+    this.game.canvas.style.background = 'transparent';
+    const container = document.getElementById('gameContainer')
+    if (container) container.style.background = '#8aabbf'  // overcast sky blue-grey  // dark grey-blue sky
+
+    // Larger player for tutorial — more visible, heroic scale
+    this.perspectiveGround.setPlayerScale(2.0)  // 2x normal height
+
+    // Bright overcast lighting for tutorial — much less dark than bog scenes
+    this.perspectiveGround.setLighting({
+      darkness:    0.3,    // very little darkness outside light radius
+      radius:      0.7,    // wide light coverage
+      groundColour: '#4a6a30'  // lighter, greener ground
+    })
+
+    // ItemSheetHelper for weapon overlay
+    this.itemSheet = new ItemSheetHelper(this);
+
+    // ── Sky + mountain background ─────────────────────────────────────────
+    // Drawn on Phaser canvas (transparent, z-index 10).
+    // Depth 0.x puts them behind all other Phaser GameObjects.
+    // Mountains fill the upper portion — PGR ground covers the lower half.
+    // Sky colour set via container background (see below)
 
     // Initialize bow mechanics
     this.bowMechanics = new BowMechanics(this, this.player);
+
+    // Tab-blur/focus fix handled inside BowMechanics._setupInput()
 
     // Create single target
 
@@ -361,10 +375,22 @@ this.bullseyeHits = 0;
     // Add settings slider
     this.addSettingsSlider();
 
-    // Destroy storyPlayer if scene shuts down unexpectedly
+    // Destroy resources if scene shuts down
     this.events.once('shutdown', () => {
-      if (this.storyPlayer)  { this.storyPlayer.destroy();  this.storyPlayer  = null; }
-      if (this._flashPlayer) { this._flashPlayer.destroy(); this._flashPlayer = null; }
+      // Immediately hide all PGR DOM canvases to prevent flash on scene transition
+      ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
+        const el = document.getElementById(id)
+        if (el) el.style.display = 'none'
+      })
+      // Also reset container background so new scene can set its own
+      const container = document.getElementById('gameContainer')
+      if (container) container.style.background = ''
+
+      if (this.storyPlayer)       { this.storyPlayer.destroy();       this.storyPlayer       = null; }
+      if (this._flashPlayer)      { this._flashPlayer.destroy();      this._flashPlayer      = null; }
+      if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null; }
+      if (this.itemSheet)         { this.itemSheet.clear();           this.itemSheet         = null; }
+      // blur handler cleaned up by BowMechanics.destroy()
     });
 
     // Show exposition narrative
@@ -440,10 +466,13 @@ showExposition() {
     speaker: 'queen',
   }));
 
+  // Spawn target after short fixed delay regardless of text progress
+  this.time.delayedCall(1500, () => { if (!this.target) this.createTarget(); });
+
   this._showStoryLines(lines, () => {
     this.narrativeInProgress = false;
     console.log('BowTutorial: exposition complete');
-    this.time.delayedCall(300, () => { this.createTarget(); });
+    if (!this.target) this.time.delayedCall(300, () => { this.createTarget(); });
   });
 }
 
@@ -712,15 +741,22 @@ showFarewell() {
 
     this.cameras.main.fadeOut(500, 0, 0, 0);
   this.cameras.main.once('camerafadeoutcomplete', () => {
-    // Use the value directly from your imported GameSettings object
+    // Hide PGR DOM canvases immediately — prevents flash when new scene loads
+    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.style.display = 'none'
+    })
+    const container = document.getElementById('gameContainer')
+    if (container) container.style.background = '#000'
+
     const currentOpacity = GameSettings.englishOpacity;
 
     initReturnCrossing(this.champion, currentOpacity, () => {
         if (window.startGame) {
-            window.startGame(this.champion, { startScene: 'BogMeadow' });
+            window.startGame(this.champion, { startScene: 'Bog_Threshold' });
         } else {
             console.error('[BowTutorial] window.startGame not found!');
-            this.scene.start('BogMeadow'); 
+            this.scene.start('Bog_Threshold'); 
         }
     });
 });
@@ -729,68 +765,112 @@ showFarewell() {
 }
 
 
-   createTarget() {
-    this.currentTargetIndex = 0;
-    const screenWidth = this.scale.width;
-    const screenHeight = this.scale.height;
-    const targetData = this.tutorialData.targetSequence[this.currentTargetIndex];
-    const targetX = screenWidth * targetData.x;
-    const targetY = screenHeight * targetData.y;
-    this.target = this.add.circle(targetX, targetY, 30, 0xff0000, 0.7);
-    this.target.setStrokeStyle(4, 0xffffff);
+  createTarget() {
+    if (this.target) {
+      if (this._targetTween) { this._targetTween.stop(); this._targetTween = null; }
+      this.target.destroy(); this.target = null;
+    }
+    this.currentTargetIndex = (this.currentTargetIndex ?? -1) + 1;
+    if (this.currentTargetIndex >= 5) this.currentTargetIndex = 0;
+
+    // World-space positions — tiles relative to player spawn (col=4, row=16)
+    // Each target is placed at a different distance/angle from player
+    const SPAWN_LX = 4 * 48 + 24;   // player logicalX
+    const SPAWN_LY = 16 * 48 + 24;  // player logicalY
+    const positions = [
+      { dx:  0, dy: -10 },  // straight north, mid distance
+      { dx: -3, dy: -10 },  // northwest
+      { dx:  3, dy: -10 },  // northeast
+      { dx: -4, dy: -12 },  // far northwest
+      { dx:  4, dy: -12 },  // far northeast
+    ];
+    const pos = positions[this.currentTargetIndex];
+    const logicalX = SPAWN_LX + pos.dx * 48;
+    const logicalY = SPAWN_LY + pos.dy * 48;
+
+    // Pick sprite — cycle through target0-4
+    const spriteKey = this.textures.exists(`target${this.currentTargetIndex}`)
+      ? `target${this.currentTargetIndex}`
+      : null;
+
+    if (spriteKey) {
+      this.target = this.add.image(0, 0, spriteKey).setDepth(10).setScale(0.5);
+    } else {
+      // Fallback geometric target
+      this.target = this.add.circle(0, 0, 28, 0xcc2200, 0.9)
+        .setStrokeStyle(3, 0xffffff).setDepth(10);
+    }
+
+    // Store world coords for projection only — NOT for hit detection.
+    // Hit detection uses screen coords (landScreenX/Y vs target.x/y)
+    // because the arrow's screen path is what the player sees.
+    this.target._worldLogicalX = logicalX;
+    this.target._worldLogicalY = logicalY;
+    // logicalX intentionally NOT set so checkHit uses screen-space comparison
     this.target.setData('hit', false);
-    this.target.setDepth(500);
-    this.bullseye1 = this.add.circle(targetX, targetY, 20, 0xff6600, 0.8).setDepth(501);
-    this.bullseye2 = this.add.circle(targetX, targetY, 10, 0xffff00, 0.9).setDepth(502);
-this.bullseye1.setDepth(10);
-this.bullseye2.setDepth(10);
+
+    // Position on screen via PGR projection
+    this._updateTargetScreenPos();
+
+    // Carnival-style side-to-side movement
+    if (this.target) {
+      const baseX   = this.target.x
+      const range   = Phaser.Math.Between(80, 140)   // wider movement
+      const speed   = Phaser.Math.Between(1800, 3200) // slower, more deliberate
+      this._targetTween = this.tweens.add({
+        targets:  this.target,
+        x:        baseX + range,
+        duration: speed,
+        yoyo:     true,
+        repeat:   -1,
+        ease:     'Sine.easeInOut'
+      })
+    }
+  }
+
+  _updateTargetScreenPos() {
+    if (!this.target || !this.perspectiveGround) return;
+    const pgr  = this.perspectiveGround;
+    const proj = pgr._projectLogical(this.target._worldLogicalX, this.target._worldLogicalY);
+    if (proj) {
+      // Target sits on the ground — offset upward slightly so it appears as a popup
+      const ts      = pgr.tileDisplaySize;
+      const tileRow = this.target._worldLogicalY / ts - 0.5;
+      const scaledW = pgr._scaleAtRow(tileRow + 1);
+      this.target.setPosition(proj.screenX, proj.screenY - scaledW * 0.8);
+      this.target.setVisible(true);
+      // Scale with perspective
+      if (this.target.type === 'Image') {
+        this.target.setScale(scaledW / ts * 1.5);
+      }
+    }
   }
 
   moveTargetToNext() {
-    this.currentTargetIndex++;
-    if (this.currentTargetIndex >= this.tutorialData.targetSequence.length) {
-      this.currentTargetIndex = 0;
+    // Brief pop-out tween then create new target at next position
+    if (this.target) {
+      this.tweens.add({
+        targets: this.target, scaleX: 0, scaleY: 0,
+        duration: 200, ease: 'Back.easeIn',
+        onComplete: () => { this.createTarget(); }
+      });
+    } else {
+      this.createTarget();
     }
-    const screenWidth = this.scale.width;
-    const screenHeight = this.scale.height;
-    const targetData = this.tutorialData.targetSequence[this.currentTargetIndex];
-    const newX = screenWidth * targetData.x;
-    const newY = screenHeight * targetData.y;
-    this.tweens.add({
-      targets: [this.target, this.bullseye1, this.bullseye2],
-      x: newX,
-      y: newY,
-      duration: 500,
-      ease: 'Power2'
-    });
   }
 
 
 
 update(time, delta) {
-  
+  // PGR renders ground + player billboard each frame
+  if (this.perspectiveGround) this.perspectiveGround.update();
+
   if (this.textPanel) {
     this.textPanel.update(time, delta);
   }
 
 
-// --- FOG PARALLAX SCROLL ---
-  // Layer 1 (foreground, faster)
-  if (this.fog1a) {
-    this.fog1a.x -= this.fogSpeed1;
-    this.fog1b.x -= this.fogSpeed1;
-    const fw1 = this.fog1a.displayWidth;
-    if (this.fog1a.x + fw1 < 0) this.fog1a.x = this.fog1b.x + fw1;
-    if (this.fog1b.x + fw1 < 0) this.fog1b.x = this.fog1a.x + fw1;
-  }
-  // Layer 2 (background, slower)
-  if (this.fog2a) {
-    this.fog2a.x -= this.fogSpeed2;
-    this.fog2b.x -= this.fogSpeed2;
-    const fw2 = this.fog2a.displayWidth;
-    if (this.fog2a.x + fw2 < 0) this.fog2a.x = this.fog2b.x + fw2;
-    if (this.fog2b.x + fw2 < 0) this.fog2b.x = this.fog2a.x + fw2;
-  }
+
 
 
 
@@ -805,13 +885,28 @@ update(time, delta) {
   } else if (this.predictionDot) {
     this.predictionDot.setVisible(false);
   }
+  // Update world-space target screen position each frame
+  if (this.target?.logicalX) this._updateTargetScreenPos();
+
   // Update Scáthach hitbox to follow sprite position
   if (this.scathach && this.scathachHitbox) {
-
-
-
     this.scathachHitbox.x = this.scathach.x;
     this.scathachHitbox.y = this.scathach.y;
+  }
+
+  // Check for out of arrows
+  if (!this._arrowsExhausted && this.player?.inventory) {
+    const inv   = this.player.inventory
+    let total   = 0
+    for (let i = 0; i < inv.totalSlots; i++) {
+      const item = inv.getItem(i)
+      if (item?.id === 'arrows') total += item.quantity
+    }
+    const inFlight = this.bowMechanics.arrows.filter(a => !a.getData('hasLanded')).length
+    if (total === 0 && inFlight === 0 && !this.tutorialComplete) {
+      this._arrowsExhausted = true
+      this.time.delayedCall(800, () => { this.showFarewell() })
+    }
   }
 
   // Update bow mechanics (arrow physics)
@@ -821,51 +916,55 @@ update(time, delta) {
     
 if (this.target && !this.hitLocked) {
 
-const hit = this.bowMechanics.checkHit(this.target, 35);
+const hit = this.bowMechanics.checkHit(this.target, 30);
     if (hit) {
       this.onTargetHit(hit);
     }
   }
 
-  // Check if any arrow hit Scáthach - ADD NULL CHECKS
+  // Check if any arrow (in-flight OR just landed) passes near Scáthach
   if (this.scathach && this.scathachHitbox) {
     this.bowMechanics.arrows.forEach(arrow => {
-      if (arrow.getData('active') && !arrow.getData('parried')) {
-        const distance = Phaser.Math.Distance.Between(
-          arrow.x, arrow.y,
-          this.scathachHitbox.x, this.scathachHitbox.y
-        );
+      if (arrow.getData('parried') || arrow.getData('hitTarget')) return
 
-        const hasPassedScathach = arrow.y < this.scathachHitbox.y - 50;
+      // Use landing screen pos if landed, otherwise current pos
+      const sx = arrow.getData('hasLanded')
+        ? (arrow.getData('landScreenX') ?? arrow.getData('prevScreenX'))
+        : arrow.getData('prevScreenX')
+      const sy = arrow.getData('hasLanded')
+        ? (arrow.getData('landScreenY') ?? arrow.getData('prevScreenY'))
+        : arrow.getData('prevScreenY')
+      if (sx == null) return
 
-        if (distance < 40 && !hasPassedScathach) {
-          this.onScathachHit(arrow);
-        }
+      const distance = Phaser.Math.Distance.Between(
+        sx, sy,
+        this.scathachHitbox.x, this.scathachHitbox.y
+      )
+      if (distance < 70) {
+        this.onScathachHit(arrow)
       }
-    });
+    })
   }
 
   // Check for missed arrows - ADD NULL CHECK
   if (this.target) {
     this.bowMechanics.arrows.forEach(arrow => {
-      if (!arrow.getData('active') && !arrow.getData('counted')) {
-        arrow.setData('counted', true);
-
-        const landX = arrow.x;
-        const landY = arrow.y;
-
+      if (arrow.getData('hasLanded') && !arrow.getData('counted')) {
+        arrow.setData('counted', true)
+        // Skip miss logic if this arrow already registered a hit
+        if (arrow.getData('hitTarget')) return
+        const landSX = arrow.getData('landScreenX')
+        const landSY = arrow.getData('landScreenY')
+        if (landSX == null) return
         const distance = Phaser.Math.Distance.Between(
-          landX, landY,
-          this.target.x, this.target.y
-        );
-
-        if (distance > 35) {
-          this.consecutiveHits = 0;
-          this.missCount++;
-          this.onMiss();
+          landSX, landSY, this.target.x, this.target.y
+        )
+        if (distance > 50) {
+          this.missCount++
+          this.onMiss()
         }
       }
-    });
+    })
   }
 
 
@@ -885,17 +984,13 @@ onTargetHit(hitData) {
   this.consecutiveMisses = 0;
 
   this.updateHitTracker(this.consecutiveHits);
-  // Check if it's a bullseye (very close to center)
-  if (hitData.distance <= 5) {
-    this.bullseyeHits++;
-    console.log('BULLSEYE! Total:', this.bullseyeHits);
-    // Gold flash for bullseye
-    this.target.setFillStyle(0xffd700, 0.9);
-    this.showBullseyeEffect(this.target.x, this.target.y);
-  } else {
-    // Regular green flash
-    this.target.setFillStyle(0x00ff00, 0.9);
-  }
+  // Flash target green on hit
+  if (this.target?.setFillStyle) this.target.setFillStyle(0x00ff00, 0.9);
+  if (this.target?.setTint) this.target.setTint(0x00ff00);
+  this.time.delayedCall(300, () => {
+    if (this.target?.clearTint) this.target.clearTint();
+    if (this.target?.setFillStyle) this.target.setFillStyle(0xcc2200, 0.9);
+  });
 
   // Check win condition first
   if (this.consecutiveHits >= 4 && !this.tutorialComplete) {
@@ -938,9 +1033,8 @@ onTargetHit(hitData) {
     this.showHitDialogue();
   }
 
-  // Reset target and move to next after a short delay
-  this.time.delayedCall(1000, () => {
-    this.target.setFillStyle(0xff0000, 0.7);
+  // Move to next target after short delay
+  this.time.delayedCall(800, () => {
     this.hitLocked = false;
     this.moveTargetToNext();
   });
@@ -969,17 +1063,14 @@ onScathachHit(arrow) {
   arrow.setData('active', false);
   arrow.setData('counted', true);
 
-  // Store arrow's current state
-  const arrowX = arrow.x;
-  const arrowY = arrow.y;
-  const arrowRotation = arrow.rotation;
+  // Use Scáthach's position as spawn point for the parry effect
+  const arrowX = this.scathachHitbox?.x ?? (arrow.getData('prevScreenX') ?? 200);
+  const arrowY = this.scathachHitbox?.y ?? (arrow.getData('prevScreenY') ?? 300);
+  const arrowRotation = 0;
 
-  // Destroy the trail and shadow immediately
-  const trail = arrow.getData('trailGraphics');
+  // Destroy trail
+  const trail = arrow.getData('trail');
   if (trail) trail.destroy();
-
-  const shadow = arrow.getData('shadow');
-  if (shadow) shadow.destroy();
 
   // Remove from bowMechanics tracking
   const arrowIndex = this.bowMechanics.arrows.indexOf(arrow);
@@ -1007,37 +1098,46 @@ onScathachHit(arrow) {
     ease: 'Quad.easeOut'
   });
 
-  // Create a NEW visual-only arrow sprite for the parry effect
-  const parriedArrow = this.add.image(arrowX, arrowY, 'arrowTexture');
-  parriedArrow.setOrigin(0.5, 0.5).setScale(0.2);
-  parriedArrow.setRotation(arrowRotation);
-
   // Play parry sound
   this.sound.play('parrySound', { volume: 1 });
 
   // === RANDOM SKYWARD DEFLECTION ===
-  const baseUpwardAngle = -Math.PI / 2; // straight up
-  const spread = Phaser.Math.DegToRad(60); // ±30°
-  const deflectAngle =
-    baseUpwardAngle + Phaser.Math.FloatBetween(-spread / 2, spread / 2);
+  // Draw deflected arrow as a Graphics line (matches our arrow style)
+  const deflectGfx = this.add.graphics()
+  deflectGfx.setDepth(200)
+  deflectGfx.setScrollFactor(0)
 
-  const bounceDistance = Phaser.Math.Between(100, 160);
+  const baseUpwardAngle = -Math.PI / 2;
+  const spread          = Phaser.Math.DegToRad(60);
+  const deflectAngle    = baseUpwardAngle + Phaser.Math.FloatBetween(-spread / 2, spread / 2);
+  const bounceDistance  = Phaser.Math.Between(120, 200);
+  const endX            = arrowX + Math.cos(deflectAngle) * bounceDistance;
+  const endY            = arrowY + Math.sin(deflectAngle) * bounceDistance;
+  const arrowLen        = 12;
 
+  // Animate via manual tween using a proxy object
+  const proxy = { t: 0 };
   this.tweens.add({
-    targets: parriedArrow,
-    x: arrowX + Math.cos(deflectAngle) * bounceDistance,
-    y: arrowY + Math.sin(deflectAngle) * bounceDistance,
-    rotation:
-      arrowRotation + Phaser.Math.FloatBetween(Math.PI * 3, Math.PI * 6),
-    alpha: 0,
+    targets: proxy,
+    t: 1,
     duration: Phaser.Math.Between(700, 1000),
     ease: 'Cubic.easeOut',
-    onComplete: () => {
-      parriedArrow.destroy();
-    }
+    onUpdate: () => {
+      const cx  = arrowX + (endX - arrowX) * proxy.t;
+      const cy  = arrowY + (endY - arrowY) * proxy.t;
+      const rot = deflectAngle + proxy.t * Math.PI * Phaser.Math.FloatBetween(3, 5);
+      deflectGfx.clear()
+      deflectGfx.lineStyle(1.5, 0xffffff, 1 - proxy.t * 0.8)
+      deflectGfx.beginPath()
+      deflectGfx.moveTo(cx - Math.cos(rot) * arrowLen, cy - Math.sin(rot) * arrowLen)
+      deflectGfx.lineTo(cx + Math.cos(rot) * arrowLen, cy + Math.sin(rot) * arrowLen)
+      deflectGfx.strokePath()
+    },
+    onComplete: () => { deflectGfx.destroy() }
   });
 
-  console.log('🗡️  PARRIED! Scáthach deflected the arrow!');
+  console.log('🗡️  PARRIED! arrow at:', arrowX.toFixed(0), arrowY.toFixed(0),
+    'arrowTexture exists:', this.textures.exists('arrowTexture'));
 }
 
 
@@ -1051,8 +1151,8 @@ createScathach() {
   const screenHeight = this.scale.height;
 
   // Position
-  const scathachX = screenWidth * 0.85;
-  const scathachY = screenHeight * 0.45;
+  const scathachX = screenWidth * 0.75;
+  const scathachY = screenHeight * 0.58;  // lower - in the ground zone
 
   // Wind direction (left + slightly down)
   this.wind = { x: -15, y: 5 };
@@ -1212,4 +1312,4 @@ createScathach() {
       }
     });
   }
-}
+}  

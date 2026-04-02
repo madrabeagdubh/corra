@@ -79,7 +79,7 @@ export default class BogLocationScene extends BaseLocationScene {
   async _loadContent() {
     const jsKey = this.getContentKey()
     try {
-      const module  = await import(`/data/bog/${jsKey}.js`)
+      const module  = await import(`../../../../../data/bog/${jsKey}.js`)
       const content = module[jsKey + 'Content'] || {}
       this.mapData.objects        = content.objects        || []
       this.mapData.npcs           = content.npcs           || []

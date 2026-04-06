@@ -25,7 +25,7 @@
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DRIFT_TARGET = 0.25;
-const DRIFT_RATE   = 0.01 / 9000;   // ~1% per 9 s
+const DRIFT_RATE   = 0.1 / 20000;   // gentle drift — only active when English is bright
 
 // ── Factory ────────────────────────────────────────────────────────────────────
 export function createMoonWidget(opts = {}) {
@@ -49,6 +49,7 @@ export function createMoonWidget(opts = {}) {
     const moonD  = moonR * 2;
 
     let phase         = Math.max(0, Math.min(1, initialPhase));
+    let rawPhase      = phase;   // unbounded accumulator for cyclic moon
     let dragging      = false;
     let driftPaused   = false;
     let lastFrameTime = null;
@@ -92,12 +93,12 @@ export function createMoonWidget(opts = {}) {
     const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3;
 
     let dragStartX   = 0;
-    let phaseAtStart = phase;
+    let phaseAtStart = rawPhase;   // tracks unbounded accumulator
 
     const onStart = (clientX) => {
         dragging     = true;
         dragStartX   = clientX;
-        phaseAtStart = phase;
+        phaseAtStart = rawPhase;   // capture unbounded accumulator
         canvas.style.cursor = 'grabbing';
     };
 
@@ -106,11 +107,10 @@ export function createMoonWidget(opts = {}) {
         const range = showSlider && wrapperEl
             ? wrapperEl.offsetWidth - moonR * 2
             : SWIPE_RANGE();
-        // Swipe right → positive delta → higher phase → fuller moon.
-        // This is the natural direction in both modes.
-        const delta    = (clientX - dragStartX) / range;
-        const newPhase = Math.max(0, Math.min(1, phaseAtStart + delta));
-        _setPhaseInternal(newPhase);
+        const delta = (clientX - dragStartX) / range;
+        // Accumulate into rawPhase (unbounded) — cyclic triangle wave
+        // maps this to display phase so moon rolls continuously.
+        _setPhaseInternal(phaseAtStart + delta);
     };
 
     const onEnd = () => {
@@ -137,24 +137,47 @@ export function createMoonWidget(opts = {}) {
         if (destroyed) return;
         rafId = requestAnimationFrame(driftLoop);
 
-        if (dragging || driftPaused || phase <= DRIFT_TARGET) {
+        // Only drift when English is brighter than half (phase > 0.5).
+        // At or below half the moon is in Irish-dominant territory — leave it alone.
+        if (dragging || driftPaused || phase <= 0.25) {
             lastFrameTime = timestamp;
             return;
         }
         if (lastFrameTime === null) { lastFrameTime = timestamp; return; }
 
-        const dt       = Math.min(timestamp - lastFrameTime, 100);
-        lastFrameTime  = timestamp;
-        const newPhase = Math.max(DRIFT_TARGET, phase - DRIFT_RATE * dt);
-        if (newPhase !== phase) _setPhaseInternal(newPhase);
+        const dt = Math.min(timestamp - lastFrameTime, 100);
+        lastFrameTime = timestamp;
+        // Always drift toward lower phase (darker moon, less English).
+        // Find the nearest integer that represents a dark moon BELOW current cyclePos.
+        // cyclePos 0..1 = waxing: drift toward 0 (rawPhase decreases)
+        // cyclePos 1..2 = waning: drift toward 2 (rawPhase increases, phase still falling)
+        const cp  = _rawToCyclePos(rawPhase);
+        const dir = cp <= 1 ? -1 : 1;   // waxing: go back toward dark; waning: continue to dark
+        _setPhaseInternal(rawPhase + dir * DRIFT_RATE * dt);
     }
 
     rafId = requestAnimationFrame(driftLoop);
 
     // ── Internal setter ────────────────────────────────────────────────────────
+    // rawPhase is an unbounded accumulator. displayPhase is derived via a
+    // triangle wave so the moon cycles full→crescent→dark→crescent→full
+    // continuously in either swipe direction.
+    // cyclePos in [0,2): 0..1 = waxing (dark->full), 1..2 = waning (full->dark)
+    function _rawToCyclePos(raw) {
+        return ((raw % 2) + 2) % 2;
+    }
+
+    // Triangle wave: 0=dark, 1=full, and both visual phase and opacity track together.
+    // Swipe right = fuller moon = more English. Simple and clear.
+    function _cycleToPhase(cp) {
+        return cp <= 1 ? cp : 2 - cp;
+    }
+
     function _setPhaseInternal(v) {
-        phase = Math.max(0, Math.min(1, v));
-        _drawMoon(canvas, phase, moonR);
+        rawPhase       = v;
+        const cyclePos = _rawToCyclePos(rawPhase);
+        phase          = _cycleToPhase(cyclePos);  // 0=dark/no English, 1=full/full English
+        _drawMoon(canvas, phase, moonR, cyclePos);
 
         if (showSlider) {
             if (sliderInput) sliderInput.value = phase;
@@ -166,7 +189,7 @@ export function createMoonWidget(opts = {}) {
     }
 
     // ── Initial render ─────────────────────────────────────────────────────────
-    _drawMoon(canvas, phase, moonR);
+    _drawMoon(canvas, phase, moonR, 0);   // initial: waxing
     if (showSlider && wrapperEl) {
         requestAnimationFrame(() => _positionMoonCanvas(canvas, wrapperEl, phase, moonR));
     }
@@ -174,7 +197,7 @@ export function createMoonWidget(opts = {}) {
     // ── Public API ─────────────────────────────────────────────────────────────
     return {
         element:      rootEl,
-        setPhase(v)   { _setPhaseInternal(v); },
+        setPhase(v)   { _setPhaseInternal(v); },   // v treated as rawPhase
         getPhase()    { return phase; },
         pauseDrift()  { driftPaused = true; },
         resumeDrift() { driftPaused = false; lastFrameTime = null; },
@@ -197,7 +220,7 @@ export function createMoonWidget(opts = {}) {
 function _buildFixed(moonCanvas, moonR, moonD) {
     // Margin: 8% of smaller dimension — noticeably in from the corner edge.
     // This keeps the touch target well clear of case bezels.
-    const margin = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.08);
+    const margin = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.04);
     // Touch padding: 18px each side — total target is moonD + 36px
     const pad    = 18;
 
@@ -209,7 +232,7 @@ function _buildFixed(moonCanvas, moonR, moonD) {
         `right:${margin}px;`,
         `width:${moonD + pad * 2}px;`,
         `height:${moonD + pad * 2}px;`,
-        'z-index:200000;',
+        'z-index:1000001;',   // above scene containers (999999) and exit veils (1000000)
         'display:flex;',
         'align-items:center;',
         'justify-content:center;',
@@ -320,7 +343,9 @@ function _positionMoonCanvas(canvas, wrapper, phase, moonR) {
 }
 
 // ── Drawing ────────────────────────────────────────────────────────────────────
-function _drawMoon(canvas, phase, r) {
+function _drawMoon(canvas, phase, r, cyclePos) {
+    // cyclePos: 0..1 = waxing (right crescent), 1..2 = waning (left crescent)
+    const waning = (cyclePos !== undefined) && (cyclePos > 1);
     const ctx = canvas.getContext('2d');
     const cx = r, cy = r;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -351,8 +376,15 @@ function _drawMoon(canvas, phase, r) {
         ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
     } else {
         const tx = r * 0.92 * Math.cos(phase * Math.PI);
-        ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
-        ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, tx > 0);
+        if (!waning) {
+            // Waxing: lit on right — arc right half, ellipse closes left
+            ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
+            ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, tx > 0);
+        } else {
+            // Waning: lit on left — arc left half, ellipse closes right
+            ctx.arc(cx, cy, r * 0.92, Math.PI / 2, -Math.PI / 2);
+            ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, -Math.PI / 2, Math.PI / 2, tx > 0);
+        }
     }
     ctx.fill();
 

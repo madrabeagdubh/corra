@@ -10,7 +10,8 @@
  */
 
 export const GameSettings = {
-    englishOpacity: 0.15,
+    englishOpacity:  0.15,
+    lastMenuPanel:   'inventory',   // persists across open/close
 
     setEnglishOpacity(value) {
         const clamped = Math.max(0, Math.min(1, value));
@@ -22,6 +23,6 @@ export const GameSettings = {
         }));
     },
 
-loadSettings(){}
-}
+    loadSettings() {},
+};
 

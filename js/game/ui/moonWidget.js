@@ -25,14 +25,16 @@
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DRIFT_TARGET = 0.25;
-const DRIFT_RATE   = 0.1 / 20000;   // gentle drift — only active when English is bright
+const DRIFT_RATE   = 0.1 / 9000;   // gentle drift — only active when English is bright
 
 // ── Factory ────────────────────────────────────────────────────────────────────
 export function createMoonWidget(opts = {}) {
     const {
         initialPhase = 0.15,
         onChange     = null,
+        onTap        = null,   // called when moon is tapped (not dragged)
         showSlider   = false,
+        corner       = 'top-right',  // 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
         container    = document.body,
     } = opts;
 
@@ -82,7 +84,7 @@ export function createMoonWidget(opts = {}) {
             _setPhaseInternal(parseFloat(e.target.value));
         });
     } else {
-        rootEl = _buildFixed(canvas, moonR, moonD);
+        rootEl = _buildFixed(canvas, moonR, moonD, corner);
         document.body.appendChild(rootEl);
     }
 
@@ -92,13 +94,15 @@ export function createMoonWidget(opts = {}) {
     // Slider mode keeps a wider range so the track feels proportional.
     const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3;
 
-    let dragStartX   = 0;
-    let phaseAtStart = rawPhase;   // tracks unbounded accumulator
+    let dragStartX    = 0;
+    let dragStartTime = 0;
+    let phaseAtStart  = rawPhase;   // tracks unbounded accumulator
 
     const onStart = (clientX) => {
-        dragging     = true;
-        dragStartX   = clientX;
-        phaseAtStart = rawPhase;   // capture unbounded accumulator
+        dragging      = true;
+        dragStartX    = clientX;
+        dragStartTime = performance.now();
+        phaseAtStart  = rawPhase;
         canvas.style.cursor = 'grabbing';
     };
 
@@ -113,24 +117,41 @@ export function createMoonWidget(opts = {}) {
         _setPhaseInternal(phaseAtStart + delta);
     };
 
-    const onEnd = () => {
+    const onEnd = (clientX) => {
         if (!dragging) return;
         dragging = false;
         canvas.style.cursor = 'grab';
+        // Tap = short duration + small movement
+        const dt  = performance.now() - dragStartTime;
+        const dx  = Math.abs((clientX ?? dragStartX) - dragStartX);
+        console.log('[moonWidget] onEnd dt:', dt.toFixed(0), 'dx:', dx.toFixed(1), 'hasTap:', !!onTap);
+        if (onTap && dt < 400 && dx < 12) onTap();
     };
 
-    // Named handlers for clean removal in destroy()
-    const mmHandler = (e) => { if (dragging) onMove(e.clientX); };
-    const muHandler = ()  => onEnd();
-    const tmHandler = (e) => { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientX); } };
-    const teHandler = ()  => onEnd();
+    // Pointer events with setPointerCapture — reliable on mobile, no window listeners.
+    // Captured pointer events always fire on the element even if finger moves off it.
+    const pdHandler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        canvas.setPointerCapture(e.pointerId);
+        onStart(e.clientX);
+    };
+    const pmHandler = (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        onMove(e.clientX);
+    };
+    const puHandler = (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        canvas.releasePointerCapture(e.pointerId);
+        onEnd(e.clientX);
+    };
 
-    canvas.addEventListener('mousedown',  (e) => { e.preventDefault(); onStart(e.clientX); });
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e.touches[0].clientX); }, { passive: false });
-    window.addEventListener('mousemove',  mmHandler);
-    window.addEventListener('mouseup',    muHandler);
-    window.addEventListener('touchmove',  tmHandler, { passive: false });
-    window.addEventListener('touchend',   teHandler);
+    canvas.addEventListener('pointerdown',   pdHandler, { passive: false });
+    canvas.addEventListener('pointermove',   pmHandler, { passive: false });
+    canvas.addEventListener('pointerup',     puHandler, { passive: false });
+    canvas.addEventListener('pointercancel', puHandler, { passive: false });
 
     // ── Drift loop ─────────────────────────────────────────────────────────────
     function driftLoop(timestamp) {
@@ -204,10 +225,10 @@ export function createMoonWidget(opts = {}) {
         destroy() {
             destroyed = true;
             if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-            window.removeEventListener('mousemove', mmHandler);
-            window.removeEventListener('mouseup',   muHandler);
-            window.removeEventListener('touchmove', tmHandler);
-            window.removeEventListener('touchend',  teHandler);
+            canvas.removeEventListener('pointerdown',   pdHandler);
+            canvas.removeEventListener('pointermove',   pmHandler);
+            canvas.removeEventListener('pointerup',     puHandler);
+            canvas.removeEventListener('pointercancel', puHandler);
             if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
         },
     };
@@ -217,22 +238,24 @@ export function createMoonWidget(opts = {}) {
 // Sits in the top-left with generous margin to clear phone case edges.
 // The wrapper is meaningfully larger than the moon canvas for a comfortable
 // touch target — important for thick-cased phones where corner px are stiff.
-function _buildFixed(moonCanvas, moonR, moonD) {
-    // Margin: 8% of smaller dimension — noticeably in from the corner edge.
-    // This keeps the touch target well clear of case bezels.
+function _buildFixed(moonCanvas, moonR, moonD, corner = 'top-right') {
     const margin = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.04);
-    // Touch padding: 18px each side — total target is moonD + 36px
     const pad    = 18;
+
+    // Map corner string to CSS edge properties
+    const isTop    = corner.startsWith('top');
+    const isLeft   = corner.endsWith('left');
+    const vEdge    = isTop  ? `top:${margin}px;`    : `bottom:${margin}px;`;
+    const hEdge    = isLeft ? `left:${margin}px;`   : `right:${margin}px;`;
 
     const wrapper = document.createElement('div');
     wrapper.style.cssText = [
         'position:fixed;',
-        `top:${margin}px;`,
-        // Right side — in from corner, clear of case bezel
-        `right:${margin}px;`,
+        vEdge,
+        hEdge,
         `width:${moonD + pad * 2}px;`,
         `height:${moonD + pad * 2}px;`,
-        'z-index:1000001;',   // above scene containers (999999) and exit veils (1000000)
+        'z-index:1000003;',   // above scene (999999), veils (1000000), and hub (1000002)
         'display:flex;',
         'align-items:center;',
         'justify-content:center;',

@@ -1,3 +1,4 @@
+import { FONTS, COLORS, TYPE, SPACING } from '../../systems/gameTypography.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import ButtonBar from './buttonBar.js';
 
@@ -53,14 +54,14 @@ export default class ItemDetailPanel {
     const titleY = -height / 2 + 120;
     this.nameTextGa = scene.add.text(0, titleY, '', {
       fontSize: '28px',
-      color: '#ffffff',
-      fontFamily: 'Aonchlo'
+      color: COLORS.irish,
+      fontFamily: FONTS.irish
     }).setOrigin(0.5, 0).setDepth(3002);
 
     this.nameTextEn = scene.add.text(0, titleY + 35, '', {
-      fontSize: '18px',
-      color: '#00ff00',
-      fontStyle: 'italic'
+      fontSize: '16px',
+      color: COLORS.english,
+      fontFamily: FONTS.english
     }).setOrigin(0.5, 0).setDepth(3002);
 
     this.container.add([this.nameTextGa, this.nameTextEn]);
@@ -200,9 +201,9 @@ export default class ItemDetailPanel {
           cfg.t,
           {
             fontSize: cfg.type === 'ga' ? '20px' : '16px',
-            fontFamily: cfg.type === 'ga' ? 'Aonchlo' : 'Arial',
+            fontFamily: cfg.type === 'ga' ? FONTS.irish : FONTS.english,
             fontStyle: cfg.type === 'en' ? 'italic' : 'normal',
-            color: cfg.type === 'ga' ? '#ffffff' : '#00ff00',
+            color: cfg.type === 'ga' ? COLORS.irish : COLORS.english,
             wordWrap: { width: this.textAreaWidth - 25 }
           }
         )
@@ -258,11 +259,18 @@ export default class ItemDetailPanel {
 
   /* ================= LANGUAGE OPACITY ================= */
   updateLanguageOpacity() {
-    const enAlpha = GameSettings.englishOpacity;
-    if (this.nameTextEn) this.nameTextEn.setAlpha(enAlpha);
+    const opacity = GameSettings.englishOpacity;
+    // Description text fades with moon phase
     this.textLines.forEach(entry => {
-      entry.text.setAlpha(entry.type === 'en' ? enAlpha : 1);
+      entry.text.setAlpha(entry.type === 'en' ? opacity : 1);
+      entry.text.setVisible(entry.type === 'ga' || opacity > 0.05);
     });
+    // English name fades with moon phase
+    if (this.nameTextEn) {
+      this.nameTextEn.setAlpha(opacity);
+      this.nameTextEn.setVisible(opacity > 0.05);
+    }
+    // Buttons are binary
     this.buttonBar?.updateOpacity();
   }
 

@@ -1,4 +1,5 @@
 import { GameSettings } from '../../settings/gameSettings.js';
+import { FONTS, COLORS } from '../../systems/gameTypography.js';
 
 export default class ButtonBar {
   constructor(scene, { width, onAction }) {
@@ -7,7 +8,7 @@ export default class ButtonBar {
     this.onAction = onAction;
     this.container = scene.add.container(0, 0);
     this.buttons = [];
-    this.absoluteButtons = []; // Track elements added directly to scene
+    this.absoluteButtons = [];
   }
 
   refresh(actions, isEquipped) {
@@ -18,14 +19,13 @@ export default class ButtonBar {
     this.container.removeAll(true);
 
     const labelMap = {
-      equip:   { ga: 'Feisteáil', en: 'Equip' },
-      unequip: { ga: 'Dífheistiú', en: 'Unequip' },
-      drop:    { ga: 'Scaoil',     en: 'Drop' },
-      throw:   { ga: 'Caith',      en: 'Throw' },
-      drink:   { ga: 'Ól',         en: 'Drink' }
+      equip:   { ga: 'Feisteail', en: 'Equip'   },
+      unequip: { ga: 'Difheistiu', en: 'Unequip' },
+      drop:    { ga: 'Scaoil',    en: 'Drop'    },
+      throw:   { ga: 'Caith',     en: 'Throw'   },
+      drink:   { ga: 'Ol',        en: 'Drink'   }
     };
 
-    // Replace 'equip' with 'unequip' if we are looking at an equipped item
     let finalActions = actions.map(a => (isEquipped && a === 'equip') ? 'unequip' : a);
 
     const spacing = 100;
@@ -40,102 +40,75 @@ export default class ButtonBar {
 
     this.updateOpacity();
   }
-createButton(localX, actionKey, labels) {
-  // We'll position these when updatePositions() is called
-  const btnCont = this.scene.add.container(localX, 0);
-  this.container.add(btnCont);
 
-  // Create button background DIRECTLY in scene, not in any container
-  const bg = this.scene.add.rectangle(0, 0, 92, 40, 0x4a3020)
-    .setStrokeStyle(2, 0x888888)
-    .setDepth(3100)
-    .setScrollFactor(0)
-    .setInteractive({
-      useHandCursor: true,
-      priorityID: 99999
-    })
-    .setVisible(false); // Start hidden
+  createButton(localX, actionKey, labels) {
+    // Keep all elements inside the container so they hide with it automatically
+    const bg = this.scene.add.rectangle(localX, 0, 92, 40, 0x2a1810)
+      .setStrokeStyle(2, 0xd4af37)
+      .setDepth(3100)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true, priorityID: 99999 });
+    this.container.add(bg);
 
-  const tGa = this.scene.add.text(0, 0, labels.ga, {
-    fontSize: '16px',
-    fontFamily: 'Aonchlo',
-    color: '#ffffff'
-  }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
+    const tGa = this.scene.add.text(localX, 0, labels.ga, {
+      fontSize: '15px',
+      fontFamily: FONTS.irish,
+      color: COLORS.irish,
+    }).setOrigin(0.5).setDepth(3101).setScrollFactor(0);
+    this.container.add(tGa);
 
-  const tEn = this.scene.add.text(0, 0, labels.en, {
-    fontSize: '16px',  // Match Irish size
-    fontFamily: 'Arial',  // You might want to keep a sans-serif font
-    color: '#00ff00'  // Match Irish color
-  }).setOrigin(0.5).setDepth(3101).setScrollFactor(0).setVisible(false);
+    const tEn = this.scene.add.text(localX, 0, labels.en, {
+      fontSize: '13px',
+      fontFamily: FONTS.english,
+      color: COLORS.english,
+    }).setOrigin(0.5).setDepth(3101).setScrollFactor(0);
+    this.container.add(tEn);
 
-  // Track for cleanup and positioning
-  this.absoluteButtons.push(bg, tGa, tEn);
+    // Still track for opacity updates and destroy
+    this.absoluteButtons.push(bg, tGa, tEn);
 
-  // Pointer events
-  bg.on('pointerdown', (pointer, localX, localY, event) => {
-    if (event) event.stopPropagation();
-
-    console.log(`!!! BUTTON HIT DETECTED: ${actionKey} !!!`);
-
-    // Visual feedback for touch
-    bg.setFillStyle(0x7a5040);
-    this.scene.time.delayedCall(100, () => {
-      if (bg && bg.active) bg.setFillStyle(0x4a3020);
+    bg.on('pointerdown', (pointer, lx, ly, event) => {
+      if (event) event.stopPropagation();
+      bg.setFillStyle(0x4a2820);
+      this.scene.time.delayedCall(100, () => {
+        if (bg && bg.active) bg.setFillStyle(0x2a1810);
+      });
+      this.onAction(actionKey);
     });
 
-    this.onAction(actionKey);
-  });
+    return { bg, textGa: tGa, textEn: tEn, localX };
+  }
 
-  return { bg: bg, textGa: tGa, textEn: tEn, localX: localX, container: btnCont };
-}
-
-
-
-
-
-updatePositions() {
-  // Get the absolute screen position of the container
-  const containerX = this.container.x + this.container.parentContainer.x;
-  const containerY = this.container.y + this.container.parentContainer.y;
-
-  console.log('ButtonBar container position:', containerX, containerY);
-
-  this.buttons.forEach((btn, index) => {
-    const absX = containerX + btn.localX;
-    const absY = containerY;
-    
-    console.log(`Button ${index} at localX=${btn.localX} -> absX=${absX}, absY=${absY}`);
-    
-    btn.bg.setPosition(absX, absY).setVisible(true);
-    btn.textGa.setPosition(absX, absY).setVisible(true);  // Centered
-    btn.textEn.setPosition(absX, absY).setVisible(true);  // Centered
-  });
-}
+  updatePositions() {
+    // Elements are in the container — no manual positioning needed.
+    // Just apply language visibility.
+    this.updateOpacity();
+  }
 
   hide() {
-    this.absoluteButtons.forEach(el => el.setVisible(false));
+    // Container visibility is controlled by itemDetailPanel.container.
+    // This is a no-op now but kept for API compatibility.
   }
 
+  updateOpacity() {
+    // Buttons are binary: show Irish OR English at full opacity.
+    // Threshold at 0.5 — above shows English, below shows Irish.
+    const useEn = GameSettings.englishOpacity >= 0.5;
 
-updateOpacity() {
-  const showEnglish = GameSettings.englishOpacity >= 0.5;
-  
-  this.buttons.forEach(btn => {
-    if (showEnglish) {
-      // Show English, hide Irish
-      btn.textEn.setVisible(true).setAlpha(1);
-      btn.textGa.setVisible(false);
-    } else {
-      // Show Irish, hide English
-      btn.textGa.setVisible(true).setAlpha(1);
-      btn.textEn.setVisible(false);
-    }
-  });
-}
+    this.buttons.forEach(btn => {
+      if (btn.textGa && btn.textGa.active) {
+        btn.textGa.setVisible(!useEn).setAlpha(1);
+      }
+      if (btn.textEn && btn.textEn.active) {
+        btn.textEn.setVisible(useEn).setAlpha(1);
+      }
+    });
+  }
 
- destroy() {
+  destroy() {
     this.container.destroy();
-    this.absoluteButtons.forEach(el => el.destroy());
+    this.absoluteButtons.forEach(el => { if (el && el.active) el.destroy(); });
     this.absoluteButtons = [];
   }
-} 
+}
+ 

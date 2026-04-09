@@ -1,7 +1,6 @@
 import Phaser from 'phaser'
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
-import WorldButton from '../../../ui/worldButton.js'
 import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
@@ -10,6 +9,8 @@ import FovSystem       from '../../../systems/fovSystem.js'
 import ItemSheetHelper from '../../../ui/inventory/itemSheetHelper.js'
 import PathFinder from '../../../systems/pathFinder.js'
 import FogRenderer from '../../../systems/fogRenderer.js'
+import { createMoonWidget }  from '../../../ui/moonWidget.js'
+import { createGameMenuHub } from '../../../ui/gameMenuHub.js'
 
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
@@ -32,7 +33,7 @@ const ALWAYS_UNWALKABLE = new Set([
 
 export default class BogLocationScene extends BaseLocationScene {
 
-  // ── Override in child scenes ──────────────────────────────────────
+  // -- Override in child scenes --------------------------------------
 
   getMapKey()              { return 'great_open_bog' }
   getAmbient()             { return 0x334422 }
@@ -42,11 +43,11 @@ export default class BogLocationScene extends BaseLocationScene {
   getExtraUnwalkableGIDs() { return new Set() }
   onEnter()                {}
 
-  // ── Lifecycle ─────────────────────────────────────────────────────
+  // -- Lifecycle -----------------------------------------------------
 
   init(data) {
     this.entryData = data || {}
-    console.log(`[${this.scene.key}] init — entryEdge: ${data?.entryEdge}`)
+    console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
   }
 
   preload() {
@@ -84,7 +85,7 @@ export default class BogLocationScene extends BaseLocationScene {
       this.mapData.objects        = content.objects        || []
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
-      console.log(`[${this.scene.key}] content loaded — ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
+      console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
     } catch(e) {
       console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
       this.mapData.objects        = []
@@ -113,7 +114,7 @@ export default class BogLocationScene extends BaseLocationScene {
     this.usePerspective = true
     this.drawTilemap()
 
-    this.mapData.tiles         = this.mapData.layers[0]
+    this.mapData.tiles           = this.mapData.layers[0]
     this.mapData.unwalkableTiles = []
 
     if (!this.mapData.spawns) this.mapData.spawns = { player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) } }
@@ -126,13 +127,13 @@ export default class BogLocationScene extends BaseLocationScene {
       this.perspectiveGround.setPlayer(this.player)
     }
 
-    // Item sheet helper — used by PGR weapon overlay and inventory grid
+    // Item sheet helper
     this.itemSheet = new ItemSheetHelper(this)
 
     // Snap camera before lerp starts
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
 
-    // ── FOV + Pathfinding + Fog ─────────────────────────────────────────────
+    // -- FOV + Pathfinding + Fog ---------------------------------------------
     this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
@@ -141,13 +142,10 @@ export default class BogLocationScene extends BaseLocationScene {
       this.fogRenderer = new FogRenderer(this.perspectiveGround)
     }
 
-    // Initial FOV at spawn
     this._lastFovKey = null
     this._recomputeFov()
 
-    // Tap-to-pathfind
     this._setupTapToPath()
-    // ───────────────────────────────────────────────────────────────────────
 
     // GameState
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
@@ -175,10 +173,10 @@ export default class BogLocationScene extends BaseLocationScene {
     this.showIntroNarrative()
     this.onEnter()
 
-    console.log(`[${this.scene.key}] ready — ${this.mapData.width}x${this.mapData.height}`)
+    console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
   }
 
-  // ── FOV + Pathfinding helpers ──────────────────────────────────────────────
+  // -- FOV + Pathfinding helpers ---------------------------------------------
 
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
@@ -188,7 +186,6 @@ export default class BogLocationScene extends BaseLocationScene {
     for (let y = 0; y < h; y++) {
       grid[y] = []
       for (let x = 0; x < w; x++) {
-        // Passable = not colliding at tile centre
         grid[y][x] = !this.isColliding(
           x * this.tileSize + this.tileSize / 2,
           y * this.tileSize + this.tileSize / 2
@@ -203,8 +200,6 @@ export default class BogLocationScene extends BaseLocationScene {
     const tx = Math.floor(this.player.logicalX / this.tileSize)
     const ty = Math.floor(this.player.logicalY / this.tileSize)
     this.fovSystem.compute(tx, ty)
-    // Render fog immediately after compute so there is zero gap between
-    // FOV state changing and fog canvas reflecting it — prevents flash
     if (this.fogRenderer) this.fogRenderer.update(this.fovSystem)
   }
 
@@ -212,14 +207,18 @@ export default class BogLocationScene extends BaseLocationScene {
     this.input.on('pointerdown', (pointer) => {
       // Ignore taps in joystick zone (bottom-left)
       if (pointer.x < 220 && pointer.y > this.scale.height - 220) return
-      // Ignore taps on world button (top-right)
-      if (pointer.x > this.scale.width - 120 && pointer.y < 150) return
+      // Ignore taps in moon widget zone (bottom-right)
+      // Zone size matches moon wrapper: ~11% of screen + margin + padding
+      const _moonZone = Math.round(Math.min(this.scale.width, this.scale.height) * 0.16)
+      if (pointer.x > this.scale.width - _moonZone && pointer.y > this.scale.height - _moonZone) return
       // Ignore if text panel open
       if (this.textPanel?.isVisible) return
       // Ignore if no PGR
       if (!this.perspectiveGround) return
       // Ignore if player is aiming bow
       if (this._bowAiming) return
+      // Ignore if menu is open
+      if (this._menuHub?.isOpen()) return
 
       const tile = PathFinder.screenToTile(
         pointer.x, pointer.y,
@@ -238,106 +237,74 @@ export default class BogLocationScene extends BaseLocationScene {
     })
   }
 
-  // ── UI ────────────────────────────────────────────────────────────
+  // -- UI ------------------------------------------------------------
+
+  // -- UI state machine -------------------------------------------------
+  _onMoonTap() {
+    const now = Date.now()
+    if (now - (this._lastMoonTap || 0) < 700) return
+    this._lastMoonTap = now
+
+    // Detail panel open: close detail only, keep inventory open
+    if (this.worldMenu?.itemDetailPanel?.isVisible) {
+      this.worldMenu.itemDetailPanel.hide()
+      return
+    }
+
+    // Inventory open (no detail): close inventory only
+    if (this.worldMenu?.isOpen) {
+      this._closeWorldMenuSilently()
+      return
+    }
+
+    // Hub open: close hub
+    if (this._menuHub?.isOpen()) {
+      this._menuHub.close()
+      return
+    }
+
+    // Nothing open: open hub (goes straight to last panel)
+    this._menuHub?.open()
+  }
 
   _createWorldUI() {
-    this.worldMenu   = new WorldMenu(this, { player: this.player })
-    this.worldButton = new WorldButton(this, {
-      x: this.scale.width - 50, y: 100, size: 56,
-      onClick: () => this.worldMenu.toggle()
+    // WorldMenu still exists for any legacy NPC/item interactions that use it
+    this.worldMenu = new WorldMenu(this, { player: this.player })
+
+    // -- Menu hub -- swipeable panels (inventory, quests, stats, map, settings)
+    this._menuHub = createGameMenuHub({
+      onInventoryOpen:  () => {
+        this.time.delayedCall(50, () => this.worldMenu?.open())
+      },
+      onInventoryClose: () => {
+        if (this.worldMenu?.isOpen) this._closeWorldMenuSilently()
+      },
     })
-    this._addSettingsSlider()
-  }
 
-  _addSettingsSlider() {
-    const padding     = 40
-    const sliderWidth = this.scale.width - padding * 2
-    const sliderX     = padding
-    const sliderY     = 20
 
-    this.add.rectangle(sliderX + sliderWidth / 2, sliderY, sliderWidth, 8, 0x444444)
-      .setScrollFactor(0).setDepth(5000)
-
-    const trackFill = this.add.rectangle(
-      sliderX, sliderY, sliderWidth * GameSettings.englishOpacity, 8, 0xd4af37
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(5001)
-
-    const thumb = this.add.circle(
-      sliderX + sliderWidth * GameSettings.englishOpacity, sliderY, 15, 0xffd700
-    ).setScrollFactor(0).setDepth(5002).setInteractive()
-
-    this.input.setDraggable(thumb)
-    this.input.on('drag', (pointer, obj, dragX) => {
-      if (obj !== thumb) return
-      const cx      = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderWidth)
-      thumb.x       = cx
-      const opacity = (cx - sliderX) / sliderWidth
-      GameSettings.setEnglishOpacity(opacity)
-      trackFill.width = sliderWidth * opacity
-      if (this.textPanel) this.textPanel.updateEnglishOpacity()
-      if (this.worldMenu?.itemDetailPanel)
-        this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+    // -- Moon widget -- top-right corner, swipe for English opacity, tap to toggle menu
+    this._moonWidget = createMoonWidget({
+      initialPhase: GameSettings.englishOpacity,
+      showSlider:   false,
+      corner:       'top-right',
+      onChange: (phase) => {
+        GameSettings.setEnglishOpacity(phase)
+        if (this.textPanel)  this.textPanel.updateEnglishOpacity()
+        if (this.worldMenu?.itemDetailPanel)
+          this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+      },
+      onTap: () => this._onMoonTap(),
     })
   }
 
-  // ── Tilemap ───────────────────────────────────────────────────────
-
-  drawTilemap() {
-    if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
-
-    this.tileSize  = TW * SCALE
-    this.mapWidth  = this.mapData.width  * TW * SCALE
-    this.mapHeight = this.mapData.height * TH * SCALE
-    this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight)
-
-    const tex = this.textures.get('oryxTiles')
-    const ensureFrame = (gid) => {
-      const key = `oryx_${gid}`
-      if (tex.has(key)) return key
-      const idx = gid - 1
-      tex.add(key, 0, MG + (idx % SHEET_COLS) * TW, MG + Math.floor(idx / SHEET_COLS) * TH, TW, TH)
-      return key
-    }
-
-    for (let li = 0; li < this.mapData.layers.length; li++) {
-      // In perspective mode, PGR handles layers 0 AND 1 — skip both here
-      if (this.usePerspective && (li === 0 || li === 1)) continue
-
-      if (li === 0) {
-        const grassFrame = ensureFrame(732)
-        for (let y = 0; y < this.mapData.height; y++) {
-          for (let x = 0; x < this.mapData.width; x++) {
-            const img = this.add.image(
-              x * TW * SCALE + (TW * SCALE) / 2,
-              y * TH * SCALE + (TH * SCALE) / 2,
-              'oryxTiles', grassFrame
-            ).setScale(SCALE).setDepth(-1)
-            if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
-          }
-        }
-      }
-
-      const layer = this.mapData.layers[li]
-      for (let y = 0; y < layer.length; y++) {
-        for (let x = 0; x < layer[y].length; x++) {
-          const gid = layer[y][x]
-          if (!gid) continue
-          const img = this.add.image(
-            x * TW * SCALE + (TW * SCALE) / 2,
-            y * TH * SCALE + (TH * SCALE) / 2,
-            'oryxTiles', ensureFrame(gid)
-          ).setScale(SCALE).setDepth(li)
-          if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
-        }
-      }
-    }
-
-    if (this.usePerspective) {
-      this.perspectiveGround = new PerspectiveGroundRenderer(this)
-    }
+  // Close WorldMenu without any hub side-effect
+  _closeWorldMenuSilently() {
+    if (!this.worldMenu) return
+    // Use the proper close() which handles all children including ButtonBar
+    this.worldMenu.close()
   }
 
-  // ── Collision ─────────────────────────────────────────────────────
+  // -- Collision -----------------------------------------------------
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
@@ -351,7 +318,7 @@ export default class BogLocationScene extends BaseLocationScene {
     return false
   }
 
-  // ── Entry positioning ─────────────────────────────────────────────
+  // -- Entry positioning ---------------------------------------------
 
   applyEntryPosition() {
     const edge = this.entryData?.entryEdge
@@ -388,10 +355,10 @@ export default class BogLocationScene extends BaseLocationScene {
       this.cameras.main.centerOn(px, py)
     }
 
-    console.log(`[${this.scene.key}] entry via ${edge} → tile [${entryX}, ${entryY}]`)
+    console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
-  // ── Narrative ─────────────────────────────────────────────────────
+  // -- Narrative -----------------------------------------------------
 
   showIntroNarrative() {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
@@ -428,7 +395,7 @@ export default class BogLocationScene extends BaseLocationScene {
     showNext()
   }
 
-  // ── Object & NPC creation ─────────────────────────────────────────
+  // -- Object & NPC creation -----------------------------------------
 
   createObjects() {
     if (!this.mapData.objects) return
@@ -500,13 +467,12 @@ export default class BogLocationScene extends BaseLocationScene {
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
 
-  // ── Update ────────────────────────────────────────────────────────
+  // -- Update --------------------------------------------------------
 
   update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
 
-    // Recompute FOV when player moves to a new tile
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
       const ty  = Math.floor(this.player.logicalY / this.tileSize)
@@ -516,7 +482,6 @@ export default class BogLocationScene extends BaseLocationScene {
         this._recomputeFov()
       }
     }
-    // Fog renders every frame — handles fade animation and camera movement
     if (this.fogRenderer && this.fovSystem) {
       this.fogRenderer.update(this.fovSystem)
     }
@@ -526,9 +491,11 @@ export default class BogLocationScene extends BaseLocationScene {
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
-  // ── Shutdown ──────────────────────────────────────────────────────
+  // -- Shutdown ------------------------------------------------------
 
   shutdown() {
+    if (this._moonWidget) { this._moonWidget.destroy(); this._moonWidget = null }
+    if (this._menuHub)    { this._menuHub.destroy();    this._menuHub    = null }
     if (this.perspectiveGround) {
       this.perspectiveGround.destroy()
       this.perspectiveGround = null
@@ -543,6 +510,62 @@ export default class BogLocationScene extends BaseLocationScene {
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
+  }
+
+  // -- Tilemap -------------------------------------------------------
+
+  drawTilemap() {
+    if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
+
+    this.tileSize  = TW * SCALE
+    this.mapWidth  = this.mapData.width  * TW * SCALE
+    this.mapHeight = this.mapData.height * TH * SCALE
+    this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight)
+
+    const tex = this.textures.get('oryxTiles')
+    const ensureFrame = (gid) => {
+      const key = `oryx_${gid}`
+      if (tex.has(key)) return key
+      const idx = gid - 1
+      tex.add(key, 0, MG + (idx % SHEET_COLS) * TW, MG + Math.floor(idx / SHEET_COLS) * TH, TW, TH)
+      return key
+    }
+
+    for (let li = 0; li < this.mapData.layers.length; li++) {
+      if (this.usePerspective && (li === 0 || li === 1)) continue
+
+      if (li === 0) {
+        const grassFrame = ensureFrame(732)
+        for (let y = 0; y < this.mapData.height; y++) {
+          for (let x = 0; x < this.mapData.width; x++) {
+            const img = this.add.image(
+              x * TW * SCALE + (TW * SCALE) / 2,
+              y * TH * SCALE + (TH * SCALE) / 2,
+              'oryxTiles', grassFrame
+            ).setScale(SCALE).setDepth(-1)
+            if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
+          }
+        }
+      }
+
+      const layer = this.mapData.layers[li]
+      for (let y = 0; y < layer.length; y++) {
+        for (let x = 0; x < layer[y].length; x++) {
+          const gid = layer[y][x]
+          if (!gid) continue
+          const img = this.add.image(
+            x * TW * SCALE + (TW * SCALE) / 2,
+            y * TH * SCALE + (TH * SCALE) / 2,
+            'oryxTiles', ensureFrame(gid)
+          ).setScale(SCALE).setDepth(li)
+          if (this.game.renderer.type === Phaser.WEBGL) img.setPipeline('Light2D')
+        }
+      }
+    }
+
+    if (this.usePerspective) {
+      this.perspectiveGround = new PerspectiveGroundRenderer(this)
+    }
   }
 }
 

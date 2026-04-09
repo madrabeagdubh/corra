@@ -1,3 +1,4 @@
+import { FONTS, COLORS } from '../../systems/gameTypography.js';
 // js/game/ui/inventory/inventoryGrid.js
 export default class InventoryGrid {
   constructor(scene, {
@@ -154,7 +155,7 @@ export default class InventoryGrid {
           item.quantity.toString(),
           {
             fontSize: `${fontSize}px`,
-            fontFamily: 'Arial',
+            fontFamily: FONTS.english,
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 3,

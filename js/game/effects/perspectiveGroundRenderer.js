@@ -283,6 +283,20 @@ this._encounterFlags = []
     }
   }
 
+
+
+
+//force redraw
+	
+forceRedraw() {
+  this._lastCamX = null
+}
+
+
+
+
+
+
   // ── Projection ────────────────────────────────────────────────────────────
 
   _zoom()      { return this.scene.cameras.main.zoom || 1 }
@@ -625,25 +639,33 @@ this._encounterFlags = []
           }
         }
 
-        // ── Encounter flags ───────────────────────────────────────────────
+// ── Encounter flags ───────────────────────────────────────────────
         if (this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
-            if (!flag.image?.width) continue
+            if (!flag.visual?.gid) continue
             const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
             const screenY     = this._rowToScreenY(tileRow + 1)
             const scaledTileW = this._scaleAtRow(tileRow + 1)
-            if (screenY !== null &&
-                screenY >= horizonPx &&
-                screenY <= sh + this.tileDisplaySize * 2) {
-              this._oCtx.globalAlpha = tileAlpha
-              this._drawBillboard(this._oCtx, flag.image, screenX, screenY, scaledTileW, 1.2)
-              this._oCtx.globalAlpha = 1.0
+            if (screenY === null || screenY < horizonPx || screenY > sh + this.tileDisplaySize * 2) continue
+            this._oCtx.globalAlpha = tileAlpha
+            if (flag.visual.flat) {
+              const xTL = this._colToScreenX(tileCol,     tileRow)
+              const xTR = this._colToScreenX(tileCol + 1, tileRow)
+              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
+              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+              this._gCtx.globalAlpha = tileAlpha
+              this._drawTrapezoid(this._gCtx, flag.visual.gid,
+                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
+                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
+              this._gCtx.globalAlpha = 1.0
+            } else {
+              const canvas = this._getTileCanvas(flag.visual.gid)
+              if (canvas) this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
             }
+            this._oCtx.globalAlpha = 1.0
           }
-        }
-
-      } // tileCol
+        }      } // tileCol
 
       // Draw player after last column if their row matched this row but
       // no column loop ran (e.g. player is off to the side of the map)
@@ -683,8 +705,10 @@ this._encounterFlags = []
 
   // ── Encounter flag registration ───────────────────────────────────────────
 
+   // ── Encounter flag registration ───────────────────────────────────────────
+  // flags: array of { tileX, tileY, visual: { gid, flat } }
+
   setEncounterFlags(flags) {
-    // flags: array of { tileX, tileY, image } where image is an HTMLImageElement
     this._encounterFlags = flags || []
   }
 
@@ -695,7 +719,35 @@ this._encounterFlags = []
     )
   }
 
-
+  // ── Encounter flag draw block — paste inside tileCol loop, after object tile block ──
+  //
+  //        if (this._encounterFlags?.length) {
+  //          for (const flag of this._encounterFlags) {
+  //            if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
+  //            const canvas = this._getTileCanvas(flag.visual.gid)
+  //            if (!canvas) continue
+  //            const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+  //            const screenY     = this._rowToScreenY(tileRow + 1)
+  //            const scaledTileW = this._scaleAtRow(tileRow + 1)
+  //            if (screenY === null || screenY < horizonPx || screenY > sh + this.tileDisplaySize * 2) continue
+  //            this._oCtx.globalAlpha = tileAlpha
+  //            if (flag.visual.flat) {
+  //              const xTL = this._colToScreenX(tileCol,     tileRow)
+  //              const xTR = this._colToScreenX(tileCol + 1, tileRow)
+  //              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
+  //              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+  //              this._gCtx.globalAlpha = tileAlpha
+  //              this._drawTrapezoid(this._gCtx, flag.visual.gid,
+  //                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
+  //                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
+  //              this._gCtx.globalAlpha = 1.0
+  //            } else {
+  //              this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
+  //            }
+  //            this._oCtx.globalAlpha = 1.0
+  //          }
+  //        }
+ 
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 

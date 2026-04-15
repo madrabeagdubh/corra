@@ -49,19 +49,7 @@ export const bogThresholdContent = {
         ga: 'Seasann Cnocán Uíbh Fhailí uaibhreach, bródúil agus uaigneach thar an inse.\n\nDruidim leis an gcloch. Níl aon rún uirthi. Is rún í féin. Tá sí níos sine ná na hainmneacha uile a tugadh ar an talamh seo.',
         en: 'Where Croghan Hill of Offaly stands lordly, proud and friendless across the waste.\n\nI approach the stone. There is no rune upon it. It is itself the rune. It is older than all the names ever given to this land.',
       },
-    },
-    {
-      id: 'encounter_flag_a',
-      type: 'encounter_flag',
-      x: 18, y: 8,
-      text: { ga: '', en: '' }
-    },
-    {
-      id: 'encounter_flag_b',
-      type: 'encounter_flag',
-      x: 22, y: 20,
-      text: { ga: '', en: '' }
-    },
+    }
   ],
 
   npcs: [

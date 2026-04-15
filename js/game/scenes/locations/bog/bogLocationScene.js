@@ -89,33 +89,73 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
- async _loadContent() {
-  const jsKey = this.getContentKey()
-  try {
-const module = await import(`/data/bog/${jsKey}.js`)
-    const content = module[jsKey + 'Content'] || {}
-    this.mapData.objects        = content.objects        || []
-    this.mapData.npcs           = content.npcs           || []
-    this.mapData.introNarrative = content.introNarrative || []
+   async _loadContent() {
+    const jsKey = this.getContentKey()
+    try {
+      const module  = await import(`/data/bog/${jsKey}.js`)
+      const content = module[jsKey + 'Content'] || {}
+      this.mapData.objects        = content.objects        || []
+      this.mapData.npcs           = content.npcs           || []
+      this.mapData.introNarrative = content.introNarrative || []
 
-    // -- Encounter deck injection --
-    const deck  = new EncounterDeck(forestDeck)
-    const drawn = deck.draw(2)
-    let   di    = 0
-    this.mapData.objects.forEach(obj => {
-      if (obj.type === 'encounter_flag' && drawn[di]) {
-        obj.text = { ga: drawn[di].ga, en: drawn[di].en }
-        obj._encounterId = drawn[di].id
-        di++
+      // -- Encounter deck injection ------------------------------------------
+      // Build occupied tile set from existing objects + npcs
+      const occupied = new Set()
+      this.mapData.objects.forEach(o => occupied.add(`${o.x},${o.y}`))
+      this.mapData.npcs.forEach(n => occupied.add(`${n.x},${n.y}`))
+
+      // Build walkable tile list from layer 0 using ALWAYS_UNWALKABLE
+      const layer0    = this.mapData.layers[0]
+      const mapH      = this.mapData.height
+      const mapW      = this.mapData.width
+      const walkable  = []
+      for (let y = 1; y < mapH - 1; y++) {
+        for (let x = 1; x < mapW - 1; x++) {
+          const gid = layer0[y]?.[x]
+          if (!gid) continue
+          if (ALWAYS_UNWALKABLE.has(gid)) continue
+          if (occupied.has(`${x},${y}`)) continue
+          walkable.push({ x, y })
+        }
       }
-    })
-  } catch(e) {
-    console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
-    this.mapData.objects        = []
-    this.mapData.npcs           = []
-    this.mapData.introNarrative = []
+
+      // Shuffle walkable tiles
+      walkable.sort(() => Math.random() - 0.5)
+
+      // Draw cards and place on random walkable tiles
+      const deck  = new EncounterDeck(forestDeck)
+      const drawn = deck.draw(6)
+      let   wi    = 0
+
+      drawn.forEach(card => {
+        // Skip if already resolved in a previous session
+        const stateKey = `${this.getMapKey()}.${card.id}`
+        if (GameState.isCollected(stateKey)) return
+
+        // Find a free walkable tile
+        if (wi >= walkable.length) return
+        const tile = walkable[wi++]
+
+        this.mapData.objects.push({
+          id:       card.id,
+          type:     'encounter_flag',
+          x:        tile.x,
+          y:        tile.y,
+          stateKey: stateKey,
+          visual:   card.visual,
+          text:     { ga: card.ga, en: card.en }
+        })
+      })
+
+      console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
+    } catch(e) {
+      console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
+      this.mapData.objects        = []
+      this.mapData.npcs           = []
+      this.mapData.introNarrative = []
+    }
   }
-} 
+ 
   getContentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
   }
@@ -431,49 +471,53 @@ const module = await import(`/data/bog/${jsKey}.js`)
   }
 
   // -- Object & NPC creation -----------------------------------------
-createObjects() {
-  if (!this.mapData.objects) return
-  this.interactables = []
+  createObjects() {
+    if (!this.mapData.objects) return
+    this.interactables = []
 
-  this.mapData.objects.forEach(obj => {
-    const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-    if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
-    if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
-        !GameState.isQuestComplete(obj.requiresQuest)) return
+    this.mapData.objects.forEach(obj => {
+      const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
+      if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
+      if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
+      if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
+          !GameState.isQuestComplete(obj.requiresQuest)) return
 
-    const pixelX = obj.x * this.tileSize + this.tileSize / 2
-    const pixelY = obj.y * this.tileSize + this.tileSize / 2
+      const pixelX = obj.x * this.tileSize + this.tileSize / 2
+      const pixelY = obj.y * this.tileSize + this.tileSize / 2
 
-    const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
-    zone.setData('id',       obj.id)
-    zone.setData('type',     obj.type)
-    zone.setData('text',     obj.text)
-    zone.setData('stateKey', stateKey)
-    zone.setData('item',     obj.item || null)
-    zone.setData('note',     obj.note || null)
-    zone.setData('logicalX', pixelX)
-    zone.setData('logicalY', pixelY)
-    zone.x = pixelX
-    zone.y = pixelY
+      const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
+      zone.setData('id',       obj.id)
+      zone.setData('type',     obj.type)
+      zone.setData('text',     obj.text)
+      zone.setData('stateKey', stateKey)
+      zone.setData('item',     obj.item || null)
+      zone.setData('note',     obj.note || null)
+      zone.setData('logicalX', pixelX)
+      zone.setData('logicalY', pixelY)
+      zone.x = pixelX
+      zone.y = pixelY
 
-
-
-
+      // Encounter flags: register tile coords + visual for PGR renderin
 if (obj.type === 'encounter_flag') {
-  const flagImg = new Image()
-  flagImg.src = '/assets/moonTile.png'
-  zone.setData('flagImg',  flagImg)
-  zone.setData('flagTileX', obj.x)
-  zone.setData('flagTileY', obj.y)
-  this._pendingFlags = this._pendingFlags || []
-  this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, image: flagImg })
-}
+  console.log('[encounter_flag]', obj.id, 'text:', JSON.stringify(obj.text), 'visual:', JSON.stringify(obj.visual))
 
-    this.interactables.push(zone)
-  })
+        zone.setData('flagTileX', obj.x)
+        zone.setData('flagTileY', obj.y)
+        zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
+        this._pendingFlags = this._pendingFlags || []
+        this._pendingFlags.push({
+          tileX:  obj.x,
+          tileY:  obj.y,
+          visual: obj.visual || { gid: 255, flat: false }
+        })
+      }
 
-  console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
-}
+      this.interactables.push(zone)
+    })
+
+    console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
+  }
+
 
   createNPCs() {
     if (!this.mapData.npcs) return

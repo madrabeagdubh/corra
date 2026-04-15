@@ -305,35 +305,38 @@ export default class BaseLocationScene extends Phaser.Scene {
           irish:   text?.ga || text?.irish   || '',
           english: text?.en || text?.english || '',
           id, type: 'examine',
-          onDismiss: () => {
-            if (stateKey && window.GameState) window.GameState.setCollected(stateKey);
-            const item = obj.getData('item');
-            if (item && this.player?.inventory) {
-              const slot = this.player.inventory.findEmptyInventorySlot();
-              if (slot !== -1) this.player.inventory.setItem(slot, item);
-            }
-            const idx = this.interactables.indexOf(obj);
-            if (idx > -1) this.interactables.splice(idx, 1);
-          }
-        });
+        onDismiss: () => {
+  if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
+  const tx = obj.getData('flagTileX')
+  const ty = obj.getData('flagTileY')
+  if (this.perspectiveGround) this.perspectiveGround.clearEncounterFlag(tx, ty)
+  if (this.perspectiveGround) this.perspectiveGround.forceRedraw()
+  const idx = this.interactables.indexOf(obj)
+  if (idx > -1) this.interactables.splice(idx, 1)
+}        });
         return;
       }
 
-      if (type === 'encounter_flag') {
+           if (type === 'encounter_flag') {
         this.textPanel.show({
           irish:   text?.ga || '',
           english: text?.en || '',
           type: 'examine',
           onDismiss: () => {
+            // Mark permanently resolved in GameState
+            if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
+            // Remove from PGR
             const tx = obj.getData('flagTileX')
             const ty = obj.getData('flagTileY')
             if (this.perspectiveGround) this.perspectiveGround.clearEncounterFlag(tx, ty)
+            // Remove from interactables
             const idx = this.interactables.indexOf(obj)
             if (idx > -1) this.interactables.splice(idx, 1)
           }
-        });
-        return;
+        })
+        return
       }
+ 
 
       this.textPanel.show({
         ...text,

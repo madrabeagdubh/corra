@@ -47,7 +47,7 @@ export default class PerspectiveGroundRenderer {
     this._player         = null
     this._playerCanvas   = null
     this._playerFrameKey = null
-
+this._encounterFlags = []
     // Nuke any lingering DOM elements from a previous PGR instance.
     // This guards against double-stacking when scene transitions overlap.
     ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
@@ -447,6 +447,7 @@ export default class PerspectiveGroundRenderer {
   }
 
   // ── Main render ───────────────────────────────────────────────────────────
+  // ── render ───────────────────────────────────────────────────────────────
 
   update(fov) {
     if (!this._ready) return
@@ -624,6 +625,24 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
+        // ── Encounter flags ───────────────────────────────────────────────
+        if (this._encounterFlags?.length) {
+          for (const flag of this._encounterFlags) {
+            if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
+            if (!flag.image?.width) continue
+            const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+            const screenY     = this._rowToScreenY(tileRow + 1)
+            const scaledTileW = this._scaleAtRow(tileRow + 1)
+            if (screenY !== null &&
+                screenY >= horizonPx &&
+                screenY <= sh + this.tileDisplaySize * 2) {
+              this._oCtx.globalAlpha = tileAlpha
+              this._drawBillboard(this._oCtx, flag.image, screenX, screenY, scaledTileW, 1.2)
+              this._oCtx.globalAlpha = 1.0
+            }
+          }
+        }
+
       } // tileCol
 
       // Draw player after last column if their row matched this row but
@@ -656,11 +675,27 @@ export default class PerspectiveGroundRenderer {
       console.log('[PGR v8] first frame —',
         'zoom:', zoom.toFixed(2),
         'perspCamRow:', camRow.toFixed(2),
-        'tileRows:', tileRowStart, '→', tileRowEnd,
+        'tileRows:', tileRowStart, '->',  tileRowEnd,
         'ground:', groundCount, 'objects:', objectCount
       )
     }
   }
+
+  // ── Encounter flag registration ───────────────────────────────────────────
+
+  setEncounterFlags(flags) {
+    // flags: array of { tileX, tileY, image } where image is an HTMLImageElement
+    this._encounterFlags = flags || []
+  }
+
+  clearEncounterFlag(tileX, tileY) {
+    if (!this._encounterFlags) return
+    this._encounterFlags = this._encounterFlags.filter(
+      f => !(f.tileX === tileX && f.tileY === tileY)
+    )
+  }
+
+
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 

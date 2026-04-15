@@ -6,10 +6,9 @@ export const bogThresholdContent = {
 
   introNarrative: [
     {
-      ga: 'Ar deireadh thiar,\ngeata thoir Mhóin Alúine mhóir,\néiríonn mo chroí chomh beag le hubh dreolín\nag an radharc\nÓ, an méid atá romham anois! \nCill Dara agus Uíbh Fhailí \nagus an Mhí agus an tIarmhí \nagus an Longfort,\n agus greidhm ag an Móin orthú mar aon.\nShíl mé gur thuigis fairsingeacht\nmise a chodail faoin spéir oscailte\n mise a shiúil bóithre fada Chonnacht.\nAch níor thuigeas tada,\nfaic na ngrást,\ngo dtí an uair seo.\n\nAch thánaigh mé ar shon chúise,\nCé go slogfadh an portach Allen cnoc, cleas agus cuimhne\nCuir misneach ionam,\néinne,\nóir casann an cosán tríd an fraoch.'
-,
+      ga: 'Ar deireadh thiar,\ngeata thoir Mhóin Alúine mhóir,\néiríonn mo chroí chomh beag le hubh dreolín\nag an radharc\nÓ, an méid atá romham anois! \nCill Dara agus Uíbh Fhailí \nagus an Mhí agus an tIarmhí \nagus an Longfort,\n agus greidhm ag an Móin orthú mar aon.\nShíl mé gur thuigis fairsingeacht\nmise a chodail faoin spéir oscailte\n mise a shiúil bóithre fada Chonnacht.\nAch níor thuigeas tada,\nfaic na ngrást,\ngo dtí an uair seo.\n\nAch thánaigh mé ar shon chúise,\nCé go slogfadh an portach Allen cnoc, cleas agus cuimhne\nCuir misneach ionam,\néinne,\nóir casann an cosán tríd an fraoch.',
       en: 'At long last,\nthe eastern gate of the great Bog of Allen\nmy heart grows small as a wren\'s egg.\nat the sight\nOh, what stretches before me now!\nKildare and Offaly\nand Meath and Westmeath \nand Longford, \nall held by the bog as one.\nI thought I knew vastness\n I who had slept beneath the open sky\nI who walked the long roads of Connacht.\n But I knew nothing,\nnothing at all,\n till this hour.\n\nBut I have come to pledge a thing most solemn\nThough the bog would swallow Allen, hill, haste and memory.\nOh, put courage in me, \nsomeone,\nfor the path winds through the heather.'
-    }    
+    }
   ],
 
   objects: [
@@ -51,6 +50,18 @@ export const bogThresholdContent = {
         en: 'Where Croghan Hill of Offaly stands lordly, proud and friendless across the waste.\n\nI approach the stone. There is no rune upon it. It is itself the rune. It is older than all the names ever given to this land.',
       },
     },
+    {
+      id: 'encounter_flag_a',
+      type: 'encounter_flag',
+      x: 18, y: 8,
+      text: { ga: '', en: '' }
+    },
+    {
+      id: 'encounter_flag_b',
+      type: 'encounter_flag',
+      x: 22, y: 20,
+      text: { ga: '', en: '' }
+    },
   ],
 
   npcs: [
@@ -89,7 +100,7 @@ export const bogThresholdContent = {
           en: '"I was neither young in dying, friend, nor was I very old.\nI crossed the bog in autumn-grey when the drinking-ale was low,\nand the lake took what the spear had spared and pulled me down below.\n\nI give you my counsel free of charge. Choose your road carefully."',
         },
         {
-          ga: '"Mo chuisle, mo rún, ise.\nBláth úll cumhra, ise.\nChoinnigh mé a hainm mar ghríosach i mo cliabh,\nagus thug mé liom te go mo scíth fhada fhuar.\n\nNa caoin mé. Ná bí trua dom.\nCuimhnigh amháin — bhí mé ann.\nBhí mé ann."',
+          ga: '"Mo chuisle, mo rún, ise.\nBláth úll cumhra, ise.\nChoinnigh mé a hainm mar ghríosach i mo cliabh,\nagus thug mé liom te go mo scíthfhada fhuar.\n\nNa caoin mé. Ná bí trua dom.\nCuimhnigh amháin — bhí mé ann.\nBhí mé ann."',
           en: '"My heart\'s pulse, my secret, she.\nThe flower of the fragrant apple, she.\nI kept her name like a coal in my chest,\nand carried it warm to my long, cold rest.\n\nGive me no pity. Give me no tear.\nOnly remember — I was here.\nI was here."',
         },
       ],

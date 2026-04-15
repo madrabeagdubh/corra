@@ -149,16 +149,15 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     `;
 
 
-    // -- Amergin text ----------------------------------------------------------
-    const textContainer = document.createElement('div');
+   const textContainer = document.createElement('div');
     textContainer.style.cssText = `
         text-align:center;max-width:800px;width:100%;
-        padding:1.5rem 1rem 0.5rem 1rem;
+        padding:0 1.5rem 0.5rem 1.5rem;
+        margin-top:7rem;
         flex-shrink:0;box-sizing:border-box;
-        padding-right:calc(1rem + 80px); /* clear moon widget in top-right */
-    `;
+    `
 
-    const displayLine = _state.currentAmerginLine || {
+;    const displayLine = _state.currentAmerginLine || {
         ga: 'Cé an té le nod slí na gcloch sléibhe?',
         en: 'Who knows the way of the mountain stones?',
     };
@@ -173,23 +172,27 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     textContainer.appendChild(irishTextEl);
 
     // -- Champion area ---------------------------------------------------------
-    const championHolder = document.createElement('div');
+    
+
+const championHolder = document.createElement('div');
     championHolder.style.cssText = `
         flex:1;width:100%;min-height:0;
         display:flex;flex-direction:column;
         justify-content:center;align-items:center;
-        overflow:hidden;padding:0.5rem 1rem;box-sizing:border-box;
+        gap:1rem;
+        overflow:hidden;padding:0.5rem 1.5rem;box-sizing:border-box;
     `;
-
-    const responseIrish = document.createElement('div');
+ const responseIrish = document.createElement('div');
     responseIrish.textContent = 'Cé murach mise.';
     responseIrish.style.cssText = `
         font-family:${FONTS.irish};
         font-size:1.8rem;color:${COLORS.speaker};
-        margin-bottom:0.5rem;line-height:1.5;
+        line-height:1.5;text-align:center;
+        max-width:800px;width:100%;
         opacity:0;transition:opacity 0.5s ease;
         pointer-events:none;
     `;
+
 
     const championCanvas = document.createElement('canvas');
     championCanvas.className = 'tutorial-champion-canvas';
@@ -211,6 +214,9 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         font-size:1.7rem;color:${COLORS.english};
         opacity:0;transition:opacity 0.3s ease;line-height:1.5;
         pointer-events:none;
+text-align:center;max-width:800px;width:100%
+max-height:0;overflow:hidden;transition:opacity
+
     `;
     // Append response elements now that they are declared
     textContainer.appendChild(responseIrish);
@@ -295,7 +301,8 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         responseEnglish.style.opacity = String(GameSettings.englishOpacity);
         bottomSection.style.opacity       = '0';
         bottomSection.style.pointerEvents = 'none';
-
+responseEnglish.style.maxHeight = '10rem';
+responseEnglish.style.opacity = String(GameSettings.englishOpacity);
         await new Promise(r => setTimeout(r, 2000));
 
         // Fade music

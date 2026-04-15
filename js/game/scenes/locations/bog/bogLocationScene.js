@@ -12,6 +12,16 @@ import FogRenderer from '../../../systems/fogRenderer.js'
 import { createMoonWidget }  from '../../../ui/moonWidget.js'
 import { createGameMenuHub } from '../../../ui/gameMenuHub.js'
 
+import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
+import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
+
+
+
+
+
+
+
+
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
 
@@ -51,12 +61,14 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   preload() {
+this.load.image('encounterFlag', '/assets/moonTile.png')
+	  this.load.image('darkStone', 'assets/darkStone.png');
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
     this.load.json('championAtlas', 'assets/champions/champions0.json')
-    this.load.image('slot_equipped',      '/assets/inventory/slot_equipped.png')
-    this.load.image('slot_inventory',     '/assets/inventory/slot_inventory.png')
-    this.load.image('panel_stone',        '/assets/inventory/panel_stone.png')
+    this.load.image('slot_equipped',      'assets/moonTile.png')
+    this.load.image('slot_inventory',     'assets/moonTile.png')
+    this.load.image('panel_stone',        'assets/log1.png')
     this.load.image('item_leather_armor', 'assets/inventory/A_Armour02.png')
     this.load.image('item_simple_bow',    'assets/inventory/W_Bow02.png')
     this.load.image('item_healing_potion','assets/inventory/P_Blue04.png')
@@ -77,23 +89,33 @@ export default class BogLocationScene extends BaseLocationScene {
     this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
-  async _loadContent() {
-    const jsKey = this.getContentKey()
-    try {
-      const module  = await import(`../../../../../data/bog/${jsKey}.js`)
-      const content = module[jsKey + 'Content'] || {}
-      this.mapData.objects        = content.objects        || []
-      this.mapData.npcs           = content.npcs           || []
-      this.mapData.introNarrative = content.introNarrative || []
-      console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
-    } catch(e) {
-      console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
-      this.mapData.objects        = []
-      this.mapData.npcs           = []
-      this.mapData.introNarrative = []
-    }
-  }
+ async _loadContent() {
+  const jsKey = this.getContentKey()
+  try {
+const module = await import(`/data/bog/${jsKey}.js`)
+    const content = module[jsKey + 'Content'] || {}
+    this.mapData.objects        = content.objects        || []
+    this.mapData.npcs           = content.npcs           || []
+    this.mapData.introNarrative = content.introNarrative || []
 
+    // -- Encounter deck injection --
+    const deck  = new EncounterDeck(forestDeck)
+    const drawn = deck.draw(2)
+    let   di    = 0
+    this.mapData.objects.forEach(obj => {
+      if (obj.type === 'encounter_flag' && drawn[di]) {
+        obj.text = { ga: drawn[di].ga, en: drawn[di].en }
+        obj._encounterId = drawn[di].id
+        di++
+      }
+    })
+  } catch(e) {
+    console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
+    this.mapData.objects        = []
+    this.mapData.npcs           = []
+    this.mapData.introNarrative = []
+  }
+} 
   getContentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
   }
@@ -121,6 +143,19 @@ export default class BogLocationScene extends BaseLocationScene {
     if (!this.mapData.exits)  this.mapData.exits  = {}
 
     this.initializeLocation()
+// Register player with PGR
+    if (this.perspectiveGround) {
+      this.perspectiveGround.setPlayer(this.player)
+    }
+
+    // Push encounter flags to PGR for world-space rendering
+    if (this._pendingFlags?.length && this.perspectiveGround) {
+      this.perspectiveGround.setEncounterFlags(this._pendingFlags)
+      this._pendingFlags = []
+    }
+
+    // Item sheet helper
+    this.itemSheet = new ItemSheetHelper(this)
 
     // Register player with PGR
     if (this.perspectiveGround) {
@@ -396,37 +431,49 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   // -- Object & NPC creation -----------------------------------------
+createObjects() {
+  if (!this.mapData.objects) return
+  this.interactables = []
 
-  createObjects() {
-    if (!this.mapData.objects) return
-    this.interactables = []
+  this.mapData.objects.forEach(obj => {
+    const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
+    if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
+    if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
+        !GameState.isQuestComplete(obj.requiresQuest)) return
 
-    this.mapData.objects.forEach(obj => {
-      const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-      if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
-      if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
-          !GameState.isQuestComplete(obj.requiresQuest)) return
+    const pixelX = obj.x * this.tileSize + this.tileSize / 2
+    const pixelY = obj.y * this.tileSize + this.tileSize / 2
 
-      const pixelX = obj.x * this.tileSize + this.tileSize / 2
-      const pixelY = obj.y * this.tileSize + this.tileSize / 2
+    const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
+    zone.setData('id',       obj.id)
+    zone.setData('type',     obj.type)
+    zone.setData('text',     obj.text)
+    zone.setData('stateKey', stateKey)
+    zone.setData('item',     obj.item || null)
+    zone.setData('note',     obj.note || null)
+    zone.setData('logicalX', pixelX)
+    zone.setData('logicalY', pixelY)
+    zone.x = pixelX
+    zone.y = pixelY
 
-      const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
-      zone.setData('id',       obj.id)
-      zone.setData('type',     obj.type)
-      zone.setData('text',     obj.text)
-      zone.setData('stateKey', stateKey)
-      zone.setData('item',     obj.item || null)
-      zone.setData('note',     obj.note || null)
-      zone.setData('logicalX', pixelX)
-      zone.setData('logicalY', pixelY)
-      zone.x = pixelX
-      zone.y = pixelY
 
-      this.interactables.push(zone)
-    })
 
-    console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
-  }
+
+if (obj.type === 'encounter_flag') {
+  const flagImg = new Image()
+  flagImg.src = '/assets/moonTile.png'
+  zone.setData('flagImg',  flagImg)
+  zone.setData('flagTileX', obj.x)
+  zone.setData('flagTileY', obj.y)
+  this._pendingFlags = this._pendingFlags || []
+  this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, image: flagImg })
+}
+
+    this.interactables.push(zone)
+  })
+
+  console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
+}
 
   createNPCs() {
     if (!this.mapData.npcs) return

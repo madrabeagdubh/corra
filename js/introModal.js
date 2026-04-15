@@ -596,9 +596,17 @@ preload(){
 
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
-        irishEl.style.cssText = [
+      
+
+
+
+
+
+irishEl.style.cssText = [
             `font-family:${FONTS.irish};`,
-            `font-size:${Math.round(Math.min(W, H) * 0.072)}px;`,
+
+
+`font-size:${TYPE.domBody.size};`,
             `color:${COLORS.irish};text-align:center;`,
             'text-shadow:0 0 18px rgba(0,0,0,0.9);',
             'padding:0 6%;',
@@ -616,7 +624,9 @@ preload(){
         enEl.textContent = line.en;
        enEl.style.cssText = [
             `font-family:${FONTS.english};`,
-            `font-size:${Math.round(Math.min(W, H) * 0.058)}px;`,
+
+
+`font-size:${TYPE.domBodyEn.size};`,
             `color:${COLORS.druid};text-align:center;`,
             'text-shadow:0 0 12px rgba(0,0,0,0.9);',
             'padding:0 6%;',

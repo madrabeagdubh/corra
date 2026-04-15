@@ -23,7 +23,7 @@ export default class BaseLocationScene extends Phaser.Scene {
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png');
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
-
+    this.load.image('darkStone', 'assets/darkStone.png');
     this.load.image('slot_equipped',       '/assets/inventory/slot_equipped.png');
     this.load.image('slot_inventory',      '/assets/inventory/slot_inventory.png');
     this.load.image('panel_stone',         '/assets/inventory/panel_stone.png');
@@ -194,6 +194,17 @@ export default class BaseLocationScene extends Phaser.Scene {
       zone.x = pixelX;
       zone.y = pixelY;
 
+      // Encounter flags: register image + tile coords for PGR rendering
+      if (obj.type === 'encounter_flag') {
+        const flagImg = new Image()
+        flagImg.src = '/assets/moonTile.png'
+        zone.setData('flagImg',   flagImg)
+        zone.setData('flagTileX', obj.x)
+        zone.setData('flagTileY', obj.y)
+        this._pendingFlags = this._pendingFlags || []
+        this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, image: flagImg })
+      }
+
       this.interactables.push(zone);
     });
 
@@ -308,6 +319,22 @@ export default class BaseLocationScene extends Phaser.Scene {
         return;
       }
 
+      if (type === 'encounter_flag') {
+        this.textPanel.show({
+          irish:   text?.ga || '',
+          english: text?.en || '',
+          type: 'examine',
+          onDismiss: () => {
+            const tx = obj.getData('flagTileX')
+            const ty = obj.getData('flagTileY')
+            if (this.perspectiveGround) this.perspectiveGround.clearEncounterFlag(tx, ty)
+            const idx = this.interactables.indexOf(obj)
+            if (idx > -1) this.interactables.splice(idx, 1)
+          }
+        });
+        return;
+      }
+
       this.textPanel.show({
         ...text,
         irish:   text?.ga || text?.irish   || '',
@@ -327,7 +354,7 @@ export default class BaseLocationScene extends Phaser.Scene {
     // No tile-type guard — exit coords alone determine transitions
     for (const [, exitData] of Object.entries(this.mapData.exits)) {
       if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
-        console.log(`[${this.scene.key}] exit → ${exitData.destination} at [${tileX},${tileY}]`)
+        console.log(`[${this.scene.key}] exit -> ${exitData.destination} at [${tileX},${tileY}]`)
         this.scene.start(exitData.destination, {
           entryEdge:  exitData.entryPoint,
           sourceTile: { x: tileX, y: tileY }
@@ -355,14 +382,14 @@ export default class BaseLocationScene extends Phaser.Scene {
       const slot = this.player.inventory.findEmptyInventorySlot();
       if (slot === -1) {
         if (this.textPanel) this.textPanel.show({
-          irish: 'Tásc lán!', english: 'Inventory full!', type: 'notification'
+          irish: 'Tasc lan!', english: 'Inventory full!', type: 'notification'
         });
         continue;
       }
 
       this.player.inventory.setItem(slot, item.itemData);
       if (this.textPanel) this.textPanel.show({
-        irish:   `Fuair mé ${item.itemData.nameGa}`,
+        irish:   `Fuair me ${item.itemData.nameGa}`,
         english: `I got the ${item.itemData.nameEn}`,
         type: 'notification'
       });
@@ -398,7 +425,7 @@ export default class BaseLocationScene extends Phaser.Scene {
     this.time.delayedCall(500, () => {
       if (dropped?.active) {
         dropped.justDropped = false;
-        console.log('✅ Item ready for pickup:', item.nameEn);
+        console.log('Item ready for pickup:', item.nameEn);
       }
     });
 
@@ -423,7 +450,7 @@ export default class BaseLocationScene extends Phaser.Scene {
     if (collider) collider.destroy();
     dropped.destroy();
 
-    console.log('✅ Picked up:', dropped.itemData.nameEn, 'into slot', slot);
+    console.log('Picked up:', dropped.itemData.nameEn, 'into slot', slot);
     if (this.worldMenu?.isOpen) this.worldMenu.refreshGridDisplay();
   }
 }

@@ -262,7 +262,7 @@ function _buildFixed(moonCanvas, moonR, moonD, corner = 'top-right') {
         'pointer-events:all;',
         // Tile only — no rgba backing so the transparent canvas corners
         // don't produce a visible dark square around the moon.
-        'background:url(assets/moonTile.png) center/cover no-repeat;',
+        'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
     ].join('');
 
     moonCanvas.style.cssText = [

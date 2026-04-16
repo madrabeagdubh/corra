@@ -137,11 +137,15 @@ export default class BaseLocationScene extends Phaser.Scene {
 
       if (this.terrainManager) this.terrainManager.update();
 
-     this._flagInRange = false
+
+
+
+this._flagInRange = false
       this.checkProximityInteractions()
       if (!this._flagInRange && this._encounterPanel) {
         this._encounterPanel.clearNotify()
       }
+
       this.checkExits()    }
 
     this.checkItemPickups();
@@ -257,8 +261,10 @@ export default class BaseLocationScene extends Phaser.Scene {
     const dialogue  = dialogues[index];
     const stateKey  = npc.getData('stateKey');
 
-    if (this.joystick) this.joystick.reset();
-    if (this.player)   this.player.isMoving = false;
+if (type !== 'encounter_flag') {
+        if (this.joystick) this.joystick.reset()
+        if (this.player)   this.player.isMoving = false
+      }
 
     this.textPanel.show({
       ...dialogue,
@@ -276,78 +282,82 @@ export default class BaseLocationScene extends Phaser.Scene {
   }
 
   // ── Proximity interactions ────────────────────────────────────────────────
+checkProximityInteractions() {
+  if (this.narrativeInProgress) return;
+  if (this.textPanel.isVisible || this.textPanelCooldown) return;
 
-  checkProximityInteractions() {
-    if (this.narrativeInProgress) return;
-    if (this.textPanel.isVisible || this.textPanelCooldown) return;
+  const playerX = this.player.logicalX;
+  const playerY = this.player.logicalY;
 
-    const playerX = this.player.logicalX;
-    const playerY = this.player.logicalY;
+  this.interactables.forEach(obj => {
+    const objX = obj.getData('logicalX') ?? obj.x;
+    const objY = obj.getData('logicalY') ?? obj.y;
+    const type = obj.getData('type');
 
-    this.interactables.forEach(obj => {
-      const objX = obj.getData('logicalX') ?? obj.x;
-      const objY = obj.getData('logicalY') ?? obj.y;
+    const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
 
-      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
-      if (dist >= 60) return;
-
-      const text     = obj.getData('text');
-      const id       = obj.getData('id');
-      const type     = obj.getData('type');
-      const stateKey = obj.getData('stateKey');
-      const note     = obj.getData('note');
-
-      if (this.joystick) this.joystick.reset();
-      if (this.player)   this.player.isMoving = false;
-
-      if (note && window.GameState) window.GameState.addNote(note);
-
-      if (type === 'collectable') {
-        this.textPanel.show({
-          ...text,
-          irish:   text?.ga || text?.irish   || '',
-          english: text?.en || text?.english || '',
-          id, type: 'examine',
-        onDismiss: () => {
-  if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
-  const tx = obj.getData('flagTileX')
-  const ty = obj.getData('flagTileY')
-  if (this.perspectiveGround) this.perspectiveGround.clearEncounterFlag(tx, ty)
-  if (this.perspectiveGround) this.perspectiveGround.forceRedraw()
-  const idx = this.interactables.indexOf(obj)
-  if (idx > -1) this.interactables.splice(idx, 1)
-}        });
-        return;
+    // Encounter flags -- large radius, silent, never stop player
+    if (type === 'encounter_flag') {
+      if (dist >= 120) return
+      this._flagInRange = true
+      if (this._encounterPanel) {
+        const text = obj.getData('text');
+        const id   = obj.getData('id');
+        this._encounterPanel.notify(
+          {
+            id:      id,
+            visual:  obj.getData('flagVisual'),
+            ga:      text?.ga || '',
+            en:      text?.en || '',
+            actions: obj.getData('actions') || [],
+          },
+          obj
+        )
       }
+      return
+    }
 
-         if (type === 'encounter_flag') {
-        // Notify encounter panel — it handles the UI from here
-this._flagInRange = true          
+    if (dist >= 60) return;
 
-if (this._encounterPanel) {
-          this._encounterPanel.notify(
-            {
-              id:      id,
-              visual:  obj.getData('flagVisual'),
-              ga:      text?.ga || '',
-              en:      text?.en || '',
-              actions: obj.getData('actions') || [],
-            },
-            obj
-          )
-        }
-        return
-      } 
- 
+    const text     = obj.getData('text');
+    const id       = obj.getData('id');
+    const stateKey = obj.getData('stateKey');
+    const note     = obj.getData('note');
 
+    if (this.joystick) this.joystick.reset();
+    if (this.player)   this.player.isMoving = false;
+
+    if (note && window.GameState) window.GameState.addNote(note);
+
+    if (type === 'collectable') {
       this.textPanel.show({
         ...text,
         irish:   text?.ga || text?.irish   || '',
         english: text?.en || text?.english || '',
-        id, type: 'examine'
+        id, type: 'examine',
+        onDismiss: () => {
+          if (stateKey && window.GameState) window.GameState.setCollected(stateKey);
+          const item = obj.getData('item');
+          if (item && this.player?.inventory) {
+            const slot = this.player.inventory.findEmptyInventorySlot();
+            if (slot !== -1) this.player.inventory.setItem(slot, item);
+          }
+          const idx = this.interactables.indexOf(obj);
+          if (idx > -1) this.interactables.splice(idx, 1);
+        }
       });
+      return;
+    }
+
+    this.textPanel.show({
+      ...text,
+      irish:   text?.ga || text?.irish   || '',
+      english: text?.en || text?.english || '',
+      id, type: 'examine'
     });
-  }
+  });
+}
+
 
   // ── Exits ─────────────────────────────────────────────────────────────────
 

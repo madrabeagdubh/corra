@@ -11,18 +11,9 @@ import PathFinder from '../../../systems/pathFinder.js'
 import FogRenderer from '../../../systems/fogRenderer.js'
 import { createMoonWidget }  from '../../../ui/moonWidget.js'
 import { createGameMenuHub } from '../../../ui/gameMenuHub.js'
-
 import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
 import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
-
-
-
 import { EncounterPanel } from '../../../ui/encounterPanel.js'
-
- 
-
-
-
 
 // Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
@@ -63,8 +54,8 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   preload() {
-this.load.image('encounterFlag', '/assets/moonTile.png')
-	  this.load.image('darkStone', 'assets/darkStone.png');
+    this.load.image('encounterFlag',        '/assets/moonTile.png')
+    this.load.image('darkStone',            'assets/darkStone.png')
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
     this.load.json('championAtlas', 'assets/champions/champions0.json')
@@ -86,12 +77,12 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     this.bogMapCacheKey = 'bogMap_' + key
     this.load.json(this.bogMapCacheKey, `/maps/bogMaps/${key}.json?v=` + Date.now())
     this.load.image('oryxTiles',   '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
-    this.load.image('fogTexture', '/assets/bg0.png')
+    this.load.image('fogTexture',  '/assets/bg0.png')
     this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
-    this.load.image('oryxItems', '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
+    this.load.image('oryxItems',   '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
-   async _loadContent() {
+  async _loadContent() {
     const jsKey = this.getContentKey()
     try {
       const module  = await import(`/data/bog/${jsKey}.js`)
@@ -101,16 +92,14 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
       this.mapData.introNarrative = content.introNarrative || []
 
       // -- Encounter deck injection ------------------------------------------
-      // Build occupied tile set from existing objects + npcs
       const occupied = new Set()
       this.mapData.objects.forEach(o => occupied.add(`${o.x},${o.y}`))
       this.mapData.npcs.forEach(n => occupied.add(`${n.x},${n.y}`))
 
-      // Build walkable tile list from layer 0 using ALWAYS_UNWALKABLE
-      const layer0    = this.mapData.layers[0]
-      const mapH      = this.mapData.height
-      const mapW      = this.mapData.width
-      const walkable  = []
+      const layer0   = this.mapData.layers[0]
+      const mapH     = this.mapData.height
+      const mapW     = this.mapData.width
+      const walkable = []
       for (let y = 1; y < mapH - 1; y++) {
         for (let x = 1; x < mapW - 1; x++) {
           const gid = layer0[y]?.[x]
@@ -121,20 +110,15 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
         }
       }
 
-      // Shuffle walkable tiles
       walkable.sort(() => Math.random() - 0.5)
 
-      // Draw cards and place on random walkable tiles
       const deck  = new EncounterDeck(forestDeck)
       const drawn = deck.draw(6)
       let   wi    = 0
 
       drawn.forEach(card => {
-        // Skip if already resolved in a previous session
         const stateKey = `${this.getMapKey()}.${card.id}`
         if (GameState.isCollected(stateKey)) return
-
-        // Find a free walkable tile
         if (wi >= walkable.length) return
         const tile = walkable[wi++]
 
@@ -157,7 +141,7 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
       this.mapData.introNarrative = []
     }
   }
- 
+
   getContentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
   }
@@ -185,7 +169,8 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     if (!this.mapData.exits)  this.mapData.exits  = {}
 
     this.initializeLocation()
-// Register player with PGR
+
+    // Register player with PGR
     if (this.perspectiveGround) {
       this.perspectiveGround.setPlayer(this.player)
     }
@@ -199,18 +184,10 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     // Item sheet helper
     this.itemSheet = new ItemSheetHelper(this)
 
-    // Register player with PGR
-    if (this.perspectiveGround) {
-      this.perspectiveGround.setPlayer(this.player)
-    }
-
-    // Item sheet helper
-    this.itemSheet = new ItemSheetHelper(this)
-
     // Snap camera before lerp starts
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
 
-    // -- FOV + Pathfinding + Fog ---------------------------------------------
+    // -- FOV + Pathfinding + Fog -------------------------------------------
     this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
@@ -253,7 +230,7 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
   }
 
-  // -- FOV + Pathfinding helpers ---------------------------------------------
+  // -- FOV + Pathfinding helpers -----------------------------------------
 
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
@@ -282,19 +259,12 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
 
   _setupTapToPath() {
     this.input.on('pointerdown', (pointer) => {
-      // Ignore taps in joystick zone (bottom-left)
       if (pointer.x < 220 && pointer.y > this.scale.height - 220) return
-      // Ignore taps in moon widget zone (bottom-right)
-      // Zone size matches moon wrapper: ~11% of screen + margin + padding
       const _moonZone = Math.round(Math.min(this.scale.width, this.scale.height) * 0.16)
       if (pointer.x > this.scale.width - _moonZone && pointer.y > this.scale.height - _moonZone) return
-      // Ignore if text panel open
       if (this.textPanel?.isVisible) return
-      // Ignore if no PGR
       if (!this.perspectiveGround) return
-      // Ignore if player is aiming bow
       if (this._bowAiming) return
-      // Ignore if menu is open
       if (this._menuHub?.isOpen()) return
 
       const tile = PathFinder.screenToTile(
@@ -314,21 +284,26 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
     })
   }
 
-  // -- UI ------------------------------------------------------------
+  // -- UI ----------------------------------------------------------------
 
-  // -- UI state machine -------------------------------------------------
   _onMoonTap() {
     const now = Date.now()
     if (now - (this._lastMoonTap || 0) < 700) return
     this._lastMoonTap = now
 
-    // Detail panel open: close detail only, keep inventory open
+    // Encounter panel notification active: open it
+    if (this._encounterPanel?._card) {
+      this._encounterPanel._openPanel()
+      return
+    }
+
+    // Detail panel open: close detail only
     if (this.worldMenu?.itemDetailPanel?.isVisible) {
       this.worldMenu.itemDetailPanel.hide()
       return
     }
 
-    // Inventory open (no detail): close inventory only
+    // Inventory open: close inventory
     if (this.worldMenu?.isOpen) {
       this._closeWorldMenuSilently()
       return
@@ -340,15 +315,13 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
       return
     }
 
-    // Nothing open: open hub (goes straight to last panel)
+    // Nothing open: open hub
     this._menuHub?.open()
   }
 
   _createWorldUI() {
-    // WorldMenu still exists for any legacy NPC/item interactions that use it
     this.worldMenu = new WorldMenu(this, { player: this.player })
 
-    // -- Menu hub -- swipeable panels (inventory, quests, stats, map, settings)
     this._menuHub = createGameMenuHub({
       onInventoryOpen:  () => {
         this.time.delayedCall(50, () => this.worldMenu?.open())
@@ -358,8 +331,6 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
       },
     })
 
-
-    // -- Moon widget -- top-right corner, swipe for English opacity, tap to toggle menu
     this._moonWidget = createMoonWidget({
       initialPhase: GameSettings.englishOpacity,
       showSlider:   false,
@@ -369,22 +340,21 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
         if (this.textPanel)  this.textPanel.updateEnglishOpacity()
         if (this.worldMenu?.itemDetailPanel)
           this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add this
       },
+
       onTap: () => this._onMoonTap(),
     })
 
-this._encounterPanel = new EncounterPanel(this, this._moonWidget)
-
+    this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
 
-  // Close WorldMenu without any hub side-effect
   _closeWorldMenuSilently() {
     if (!this.worldMenu) return
-    // Use the proper close() which handles all children including ButtonBar
     this.worldMenu.close()
   }
 
-  // -- Collision -----------------------------------------------------
+  // -- Collision ---------------------------------------------------------
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
@@ -398,7 +368,7 @@ this._encounterPanel = new EncounterPanel(this, this._moonWidget)
     return false
   }
 
-  // -- Entry positioning ---------------------------------------------
+  // -- Entry positioning -------------------------------------------------
 
   applyEntryPosition() {
     const edge = this.entryData?.entryEdge
@@ -438,7 +408,7 @@ this._encounterPanel = new EncounterPanel(this, this._moonWidget)
     console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
-  // -- Narrative -----------------------------------------------------
+  // -- Narrative ---------------------------------------------------------
 
   showIntroNarrative() {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
@@ -475,14 +445,15 @@ this._encounterPanel = new EncounterPanel(this, this._moonWidget)
     showNext()
   }
 
-  // -- Object & NPC creation -----------------------------------------
+  // -- Object & NPC creation ---------------------------------------------
+
   createObjects() {
     if (!this.mapData.objects) return
     this.interactables = []
 
     this.mapData.objects.forEach(obj => {
       const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-      if (obj.type === 'collectable' && GameState.isCollected(stateKey)) return
+      if (obj.type === 'collectable'    && GameState.isCollected(stateKey)) return
       if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
       if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
           !GameState.isQuestComplete(obj.requiresQuest)) return
@@ -502,13 +473,11 @@ this._encounterPanel = new EncounterPanel(this, this._moonWidget)
       zone.x = pixelX
       zone.y = pixelY
 
-      // Encounter flags: register tile coords + visual for PGR renderin
-if (obj.type === 'encounter_flag') {
-  console.log('[encounter_flag]', obj.id, 'text:', JSON.stringify(obj.text), 'visual:', JSON.stringify(obj.visual))
-
+      if (obj.type === 'encounter_flag') {
         zone.setData('flagTileX', obj.x)
         zone.setData('flagTileY', obj.y)
         zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
+        zone.setData('actions',    obj.actions || [])
         this._pendingFlags = this._pendingFlags || []
         this._pendingFlags.push({
           tileX:  obj.x,
@@ -522,7 +491,6 @@ if (obj.type === 'encounter_flag') {
 
     console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
   }
-
 
   createNPCs() {
     if (!this.mapData.npcs) return
@@ -563,7 +531,7 @@ if (obj.type === 'encounter_flag') {
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
 
-  // -- Update --------------------------------------------------------
+  // -- Update ------------------------------------------------------------
 
   update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
@@ -587,11 +555,12 @@ if (obj.type === 'encounter_flag') {
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
-  // -- Shutdown ------------------------------------------------------
+  // -- Shutdown ----------------------------------------------------------
 
   shutdown() {
-    if (this._moonWidget) { this._moonWidget.destroy(); this._moonWidget = null }
-    if (this._menuHub)    { this._menuHub.destroy();    this._menuHub    = null }
+    if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
+    if (this._moonWidget)     { this._moonWidget.destroy();     this._moonWidget     = null }
+    if (this._menuHub)        { this._menuHub.destroy();        this._menuHub        = null }
     if (this.perspectiveGround) {
       this.perspectiveGround.destroy()
       this.perspectiveGround = null
@@ -600,17 +569,15 @@ if (obj.type === 'encounter_flag') {
       this.fogRenderer.destroy()
       this.fogRenderer = null
     }
-    if (this.itemSheet)  { this.itemSheet.clear(); this.itemSheet = null }
-    if (this.fovSystem)  { this.fovSystem  = null }
-    if (this.pathFinder) { this.pathFinder = null }
+    if (this.itemSheet)    { this.itemSheet.clear();      this.itemSheet    = null }
+    if (this.fovSystem)    { this.fovSystem  = null }
+    if (this.pathFinder)   { this.pathFinder = null }
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
-if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
-
   }
 
-  // -- Tilemap -------------------------------------------------------
+  // -- Tilemap -----------------------------------------------------------
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }

@@ -17,7 +17,9 @@ import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
 
 
 
+import { EncounterPanel } from '../../../ui/encounterPanel.js'
 
+ 
 
 
 
@@ -370,6 +372,9 @@ this.load.image('encounterFlag', '/assets/moonTile.png')
       },
       onTap: () => this._onMoonTap(),
     })
+
+this._encounterPanel = new EncounterPanel(this, this._moonWidget)
+
   }
 
   // Close WorldMenu without any hub side-effect
@@ -601,6 +606,8 @@ if (obj.type === 'encounter_flag') {
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
+if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
+
   }
 
   // -- Tilemap -------------------------------------------------------

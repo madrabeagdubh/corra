@@ -15,13 +15,32 @@ export const forestDeck = [
     ga: 'Trí phréachán ag féachaint ort ó chrann. Tá rud éigin lonrach i ngob ceann acu. Fanann siad socair.',
     en: 'Three crows watch you from a branch. One holds something shiny in its beak. They do not move.'
   },
-  {
+
+{
     id: 'enc_chest',
     visual: { gid: 255, flat: false },
-    ga: 'Cófra beag adhmaid i measc na bhfréamhacha. Tá sé daingnithe le sreang leathair — ní le glas. Fós féin, ní osclaítear go héasca é.',
-    en: 'A small wooden chest among the roots. Fastened with a leather cord — not a lock. Still, it does not open easily.'
+    ga: 'Cófra beag adhmaid i measc na bhfréamhacha...',
+    en: 'A small wooden chest among the roots...',
+    actions: [
+      {
+        labelGa: 'Oscail',
+        labelEn: 'Open',
+        outcome: {
+          type:       'loot',
+          visualSwap: { gid: 197, flat: false },
+          sound:      'creak1',
+          textGa:     'Folamh. Ar ndóigh.',
+          textEn:     'Empty. Of course.'
+        }
+      },
+      {
+        labelGa: 'Fág',
+        labelEn: 'Leave',
+        outcome: { type: 'persist' }
+      }
+    ]
   },
-  {
+	{
     id: 'enc_page',
     visual: { gid: 469, flat: true },
     ga: 'Leathanach amháin, fliuch, leagtha ar chloch. Tá scríbhneoireacht air — Gaeilge, an-sean. Tá focal amháin soiléir: AIRE.',

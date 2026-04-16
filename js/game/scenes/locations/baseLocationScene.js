@@ -139,14 +139,25 @@ export default class BaseLocationScene extends Phaser.Scene {
 
 
 
-
 this._flagInRange = false
       this.checkProximityInteractions()
       if (!this._flagInRange && this._encounterPanel) {
-        this._encounterPanel.clearNotify()
+        const allFar = !this.interactables?.some(obj => {
+          if (obj.getData('type') !== 'encounter_flag') return false
+          const ox = obj.getData('flagTileX')
+          const oy = obj.getData('flagTileY')
+          if (ox == null) return false
+          const ptx = Math.floor(this.player.logicalX / this.tileSize)
+          const pty = Math.floor(this.player.logicalY / this.tileSize)
+          const tileDist = Math.abs(ptx - ox) + Math.abs(pty - oy)
+          return tileDist <= 3
+        })
+        if (allFar) this._encounterPanel.clearNotify()
       }
 
-      this.checkExits()    }
+
+
+     this.checkExits()    }
 
     this.checkItemPickups();
 
@@ -297,10 +308,17 @@ checkProximityInteractions() {
     const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
 
     // Encounter flags -- large radius, silent, never stop player
-    if (type === 'encounter_flag') {
-      if (dist >= 120) return
+  
+if (type === 'encounter_flag') {
+      const ftx = obj.getData('flagTileX')
+      const fty = obj.getData('flagTileY')
+      if (ftx == null) return
+      const ptx = Math.floor(this.player.logicalX / this.tileSize)
+      const pty = Math.floor(this.player.logicalY / this.tileSize)
+      const tileDist = Math.abs(ptx - ftx) + Math.abs(pty - fty)
+      if (tileDist > 2) return
       this._flagInRange = true
-      if (this._encounterPanel) {
+     if (this._encounterPanel) {
         const text = obj.getData('text');
         const id   = obj.getData('id');
         this._encounterPanel.notify(

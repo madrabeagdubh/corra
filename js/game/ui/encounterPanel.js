@@ -37,7 +37,7 @@
  *   }
  */
 
-import { ScrollingTextPlayer } from '../ui/scrollingTextPlayer.js'
+import { ScrollingTextPlayer } from './scrollingTextPlayer.js'
 import { GameSettings }        from '../settings/gameSettings.js'
 
 const BADGE_FADE_MS = 400

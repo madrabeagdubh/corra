@@ -137,9 +137,12 @@ export default class BaseLocationScene extends Phaser.Scene {
 
       if (this.terrainManager) this.terrainManager.update();
 
-      this.checkProximityInteractions();
-      this.checkExits();
-    }
+     this._flagInRange = false
+      this.checkProximityInteractions()
+      if (!this._flagInRange && this._encounterPanel) {
+        this._encounterPanel.clearNotify()
+      }
+      this.checkExits()    }
 
     this.checkItemPickups();
 
@@ -317,25 +320,24 @@ export default class BaseLocationScene extends Phaser.Scene {
         return;
       }
 
-           if (type === 'encounter_flag') {
-        this.textPanel.show({
-          irish:   text?.ga || '',
-          english: text?.en || '',
-          type: 'examine',
-          onDismiss: () => {
-            // Mark permanently resolved in GameState
-            if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
-            // Remove from PGR
-            const tx = obj.getData('flagTileX')
-            const ty = obj.getData('flagTileY')
-            if (this.perspectiveGround) this.perspectiveGround.clearEncounterFlag(tx, ty)
-            // Remove from interactables
-            const idx = this.interactables.indexOf(obj)
-            if (idx > -1) this.interactables.splice(idx, 1)
-          }
-        })
+         if (type === 'encounter_flag') {
+        // Notify encounter panel — it handles the UI from here
+this._flagInRange = true          
+
+if (this._encounterPanel) {
+          this._encounterPanel.notify(
+            {
+              id:      id,
+              visual:  obj.getData('flagVisual'),
+              ga:      text?.ga || '',
+              en:      text?.en || '',
+              actions: obj.getData('actions') || [],
+            },
+            obj
+          )
+        }
         return
-      }
+      } 
  
 
       this.textPanel.show({

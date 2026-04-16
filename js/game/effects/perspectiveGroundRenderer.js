@@ -1,11 +1,11 @@
 // PerspectiveGroundRenderer.js  (v8)
 //
 // Two-canvas architecture:
-//   pgr-ground   z-index:1  — layer 0 ground tiles (trapezoid-warped)
-//   pgr-objects  z-index:2  — layer 1 tiles as upright billboards + player
-//   pgr-light    z-index:3  — radial gradient lighting overlay (DOM div)
+//   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
+//   pgr-objects  z-index:2  -- layer 1 tiles as upright billboards + player
+//   pgr-light    z-index:3  -- radial gradient lighting overlay (DOM div)
 //
-// Phaser canvas sits at z-index:10 — UI, joystick, inventory all unaffected.
+// Phaser canvas sits at z-index:10 -- UI, joystick, inventory all unaffected.
 // Player's Phaser sprite is hidden; PGR owns all player rendering.
 //
 // Player logical coords are tile-centre pixel values (spawn.x * 48 + 24).
@@ -14,42 +14,40 @@
 //
 // Usage:
 //   const pgr = new PerspectiveGroundRenderer(scene)
-//   pgr.setPlayer(this.player)   ← call after initializeLocation()
+//   pgr.setPlayer(this.player)   -- call after initializeLocation()
 
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
 
-  // ── Perspective ───────────────────────────────────────────────────────────
+  // Perspective
   static CAMERA_ROW_OFFSET    = 10.5
   static TILES_ACROSS         = 6.5
   static PLAYER_DIST_TILES    = 4.1
   static FOCAL_LENGTH         = 7.5
-  static HORIZON_Y_FRAC       = 0.3   // sky visible above 30% line
+  static HORIZON_Y_FRAC       = 0.3
   static HEIGHT_MULTIPLIER    = 1.6
 
-  // ── Lighting ──────────────────────────────────────────────────────────────
+  // Lighting
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0.82
   static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
 
-  // ── Tileset ───────────────────────────────────────────────────────────────
+  // Tileset
   static TW         = 24
   static TH         = 24
   static MG         = 24
   static SHEET_COLS = 54
   static TILESET_URL = '/assets/oryx/oryx_16bit_fantasy_world_trans.png'
 
-  // ─────────────────────────────────────────────────────────────────────────
-
   constructor(scene) {
     this.scene           = scene
     this._player         = null
     this._playerCanvas   = null
     this._playerFrameKey = null
-this._encounterFlags = []
+    this._encounterFlags = []
+
     // Nuke any lingering DOM elements from a previous PGR instance.
-    // This guards against double-stacking when scene transitions overlap.
     ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
       const el = document.getElementById(id)
       if (el) el.parentNode?.removeChild(el)
@@ -58,13 +56,12 @@ this._encounterFlags = []
     const phaserCanvas   = scene.game.canvas
     this._sw             = phaserCanvas.width
     this._sh             = phaserCanvas.height
-    this.tileDisplaySize = 48   // TW * SCALE = 24 * 2
+    this.tileDisplaySize = 48
 
     this._tilesetImg = null
     this._tileCache  = new Map()
     this._ready      = false
 
-    // Build flat GID set from oryxCatalogue if loaded
     this._flatGids = new Set()
     this._loadCatalogue()
 
@@ -78,17 +75,15 @@ this._encounterFlags = []
         this._ready      = true
         this._lastCamX   = null
         this._lastCamY   = null
-        console.log('[PGR v8] tileset ready —', img.width, 'x', img.height)
+        console.log('[PGR v8] tileset ready -', img.width, 'x', img.height)
       }
       img.onerror = e => console.error('[PGR v8] tileset load failed', e)
       img.src = PerspectiveGroundRenderer.TILESET_URL
     }
 
-    // ── DOM layer stack ───────────────────────────────────────────────────
+    // DOM layer stack
     const container = phaserCanvas.parentNode
 
-    // Set Phaser canvas style directly — targeting phaserCanvas specifically
-    // ensures it works on scene transition when new canvases are added later.
     phaserCanvas.style.position   = 'absolute'
     phaserCanvas.style.top        = '0'
     phaserCanvas.style.left       = '0'
@@ -102,10 +97,8 @@ this._encounterFlags = []
     this._gCtx.imageSmoothingEnabled = false
     this._oCtx.imageSmoothingEnabled = false
 
-    // Sky + vignette — sits behind everything at z-index:0
     this._skyDiv = this._buildSkyVignette(container)
 
-    // Lighting overlay
     this._lightDiv = document.createElement('div')
     this._lightDiv.id = 'pgr-light'
     this._lightDiv.style.cssText = [
@@ -120,19 +113,17 @@ this._encounterFlags = []
     this._lastCamZoom = null
     this._debugged    = false
 
-    console.log('[PGR v8] constructed —', this._sw, 'x', this._sh)
+    console.log('[PGR v8] constructed -', this._sw, 'x', this._sh)
   }
 
-  // ── Catalogue ─────────────────────────────────────────────────────────
+  // Catalogue
   // Load oryxCatalogue.json from Phaser cache and build _flatGids Set.
-  // Call once at construction — catalogue must be preloaded in preload():
-  //   this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
 
   _loadCatalogue() {
     try {
       const catalogue = this.scene.cache.json.get('oryxCatalogue')
       if (!catalogue) {
-        console.warn('[PGR] oryxCatalogue not in cache — all layer 1 tiles will be billboards')
+        console.warn('[PGR] oryxCatalogue not in cache -- all layer 1 tiles will be billboards')
         return
       }
       let flatCount = 0
@@ -142,7 +133,7 @@ this._encounterFlags = []
           flatCount++
         }
       }
-      console.log(`[PGR] catalogue loaded — ${flatCount} flat GIDs, ${Object.keys(catalogue).length - flatCount} billboard GIDs`)
+      console.log(`[PGR] catalogue loaded - ${flatCount} flat GIDs, ${Object.keys(catalogue).length - flatCount} billboard GIDs`)
     } catch(e) {
       console.warn('[PGR] catalogue load failed:', e.message)
     }
@@ -162,20 +153,12 @@ this._encounterFlags = []
     return c
   }
 
-  // ── Sky + vignette ───────────────────────────────────────────────────────
-  //
-  // A single CSS div at z-index:0, behind all canvases.
-  // Top portion: deep night sky gradient fading toward horizon.
-  // Perimeter: dark vignette that hides the hard map edge.
-  // No per-frame updates needed — pure CSS.
+  // Sky + vignette
 
   _buildSkyVignette(container) {
     const sw = this._sw
     const sh = this._sh
 
-    // ── Sky image ─────────────────────────────────────────────────────────
-    // z-index:0 — behind ground canvas (z-index:1) but above container bg.
-    // Negative z-index would hide behind the stacking context background.
     const img = document.createElement('img')
     img.id  = 'pgr-sky-img'
     img.src = '/assets/bg0.png'
@@ -194,8 +177,6 @@ this._encounterFlags = []
     container.appendChild(img)
     this._skyImg = img
 
-    // ── Gradient overlay ──────────────────────────────────────────────────
-    // z-index:0 same as sky — sits just above it (appended after).
     const div = document.createElement('div')
     div.id = 'pgr-sky'
     div.style.cssText = [
@@ -213,15 +194,14 @@ this._encounterFlags = []
     return div
   }
 
-  // ── Lighting overrides ──────────────────────────────────────────────────────
-  // Call from scene to override default dark bog lighting
+  // Lighting overrides
   setLighting({ darkness, radius, groundColour } = {}) {
     if (darkness    != null) this._lightDarkness  = darkness
     if (radius      != null) this._lightRadius    = radius
     if (groundColour != null) this._groundColour  = groundColour
   }
 
-  // ── Player registration ───────────────────────────────────────────────────
+  // Player registration
 
   setPlayer(player) {
     this._player = player
@@ -230,15 +210,19 @@ this._encounterFlags = []
     console.log('[PGR v8] player registered')
   }
 
-  // Set player billboard height multiplier (default 1.8)
   setPlayerScale(mult) {
     this._playerHeightMult = mult ?? 1.8
-    this._playerFrameKey = null  // force canvas refresh
+    this._playerFrameKey = null
   }
 
-  // Call this after equipping/unequipping items to force overlay refresh
+  // Call after equipping/unequipping to force overlay refresh
   invalidatePlayerCanvas() {
     this._playerFrameKey = null
+  }
+
+  // Force a redraw on next frame -- call after state changes that affect visuals
+  forceRedraw() {
+    this._lastCamX = null
   }
 
   _refreshPlayerCanvas() {
@@ -271,33 +255,16 @@ this._encounterFlags = []
       tCtx.imageSmoothingEnabled = false
       tCtx.drawImage(src, cutX, cutY, cutWidth, cutHeight, 0, 0, cutWidth, cutHeight)
 
-      // Weapon overlay is drawn separately each frame in _drawWeaponOverlay
-      // so it can rotate without invalidating this canvas.
-
       this._playerCanvas   = tc
       this._playerFrameKey = cacheKey
-      console.log('[PGR v8] player canvas refreshed —', cacheKey, cutWidth, 'x', cutHeight)
+      console.log('[PGR v8] player canvas refreshed -', cacheKey, cutWidth, 'x', cutHeight)
     } catch(e) {
       console.warn('[PGR v8] could not build player canvas:', e.message)
       this._playerCanvas = null
     }
   }
 
-
-
-
-//force redraw
-	
-forceRedraw() {
-  this._lastCamX = null
-}
-
-
-
-
-
-
-  // ── Projection ────────────────────────────────────────────────────────────
+  // Projection
 
   _zoom()      { return this.scene.cameras.main.zoom || 1 }
   _horizonPx() { return Math.floor(this._sh * PerspectiveGroundRenderer.HORIZON_Y_FRAC) }
@@ -337,8 +304,6 @@ forceRedraw() {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
 
-  // Project a tile's bottom-centre to screen space.
-  // worldTileX/Y are integer tile indices (NOT pixel coords).
   perspectiveProject(worldTileX, worldTileY) {
     const screenY = this._rowToScreenY(worldTileY + 1)
     if (screenY === null || screenY < this._horizonPx() || screenY > this._sh + this.tileDisplaySize) return null
@@ -347,17 +312,12 @@ forceRedraw() {
     return { screenX, screenY, scale }
   }
 
-  // Project logical pixel coords (tile-centre values) to screen space.
-  // Subtracts 0.5 tile so the billboard foot lands on the correct tile line,
-  // not half a tile south of it.
   _projectLogical(logicalPixelX, logicalPixelY) {
     const ts         = this.tileDisplaySize
     const worldTileX = logicalPixelX / ts - 0.5
     const worldTileY = logicalPixelY / ts - 0.5
     return this.perspectiveProject(worldTileX, worldTileY)
   }
-
-  // ── applyPerspective (Phaser sprites — NPCs etc.) ─────────────────────────
 
   applyPerspective(sprite, worldPixelX, worldPixelY, tileSize, baseDisplaySize) {
     const proj = this._projectLogical(worldPixelX, worldPixelY)
@@ -371,7 +331,7 @@ forceRedraw() {
     return true
   }
 
-  // ── Tile cache ────────────────────────────────────────────────────────────
+  // Tile cache
 
   _srcRect(gid) {
     const idx = gid - 1
@@ -383,6 +343,7 @@ forceRedraw() {
 
   _getTileCanvas(gid) {
     if (this._tileCache.has(gid)) return this._tileCache.get(gid)
+    if (!this._tilesetImg) return null
     const { sx, sy, sw, sh } = this._srcRect(gid)
     const tc   = document.createElement('canvas')
     tc.width   = sw;  tc.height = sh
@@ -393,12 +354,7 @@ forceRedraw() {
     return tc
   }
 
-  // ── Affine triangle (ground tiles) ───────────────────────────────────────
-  //
-  // Each trapezoid is split into two triangles. To eliminate the sub-pixel
-  // seam along the shared diagonal, we expand the clip region of each
-  // triangle by SEAM_BLEED pixels outward so they overlap slightly.
-  // The texture mapping is unchanged — only the clip shape is expanded.
+  // Affine triangle (ground tiles)
 
   _drawAffineTriangle(ctx, img, t0, t1, t2, p0, p1, p2) {
     const { u: u0, v: v0 } = t0, { u: u1, v: v1 } = t1, { u: u2, v: v2 } = t2
@@ -411,7 +367,6 @@ forceRedraw() {
     const d = (p0.y*(u2-u1) + p1.y*(u0-u2) + p2.y*(u1-u0)) / det
     const f =  p0.y - b*u0 - d*v0
 
-    // Expand each triangle clip by 0.75px to cover the sub-pixel seam gap
     const BLEED = 1.75
     const cx    = (p0.x + p1.x + p2.x) / 3
     const cy    = (p0.y + p1.y + p2.y) / 3
@@ -431,12 +386,14 @@ forceRedraw() {
   }
 
   _drawTrapezoid(ctx, gid, tl, tr, bl, br) {
-    const img = this._getTileCanvas(gid), W = img.width, H = img.height
+    const img = this._getTileCanvas(gid)
+    if (!img) return
+    const W = img.width, H = img.height
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:0},{u:W,v:H}, tl, tr, br)
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:H},{u:0,v:H}, tl, br, bl)
   }
 
-  // ── Billboard (object tiles + player) ────────────────────────────────────
+  // Billboard (object tiles + player)
 
   _drawBillboard(ctx, img, screenX, screenY, scaledTileW, heightMult) {
     const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
@@ -445,7 +402,7 @@ forceRedraw() {
     ctx.drawImage(img, screenX - scaledW / 2, screenY - scaledH, scaledW, scaledH)
   }
 
-  // ── Lighting overlay ──────────────────────────────────────────────────────
+  // Lighting overlay
 
   _updateLight(playerScreenX, playerScreenY) {
     const sw     = this._sw
@@ -460,8 +417,7 @@ forceRedraw() {
     ].join('')
   }
 
-  // ── Main render ───────────────────────────────────────────────────────────
-  // ── render ───────────────────────────────────────────────────────────────
+  // Main render
 
   update(fov) {
     if (!this._ready) return
@@ -469,7 +425,6 @@ forceRedraw() {
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
 
-    // Also redraw when bow is aiming so weapon rotation updates
     const bowAiming = this.scene.bowMechanics?.isAiming ?? false
     if (cam.scrollX === this._lastCamX &&
         cam.scrollY === this._lastCamY &&
@@ -497,8 +452,6 @@ forceRedraw() {
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    // Fill ground canvas only below the horizon — above is transparent
-    // so the sky image behind the canvas shows through.
     const horizonFill = this._horizonPx()
     this._gCtx.clearRect(0, 0, sw, sh)
     this._gCtx.fillStyle = this._groundColour ?? '#2a3a1a'
@@ -508,9 +461,6 @@ forceRedraw() {
     const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
     const tileRowStart = Math.max(0, Math.floor(camRow - FL * 15))
 
-    // ── Player projection ─────────────────────────────────────────────────
-    // Use _projectLogical to account for the -0.5 tile offset that aligns
-    // the billboard foot with the correct ground line.
     const p = this._player
     let playerTileRow   = -1
     let playerScreenX   = sw / 2
@@ -522,7 +472,6 @@ forceRedraw() {
       if (proj) {
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY
-        // The tile row the player visually sits on (for painter's order)
         playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize - 0.5)
       }
     }
@@ -549,20 +498,17 @@ forceRedraw() {
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
 
-        // ── Edge fade opacity ───────────────────────────────────────────
         const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
         const edgeAlpha = edgeDist === 0 ? 0.08
                         : edgeDist === 1 ? 0.30
                         : edgeDist === 2 ? 0.55
                         : 1.0
 
-        // FOV: skip hidden tiles entirely (fog covers them).
-        // Visited tiles draw at full brightness — fog canvas handles dimming.
         if (fov && fov.isHidden(tileCol, tileRow)) continue
 
         const tileAlpha = edgeAlpha
 
-        // ── Ground tile ─────────────────────────────────────────────────
+        // Ground tile
         const gid0 = layer0[tileRow]?.[tileCol]
         if (gid0) {
           const xTL = this._colToScreenX(tileCol,     tileRow)
@@ -590,28 +536,24 @@ forceRedraw() {
           groundCount++
         }
 
-        // ── Player (drawn at their tile row, before same-row objects) ───
+        // Player (drawn at their tile row, before same-row objects)
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
           const playerHM = this._playerHeightMult ?? 1.8
-          // Draw weapon FIRST (behind player)
           const aimAngle = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
-          // Weapon behind player
           this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle)
-          // Player on top
           this._drawBillboard(this._oCtx, this._playerCanvas,
             playerScreenX, playerScreenY, scaledTileW, playerHM)
           playerDrawn = true
         }
 
-        // ── Object tile — flat or billboard depending on catalogue ────────
+        // Object tile -- flat or billboard depending on catalogue
         if (layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
             if (this._flatGids.has(gid1)) {
-              // ── FLAT: draw as perspective trapezoid on ground canvas ────
               const xTL = this._colToScreenX(tileCol,     tileRow)
               const xTR = this._colToScreenX(tileCol + 1, tileRow)
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
@@ -622,7 +564,6 @@ forceRedraw() {
                 {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
               this._gCtx.globalAlpha = 1.0
             } else {
-              // ── BILLBOARD: draw upright on objects canvas ───────────────
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -639,7 +580,7 @@ forceRedraw() {
           }
         }
 
-// ── Encounter flags ───────────────────────────────────────────────
+        // Encounter flags
         if (this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
@@ -648,7 +589,6 @@ forceRedraw() {
             const screenY     = this._rowToScreenY(tileRow + 1)
             const scaledTileW = this._scaleAtRow(tileRow + 1)
             if (screenY === null || screenY < horizonPx || screenY > sh + this.tileDisplaySize * 2) continue
-            this._oCtx.globalAlpha = tileAlpha
             if (flag.visual.flat) {
               const xTL = this._colToScreenX(tileCol,     tileRow)
               const xTR = this._colToScreenX(tileCol + 1, tileRow)
@@ -661,14 +601,18 @@ forceRedraw() {
               this._gCtx.globalAlpha = 1.0
             } else {
               const canvas = this._getTileCanvas(flag.visual.gid)
-              if (canvas) this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
+              if (canvas) {
+                this._oCtx.globalAlpha = tileAlpha
+                this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
+                this._oCtx.globalAlpha = 1.0
+              }
             }
-            this._oCtx.globalAlpha = 1.0
           }
-        }      } // tileCol
+        }
 
-      // Draw player after last column if their row matched this row but
-      // no column loop ran (e.g. player is off to the side of the map)
+      } // tileCol
+
+      // Draw player after last column if their row matched but no column loop ran
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         const playerHM2 = this._playerHeightMult ?? 1.8
@@ -694,19 +638,16 @@ forceRedraw() {
 
     if (!this._debugged) {
       this._debugged = true
-      console.log('[PGR v8] first frame —',
+      console.log('[PGR v8] first frame -',
         'zoom:', zoom.toFixed(2),
         'perspCamRow:', camRow.toFixed(2),
-        'tileRows:', tileRowStart, '->',  tileRowEnd,
+        'tileRows:', tileRowStart, '->', tileRowEnd,
         'ground:', groundCount, 'objects:', objectCount
       )
     }
   }
 
-  // ── Encounter flag registration ───────────────────────────────────────────
-
-   // ── Encounter flag registration ───────────────────────────────────────────
-  // flags: array of { tileX, tileY, visual: { gid, flat } }
+  // Encounter flag registration
 
   setEncounterFlags(flags) {
     this._encounterFlags = flags || []
@@ -719,43 +660,14 @@ forceRedraw() {
     )
   }
 
-  // ── Encounter flag draw block — paste inside tileCol loop, after object tile block ──
-  //
-  //        if (this._encounterFlags?.length) {
-  //          for (const flag of this._encounterFlags) {
-  //            if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
-  //            const canvas = this._getTileCanvas(flag.visual.gid)
-  //            if (!canvas) continue
-  //            const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-  //            const screenY     = this._rowToScreenY(tileRow + 1)
-  //            const scaledTileW = this._scaleAtRow(tileRow + 1)
-  //            if (screenY === null || screenY < horizonPx || screenY > sh + this.tileDisplaySize * 2) continue
-  //            this._oCtx.globalAlpha = tileAlpha
-  //            if (flag.visual.flat) {
-  //              const xTL = this._colToScreenX(tileCol,     tileRow)
-  //              const xTR = this._colToScreenX(tileCol + 1, tileRow)
-  //              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
-  //              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
-  //              this._gCtx.globalAlpha = tileAlpha
-  //              this._drawTrapezoid(this._gCtx, flag.visual.gid,
-  //                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
-  //                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
-  //              this._gCtx.globalAlpha = 1.0
-  //            } else {
-  //              this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
-  //            }
-  //            this._oCtx.globalAlpha = 1.0
-  //          }
-  //        }
- 
+  swapEncounterFlagVisual(tileX, tileY, visual) {
+    if (!this._encounterFlags) return
+    const flag = this._encounterFlags.find(f => f.tileX === tileX && f.tileY === tileY)
+    if (flag) flag.visual = visual
+  }
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
+  // Weapon billboard
 
-  // ── Weapon billboard ─────────────────────────────────────────────────────
-  // Called from update() to draw the equipped weapon separately so it can
-  // rotate to match the bow aim angle without invalidating the player canvas.
-  //
-  // aimAngle: radians (fire direction), or null for resting position
   _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) {
     const inv = this.scene.player?.inventory
     if (!inv) return
@@ -763,7 +675,6 @@ forceRedraw() {
     if (!item) return
 
     try {
-      // Prefer itemGid on items sheet over individual spriteKey texture
       let itemImg = null
       if (item.itemGid && this.scene.itemSheet?.isReady) {
         itemImg = this.scene.itemSheet.getCanvas(item.itemGid)
@@ -779,13 +690,9 @@ forceRedraw() {
       const iw   = scaledTileW * 0.9
       const ih   = iw * (itemImg.height / itemImg.width)
 
-      // Resting angle: bow held at ~7 o'clock = 210deg = pointing SW
-      // When aiming, rotate to fire direction
-      // 210deg offset aligns bow grip with hand naturally
       const REST_ANGLE = (345 * Math.PI) / 180
       const angle      = aimAngle != null ? aimAngle + (Math.PI / 2) + (135 * Math.PI / 180) : REST_ANGLE
 
-      // Position at sprite centre (foot - half sprite height) with slight right offset
       const spriteCentreY = playerScreenY - scaledTileW * 1.8 * 0.5
       const offsetX       = scaledTileW * 0.12
 

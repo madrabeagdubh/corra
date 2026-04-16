@@ -206,6 +206,7 @@ throwItem(item, slotInfo) {
       this.refreshGridDisplay();
       this.itemDetailPanel.hide();
     }
+	  this.scene.perspectiveGround?.forceRedraw()
   }
 
   usePotion(item, slotInfo) {

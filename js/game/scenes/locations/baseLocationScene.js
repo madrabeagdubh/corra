@@ -62,7 +62,6 @@ export default class BaseLocationScene extends Phaser.Scene {
     }
     console.log('Champion loaded:', champion.nameGa);
 
-    // Spawn at tile centre — consistent with player.tileSize grid
     const spawn   = this.mapData.spawns.player;
     const playerX = spawn.x * this.tileSize + this.tileSize / 2;
     const playerY = spawn.y * this.tileSize + this.tileSize / 2;
@@ -74,9 +73,6 @@ export default class BaseLocationScene extends Phaser.Scene {
 
     this.terrainManager = new TerrainManager(this, this.player);
 
-    // Camera follows a lightweight proxy at logicalX/Y.
-    // Snap immediately with centerOn before starting the lerp follow,
-    // so the first frame isn't mid-lerp from a wrong position.
     this._camProxy = this.add.rectangle(playerX, playerY, 1, 1).setVisible(false);
     this.cameras.main.centerOn(playerX, playerY);
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1);
@@ -121,7 +117,6 @@ export default class BaseLocationScene extends Phaser.Scene {
         else if (angle >= -112.5 && angle <  -67.5) dy = -1;
         else if (angle >=  -67.5 && angle <  -22.5) { dx =  1; dy = -1; }
 
-        // Always use logicalX/Y for collision — never sprite.x/y
         const currentX = Math.round(this.player.logicalX / this.player.tileSize) * this.player.tileSize;
         const currentY = Math.round(this.player.logicalY / this.player.tileSize) * this.player.tileSize;
         const targetX  = currentX + dx * this.player.tileSize;
@@ -137,31 +132,20 @@ export default class BaseLocationScene extends Phaser.Scene {
 
       if (this.terrainManager) this.terrainManager.update();
 
-
-
-this._flagInRange = false
+     this._flagInRange = false
       this.checkProximityInteractions()
-      if (!this._flagInRange && this._encounterPanel) {
-        const allFar = !this.interactables?.some(obj => {
-          if (obj.getData('type') !== 'encounter_flag') return false
-          const ox = obj.getData('flagTileX')
-          const oy = obj.getData('flagTileY')
-          if (ox == null) return false
-          const ptx = Math.floor(this.player.logicalX / this.tileSize)
-          const pty = Math.floor(this.player.logicalY / this.tileSize)
-          const tileDist = Math.abs(ptx - ox) + Math.abs(pty - oy)
-          return tileDist <= 3
-        })
-        if (allFar) this._encounterPanel.clearNotify()
-      }
-
-
-
-     this.checkExits()    }
+if (!this._flagInRange && this._encounterPanel) {
+        if (!this._lastWasFar) {
+          this._lastWasFar = true
+          this._encounterPanel.clearNotify()
+        }
+      } else {
+        this._lastWasFar = false
+      }      this.checkExits()   
+    }
 
     this.checkItemPickups();
 
-    // Keep camera proxy in sync with logical player position
     if (this._camProxy && this.player)
       this._camProxy.setPosition(this.player.logicalX, this.player.logicalY);
   }
@@ -186,7 +170,7 @@ this._flagInRange = false
     ];
     if (deepBogTiles.includes(tileType)) return false;
 
-    return false; // override in child scenes
+    return false;
   }
 
   // ── Objects ───────────────────────────────────────────────────────────────
@@ -206,21 +190,22 @@ this._flagInRange = false
       zone.setData('stateKey', obj.stateKey || `${this.scene.key}.${obj.id}`);
       zone.setData('item',     obj.item  || null);
       zone.setData('note',     obj.note  || null);
-      // Explicit logical coords — never rely on zone.x/y after perspective moves things
       zone.setData('logicalX', pixelX);
       zone.setData('logicalY', pixelY);
       zone.x = pixelX;
       zone.y = pixelY;
 
-      // Encounter flags: register image + tile coords for PGR rendering
       if (obj.type === 'encounter_flag') {
-        const flagImg = new Image()
-        flagImg.src = '/assets/moonTile.png'
-        zone.setData('flagImg',   flagImg)
         zone.setData('flagTileX', obj.x)
         zone.setData('flagTileY', obj.y)
+        zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
+        zone.setData('actions',    obj.actions || [])
         this._pendingFlags = this._pendingFlags || []
-        this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, image: flagImg })
+        this._pendingFlags.push({
+          tileX:  obj.x,
+          tileY:  obj.y,
+          visual: obj.visual || { gid: 255, flat: false }
+        })
       }
 
       this.interactables.push(zone);
@@ -272,10 +257,8 @@ this._flagInRange = false
     const dialogue  = dialogues[index];
     const stateKey  = npc.getData('stateKey');
 
-if (type !== 'encounter_flag') {
-        if (this.joystick) this.joystick.reset()
-        if (this.player)   this.player.isMoving = false
-      }
+    if (this.joystick) this.joystick.reset();
+    if (this.player)   this.player.isMoving = false;
 
     this.textPanel.show({
       ...dialogue,
@@ -293,88 +276,105 @@ if (type !== 'encounter_flag') {
   }
 
   // ── Proximity interactions ────────────────────────────────────────────────
-checkProximityInteractions() {
-  if (this.narrativeInProgress) return;
-  if (this.textPanel.isVisible || this.textPanelCooldown) return;
+  checkProximityInteractions() {
+    if (this.narrativeInProgress) return;
+    if (this.textPanel.isVisible || this.textPanelCooldown) return;
 
-  const playerX = this.player.logicalX;
-  const playerY = this.player.logicalY;
+    const playerX = this.player.logicalX;
+    const playerY = this.player.logicalY;
 
-  this.interactables.forEach(obj => {
-    const objX = obj.getData('logicalX') ?? obj.x;
-    const objY = obj.getData('logicalY') ?? obj.y;
-    const type = obj.getData('type');
+const ptx = Math.round((this.player.logicalX - this.tileSize / 2) / this.tileSize)
+const pty = Math.round((this.player.logicalY - this.tileSize / 2) / this.tileSize)
 
-    const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
+    // -- Find nearest encounter flag within range --
+    let nearestFlag = null
+    let nearestDist = Infinity
 
-    // Encounter flags -- large radius, silent, never stop player
-  
-if (type === 'encounter_flag') {
+    this.interactables.forEach(obj => {
+      if (obj.getData('type') !== 'encounter_flag') return
       const ftx = obj.getData('flagTileX')
       const fty = obj.getData('flagTileY')
       if (ftx == null) return
-      const ptx = Math.floor(this.player.logicalX / this.tileSize)
-      const pty = Math.floor(this.player.logicalY / this.tileSize)
-      const tileDist = Math.abs(ptx - ftx) + Math.abs(pty - fty)
-      if (tileDist > 2) return
+    const d = Math.abs(ptx - ftx) + Math.abs(pty - fty)
+      if (d <= 1 && d < nearestDist) { 
+
+       nearestDist = d
+        nearestFlag = obj
+      }
+    })
+
+    if (nearestFlag) {
+
+  console.log('[nearest flag] ftx:', nearestFlag.getData('flagTileX'), 
+    'fty:', nearestFlag.getData('flagTileY'),
+    'ptx:', ptx, 'pty:', pty, 'dist:', 
+    Math.abs(ptx - nearestFlag.getData('flagTileX')) + Math.abs(pty - nearestFlag.getData('flagTileY')))
       this._flagInRange = true
-     if (this._encounterPanel) {
-        const text = obj.getData('text');
-        const id   = obj.getData('id');
+      if (this._encounterPanel) {
+        const text = nearestFlag.getData('text')
+        const id   = nearestFlag.getData('id')
         this._encounterPanel.notify(
           {
             id:      id,
-            visual:  obj.getData('flagVisual'),
+            visual:  nearestFlag.getData('flagVisual'),
             ga:      text?.ga || '',
             en:      text?.en || '',
-            actions: obj.getData('actions') || [],
+            actions: nearestFlag.getData('actions') || [],
           },
-          obj
+          nearestFlag
         )
       }
-      return
     }
 
-    if (dist >= 60) return;
+    // -- All other interactables --
+    this.interactables.forEach(obj => {
+      if (obj.getData('type') === 'encounter_flag') return  // handled above
 
-    const text     = obj.getData('text');
-    const id       = obj.getData('id');
-    const stateKey = obj.getData('stateKey');
-    const note     = obj.getData('note');
+      const objX = obj.getData('logicalX') ?? obj.x;
+      const objY = obj.getData('logicalY') ?? obj.y;
 
-    if (this.joystick) this.joystick.reset();
-    if (this.player)   this.player.isMoving = false;
+      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
+      if (dist >= 60) return;
 
-    if (note && window.GameState) window.GameState.addNote(note);
+      const text     = obj.getData('text');
+      const id       = obj.getData('id');
+      const type     = obj.getData('type');
+      const stateKey = obj.getData('stateKey');
+      const note     = obj.getData('note');
 
-    if (type === 'collectable') {
+      if (this.joystick) this.joystick.reset();
+      if (this.player)   this.player.isMoving = false;
+
+      if (note && window.GameState) window.GameState.addNote(note);
+
+      if (type === 'collectable') {
+        this.textPanel.show({
+          ...text,
+          irish:   text?.ga || text?.irish   || '',
+          english: text?.en || text?.english || '',
+          id, type: 'examine',
+          onDismiss: () => {
+            if (stateKey && window.GameState) window.GameState.setCollected(stateKey);
+            const item = obj.getData('item');
+            if (item && this.player?.inventory) {
+              const slot = this.player.inventory.findEmptyInventorySlot();
+              if (slot !== -1) this.player.inventory.setItem(slot, item);
+            }
+            const idx = this.interactables.indexOf(obj);
+            if (idx > -1) this.interactables.splice(idx, 1);
+          }
+        });
+        return;
+      }
+
       this.textPanel.show({
         ...text,
         irish:   text?.ga || text?.irish   || '',
         english: text?.en || text?.english || '',
-        id, type: 'examine',
-        onDismiss: () => {
-          if (stateKey && window.GameState) window.GameState.setCollected(stateKey);
-          const item = obj.getData('item');
-          if (item && this.player?.inventory) {
-            const slot = this.player.inventory.findEmptyInventorySlot();
-            if (slot !== -1) this.player.inventory.setItem(slot, item);
-          }
-          const idx = this.interactables.indexOf(obj);
-          if (idx > -1) this.interactables.splice(idx, 1);
-        }
+        id, type: 'examine'
       });
-      return;
-    }
-
-    this.textPanel.show({
-      ...text,
-      irish:   text?.ga || text?.irish   || '',
-      english: text?.en || text?.english || '',
-      id, type: 'examine'
     });
-  });
-}
+  }
 
 
   // ── Exits ─────────────────────────────────────────────────────────────────
@@ -384,7 +384,6 @@ if (type === 'encounter_flag') {
     const tileX = Math.floor(this.player.logicalX / this.tileSize);
     const tileY = Math.floor(this.player.logicalY / this.tileSize);
 
-    // No tile-type guard — exit coords alone determine transitions
     for (const [, exitData] of Object.entries(this.mapData.exits)) {
       if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
         console.log(`[${this.scene.key}] exit -> ${exitData.destination} at [${tileX},${tileY}]`)

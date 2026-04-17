@@ -10,13 +10,16 @@
  *
  * Uses TextPanel for all text display -- bilingual, swipe-to-dismiss,
  * English opacity, consistent with the rest of the game.
+ *
+ * Observe cards (no actions): examine type, swipe up to dismiss.
+ * Choice cards (with actions): chat_options type, bilingual buttons.
  */
 
 import { GameSettings } from '../settings/gameSettings.js'
 
 const BADGE_FADE_MS  = 400
-const CLEAR_DELAY_MS = 800   // grace period before badge hides on exit
-const GRAPHIC_DEPTH  = 1999
+const CLEAR_DELAY_MS = 800
+const GRAPHIC_DEPTH  = 2005
 
 export class EncounterPanel {
 
@@ -119,21 +122,24 @@ export class EncounterPanel {
     this._isOpen = true
     this._hideBadge()
 
+    // Force-close any existing text panel
+    if (this._scene.textPanel?.isVisible) this._scene.textPanel.hide()
+
     const card = this._card
+    const hasActions = card.actions?.length > 0
 
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
 
+    // Show encounter graphic top-centre
     this._showGraphic(card.visual)
-
-    const hasActions = card.actions?.length > 0
 
     if (hasActions) {
       const options = card.actions.map(a => ({
-        ga:      a.labelGa,
-        en:      a.labelEn,
-        irish:   a.labelGa,
-        english: a.labelEn,
+        irish:   a.labelGa || '',
+        english: a.labelEn || '',
+        ga:      a.labelGa || '',
+        en:      a.labelEn || '',
       }))
 
       this._scene.textPanel.show({
@@ -167,15 +173,16 @@ export class EncounterPanel {
     if (!this._scene.textures.exists(key)) {
       this._scene.textures.addCanvas(key, src)
     }
+    if (!this._scene.textures.exists(key)) return
 
     const sw   = this._scene.scale.width
-    const size = 48
+    const size = 96
 
-    this._graphicImg = this._scene.add.image(sw - size, size, key)
+    this._graphicImg = this._scene.add.image(sw / 2, 12, key)
       .setScrollFactor(0)
       .setDepth(GRAPHIC_DEPTH)
       .setDisplaySize(size, size)
-      .setOrigin(1, 0)
+      .setOrigin(0.5, 0)
   }
 
   _hideGraphic() {
@@ -197,13 +204,6 @@ export class EncounterPanel {
         if (outcome.sound) {
           try { this._scene.sound.play(outcome.sound) } catch(e) {}
         }
-        if (outcome.visualSwap && this._active) {
-          const tx = this._active.getData('flagTileX')
-          const ty = this._active.getData('flagTileY')
-          if (tx != null && this._scene.perspectiveGround) {
-            this._scene.perspectiveGround.forceRedraw()
-          }
-        }
         if (outcome.textGa || outcome.textEn) {
           this._scene.textPanel.show({
             irish:   outcome.textGa || '',
@@ -223,7 +223,16 @@ export class EncounterPanel {
 
       case 'dismiss':
       default:
-        this._finalDismiss()
+        if (outcome.textGa || outcome.textEn) {
+          this._scene.textPanel.show({
+            irish:   outcome.textGa || '',
+            english: outcome.textEn || '',
+            type:    'examine',
+            onDismiss: () => this._finalDismiss(),
+          })
+        } else {
+          this._finalDismiss()
+        }
         break
     }
   }
@@ -236,8 +245,7 @@ export class EncounterPanel {
 
     if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
 
-    
-const lx = obj?.getData('logicalX')
+    const lx = obj?.getData('logicalX')
     const ly = obj?.getData('logicalY')
     if (lx != null && this._scene.perspectiveGround) {
       const ftx = Math.round((lx - this._scene.tileSize / 2) / this._scene.tileSize)

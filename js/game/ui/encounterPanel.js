@@ -3,66 +3,41 @@
  *
  * Encounter UI for Corra.
  *
- * Proximity flow:
- *   1. scene calls notify(card, zoneObj) -- badge appears on moon, no movement lock
- *   2. Player walks away -- badge fades, clearNotify() called automatically
- *   3. Player taps moon while badge is showing -- panel opens
+ * Uses the existing TextPanel for all text display -- bilingual scrolling,
+ * swipe-to-dismiss, English opacity, all handled consistently with the rest
+ * of the game.
  *
- * Panel:
- *   - Fullscreen dark overlay (z-index below moon so opacity slider still works)
- *   - Object graphic large at top centre
- *   - ScrollingTextPlayer for bilingual narrative
- *   - Action buttons appear after text reaches ceiling
- *   - English opacity responds to moon in real time via getMoonPhase
- *
- * Card shape:
- *   {
- *     id:      'enc_chest',
- *     visual:  { gid: 255, flat: false },
- *     ga:      '...',
- *     en:      '...',
- *     actions: [
- *       {
- *         labelGa: 'Oscail',
- *         labelEn: 'Open',
- *         outcome: {
- *           type:       'loot' | 'persist' | 'dismiss',
- *           visualSwap: { gid: 197, flat: false },
- *           sound:      'creak1',
- *           textGa:     '...',
- *           textEn:     '...',
- *         }
- *       }
- *     ]
- *   }
+ * Flow:
+ *   1. notify(card, zone) -- badge appears on moon, no movement lock
+ *   2. Player walks away -- badge fades (clearNotify)
+ *   3. Player taps moon while badge showing -- panel opens
+ *   4. Encounter graphic shown briefly at top of screen
+ *   5. TextPanel shows bilingual text, swipe up to dismiss
+ *   6. If card has actions: chat_options panel with bilingual buttons
+ *   7. Outcome fires, flag removed from world
  */
 
-import { ScrollingTextPlayer } from './scrollingTextPlayer.js'
-import { GameSettings }        from '../settings/gameSettings.js'
+import { GameSettings } from '../settings/gameSettings.js'
 
-const BADGE_FADE_MS = 400
+const BADGE_FADE_MS  = 400
+const GRAPHIC_DEPTH  = 1999  // just below TextPanel (depth 2000)
 
 export class EncounterPanel {
 
   constructor(scene, moonWidget) {
-    this._scene       = scene
-    this._moonWidget  = moonWidget
-    this._active      = null
-    this._card        = null
-    this._isOpen      = false
-    this._textPlayer  = null
-    this._buttonTimer = null
-    this._overlayEl   = null
-    this._graphicEl   = null
-    this._buttonsEl   = null
-    this._tapDismiss  = null
+    this._scene      = scene
+    this._moonWidget = moonWidget
+    this._active     = null
+    this._card       = null
+    this._isOpen     = false
+    this._graphicImg = null  // Phaser image shown during text
+    this._clearTimer = null
 
     this._buildBadge()
-    this._buildOverlay()
   }
 
   // ── Badge ─────────────────────────────────────────────────────────────────
-  // Sits centred over the moon canvas, same size as the moon.
+  // Centred over the moon canvas, same size as the moon.
 
   _buildBadge() {
     const moonCanvas = this._moonWidget.element.querySelector('canvas')
@@ -96,83 +71,27 @@ export class EncounterPanel {
     this._badgeEl = badge
   }
 
-  // ── Overlay ───────────────────────────────────────────────────────────────
-  // Full screen dark panel, sits under moon (z-index 1000002).
-
-  _buildOverlay() {
-    const overlay = document.createElement('div')
-    overlay.style.cssText = [
-      'position:fixed',
-      'inset:0',
-      'z-index:1000002',
-      'display:none',
-      'flex-direction:column',
-      'align-items:center',
-      'background:rgba(6,4,18,0.96)',
-      'pointer-events:all',
-    ].join(';')
-
-    // Graphic canvas -- top centre, large
-    const graphic = document.createElement('canvas')
-    graphic.width  = 96
-    graphic.height = 96
-    graphic.style.cssText = [
-      'margin-top:18%',
-      'width:96px',
-      'height:96px',
-      'image-rendering:pixelated',
-      'flex-shrink:0',
-    ].join(';')
-    this._graphicEl = graphic
-
-    overlay.appendChild(graphic)
-    document.body.appendChild(overlay)
-    this._overlayEl = overlay
-
-    // Buttons row -- fixed at bottom, above overlay
-    const buttons = document.createElement('div')
-    buttons.style.cssText = [
-      'position:fixed',
-      'bottom:0',
-      'left:0',
-      'right:0',
-      'display:flex',
-      'gap:10px',
-      'padding:16px 20px 32px',
-      'background:linear-gradient(to top,rgba(6,4,18,1) 60%,transparent)',
-      'opacity:0',
-      'transition:opacity 0.4s ease',
-      'pointer-events:none',
-      'z-index:1000003',
-    ].join(';')
-    document.body.appendChild(buttons)
-    this._buttonsEl = buttons
-  }
-
   // ── Notify ────────────────────────────────────────────────────────────────
 
-notify(card, zoneObj) {
-  if (this._isOpen) return
-  if (this._clearTimer) { clearTimeout(this._clearTimer); this._clearTimer = null }
-  if (this._card?.id === card.id) return
-  this._card   = card
-  this._active = zoneObj
-  this._showBadge(card.visual)
-}
+  notify(card, zoneObj) {
+    if (this._isOpen) return
+    if (this._clearTimer) { clearTimeout(this._clearTimer); this._clearTimer = null }
+    if (this._card?.id === card.id) return
+    this._card   = card
+    this._active = zoneObj
+    this._showBadge(card.visual)
+  }
 
-
-clearNotify() {
-  if (this._isOpen) return
-  if (this._clearTimer) clearTimeout(this._clearTimer)
-  this._clearTimer = setTimeout(() => {
-    this._hideBadge()
-    this._card   = null
-    this._active = null
-    this._clearTimer = null
-  }, 300)
-}
-
-
+  clearNotify() {
+    if (this._isOpen) return
+    if (this._clearTimer) clearTimeout(this._clearTimer)
+    this._clearTimer = setTimeout(() => {
+      this._hideBadge()
+      this._card       = null
+      this._active     = null
+      this._clearTimer = null
+    }, 300)
+  }
 
   // ── Badge helpers ─────────────────────────────────────────────────────────
 
@@ -194,9 +113,8 @@ clearNotify() {
   }
 
   _hideBadge() {
-    const badge = this._badgeEl
-    badge.style.opacity = '0'
-    setTimeout(() => { badge.style.display = 'none' }, BADGE_FADE_MS)
+    this._badgeEl.style.opacity = '0'
+    setTimeout(() => { this._badgeEl.style.display = 'none' }, BADGE_FADE_MS)
   }
 
   // ── Open panel ────────────────────────────────────────────────────────────
@@ -208,105 +126,77 @@ clearNotify() {
 
     const card = this._card
 
-    // Draw large graphic
-    const src = this._scene.perspectiveGround?._getTileCanvas(card.visual?.gid)
-    if (src) {
-      const ctx = this._graphicEl.getContext('2d')
-      ctx.clearRect(0, 0, 96, 96)
-      ctx.imageSmoothingEnabled = false
-      ctx.drawImage(src, 0, 0, 96, 96)
-    }
-
-    // Show overlay
-    this._overlayEl.style.display = 'flex'
-
-    // Clear old buttons
-    this._buttonsEl.innerHTML         = ''
-    this._buttonsEl.style.opacity     = '0'
-    this._buttonsEl.style.pointerEvents = 'none'
-
     // Stop player
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
 
-    // Build lines for scrolling text
-    const lines = this._buildLines(card)
+    // Show encounter graphic as a Phaser image at top-centre
+    this._showGraphic(card.visual)
 
-    // Launch ScrollingTextPlayer into the overlay
-    if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null }
-    this._textPlayer = new ScrollingTextPlayer({
-      lines,
-      getMoonPhase: () => this._scene._moonWidget?.getPhase() ?? GameSettings.englishOpacity,
-      container:    this._overlayEl,
-      onComplete:   () => this._onTextComplete(card),
-    })
-    this._textPlayer.start()
-  }
-
-  _buildLines(card) {
-    const gaLines = (card.ga || '').split('\n').filter(Boolean)
-    const enLines = (card.en || '').split('\n').filter(Boolean)
-    const count   = Math.max(gaLines.length, enLines.length)
-    const lines   = []
-    for (let i = 0; i < count; i++) {
-      const line = { ga: gaLines[i] || '' }
-      if (enLines[i]) line.en = enLines[i]
-      lines.push(line)
-    }
-    return lines
-  }
-
-  _onTextComplete(card) {
     const hasActions = card.actions?.length > 0
 
     if (hasActions) {
-      const english = this._scene._moonWidget?.getPhase() ?? GameSettings.englishOpacity
-      card.actions.forEach(action => {
-        this._buttonsEl.appendChild(this._makeButton(action, english))
+      // Build chat_options from card actions
+      const options = card.actions.map(a => ({
+        ga: a.labelGa,
+        en: a.labelEn,
+        irish:   a.labelGa,
+        english: a.labelEn,
+      }))
+
+      this._scene.textPanel.show({
+        irish:    card.ga || '',
+        english:  card.en || '',
+        type:     'chat_options',
+        options,
+        onChoice: (i) => this._resolveAction(card.actions[i]),
+        onDismiss: () => this._onPanelClosed(),
       })
-      this._buttonsEl.style.opacity     = '1'
-      this._buttonsEl.style.pointerEvents = 'all'
     } else {
-      // No actions -- tap overlay to dismiss
-      this._overlayEl.addEventListener('pointerdown', this._tapDismiss = () => {
-        this._finalDismiss()
-      }, { once: true })
+      // No actions -- plain examine panel, swipe up to dismiss
+      this._scene.textPanel.show({
+        irish:   card.ga || '',
+        english: card.en || '',
+        type:    'examine',
+        onDismiss: () => {
+          this._finalDismiss()
+        },
+      })
     }
   }
 
-  _makeButton(action, englishOpacity) {
-    const btn   = document.createElement('button')
-    const useEn = englishOpacity > 0.5
-    btn.textContent = useEn ? action.labelEn : action.labelGa
-    btn.style.cssText = [
-      'flex:1',
-      'min-width:80px',
-      'padding:12px 16px',
-      'background:rgba(60,40,100,0.85)',
-      'border:1px solid rgba(180,160,255,0.4)',
-      'border-radius:8px',
-      'color:#e8e0d0',
-      'font-family:serif',
-      'font-size:17px',
-      'cursor:pointer',
-      'touch-action:manipulation',
-      '-webkit-tap-highlight-color:transparent',
-    ].join(';')
+  // ── Graphic ───────────────────────────────────────────────────────────────
+  // Small oryx tile shown in top-right corner while text panel is open.
+  // Drawn directly onto the Phaser canvas so it sits naturally in the scene.
 
-    btn.addEventListener('pointerdown', () => this._resolveAction(action))
-    return btn
+  _showGraphic(visual) {
+    if (!visual?.gid) return
+    this._hideGraphic()
+
+    const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
+    if (!src) return
+
+    // Create a Phaser texture from the canvas and display it
+    const key = `enc_graphic_${visual.gid}`
+    if (!this._scene.textures.exists(key)) {
+      this._scene.textures.addCanvas(key, src)
+    }
+
+    const sw = this._scene.scale.width
+    const size = 48
+
+    this._graphicImg = this._scene.add.image(sw - size, size, key)
+      .setScrollFactor(0)
+      .setDepth(GRAPHIC_DEPTH)
+      .setDisplaySize(size, size)
+      .setOrigin(1, 0)
   }
 
-  // ── Language update ───────────────────────────────────────────────────────
-
-  updateLanguageOpacity() {
-    if (!this._isOpen || !this._card?.actions) return
-    const english = this._scene._moonWidget?.getPhase() ?? GameSettings.englishOpacity
-    const useEn   = english > 0.5
-    Array.from(this._buttonsEl.children).forEach((btn, i) => {
-      const action = this._card.actions[i]
-      if (action) btn.textContent = useEn ? action.labelEn : action.labelGa
-    })
+  _hideGraphic() {
+    if (this._graphicImg) {
+      this._graphicImg.destroy()
+      this._graphicImg = null
+    }
   }
 
   // ── Resolve action ────────────────────────────────────────────────────────
@@ -330,19 +220,13 @@ clearNotify() {
           }
         }
         if (outcome.textGa || outcome.textEn) {
-          this._buttonsEl.style.opacity     = '0'
-          this._buttonsEl.style.pointerEvents = 'none'
-          this._buttonsEl.innerHTML         = ''
-          if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null }
-          const lines = []
-          if (outcome.textGa) lines.push({ ga: outcome.textGa, en: outcome.textEn || '' })
-          this._textPlayer = new ScrollingTextPlayer({
-            lines,
-            getMoonPhase: () => this._scene._moonWidget?.getPhase() ?? GameSettings.englishOpacity,
-            container:    this._overlayEl,
-            onComplete:   () => this._finalDismiss(),
+          // Show followup text then dismiss
+          this._scene.textPanel.show({
+            irish:   outcome.textGa || '',
+            english: outcome.textEn || '',
+            type:    'examine',
+            onDismiss: () => this._finalDismiss(),
           })
-          this._textPlayer.start()
         } else {
           this._finalDismiss()
         }
@@ -350,7 +234,8 @@ clearNotify() {
       }
 
       case 'persist':
-        this._closePanel()
+        // Leave flag on map, just close
+        this._onPanelClosed()
         break
 
       case 'dismiss':
@@ -380,44 +265,30 @@ clearNotify() {
       if (idx > -1) this._scene.interactables.splice(idx, 1)
     }
 
-    this._closePanel()
+    this._onPanelClosed()
   }
 
-  _closePanel() {
-    if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null }
-    if (this._buttonTimer) { clearTimeout(this._buttonTimer); this._buttonTimer = null }
-    if (this._tapDismiss) {
-      this._overlayEl?.removeEventListener('pointerdown', this._tapDismiss)
-      this._tapDismiss = null
-    }
-
-    if (this._overlayEl) this._overlayEl.style.display = 'none'
-    if (this._buttonsEl) {
-      this._buttonsEl.style.opacity     = '0'
-      this._buttonsEl.style.pointerEvents = 'none'
-      this._buttonsEl.innerHTML         = ''
-    }
-
-    this._isOpen  = false
-    this._card    = null
-    this._active  = null
-
+  _onPanelClosed() {
+    this._hideGraphic()
+    this._isOpen = false
+    this._card   = null
+    this._active = null
+if (this._scene) this._scene._lastWasFar = false
     if (this._scene?.perspectiveGround) this._scene.perspectiveGround.forceRedraw()
   }
+
+  // ── Language update ───────────────────────────────────────────────────────
+  // TextPanel handles this itself via GameSettings -- nothing needed here.
+
+  updateLanguageOpacity() {}
 
   // ── Destroy ───────────────────────────────────────────────────────────────
 
   destroy() {
-    if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null }
-    if (this._buttonTimer) clearTimeout(this._buttonTimer)
-    if (this._overlayEl?.parentNode)  this._overlayEl.parentNode.removeChild(this._overlayEl)
-    if (this._buttonsEl?.parentNode)  this._buttonsEl.parentNode.removeChild(this._buttonsEl)
-    if (this._badgeEl?.parentNode)    this._badgeEl.parentNode.removeChild(this._badgeEl)
+    if (this._clearTimer) clearTimeout(this._clearTimer)
+    this._hideGraphic()
+    if (this._badgeEl?.parentNode) this._badgeEl.parentNode.removeChild(this._badgeEl)
     this._scene = null
-
-if (this._clearTimer) clearTimeout(this._clearTimer)
-  
-
   }
 }
 

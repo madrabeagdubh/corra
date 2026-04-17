@@ -581,14 +581,11 @@ export default class PerspectiveGroundRenderer {
         }
 
         // Encounter flags
+    // Encounter flags
         if (this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
             if (!flag.visual?.gid) continue
-            const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-            const screenY     = this._rowToScreenY(tileRow + 1)
-            const scaledTileW = this._scaleAtRow(tileRow + 1)
-            if (screenY === null || screenY < horizonPx || screenY > sh + this.tileDisplaySize * 2) continue
             if (flag.visual.flat) {
               const xTL = this._colToScreenX(tileCol,     tileRow)
               const xTR = this._colToScreenX(tileCol + 1, tileRow)
@@ -600,15 +597,20 @@ export default class PerspectiveGroundRenderer {
                 {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
               this._gCtx.globalAlpha = 1.0
             } else {
+              const proj = this._projectLogical(
+                (flag.tileX + 0.5) * this.tileDisplaySize,
+                (flag.tileY + 0.5) * this.tileDisplaySize
+              )
+              if (!proj) continue
               const canvas = this._getTileCanvas(flag.visual.gid)
               if (canvas) {
                 this._oCtx.globalAlpha = tileAlpha
-                this._drawBillboard(this._oCtx, canvas, screenX, screenY, scaledTileW, 1.2)
+                this._drawBillboard(this._oCtx, canvas, proj.screenX, proj.screenY, proj.scale * this.tileDisplaySize, 1.2)
                 this._oCtx.globalAlpha = 1.0
               }
             }
           }
-        }
+        } 
 
       } // tileCol
 

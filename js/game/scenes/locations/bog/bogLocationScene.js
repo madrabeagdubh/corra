@@ -115,12 +115,23 @@ export default class BogLocationScene extends BaseLocationScene {
       const deck  = new EncounterDeck(forestDeck)
       const drawn = deck.draw(6)
       let   wi    = 0
+const placed = []
+      const MIN_SPACING = 6
 
       drawn.forEach(card => {
         const stateKey = `${this.getMapKey()}.${card.id}`
         if (GameState.isCollected(stateKey)) return
-        if (wi >= walkable.length) return
-        const tile = walkable[wi++]
+
+        let tile = null
+        while (wi < walkable.length) {
+          const candidate = walkable[wi++]
+          const tooClose = placed.some(p =>
+            Math.abs(candidate.x - p.x) + Math.abs(candidate.y - p.y) < MIN_SPACING
+          )
+          if (!tooClose) { tile = candidate; break }
+        }
+        if (!tile) return
+        placed.push(tile)
 
         this.mapData.objects.push({
           id:       card.id,
@@ -132,7 +143,6 @@ export default class BogLocationScene extends BaseLocationScene {
           text:     { ga: card.ga, en: card.en }
         })
       })
-
       console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
     } catch(e) {
       console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)

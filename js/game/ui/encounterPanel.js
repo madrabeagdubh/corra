@@ -3,24 +3,20 @@
  *
  * Encounter UI for Corra.
  *
- * Uses the existing TextPanel for all text display -- bilingual scrolling,
- * swipe-to-dismiss, English opacity, all handled consistently with the rest
- * of the game.
- *
- * Flow:
+ * Proximity flow:
  *   1. notify(card, zone) -- badge appears on moon, no movement lock
- *   2. Player walks away -- badge fades (clearNotify)
+ *   2. Player walks away -- badge fades after 800ms grace period
  *   3. Player taps moon while badge showing -- panel opens
- *   4. Encounter graphic shown briefly at top of screen
- *   5. TextPanel shows bilingual text, swipe up to dismiss
- *   6. If card has actions: chat_options panel with bilingual buttons
- *   7. Outcome fires, flag removed from world
+ *
+ * Uses TextPanel for all text display -- bilingual, swipe-to-dismiss,
+ * English opacity, consistent with the rest of the game.
  */
 
 import { GameSettings } from '../settings/gameSettings.js'
 
 const BADGE_FADE_MS  = 400
-const GRAPHIC_DEPTH  = 1999  // just below TextPanel (depth 2000)
+const CLEAR_DELAY_MS = 800   // grace period before badge hides on exit
+const GRAPHIC_DEPTH  = 1999
 
 export class EncounterPanel {
 
@@ -30,14 +26,13 @@ export class EncounterPanel {
     this._active     = null
     this._card       = null
     this._isOpen     = false
-    this._graphicImg = null  // Phaser image shown during text
+    this._graphicImg = null
     this._clearTimer = null
 
     this._buildBadge()
   }
 
   // ── Badge ─────────────────────────────────────────────────────────────────
-  // Centred over the moon canvas, same size as the moon.
 
   _buildBadge() {
     const moonCanvas = this._moonWidget.element.querySelector('canvas')
@@ -90,7 +85,7 @@ export class EncounterPanel {
       this._card       = null
       this._active     = null
       this._clearTimer = null
-    }, 300)
+    }, CLEAR_DELAY_MS)
   }
 
   // ── Badge helpers ─────────────────────────────────────────────────────────
@@ -126,20 +121,17 @@ export class EncounterPanel {
 
     const card = this._card
 
-    // Stop player
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
 
-    // Show encounter graphic as a Phaser image at top-centre
     this._showGraphic(card.visual)
 
     const hasActions = card.actions?.length > 0
 
     if (hasActions) {
-      // Build chat_options from card actions
       const options = card.actions.map(a => ({
-        ga: a.labelGa,
-        en: a.labelEn,
+        ga:      a.labelGa,
+        en:      a.labelEn,
         irish:   a.labelGa,
         english: a.labelEn,
       }))
@@ -149,25 +141,20 @@ export class EncounterPanel {
         english:  card.en || '',
         type:     'chat_options',
         options,
-        onChoice: (i) => this._resolveAction(card.actions[i]),
+        onChoice:  (i) => this._resolveAction(card.actions[i]),
         onDismiss: () => this._onPanelClosed(),
       })
     } else {
-      // No actions -- plain examine panel, swipe up to dismiss
       this._scene.textPanel.show({
         irish:   card.ga || '',
         english: card.en || '',
         type:    'examine',
-        onDismiss: () => {
-          this._finalDismiss()
-        },
+        onDismiss: () => this._finalDismiss(),
       })
     }
   }
 
   // ── Graphic ───────────────────────────────────────────────────────────────
-  // Small oryx tile shown in top-right corner while text panel is open.
-  // Drawn directly onto the Phaser canvas so it sits naturally in the scene.
 
   _showGraphic(visual) {
     if (!visual?.gid) return
@@ -176,13 +163,12 @@ export class EncounterPanel {
     const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
     if (!src) return
 
-    // Create a Phaser texture from the canvas and display it
     const key = `enc_graphic_${visual.gid}`
     if (!this._scene.textures.exists(key)) {
       this._scene.textures.addCanvas(key, src)
     }
 
-    const sw = this._scene.scale.width
+    const sw   = this._scene.scale.width
     const size = 48
 
     this._graphicImg = this._scene.add.image(sw - size, size, key)
@@ -215,12 +201,10 @@ export class EncounterPanel {
           const tx = this._active.getData('flagTileX')
           const ty = this._active.getData('flagTileY')
           if (tx != null && this._scene.perspectiveGround) {
-            this._scene.perspectiveGround.swapEncounterFlagVisual(tx, ty, outcome.visualSwap)
             this._scene.perspectiveGround.forceRedraw()
           }
         }
         if (outcome.textGa || outcome.textEn) {
-          // Show followup text then dismiss
           this._scene.textPanel.show({
             irish:   outcome.textGa || '',
             english: outcome.textEn || '',
@@ -234,7 +218,6 @@ export class EncounterPanel {
       }
 
       case 'persist':
-        // Leave flag on map, just close
         this._onPanelClosed()
         break
 
@@ -253,10 +236,13 @@ export class EncounterPanel {
 
     if (stateKey && window.GameState) window.GameState.setCollected(stateKey)
 
-    const tx = obj?.getData('flagTileX')
-    const ty = obj?.getData('flagTileY')
-    if (tx != null && this._scene.perspectiveGround) {
-      this._scene.perspectiveGround.clearEncounterFlag(tx, ty)
+    
+const lx = obj?.getData('logicalX')
+    const ly = obj?.getData('logicalY')
+    if (lx != null && this._scene.perspectiveGround) {
+      const ftx = Math.round((lx - this._scene.tileSize / 2) / this._scene.tileSize)
+      const fty = Math.round((ly - this._scene.tileSize / 2) / this._scene.tileSize)
+      this._scene.perspectiveGround.clearEncounterFlag(ftx, fty)
       this._scene.perspectiveGround.forceRedraw()
     }
 
@@ -270,15 +256,12 @@ export class EncounterPanel {
 
   _onPanelClosed() {
     this._hideGraphic()
-    this._isOpen = false
-    this._card   = null
-    this._active = null
-if (this._scene) this._scene._lastWasFar = false
+    this._isOpen  = false
+    this._card    = null
+    this._active  = null
+    if (this._scene) this._scene._lastWasFar = false
     if (this._scene?.perspectiveGround) this._scene.perspectiveGround.forceRedraw()
   }
-
-  // ── Language update ───────────────────────────────────────────────────────
-  // TextPanel handles this itself via GameSettings -- nothing needed here.
 
   updateLanguageOpacity() {}
 

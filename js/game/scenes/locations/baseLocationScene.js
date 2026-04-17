@@ -132,16 +132,19 @@ export default class BaseLocationScene extends Phaser.Scene {
 
       if (this.terrainManager) this.terrainManager.update();
 
-     this._flagInRange = false
+      this._flagInRange = false
       this.checkProximityInteractions()
-if (!this._flagInRange && this._encounterPanel) {
+
+      if (!this._flagInRange && this._encounterPanel) {
         if (!this._lastWasFar) {
           this._lastWasFar = true
           this._encounterPanel.clearNotify()
         }
       } else {
         this._lastWasFar = false
-      }      this.checkExits()   
+      }
+
+      this.checkExits()
     }
 
     this.checkItemPickups();
@@ -183,7 +186,7 @@ if (!this._flagInRange && this._encounterPanel) {
       const pixelX = obj.x * this.tileSize + this.tileSize / 2;
       const pixelY = obj.y * this.tileSize + this.tileSize / 2;
 
-      const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2);
+      const zone = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize);
       zone.setData('id',       obj.id);
       zone.setData('type',     obj.type);
       zone.setData('text',     obj.text);
@@ -194,19 +197,6 @@ if (!this._flagInRange && this._encounterPanel) {
       zone.setData('logicalY', pixelY);
       zone.x = pixelX;
       zone.y = pixelY;
-
-      if (obj.type === 'encounter_flag') {
-        zone.setData('flagTileX', obj.x)
-        zone.setData('flagTileY', obj.y)
-        zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
-        zone.setData('actions',    obj.actions || [])
-        this._pendingFlags = this._pendingFlags || []
-        this._pendingFlags.push({
-          tileX:  obj.x,
-          tileY:  obj.y,
-          visual: obj.visual || { gid: 255, flat: false }
-        })
-      }
 
       this.interactables.push(zone);
     });
@@ -276,6 +266,7 @@ if (!this._flagInRange && this._encounterPanel) {
   }
 
   // ── Proximity interactions ────────────────────────────────────────────────
+
   checkProximityInteractions() {
     if (this.narrativeInProgress) return;
     if (this.textPanel.isVisible || this.textPanelCooldown) return;
@@ -283,32 +274,23 @@ if (!this._flagInRange && this._encounterPanel) {
     const playerX = this.player.logicalX;
     const playerY = this.player.logicalY;
 
-const ptx = Math.round((this.player.logicalX - this.tileSize / 2) / this.tileSize)
-const pty = Math.round((this.player.logicalY - this.tileSize / 2) / this.tileSize)
-
     // -- Find nearest encounter flag within range --
+    // Uses pixel distance against logical coords -- same system as all other objects.
     let nearestFlag = null
     let nearestDist = Infinity
+  const FLAG_RADIUS = this.tileSize * 1
 
     this.interactables.forEach(obj => {
       if (obj.getData('type') !== 'encounter_flag') return
-      const ftx = obj.getData('flagTileX')
-      const fty = obj.getData('flagTileY')
-      if (ftx == null) return
-    const d = Math.abs(ptx - ftx) + Math.abs(pty - fty)
-      if (d <= 1 && d < nearestDist) { 
-
-       nearestDist = d
+      const objX = obj.getData('logicalX') ?? obj.x
+      const objY = obj.getData('logicalY') ?? obj.y
+      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY)
+      if (dist < FLAG_RADIUS && dist < nearestDist) {
+        nearestDist = dist
         nearestFlag = obj
       }
-    })
-
+    }) 
     if (nearestFlag) {
-
-  console.log('[nearest flag] ftx:', nearestFlag.getData('flagTileX'), 
-    'fty:', nearestFlag.getData('flagTileY'),
-    'ptx:', ptx, 'pty:', pty, 'dist:', 
-    Math.abs(ptx - nearestFlag.getData('flagTileX')) + Math.abs(pty - nearestFlag.getData('flagTileY')))
       this._flagInRange = true
       if (this._encounterPanel) {
         const text = nearestFlag.getData('text')
@@ -375,7 +357,6 @@ const pty = Math.round((this.player.logicalY - this.tileSize / 2) / this.tileSiz
       });
     });
   }
-
 
   // ── Exits ─────────────────────────────────────────────────────────────────
 

@@ -15,28 +15,25 @@ import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
 import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
 import { EncounterPanel } from '../../../ui/encounterPanel.js'
 
-// Expose globally so baseLocationScene can access without circular imports
 window.GameState = GameState
 
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 const SCALE = 2
 
 const ALWAYS_UNWALKABLE = new Set([
-  1634, 1688,           // water
-  740,                  // cliff edge
-  228, 231, 233, 234,   // bog walls
-  235, 236, 226, 229,   // bog walls
-  230, 232, 242, 243,   // bog walls
-  217, 218, 219,        // bog blocks
-  120, 121, 122, 123,   // clay walls
-  124, 125, 126, 127,   // clay walls
-  128, 129, 130, 131,   // clay walls
-  132, 133, 134, 135,   // clay walls
+  1634, 1688,
+  740,
+  228, 231, 233, 234,
+  235, 236, 226, 229,
+  230, 232, 242, 243,
+  217, 218, 219,
+  120, 121, 122, 123,
+  124, 125, 126, 127,
+  128, 129, 130, 131,
+  132, 133, 134, 135,
 ])
 
 export default class BogLocationScene extends BaseLocationScene {
-
-  // -- Override in child scenes --------------------------------------
 
   getMapKey()              { return 'great_open_bog' }
   getAmbient()             { return 0x334422 }
@@ -46,15 +43,12 @@ export default class BogLocationScene extends BaseLocationScene {
   getExtraUnwalkableGIDs() { return new Set() }
   onEnter()                {}
 
-  // -- Lifecycle -----------------------------------------------------
-
   init(data) {
     this.entryData = data || {}
     console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
   }
 
   preload() {
-    this.load.image('encounterFlag',        '/assets/moonTile.png')
     this.load.image('darkStone',            'assets/darkStone.png')
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
@@ -91,7 +85,6 @@ export default class BogLocationScene extends BaseLocationScene {
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
 
-      // -- Encounter deck injection ------------------------------------------
       const occupied = new Set()
       this.mapData.objects.forEach(o => occupied.add(`${o.x},${o.y}`))
       this.mapData.npcs.forEach(n => occupied.add(`${n.x},${n.y}`))
@@ -112,10 +105,10 @@ export default class BogLocationScene extends BaseLocationScene {
 
       walkable.sort(() => Math.random() - 0.5)
 
-      const deck  = new EncounterDeck(forestDeck)
-      const drawn = deck.draw(6)
-      let   wi    = 0
-const placed = []
+      const deck       = new EncounterDeck(forestDeck)
+      const drawn      = deck.draw(6)
+      let   wi         = 0
+      const placed     = []
       const MIN_SPACING = 6
 
       drawn.forEach(card => {
@@ -180,24 +173,20 @@ const placed = []
 
     this.initializeLocation()
 
-    // Register player with PGR
     if (this.perspectiveGround) {
       this.perspectiveGround.setPlayer(this.player)
     }
 
-    // Push encounter flags to PGR for world-space rendering
+    // Register encounter flags with PGR
     if (this._pendingFlags?.length && this.perspectiveGround) {
       this.perspectiveGround.setEncounterFlags(this._pendingFlags)
       this._pendingFlags = []
     }
 
-    // Item sheet helper
     this.itemSheet = new ItemSheetHelper(this)
 
-    // Snap camera before lerp starts
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
 
-    // -- FOV + Pathfinding + Fog -------------------------------------------
     this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
@@ -211,7 +200,6 @@ const placed = []
 
     this._setupTapToPath()
 
-    // GameState
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (champion?.id) GameState.init(champion.id)
     GameState.setVisited(this.scene.key)
@@ -239,8 +227,6 @@ const placed = []
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
   }
-
-  // -- FOV + Pathfinding helpers -----------------------------------------
 
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
@@ -294,38 +280,31 @@ const placed = []
     })
   }
 
-  // -- UI ----------------------------------------------------------------
-
   _onMoonTap() {
     const now = Date.now()
     if (now - (this._lastMoonTap || 0) < 700) return
     this._lastMoonTap = now
 
-    // Encounter panel notification active: open it
     if (this._encounterPanel?._card) {
       this._encounterPanel._openPanel()
       return
     }
 
-    // Detail panel open: close detail only
     if (this.worldMenu?.itemDetailPanel?.isVisible) {
       this.worldMenu.itemDetailPanel.hide()
       return
     }
 
-    // Inventory open: close inventory
     if (this.worldMenu?.isOpen) {
       this._closeWorldMenuSilently()
       return
     }
 
-    // Hub open: close hub
     if (this._menuHub?.isOpen()) {
       this._menuHub.close()
       return
     }
 
-    // Nothing open: open hub
     this._menuHub?.open()
   }
 
@@ -350,9 +329,8 @@ const placed = []
         if (this.textPanel)  this.textPanel.updateEnglishOpacity()
         if (this.worldMenu?.itemDetailPanel)
           this.worldMenu.itemDetailPanel.updateLanguageOpacity()
-if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add this
+        if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
       },
-
       onTap: () => this._onMoonTap(),
     })
 
@@ -363,8 +341,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     if (!this.worldMenu) return
     this.worldMenu.close()
   }
-
-  // -- Collision ---------------------------------------------------------
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
@@ -377,8 +353,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     if (g1 && (ALWAYS_UNWALKABLE.has(g1) || extra.has(g1))) return true
     return false
   }
-
-  // -- Entry positioning -------------------------------------------------
 
   applyEntryPosition() {
     const edge = this.entryData?.entryEdge
@@ -418,8 +392,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
-  // -- Narrative ---------------------------------------------------------
-
   showIntroNarrative() {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (!champion) return
@@ -455,8 +427,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     showNext()
   }
 
-  // -- Object & NPC creation ---------------------------------------------
-
   createObjects() {
     if (!this.mapData.objects) return
     this.interactables = []
@@ -471,7 +441,7 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
       const pixelY = obj.y * this.tileSize + this.tileSize / 2
 
-      const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
+      const zone = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize)
       zone.setData('id',       obj.id)
       zone.setData('type',     obj.type)
       zone.setData('text',     obj.text)
@@ -484,8 +454,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
       zone.y = pixelY
 
       if (obj.type === 'encounter_flag') {
-        zone.setData('flagTileX', obj.x)
-        zone.setData('flagTileY', obj.y)
         zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
         zone.setData('actions',    obj.actions || [])
         this._pendingFlags = this._pendingFlags || []
@@ -541,8 +509,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
 
-  // -- Update ------------------------------------------------------------
-
   update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
@@ -565,8 +531,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
-  // -- Shutdown ----------------------------------------------------------
-
   shutdown() {
     if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
     if (this._moonWidget)     { this._moonWidget.destroy();     this._moonWidget     = null }
@@ -586,8 +550,6 @@ if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()  // add t
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
   }
-
-  // -- Tilemap -----------------------------------------------------------
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }

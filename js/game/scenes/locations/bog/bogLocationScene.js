@@ -133,7 +133,9 @@ export default class BogLocationScene extends BaseLocationScene {
           y:        tile.y,
           stateKey: stateKey,
           visual:   card.visual,
-          text:     { ga: card.ga, en: card.en }
+          text:     { ga: card.ga, en: card.en },
+actions:  card.actions || []
+     
         })
       })
       console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)

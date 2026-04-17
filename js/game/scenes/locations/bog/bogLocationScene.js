@@ -454,6 +454,7 @@ export default class BogLocationScene extends BaseLocationScene {
       zone.y = pixelY
 
       if (obj.type === 'encounter_flag') {
+console.log('[zone] id:', obj.id, 'actions:', obj.actions?.length ?? 'undefined')
         zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
         zone.setData('actions',    obj.actions || [])
         this._pendingFlags = this._pendingFlags || []

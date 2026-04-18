@@ -23,7 +23,6 @@ export default class ItemDetailPanel {
       .setVisible(false)
       .setInteractive({ priorityID: 100 });
 
-    // Absorb ALL pointer phases so bg never steals input
     ['pointerdown', 'pointermove', 'pointerup'].forEach(evt => {
       this.blocker.on(evt, (_, __, ___, e) => e?.stopPropagation());
     });
@@ -52,29 +51,32 @@ export default class ItemDetailPanel {
     this.container.add(this.itemImage);
 
     const titleY = -height / 2 + 120;
+
+    // Irish title: TYPE.heading
     this.nameTextGa = scene.add.text(0, titleY, '', {
-      fontSize: '28px',
-      color: COLORS.irish,
-      fontFamily: FONTS.irish
+      fontSize:   TYPE.heading.size,
+      color:      COLORS.irish,
+      fontFamily: FONTS.irish,
     }).setOrigin(0.5, 0).setDepth(3002);
 
-    this.nameTextEn = scene.add.text(0, titleY + 35, '', {
-      fontSize: '16px',
-      color: COLORS.english,
-      fontFamily: FONTS.english
+    // English title: TYPE.bodyEn -- was hardcoded '16px', now matches type scale
+    this.nameTextEn = scene.add.text(0, titleY + 38, '', {
+      fontSize:   TYPE.bodyEn.size,
+      color:      COLORS.english,
+      fontFamily: FONTS.english,
     }).setOrigin(0.5, 0).setDepth(3002);
 
     this.container.add([this.nameTextGa, this.nameTextEn]);
 
     /* ---------------- TEXT LAYOUT ---------------- */
-    this.textAreaTop = titleY + 85;
-    this.textAreaHeight = height - 280;
-    this.textAreaWidth = width - 60;
+    this.textAreaTop    = titleY + 95;
+    this.textAreaHeight = height - 290;
+    this.textAreaWidth  = width - 60;
     this.textAreaBottom = this.textAreaTop + this.textAreaHeight;
 
-    this.textLines = [];
-    this.scrollY = 0;
-    this.velocity = 0;
+    this.textLines   = [];
+    this.scrollY     = 0;
+    this.velocity    = 0;
     this.isScrolling = false;
 
     /* ---------------- SCROLL INDICATORS ---------------- */
@@ -114,26 +116,21 @@ export default class ItemDetailPanel {
     this.hitArea.on('pointerdown', (pointer, _, __, e) => {
       if (pointer._downOnButton) return;
       e?.stopPropagation();
-
-      this.isScrolling = true;
-      this.velocity = 0;
+      this.isScrolling  = true;
+      this.velocity     = 0;
       this.lastPointerY = pointer.y;
       this.lastMoveTime = scene.time.now;
     });
 
     this.hitArea.on('pointermove', (pointer) => {
       if (!this.isScrolling) return;
-
       const delta = pointer.y - this.lastPointerY;
       this.scrollY = Phaser.Math.Clamp(this.scrollY + delta, -this.maxScrollY, 0);
       this.updateTextPositions();
       this.lastPointerY = pointer.y;
       const now = this.scene.time.now;
-      const dt = now - this.lastMoveTime;
-      if (dt > 0) {
-        this.velocity = delta / dt * 16;
-        this.lastMoveTime = now;
-      }
+      const dt  = now - this.lastMoveTime;
+      if (dt > 0) { this.velocity = delta / dt * 16; this.lastMoveTime = now; }
     });
 
     this.hitArea.on('pointerup', () => { this.isScrolling = false; });
@@ -162,21 +159,19 @@ export default class ItemDetailPanel {
   /* ================= SHOW ================= */
   show(item, slotInfo) {
     if (!item) return this.hide();
-    
+
     this.currentItem = item;
     this.currentSlot = slotInfo;
     this.blocker.setVisible(true);
     this.container.setVisible(true);
     this.hitArea.setVisible(true);
 
-    // Update item image
     if (item.spriteKey) {
       this.itemImage.setTexture(item.spriteKey).setVisible(true);
     } else {
       this.itemImage.setVisible(false);
     }
 
-    // Update title texts
     this.nameTextGa.setText(item.nameGa || 'Gan ainm');
     this.nameTextEn.setText(item.nameEn || 'Unknown');
 
@@ -184,27 +179,29 @@ export default class ItemDetailPanel {
     this.textLines.forEach(entry => entry.text.destroy());
     this.textLines = [];
 
-    const gaParts = (item.descGa || '').split('\n');
-    const enParts = (item.descEn || '').split('\n');
+    const gaParts  = (item.descGa || '').split('\n');
+    const enParts  = (item.descEn || '').split('\n');
     const maxLines = Math.max(gaParts.length, enParts.length);
 
     for (let i = 0; i < maxLines; i++) {
       [
         { t: gaParts[i], type: 'ga' },
-        { t: enParts[i], type: 'en' }
+        { t: enParts[i], type: 'en' },
       ].forEach(cfg => {
         if (!cfg.t) return;
 
-        const txt = this.scene.add.text(
+        const isEn  = cfg.type === 'en';
+        const txt   = this.scene.add.text(
           -this.textAreaWidth / 2,
           0,
           cfg.t,
           {
-            fontSize: cfg.type === 'ga' ? '20px' : '16px',
-            fontFamily: cfg.type === 'ga' ? FONTS.irish : FONTS.english,
-            fontStyle: cfg.type === 'en' ? 'italic' : 'normal',
-            color: cfg.type === 'ga' ? COLORS.irish : COLORS.english,
-            wordWrap: { width: this.textAreaWidth - 25 }
+            // Irish body: TYPE.body; English body: TYPE.bodyEn (was hardcoded '16px')
+            fontSize:   isEn ? TYPE.bodyEn.size : TYPE.body.size,
+            fontFamily: isEn ? FONTS.english : FONTS.irish,
+            fontStyle:  isEn ? 'italic' : 'normal',
+            color:      isEn ? COLORS.english : COLORS.irish,
+            wordWrap:   { width: this.textAreaWidth - 25 },
           }
         )
           .setOrigin(0, 0)
@@ -218,7 +215,7 @@ export default class ItemDetailPanel {
     this.buttonBar.refresh(item.actions || [], slotInfo.isEquipSlot);
     this.buttonBar.updatePositions();
 
-    this.scrollY = 0;
+    this.scrollY  = 0;
     this.velocity = 0;
     this.updateLanguageOpacity();
 
@@ -228,28 +225,28 @@ export default class ItemDetailPanel {
   /* ================= MASK + SCROLL ================= */
   updateTextPositions() {
     let currentY = this.textAreaTop + this.scrollY;
-    let totalH = 0;
+    let totalH   = 0;
 
     this.textLines.forEach((entry, index) => {
-      const t = entry.text;
-      t.y = currentY;
+      const t    = entry.text;
+      t.y        = currentY;
 
-      // --- CROP MASKING ---
-      const cropY = Math.max(0, this.textAreaTop - t.y);
+      const cropY      = Math.max(0, this.textAreaTop - t.y);
       const cropHeight = Math.min(t.height, this.textAreaBottom - t.y) - cropY;
-
       t.setCrop(0, cropY, t.width, cropHeight <= 0 ? 0 : cropHeight);
 
       const isNextEn = this.textLines[index + 1]?.type === 'en';
-      const step = t.height + (isNextEn ? 4 : 22);
-      currentY += step;
-      totalH += step;
+      const step     = t.height + (isNextEn ? 4 : 22);
+      currentY      += step;
+      totalH        += step;
     });
 
     this.maxScrollY = Math.max(0, totalH - this.textAreaHeight);
 
     if (this.maxScrollY > 0) {
-      this.scrollHandle.setVisible(true).y = this.textAreaTop + (Math.abs(this.scrollY) / this.maxScrollY * (this.textAreaHeight - 30)) + 15;
+      this.scrollHandle
+        .setVisible(true)
+        .setY(this.textAreaTop + (Math.abs(this.scrollY) / this.maxScrollY * (this.textAreaHeight - 30)) + 15);
       this.scrollTrack.setVisible(true);
     } else {
       this.scrollHandle.setVisible(false);
@@ -260,17 +257,14 @@ export default class ItemDetailPanel {
   /* ================= LANGUAGE OPACITY ================= */
   updateLanguageOpacity() {
     const opacity = GameSettings.englishOpacity;
-    // Description text fades with moon phase
     this.textLines.forEach(entry => {
       entry.text.setAlpha(entry.type === 'en' ? opacity : 1);
       entry.text.setVisible(entry.type === 'ga' || opacity > 0.05);
     });
-    // English name fades with moon phase
     if (this.nameTextEn) {
       this.nameTextEn.setAlpha(opacity);
       this.nameTextEn.setVisible(opacity > 0.05);
     }
-    // Buttons are binary
     this.buttonBar?.updateOpacity();
   }
 
@@ -287,3 +281,4 @@ export default class ItemDetailPanel {
     return this.container.visible;
   }
 }
+

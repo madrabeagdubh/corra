@@ -14,7 +14,7 @@
  *
  * Button language rule:
  *   Buttons show Irish OR English, never both.
- *   Use pickLanguage(opacity) to choose, or pass the opacity to a button factory.
+ *   Use pickLanguage(opacity) to choose, or pass the opacity to createButton().
  */
 
 // -- Fonts --
@@ -25,15 +25,41 @@ export const FONTS = {
   title:   'Uncial Antiqua, serif',
 }
 
-// -- Sizes --
+// -- Type scale --
+// All size values live here. SIZES below are legacy aliases kept for
+// back-compat with files that still import { SIZES } -- they all point
+// into TYPE so there is one source of truth.
+export const TYPE = {
+  title:    { size: '28px', font: FONTS.title,   lineSpacing: 8  },
+  heading:  { size: '25px', font: FONTS.irish,   lineSpacing: 6  },
+  body:     { size: '25px', font: FONTS.irish,   lineSpacing: 5  },
+  bodyEn:   { size: '22px', font: FONTS.english, lineSpacing: 4  },
+  speaker:  { size: '16px', font: FONTS.irish,   lineSpacing: 4  },
+  label:    { size: '13px', font: FONTS.ui,      lineSpacing: 2  },
+  hint:     { size: '10px', font: FONTS.ui,      lineSpacing: 2  },
+
+  // Card content (encounter_card panel -- larger, more breathable)
+  cardBody:   { size: '26px', font: FONTS.irish,   lineSpacing: 7  },
+  cardBodyEn: { size: '22px', font: FONTS.english, lineSpacing: 5  },
+
+  // Button labels (single-language, large enough to tap confidently)
+  button:     { size: '22px', font: FONTS.irish,   lineSpacing: 0  },
+  buttonEn:   { size: '17px', font: FONTS.english, lineSpacing: 0  },
+
+  // DOM (ScrollingTextPlayer / constellationScene -- rem-based)
+  domBody:    { size: '1.8rem', sizePx: 29, font: FONTS.irish   },
+  domBodyEn:  { size: '1.7rem', sizePx: 27, font: FONTS.english },
+}
+
+// -- SIZES: legacy aliases -- do not add new entries here, use TYPE --
 export const SIZES = {
-  irish:       '24px',
-  english:     '27px',
-  speaker:     '16px',
-  label:       '0px',
-  hint:        '0px',
-  title:       '28px',
-  notification:'0px',
+  irish:        TYPE.body.size,       // '25px'
+  english:      TYPE.bodyEn.size,     // '22px'  (was '27px' -- corrected to match TYPE)
+  speaker:      TYPE.speaker.size,    // '16px'
+  label:        TYPE.label.size,      // '13px'
+  hint:         TYPE.hint.size,       // '10px'
+  title:        TYPE.title.size,      // '28px'
+  notification: TYPE.label.size,      // '13px'
 }
 
 // -- Colours --
@@ -41,7 +67,7 @@ export const COLORS = {
   // Text content
   irish:        '#e8dfc0',    // warm parchment -- Irish lines
   english:      '#a0c8a0',    // muted sage -- English lines
-  hint:         '#445544',    // dim hint text (swipe to dismiss etc)
+  hint:         '#445544',    // dim hint text
 
   // Speakers
   hero:         '#e8dfc0',
@@ -53,7 +79,7 @@ export const COLORS = {
   npc:          '#a8c4a8',
 
   // UI
-  speaker:      '#d4af37',
+  speaker:      '#d4af37',    // speaker name label (gold) -- same as queen
   ui:           '#ffffff',
   uiDim:        '#888888',
   border:       '#b0b0b0',
@@ -63,15 +89,22 @@ export const COLORS = {
   panelBorder:  0xb0b0b0,
   panelAlpha:   0.97,
 
-  // -- Buttons (Phaser hex for fills/strokes, css for text) --
+  // Buttons (Phaser hex for fills/strokes, css strings for text)
   buttonFill:         0x0a0e0a,    // very dark, near-black with green tint
   buttonFillActive:   0x1a2418,    // brief flash on tap
-  buttonBorder:       0xd4af37,    // thin gold (queen)
+  buttonBorder:       0xd4af37,    // thin gold (= queen)
   buttonBorderActive: 0xffd700,    // brighter gold on tap
-  buttonGlow:         0xffe066,    // inner glow flash colour
   buttonText:         '#e8dfc0',   // parchment, matches Irish body
   buttonTextActive:   '#fff4c2',   // brighter on tap
-  buttonAlpha:        0.85,        // fill alpha
+  buttonAlpha:        0.85,
+
+  // DOM button equivalents (CSS strings for non-Phaser contexts)
+  domButtonFill:         'rgba(10,14,10,0.92)',
+  domButtonFillActive:   'rgba(26,36,24,0.98)',
+  domButtonBorder:       '#d4af37',
+  domButtonBorderActive: '#ffd700',
+  domButtonText:         '#e8dfc0',
+  domButtonTextActive:   '#fff4c2',
 }
 
 export const SPACING = {
@@ -83,45 +116,18 @@ export const SPACING = {
 
 // -- Button geometry constants (shared across the game) --
 export const BUTTON = {
-  height:        56,    // pixels
-  paddingX:      18,    // horizontal text padding
-  borderWidth:   1.5,   // gold border thickness
-  borderRadius:  6,     // corner radius
-  flashMs:       180,   // tap feedback duration
-  gap:           14,    // vertical gap between stacked buttons
-  minWidthFrac:  0.7,   // minimum width as fraction of screen
-  maxWidthFrac:  0.86,  // maximum width as fraction of screen
-}
-
-// -- Type scale --
-export const TYPE = {
-  title:    { size: '28px', font: FONTS.title,   lineSpacing: 8  },
-  heading:  { size: '25px', font: FONTS.irish,   lineSpacing: 6  },
-  body:     { size: '25px', font: FONTS.irish,   lineSpacing: 5  },
-  bodyEn:   { size: '22px', font: FONTS.english, lineSpacing: 4  },
-  speaker:  { size: '16px', font: FONTS.irish,   lineSpacing: 4  },
-  label:    { size: '13px', font: FONTS.ui,      lineSpacing: 2  },
-  hint:     { size: '10px', font: FONTS.ui,      lineSpacing: 2  },
-
-  // Card content (slightly larger and more breathable than dialogue body)
-  cardBody:   { size: '26px', font: FONTS.irish,   lineSpacing: 7  },
-  cardBodyEn: { size: '20px', font: FONTS.english, lineSpacing: 5  },
-
-  // Button labels (single-language, large enough to tap confidently)
-  button:     { size: '22px', font: FONTS.irish,   lineSpacing: 0  },
-  buttonEn:   { size: '17px', font: FONTS.english, lineSpacing: 0  },
-
-  // DOM (ScrollingTextPlayer / constellationScene)
-  domBody:    { size: '1.8rem', sizePx: 29, font: FONTS.irish   },
-  domBodyEn:  { size: '1.7rem', sizePx: 27, font: FONTS.english },
+  height:        56,
+  paddingX:      18,
+  paddingY:      14,
+  borderWidth:   1.5,
+  borderRadius:  6,
+  flashMs:       180,
+  gap:           14,
+  minWidthFrac:  0.7,
+  maxWidthFrac:  0.86,
 }
 
 // -- Phaser text style factory --
-/**
- * Returns a Phaser-compatible text style object.
- * @param {string} variant -- key from TYPE
- * @param {object} overrides
- */
 export function textStyle(variant, overrides = {}) {
   const t = TYPE[variant] || TYPE.body
   return {
@@ -171,11 +177,10 @@ export function speakerColorEn(speaker) {
   return map[speaker?.toLowerCase?.()] || COLORS.english
 }
 
-// -- Language picker (drives single-language UI like buttons) --
+// -- Language picker --
 /**
- * Returns 'en' if the moon-controlled English opacity is >= 0.5,
- * else 'ga'. Used by buttons and any single-language UI elements
- * that should switch with the moon widget.
+ * Returns 'en' if English opacity >= 0.5, else 'ga'.
+ * Single source of truth for the moon threshold used by all button UI.
  *
  * @param {number} opacity -- typically GameSettings.englishOpacity
  * @returns {'en' | 'ga'}
@@ -184,29 +189,28 @@ export function pickLanguage(opacity) {
   return (typeof opacity === 'number' && opacity >= 0.5) ? 'en' : 'ga'
 }
 
-// -- Button factory --
+// -- Phaser button factory --
 /**
- * Creates a styled button (rectangle + text) and returns refs for
- * mutation/destruction. Caller is responsible for adding to its own
- * object/cleanup arrays. Subscribes the text to language updates via
- * the returned setLanguage(lang) method.
+ * Creates a styled Phaser button (rectangle + text).
+ * Buttons show Irish OR English only -- never both.
+ * Call updateOpacity(opacity) whenever GameSettings.englishOpacity changes.
  *
  * @param {Phaser.Scene} scene
  * @param {object} cfg
- *   @param {number}  cfg.x
- *   @param {number}  cfg.y
- *   @param {number}  cfg.width
- *   @param {string}  cfg.labelGa
- *   @param {string}  cfg.labelEn
- *   @param {number}  cfg.depth        default 2002
- *   @param {number}  cfg.opacity      current English opacity (drives initial language)
- *   @param {function} cfg.onTap       called after flash completes
+ *   @param {number}   cfg.x
+ *   @param {number}   cfg.y
+ *   @param {number}   cfg.width
+ *   @param {string}   cfg.labelGa
+ *   @param {string}   cfg.labelEn
+ *   @param {number}   cfg.depth        default 2002
+ *   @param {number}   cfg.opacity      current English opacity
+ *   @param {function} cfg.onTap        called after flash completes
  * @returns {{
- *   bg: Phaser.GameObjects.Rectangle,
- *   text: Phaser.GameObjects.Text,
- *   setLanguage: (lang:'en'|'ga') => void,
- *   updateOpacity: (opacity:number) => void,
- *   destroy: () => void,
+ *   bg:             Phaser.GameObjects.Rectangle,
+ *   text:           Phaser.GameObjects.Text,
+ *   setLanguage:    (lang:'en'|'ga') => void,
+ *   updateOpacity:  (opacity:number) => void,
+ *   destroy:        () => void,
  * }}
  */
 export function createButton(scene, cfg) {
@@ -219,19 +223,16 @@ export function createButton(scene, cfg) {
     onTap   = () => {},
   } = cfg
 
-  const h = BUTTON.height
-
-  const bg = scene.add.rectangle(x, y, width, h, COLORS.buttonFill, COLORS.buttonAlpha)
+  const bg = scene.add.rectangle(x, y, width, BUTTON.height, COLORS.buttonFill, COLORS.buttonAlpha)
     .setScrollFactor(0)
     .setDepth(depth)
     .setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder)
     .setInteractive({ useHandCursor: true })
 
-  const initialLang = pickLanguage(opacity)
-  const initialText = (initialLang === 'en') ? labelEn : labelGa
-  const initialStyle = (initialLang === 'en') ? TYPE.buttonEn : TYPE.button
+  const initialLang  = pickLanguage(opacity)
+  const initialStyle = initialLang === 'en' ? TYPE.buttonEn : TYPE.button
 
-  const text = scene.add.text(x, y, initialText, {
+  const text = scene.add.text(x, y, initialLang === 'en' ? labelEn : labelGa, {
     fontSize:   initialStyle.size,
     fontFamily: initialStyle.font,
     color:      COLORS.buttonText,
@@ -244,53 +245,110 @@ export function createButton(scene, cfg) {
   let currentLang = initialLang
 
   const setLanguage = (lang) => {
-    if (lang === currentLang) return
+    if (lang === currentLang || !text.active) return
     currentLang = lang
-    const newText  = (lang === 'en') ? labelEn : labelGa
-    const newStyle = (lang === 'en') ? TYPE.buttonEn : TYPE.button
-    text.setStyle({
-      fontSize:   newStyle.size,
-      fontFamily: newStyle.font,
-      color:      COLORS.buttonText,
-    })
-    text.setText(newText)
+    const style = lang === 'en' ? TYPE.buttonEn : TYPE.button
+    text.setStyle({ fontSize: style.size, fontFamily: style.font, color: COLORS.buttonText })
+    text.setText(lang === 'en' ? labelEn : labelGa)
   }
 
-  const updateOpacity = (op) => {
-    setLanguage(pickLanguage(op))
-  }
+  const updateOpacity = (op) => setLanguage(pickLanguage(op))
 
-  // Tap feedback: brief flash, then fire callback
   bg.on('pointerdown', () => {
+    if (!bg.active) return
     bg.setFillStyle(COLORS.buttonFillActive, 1)
     bg.setStrokeStyle(BUTTON.borderWidth + 1, COLORS.buttonBorderActive)
-    text.setColor(COLORS.buttonTextActive)
+    if (text.active) text.setColor(COLORS.buttonTextActive)
     scene.time.delayedCall(BUTTON.flashMs, () => {
-      // Reset visuals (will be destroyed shortly by caller, but reset for safety)
-      if (bg.active) {
-        bg.setFillStyle(COLORS.buttonFill, COLORS.buttonAlpha)
-        bg.setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder)
-      }
+      if (bg.active)   bg.setFillStyle(COLORS.buttonFill, COLORS.buttonAlpha)
+                         .setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder)
       if (text.active) text.setColor(COLORS.buttonText)
       onTap()
     })
   })
 
-  // Hover (desktop only -- touch ignores)
-  bg.on('pointerover', () => {
-    if (!bg.active) return
-    bg.setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorderActive)
-  })
-  bg.on('pointerout', () => {
-    if (!bg.active) return
-    bg.setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder)
-  })
+  bg.on('pointerover', () => { if (bg.active) bg.setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorderActive) })
+  bg.on('pointerout',  () => { if (bg.active) bg.setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder) })
 
-  const destroy = () => {
-    if (bg.active)   bg.destroy()
-    if (text.active) text.destroy()
+  return {
+    bg,
+    text,
+    setLanguage,
+    updateOpacity,
+    destroy: () => {
+      if (bg.active)   bg.destroy()
+      if (text.active) text.destroy()
+    },
   }
+}
 
-  return { bg, text, setLanguage, updateOpacity, destroy }
+// -- DOM button factory --
+/**
+ * Creates a styled DOM button consistent with the Phaser button aesthetic.
+ * Dark fill, thin gold border, single-language label driven by moon opacity.
+ * Use in non-Phaser screens (tutorialOrAdventure, heroSelect, etc).
+ *
+ * @param {object} cfg
+ *   @param {string}   cfg.ga         Irish label
+ *   @param {string}   cfg.en         English label
+ *   @param {number}   cfg.opacity    initial GameSettings.englishOpacity
+ *   @param {function} cfg.onClick
+ * @returns {{
+ *   el:             HTMLButtonElement,
+ *   applyLanguage:  (opacity:number) => void,
+ * }}
+ */
+export function createDomButton(cfg) {
+  const { ga = '', en = '', opacity = 0, onClick = () => {} } = cfg
+
+  const btn = document.createElement('button')
+  btn.style.cssText = [
+    'width:100%;',
+    `padding:${BUTTON.paddingY}px ${BUTTON.paddingX}px;`,
+    `border-radius:${BUTTON.borderRadius}px;`,
+    `background:${COLORS.domButtonFill};`,
+    `border:${BUTTON.borderWidth}px solid ${COLORS.domButtonBorder};`,
+    `color:${COLORS.domButtonText};`,
+    'cursor:pointer;',
+    'box-sizing:border-box;',
+    `transition:background ${BUTTON.flashMs}ms ease, border-color ${BUTTON.flashMs}ms ease;`,
+    'outline:none;',
+    '-webkit-tap-highlight-color:transparent;',
+  ].join('')
+
+  const label = document.createElement('span')
+  label.style.cssText = 'display:block;pointer-events:none;'
+  btn.appendChild(label)
+
+  function applyLanguage(op) {
+    const useEn = pickLanguage(op) === 'en'
+    label.textContent      = useEn ? en : ga
+    label.style.fontFamily = useEn ? FONTS.english : FONTS.irish
+    label.style.fontSize   = useEn ? TYPE.buttonEn.size : TYPE.button.size
+  }
+  applyLanguage(opacity)
+
+  // Tap feedback
+  btn.addEventListener('pointerdown', () => {
+    btn.style.background   = COLORS.domButtonFillActive
+    btn.style.borderColor  = COLORS.domButtonBorderActive
+    btn.style.color        = COLORS.domButtonTextActive
+    setTimeout(() => {
+      btn.style.background  = COLORS.domButtonFill
+      btn.style.borderColor = COLORS.domButtonBorder
+      btn.style.color       = COLORS.domButtonText
+    }, BUTTON.flashMs)
+  })
+
+  btn.addEventListener('pointerover', () => {
+    btn.style.borderColor = COLORS.domButtonBorderActive
+  })
+  btn.addEventListener('pointerout', () => {
+    btn.style.borderColor = COLORS.domButtonBorder
+  })
+
+  btn.onclick = onClick
+
+  return { el: btn, applyLanguage }
 }
 

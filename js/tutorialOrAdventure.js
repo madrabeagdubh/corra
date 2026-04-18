@@ -2,7 +2,7 @@
 
 import { initReturnCrossing } from './game/scenes/returnCrossing.js';
 import { initDawnCrossing }   from './game/scenes/dawnCrossing.js';
-import { FONTS, COLORS, TYPE } from './game/systems/gameTypography.js';
+import { FONTS, COLORS, TYPE, BUTTON, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings }         from './game/settings/gameSettings.js';
 import { createMoonWidget }     from './game/ui/moonWidget.js';
 
@@ -79,9 +79,8 @@ function createStarfield() {
 export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLine = null) {
     if (_state.initialized) return;
     _state.initialized = true;
-    let _responseRevealed = false;   // hoisted -- referenced by moonWidget onChange
+    let _responseRevealed = false;
 
-    // Sync GameSettings from whatever the constellation/heroSelect phase was
     GameSettings.setEnglishOpacity(
         typeof sliderValue === 'number' ? sliderValue : GameSettings.englishOpacity
     );
@@ -148,16 +147,15 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         box-sizing:border-box;overflow:hidden;
     `;
 
-
-   const textContainer = document.createElement('div');
+    const textContainer = document.createElement('div');
     textContainer.style.cssText = `
         text-align:center;max-width:800px;width:100%;
         padding:0 1.5rem 0.5rem 1.5rem;
         margin-top:7rem;
         flex-shrink:0;box-sizing:border-box;
-    `
+    `;
 
-;    const displayLine = _state.currentAmerginLine || {
+    const displayLine = _state.currentAmerginLine || {
         ga: 'Cé an té le nod slí na gcloch sléibhe?',
         en: 'Who knows the way of the mountain stones?',
     };
@@ -171,10 +169,8 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     `;
     textContainer.appendChild(irishTextEl);
 
-    // -- Champion area ---------------------------------------------------------
-    
-
-const championHolder = document.createElement('div');
+    // -- Champion area --
+    const championHolder = document.createElement('div');
     championHolder.style.cssText = `
         flex:1;width:100%;min-height:0;
         display:flex;flex-direction:column;
@@ -182,7 +178,8 @@ const championHolder = document.createElement('div');
         gap:1rem;
         overflow:hidden;padding:0.5rem 1.5rem;box-sizing:border-box;
     `;
- const responseIrish = document.createElement('div');
+
+    const responseIrish = document.createElement('div');
     responseIrish.textContent = 'Cé murach mise.';
     responseIrish.style.cssText = `
         font-family:${FONTS.irish};
@@ -192,7 +189,6 @@ const championHolder = document.createElement('div');
         opacity:0;transition:opacity 0.5s ease;
         pointer-events:none;
     `;
-
 
     const championCanvas = document.createElement('canvas');
     championCanvas.className = 'tutorial-champion-canvas';
@@ -214,11 +210,11 @@ const championHolder = document.createElement('div');
         font-size:1.7rem;color:${COLORS.english};
         opacity:0;transition:opacity 0.3s ease;line-height:1.5;
         pointer-events:none;
-text-align:center;max-width:800px;width:100%
-max-height:0;overflow:hidden;transition:opacity
-
+        text-align:center;max-width:800px;width:100%;
+        max-height:0;overflow:hidden;
     `;
-    // Append response elements now that they are declared
+
+    // Append response elements
     textContainer.appendChild(responseIrish);
     textContainer.appendChild(responseEnglish);
 
@@ -248,42 +244,19 @@ max-height:0;overflow:hidden;transition:opacity
         }
     })();
 
-    // -- Buttons ---------------------------------------------------------------
+    // -- Buttons --
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         width:100%;max-width:800px;
         display:flex;flex-direction:column;
-        gap:0.7rem;padding:1rem;
+        gap:${BUTTON.gap}px;
+        padding:1rem;
         box-sizing:border-box;flex-shrink:0;
         transition:opacity 0.6s ease;
     `;
 
-    // Button factory -- language switches at 50% threshold, driven by GameSettings
-    function createButton(ga, en, onClick) {
-        const btn   = document.createElement('button');
-        btn.style.cssText = `
-            width:100%;padding:1.1rem;border-radius:12px;
-            background:linear-gradient(145deg,#8b4513,#d2691e,#8b4513);
-            border:3px solid #d2691e;
-            font-size:1.3rem;cursor:pointer;color:#fff;
-            transition:all 0.2s ease;
-        `;
-        const label = document.createElement('div');
-        btn.appendChild(label);
-        btn.onclick      = onClick;
-        btn.onmouseenter = () => { btn.style.transform = 'scale(1.02)'; btn.style.boxShadow = '0 0 15px rgba(210,105,30,0.5)'; };
-        btn.onmouseleave = () => { btn.style.transform = 'scale(1)';    btn.style.boxShadow = 'none'; };
-
-        function applyLanguage(opacity) {
-            const useEn = opacity >= 0.5;
-            label.textContent      = useEn ? en : ga;
-            label.style.fontFamily = useEn ? FONTS.english : FONTS.irish;
-        }
-        applyLanguage(GameSettings.englishOpacity);
-
-        return { btn, applyLanguage };
-    }
-
+    // Use createDomButton from gameTypography for consistent styling across the game.
+    // Language switches at the 0.5 moon threshold via applyLanguage(opacity).
     function cleanupHeroSelect() {
         document.getElementById('heroSelect')?.remove();
         document.getElementById('global-stats-bar')?.remove();
@@ -293,16 +266,14 @@ max-height:0;overflow:hidden;transition:opacity
     }
 
     async function showResponseAndProceed(callback) {
-        // Reveal champion response beneath the Amergin question
         responseIrish.style.pointerEvents   = 'auto';
         responseEnglish.style.pointerEvents = 'auto';
         responseIrish.style.opacity          = '1';
         _responseRevealed = true;
-        responseEnglish.style.opacity = String(GameSettings.englishOpacity);
+        responseEnglish.style.maxHeight = '10rem';
+        responseEnglish.style.opacity   = String(GameSettings.englishOpacity);
         bottomSection.style.opacity       = '0';
         bottomSection.style.pointerEvents = 'none';
-responseEnglish.style.maxHeight = '10rem';
-responseEnglish.style.opacity = String(GameSettings.englishOpacity);
         await new Promise(r => setTimeout(r, 2000));
 
         // Fade music
@@ -364,74 +335,79 @@ responseEnglish.style.opacity = String(GameSettings.englishOpacity);
         callback();
     }
 
-    const trainingBtn = createButton('Oiliúint', 'Training', () => {
-        showResponseAndProceed(() => {
-            cleanupHeroSelect();
-            initDawnCrossing(champion, GameSettings.englishOpacity, () => {
-                window.startGame
-                    ? window.startGame(champion, { startScene: 'BowTutorial' })
-                    : console.error('[TutorialOrAdventure] window.startGame not found!');
+    const trainingBtn = createDomButton({
+        ga: 'Oiliúint', en: 'Training',
+        opacity: GameSettings.englishOpacity,
+        onClick: () => {
+            showResponseAndProceed(() => {
+                cleanupHeroSelect();
+                initDawnCrossing(champion, GameSettings.englishOpacity, () => {
+                    window.startGame
+                        ? window.startGame(champion, { startScene: 'BowTutorial' })
+                        : console.error('[TutorialOrAdventure] window.startGame not found!');
+                });
             });
-        });
+        },
     });
 
-    const bogBtn = createButton('An Portach', 'The Bog', () => {
-        showResponseAndProceed(() => {
-            cleanupHeroSelect();
-            initReturnCrossing(champion, GameSettings.englishOpacity, () => {
-                window.startGame
-                    ? window.startGame(champion, { startScene: 'Bog_Threshold' })
-                    : console.error('[TutorialOrAdventure] window.startGame not found!');
+    const bogBtn = createDomButton({
+        ga: 'An Portach', en: 'The Bog',
+        opacity: GameSettings.englishOpacity,
+        onClick: () => {
+            showResponseAndProceed(() => {
+                cleanupHeroSelect();
+                initReturnCrossing(champion, GameSettings.englishOpacity, () => {
+                    window.startGame
+                        ? window.startGame(champion, { startScene: 'Bog_Threshold' })
+                        : console.error('[TutorialOrAdventure] window.startGame not found!');
+                });
             });
-        });
+        },
     });
 
-    const backBtn = createButton('Ar Ais', 'Back', async () => {
-        try {
-            const mod = await import('./heroSelect.js');
-            if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
-            cleanup();
-            moonWidget.destroy();
-            const hsc = document.getElementById('heroSelect');
-            if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
-            if (mod.showHeroSelect) mod.showHeroSelect();
-        } catch(e) {
-            console.error('[TutorialOrAdventure] Back error:', e);
-            cleanup();
-        }
+    const backBtn = createDomButton({
+        ga: 'Ar Ais', en: 'Back',
+        opacity: GameSettings.englishOpacity,
+        onClick: async () => {
+            try {
+                const mod = await import('./heroSelect.js');
+                if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
+                cleanup();
+                moonWidget.destroy();
+                const hsc = document.getElementById('heroSelect');
+                if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
+                if (mod.showHeroSelect) mod.showHeroSelect();
+            } catch(e) {
+                console.error('[TutorialOrAdventure] Back error:', e);
+                cleanup();
+            }
+        },
     });
 
-    bottomSection.append(trainingBtn.btn, bogBtn.btn, backBtn.btn);
+    bottomSection.append(trainingBtn.el, bogBtn.el, backBtn.el);
 
-    // -- Moon widget -----------------------------------------------------------
-    // Fixed corner, same as every other scene. No slider strip.
+    // -- Moon widget --
     const moonWidget = createMoonWidget({
         initialPhase : GameSettings.englishOpacity,
         showSlider   : false,
         onChange     : (phase) => {
             GameSettings.setEnglishOpacity(phase);
-            // Update all English elements in this scene
             _applyOpacity(phase);
         },
     });
 
-    // Apply opacity to all English elements -- called by moonWidget onChange
     function _applyOpacity(opacity) {
-        // Only update responseEnglish if it has been revealed by a choice
         if (_responseRevealed) responseEnglish.style.opacity = String(opacity);
         trainingBtn.applyLanguage(opacity);
         bogBtn.applyLanguage(opacity);
         backBtn.applyLanguage(opacity);
     }
 
-    // Apply initial state
     _applyOpacity(GameSettings.englishOpacity);
 
-    // Assemble
     uiContainer.append(textContainer, championHolder, bottomSection);
     document.body.appendChild(uiContainer);
 
-    // Cleanup
     function cleanup() {
         _state.initialized = false;
         if (stopStarfield) { stopStarfield(); stopStarfield = null; }

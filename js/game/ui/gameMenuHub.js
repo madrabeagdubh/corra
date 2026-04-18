@@ -24,6 +24,13 @@ const PANELS = [
     { key: 'settings',  ga: 'Socruithe', en: 'Settings'  },
 ];
 
+// Derived CSS strings from the single COLORS.queen source of truth
+const GOLD_FULL    = COLORS.queen;                    // '#d4af37'
+const GOLD_DIM     = COLORS.queen + '73';             // ~45% opacity via hex alpha
+const GOLD_BORDER  = COLORS.queen + '4d';             // ~30% opacity
+const GOLD_ACTIVE_BG = COLORS.queen + '1a';           // ~10% opacity fill on active tab
+const PANEL_BG     = 'rgba(8,6,2,0.95)';
+
 export function createGameMenuHub({
     onInventoryOpen  = null,
     onInventoryClose = null,
@@ -32,10 +39,7 @@ export function createGameMenuHub({
     let destroyed = false;
     let curIdx    = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
 
-    // ── Root overlay ─────────────────────────────────────────────────────────
-    // Covers full screen. pointer-events:none by default so Phaser
-    // stays interactive when closed. Only the tab bar and DOM panels
-    // get pointer-events:all.
+    // -- Root overlay --
     const root = document.createElement('div');
     root.id = 'gameMenuHub';
     root.style.cssText = [
@@ -49,12 +53,12 @@ export function createGameMenuHub({
     ].join('');
     document.body.appendChild(root);
 
-    // ── Tab indicator bar ─────────────────────────────────────────────────────
+    // -- Tab indicator bar --
     const tabBar = document.createElement('div');
     tabBar.style.cssText = [
         'display:flex;align-items:stretch;',
-        'background:rgba(8,6,2,0.95);',
-        'border-bottom:2px solid rgba(212,175,55,0.3);',
+        `background:${PANEL_BG};`,
+        `border-bottom:2px solid ${GOLD_BORDER};`,
         'pointer-events:all;',
         'flex-shrink:0;',
     ].join('');
@@ -65,7 +69,7 @@ export function createGameMenuHub({
             'flex:1;padding:0.65rem 0.1rem;',
             'text-align:center;cursor:pointer;',
             'font-size:0.72rem;',
-            'border-right:1px solid rgba(212,175,55,0.1);',
+            `border-right:1px solid ${GOLD_BORDER};`,
             'transition:color 0.15s, background 0.15s;',
             'user-select:none;-webkit-user-select:none;',
         ].join('');
@@ -79,19 +83,18 @@ export function createGameMenuHub({
 
     root.appendChild(tabBar);
 
-    // ── DOM panel area ────────────────────────────────────────────────────────
-    // Only shown for non-inventory panels (inventory uses WorldMenu below).
+    // -- DOM panel area --
     const domArea = document.createElement('div');
     domArea.style.cssText = [
         'flex:1;',
         'overflow:hidden;',
         'pointer-events:all;',
-        'display:none;',  // hidden when inventory is active
-        'background:rgba(8,6,2,0.96);',
+        'display:none;',
+        `background:${PANEL_BG};`,
     ].join('');
     root.appendChild(domArea);
 
-    // Build one DOM panel per non-inventory tab (placeholder content for now)
+    // Placeholder panels
     const domPanels = {};
     PANELS.forEach((panel) => {
         if (panel.key === 'inventory') return;
@@ -118,13 +121,12 @@ export function createGameMenuHub({
         domPanels[panel.key] = el;
     });
 
-    // ── Swipe detection on the whole root ────────────────────────────────────
+    // -- Swipe detection --
     let swipeStartX = 0;
     let swipeStartT = 0;
     let swiping     = false;
 
     root.addEventListener('pointerdown', (e) => {
-        // Only track swipes that start in the domArea or tabBar
         swipeStartX = e.clientX;
         swipeStartT = performance.now();
         swiping     = true;
@@ -141,7 +143,7 @@ export function createGameMenuHub({
         }
     }, { passive: true });
 
-    // ── Panel navigation ──────────────────────────────────────────────────────
+    // -- Panel navigation --
     function _goTo(idx, skipCallbacks) {
         const prev    = PANELS[curIdx].key;
         curIdx        = idx;
@@ -150,20 +152,16 @@ export function createGameMenuHub({
 
         _updateTabs();
 
-        // Close WorldMenu if leaving inventory
         if (prev === 'inventory' && current !== 'inventory' && !skipCallbacks) {
             if (onInventoryClose) onInventoryClose();
         }
 
         if (current === 'inventory') {
-            // Hide DOM area, show WorldMenu underneath
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onInventoryOpen) onInventoryOpen();
         } else {
-            // Show DOM area with correct panel
             domArea.style.display = 'block';
-            // Close WorldMenu if switching away
             if (prev === 'inventory' && !skipCallbacks && onInventoryClose) {
                 onInventoryClose();
             }
@@ -177,21 +175,16 @@ export function createGameMenuHub({
         const useEn = GameSettings.englishOpacity >= 0.5;
         PANELS.forEach((panel, i) => {
             const active = i === curIdx;
-            tabEls[i].textContent = useEn ? panel.en : panel.ga;
-            tabEls[i].style.color      = active
-                ? 'rgba(212,175,55,1)'
-                : 'rgba(212,175,55,0.45)';
-            tabEls[i].style.background = active
-                ? 'rgba(212,175,55,0.1)'
-                : 'transparent';
+            tabEls[i].textContent      = useEn ? panel.en : panel.ga;
+            tabEls[i].style.color      = active ? GOLD_FULL : GOLD_DIM;
+            tabEls[i].style.background = active ? GOLD_ACTIVE_BG : 'transparent';
             tabEls[i].style.fontFamily = useEn ? FONTS.english : FONTS.irish;
         });
     }
 
-    // Language updates
     window.addEventListener('englishOpacityChange', _updateTabs);
 
-    // ── Open / close ──────────────────────────────────────────────────────────
+    // -- Open / close --
     function _open() {
         open = true;
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
@@ -203,7 +196,6 @@ export function createGameMenuHub({
     function _close() {
         open = false;
         root.style.opacity = '0';
-        // Hide WorldMenu if inventory was active
         if (PANELS[curIdx].key === 'inventory' && onInventoryClose) {
             onInventoryClose();
         }
@@ -214,14 +206,13 @@ export function createGameMenuHub({
         root.addEventListener('transitionend', onFaded);
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // -- Public API --
     return {
         open()         { _open(); },
         close()        { _close(); },
         isOpen()       { return open; },
         currentPanel() { return PANELS[curIdx].key; },
 
-        /** Inject DOM content into a named panel (replaces placeholder) */
         setContent(key, el) {
             if (domPanels[key]) {
                 domPanels[key].innerHTML = '';

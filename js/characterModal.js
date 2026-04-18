@@ -1,6 +1,6 @@
-// characterModal.js — typography + GameSettings integration
+// characterModal.js -- typography + GameSettings integration
 
-import { FONTS, COLORS, TYPE, SPACING } from './game/systems/gameTypography.js';
+import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
 
 function ensureFontsLoaded(callback) {
@@ -14,22 +14,46 @@ function ensureFontsLoaded(callback) {
 const statDescriptions = {
     attack:  { irish: 'Troid',   english: 'Fight'   },
     defense: { irish: 'Cosain',  english: 'Defend'  },
-    health:  { irish: 'Sláinte', english: 'Health'  },
+    health:  { irish: 'Slainte', english: 'Health'  },
     speed:   { irish: 'Luas',    english: 'Speed'   },
     magic:   { irish: 'Snas',    english: 'Polish'  },
-    luck:    { irish: 'Ádh',     english: 'Luck'    },
+    luck:    { irish: 'Adh',     english: 'Luck'    },
 };
 
-const statIcons = {
-    attack:  '⚔️',
-    defense: '🛡️',
-    health:  '❤️',
-    speed:   '🪽',
-    magic:   '✨',
-    luck:    '☘️',
+const statIconPaths = {
+    attack:  'assets/sword.png',
+    defense: 'assets/shield.png',
+    health:  'assets/heart.png',
+    speed:   'assets/wing.png',
+    magic:   'assets/magic.png',
+    luck:    'assets//clover.png',
 };
 
-// ── Stat popup ────────────────────────────────────────────────────────────────
+// Returns a pixelated <img> for a stat icon, with text fallback
+function makeStatIcon(statName, size) {
+    const img = document.createElement('img');
+    img.src    = statIconPaths[statName] || '';
+    img.width  = size;
+    img.height = size;
+    img.style.cssText = `
+        width:${size}px;height:${size}px;
+        object-fit:contain;
+        image-rendering:pixelated;
+        image-rendering:crisp-edges;
+        display:block;
+    `;
+    img.onerror = () => {
+        const span = document.createElement('span');
+        span.textContent      = statName[0].toUpperCase();
+        span.style.fontSize   = `${Math.round(size * 0.7)}px`;
+        span.style.lineHeight = '1';
+        span.style.color      = COLORS.speaker;
+        img.replaceWith(span);
+    };
+    return img;
+}
+
+// -- Stat popup --
 function createStatPopup(statName) {
     const existing = document.getElementById('statPopup');
     if (existing) existing.remove();
@@ -55,13 +79,14 @@ function createStatPopup(statName) {
         cursor: pointer;
     `;
 
-    const iconElement = document.createElement('div');
-    iconElement.style.cssText = `
-        font-size: 3rem;
-        text-align: center;
+    const iconWrap = document.createElement('div');
+    iconWrap.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
         margin-bottom: 1rem;
     `;
-    iconElement.textContent = statIcons[statName];
+    iconWrap.appendChild(makeStatIcon(statName, 48));
 
     const irishText = document.createElement('div');
     irishText.id = 'statPopupIrish';
@@ -87,7 +112,7 @@ function createStatPopup(statName) {
         transition: opacity 0.8s ease;
     `;
 
-    popup.appendChild(iconElement);
+    popup.appendChild(iconWrap);
     popup.appendChild(irishText);
     popup.appendChild(englishText);
 
@@ -137,7 +162,6 @@ function createStatPopup(statName) {
         } else {
             setTimeout(() => {
                 englishText.textContent = englishString;
-                // Read live from GameSettings — moonWidget keeps this current
                 englishText.style.opacity = String(GameSettings.englishOpacity ?? 0.15);
                 autoCloseTimer = setTimeout(closePopup, 4000);
             }, 600);
@@ -147,10 +171,10 @@ function createStatPopup(statName) {
     typeNextChar();
 }
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// -- Main modal --
 export async function showCharacterModal(champion) {
     ensureFontsLoaded(async () => {
-        // ── Music ─────────────────────────────────────────────────────────────
+        // -- Music --
         const heroSelect  = await import('./heroSelect.js');
         const musicPlayer = heroSelect.getMusicPlayer?.();
 
@@ -163,7 +187,7 @@ export async function showCharacterModal(champion) {
             }
         }
 
-        // ── Styles (injected once) ────────────────────────────────────────────
+        // -- Styles (injected once) --
         if (!document.getElementById('characterModalStyles')) {
             const s = document.createElement('style');
             s.id = 'characterModalStyles';
@@ -249,9 +273,6 @@ export async function showCharacterModal(champion) {
                     border: 1px solid rgba(212,175,55,0.35);
                     border-radius: 999px;
                     cursor: pointer;
-                    font-size: 1.2rem;
-                    font-family: ${FONTS.irish};
-                    color: ${COLORS.speaker};
                     background: rgba(212,175,55,0.07);
                     transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
                     user-select: none;
@@ -268,41 +289,25 @@ export async function showCharacterModal(champion) {
                     color: rgba(255,255,255,0.75);
                 }
                 #closeModalBtn {
-                    display: flex !important;
-                    flex-direction: column !important;
-                    align-items: center !important;
-                    justify-content: center !important;
+                    display: block !important;
                     width: 100% !important;
-                    padding: 0.9rem 1.2rem !important;
-                    font-size: 1.3rem !important;
-                    font-family: inherit !important;
-                    letter-spacing: normal !important;
-                    text-transform: none !important;
-                    color: #1a1a1a !important;
-                    background: linear-gradient(145deg, #8b4513, #d2691e, #8b4513) !important;
-                    border: 3px solid #d2691e !important;
-                    border-radius: 12px !important;
-                    cursor: pointer !important;
-                    transition: filter 0.18s ease, transform 0.1s ease !important;
+                    box-sizing: border-box !important;
                 }
-                #closeModalBtn:hover  { filter: brightness(1.15) !important; }
-                #closeModalBtn:active { transform: scale(0.98) !important; }
             `;
             document.head.appendChild(s);
         }
 
-        // ── Remove stale modal ────────────────────────────────────────────────
+        // -- Remove stale modal --
         const existing = document.getElementById('characterModal');
         if (existing) existing.remove();
 
-        // Read opacity once from GameSettings — source of truth
         const englishOpacity = GameSettings.englishOpacity ?? 0.15;
 
-        // ── Modal shell ───────────────────────────────────────────────────────
+        // -- Modal shell --
         const modal = document.createElement('div');
         modal.id = 'characterModal';
 
-        // ── Top bar ───────────────────────────────────────────────────────────
+        // -- Top bar --
         const topBar = document.createElement('header');
         topBar.style.cssText = `
             flex: 0 0 auto;
@@ -343,7 +348,7 @@ export async function showCharacterModal(champion) {
         topBar.appendChild(rule1);
         modal.appendChild(topBar);
 
-        // ── Body ──────────────────────────────────────────────────────────────
+        // -- Body --
         const body = document.createElement('div');
         body.id = 'characterModalBody';
 
@@ -372,7 +377,7 @@ export async function showCharacterModal(champion) {
         const rule2 = document.createElement('div');
         rule2.className = 'modal-rule';
 
-        // ── Stats chips ───────────────────────────────────────────────────────
+        // -- Stats chips (icon image + value) --
         const statsContainer = document.createElement('div');
         statsContainer.id = 'statsContainer';
         statsContainer.style.cssText = `
@@ -390,7 +395,14 @@ export async function showCharacterModal(champion) {
             const chip = document.createElement('button');
             chip.className = 'modal-stat-chip';
             chip.dataset.stat = stat;
-            chip.innerHTML = `<span>${statIcons[stat]}</span><span class="chip-value">${val}</span>`;
+
+            const iconEl = makeStatIcon(stat, 24);
+            const valEl  = document.createElement('span');
+            valEl.className   = 'chip-value';
+            valEl.textContent = val;
+
+            chip.appendChild(iconEl);
+            chip.appendChild(valEl);
             chip.addEventListener('click', (e) => {
                 e.stopPropagation();
                 createStatPopup(stat);
@@ -412,7 +424,7 @@ export async function showCharacterModal(champion) {
         body.appendChild(statsZone);
         modal.appendChild(body);
 
-        // ── Bottom bar ────────────────────────────────────────────────────────
+        // -- Bottom bar --
         const bottomBar = document.createElement('footer');
         bottomBar.style.cssText = `
             flex: 0 0 auto;
@@ -420,41 +432,49 @@ export async function showCharacterModal(champion) {
             background: transparent;
         `;
 
-        const closeBtn = document.createElement('button');
-        closeBtn.id = 'closeModalBtn';
-        // Irish label always visible; English fades with moon opacity
-        // Show Irish if moon < 50%, English if >= 50%
-        const _btnIrish   = englishOpacity < 0.5;
-        closeBtn.setAttribute('data-irish', 'Siar');
-        closeBtn.setAttribute('data-english', 'Back');
-        closeBtn.textContent = _btnIrish ? 'Siar' : 'Back';
-        closeBtn.style.fontFamily = _btnIrish ? FONTS.irish : FONTS.english;
-        bottomBar.appendChild(closeBtn);
+        // Close button via createDomButton -- dark fill, gold border,
+        // language switches with moon at 0.5 threshold.
+        const closeBtnHandle = createDomButton({
+            ga:      'Siar',
+            en:      'Back',
+            opacity: englishOpacity,
+            onClick: async () => {
+                if (musicPlayer?.tracks) {
+                    const pianoIndex = musicPlayer.tracks.findIndex(t => t?.name === 'Piano');
+                    if (pianoIndex >= 0 && musicPlayer.tracks[pianoIndex].active) {
+                        await musicPlayer.toggleInstrument(pianoIndex);
+                    } else if (pianoIndex < 0 && musicPlayer.tracks.length > 1 && musicPlayer.tracks[1].active) {
+                        await musicPlayer.toggleInstrument(1);
+                    }
+                }
+                window.removeEventListener('englishOpacityChange', onOpacityChange);
+                modal.style.animation  = 'none';
+                modal.style.transition = 'opacity 0.3s ease';
+                modal.style.opacity    = '0';
+                setTimeout(() => modal.remove(), 320);
+            },
+        });
+        closeBtnHandle.el.id = 'closeModalBtn';
+        bottomBar.appendChild(closeBtnHandle.el);
         modal.appendChild(bottomBar);
 
         document.body.appendChild(modal);
         modal.style.display = 'flex';
 
-        // ── Live opacity updates from moon widget ─────────────────────────────
-        // GameSettings dispatches 'englishOpacityChange' whenever the moon moves.
-        // We update all English elements in real time while the modal is open.
+        // -- Live opacity updates from moon widget --
         const onOpacityChange = (e) => {
             const op = e.detail.opacity;
             nameEn.style.opacity       = String(op);
             bioEnElement.style.opacity = String(op);
 
-            // Update any open stat popup too
             const popupEn = document.getElementById('statPopupEnglish');
             if (popupEn) popupEn.style.opacity = String(op);
 
-            // Switch close button language at 50% threshold
-            const useIrish = op < 0.5;
-            closeBtn.textContent  = useIrish ? 'Siar' : 'Back';
-            closeBtn.style.fontFamily = useIrish ? FONTS.irish : FONTS.english;
+            closeBtnHandle.applyLanguage(op);
         };
         window.addEventListener('englishOpacityChange', onOpacityChange);
 
-        // ── Typewriter: Irish bio ─────────────────────────────────────────────
+        // -- Typewriter: Irish bio --
         const irishBio   = champion.charBioGa || '';
         const englishBio = champion.charBioEn || '';
         let charIndex = 0;
@@ -470,7 +490,6 @@ export async function showCharacterModal(champion) {
             } else {
                 setTimeout(() => {
                     bioEnElement.textContent = englishBio;
-                    // Read live from GameSettings — keeps in sync with moon widget
                     bioEnElement.style.opacity = String(GameSettings.englishOpacity ?? englishOpacity);
                     nameEn.style.opacity       = String(GameSettings.englishOpacity ?? englishOpacity);
                 }, 600);
@@ -478,23 +497,6 @@ export async function showCharacterModal(champion) {
         }
 
         typeNextCharacter();
-
-        // ── Close ─────────────────────────────────────────────────────────────
-        closeBtn.addEventListener('click', async () => {
-            if (musicPlayer?.tracks) {
-                const pianoIndex = musicPlayer.tracks.findIndex(t => t?.name === 'Piano');
-                if (pianoIndex >= 0 && musicPlayer.tracks[pianoIndex].active) {
-                    await musicPlayer.toggleInstrument(pianoIndex);
-                } else if (pianoIndex < 0 && musicPlayer.tracks.length > 1 && musicPlayer.tracks[1].active) {
-                    await musicPlayer.toggleInstrument(1);
-                }
-            }
-            window.removeEventListener('englishOpacityChange', onOpacityChange);
-            modal.style.animation   = 'none';
-            modal.style.transition  = 'opacity 0.3s ease';
-            modal.style.opacity     = '0';
-            setTimeout(() => modal.remove(), 320);
-        });
     });
 }
 

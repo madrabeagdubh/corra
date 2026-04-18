@@ -6,7 +6,7 @@ import '../css/heroSelect.css';
 import { allTunes } from './game/systems/music/allTunes.js';
 import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
-import { FONTS, COLORS, TYPE, SPACING } from './game/systems/gameTypography.js';
+import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
 import { createMoonWidget } from './game/ui/moonWidget.js';
 
@@ -48,19 +48,55 @@ const statDescriptions = {
   health:  { irish: 'Sláinte', english: 'Health'  },
 };
 
+
+
+
+
 const statIcons = {
-  attack:  '⚔️',
-  defense: '🛡️',
-  health:  '❤️',
+    attack:  'assets/icons/sword.png',
+    defense: 'assets/icons/shield.png',
+    health:  'assets/icons/heart.png',
+    speed:   'assets/icons/wing.png',
+    magic:   'assets/icons/star.png',
+    luck:    'assets/icons/clover.png',
 };
 
-if (!window.startGame) window.startGame = startGame;
+// Helper used by both createStatsDisplay and createStatPopup.
+// Returns an <img> element sized to `size` px, falling back to the stat key
+// as text if the image fails to load.
+function makeStatIcon(statName, size = 32) {
+    const img = document.createElement('img');
+    img.src    = statIcons[statName];
+    img.width  = size;
+    img.height = size;
+    img.style.cssText = `
+        width:${size}px;height:${size}px;
+        object-fit:contain;
+        image-rendering:pixelated;
+        image-rendering:crisp-edges;
+        display:block;
+    `;
+    img.onerror = () => {
+        // Graceful fallback if asset not yet present
+        const span = document.createElement('span');
+        span.textContent = statName[0].toUpperCase();
+        span.style.cssText = `font-size:${size * 0.7}px;line-height:1;`;
+        img.replaceWith(span);
+    };
+    return img;
+}
 
-// ── Stats display ─────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
 function createStatsDisplay(champion) {
     if (!champion || !champion.stats) return null;
-
-    const currentOpacity = GameSettings.englishOpacity ?? 0.15;
 
     const statsContainer = document.createElement('div');
     statsContainer.id = 'global-stats-bar';
@@ -86,16 +122,29 @@ function createStatsDisplay(champion) {
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
+            gap: 5px !important;
             cursor: pointer !important;
             pointer-events: auto !important;
         `;
 
-        item.innerHTML = `
-            <span style="font-size:2.5rem;margin-bottom:5px;">${statIcons[statName]}</span>
-            <span style="color:${COLORS.speaker};font-family:${FONTS.english};font-weight:bold;font-size:1.3rem;">
-                ${champion.stats[statName]}
-            </span>
+        const iconWrap = document.createElement('div');
+        iconWrap.style.cssText = `
+            width:40px;height:40px;
+            display:flex;align-items:center;justify-content:center;
         `;
+        iconWrap.appendChild(makeStatIcon(statName, 36));
+
+        const val = document.createElement('span');
+        val.style.cssText = `
+            color:${COLORS.speaker};
+            font-family:${FONTS.english};
+            font-weight:bold;
+            font-size:1.3rem;
+        `;
+        val.textContent = champion.stats[statName];
+
+        item.appendChild(iconWrap);
+        item.appendChild(val);
 
         item.onclick = (e) => { e.stopPropagation(); cancelSwipeNudge(); createStatPopup(statName); };
         item.addEventListener('touchstart', (e) => {
@@ -139,17 +188,17 @@ function createStatPopup(statName) {
         box-sizing: border-box;
     `;
 
-    const iconElement = document.createElement('div');
-    iconElement.style.cssText = `
-        font-size: 3rem;
-        text-align: center;
+    // Icon: image at 48px, centered
+    const iconWrap = document.createElement('div');
+    iconWrap.style.cssText = `
         height: 4rem;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        margin-bottom: 0.4rem;
     `;
-    iconElement.textContent = statIcons[statName];
+    iconWrap.appendChild(makeStatIcon(statName, 48));
 
     const irishText = document.createElement('div');
     irishText.id = 'statPopupIrish';
@@ -185,7 +234,7 @@ function createStatPopup(statName) {
     `;
     englishText.textContent = statDescriptions[statName].english;
 
-    popup.appendChild(iconElement);
+    popup.appendChild(iconWrap);
     popup.appendChild(irishText);
     popup.appendChild(englishText);
 
@@ -218,7 +267,7 @@ function createStatPopup(statName) {
     popup.addEventListener('click', closePopup);
     document.body.appendChild(popup);
 
-    const irishString   = statDescriptions[statName].irish;
+    const irishString = statDescriptions[statName].irish;
     let charIndex = 0;
 
     function typeNextChar() {
@@ -390,6 +439,61 @@ function initMainHeroSelect() {
     scrollContainer.style.webkitOverflowScrolling = 'touch';
     scrollContainer.style.scrollBehavior = 'auto';
     container.appendChild(scrollContainer);
+    // ── Bottom panel ──────────────────────────────────────────────────────────
+    const bottomPanel = document.createElement('div');
+    bottomPanel.className = 'champion-bottom-panel';
+    bottomPanel.style.opacity = '0';
+
+    const chooseButton = document.createElement('button');
+    chooseButton.className = 'champion-choose-button';
+    chooseButton.textContent = 'Ar Aghaidh';
+    chooseButton.style.cssText = `
+        width:100%;padding:1.2rem;font-size:1.3rem;color:#1a1a1a;
+        background:linear-gradient(145deg,#8b4513,#d2691e,#8b4513);
+        border:3px solid #d2691e;border-radius:12px;cursor:pointer;
+        text-transform:uppercase;letter-spacing:2px;
+        font-family:${FONTS.irish};
+    `;
+
+const chooseBtn = createDomButton({
+        ga:      'Ar Aghaidh',
+        en:      'Continue',
+        opacity: GameSettings.englishOpacity,
+        onClick: async () => {
+            cancelSwipeNudge();
+            try {
+                const el = document.documentElement;
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    if (el.requestFullscreen) el.requestFullscreen().catch(e => console.warn('[HeroSelect] Fullscreen:', e));
+                    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+                }
+            } catch(e) { console.warn('[HeroSelect] Fullscreen error:', e); }
+
+            if (validChampions[currentChampionIndex]) {
+                const musicReady = musicPlayer &&
+                                   musicPlayer.tracks &&
+                                   musicPlayer.tracks.length > 0 &&
+                                   musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
+                if (musicReady) {
+                    await unmutePiano();
+                    setTimeout(() => finalize(validChampions[currentChampionIndex]), 800);
+                } else {
+                    setTimeout(() => finalize(validChampions[currentChampionIndex]), 200);
+                }
+            }
+        },
+    });
+    chooseBtn.el.style.width = '100%';
+    bottomPanel.appendChild(chooseBtn.el);
+;
+
+    // Override width to fill the bottom panel (createDomButton defaults are fine
+    // but the original button was full-width via a CSS class)
+    chooseBtn.el.style.width = '100%';
+
+    bottomPanel.appendChild(chooseBtn.el);
+
+
 
     // ── Moon widget — fixed top-left corner, swipe to change phase ───────────
     // Appends itself directly to document.body at a fixed position.
@@ -410,48 +514,8 @@ function initMainHeroSelect() {
         },
     });
 
-    // ── Bottom panel ──────────────────────────────────────────────────────────
-    const bottomPanel = document.createElement('div');
-    bottomPanel.className = 'champion-bottom-panel';
-    bottomPanel.style.opacity = '0';
 
-    const chooseButton = document.createElement('button');
-    chooseButton.className = 'champion-choose-button';
-    chooseButton.textContent = 'Ar Aghaidh';
-    chooseButton.style.cssText = `
-        width:100%;padding:1.2rem;font-size:1.3rem;color:#1a1a1a;
-        background:linear-gradient(145deg,#8b4513,#d2691e,#8b4513);
-        border:3px solid #d2691e;border-radius:12px;cursor:pointer;
-        text-transform:uppercase;letter-spacing:2px;
-        font-family:${FONTS.irish};
-    `;
 
-    chooseButton.onclick = async () => {
-        cancelSwipeNudge();
-        try {
-            const el = document.documentElement;
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                if (el.requestFullscreen) el.requestFullscreen().catch(e => console.warn('[HeroSelect] Fullscreen:', e));
-                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            }
-        } catch(e) { console.warn('[HeroSelect] Fullscreen error:', e); }
-
-        if (validChampions[currentChampionIndex]) {
-            const musicReady = musicPlayer &&
-                               musicPlayer.tracks &&
-                               musicPlayer.tracks.length > 0 &&
-                               musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
-            if (musicReady) {
-                await unmutePiano();
-                setTimeout(() => finalize(validChampions[currentChampionIndex]), 800);
-            } else {
-                setTimeout(() => finalize(validChampions[currentChampionIndex]), 200);
-            }
-        }
-    };
-
-    bottomPanel.appendChild(chooseButton);
-    container.appendChild(bottomPanel);
 
     // ── Render champions ──────────────────────────────────────────────────────
     currentChampionIndex = newStartIndex;

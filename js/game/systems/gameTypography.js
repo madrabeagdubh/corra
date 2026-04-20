@@ -43,8 +43,8 @@ export const TYPE = {
   cardBodyEn: { size: '22px', font: FONTS.english, lineSpacing: 5  },
 
   // Button labels (single-language, large enough to tap confidently)
-  button:     { size: '22px', font: FONTS.irish,   lineSpacing: 0  },
-  buttonEn:   { size: '17px', font: FONTS.english, lineSpacing: 0  },
+  button:     { size: '20px', font: FONTS.irish,   lineSpacing: 0  },
+  buttonEn:   { size: '22px', font: FONTS.english, lineSpacing: 0  },
 
   // DOM (ScrollingTextPlayer / constellationScene -- rem-based)
   domBody:    { size: '1.8rem', sizePx: 29, font: FONTS.irish   },
@@ -298,6 +298,18 @@ export function createButton(scene, cfg) {
  *   applyLanguage:  (opacity:number) => void,
  * }}
  */
+// ── createDomButton replacement ───────────────────────────────────────────────
+//
+// Replace the entire existing createDomButton function in gameTypography.js
+// with this. Everything that calls createDomButton stays unchanged.
+//
+// How it works:
+//   Both language labels are always in the DOM, stacked via position:absolute
+//   inside a relative wrapper. The wrapper sizes to whichever label is larger
+//   on first render, then never changes size again. Language switching is a
+//   pure opacity toggle -- no text swap, no reflow, no button resize.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function createDomButton(cfg) {
   const { ga = '', en = '', opacity = 0, onClick = () => {} } = cfg
 
@@ -316,23 +328,96 @@ export function createDomButton(cfg) {
     '-webkit-tap-highlight-color:transparent;',
   ].join('')
 
-  const label = document.createElement('span')
-  label.style.cssText = 'display:block;pointer-events:none;'
-  btn.appendChild(label)
+  // Wrapper: relative so the absolute children stack on top of each other.
+  // Its own height comes from the invisible "ghost" layer which always takes
+  // up space, ensuring the button height is always the max of both labels.
+  const wrapper = document.createElement('span')
+  wrapper.style.cssText = [
+    'display:block;',
+    'position:relative;',
+    'pointer-events:none;',
+  ].join('')
+
+  // Ghost layer: both labels rendered invisibly, side by side, to force the
+  // wrapper to be as wide as the widest label. Uses visibility:hidden not
+  // display:none so it still occupies space.
+  const ghost = document.createElement('span')
+  ghost.setAttribute('aria-hidden', 'true')
+  ghost.style.cssText = [
+    'visibility:hidden;',
+    'display:flex;',
+    'flex-direction:column;',
+    'align-items:center;',
+    'gap:0;',
+  ].join('')
+
+  const ghostGa = document.createElement('span')
+  ghostGa.textContent      = ga
+  ghostGa.style.fontFamily = FONTS.irish
+  ghostGa.style.fontSize   = TYPE.button.size
+  ghostGa.style.display    = 'block'
+
+  const ghostEn = document.createElement('span')
+  ghostEn.textContent      = en
+  ghostEn.style.fontFamily = FONTS.english
+  ghostEn.style.fontSize   = TYPE.buttonEn.size
+  ghostEn.style.display    = 'block'
+
+  ghost.appendChild(ghostGa)
+  ghost.appendChild(ghostEn)
+
+  // Live layers: absolutely positioned over the ghost, only one visible at a time.
+  const liveGa = document.createElement('span')
+  liveGa.textContent      = ga
+  liveGa.style.cssText = [
+    'position:absolute;',
+    'inset:0;',
+    'display:flex;',
+    'align-items:center;',
+    'justify-content:center;',
+    `font-family:${FONTS.irish};`,
+    `font-size:${TYPE.button.size};`,
+    'pointer-events:none;',
+    'transition:opacity 120ms ease;',
+  ].join('')
+
+  const liveEn = document.createElement('span')
+  liveEn.textContent      = en
+  liveEn.style.cssText = [
+    'position:absolute;',
+    'inset:0;',
+    'display:flex;',
+    'align-items:center;',
+    'justify-content:center;',
+    `font-family:${FONTS.english};`,
+    `font-size:${TYPE.buttonEn.size};`,
+    'pointer-events:none;',
+    'transition:opacity 120ms ease;',
+  ].join('')
+
+  wrapper.appendChild(ghost)
+  wrapper.appendChild(liveGa)
+  wrapper.appendChild(liveEn)
+  btn.appendChild(wrapper)
+
+  // Set initial language state
+  let currentLang = pickLanguage(opacity)
+  liveGa.style.opacity = currentLang === 'ga' ? '1' : '0'
+  liveEn.style.opacity = currentLang === 'en' ? '1' : '0'
 
   function applyLanguage(op) {
-    const useEn = pickLanguage(op) === 'en'
-    label.textContent      = useEn ? en : ga
-    label.style.fontFamily = useEn ? FONTS.english : FONTS.irish
-    label.style.fontSize   = useEn ? TYPE.buttonEn.size : TYPE.button.size
+    const lang = pickLanguage(op)
+    if (lang === currentLang) return
+    currentLang = lang
+    liveGa.style.opacity = lang === 'ga' ? '1' : '0'
+    liveEn.style.opacity = lang === 'en' ? '1' : '0'
   }
-  applyLanguage(opacity)
 
   // Tap feedback
   btn.addEventListener('pointerdown', () => {
-    btn.style.background   = COLORS.domButtonFillActive
-    btn.style.borderColor  = COLORS.domButtonBorderActive
-    btn.style.color        = COLORS.domButtonTextActive
+    btn.style.background  = COLORS.domButtonFillActive
+    btn.style.borderColor = COLORS.domButtonBorderActive
+    btn.style.color       = COLORS.domButtonTextActive
     setTimeout(() => {
       btn.style.background  = COLORS.domButtonFill
       btn.style.borderColor = COLORS.domButtonBorder
@@ -351,4 +436,5 @@ export function createDomButton(cfg) {
 
   return { el: btn, applyLanguage }
 }
+
 

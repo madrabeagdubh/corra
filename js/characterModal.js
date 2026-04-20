@@ -16,17 +16,17 @@ const statDescriptions = {
     defense: { irish: 'Cosain',  english: 'Defend'  },
     health:  { irish: 'Slainte', english: 'Health'  },
     speed:   { irish: 'Luas',    english: 'Speed'   },
-    magic:   { irish: 'Snas',    english: 'Polish'  },
+   // magic:   { irish: 'Snas',    english: 'Polish'  },
     luck:    { irish: 'Adh',     english: 'Luck'    },
 };
 
 const statIconPaths = {
-    attack:  'assets/sword.png',
-    defense: 'assets/shield.png',
-    health:  'assets/heart.png',
-    speed:   'assets/wing.png',
-    magic:   'assets/magic.png',
-    luck:    'assets//clover.png',
+    attack:  'assets/icons/sword.png',
+    defense: 'assets/icons/shield.png',
+    health:  'assets/icons/heart.png',
+    speed:   'assets/icons/wing.png',
+  //  magic:   'assets/magic.png',
+    luck:    'assets/icons/clover.png',
 };
 
 // Returns a pixelated <img> for a stat icon, with text fallback
@@ -388,7 +388,7 @@ export async function showCharacterModal(champion) {
             padding: 0.8rem 0 0.4rem;
         `;
 
-        const statsOrder = ['attack', 'defense', 'health', 'speed', 'magic', 'luck'];
+        const statsOrder = ['attack', 'defense', 'health', 'speed',  'luck'];
         statsOrder.forEach(stat => {
             const val = champion.stats[stat];
             if (val === undefined) return;

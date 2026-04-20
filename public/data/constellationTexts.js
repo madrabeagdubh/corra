@@ -52,15 +52,17 @@ export const constellationTexts = {
     carr: {
         waiting: [
             {
-                ga: 'Ach feach an carr ar an bóthar dubh! Gille an réalt ó Thúaidh, scíath na féine.',
-                en: 'But see the chariot on the dark road! Bright the fenian shield among the northern stars',
+                ga: 'Ach feach an carr ar an bóthar dubh!',
+                en: 'But see the chariot on the dark road!',
                 speaker: 'queen',
             },
+
             {
-                ga: 'Beadh brón ar Tethra an splanc úd, ag éirí go bán os cionn na gcnoc cianta.',
-                en: 'Tethra would grieve to see that burning point Rise above the hilltops cold and far.',
+                ga: 'Gille na réaltaí ó Thúaidh, scíath na féine.',
+                en: 'Brightness of the northern stars, shield of fenians',
                 speaker: 'queen',
-            },
+            }
+ 
         ],
         completion: [
             {
@@ -79,19 +81,16 @@ export const constellationTexts = {
                 ga: '...ach eiríonn an Torc faoin réalt dearg.',
                 en: 'But the Boar does rise with war.',
                 speaker: 'druid',
-            },
-            {
+            }
+           
+        ],
+        completion: [
+           
+ {
                 ga: 'Feicim Taoisigh fomhórach cogairsithe, dúr agus ulamh.',
                 en: 'I see Fomorian chiefains arrayed for battle, grim and ready.',
                 speaker: 'druid',
-            },
-        ],
-        completion: [
-            {
-                ga: 'Tá teaghlach Tethra ag eirí, faoi realt dearg na Toirce.',
-                en: 'Tethra\'s kin rise with the red star of The Boar.',
-                speaker: 'druid',
-            },
+            }
         ],
     },
 
@@ -132,10 +131,9 @@ export const constellationTexts = {
     // The queen pleads for any sign of hope; the druid silences her.
     draoi: {
         waiting: [
-            { ga: 'Geal, cruinneach na hoíche', en: 'Bright the vault of night', speaker: 'queen' },
-            { ga: 'Chíoraim shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward I sweep mine eyes in grief, Westward too and over-head;', speaker: 'queen' },
+             { ga: 'Chíoraim shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward sweep my eyes in grief, Westward too and over-head;', speaker: 'queen' },
             { ga: 'Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?', en: 'Where among the high-placed ones o faithful wolf, dwells a sign of hope?', speaker: 'queen' },
-            { ga: 'Níl teachtaireacht ar muir ná i dtír, An bhfuil na spéartha chomh balbh?', en: 'Sea and land have given none; Shall not heaven hear my need?', speaker: 'queen' },
+            { ga: 'An bhfuil na spéartha balbh?', en: 'Shall not heaven hear my need?', speaker: 'queen' },
         ],
         completion: [
             {
@@ -158,13 +156,14 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Feicim réalta anaithnid dom le linn mo bhlianta faire, ag éirí in aice le Cláirseach na bhFlaitheas.',
-                en: 'A star unknown to me in all my years of watching, Rises beside the Harp of heaven.',
+                ga: 'In aice na cláirsí,  réalt anaithnid dom le linn mo bhlianta faire',
+                en: 'By the harp, a star unknown to me in all my years of watching',
                 speaker: 'druid',
             },
-            {
-                ga: 'Tabhair faoi deara an réalta seo in aice na Cláirsí. Tá neach ag teacht le ainm nach bhfuil ráite, laoch  nar chanadh aon bard fáilte.',
-                en: 'Mark this unknown star beside the Harp. There is one coming whose name is not yet told us, a hero unsung as yet by any bard.',
+        
+             {
+                ga: 'Réalt le ainm nach bhfuil ráite, laoch nar chan aon bard fáilte.',
+                en: 'A star whose name is not yet spoken, a hero unsung as yet by any bard.',
                 speaker: 'druid',
             },
         ],

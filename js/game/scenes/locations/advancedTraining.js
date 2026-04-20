@@ -1006,7 +1006,7 @@ spearKata1() {
 // KATA 2 — Spinning spear throw and catch
 revealSpear2() {
   this.scene._showStoryLines([
-    { ga: '...ní dheiltar dán an ga.', en: '...the spear is irreducable.', speaker: 'queen' }
+    { ga: '...ní dheiltar dán an ga.', en: '...spearfate is irreducable.', speaker: 'queen' }
   ], () => { this.revealSpear3(); });
   
   // Start kata 2 animation immediately

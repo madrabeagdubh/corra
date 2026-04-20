@@ -57,7 +57,7 @@ const statIcons = {
     defense: 'assets/icons/shield.png',
     health:  'assets/icons/heart.png',
     speed:   'assets/icons/wing.png',
-    magic:   'assets/icons/star.png',
+ //  magic:   'assets/icons/star.png',
     luck:    'assets/icons/clover.png',
 };
 
@@ -440,22 +440,13 @@ function initMainHeroSelect() {
     scrollContainer.style.scrollBehavior = 'auto';
     container.appendChild(scrollContainer);
     // ── Bottom panel ──────────────────────────────────────────────────────────
-    const bottomPanel = document.createElement('div');
-    bottomPanel.className = 'champion-bottom-panel';
+  
+
+ const bottomPanel = document.createElement('div');
+bottomPanel.className = 'champion-bottom-panel';
     bottomPanel.style.opacity = '0';
 
-    const chooseButton = document.createElement('button');
-    chooseButton.className = 'champion-choose-button';
-    chooseButton.textContent = 'Ar Aghaidh';
-    chooseButton.style.cssText = `
-        width:100%;padding:1.2rem;font-size:1.3rem;color:#1a1a1a;
-        background:linear-gradient(145deg,#8b4513,#d2691e,#8b4513);
-        border:3px solid #d2691e;border-radius:12px;cursor:pointer;
-        text-transform:uppercase;letter-spacing:2px;
-        font-family:${FONTS.irish};
-    `;
-
-const chooseBtn = createDomButton({
+    const chooseBtn = createDomButton({
         ga:      'Ar Aghaidh',
         en:      'Continue',
         opacity: GameSettings.englishOpacity,
@@ -485,16 +476,10 @@ const chooseBtn = createDomButton({
     });
     chooseBtn.el.style.width = '100%';
     bottomPanel.appendChild(chooseBtn.el);
-;
-
-    // Override width to fill the bottom panel (createDomButton defaults are fine
-    // but the original button was full-width via a CSS class)
-    chooseBtn.el.style.width = '100%';
-
-    bottomPanel.appendChild(chooseBtn.el);
+    container.appendChild(bottomPanel);
 
 
-
+ 
     // ── Moon widget — fixed top-left corner, swipe to change phase ───────────
     // Appends itself directly to document.body at a fixed position.
     // Swipe right = fuller moon / more English opacity.
@@ -511,6 +496,7 @@ const chooseBtn = createDomButton({
 
             const popup = document.getElementById('statPopupEnglish');
             if (popup) popup.style.opacity = String(phase);
+chooseBtn.applyLanguage(phase);
         },
     });
 

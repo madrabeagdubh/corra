@@ -78,69 +78,140 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.load.image('oryxItems',   '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
+// REPLACEMENT for _loadContent() in bogLocationScene.js
+// Drop this in place of the existing _loadContent() method.
+//
+// Changes from original:
+//   1. Random encounters: saved layout is restored from GameState on re-entry
+//      rather than re-drawing from the deck. Only draws fresh on first visit.
+//   2. Fixed encounters: loaded from content.fixedEncounters and placed at
+//      their exact tile positions, registered with PGR exactly like random flags.
+
   async _loadContent() {
-    const jsKey = this.getContentKey()
+    const jsKey  = this.getContentKey()
+    const mapKey = this.getMapKey()
+
     try {
       const module  = await import(`/data/bog/${jsKey}.js`)
       const content = module[jsKey + 'Content'] || {}
+
       this.mapData.objects        = content.objects        || []
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
+
+      // -- Fixed encounters -------------------------------------------------
+      // Placed at exact narrative positions. Never consumed; dialogue cycles
+      // via GameState.npcProgress. Registered with PGR for badge + perspective.
+
+      const fixedEncounters = content.fixedEncounters || []
+      fixedEncounters.forEach(enc => {
+        this.mapData.objects.push({
+          id:       enc.id,
+          type:     'fixed_encounter',
+          x:        enc.x,
+          y:        enc.y,
+          stateKey: `${mapKey}.${enc.id}`,
+          visual:   enc.visual || { gid: 255, flat: false },
+          dialogues: enc.dialogues || [],
+        })
+      })
+
+      // -- Random encounters ------------------------------------------------
+      // On first visit: draw from deck, save layout to GameState.
+      // On re-entry: restore saved layout (same positions, skip collected).
 
       const occupied = new Set()
       this.mapData.objects.forEach(o => occupied.add(`${o.x},${o.y}`))
       this.mapData.npcs.forEach(n => occupied.add(`${n.x},${n.y}`))
 
-      const layer0   = this.mapData.layers[0]
-      const mapH     = this.mapData.height
-      const mapW     = this.mapData.width
-      const walkable = []
-      for (let y = 1; y < mapH - 1; y++) {
-        for (let x = 1; x < mapW - 1; x++) {
-          const gid = layer0[y]?.[x]
-          if (!gid) continue
-          if (ALWAYS_UNWALKABLE.has(gid)) continue
-          if (occupied.has(`${x},${y}`)) continue
-          walkable.push({ x, y })
+      const savedLayout = GameState.getEncounterLayout(mapKey)
+
+      if (savedLayout) {
+        // Restore -- only place encounters not yet collected
+        savedLayout.forEach(entry => {
+          const stateKey = `${mapKey}.${entry.id}`
+          if (GameState.isCollected(stateKey)) return
+
+          // Find the card definition from the deck so we keep visual/text
+          const card = forestDeck.find(c => c.id === entry.id)
+          if (!card) return
+
+          this.mapData.objects.push({
+            id:       card.id,
+            type:     'encounter_flag',
+            x:        entry.x,
+            y:        entry.y,
+            stateKey: stateKey,
+            visual:   card.visual,
+            text:     { ga: card.ga, en: card.en },
+            actions:  card.actions || [],
+          })
+        })
+
+        console.log(`[${this.scene.key}] restored encounter layout (${savedLayout.length} cards)`)
+
+      } else {
+        // First visit -- draw, place, save layout
+
+        const layer0   = this.mapData.layers[0]
+        const mapH     = this.mapData.height
+        const mapW     = this.mapData.width
+        const walkable = []
+
+        for (let y = 1; y < mapH - 1; y++) {
+          for (let x = 1; x < mapW - 1; x++) {
+            const gid = layer0[y]?.[x]
+            if (!gid) continue
+            if (ALWAYS_UNWALKABLE.has(gid)) continue
+            if (occupied.has(`${x},${y}`)) continue
+            walkable.push({ x, y })
+          }
         }
+
+        walkable.sort(() => Math.random() - 0.5)
+
+        const deck      = new EncounterDeck(forestDeck)
+        const drawn     = deck.draw(6)
+        let   wi        = 0
+        const placed    = []
+        const layoutToSave = []
+        const MIN_SPACING  = 6
+
+        drawn.forEach(card => {
+          const stateKey = `${mapKey}.${card.id}`
+          if (GameState.isCollected(stateKey)) return
+
+          let tile = null
+          while (wi < walkable.length) {
+            const candidate = walkable[wi++]
+            const tooClose = placed.some(p =>
+              Math.abs(candidate.x - p.x) + Math.abs(candidate.y - p.y) < MIN_SPACING
+            )
+            if (!tooClose) { tile = candidate; break }
+          }
+          if (!tile) return
+
+          placed.push(tile)
+          layoutToSave.push({ id: card.id, x: tile.x, y: tile.y })
+
+          this.mapData.objects.push({
+            id:       card.id,
+            type:     'encounter_flag',
+            x:        tile.x,
+            y:        tile.y,
+            stateKey: stateKey,
+            visual:   card.visual,
+            text:     { ga: card.ga, en: card.en },
+            actions:  card.actions || [],
+          })
+        })
+
+        GameState.setEncounterLayout(mapKey, layoutToSave)
+        console.log(`[${this.scene.key}] new encounter layout saved (${layoutToSave.length} cards)`)
       }
 
-      walkable.sort(() => Math.random() - 0.5)
-
-      const deck       = new EncounterDeck(forestDeck)
-      const drawn      = deck.draw(6)
-      let   wi         = 0
-      const placed     = []
-      const MIN_SPACING = 6
-
-      drawn.forEach(card => {
-        const stateKey = `${this.getMapKey()}.${card.id}`
-        if (GameState.isCollected(stateKey)) return
-
-        let tile = null
-        while (wi < walkable.length) {
-          const candidate = walkable[wi++]
-          const tooClose = placed.some(p =>
-            Math.abs(candidate.x - p.x) + Math.abs(candidate.y - p.y) < MIN_SPACING
-          )
-          if (!tooClose) { tile = candidate; break }
-        }
-        if (!tile) return
-        placed.push(tile)
-
-        this.mapData.objects.push({
-          id:       card.id,
-          type:     'encounter_flag',
-          x:        tile.x,
-          y:        tile.y,
-          stateKey: stateKey,
-          visual:   card.visual,
-          text:     { ga: card.ga, en: card.en },
-actions:  card.actions || []
-     
-        })
-      })
       console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
+
     } catch(e) {
       console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
       this.mapData.objects        = []
@@ -148,6 +219,7 @@ actions:  card.actions || []
       this.mapData.introNarrative = []
     }
   }
+ 
 
   getContentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
@@ -437,9 +509,20 @@ actions:  card.actions || []
 
     this.mapData.objects.forEach(obj => {
       const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-      if (obj.type === 'collectable'    && GameState.isCollected(stateKey)) return
-      if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
-      if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
+  
+
+if (obj.type === 'collectable'    && GameState.isCollected(stateKey)) return
+if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
+// fixed_encounter is NEVER skipped -- always present
+
+	    if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
+     
+
+
+
+
+
+ if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
           !GameState.isQuestComplete(obj.requiresQuest)) return
 
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
@@ -457,17 +540,21 @@ actions:  card.actions || []
       zone.x = pixelX
       zone.y = pixelY
 
-      if (obj.type === 'encounter_flag') {
-console.log('[zone] id:', obj.id, 'actions:', obj.actions?.length ?? 'undefined')
-        zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
-        zone.setData('actions',    obj.actions || [])
-        this._pendingFlags = this._pendingFlags || []
-        this._pendingFlags.push({
-          tileX:  obj.x,
-          tileY:  obj.y,
-          visual: obj.visual || { gid: 255, flat: false }
-        })
-      }
+
+
+if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
+  zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
+  zone.setData('actions',    obj.actions    || [])
+  zone.setData('dialogues',  obj.dialogues  || [])
+  zone.setData('visual',     obj.visual     || {})
+  this._pendingFlags = this._pendingFlags || []
+  this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, visual: obj.visual || { gid: 255, flat: false } })
+}
+
+
+
+
+
 
       this.interactables.push(zone)
     })

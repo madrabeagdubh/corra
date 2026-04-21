@@ -333,7 +333,7 @@ export default class TextPanel {
 
     // Determine scrollability: only scroll if content overflows body region
     const overflow = Math.max(0, cy - bodyH)
-    this._maxScroll = overflow > 0 ? overflow + 20 : 0
+    this._maxScroll = overflow > 0 ? overflow + bodyH : 0
 
     // -- Buttons (single-language, docked at bottom) --
     this._buttons = []
@@ -548,12 +548,22 @@ export default class TextPanel {
     if (!this._scrolling) return
 
     // Encounter card: passive -- don't auto-advance scrollY
-    if (this.currentPanelType === 'encounter_card') {
-      this._applyScroll()
-      this._rafId = requestAnimationFrame(this._tick.bind(this))
-      return
-    }
-
+  // Encounter card: apply momentum/inertia, no auto-advance
+if (this.currentPanelType === 'encounter_card') {
+  if (!this._dragging && Math.abs(this._velocity) > 0.01) {
+    this._scrollY += this._velocity
+    this._velocity *= 0.88  // friction
+    this._scrollY = Math.max(0, Math.min(this._maxScroll, this._scrollY))
+  }
+  this._applyScroll()
+  // Keep ticking only while there's still momentum
+  if (Math.abs(this._velocity) > 0.01 || this._dragging) {
+    this._rafId = requestAnimationFrame(this._tick.bind(this))
+  } else {
+    this._rafId = null
+  }
+  return
+} 
     if (!this._dragging && !this._paused) {
       this._scrollY += this._velocity
       if (this._velocity < SCROLL_PX_PER_SEC / 60) {
@@ -656,14 +666,32 @@ export default class TextPanel {
 
       // Encounter cards have buttons handle their own taps.
       // Swipe-up only dismisses cards WITHOUT buttons (pure examine).
-      if (this.currentPanelType === 'encounter_card') {
-        if (tap) return
-        const hasButtons = this._buttons.length > 0
-        if (!hasButtons && savedVel < -DISMISS_VEL) {
-          this.hide()
-        }
-        return
-      }
+  
+
+
+
+if (this.currentPanelType === 'encounter_card') {
+  if (tap) return
+  const hasButtons     = this._buttons.length > 0
+  const fullyScrolled  = this._maxScroll <= 0 || this._scrollY >= this._maxScroll
+  if (!hasButtons && savedVel < -DISMISS_VEL && fullyScrolled) {
+    this.hide()
+    return
+  }
+  // Feed swipe velocity into the scroll tick for momentum
+  if (Math.abs(savedVel) > 0.05) {
+    const fv = -(savedVel * (1000 / 60))
+    this._velocity = Math.max(-(SCROLL_PX_PER_SEC / 60) * 2,
+                    Math.min((SCROLL_PX_PER_SEC / 60) * 14, fv))
+    if (!this._rafId && this._scrolling)
+      this._rafId = requestAnimationFrame(this._tick.bind(this))
+  }
+  return
+}
+
+
+
+
 
       if (tap) {
         this._paused = true

@@ -267,6 +267,10 @@ export default class BaseLocationScene extends Phaser.Scene {
 
   // ── Proximity interactions ────────────────────────────────────────────────
 
+ 
+  // -- Proximity interactions -----------------------------------------------
+  // Replacement for BaseLocationScene.checkProximityInteractions()
+
   checkProximityInteractions() {
     if (this.narrativeInProgress) return;
     if (this.textPanel.isVisible || this.textPanelCooldown) return;
@@ -274,43 +278,49 @@ export default class BaseLocationScene extends Phaser.Scene {
     const playerX = this.player.logicalX;
     const playerY = this.player.logicalY;
 
-    // -- Find nearest encounter flag within range --
-    // Uses pixel distance against logical coords -- same system as all other objects.
-    let nearestFlag = null
-    let nearestDist = Infinity
-  const FLAG_RADIUS = this.tileSize * 1
+    // -- Find nearest encounter flag or fixed encounter within range --
+    let nearestFlag = null;
+    let nearestDist = Infinity;
+    const FLAG_RADIUS = this.tileSize * 1;
 
     this.interactables.forEach(obj => {
-      if (obj.getData('type') !== 'encounter_flag') return
-      const objX = obj.getData('logicalX') ?? obj.x
-      const objY = obj.getData('logicalY') ?? obj.y
-      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY)
+      const t = obj.getData('type');
+      if (t !== 'encounter_flag' && t !== 'fixed_encounter') return;
+      const objX = obj.getData('logicalX') ?? obj.x;
+      const objY = obj.getData('logicalY') ?? obj.y;
+      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
       if (dist < FLAG_RADIUS && dist < nearestDist) {
-        nearestDist = dist
-        nearestFlag = obj
+        nearestDist = dist;
+        nearestFlag = obj;
       }
-    }) 
+    });
+
     if (nearestFlag) {
-      this._flagInRange = true
+      this._flagInRange = true;
       if (this._encounterPanel) {
-        const text = nearestFlag.getData('text')
-        const id   = nearestFlag.getData('id')
+        const text   = nearestFlag.getData('text');
+        const id     = nearestFlag.getData('id');
+        const visual = nearestFlag.getData('flagVisual') || nearestFlag.getData('visual');
         this._encounterPanel.notify(
           {
-            id:      id,
-            visual:  nearestFlag.getData('flagVisual'),
+            id,
+            visual,
             ga:      text?.ga || '',
             en:      text?.en || '',
             actions: nearestFlag.getData('actions') || [],
+            // Pass dialogues so EncounterPanel can distinguish fixed encounters
+            dialogues: nearestFlag.getData('dialogues') || [],
           },
           nearestFlag
-        )
+        );
       }
     }
 
     // -- All other interactables --
     this.interactables.forEach(obj => {
-      if (obj.getData('type') === 'encounter_flag') return  // handled above
+      const t = obj.getData('type');
+      if (t === 'encounter_flag') return;   // handled above
+      if (t === 'fixed_encounter') return;  // handled by EncounterPanel
 
       const objX = obj.getData('logicalX') ?? obj.x;
       const objY = obj.getData('logicalY') ?? obj.y;

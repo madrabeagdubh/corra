@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Corra — Map Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0c0b; overflow: hidden; font-family: 'Courier New', monospace; }
+
+    #ui {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px;
+      background: rgba(8,10,9,0.93);
+      border-bottom: 1px solid #2a3a28;
+    }
+
+    #mapName {
+      color: #c8922a; font-size: 13px; font-weight: bold;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    #loadInput {
+      background: #0f1510; color: #9ab890;
+      border: 1px solid #2a3a28; padding: 4px 8px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      outline: none; flex: 1; min-width: 0;
+    }
+    #loadInput:focus { border-color: #5a7a52; }
+
+    #loadBtn {
+      background: #1a2a18; color: #c8922a;
+      border: 1px solid #2a3a28; padding: 4px 10px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    #loadBtn:hover { background: #243a22; border-color: #c8922a; }
+
+    .div { width:1px; height:22px; background:#2a3a28; flex-shrink:0; }
+
+    #tileInfo {
+      position: absolute; bottom: 56px; left: 50%;
+      transform: translateX(-50%); z-index: 30;
+      background: rgba(8,10,9,0.95); border: 1px solid #c8922a;
+      padding: 7px 16px; font-size: 14px; color: #c8922a;
+      font-family: 'Courier New', monospace; text-align: center;
+      white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s ease;
+    }
+    #tileInfo.visible { opacity: 1; }
+
+    #legend {
+      position: absolute; bottom: 10px; right: 12px; z-index: 20;
+      background: rgba(8,10,9,0.88); border: 1px solid #2a3a28;
+      padding: 7px 11px; font-size: 10px; color: #5a7a52; line-height: 1.9;
+    }
+    #legend span {
+      display: inline-block; width: 9px; height: 9px;
+      margin-right: 5px; vertical-align: middle; border-radius: 1px;
+    }
+
+    #keys {
+      position: absolute; bottom: 10px; left: 12px; z-index: 20;
+      background: rgba(8,10,9,0.88); border: 1px solid #2a3a28;
+      padding: 7px 11px; font-size: 10px; color: #5a7a52; line-height: 1.9;
+    }
+    #keys b { color: #c8922a; }
+  </style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="mapName">—</div>
+  <div class="div"></div>
+  <input id="loadInput" type="text" placeholder="map name or path…" />
+  <button id="loadBtn">Load</button>
+</div>
+
+<div id="tileInfo"></div>
+
+<div id="legend">
+  <span style="background:#00ff88"></span>Spawn<br>
+  <span style="background:#ff4444"></span>Exit<br>
+  <span style="background:#ffaa00"></span>Object<br>
+  <span style="background:#44aaff"></span>NPC<br>
+  <span style="background:#ff44ff"></span>Fixed Enc
+</div>
+
+<div id="keys">
+  <b>Drag</b> Pan &nbsp;
+  <b>Q/E</b> Zoom &nbsp;
+  <b>R</b> Reset &nbsp;
+  <b>G</b> Grid &nbsp;
+  <b>M</b> Markers
+</div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const TILE_SIZE = 24
+const MARGIN    = 24
+const SCALE     = 2
+const GROUND_ID = 732  // fallback underlay tile
+
+// ── URL helpers ───────────────────────────────────────────────────────────────
+
+function mapNameFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('map') || null
+}
+
+function resolveMapPath(nameOrPath) {
+  if (!nameOrPath) return null
+  // If it already looks like a path, use as-is
+  if (nameOrPath.startsWith('/') || nameOrPath.endsWith('.json')) return nameOrPath
+  // Otherwise treat as a name inside the output folder
+  return `/maps/bogMaps/${nameOrPath}.json`
+}
+
+function setUrlParam(name) {
+  const url = new URL(window.location)
+  url.searchParams.set('map', name)
+  window.history.replaceState({}, '', url)
+}
+
+// ── Shared state ──────────────────────────────────────────────────────────────
+let game      = null
+let _infoTimer = null
+
+function setInfo(text) {
+  const el = document.getElementById('tileInfo')
+  el.textContent = text
+  el.classList.add('visible')
+  if (_infoTimer) clearTimeout(_infoTimer)
+  _infoTimer = setTimeout(() => el.classList.remove('visible'), 3500)
+}
+
+function setMapName(name) {
+  document.getElementById('mapName').textContent = name
+}
+
+// ── Phaser scene ──────────────────────────────────────────────────────────────
+class MapScene extends Phaser.Scene {
+  constructor() { super({ key: 'MapScene' }) }
+
+  init(data) {
+    this._mapPath = data.mapPath
+    this._mapName = data.mapName
+  }
+
+  preload() {
+    this.load.image('oryxSrc', '/assets/oryx/oryx_16bit_fantasy_world_trans.png')
+    this.load.json('mapData', this._mapPath + '?v=' + Date.now())
+  }
+
+  create() {
+    const data   = this.cache.json.get('mapData')
+    const srcImg = this.textures.get('oryxSrc').getSourceImage()
+
+    if (!data || !srcImg) {
+      setInfo('Failed to load: ' + this._mapPath)
+      return
+    }
+
+    setMapName(this._mapName)
+
+    // Build atlas
+    const COLS = Math.floor((srcImg.width  - MARGIN * 2) / TILE_SIZE)
+    const ROWS = Math.floor((srcImg.height - MARGIN * 2) / TILE_SIZE)
+    const texKey = 'oryx_' + Date.now()
+    const tex = this.textures.createCanvas(texKey, srcImg.width, srcImg.height)
+    tex.draw(0, 0, srcImg)
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const col = i % COLS
+      const row = Math.floor(i / COLS)
+      tex.add(i, 0, MARGIN + col * TILE_SIZE, MARGIN + row * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+    }
+
+    const W  = data.width
+    const H  = data.height
+    const TS = TILE_SIZE * SCALE
+
+    // Underlay
+    const groundFrame = GROUND_ID - 1
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        this.add.image(x*TS, y*TS, texKey, groundFrame).setOrigin(0).setScale(SCALE)
+
+    // Layers
+    ;(data.layers || []).forEach(layer => {
+      layer.forEach((row, y) => {
+        row.forEach((gid, x) => {
+          if (!gid) return
+          this.add.image(x*TS, y*TS, texKey, gid - 1).setOrigin(0).setScale(SCALE)
+        })
+      })
+    })
+
+    // Grid
+    this._gridGfx = this.add.graphics()
+    this._drawGrid(W, H, TS)
+
+    // Markers
+    this._markerGfx   = this.add.graphics()
+    this._markerTexts = []
+    this._drawMarkers(data, TS)
+
+    // Tap detection
+    let _tapX = 0, _tapY = 0, _dragged = false
+
+    this.input.on('pointerdown', p => {
+      _tapX = p.x; _tapY = p.y; _dragged = false
+    })
+    this.input.on('pointermove', p => {
+      if (!p.isDown) return
+      if (Math.abs(p.x - _tapX) > 6 || Math.abs(p.y - _tapY) > 6) _dragged = true
+      const cam = this.cameras.main
+      cam.scrollX -= (p.x - p.prevPosition.x) / cam.zoom
+      cam.scrollY -= (p.y - p.prevPosition.y) / cam.zoom
+    })
+    this.input.on('pointerup', p => {
+      if (_dragged) return
+      const tx = Math.floor(p.worldX / TS)
+      const ty = Math.floor(p.worldY / TS)
+      const bg = data.layers?.[0]?.[ty]?.[tx]
+      const ov = data.layers?.[1]?.[ty]?.[tx]
+      const flash = this.add.rectangle(tx*TS + TS/2, ty*TS + TS/2, TS, TS, 0xffffff, 0.55).setDepth(200)
+      this.tweens.add({ targets: flash, alpha: 0, duration: 350, onComplete: () => flash.destroy() })
+      setInfo(`(${tx}, ${ty})  bg:${bg || 0}${ov ? '  ov:' + ov : ''}`)
+    })
+
+    // Keyboard
+    this._cur  = this.input.keyboard.createCursorKeys()
+    this._keyQ = this.input.keyboard.addKey('Q')
+    this._keyE = this.input.keyboard.addKey('E')
+    this._keyR = this.input.keyboard.addKey('R')
+    this._keyG = this.input.keyboard.addKey('G')
+    this._keyM = this.input.keyboard.addKey('M')
+    this._W = W; this._H = H; this._TS = TS
+
+    // Camera
+    this.cameras.main.setBounds(0, 0, W*TS, H*TS).setZoom(2)
+    const sp = data.spawns?.player
+    this.cameras.main.centerOn(
+      (sp ? sp.x : W/2) * TS,
+      (sp ? sp.y : H/2) * TS
+    )
+
+    setInfo(`Loaded: ${this._mapName}  (${W}×${H})`)
+  }
+
+  _drawGrid(W, H, TS) {
+    const g = this._gridGfx
+    g.clear().lineStyle(1, 0xc8922a, 0.15)
+    for (let i = 0; i <= W; i++) { g.moveTo(i*TS, 0); g.lineTo(i*TS, H*TS) }
+    for (let j = 0; j <= H; j++) { g.moveTo(0, j*TS); g.lineTo(W*TS, j*TS) }
+    g.strokePath()
+  }
+
+  _drawMarkers(data, TS) {
+    const g = this._markerGfx
+    g.clear()
+    this._markerTexts.forEach(t => t.destroy())
+    this._markerTexts = []
+
+    const label = (x, y, text, color) => {
+      const t = this.add.text(x*TS + 2, y*TS + 2, text, {
+        fontSize: '9px', fontFamily: 'Courier New', color,
+        backgroundColor: 'rgba(0,0,0,0.75)', padding: { x:2, y:1 }
+      }).setOrigin(0).setDepth(100)
+      this._markerTexts.push(t)
+    }
+
+    const sp = data.spawns?.player
+    if (sp) {
+      g.fillStyle(0x00ff88, 0.5)
+      g.fillRect(sp.x*TS, sp.y*TS, TS, TS)
+      label(sp.x, sp.y, 'S', '#00ff88')
+    }
+
+    Object.entries(data.exits || {}).forEach(([dir, exit]) => {
+      g.fillStyle(0xff4444, 0.4)
+      ;(exit.tiles || []).forEach(([tx, ty]) => g.fillRect(tx*TS, ty*TS, TS, TS))
+      if (exit.tiles?.length) {
+        const [tx, ty] = exit.tiles[0]
+        label(tx, ty, dir[0].toUpperCase() + '→' + (exit.destination?.split('_').pop() || ''), '#ff6666')
+      }
+    })
+
+    ;(data.objects || []).forEach(obj => {
+      const col = obj.type === 'fixed_encounter' ? 0xff44ff : 0xffaa00
+      const lcol = obj.type === 'fixed_encounter' ? '#ff88ff' : '#ffcc44'
+      g.fillStyle(col, 0.5)
+      g.fillRect(obj.x*TS, obj.y*TS, TS, TS)
+      label(obj.x, obj.y, (obj.id || 'obj').slice(0,6), lcol)
+    })
+
+    ;(data.npcs || []).forEach(npc => {
+      g.fillStyle(0x44aaff, 0.5)
+      g.fillRect(npc.x*TS, npc.y*TS, TS, TS)
+      label(npc.x, npc.y, (npc.id || 'npc').slice(0,6), '#88ccff')
+    })
+  }
+
+  update() {
+    if (!this._cur) return
+    const cam = this.cameras.main
+    const spd = 8 / cam.zoom
+    if (this._cur.left.isDown)  cam.scrollX -= spd
+    if (this._cur.right.isDown) cam.scrollX += spd
+    if (this._cur.up.isDown)    cam.scrollY -= spd
+    if (this._cur.down.isDown)  cam.scrollY += spd
+    if (this._keyQ.isDown) cam.zoom = Math.max(0.5, cam.zoom - 0.02)
+    if (this._keyE.isDown) cam.zoom = Math.min(8,   cam.zoom + 0.02)
+    if (Phaser.Input.Keyboard.JustDown(this._keyR)) {
+      cam.setZoom(2)
+      cam.centerOn(this._W * this._TS / 2, this._H * this._TS / 2)
+    }
+    if (Phaser.Input.Keyboard.JustDown(this._keyG))
+      this._gridGfx.setVisible(!this._gridGfx.visible)
+    if (Phaser.Input.Keyboard.JustDown(this._keyM)) {
+      const v = !this._markerGfx.visible
+      this._markerGfx.setVisible(v)
+      this._markerTexts.forEach(t => t.setVisible(v))
+    }
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+function loadMap(nameOrPath) {
+  const path = resolveMapPath(nameOrPath)
+  if (!path) return
+  const name = nameOrPath.replace(/^.*\//, '').replace(/\.json$/, '')
+  setUrlParam(name)
+  document.getElementById('loadInput').value = ''
+
+  if (!game) {
+    game = new Phaser.Game({
+      type: Phaser.AUTO,
+      width: window.innerWidth,
+      height: window.innerHeight - 40,
+      backgroundColor: '#0a0c0b',
+      pixelArt: true,
+      parent: document.body,
+      scene: MapScene
+    })
+  }
+
+  // Wait a tick for game to be ready on first load
+  setTimeout(() => {
+    const scene = game.scene.getScene('MapScene')
+    if (scene && scene.scene.isActive()) {
+      scene.scene.restart({ mapPath: path, mapName: name })
+    } else {
+      game.scene.start('MapScene', { mapPath: path, mapName: name })
+    }
+  }, 50)
+}
+
+// Controls
+document.getElementById('loadBtn').addEventListener('click', () => {
+  const v = document.getElementById('loadInput').value.trim()
+  if (v) loadMap(v)
+})
+document.getElementById('loadInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const v = e.target.value.trim()
+    if (v) loadMap(v)
+  }
+})
+
+window.addEventListener('resize', () => {
+  if (game) game.scale.resize(window.innerWidth, window.innerHeight - 40)
+})
+
+// Load from URL on startup
+window.addEventListener('load', () => {
+  const name = mapNameFromUrl()
+  if (name) {
+    document.getElementById('loadInput').value = name
+    loadMap(name)
+  } else {
+    setMapName('no map loaded')
+    setInfo('Enter a map name above or use ?map=name in the URL')
+  }
+})
+</script>
+
+
+
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+
+</body>
+</html>
+

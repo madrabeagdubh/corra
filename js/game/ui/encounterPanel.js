@@ -3,37 +3,34 @@
  *
  * Encounter UI for Corra.
  *
- * Proximity flow:
- *   1. notify(card, zone) -- badge appears on moon, no movement lock
- *   2. Player walks away -- badge fades after grace period
- *   3. Player taps moon while badge showing -- panel opens
+ * Handles two encounter types:
  *
- * The panel itself is now rendered by TextPanel's `encounter_card` type:
- *   - background image (panelBG.png if loaded, else solid fill)
- *   - graphic banner inside the card (no more floating top-of-screen sprite)
- *   - bilingual scrollable body
- *   - docked single-language buttons (Irish OR English, controlled by moon)
+ *   encounter_flag  (random)
+ *     Proximity flow: badge on moon -> tap moon -> panel opens -> choice ->
+ *     outcome -> flag consumed (marked collected, cleared from map).
  *
- * Choice flow:
- *   - hasActions:  encounter_card with options. Choice triggers chained
- *                  followup (also an encounter_card, no options) for outcome text.
- *   - no actions:  encounter_card with no options, swipe-up to dismiss.
+ *   fixed_encounter (narrative)
+ *     Same proximity/badge flow, but the flag is NEVER consumed.
+ *     Dialogue cycles via GameState.npcProgress.
+ *     Conditional dialogues (requires: { note } / { quest }) are skipped
+ *     if the condition is not met.
  *
- * Outcome types:
+ * Panel rendering is delegated to TextPanel's `encounter_card` type.
+ *
+ * Outcome types (random encounters only):
  *   loot     -- play sound, show outcome text, mark collected, clear flag
- *   persist  -- close panel, leave flag on map (chest stays for next visit)
+ *   persist  -- close panel, leave flag on map
  *   dismiss  -- show outcome text (if any), mark collected, clear flag
  */
 
 import { GameSettings } from '../settings/gameSettings.js'
+import { GameState }    from '../systems/gameState.js'
 
 const BADGE_FADE_MS   = 400
 const CLEAR_DELAY_MS  = 800
 const CHAIN_BUFFER_MS = 60
 
-// Texture key the scene should preload for the card background.
-// Falls back to solid fill if not present.
-const CARD_BG_KEY     = 'encounterPanelBG'
+const CARD_BG_KEY = 'encounterPanelBG'
 
 export class EncounterPanel {
 
@@ -50,7 +47,7 @@ export class EncounterPanel {
     this._buildBadge()
   }
 
-  // -- Badge --
+  // -- Badge ----------------------------------------------------------------
 
   _buildBadge() {
     const moonCanvas = this._moonWidget.element.querySelector('canvas')
@@ -84,7 +81,7 @@ export class EncounterPanel {
     this._badgeEl = badge
   }
 
-  // -- Notify --
+  // -- Notify ---------------------------------------------------------------
 
   notify(card, zoneObj) {
     if (this._isOpen) return
@@ -106,7 +103,7 @@ export class EncounterPanel {
     }, CLEAR_DELAY_MS)
   }
 
-  // -- Badge helpers --
+  // -- Badge helpers --------------------------------------------------------
 
   _showBadge(visual) {
     const badge = this._badgeEl
@@ -130,10 +127,8 @@ export class EncounterPanel {
     setTimeout(() => { this._badgeEl.style.display = 'none' }, BADGE_FADE_MS)
   }
 
-  // -- Graphic key resolution --
-  // Registers the card's gid as a Phaser texture (one-time per gid) so the
-  // encounter_card layout can render it as an image. Returns the texture key
-  // or null if the visual isn't available.
+  // -- Graphic key resolution -----------------------------------------------
+
   _resolveGraphicKey(visual) {
     if (!visual?.gid) return null
     const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
@@ -149,10 +144,102 @@ export class EncounterPanel {
     return this._scene.textures.exists(CARD_BG_KEY) ? CARD_BG_KEY : null
   }
 
-  // -- Open panel --
+  // -- Open panel -----------------------------------------------------------
 
   _openPanel() {
     if (!this._card || this._isOpen) return
+
+    const zone = this._active
+    const type = zone?.getData('type')
+
+    if (type === 'fixed_encounter') {
+      this._openFixedEncounter(zone)
+    } else {
+      this._openRandomEncounter()
+    }
+  }
+
+  // -- Fixed encounter ------------------------------------------------------
+  // Selects the appropriate dialogue for the current cycle position,
+  // respecting `requires` conditions. Advances npcProgress on dismiss.
+  // The flag is never cleared from the map.
+
+  _openFixedEncounter(zone) {
+    this._isOpen = true
+    this._hideBadge()
+
+    if (this._scene.textPanel?.isVisible) this._scene.textPanel.hide()
+    if (this._scene.joystick) this._scene.joystick.reset()
+    if (this._scene.player)   this._scene.player.isMoving = false
+
+    const stateKey  = zone.getData('stateKey')
+    const dialogues = zone.getData('dialogues') || []
+    if (!dialogues.length) { this._onPanelClosed(); return }
+
+    // Walk the dialogue list from the current progress index, wrapping around,
+    // and pick the first entry whose `requires` condition is satisfied (or
+    // which has no condition). This means conditional lines slot naturally
+    // into the cycle -- if the condition isn't met they're skipped entirely.
+
+    const baseIndex = GameState.getNPCProgress(stateKey)
+    const total     = dialogues.length
+    let   chosen    = null
+    let   chosenIdx = baseIndex
+
+    for (let i = 0; i < total; i++) {
+      const idx  = (baseIndex + i) % total
+      const d    = dialogues[idx]
+      if (this._requiresMet(d.requires)) {
+        chosen    = d
+        chosenIdx = idx
+        break
+      }
+    }
+
+    if (!chosen) {
+      // All dialogues gated -- nothing to show right now
+      this._onPanelClosed()
+      return
+    }
+
+    const bgKey      = this._resolveBgKey()
+    const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
+
+    this._scene.textPanel.show({
+      irish:    chosen.ga || chosen.irish   || '',
+      english:  chosen.en || chosen.english || '',
+      type:     'encounter_card',
+      bgKey,
+      graphicKey,
+      options:  null,
+      onDismiss: () => {
+        // Advance to the next dialogue in the cycle for next visit
+        const nextIdx = (chosenIdx + 1) % total
+        GameState.setNPCProgress(stateKey, nextIdx)
+        this._onPanelClosed()
+      }
+    })
+  }
+
+  // Checks a `requires` object against current GameState.
+  // Returns true if there is no condition, or the condition is met.
+  // Supported:
+  //   { note: 'flag_name' }
+  //   { quest: 'quest_id' }         -- active OR complete
+  //   { questComplete: 'quest_id' } -- complete only
+
+  _requiresMet(requires) {
+    if (!requires) return true
+    if (requires.note        && !GameState.hasNote(requires.note))               return false
+    if (requires.quest       && !GameState.isQuestActive(requires.quest)
+                             && !GameState.isQuestComplete(requires.quest))       return false
+    if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete)) return false
+    return true
+  }
+
+  // -- Random encounter -----------------------------------------------------
+
+  _openRandomEncounter() {
     this._isOpen     = true
     this._choiceMade = false
     this._hideBadge()
@@ -200,7 +287,7 @@ export class EncounterPanel {
     }
   }
 
-  // -- Chained show --
+  // -- Chained show ---------------------------------------------------------
 
   _chainShow(config) {
     const tp = this._scene.textPanel
@@ -222,7 +309,7 @@ export class EncounterPanel {
     }, wait + CHAIN_BUFFER_MS)
   }
 
-  // -- Resolve action --
+  // -- Resolve action (random encounters) -----------------------------------
 
   _resolveAction(action) {
     const outcome = action?.outcome
@@ -240,12 +327,12 @@ export class EncounterPanel {
         }
         if (outcome.textGa || outcome.textEn) {
           this._chainShow({
-            irish:    outcome.textGa || '',
-            english:  outcome.textEn || '',
-            type:     'encounter_card',
+            irish:     outcome.textGa || '',
+            english:   outcome.textEn || '',
+            type:      'encounter_card',
             bgKey,
             graphicKey,
-            options:  null,
+            options:   null,
             onDismiss: () => this._finalDismiss(),
           })
         } else {
@@ -262,12 +349,12 @@ export class EncounterPanel {
       default:
         if (outcome.textGa || outcome.textEn) {
           this._chainShow({
-            irish:    outcome.textGa || '',
-            english:  outcome.textEn || '',
-            type:     'encounter_card',
+            irish:     outcome.textGa || '',
+            english:   outcome.textEn || '',
+            type:      'encounter_card',
             bgKey,
             graphicKey,
-            options:  null,
+            options:   null,
             onDismiss: () => this._finalDismiss(),
           })
         } else {
@@ -277,8 +364,10 @@ export class EncounterPanel {
     }
   }
 
-  // -- Dismiss helpers --
+  // -- Dismiss helpers ------------------------------------------------------
 
+  // Called when a random encounter is fully resolved -- marks collected,
+  // clears the PGR flag, removes from interactables.
   _finalDismiss() {
     const obj      = this._active
     const stateKey = obj?.getData('stateKey')
@@ -302,6 +391,7 @@ export class EncounterPanel {
     this._onPanelClosed()
   }
 
+  // Called after any encounter closes (fixed or random).
   _onPanelClosed() {
     if (this._chainTimer) { clearTimeout(this._chainTimer); this._chainTimer = null }
     this._isOpen     = false
@@ -312,14 +402,15 @@ export class EncounterPanel {
     if (this._scene?.perspectiveGround) this._scene.perspectiveGround.forceRedraw()
   }
 
+  // -- Language update ------------------------------------------------------
+
   updateLanguageOpacity() {
-    // Forward to TextPanel so it can re-pick languages on its buttons
     if (this._scene?.textPanel?.updateEnglishOpacity) {
       this._scene.textPanel.updateEnglishOpacity()
     }
   }
 
-  // -- Destroy --
+  // -- Destroy --------------------------------------------------------------
 
   destroy() {
     if (this._clearTimer) clearTimeout(this._clearTimer)
@@ -328,4 +419,4 @@ export class EncounterPanel {
     this._scene = null
   }
 }
-
+ 

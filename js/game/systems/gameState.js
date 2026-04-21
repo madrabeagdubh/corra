@@ -1,36 +1,43 @@
 /**
- * GameState — Persistent world state for Fenians.baby
+ * GameState -- Persistent world state for Fenians.baby
  *
  * Stores all mutable world state in localStorage, keyed by champion id.
  * Each champion has their own independent world state.
  *
  * State categories:
- *   collected    — one-time items picked up, never respawn
- *   defeated     — enemies defeated, with timestamp for respawn cooldowns
- *   npcProgress  — per-NPC dialogue index, so arcs persist across sessions
- *   quests       — quest flags: 'inactive' | 'active' | 'complete'
- *   visited      — maps visited (separate from introNarrative seen)
- *   inventory    — persisted separately by player.js, referenced here
+ *   collected       -- one-time items picked up, never respawn
+ *   defeated        -- enemies defeated, with timestamp for respawn cooldowns
+ *   npcProgress     -- per-NPC dialogue index, so arcs persist across sessions
+ *   quests          -- quest flags: 'inactive' | 'active' | 'complete'
+ *   visited         -- maps visited (separate from introNarrative seen)
+ *   notes           -- free-form story flags ['met_conall', 'saw_bog_body', ...]
+ *   encounterLayouts -- saved random encounter placements per map
+ *                       { mapKey: [{id, x, y}, ...] }
+ *                       Drawn once on first visit, persisted so encounters
+ *                       don't respawn on re-entry.
  *
  * Usage:
  *   import { GameState } from '/data/gameState.js'
  *   GameState.init(championId)
  *   GameState.setCollected('bog_threshold.ancient_sword')
- *   GameState.isCollected('bog_threshold.ancient_sword')  // → true
- *   GameState.getNPCProgress('druid_temple.conall')       // → 2
+ *   GameState.isCollected('bog_threshold.ancient_sword')  // true
+ *   GameState.getNPCProgress('druid_temple.conall')       // 2
  *   GameState.setNPCProgress('druid_temple.conall', 3)
+ *   GameState.getEncounterLayout('great_open_bog')        // [{id,x,y},...] | null
+ *   GameState.setEncounterLayout('great_open_bog', [...])
  */
 
 const STORAGE_PREFIX = 'fenians_state_'
 
 function defaultState() {
   return {
-    collected:   {},   // { 'mapKey.itemId': true }
-    defeated:    {},   // { 'mapKey.enemyId': timestamp }
-    npcProgress: {},   // { 'mapKey.npcId': dialogueIndex }
-    quests:      {},   // { questId: 'inactive'|'active'|'complete' }
-    visited:     {},   // { sceneKey: true }
-    notes:       [],   // arbitrary story notes/flags [ 'met_conall', ... ]
+    collected:        {},   // { 'mapKey.itemId': true }
+    defeated:         {},   // { 'mapKey.enemyId': timestamp }
+    npcProgress:      {},   // { 'mapKey.npcId': dialogueIndex }
+    quests:           {},   // { questId: 'inactive'|'active'|'complete' }
+    visited:          {},   // { sceneKey: true }
+    notes:            [],   // arbitrary story notes/flags
+    encounterLayouts: {},   // { mapKey: [{id, x, y}, ...] }
   }
 }
 
@@ -38,7 +45,8 @@ export const GameState = {
   _championId: null,
   _state: null,
 
-  // ── Initialise for a champion ──────────────────────────────────────
+  // -- Initialise for a champion --------------------------------------------
+
   init(championId) {
     this._championId = championId
     const raw = localStorage.getItem(STORAGE_PREFIX + championId)
@@ -69,8 +77,8 @@ export const GameState = {
     console.log(`[GameState] Reset for champion: ${this._championId}`)
   },
 
-  // ── Collectables ───────────────────────────────────────────────────
-  // stateKey format: 'map_key.item_id' e.g. 'bog_threshold.ancient_sword'
+  // -- Collectables ---------------------------------------------------------
+  // stateKey format: 'map_key.item_id'  e.g. 'bog_threshold.ancient_sword'
 
   isCollected(stateKey) {
     return !!this._state?.collected[stateKey]
@@ -82,14 +90,14 @@ export const GameState = {
     this.save()
   },
 
-  // ── Enemies ────────────────────────────────────────────────────────
+  // -- Enemies --------------------------------------------------------------
 
   isDefeated(stateKey, respawnMs = 0) {
     if (!this._state) return false
     const ts = this._state.defeated[stateKey]
     if (!ts) return false
-    if (respawnMs === 0) return true          // never respawns
-    return (Date.now() - ts) < respawnMs      // still in cooldown
+    if (respawnMs === 0) return true
+    return (Date.now() - ts) < respawnMs
   },
 
   setDefeated(stateKey) {
@@ -98,7 +106,7 @@ export const GameState = {
     this.save()
   },
 
-  // ── NPC progress ───────────────────────────────────────────────────
+  // -- NPC progress ---------------------------------------------------------
 
   getNPCProgress(stateKey) {
     return this._state?.npcProgress[stateKey] ?? 0
@@ -117,7 +125,7 @@ export const GameState = {
     return next
   },
 
-  // ── Quests ─────────────────────────────────────────────────────────
+  // -- Quests ---------------------------------------------------------------
 
   getQuest(questId) {
     return this._state?.quests[questId] ?? 'inactive'
@@ -134,7 +142,7 @@ export const GameState = {
   isQuestActive(questId)   { return this.getQuest(questId) === 'active' },
   isQuestComplete(questId) { return this.getQuest(questId) === 'complete' },
 
-  // ── Map visits ─────────────────────────────────────────────────────
+  // -- Map visits -----------------------------------------------------------
 
   hasVisited(sceneKey) {
     return !!this._state?.visited[sceneKey]
@@ -146,7 +154,7 @@ export const GameState = {
     this.save()
   },
 
-  // ── Story notes ────────────────────────────────────────────────────
+  // -- Story notes ----------------------------------------------------------
   // Free-form flags for story beats: 'met_conall', 'saw_bog_body', etc.
 
   hasNote(note) {
@@ -156,6 +164,30 @@ export const GameState = {
   addNote(note) {
     if (!this._state || this.hasNote(note)) return
     this._state.notes.push(note)
+    this.save()
+  },
+
+  // -- Encounter layouts ----------------------------------------------------
+  // Saves the random encounter placement for a map so the same encounters
+  // are restored on re-entry rather than re-drawn from the deck.
+  //
+  // layout: [ { id: string, x: number, y: number }, ... ]
+  //
+  // Returns null if no layout has been saved for this map yet.
+
+  getEncounterLayout(mapKey) {
+    return this._state?.encounterLayouts[mapKey] ?? null
+  },
+
+  setEncounterLayout(mapKey, layout) {
+    if (!this._state) return
+    this._state.encounterLayouts[mapKey] = layout
+    this.save()
+  },
+
+  clearEncounterLayout(mapKey) {
+    if (!this._state) return
+    delete this._state.encounterLayouts[mapKey]
     this.save()
   },
 }

@@ -115,7 +115,7 @@ function resolveMapPath(nameOrPath) {
   if (!nameOrPath) return null
   // If it already looks like a path, use as-is
   if (nameOrPath.startsWith('/') || nameOrPath.endsWith('.json')) return nameOrPath
-  // Otherwise treat as a name inside the output folder
+  // Otherwise treat as a name in the bogMaps folder
   return `/maps/bogMaps/${nameOrPath}.json`
 }
 
@@ -212,6 +212,8 @@ class MapScene extends Phaser.Scene {
 
     this.input.on('pointerdown', p => {
       _tapX = p.x; _tapY = p.y; _dragged = false
+      // Blur any focused input so mobile keyboard doesn't appear on map tap
+      document.activeElement?.blur()
     })
     this.input.on('pointermove', p => {
       if (!p.isDown) return
@@ -388,12 +390,6 @@ window.addEventListener('load', () => {
   }
 })
 </script>
-
-
-
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-
 </body>
 </html>
 

@@ -27,7 +27,7 @@ const CONFIG = {
 }
 
 const WATER    = [1634, 1688]  // bog water (brown)
-const EDGE     = { NW:1571,N:1464,NE:1573, W:1517,E:1519, SW:1463,S:1572,SE:1465 }
+const EDGE   = { NW:1472,N:1473,NE:1474, W:1526,E:1528, SW:1580,S:1581,SE:1582 }
 const BOG_BASE = [733, 732]
 const MUD      = [1379, 1380]
 const BOG_BLOCK = [217, 218, 219]
@@ -93,10 +93,10 @@ function buildOverlay(water,W,H,cfg,rng) {
       const N=!getW(water,x,y-1,W,H),S=!getW(water,x,y+1,W,H)
       const E=!getW(water,x+1,y,W,H),Ww=!getW(water,x-1,y,W,H)
       if (!N&&!S&&!E&&!Ww) continue
-      if (S&&Ww&&!N&&!E)  {layer[y][x]=EDGE.NW;continue}
-      if (S&&E &&!N&&!Ww) {layer[y][x]=EDGE.NE;continue}
-      if (N&&Ww&&!S&&!E)  {layer[y][x]=EDGE.SW;continue}
-      if (N&&E &&!S&&!Ww) {layer[y][x]=EDGE.SE;continue}
+            if (S&&Ww&&!N&&!E)  {layer[y][x]=EDGE.SW;continue}
+      if (S&&E &&!N&&!Ww) {layer[y][x]=EDGE.SE;continue}
+      if (N&&Ww&&!S&&!E)  {layer[y][x]=EDGE.NW;continue}
+      if (N&&E &&!S&&!Ww) {layer[y][x]=EDGE.NE;continue}
       if (S) layer[y][x]=EDGE.S
       else if (N) layer[y][x]=EDGE.N
       else if (E) layer[y][x]=EDGE.E
@@ -165,6 +165,66 @@ function buildExitsAndClear(overlay,water,W,H,cfg) {
   return {exits,entries}
 }
 
+// ── WITHERED TREE BORDER BLOBS ───────────────────────────────────────────────
+// Sparse withered tree clumps around the map perimeter -- the bog is
+// encroaching on what was once forest edge.
+
+const WITHERED = { TL:266,TC:267,TR:268,ML:320,MC:321,MR:322,BL:374,BC:375,BR:376 }
+
+function placeWitheredBlobs(overlay, water, W, H, rng) {
+  const blobCount = 6
+  const blobMinR  = 2
+  const blobMaxR  = 4
+
+  // Temporary forest grid for edge detection
+  const forest = Array.from({length:H}, ()=>new Array(W).fill(false))
+
+  for (let b = 0; b < blobCount; b++) {
+    // Place along all four edges, biased to corners
+    let px, py
+    const edge = Math.floor(rng() * 4)
+    switch(edge) {
+      case 0: px = Math.floor(rng()*W*0.3);       py = Math.floor(rng()*H*0.25); break // NW
+      case 1: px = Math.floor(rng()*W*0.3);       py = Math.floor(H*0.75+rng()*H*0.2); break // SW
+      case 2: px = Math.floor(W*0.7+rng()*W*0.25); py = Math.floor(rng()*H*0.25); break // NE
+      default: px = Math.floor(W*0.7+rng()*W*0.25); py = Math.floor(H*0.75+rng()*H*0.2); break // SE
+    }
+    px = Math.max(1, Math.min(W-2, px))
+    py = Math.max(1, Math.min(H-2, py))
+
+    const r = blobMinR + Math.floor(rng()*(blobMaxR-blobMinR+1))
+    const cells = []
+
+    for (let dy=-r; dy<=r; dy++) {
+      for (let dx=-r; dx<=r; dx++) {
+        const dist = Math.sqrt(dx*dx+dy*dy)
+        if (dist < r - rng()*1.5) {
+          const bx=px+dx, by=py+dy
+          if (bx>=1&&bx<W-1&&by>=1&&by<H-1&&!water[by][bx]&&!overlay[by][bx]) {
+            cells.push([bx,by])
+            forest[by][bx]=true
+          }
+        }
+      }
+    }
+
+    cells.forEach(([x,y])=>{
+      const N=y>0&&forest[y-1][x], S=y<H-1&&forest[y+1][x]
+      const E=x<W-1&&forest[y][x+1], Ww=x>0&&forest[y][x-1]
+      if (N&&S&&E&&Ww)    { overlay[y][x]=WITHERED.MC; return }
+      if (!N&&!Ww)        { overlay[y][x]=WITHERED.TL; return }
+      if (!N&&!E)         { overlay[y][x]=WITHERED.TR; return }
+      if (!S&&!Ww)        { overlay[y][x]=WITHERED.BL; return }
+      if (!S&&!E)         { overlay[y][x]=WITHERED.BR; return }
+      if (!N)             { overlay[y][x]=WITHERED.TC; return }
+      if (!S)             { overlay[y][x]=WITHERED.BC; return }
+      if (!Ww)            { overlay[y][x]=WITHERED.ML; return }
+      if (!E)             { overlay[y][x]=WITHERED.MR; return }
+      overlay[y][x]=WITHERED.MC
+    })
+  }
+}
+
 function generate(outputName) {
   const cfg={...CONFIG}
   const {width:W,height:H}=cfg
@@ -176,6 +236,7 @@ function generate(outputName) {
   const water  = buildWater(W,H,cfg,rng)
   const base   = buildBase(water,W,H)
   const overlay=buildOverlay(water,W,H,cfg,rng)
+  placeWitheredBlobs(overlay,water,W,H,rng)
   const {exits,entries}=buildExitsAndClear(overlay,water,W,H,cfg)
 
   const map={
@@ -185,11 +246,14 @@ function generate(outputName) {
       '733':'bog ground','732':'dark bog ground',
       '1379':'plain mud','1380':'mud twigs',
       '1634':'bog water 1','1688':'bog water 2',
-      '1464':'water N','1572':'water S','1517':'water W','1519':'water E',
-      '1571':'water SW','1573':'water SE','1463':'water NW','1465':'water NE',
+      '1473':'water N','1581':'water S','1526':'water W','1528':'water E',
+      '1580':'water SW','1582':'water SE','1472':'water NW','1474':'water NE',
       '217':'bog block','218':'bog block cracked','219':'bog block very cracked',
       '49':'large bog bush','50':'medium bog bush','51':'bog bush pair','53':'small bog bush',
       '213':'green plants','214':'green plant','215':'brown plants','216':'brown plant',
+      '266':'withered TL','267':'withered TC','268':'withered TR',
+      '320':'withered ML','321':'withered MC','322':'withered MR',
+      '374':'withered BL','375':'withered BC','376':'withered BR',
       '0':'empty'
     },
     spawns:{player:{x:W-cfg.exitClearDepth,y:Math.floor(H/2)}},
@@ -212,3 +276,4 @@ function generate(outputName) {
 
 const outputName=process.argv[2]||'open_bog_default'
 generate(outputName)
+

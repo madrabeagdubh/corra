@@ -105,7 +105,6 @@ function createStatsDisplay(champion) {
         bottom: 120px !important;
         left: 0 !important;
         right: 0 !important;
-        border-top: 2px solid ${COLORS.speaker} !important;
         z-index: 10005 !important;
         padding: 15px !important;
         display: flex !important;
@@ -146,10 +145,23 @@ function createStatsDisplay(champion) {
         item.appendChild(iconWrap);
         item.appendChild(val);
 
-        item.onclick = (e) => { e.stopPropagation(); cancelSwipeNudge(); createStatPopup(statName); };
-        item.addEventListener('touchstart', (e) => {
-            e.stopPropagation(); cancelSwipeNudge(); createStatPopup(statName);
-        }, { passive: true });
+
+
+item.onclick = (e) => {
+    e.stopPropagation();
+    cancelSwipeNudge();
+    const existing = document.getElementById('statPopup');
+    if (existing && existing.dataset.stat === statName) { existing.click(); return; }
+    createStatPopup(statName);
+};
+
+item.onclick = (e) => {
+    e.stopPropagation();
+    cancelSwipeNudge();
+    const existing = document.getElementById('statPopup');
+    if (existing && existing.dataset.stat === statName) { existing.click(); return; }
+    createStatPopup(statName);
+};
 
         statsContainer.appendChild(item);
     });
@@ -165,6 +177,7 @@ function createStatPopup(statName) {
 
     const popup = document.createElement('div');
     popup.id = 'statPopup';
+popup.dataset.stat = statName;
     popup.style.cssText = `
         position: fixed;
         top: 50%;

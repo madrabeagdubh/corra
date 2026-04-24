@@ -199,8 +199,7 @@
         console.log('[Starfield] Status check - active:', active, 'animationId:', animationId, 'stars:', stars.length);
       }, 1000);
     }
-
-    function stopStarfield() {
+window.stopStarfield = function() {
       active = false;
       if (animationId) cancelAnimationFrame(animationId);
       window.removeEventListener('resize', resizeCanvas);
@@ -262,12 +261,12 @@
 
 
 
-<!--
+
 
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
 
--->
+
 
 
 

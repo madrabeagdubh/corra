@@ -970,8 +970,11 @@ function initBackgroundParticles() {
 }
 
 // ── DOM init ──────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', initHeroSelect);
-if (document.readyState !== 'loading') initHeroSelect();
+const _skipHeroSelect = new URLSearchParams(window.location.search).get('scene')
+if (!_skipHeroSelect) {
+  document.addEventListener('DOMContentLoaded', initHeroSelect)
+  if (document.readyState !== 'loading') initHeroSelect()
+}
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 export function getCurrentAmerginLine()      { return currentAmerginLineForExport; }

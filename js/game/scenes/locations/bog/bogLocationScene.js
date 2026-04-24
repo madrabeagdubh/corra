@@ -48,6 +48,13 @@ export default class BogLocationScene extends BaseLocationScene {
     console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
   }
 
+
+
+
+
+getSkyImage() { return null }
+
+
   preload() {
    
 this.load.image('encounterPanelBG', '/assets/panelBG.png');
@@ -600,7 +607,7 @@ if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
 
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
-
+getSkyImage() { return '/assets/skies/bog_threshold_sky.png' }
   update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
@@ -694,6 +701,11 @@ if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
 
     if (this.usePerspective) {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
+   
+const skyUrl = this.getSkyImage()
+if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl)
+
+
     }
   }
 }

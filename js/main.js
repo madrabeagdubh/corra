@@ -16,6 +16,7 @@ import TreeMaze            from './game/scenes/locations/bog/treeMaze.js'
 import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
 import OakWood             from './game/scenes/locations/bog/oakWood.js'
 import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
+import { champions } from '../data/champions.js' // adjust path as needed
 
 
 
@@ -34,8 +35,14 @@ export function startGame(selectedChampion, options = {}) {
 }
 
 function _createGame(selectedChampion, options) {
- 
+  // URL override: ?scene=Bog_Threshold
+  const urlParams = new URLSearchParams(window.location.search)
+  const sceneOverride = urlParams.get('scene')
+  if (sceneOverride) options.startScene = sceneOverride
 
+  if (sceneOverride && !selectedChampion) {
+    selectedChampion = window.devChampion || { id: 'dev', nameGa: 'Dev' }
+  } 
     // Hide starfield loader
     const starfieldLoader = document.getElementById('starfieldLoader')
     if (starfieldLoader) starfieldLoader.style.display = 'none'
@@ -99,8 +106,12 @@ initFullscreenButton();
     const sceneToStart = options.startScene || 'BowTutorial'
     console.log('[main.js] Starting scene:', sceneToStart)
     window.startGame = startGame
-    window.game.scene.start(sceneToStart, { champion: selectedChampion })
-
+if (sceneToStart !== 'BowTutorial') {
+  // Direct scene load -- skip WorldScene
+  window.game.scene.start(sceneToStart, { champion: selectedChampion })
+} else {
+  window.game.scene.start('WorldScene', { champion: selectedChampion })
+}
     console.log('Game created, champion stored in registry')
 }
 
@@ -121,4 +132,23 @@ window.addEventListener('load', resizeGame)
 window.addEventListener('resize', resizeGame)
 window.addEventListener('orientationchange', resizeGame)
 window.addEventListener('load', () => console.log('Game started'))
-
+// Dev shortcut: ?scene=Bog_Threshold boots directly, bypassing hero select
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const sceneOverride = urlParams.get('scene')
+  if (sceneOverride) {
+    const devChampion = champions[0]
+    const champId = devChampion.id || devChampion.nameGa || 'dev'
+    localStorage.setItem(`${sceneOverride}_intro_${champId}`, 'true')
+    startGame(devChampion, { startScene: sceneOverride })
+    setTimeout(() => {
+      window.game?.scene.stop('WorldScene')
+      window.stopStarfield?.()
+      const toHide = ['starfieldLoader', 'heroSelect']
+      toHide.forEach(id => {
+        const el = document.getElementById(id)
+        if (el) el.style.display = 'none'
+      })
+    }, 200)
+  }
+})

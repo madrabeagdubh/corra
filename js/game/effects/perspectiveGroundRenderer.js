@@ -174,34 +174,47 @@ export default class PerspectiveGroundRenderer {
     return c
   }
 
-  _buildSkyVignette(container) {
-    const sw = this._sw
-    const sh = this._sh
+_buildSkyVignette(container, skyUrl) {
+  const sw = this._sw
+  const sh = this._sh
 
-    const img = document.createElement('img')
-    img.id  = 'pgr-sky-img'
-    img.src = '/assets/bg0.png'
-    img.style.cssText = [
-      'position:absolute', 'top:0', 'left:0',
-      `width:${sw}px`, `height:${sh}px`,
-      'z-index:0', 'pointer-events:none',
-      'object-fit:cover', 'object-position:center top', 'opacity:0.9',
-    ].join(';')
-    container.appendChild(img)
-    this._skyImg = img
+  const img = document.createElement('img')  // declare first
+  img.id  = 'pgr-sky-img'
+  img.src = ''                               // then set
+  img.style.opacity = '0'
+  img.style.cssText = [
+    'position:absolute', 'top:0', 'left:0',
+    `width:${sw}px`, `height:${sh}px`,
+    'z-index:0', 'pointer-events:none',
+    'object-fit:cover', 'object-position:center top',
+    skyUrl ? 'opacity:1' : 'opacity:0',
+  ].join(';')
+  container.appendChild(img)
+  this._skyImg = img
+    // Gradient that fades the sky image into the ground
+  const div = document.createElement('div')
+  div.id = 'pgr-sky'
+  div.style.cssText = [
+    'position:absolute', 'top:0', 'left:0',
+    `width:${sw}px`, `height:${sh}px`,
+    'z-index:0', 'pointer-events:none',
+    // Transparent at top, solid dark at horizon
+    'background:linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.85) 82%, rgba(0,0,0,0.97) 92%)',
+  ].join(';')
+  container.appendChild(div)
+  return div
+}
 
-    const div = document.createElement('div')
-    div.id = 'pgr-sky'
-    div.style.cssText = [
-      'position:absolute', 'top:0', 'left:0',
-      `width:${sw}px`, `height:${sh}px`,
-      'z-index:0', 'pointer-events:none',
-      'background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.7) 70%,rgba(0,0,0,0.95) 85%)',
-    ].join(';')
-    container.appendChild(div)
-    return div
+setSkyImage(url) {
+  if (!this._skyImg) return
+  if (url) {
+    this._skyImg.src = url
+    this._skyImg.style.opacity = '1'
+  } else {
+    this._skyImg.src = ''
+    this._skyImg.style.opacity = '0'
   }
-
+}
   setLighting({ darkness, radius, groundColour } = {}) {
     if (darkness     != null) this._lightDarkness = darkness
     if (radius       != null) this._lightRadius   = radius
@@ -425,18 +438,26 @@ _drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHS
   ctx.restore()
 }
 
-  _updateLight(playerScreenX, playerScreenY) {
-    const sw     = this._sw
-    const sh     = this._sh
-    const radius = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
-    const dark   = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
-    const glow   = PerspectiveGroundRenderer.LIGHT_COLOR
-    this._lightDiv.style.background = [
-      `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
-      ` at ${playerScreenX.toFixed(1)}px ${playerScreenY.toFixed(1)}px,`,
-      ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
-    ].join('')
-  }
+_updateLight(playerScreenX, playerScreenY) {
+  const sw       = this._sw
+  const sh       = this._sh
+  const horizonPx = this._horizonPx()
+  const groundH  = sh - horizonPx
+  const radius   = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
+  const dark     = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
+  const glow     = PerspectiveGroundRenderer.LIGHT_COLOR
+
+  // Offset playerScreenY relative to the clipped div's top
+  const relativePlayerY = playerScreenY - horizonPx
+
+  this._lightDiv.style.top    = `${horizonPx}px`
+  this._lightDiv.style.height = `${groundH}px`
+  this._lightDiv.style.background = [
+    `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
+    ` at ${playerScreenX.toFixed(1)}px ${relativePlayerY.toFixed(1)}px,`,
+    ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
+  ].join('')
+} 
 
   update(fov) {
     if (!this._ready) return

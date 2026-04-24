@@ -60,13 +60,15 @@ function createStatPopup(statName) {
 
     const popup = document.createElement('div');
     popup.id = 'statPopup';
-    popup.style.cssText = `
+popup.dataset.stat = statName;  
+popup.style.cssText = `
         position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(42, 24, 16, 0.98);
-        border: 3px solid ${COLORS.speaker};
+background: rgba(0, 0, 0, 0.96);        
+
+border: 3px solid ${COLORS.speaker};
         border-radius: 15px;
         padding: 1.5rem;
         width: 100%;
@@ -226,9 +228,9 @@ export async function showCharacterModal(champion) {
                     flex-direction: column !important;
                     align-items: stretch !important;
                     pointer-events: auto !important;
-                    background:
-                        radial-gradient(ellipse 70% 50% at 25% 35%, rgba(55,25,110,0.28) 0%, transparent 65%),
-                        radial-gradient(ellipse 55% 45% at 75% 65%, rgba(15,35,90,0.22) 0%, transparent 60%),
+                    
+background: #00060f !important;
+    radial-gradient(ellipse 55% 45% at 75% 65%, rgba(15,35,90,0.22) 0%, transparent 60%),
                         #00060f !important;
                     overflow: hidden !important;
                     animation: modalRise 0.45s cubic-bezier(.22,.68,0,1.2) both;
@@ -403,10 +405,15 @@ export async function showCharacterModal(champion) {
 
             chip.appendChild(iconEl);
             chip.appendChild(valEl);
-            chip.addEventListener('click', (e) => {
-                e.stopPropagation();
-                createStatPopup(stat);
-            });
+           
+chip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const existing = document.getElementById('statPopup');
+    if (existing && existing.dataset.stat === stat) { existing.click(); return; }
+    createStatPopup(stat);
+});
+
+
             statsContainer.appendChild(chip);
         });
 

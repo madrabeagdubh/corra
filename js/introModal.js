@@ -127,7 +127,7 @@ var _sceneInitialized = false;
 export function initConstellationScene(onComplete) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
-	 _fullscreenDone = false;
+    _fullscreenDone = false;
 
     // Load the font before Phaser boots, mirroring introModal's loadFont()
     document.fonts.load('1.8rem Urchlo').catch(() => {});
@@ -151,7 +151,7 @@ export function initConstellationScene(onComplete) {
 }
 
 const CONSTELLATION_DATA = [
-    // ── Cú na Féinne — The Hound of the Fianna (Orion) ─────────────────────
+    // ── Cú na Féinne - The Hound of the Fianna (Orion) ─────────────────────
     {
         id: 'cu',
         starOffsets: [
@@ -170,7 +170,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── An Naomhóg — The Currach (Cassiopeia) ──────────────────────────────
+    // ── An Naomhóg - The Currach (Cassiopeia) ──────────────────────────────
     {
         id: 'naomhog',
         starOffsets: [
@@ -186,7 +186,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ───────────────
+    // ── An Carr Mór - The Great Chariot / Plough (Ursa Major) ───────────────
     {
         id: 'carr',
         starOffsets: [
@@ -205,7 +205,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
+    // ── An Torc - The Wild Boar (Scorpius) ──────────────────────────────────
     {
         id: 'torc',
         starOffsets: [
@@ -226,7 +226,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ───────────────
+    // ── Cúirt Fhomhóir - The Court of Fomor (Corona Borealis) ───────────────
     {
         id: 'cuirt',
         starOffsets: [
@@ -245,7 +245,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────
+    // ── An Draoi - The Druid (Boötes) ───────────────────────────────────────
     {
         id: 'draoi',
         starOffsets: [
@@ -261,7 +261,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── Cláirseach na Spéire — The Harp of Heaven (Lyra) ────────────────────
+    // ── Cláirseach na Spéire - The Harp of Heaven (Lyra) ────────────────────
     {
         id: 'clairseach',
         starOffsets: [
@@ -278,7 +278,7 @@ const CONSTELLATION_DATA = [
         ],
     },
 
-    // ── An Laoch — The Hero / Warrior (Perseus) ──────────────────────────────
+    // ── An Laoch - The Hero / Warrior (Perseus) ──────────────────────────────
     {
         id: 'laoch',
         starOffsets: [
@@ -318,6 +318,11 @@ const AMERGIN_LINES = [
     { ga: 'Cé buar Teathra le gean?',               en: 'Who can charm the sunless king?' },
 ];
 
+// ── DOM attribute used to tag all ScrollingTextPlayer root elements ───────────
+// scrollingTextPlayer.js should set this on its root el; we also query it here
+// as a fallback nuclear cleanup.
+const STP_ATTR = 'data-stp';
+
 export class ConstellationScene extends Phaser.Scene {
     constructor() {
         super({ key: 'ConstellationScene' });
@@ -352,8 +357,13 @@ export class ConstellationScene extends Phaser.Scene {
         this.moonInitDone    = false;
         this.spinAngle       = 0;
 
-        // ── Text player ───────────────────────────────────────────────────────
+        // ── Text players ──────────────────────────────────────────────────────
+        // _textPlayer      = current waiting-text player
+        // _completionPlayer = current completion-text player (was previously a
+        //                     local variable in onConstellationComplete — the
+        //                     source of the heroSelect DOM bleed bug)
         this._textPlayer       = null;
+        this._completionPlayer = null;
 
         // ── Audio state ───────────────────────────────────────────────────────
         this._harpStarted      = false;
@@ -370,16 +380,24 @@ export class ConstellationScene extends Phaser.Scene {
         this._moonVerticalDragging = false;
         this._skipHintEl           = null;
         this._skipHintVisible      = false;
+        this._skipHintAutoTimer    = null;
+
+        // ── Moon slide hint (pre-interaction arrow) ───────────────────────────
+        this._moonHintEl           = null;
+        this._moonHintTimer        = null;
+        this._moonHintCancelled    = false;
     }
 
     get W() { return this.scale.width; }
     get H() { return this.scale.height; }
-preload(){
-    this.load.image('shadowHill', './assets/shadowHill.png');
-    // Dark mythos images — fade in after constellation drawn, out on spin away
-    this.load.image('naomhog', './assets/naomhog.png');
-    this.load.image('cuirt',   './assets/cuirt.png');
-}
+
+    preload(){
+        this.load.image('shadowHill', './assets/shadowHill.png');
+        // Dark mythos images - fade in after constellation drawn, out on spin away
+        this.load.image('naomhog', './assets/naomhog.png');
+        this.load.image('cuirt',   './assets/cuirt.png');
+    }
+
     create() {
         this.initAudio();
         this._onComplete = this.registry.get('onComplete') || null;
@@ -398,9 +416,6 @@ preload(){
         this.worldG  = this.add.graphics().setDepth(10);
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
-
-        // All dialogue (waiting and completion) is handled by ScrollingTextPlayer DOM overlays.
-        // No Phaser text objects needed.
 
         this.uiCamera = this.cameras.add(0, 0, this.W, this.H)
             .setName('ui')
@@ -428,11 +443,6 @@ preload(){
         this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
 
         this.buildMoonOverlay();
-   
-
-
-
-
 
         const { width, height } = this.scale;
         if (this.textures.exists('shadowHill')) {
@@ -442,12 +452,9 @@ preload(){
                 .setPosition(0, height)
                 .setScale(0.8)
                 .setDepth(23);
-            // Ignore lists were built before this object existed, so register explicitly.
-            this.cameras.main.ignore(this.shadowHill);  // main camera never sees it
-            // uiCamera renders it automatically.
+            this.cameras.main.ignore(this.shadowHill);
         }
 
-        // Keep shadowHill pinned to the bottom whenever the screen resizes (e.g. fullscreen toggle)
         this.scale.on('resize', (gameSize) => {
             if (this.shadowHill) {
                 this.shadowHill.setPosition(0, gameSize.height);
@@ -458,41 +465,35 @@ preload(){
             this._updateDusk();
         });
 
-        // ── Dusk atmospheric gradient behind shadowHill — DOM element only ───
-        // We use a fixed DOM div so it never rotates with the Phaser cameras.
+        // ── Dusk atmospheric gradient ─────────────────────────────────────────
         this._duskEl = document.createElement('div');
         this._duskEl.style.cssText = [
             'position:fixed;left:0;right:0;bottom:0;',
             `height:${Math.round(this.H * 0.20)}px;`,
             'pointer-events:none;',
-            'z-index:99994;',   // above game canvas (z ~auto), below moon overlay (99997)
+            'z-index:99994;',
             'opacity:0;',
             'transition:background 1.8s ease, opacity 0.6s ease;',
         ].join('');
         document.body.appendChild(this._duskEl);
         this._drawDuskGradient(0);
- }
+    }
 
-    // ── Dusk gradient — DOM div, never rotates with cameras ─────────────────
-    // progress 0 = first constellation (pale blue dusk glow)
-    // progress 1 = last constellation (deep indigo, nearly gone)
+    // ── Dusk gradient ─────────────────────────────────────────────────────────
     _drawDuskGradient(progress) {
         const el = this._duskEl;
         if (!el) return;
         const t = Math.max(0, Math.min(1, progress));
 
-        // Colour stops: bottom edge → top edge
-        // Bottom: pale icy blue → muted indigo
         const botR = Math.round(Phaser.Math.Linear(140,  40, t));
         const botG = Math.round(Phaser.Math.Linear(170,  20, t));
         const botB = Math.round(Phaser.Math.Linear(210,  80, t));
         const botA = Phaser.Math.Linear(0.28, 0.14, t);
 
-        // Top (where it fades into sky): cool violet → near-black purple
         const topR = Math.round(Phaser.Math.Linear(60,  20, t));
         const topG = Math.round(Phaser.Math.Linear(30,   5, t));
         const topB = Math.round(Phaser.Math.Linear(90,  40, t));
-        const topA = 0.0; // always transparent at top edge
+        const topA = 0.0;
 
         el.style.background = [
             `linear-gradient(to bottom,`,
@@ -500,32 +501,26 @@ preload(){
             `  rgba(${botR},${botG},${botB},${botA}) 100%)`,
         ].join('');
 
-        // Reveal on first call (when constellation sequence starts)
         if (el.style.opacity === '0') el.style.opacity = '1';
     }
 
-    // ── Advance dusk to reflect currentIndex ─────────────────────────────────
     _updateDusk() {
         const total = this.constellations.length;
         const prog  = total > 1 ? this.currentIndex / (total - 1) : 0;
         this._drawDuskGradient(prog);
     }
 
-    // ── Show the dark mythos image for a given constellation id ──────────────
+    // ── Dark mythos image ─────────────────────────────────────────────────────
     _showDarkImage(constellationId) {
-        // Remove any previous image
         this._hideDarkImage(true);
 
         const W = this.W, H = this.H;
 
-        // DOM img — completely outside Phaser cameras, always screen-centred
         const el = document.createElement('img');
-        // Try named asset first; fall back to sc01.png placeholder
         el.src = `assets/stars/${constellationId}.png`;
         el.onerror = () => { el.src = 'assets/sc01.png'; };
 
         el.style.cssText = [
-		
             'position:fixed;',
             'width:auto;',
             `max-height:${Math.round(H * 0.50)}px;`,
@@ -542,11 +537,9 @@ preload(){
         this._darkImageEl = el;
         this._darkImage   = true;
 
-        // Trigger fade-in on next frame so transition fires
         requestAnimationFrame(() => { if (el.parentNode) el.style.opacity = '0.65'; });
     }
 
-    // ── Fade out and remove the current dark image ────────────────────────────
     _hideDarkImage(immediate = false) {
         const el = this._darkImageEl;
         if (!el) return;
@@ -558,9 +551,7 @@ preload(){
         setTimeout(() => el.remove(), 950);
     }
 
-    // ── Moon overlay ─────────────────────────────────────────────────────────
-    // ── Moon overlay ─────────────────────────────────────────────────────────
-
+    // ── Moon overlay ──────────────────────────────────────────────────────────
     buildMoonOverlay() {
         const W = this.W, H = this.H;
         const moonR   = Math.round(H * 0.025);
@@ -568,20 +559,15 @@ preload(){
         const marginX = Math.round(W * 0.06);
         const trackW  = W - marginX * 2;
 
-        // ── Arc: start position (lower left, in from edge) ───────────────────
         const arcStartX = marginX;
         const arcStartY = Math.round(H * 0.32);
+        const trackY    = Math.round(H * 0.04);
 
-        // ── Arc: final settled track y position ──────────────────────────────
-        const trackY = Math.round(H * 0.04);
-
-        // ── Arc curve — maps x position (0..1) to a y during first drag ─────
-        // Sine arch: starts at arcStartY, peaks high in the middle, lands at trackY
-       const getArcY = (clientX) => {
-    const t        = Math.max(0, Math.min(1, (clientX - marginX) / trackW));
-    const sineArch = Math.sin(t * Math.PI);          // 0 → 1 → 0, peaks at midpoint
-    return arcStartY - (H * 0.15) * sineArch;        // lifts upward at the middle only
-};;
+        const getArcY = (clientX) => {
+            const t        = Math.max(0, Math.min(1, (clientX - marginX) / trackW));
+            const sineArch = Math.sin(t * Math.PI);
+            return arcStartY - (H * 0.15) * sineArch;
+        };
 
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
         let line              = AMERGIN_LINES[currentLyricIndex];
@@ -596,45 +582,33 @@ preload(){
 
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
-      
-
-
-
-
-
-irishEl.style.cssText = [
+        irishEl.style.cssText = [
             `font-family:${FONTS.irish};`,
-
-
-`font-size:${TYPE.domBody.size};`,
+            `font-size:${TYPE.domBody.size};`,
             `color:${COLORS.irish};text-align:center;`,
             'text-shadow:0 0 18px rgba(0,0,0,0.9);',
             'padding:0 6%;',
             'pointer-events:none;',
             'opacity:1;transition:opacity 0.8s ease-in-out;',
             'position:absolute;',
-        
-`top:${Math.round(H * 0.1)}px;`,
-
+            `top:${Math.round(H * 0.1)}px;`,
             'left:0;right:0;',
         ].join('');
         this.irishOverlayEl = irishEl;
 
         const enEl = document.createElement('div');
         enEl.textContent = line.en;
-       enEl.style.cssText = [
+        enEl.style.cssText = [
             `font-family:${FONTS.english};`,
-
-
-`font-size:${TYPE.domBodyEn.size};`,
+            `font-size:${TYPE.domBodyEn.size};`,
             `color:${COLORS.druid};text-align:center;`,
             'text-shadow:0 0 12px rgba(0,0,0,0.9);',
             'padding:0 6%;',
             'pointer-events:none;',
             'opacity:0.05;transition:opacity 0.5s ease;',
             'position:absolute;',
-`top:${Math.round(H * 0.2)}px;`,            
-'left:0;right:0;',
+            `top:${Math.round(H * 0.2)}px;`,
+            'left:0;right:0;',
         ].join('');
         this.englishEl = enEl;
 
@@ -653,6 +627,7 @@ irishEl.style.cssText = [
         }, 10000);
         this._lyricInterval = lyricInterval;
 
+        // ── Moon canvas ───────────────────────────────────────────────────────
         const moonCanvas = document.createElement('canvas');
         moonCanvas.width  = moonD;
         moonCanvas.height = moonD;
@@ -664,25 +639,21 @@ irishEl.style.cssText = [
             'z-index:99997;',
             `left:${arcStartX - moonR}px;`,
             `top:${arcStartY - moonR}px;`,
-            'animation:moonInvite 6.5s infinite ease-in-out;',
+            // No animation here — we add the ring pulse via canvas draw instead
         ].join('');
         this.moonEl     = moonCanvas;
         this.moonCanvas = moonCanvas;
         this._moonR     = moonR;
         this._marginX   = marginX;
 
+        // ── Keyframe for ring pulse only (no translate/scale invite) ─────────
         const style = document.createElement('style');
         style.id = 'moon-style';
         style.textContent = `
-            @keyframes moonInvite {
-                0%   { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
-                       transform: scale(1) translateX(0); }
-                61%  { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
-                       transform: scale(1) translateX(0); }
-                80%  { filter: drop-shadow(0 0 ${moonR*2.0}px rgba(200,220,255,0.88));
-                       transform: scale(1.13) translateX(${Math.round(moonR * 1.8)}px); }
-                100% { filter: drop-shadow(0 0 ${moonR*0.4}px rgba(200,220,255,0.4));
-                       transform: scale(1) translateX(0); }
+            @keyframes moonRingPulse {
+                0%   { opacity: 0.55; }
+                50%  { opacity: 1.0; }
+                100% { opacity: 0.55; }
             }
         `;
         document.head.appendChild(style);
@@ -695,15 +666,27 @@ irishEl.style.cssText = [
         document.body.appendChild(overlay);
         document.body.appendChild(moonCanvas);
 
+        // ── Slide-right hint arrow — appears after 4 s idle ──────────────────
+        this._scheduleMoonHint(arcStartX, arcStartY, moonR, marginX, trackW, W, H);
+
         // ── Drag logic ────────────────────────────────────────────────────────
         let dragging         = false;
         let dragStartX       = 0;
         let phaseAtDragStart = 0;
-        let arcDone          = false;   // true once player releases for the first time
+        let arcDone          = false;
+
+        const cancelHint = () => {
+            if (this._moonHintCancelled) return;
+            this._moonHintCancelled = true;
+            if (this._moonHintTimer) { clearTimeout(this._moonHintTimer); this._moonHintTimer = null; }
+            this._hideMoonHint();
+        };
 
         const onDragStart = (clientX, clientY) => {
             _requestFullscreen();
             _unlockAudio();
+
+            cancelHint();
 
             if (!hasInteracted) {
                 hasInteracted = true;
@@ -714,10 +697,8 @@ irishEl.style.cssText = [
             dragging             = true;
             dragStartX           = clientX;
             phaseAtDragStart     = this.moonPhase;
-            moonCanvas.style.animation = 'none';
-            moonCanvas.style.cursor    = 'grabbing';
+            moonCanvas.style.cursor = 'grabbing';
 
-            // Track vertical for skip gesture
             this._moonDragStartY = clientY;
             this._moonDragCurY   = clientY;
         };
@@ -725,29 +706,24 @@ irishEl.style.cssText = [
         const onDragMove = (clientX, clientY) => {
             if (!dragging) return;
 
-            // Track vertical position for skip gesture
             if (clientY !== undefined) this._moonDragCurY = clientY;
 
             if (!arcDone) {
-                // ── Arc mode: y is derived from x via the curve ───────────────
                 const clampedX  = Math.max(marginX, Math.min(marginX + trackW, clientX));
                 const curY      = getArcY(clampedX);
                 moonCanvas.style.left = (clampedX - moonR) + 'px';
                 moonCanvas.style.top  = (curY      - moonR) + 'px';
 
-                // Phase and moon face update as they explore
                 const t = (clampedX - marginX) / trackW;
                 this.moonPhase = Math.max(0, Math.min(1, t));
                 this.drawMoonPhase(this.moonPhase);
                 enEl.style.opacity = String(this.moonPhase);
 
-                // Gentle sky spin during arc
                 const targetAngle = this.moonPhase * 13;
                 this.spinAngle = targetAngle;
                 this.cameras.main.setAngle(targetAngle);
 
             } else {
-                // ── Normal horizontal track mode ──────────────────────────────
                 const delta    = (clientX - dragStartX) / trackW;
                 const newPhase = Math.max(0, Math.min(1, phaseAtDragStart + delta));
                 this.moonPhase = newPhase;
@@ -769,7 +745,6 @@ irishEl.style.cssText = [
             moonCanvas.style.cursor = 'grab';
 
             if (!arcDone) {
-                // ── First release: float moon up to its settled track position ─
                 arcDone = true;
 
                 const fromX = parseFloat(moonCanvas.style.left) + moonR;
@@ -782,15 +757,12 @@ irishEl.style.cssText = [
 
                 const floatLoop = (now) => {
                     const raw = Math.min((now - floatStart) / FLOAT_MS, 1);
-                    // Ease out cubic — decelerates as it reaches the track
                     const t   = 1 - Math.pow(1 - raw, 3);
                     moonCanvas.style.left = (fromX + (toX - fromX) * t - moonR) + 'px';
                     moonCanvas.style.top  = (fromY + (toY - fromY) * t - moonR) + 'px';
                     if (raw < 1) {
                         requestAnimationFrame(floatLoop);
                     } else {
-                        // Fully settled — hand off to settleMoon for the
-                        // full constellation sequence launch
                         moonCanvas.style.left = (toX - moonR) + 'px';
                         moonCanvas.style.top  = (toY - moonR) + 'px';
                         if (!this.moonInitDone) {
@@ -802,7 +774,6 @@ irishEl.style.cssText = [
                 requestAnimationFrame(floatLoop);
 
             } else {
-                // ── Subsequent releases: normal settle behaviour ───────────────
                 if (!this.moonInitDone) {
                     this.moonInitDone = true;
                     this.settleMoon(this.moonPhase);
@@ -818,7 +789,157 @@ irishEl.style.cssText = [
         window.addEventListener('touchend',       ()  => { onDragEnd(); });
     }
 
+    // ── Moon slide-right hint ─────────────────────────────────────────────────
+    // A dashed arrow that grows outward from the moon, tide-like.
+    // Drawn on a canvas via rAF so the extension feels organic rather than
+    // CSS-timed. One full grow-and-fade cycle, then repeats every 8 s.
 
+    _scheduleMoonHint(moonX, moonY, moonR, marginX, trackW, W, H) {
+        this._moonHintTimer = setTimeout(() => {
+            if (this._moonHintCancelled) return;
+            this._showMoonHint(moonX, moonY, moonR, marginX, trackW, W, H);
+        }, 4000);
+    }
+
+    _showMoonHint(moonX, moonY, moonR, marginX, trackW, W, H) {
+        if (this._moonHintCancelled) return;
+        this._hideMoonHint(true);
+
+        // ── Read the moon's LIVE position at fire time ────────────────────────
+        let liveMoonLeft = moonX;
+        let liveMoonTop  = moonY;
+        if (this.moonEl) {
+            liveMoonLeft = parseFloat(this.moonEl.style.left) || moonX;
+            liveMoonTop  = parseFloat(this.moonEl.style.top)  || moonY;
+        }
+        // Right edge and vertical centre of the moon in fixed coords
+        const moonRightX = liveMoonLeft + moonR * 2;  // left + diameter
+        const moonCY     = liveMoonTop  + moonR;       // top + radius
+
+        // ── Logical (CSS) dimensions ──────────────────────────────────────────
+        // Arrow max length: 2.5× moon diameter. Height: just enough for chevron.
+        const maxLen  = Math.round(moonR * 5);
+        const headSz  = Math.round(moonR * 0.42);
+        const cssW    = maxLen + headSz + 2;           // breathing room at tip
+        const cssH    = Math.round(headSz * 2 + 4);   // snug around chevron arms
+        const arrowY  = cssH / 2;                     // vertical centre of canvas
+
+        // ── Device pixel ratio — makes strokes crisp on retina/HDPI ─────────
+        const dpr = window.devicePixelRatio || 1;
+
+        const cv = document.createElement('canvas');
+        cv.width  = Math.round(cssW * dpr);   // backing buffer at full resolution
+        cv.height = Math.round(cssH * dpr);
+        cv.style.cssText = [
+            'position:fixed;',
+            'pointer-events:none;',
+            'z-index:99996;',
+            // Place canvas so its left edge is flush with the moon's right edge
+            `left:${Math.round(moonRightX + 3)}px;`,
+            `top:${Math.round(moonCY - cssH / 2)}px;`,
+            // CSS size = logical size — DPR scaling is handled by ctx.scale below
+            `width:${cssW}px;`,
+            `height:${cssH}px;`,
+        ].join('');
+        document.body.appendChild(cv);
+        this._moonHintEl = cv;
+
+        const ctx = cv.getContext('2d');
+        ctx.scale(dpr, dpr);  // all draw calls now in logical (CSS) pixels
+        // Slow, dreamy cycle: 3.2 s grow, 2.0 s fade — total 5.2 s
+        const GROW_MS  = 3200;
+        const FADE_MS  = 2000;
+        const TOTAL_MS = GROW_MS + FADE_MS;
+        const DASH = 4, GAP = 6;
+
+        let start = null;
+        let alive = true;
+
+        const draw = (now) => {
+            if (!alive || !cv.parentNode) return;
+            if (!start) start = now;
+
+            const elapsed = now - start;
+            const raw     = Math.min(elapsed / TOTAL_MS, 1);
+
+            // Grow: very gentle ease-out — feels like it drifts outward
+            const growT    = Math.min(elapsed / GROW_MS, 1);
+            const growEase = 1 - Math.pow(1 - growT, 1.8);
+            const lineLen  = growEase * maxLen;
+
+            // Alpha: slow fade-in over first third of grow, hold, then fade over FADE_MS
+            let alpha;
+            if (elapsed < GROW_MS) {
+                const riseT = Math.min(elapsed / (GROW_MS * 0.35), 1);
+                alpha = riseT * riseT;
+            } else {
+                const fadeT = (elapsed - GROW_MS) / FADE_MS;
+                // ease-in on the fade so it lingers longer before disappearing
+                alpha = 1 - fadeT * fadeT;
+            }
+            alpha = Math.max(0, Math.min(1, alpha)) * 0.82; // keep it gentle — max ~82%
+
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            if (lineLen > 2) {
+                ctx.globalAlpha = alpha;
+                // Lavender — soft, not saturated
+                ctx.strokeStyle = 'rgba(200,180,255,1)';
+                ctx.lineWidth   = 1.4;
+                ctx.lineCap     = 'round';
+
+                // Dashed line growing rightward
+                ctx.beginPath();
+                ctx.setLineDash([DASH, GAP]);
+                ctx.moveTo(0, arrowY);
+                ctx.lineTo(lineLen, arrowY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Chevron arrowhead — fades in once line is visibly long
+                if (lineLen > headSz * 2.5) {
+                    const headAlpha = Math.min((lineLen - headSz * 2.5) / (headSz * 3), 1);
+                    ctx.globalAlpha = alpha * headAlpha;
+                    ctx.lineWidth   = 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(lineLen - headSz, arrowY - headSz * 0.65);
+                    ctx.lineTo(lineLen,           arrowY);
+                    ctx.lineTo(lineLen - headSz, arrowY + headSz * 0.65);
+                    ctx.stroke();
+                }
+
+                ctx.globalAlpha = 1;
+            }
+
+            if (raw < 1) {
+                requestAnimationFrame(draw);
+            } else {
+                alive = false;
+                cv.remove();
+                if (this._moonHintEl === cv) this._moonHintEl = null;
+                if (!this._moonHintCancelled) {
+                    this._moonHintTimer = setTimeout(() => {
+                        if (!this._moonHintCancelled) {
+                            this._showMoonHint(moonX, moonY, moonR, marginX, trackW, W, H);
+                        }
+                    }, 8000);
+                }
+            }
+        };
+
+        requestAnimationFrame(draw);
+    }
+
+    _hideMoonHint(immediate = false) {
+        const el = this._moonHintEl;
+        if (!el) return;
+        this._moonHintEl = null;
+        // Canvas has no CSS opacity transition; just remove it
+        el.remove();
+    }
+
+    // ── Moon phase drawing ────────────────────────────────────────────────────
+    // Ring replaces the radial glow: a crisp bright arc that pulses gently.
     drawMoonPhase(phase) {
         const canvas = this.moonCanvas;
         if (!canvas) return;
@@ -828,15 +949,18 @@ irishEl.style.cssText = [
 
         const cx = r, cy = r;
 
-        const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.6);
-        glow.addColorStop(0,   `rgba(200,220,255,${0.18 + phase * 0.14})`);
-        glow.addColorStop(0.5, `rgba(150,180,255,${0.08 + phase * 0.06})`);
-        glow.addColorStop(1,   'rgba(0,0,0,0)');
-        ctx.fillStyle = glow;
+        // ── Bright ring (replaces old glow) ───────────────────────────────────
+        // Outer soft halo — very subtle, just to separate from background
+        const halo = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.45);
+        halo.addColorStop(0,   `rgba(210,225,255,${0.12 + phase * 0.10})`);
+        halo.addColorStop(0.6, `rgba(180,200,255,${0.04 + phase * 0.04})`);
+        halo.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2);
         ctx.fill();
 
+        // Moon disc
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
@@ -846,7 +970,6 @@ irishEl.style.cssText = [
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         ctx.fillStyle = '#d8e8f8';
-
         ctx.beginPath();
         if (phase >= 0.99) {
             ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
@@ -871,10 +994,20 @@ irishEl.style.cssText = [
 
         ctx.restore();
 
-        ctx.strokeStyle = `rgba(200,220,255,${0.15 + phase * 0.25})`;
-        ctx.lineWidth   = 1;
+        // ── Crisp bright ring ─────────────────────────────────────────────────
+        // Two rings: outer dim + inner bright, so it reads cleanly against dark sky.
+        // Alpha scales slightly with phase so the ring feels like it's charging up.
+        const ringAlpha = 0.55 + phase * 0.35;
+        ctx.strokeStyle = `rgba(220,235,255,${ringAlpha * 0.3})`;
+        ctx.lineWidth   = 2.5;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r * 0.92 + 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(220,235,255,${ringAlpha})`;
+        ctx.lineWidth   = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.92 + 0.8, 0, Math.PI * 2);
         ctx.stroke();
     }
 
@@ -894,8 +1027,7 @@ irishEl.style.cssText = [
         el.style.height   = moonD + 'px';
     }
 
-       // ── settleMoon ────────────────────────────────────────────────────────────
-
+    // ── settleMoon ────────────────────────────────────────────────────────────
     settleMoon(phase) {
         if (!this._harpSilentStarted) {
             this._initAudioContext();
@@ -915,9 +1047,6 @@ irishEl.style.cssText = [
         moonEl.style.animation = 'none';
         moonEl.style.filter    = 'none';
 
-        // Pause updateSpin so it doesn't fight the unwind tween, then snap
-        // spinAngle to 0 immediately — the star field isn't visible yet so
-        // the jump is invisible. updateSpin resumes once the stars fade in.
         this._bgWheelsPaused = true;
         this.spinAngle = 0;
         this.cameras.main.setAngle(0);
@@ -944,7 +1073,6 @@ irishEl.style.cssText = [
         const fromLeft  = parseFloat(moonEl.style.left) || 0;
         const fromTop   = parseFloat(moonEl.style.top)  || Math.round(this.H * 0.35);
 
-        // Compute finalScrollY up here so animateMoonTrail can close over it
         const cam           = this.cameras.main;
         const targetScrollX = this.constellations[0].wcx - this.W / 2;
         const targetScrollY = this.constellations[0].wcy - this.H / 2;
@@ -987,13 +1115,11 @@ irishEl.style.cssText = [
                 moonEl.style.left = endX + 'px';
                 moonEl.style.top  = endY + 'px';
                 ghosts.forEach(g => g.remove());
-                // Pass finalScrollY so drift tween starts from exactly this value
                 this._startPostSettleSequence(moonEl, endX, endY, W, H, finalScrollY);
             }
         };
         requestAnimationFrame(animateMoonTrail);
 
-        // Start above final position, pan downward into upper third
         const panStartY = finalScrollY - H * 0.35;
         const panProg   = { t: 0 };
         cam.setScroll(targetScrollX, panStartY);
@@ -1005,16 +1131,17 @@ irishEl.style.cssText = [
             onUpdate: () => {
                 cam.scrollY = panStartY + (finalScrollY - panStartY) * panProg.t;
             },
-            // No onComplete snap — final onUpdate frame lands at finalScrollY exactly
         });
 
-        // Re-wire drag for settled moon along top strip
+        // ── Re-wire drag for settled moon ────────────────────────────────────
         let dragging        = false;
         let dragStartX      = 0;
         let dragStartY      = 0;
         let phaseAtStart    = phase;
-        let moonStartTop    = endY;   // top px when drag began
-        let isVerticalDrag  = false;  // committed to vertical skip drag
+        let moonStartTop    = endY;
+        let isVerticalDrag  = false;
+
+        const trackW2 = W - this._marginX * 2;
 
         const getSettledTop = () => parseFloat(moonEl.style.top) || endY;
 
@@ -1024,13 +1151,11 @@ irishEl.style.cssText = [
             const dX = clientX - dragStartX;
             const dY = (clientY || dragStartY) - dragStartY;
 
-            // Once committed to vertical drag, move moon directly with finger — locked to vertical axis
             if (isVerticalDrag) {
                 const newTop = Math.max(endY, moonStartTop + dY);
                 moonEl.style.top  = newTop + 'px';
-                moonEl.style.left = (this._moonLockedLeft || 0) + 'px';  // enforce X lock
+                moonEl.style.left = (this._moonLockedLeft || 0) + 'px';
 
-                // Fade moon as it descends — fully transparent at H/2
                 const dragDist  = newTop - endY;
                 const halfRange = Math.max(H * 0.5 - endY, 1);
                 moonEl.style.opacity = String(Math.max(0, 1 - dragDist / halfRange));
@@ -1042,22 +1167,18 @@ irishEl.style.cssText = [
                 return;
             }
 
-            // ── Decide gesture direction after sufficient movement ─────────────
-            // Allow vertical skip only when moon is near right edge (phase > 0.85)
             const isNearRight = this.moonPhase > 0.85;
             if (isNearRight && Math.abs(dY) > 10 && Math.abs(dY) > Math.abs(dX) * 1.5) {
-                // Commit to vertical — lock horizontal position, re-anchor origins
                 isVerticalDrag = true;
                 this._moonVerticalDragging = true;
-                this._moonLockedLeft = parseFloat(moonEl.style.left) || 0;  // freeze X
+                this._moonLockedLeft = parseFloat(moonEl.style.left) || 0;
                 dragStartY   = clientY || dragStartY;
                 moonStartTop = getSettledTop();
                 moonEl.style.transition = 'none';
                 return;
             }
 
-            // ── Horizontal phase drag (unchanged from original) ───────────────
-            const delta    = dX / trackW;
+            const delta    = dX / trackW2;
             const newPhase = Math.max(0, Math.min(1, phaseAtStart + delta));
             this.moonPhase = newPhase;
             this.drawMoonPhase(newPhase);
@@ -1082,7 +1203,6 @@ irishEl.style.cssText = [
             moonEl.style.cursor = 'grab';
 
             if (isVerticalDrag && !this._moonSkipTriggered) {
-                // Not dragged far enough — float back smoothly to settled position
                 isVerticalDrag = false;
                 if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
                 this._skipHintVisible = false;
@@ -1095,12 +1215,9 @@ irishEl.style.cssText = [
                     const t      = 1 - Math.pow(1 - raw, 3);
                     const curTop = fromTop + (endY - fromTop) * t;
                     moonEl.style.top = curTop + 'px';
-
-                    // Restore opacity as moon rises back
                     const dragDist  = curTop - endY;
                     const halfRange = Math.max(H * 0.5 - endY, 1);
                     moonEl.style.opacity = String(Math.max(0, 1 - dragDist / halfRange));
-
                     if (raw < 1) requestAnimationFrame(loop);
                     else { moonEl.style.top = endY + 'px'; moonEl.style.opacity = '1'; }
                 };
@@ -1116,142 +1233,118 @@ irishEl.style.cssText = [
         window.addEventListener('touchend',   ()  => { onEnd(); });
     }
 
-    // ── Skip hint — appears above moon once dragged down 1/4 screen ──────────
+    // ── Skip hint — passive, shown once during the post-settle window ────────
+    // Appears immediately when the moon settles, fades in over ~1.5 s, then
+    // auto-fades before narrative starts. Also re-appears during vertical drag.
     _buildSkipHint(moonEl, moonX, moonY, W, H) {
         if (this._skipHintEl) { this._skipHintEl.remove(); this._skipHintEl = null; }
+        if (this._skipHintAutoTimer) { clearTimeout(this._skipHintAutoTimer); this._skipHintAutoTimer = null; }
 
         const moonR  = this._moonR || 20;
         const svgNS  = 'http://www.w3.org/2000/svg';
-        const svg    = document.createElementNS(svgNS, 'svg');
-        const arrowH = Math.round(H * 0.07);
-        const arrowW = Math.round(moonR * 3.5);
 
-        svg.setAttribute('width',  arrowW);
-        svg.setAttribute('height', arrowH + 28);
-        svg.setAttribute('viewBox', `0 0 ${arrowW} ${arrowH + 28}`);
+        const arrowH = Math.round(H * 0.09);
+        const arrowW = Math.round(moonR * 5);
+        const cx     = arrowW / 2;
+        const totalH = arrowH + 32;
 
-        // Label at top
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('width',   arrowW);
+        svg.setAttribute('height',  totalH);
+        svg.setAttribute('viewBox', `0 0 ${arrowW} ${totalH}`);
+
+        // Label
         const text = document.createElementNS(svgNS, 'text');
-        text.setAttribute('x', arrowW / 2);
-        text.setAttribute('y', 14);
+        text.setAttribute('x', cx);
+        text.setAttribute('y', 15);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-family', FONTS.ui);
-        text.setAttribute('font-size', '11');
-        text.setAttribute('fill', 'rgba(255,220,60,0.85)');
-        text.setAttribute('letter-spacing', '1.5');
+        text.setAttribute('font-family', FONTS.ui || 'sans-serif');
+        text.setAttribute('font-size', '13');
+        text.setAttribute('fill', 'rgba(255,225,70,0.92)');
+        text.setAttribute('letter-spacing', '2');
         text.textContent = 'skip intro';
         svg.appendChild(text);
 
         // Dashed vertical line
         const line = document.createElementNS(svgNS, 'line');
-        const cx = arrowW / 2;
-        line.setAttribute('x1', cx); line.setAttribute('y1', 20);
-        line.setAttribute('x2', cx); line.setAttribute('y2', arrowH + 10);
-        line.setAttribute('stroke', 'rgba(255,210,40,0.65)');
-        line.setAttribute('stroke-width', '1.5');
-        line.setAttribute('stroke-dasharray', '3 5');
+        line.setAttribute('x1', cx); line.setAttribute('y1', 22);
+        line.setAttribute('x2', cx); line.setAttribute('y2', arrowH + 14);
+        line.setAttribute('stroke', 'rgba(255,215,50,0.78)');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-dasharray', '4 6');
         line.setAttribute('stroke-linecap', 'round');
         svg.appendChild(line);
 
-        // Arrowhead chevron pointing DOWN
+        // Downward chevron
+        const ay = arrowH + 24;
         const arrow = document.createElementNS(svgNS, 'polyline');
-        const ay = arrowH + 20;
-        arrow.setAttribute('points', `${cx - 7},${ay - 9} ${cx},${ay} ${cx + 7},${ay - 9}`);
-        arrow.setAttribute('stroke', 'rgba(255,210,40,0.75)');
-        arrow.setAttribute('stroke-width', '1.5');
+        arrow.setAttribute('points', `${cx - 9},${ay - 10} ${cx},${ay} ${cx + 9},${ay - 10}`);
+        arrow.setAttribute('stroke', 'rgba(255,215,50,0.88)');
+        arrow.setAttribute('stroke-width', '2');
         arrow.setAttribute('fill', 'none');
         arrow.setAttribute('stroke-linecap', 'round');
         arrow.setAttribute('stroke-linejoin', 'round');
         svg.appendChild(arrow);
 
+        // Centred below the moon
         svg.style.cssText = [
             'position:fixed;',
             'pointer-events:none;',
             'z-index:99996;',
+            `left:${Math.round(moonX + moonR - arrowW / 2)}px;`,
+            `top:${Math.round(moonY + moonR * 2 + 8)}px;`,
             'opacity:0;',
-            'transition:opacity 0.5s ease;',
-            // Fixed in top-right: starts just below the moon's rest position.
-            // Offset left of moon centre so the descending moon doesn't cover it.
-            `right:${Math.round(W - moonX - moonR * 2 + 4)}px;`,
-            `top:${Math.round(moonY + moonR * 2 + 10)}px;`,
+            'transition:opacity 1.5s ease;',
         ].join('');
 
         document.body.appendChild(svg);
         this._skipHintEl      = svg;
         this._skipHintVisible = false;
-        this._skipHintMoonR   = moonR;
-        this._skipHintH       = arrowH + 28;
-        this._skipHintW       = arrowW;
+
+        // Fade in immediately
+        requestAnimationFrame(() => {
+            if (svg.parentNode) svg.style.opacity = '1';
+        });
+
+        // Auto-fade out after 3.5 s — before narrative text begins
+        this._skipHintAutoTimer = setTimeout(() => {
+            this._fadeOutSkipHint();
+        }, 3500);
     }
 
+    _fadeOutSkipHint() {
+        const el = this._skipHintEl;
+        if (!el) return;
+        el.style.transition = 'opacity 1.2s ease';
+        el.style.opacity    = '0';
+        setTimeout(() => {
+            if (el.parentNode) el.remove();
+            if (this._skipHintEl === el) this._skipHintEl = null;
+        }, 1250);
+    }
+
+    // Called during vertical drag to show/hide hint reactively
     _updateSkipHint() {
         const el = this._skipHintEl;
         if (!el || this._moonSkipTriggered) return;
         const moonEl = this.moonEl;
         if (!moonEl) return;
 
-        const curTop = parseFloat(moonEl.style.top) || 0;
-
-        // Show as soon as moon has moved meaningfully downward from rest
+        const curTop     = parseFloat(moonEl.style.top) || 0;
         const draggedFar = this._moonVerticalDragging && (curTop > this.H * 0.08);
 
         if (draggedFar && !this._skipHintVisible) {
             this._skipHintVisible = true;
-            el.style.opacity = '1';
+            if (this._skipHintAutoTimer) { clearTimeout(this._skipHintAutoTimer); this._skipHintAutoTimer = null; }
+            el.style.transition = 'opacity 0.3s ease';
+            el.style.opacity    = '1';
         } else if (!draggedFar && this._skipHintVisible) {
             this._skipHintVisible = false;
             el.style.opacity = '0';
         }
     }
 
-    // ── Moon drag-to-bottom: skip to heroSelect ───────────────────────────────
-    _triggerMoonSkip(moonEl) {
-        if (this._moonSkipTriggered) return;
-        this._moonSkipTriggered = true;
-
-        // ── Destroy any active text player immediately so it doesn't bleed into heroSelect
-        if (this._textPlayer) {
-            this._textPlayer.destroy();
-            this._textPlayer = null;
-        }
-
-        // Hide skip hint
-        if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
-
-        // Set stars spinning fast
-        this._bgWheelsPaused = false;
-        this._bgWheelsSpeedMult = 18;
-
-        // Animate moon falling off screen — continue from whatever opacity it
-        // already has (it may have been partially faded by the drag gesture).
-        if (moonEl) {
-            const H = this.H;
-            const startTop     = parseFloat(moonEl.style.top) || 0;
-            const startOpacity = parseFloat(moonEl.style.opacity ?? '1');
-            const fallStart    = performance.now();
-            const FALL_MS      = 600;
-            const fallLoop = (now) => {
-                const t    = Math.min((now - fallStart) / FALL_MS, 1);
-                const ease = t * t;
-                moonEl.style.top     = (startTop + (H + 60 - startTop) * ease) + 'px';
-                moonEl.style.opacity = String(Math.max(0, startOpacity * (1 - ease)));
-                if (t < 1) requestAnimationFrame(fallLoop);
-                else { if (moonEl.parentNode) moonEl.parentNode.removeChild(moonEl); }
-            };
-            requestAnimationFrame(fallLoop);
-        }
-
-        // Fade out and call onComplete after a beat
-        this.time.delayedCall(700, () => {
-            this.onAllComplete();
-        });
-    }
-
     // ── _startPostSettleSequence ──────────────────────────────────────────────
-    // baseScrollY is the exact scrollY the camera is at when this is called.
-    // The drift tween reads the camera's actual position at start time rather
-    // than recalculating from wcy, so there is no jump on the first frame.
-
     _startPostSettleSequence(moonEl, endX, endY, W, H, baseScrollY) {
 
         [this.irishOverlayEl, this.englishEl].forEach(el => { if (el) el.remove(); });
@@ -1263,17 +1356,14 @@ irishEl.style.cssText = [
         const driftFromY  = endY;
         const driftToY    = Math.max(0, endY - moonDriftPx);
 
-        // Build the skip hint (hidden initially)
         this._buildSkipHint(moonEl, endX, endY, W, H);
 
         const driftLoop = (now) => {
             if (!this.moonEl) return;
             const t = Math.min((now - driftStart) / DRIFT_MS, 1);
-            // Don't fight the vertical drag gesture
             if (!this._moonVerticalDragging) {
                 this.moonEl.style.top = (driftFromY + (driftToY - driftFromY) * t) + 'px';
             }
-            // Show/hide skip hint based on moon phase proximity to right edge
             this._updateSkipHint();
             if (t < 1) requestAnimationFrame(driftLoop);
         };
@@ -1287,12 +1377,9 @@ irishEl.style.cssText = [
             duration: 1200,
             ease:     'Sine.easeIn',
             onStart: () => {
-                // Stars are now fading in — safe to let updateSpin drive the camera again.
                 this._bgWheelsPaused = false;
             },
             onComplete: () => {
-                // Capture scrollY here — after all panning has fully settled —
-                // so the drift tween starts from a stable, accurate baseline.
                 const driftBaseScrollY = this.cameras.main.scrollY;
                 const camDriftProg = { t: 0 };
 
@@ -1310,15 +1397,8 @@ irishEl.style.cssText = [
             },
         });
     }
- 
-      
 
- 
- 
- 
- 
-
-    // ── spin is now driven directly by moonPhase in onDragMove, no physics loop needed
+    // ── spin ──────────────────────────────────────────────────────────────────
     updateSpin(delta) {
         if (this._bgWheelsPaused) return;
         const dt = delta * (this._bgWheelsSpeedMult || 1);
@@ -1328,12 +1408,10 @@ irishEl.style.cssText = [
 
         const camDeg = this._driftWheelSpeed * dt;
         this.spinAngle = (this.spinAngle || 0) + camDeg;
-    
 
-this.cameras.main.setOrigin(0.5, 0.28);
-this.cameras.main.setAngle(this.spinAngle);
-
-}
+        this.cameras.main.setOrigin(0.5, 0.28);
+        this.cameras.main.setAngle(this.spinAngle);
+    }
 
     drawNebula(wSize) {
         const S   = Math.round(Math.max(this.W, this.H) * 1.5);
@@ -1378,8 +1456,6 @@ this.cameras.main.setAngle(this.spinAngle);
                 paintNebula(this.textures.get('nebula').getSourceImage());
             });
             this.load.start();
-            // Don't call paintNebula(null) — procedural fallback causes a flash of
-            // blue polygons for 1-2 frames before the real image loads.
         }
 
         this._nebulaWheelTween = null;
@@ -1539,39 +1615,32 @@ this.cameras.main.setAngle(this.spinAngle);
         });
     }
 
-  
+    panCameraTo(idx, animate = true) {
+        this._hideDarkImage(false);
+        this.currentIndex = idx;
+        this._updateDusk();
 
-panCameraTo(idx, animate = true) {
-    // Fade out any dark image and update dusk as we spin away
-    this._hideDarkImage(false);
-    this.currentIndex = idx;
-    this._updateDusk();
-
-    // Mark completed constellations with pan time so lines start fading NOW
-    // (lines held at full brightness until pan begins)
-    const panNow = this.time.now;
-    for (const c of this.constellations) {
-        if (c.completed) {
-            for (const cn of c.connections) {
-                if (cn.completedAt !== null && cn.panStartTime === undefined) {
-                    cn.panStartTime = panNow;
+        const panNow = this.time.now;
+        for (const c of this.constellations) {
+            if (c.completed) {
+                for (const cn of c.connections) {
+                    if (cn.completedAt !== null && cn.panStartTime === undefined) {
+                        cn.panStartTime = panNow;
+                    }
                 }
             }
         }
-    }
 
-    const c = this.constellations[idx];
-    if (!c) return;
-    const tx = c.wcx - this.W / 2;
-    const ty = c.wcy - this.H / 2 + this.H * 0.22;
-    if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
+        const c = this.constellations[idx];
+        if (!c) return;
+        const tx = c.wcx - this.W / 2;
+        const ty = c.wcy - this.H / 2 + this.H * 0.22;
+        if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
 
-    // Kill the drift tween so it doesn't fight the pan
-    if (this._moonDriftTween) {
-        this._moonDriftTween.stop();
-        this._moonDriftTween = null;
-    }
-
+        if (this._moonDriftTween) {
+            this._moonDriftTween.stop();
+            this._moonDriftTween = null;
+        }
 
         const sx    = this.cameras.main.scrollX;
         const sy    = this.cameras.main.scrollY;
@@ -1600,7 +1669,7 @@ panCameraTo(idx, animate = true) {
             { rt: this._fgWheelRt,    depth: 0.65 },
         ].filter(l => l.rt);
 
-        const startAngles  = bgLayers.map(l => l.rt.angle);
+        const startAngles   = bgLayers.map(l => l.rt.angle);
         const startCamAngle = this.spinAngle || 0;
 
         const panDist   = Math.sqrt(camDX * camDX + camDY * camDY);
@@ -1632,38 +1701,32 @@ panCameraTo(idx, animate = true) {
             },
         });
 
-       
-this.tweens.add({
-        targets:  prog,
-        t:        1,
-        duration: PAN_MS,
-        ease:     'Cubic.easeInOut',
-        onUpdate: () => {
-            const t  = prog.t;
-            const it = 1 - t;
-            cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
-            cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
-        },
-        onComplete: () => {
-            // Restart drift tween from exactly where the pan landed
-            const newBase  = this.cameras.main.scrollY;
-            const driftProg = { t: 0 };
-            this._moonDriftTween = this.tweens.add({
-                targets:  driftProg,
-                t:        1,
-                duration: 480000,
-                ease:     'Linear',
-                onUpdate: () => {
-                    if (!this.canInteract) return;
-                    this.cameras.main.scrollY = newBase + driftProg.t * (this.H * 0.14);
-                },
-            });
-        },
-    });
-
-
-
-
+        this.tweens.add({
+            targets:  prog,
+            t:        1,
+            duration: PAN_MS,
+            ease:     'Cubic.easeInOut',
+            onUpdate: () => {
+                const t  = prog.t;
+                const it = 1 - t;
+                cam.scrollX = it * it * sx + 2 * it * t * mx + t * t * tx;
+                cam.scrollY = it * it * sy + 2 * it * t * my + t * t * ty;
+            },
+            onComplete: () => {
+                const newBase  = this.cameras.main.scrollY;
+                const driftProg = { t: 0 };
+                this._moonDriftTween = this.tweens.add({
+                    targets:  driftProg,
+                    t:        1,
+                    duration: 480000,
+                    ease:     'Linear',
+                    onUpdate: () => {
+                        if (!this.canInteract) return;
+                        this.cameras.main.scrollY = newBase + driftProg.t * (this.H * 0.14);
+                    },
+                });
+            },
+        });
     }
 
     showWaitingTexts(c, onComplete) {
@@ -1678,7 +1741,6 @@ this.tweens.add({
             : null;
 
         if (!lines) {
-            // No waiting text for this constellation — proceed immediately.
             if (onComplete) onComplete();
             return;
         }
@@ -1708,8 +1770,6 @@ this.tweens.add({
         this._updateDusk();
 
         const c = this.constellations[this.currentIndex];
-        // Show waiting text concurrently — stars are interactive immediately.
-        // onComplete is a no-op here; star drawing is what advances the scene.
         this.showWaitingTexts(c, () => {});
         this.runPulseStep();
     }
@@ -1746,21 +1806,17 @@ this.tweens.add({
 
     hitR() { return Math.min(this.W, this.H) * 0.09; }
 
-   
-
-
-
-screenToRotated(sx, sy) {
-    const cx  = this.W / 2;
-    const cy  = this.H * 0.28;          // match setOrigin(0.5, 0.28)
-    const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
-    const cos = Math.cos(rad), sin = Math.sin(rad);
-    const dx  = sx - cx, dy = sy - cy;
-    return {
-        x: cx + dx * cos + dy * sin,
-        y: cy - dx * sin + dy * cos,
-    };
-}
+    screenToRotated(sx, sy) {
+        const cx  = this.W / 2;
+        const cy  = this.H * 0.28;
+        const rad = Phaser.Math.DegToRad(this.spinAngle || 0);
+        const cos = Math.cos(rad), sin = Math.sin(rad);
+        const dx  = sx - cx, dy = sy - cy;
+        return {
+            x: cx + dx * cos + dy * sin,
+            y: cy - dx * sin + dy * cos,
+        };
+    }
 
     onPointerDown(pointer) {
         _requestFullscreen();
@@ -1784,7 +1840,6 @@ screenToRotated(sx, sy) {
                 this.spawnRipple(star.wx, star.wy);
                 this._setBgWheelPaused(true);
                 this._frozenSpinAngle = this.spinAngle;
-
                 break;
             }
         }
@@ -1898,7 +1953,6 @@ screenToRotated(sx, sy) {
             triggerMurmuration(this.audioContext);
         }
 
-        // Show dark mythos image for this constellation (if it has one)
         this.time.delayedCall(800, () => this._showDarkImage(c.id));
 
         const texts       = constellationTexts[c.id];
@@ -1906,17 +1960,22 @@ screenToRotated(sx, sy) {
         const hasDialogue = completion.length > 0;
 
         this.hideWaitingTexts(() => {
-            // Silent constellation (empty completion array) — fade straight out.
             if (!hasDialogue) {
                 this.time.delayedCall(600, () => this.onAllComplete());
                 return;
             }
 
             this.time.delayedCall(300, () => {
-                const completionPlayer = new ScrollingTextPlayer({
+                // ── Store on this so _triggerMoonSkip / onAllComplete can destroy it ──
+                if (this._completionPlayer) {
+                    this._completionPlayer.destroy();
+                    this._completionPlayer = null;
+                }
+                this._completionPlayer = new ScrollingTextPlayer({
                     lines:        completion,
                     getMoonPhase: () => this.moonPhase,
                     onComplete:   () => {
+                        this._completionPlayer = null;
                         this.time.delayedCall(200, () => {
                             this.currentIndex++;
                             if (this.currentIndex < this.constellations.length) {
@@ -1930,14 +1989,35 @@ screenToRotated(sx, sy) {
                         });
                     },
                 });
-                completionPlayer.start();
+                this._completionPlayer.start();
             });
         });
     }
 
+    // ── Nuclear text player cleanup ───────────────────────────────────────────
+    // Destroys all tracked players AND removes any orphaned STP DOM nodes.
+    // Called before transitioning away so nothing bleeds into heroSelect.
+    _destroyAllTextPlayers() {
+        if (this._textPlayer) {
+            try { this._textPlayer.destroy(); } catch(e) {}
+            this._textPlayer = null;
+        }
+        if (this._completionPlayer) {
+            try { this._completionPlayer.destroy(); } catch(e) {}
+            this._completionPlayer = null;
+        }
+        // Belt-and-braces: remove any DOM nodes that ScrollingTextPlayer
+        // may have injected but lost its reference to.
+        // ScrollingTextPlayer should set data-stp="" on its root container;
+        // if it doesn't yet, this is harmless and future-proof.
+        document.querySelectorAll('[data-stp]').forEach(el => el.remove());
+        // Also catch by common class if STP uses one:
+        document.querySelectorAll('.stp-overlay, .stp-container, .scrolling-text-player').forEach(el => el.remove());
+    }
+
     onAllComplete() {
+        this._destroyAllTextPlayers();
         this._stopAllAudio();
-        if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer = null; }
         this.cameras.main.fadeOut(1800, 10, 5, 40);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.shutdown();
@@ -1962,21 +2042,56 @@ screenToRotated(sx, sy) {
 
     shutdown() {
         if (this._lyricInterval)  clearInterval(this._lyricInterval);
-        if (this._textPlayer)     { this._textPlayer.destroy(); this._textPlayer = null; }
+        if (this._moonHintTimer)  clearTimeout(this._moonHintTimer);
+        if (this._skipHintAutoTimer) { clearTimeout(this._skipHintAutoTimer); this._skipHintAutoTimer = null; }
+        this._destroyAllTextPlayers();
         this._stopAllAudio();
+        this._hideMoonHint(true);
         if (this.moonOverlay)     { this.moonOverlay.remove(); this.moonOverlay = null; }
         if (this._moonStyle)      { this._moonStyle.remove();  this._moonStyle  = null; }
         if (this._duskEl)         { this._duskEl.remove();     this._duskEl     = null; }
         if (this._skipHintEl)     { this._skipHintEl.remove(); this._skipHintEl = null; }
-        this._hideDarkImage(true);    }
+        this._hideDarkImage(true);
+    }
+
+    // ── Moon drag-to-bottom: skip to heroSelect ───────────────────────────────
+    _triggerMoonSkip(moonEl) {
+        if (this._moonSkipTriggered) return;
+        this._moonSkipTriggered = true;
+
+        // Destroy ALL active text players immediately
+        this._destroyAllTextPlayers();
+        if (this._skipHintAutoTimer) { clearTimeout(this._skipHintAutoTimer); this._skipHintAutoTimer = null; }
+        this._fadeOutSkipHint();
+
+        if (this._skipHintEl) { this._skipHintEl.style.opacity = '0'; }
+
+        this._bgWheelsPaused = false;
+        this._bgWheelsSpeedMult = 18;
+
+        if (moonEl) {
+            const H = this.H;
+            const startTop     = parseFloat(moonEl.style.top) || 0;
+            const startOpacity = parseFloat(moonEl.style.opacity ?? '1');
+            const fallStart    = performance.now();
+            const FALL_MS      = 600;
+            const fallLoop = (now) => {
+                const t    = Math.min((now - fallStart) / FALL_MS, 1);
+                const ease = t * t;
+                moonEl.style.top     = (startTop + (H + 60 - startTop) * ease) + 'px';
+                moonEl.style.opacity = String(Math.max(0, startOpacity * (1 - ease)));
+                if (t < 1) requestAnimationFrame(fallLoop);
+                else { if (moonEl.parentNode) moonEl.parentNode.removeChild(moonEl); }
+            };
+            requestAnimationFrame(fallLoop);
+        }
+
+        this.time.delayedCall(700, () => {
+            this.onAllComplete();
+        });
+    }
 
     // ── Audio ─────────────────────────────────────────────────────────────────
-    // Strategy:
-    //   - Harp: loads and plays when the player swipes the moon across.
-    //     Fades in gently as the moon settles into place.
-    //   - SFX (chimes, completion chord): use this.audioContext created in
-    //     _initAudioContext() during the gesture.
-
     initAudio() {
         this.audioContext       = null;
         this._masterGain        = null;
@@ -2005,7 +2120,6 @@ screenToRotated(sx, sy) {
         } catch (e) { console.warn('[audio] _initAudioContext:', e); }
     }
 
-    // SFX root frequency per constellation index — used by chimes + chord
     _getSfxRoot(index) {
         const roots = [
             65.41, 73.42, 55.00, 49.00, 41.20,
@@ -2014,23 +2128,19 @@ screenToRotated(sx, sy) {
         return roots[Math.min(index, roots.length - 1)];
     }
 
-    // Modal chord definitions — one per constellation
-    // Called at moon drag-release — start the harp playing audibly right away.
     async _startHarpOnSwipe() {
         if (this._harpSilentStarted) return;
         this._harpSilentStarted = true;
-        this._harpStarted = true; // skip the star-touch fade-in since we start audibly here
+        this._harpStarted = true;
         try {
             console.log('[audio] Harp: loading fresh on moon swipe');
             const player = new TradSessionPlayer();
             const loaded = await player.loadTune('myLaganLove');
             if (!loaded) { console.warn('[audio] Harp load failed'); return; }
 
-            // Mute piano and banjo tracks — harp only
             if (player.tracks[1]) { player.tracks[1].gain.gain.value = 0; player.tracks[1].active = false; }
             if (player.tracks[2]) { player.tracks[2].gain.gain.value = 0; player.tracks[2].active = false; }
 
-            // Fade in from near-silence so it rises gently with the moon animation
             player.engine.masterGain.gain.value = 0.0001;
 
             this._harpPlayer        = player;
@@ -2038,7 +2148,6 @@ screenToRotated(sx, sy) {
 
             await player.play();
 
-            // Fade in over 2.5 s
             const harpAC = player.audioContext;
             if (harpAC && harpAC.state === 'suspended') await harpAC.resume();
             const masterGain = player.engine.masterGain;
@@ -2052,7 +2161,6 @@ screenToRotated(sx, sy) {
         }
     }
 
-    // Clean up all audio on scene end
     _stopAllAudio() {
         try {
             if (this._harpPlayer) {
@@ -2155,8 +2263,6 @@ screenToRotated(sx, sy) {
         } catch(e) { console.warn('[audio] _playConnectionChime:', e); }
     }
 
-   
-
     _setBgWheelPaused(paused) {
         if (paused && !this._interactionStarted) return;
         this._bgWheelsPaused = paused;
@@ -2183,15 +2289,12 @@ screenToRotated(sx, sy) {
 
                 let alpha, width;
                 if (conn.completedAt === null) {
-                    // Being drawn right now — full brightness
                     alpha = 0.92;
                     width = 2.5;
                 } else if (!conn.panStartTime) {
-                    // Completed, awaiting pan — hold at full brightness
                     alpha = 0.92;
                     width = 2.5;
                 } else {
-                    // Pan has started — fade out over LINE_LINGER_MS
                     const age  = now - conn.panStartTime;
                     const t    = Math.min(age / LINE_LINGER_MS, 1);
                     const ease = t < 0.7 ? 1 : 1 - ((t - 0.7) / 0.3) ** 2;

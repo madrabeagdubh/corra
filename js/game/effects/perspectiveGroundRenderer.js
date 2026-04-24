@@ -12,6 +12,36 @@
 // Proximity detection uses logicalX/Y pixel coords in BaseLocationScene.
 // Register flags via setEncounterFlags(). Clear via clearEncounterFlag().
 
+// --- Tree tint helpers ---------------------------------------------------
+
+function _tileHash(tx, ty) {
+  let h = (tx * 374761393 + ty * 1103515245) | 0
+  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
+  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
+  return ((h ^ (h >>> 16)) & 0xffff) / 0xffff  // 0..1, deterministic
+}
+
+const BOG_TREE_GIDS      = new Set([208])
+const WITHERED_TREE_GIDS = new Set([209])
+
+function _bogTreeTint(tx, ty) {
+  const t   = _tileHash(tx, ty)
+  const hue = 78 + t * 44          // 78-122 deg  (yellow-green -> green)
+  const sat = 28 + t * 28          // 28-56%
+  const lit = 38 + t * 22          // 38-60%
+  return { h: hue, s: sat, l: lit }
+}
+
+function _witheredTreeTint(tx, ty) {
+  const t   = _tileHash(tx, ty)
+  const hue = 22 + t * 28          // 22-50 deg   (brown -> warm taupe)
+  const sat = 10 + t * 18          // 10-28%
+  const lit = 28 + t * 22          // 28-50%
+  return { h: hue, s: sat, l: lit }
+}
+
+// -------------------------------------------------------------------------
+
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
@@ -372,6 +402,28 @@ export default class PerspectiveGroundRenderer {
     const scaledH = scaledTileW * hm
     ctx.drawImage(img, screenX - scaledW / 2, screenY - scaledH, scaledW, scaledH)
   }
+_drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha) {
+  const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
+  const scaledW = scaledTileW
+  const scaledH = scaledTileW * hm
+  const dx      = screenX - scaledW / 2
+  const dy      = screenY - scaledH
+
+  ctx.save()
+
+  // 1. Draw sprite normally
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.drawImage(img, dx, dy, scaledW, scaledH)
+
+  // 2. Paint tint only over opaque pixels just drawn
+  const { h, s, l } = tintHSL
+  ctx.globalCompositeOperation = 'source-atop'
+  ctx.globalAlpha = tintAlpha ?? 0.38
+  ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
+  ctx.fillRect(dx, dy, scaledW, scaledH)
+
+  ctx.restore()
+}
 
   _updateLight(playerScreenX, playerScreenY) {
     const sw     = this._sw
@@ -537,8 +589,20 @@ export default class PerspectiveGroundRenderer {
                   screenY >= horizonPx &&
                   screenY <= sh + this.tileDisplaySize * 2) {
                 this._oCtx.globalAlpha = tileAlpha
-                this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
-                  screenX, screenY, scaledTileW)
+                if (BOG_TREE_GIDS.has(gid1)) {
+                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW,
+                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                    _bogTreeTint(tileCol, tileRow), 0.36)
+                } else if (WITHERED_TREE_GIDS.has(gid1)) {
+                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW,
+                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                    _witheredTreeTint(tileCol, tileRow), 0.32)
+                } else {
+                  this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW)
+                }
                 this._oCtx.globalAlpha = 1.0
               }
             }

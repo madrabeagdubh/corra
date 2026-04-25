@@ -2,7 +2,7 @@ import BogLocationScene from './bogLocationScene.js'
 
 export default class FairyMargin extends BogLocationScene {
   constructor() { super({ key: 'Fairy_Margin' }) }
-  getMapKey()     { return 'fairy_margin' }
+  getMapKey()     { return 'fp001' }
   getAmbient()    { return 0x446633 }
   getPlayerLight(){ return { color: 0xccffcc, intensity: 1.4, radius: 320 } }
   getWisps()      { return [

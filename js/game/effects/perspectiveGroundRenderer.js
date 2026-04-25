@@ -24,6 +24,76 @@ function _tileHash(tx, ty) {
 const BOG_TREE_GIDS      = new Set([208])
 const WITHERED_TREE_GIDS = new Set([209])
 
+// -- Tree stamp tile row classification -----------------------------------
+
+const OAK_TOP_GIDS      = new Set([260, 261, 262])
+const OAK_MID_GIDS      = new Set([314, 315, 316, 422, 423, 424])
+const OAK_BOT_GIDS      = new Set([368, 369, 370, 476, 477, 478])
+
+const BOG_STAMP_TOP_GIDS = new Set([263, 264, 265])
+const BOG_STAMP_MID_GIDS = new Set([317, 318, 319, 425, 426, 427])
+const BOG_STAMP_BOT_GIDS = new Set([371, 372, 373, 479, 480, 481])
+
+const WITHERED_TOP_GIDS  = new Set([266, 267, 268])
+const WITHERED_MID_GIDS  = new Set([320, 321, 322, 428, 429, 430])
+const WITHERED_BOT_GIDS  = new Set([374, 375, 376, 482, 483, 484])
+
+// All stamp sets (used in render block check)
+const OAK_STAMP_GIDS = new Set([
+  ...OAK_TOP_GIDS, ...OAK_MID_GIDS, ...OAK_BOT_GIDS
+])
+const BOG_STAMP_GIDS = new Set([
+  ...BOG_STAMP_TOP_GIDS, ...BOG_STAMP_MID_GIDS, ...BOG_STAMP_BOT_GIDS
+])
+const WITHERED_STAMP_GIDS = new Set([
+  ...WITHERED_TOP_GIDS, ...WITHERED_MID_GIDS, ...WITHERED_BOT_GIDS
+])
+
+// -- Stamp tint functions -------------------------------------------------
+// Each function varies hue (wide range for neighbour contrast),
+// saturation, and lightness (top tiles brighter, bottom darker).
+// _tileHash gives deterministic per-position variation.
+
+function _oakStampTint(gid, tx, ty) {
+  const t      = _tileHash(tx, ty)
+  const isTop  = OAK_TOP_GIDS.has(gid)
+  const isBot  = OAK_BOT_GIDS.has(gid)
+  const litBase = isTop ? 48 : isBot ? 20 : 32
+  const litVar  = isTop ? 12 : isBot ? 10 : 16
+  return {
+    h: 80 + t * 55,         // 80-135 deg -- yellow-green to deep green
+    s: 35 + t * 30,         // 35-65%
+    l: litBase + t * litVar,
+  }
+}
+
+function _bogStampTint(gid, tx, ty) {
+  const t      = _tileHash(tx, ty)
+  const isTop  = BOG_STAMP_TOP_GIDS.has(gid)
+  const isBot  = BOG_STAMP_BOT_GIDS.has(gid)
+  const litBase = isTop ? 42 : isBot ? 18 : 28
+  const litVar  = isTop ? 12 : isBot ? 10 : 14
+  return {
+    h: 55 + t * 50,         // 55-105 deg -- olive to green
+    s: 22 + t * 28,         // 22-50%
+    l: litBase + t * litVar,
+  }
+}
+
+function _witheredStampTint(gid, tx, ty) {
+  const t      = _tileHash(tx, ty)
+  const isTop  = WITHERED_TOP_GIDS.has(gid)
+  const isBot  = WITHERED_BOT_GIDS.has(gid)
+  const litBase = isTop ? 40 : isBot ? 16 : 26
+  const litVar  = isTop ? 12 : isBot ? 10 : 14
+  return {
+    h: 15 + t * 35,         // 15-50 deg -- brown to warm taupe
+    s: 14 + t * 22,         // 14-36%
+    l: litBase + t * litVar,
+  }
+}
+
+
 function _bogTreeTint(tx, ty) {
   const t   = _tileHash(tx, ty)
   const hue = 78 + t * 44          // 78-122 deg  (yellow-green -> green)
@@ -589,10 +659,41 @@ _updateLight(playerScreenX, playerScreenY) {
         }
 
         // Object tile -- flat or billboard depending on catalogue
+                  // Object tile -- flat or billboard depending on catalogue
+               // Object tile -- flat or billboard depending on catalogue
         if (layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
-            if (this._flatGids.has(gid1)) {
+            if (OAK_STAMP_GIDS.has(gid1) || BOG_STAMP_GIDS.has(gid1) || WITHERED_STAMP_GIDS.has(gid1)) {
+              // Tree stamps always billboard regardless of catalogue --
+              // they have large transparent areas that break trapezoid rendering
+              const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+              const screenY     = this._rowToScreenY(tileRow + 1)
+              const scaledTileW = this._scaleAtRow(tileRow + 1)
+              if (screenY !== null &&
+                  screenY >= horizonPx &&
+                  screenY <= sh + this.tileDisplaySize * 2) {
+                this._oCtx.globalAlpha = tileAlpha
+                if (OAK_STAMP_GIDS.has(gid1)) {
+                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW,
+                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                    _oakStampTint(tileCol, tileRow), 0.28)
+                } else if (BOG_STAMP_GIDS.has(gid1)) {
+                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW,
+                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                    _bogStampTint(tileCol, tileRow), 0.28)
+                } else {
+                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
+                    screenX, screenY, scaledTileW,
+                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                    _witheredStampTint(tileCol, tileRow), 0.28)
+                }
+                this._oCtx.globalAlpha = 1.0
+              }
+            } else if (this._flatGids.has(gid1)) {
+              // Flat trapezoid -- ground-level tiles
               const xTL = this._colToScreenX(tileCol,     tileRow)
               const xTR = this._colToScreenX(tileCol + 1, tileRow)
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
@@ -603,6 +704,7 @@ _updateLight(playerScreenX, playerScreenY) {
                 {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
               this._gCtx.globalAlpha = 1.0
             } else {
+              // Billboard -- upright objects
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -630,6 +732,8 @@ _updateLight(playerScreenX, playerScreenY) {
             objectCount++
           }
         }
+ 
+ 
 
         // Encounter flags -- rendered via _projectLogical for correct perspective
         if (this._encounterFlags?.length) {

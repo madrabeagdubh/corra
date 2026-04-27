@@ -7,6 +7,7 @@
  * - Tab indicator bar at top shows current panel + neighbours
  * - Horizontal swipe navigates between panels
  * - For 'inventory': fires onInventoryOpen/onInventoryClose to show/hide WorldMenu
+ * - For 'labhairt':  fires onLabhairtOpen/onLabhairtClose to show/hide Easca3 keyboard
  * - For other panels: renders a DOM panel directly
  *
  * moon tap -> hub.open() -> shows current panel
@@ -17,23 +18,29 @@ import { FONTS, COLORS } from '../systems/gameTypography.js';
 import { GameSettings }  from '../settings/gameSettings.js';
 
 const PANELS = [
-    { key: 'inventory', ga: 'Storas',    en: 'Inventory' },
+    { key: 'inventory', ga: 'Stóras',    en: 'Inventory' },
     { key: 'quests',    ga: 'Turas',     en: 'Quests'    },
     { key: 'stats',     ga: 'Staid',     en: 'Stats'     },
-    { key: 'map',       ga: 'Learscail', en: 'Map'       },
+    { key: 'map',       ga: 'Léarscáil', en: 'Map'       },
+    { key: 'labhairt',  ga: 'Labhair',   en: 'Speak'     },
     { key: 'settings',  ga: 'Socruithe', en: 'Settings'  },
 ];
 
+// Keys that are handled as Phaser-side panels (no domArea content)
+const PHASER_PANELS = new Set(['inventory', 'labhairt']);
+
 // Derived CSS strings from the single COLORS.queen source of truth
-const GOLD_FULL    = COLORS.queen;                    // '#d4af37'
-const GOLD_DIM     = COLORS.queen + '73';             // ~45% opacity via hex alpha
-const GOLD_BORDER  = COLORS.queen + '4d';             // ~30% opacity
-const GOLD_ACTIVE_BG = COLORS.queen + '1a';           // ~10% opacity fill on active tab
-const PANEL_BG     = 'rgba(8,6,2,0.95)';
+const GOLD_FULL      = COLORS.queen;            // '#d4af37'
+const GOLD_DIM       = COLORS.queen + '73';     // ~45% opacity via hex alpha
+const GOLD_BORDER    = COLORS.queen + '4d';     // ~30% opacity
+const GOLD_ACTIVE_BG = COLORS.queen + '1a';     // ~10% opacity fill on active tab
+const PANEL_BG       = 'rgba(8,6,2,0.95)';
 
 export function createGameMenuHub({
     onInventoryOpen  = null,
     onInventoryClose = null,
+    onLabhairtOpen   = null,
+    onLabhairtClose  = null,
 } = {}) {
     let open      = false;
     let destroyed = false;
@@ -84,6 +91,7 @@ export function createGameMenuHub({
     root.appendChild(tabBar);
 
     // -- DOM panel area --
+    // Only shown for non-Phaser panels.
     const domArea = document.createElement('div');
     domArea.style.cssText = [
         'flex:1;',
@@ -94,10 +102,11 @@ export function createGameMenuHub({
     ].join('');
     root.appendChild(domArea);
 
-    // Placeholder panels
+    // Placeholder panels for pure DOM panels
     const domPanels = {};
     PANELS.forEach((panel) => {
-        if (panel.key === 'inventory') return;
+        if (PHASER_PANELS.has(panel.key)) return;
+
         const el = document.createElement('div');
         el.style.cssText = [
             'width:100%;height:100%;',
@@ -152,19 +161,32 @@ export function createGameMenuHub({
 
         _updateTabs();
 
-        if (prev === 'inventory' && current !== 'inventory' && !skipCallbacks) {
-            if (onInventoryClose) onInventoryClose();
+        // --- Teardown previous panel ---
+        if (!skipCallbacks) {
+            if (prev === 'inventory' && current !== 'inventory') {
+                if (onInventoryClose) onInventoryClose();
+            }
+            if (prev === 'labhairt' && current !== 'labhairt') {
+                if (onLabhairtClose) onLabhairtClose();
+            }
         }
 
+        // --- Setup new panel ---
         if (current === 'inventory') {
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onInventoryOpen) onInventoryOpen();
+
+        } else if (current === 'labhairt') {
+            // Labhair: Phaser-side keyboard, no DOM content area needed.
+            // We keep the tab bar visible (DOM) but hide the domArea so the
+            // Phaser canvas shows through beneath — Easca3 renders there.
+            domArea.style.display = 'none';
+            Object.values(domPanels).forEach(p => p.style.display = 'none');
+            if (!skipCallbacks && onLabhairtOpen) onLabhairtOpen();
+
         } else {
             domArea.style.display = 'block';
-            if (prev === 'inventory' && !skipCallbacks && onInventoryClose) {
-                onInventoryClose();
-            }
             Object.entries(domPanels).forEach(([key, el]) => {
                 el.style.display = key === current ? 'flex' : 'none';
             });
@@ -186,7 +208,7 @@ export function createGameMenuHub({
 
     // -- Open / close --
     function _open() {
-        open = true;
+        open   = true;
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
         _goTo(curIdx, false);
@@ -196,9 +218,12 @@ export function createGameMenuHub({
     function _close() {
         open = false;
         root.style.opacity = '0';
-        if (PANELS[curIdx].key === 'inventory' && onInventoryClose) {
-            onInventoryClose();
-        }
+
+        // Fire close callbacks for whichever Phaser panel is active
+        const current = PANELS[curIdx].key;
+        if (current === 'inventory' && onInventoryClose) onInventoryClose();
+        if (current === 'labhairt'  && onLabhairtClose)  onLabhairtClose();
+
         const onFaded = () => {
             root.removeEventListener('transitionend', onFaded);
             if (!open) root.style.display = 'none';

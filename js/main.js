@@ -55,7 +55,7 @@ function _createGame(selectedChampion, options) {
 	    gameContainer.style.background = 'transparent'  //
 
 
-	    gameContainer.style.background = '#1a2a3a'  // dark grey-blue — visible as sky above horizon
+	    gameContainer.style.background = 'transparent'  // dark grey-blue — visible as sky above horizon
     gameContainer.style.position   = 'relative'      // ← needed for absolute children
 
     }

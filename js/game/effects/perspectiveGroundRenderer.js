@@ -1,4 +1,4 @@
-// PerspectiveGroundRenderer.js  (v8)
+   // PerspectiveGroundRenderer.js  (v8)
 //
 // Two-canvas architecture:
 //   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
@@ -18,13 +18,11 @@ function _tileHash(tx, ty) {
   let h = (tx * 374761393 + ty * 1103515245) | 0
   h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
   h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
-  return ((h ^ (h >>> 16)) & 0xffff) / 0xffff  // 0..1, deterministic
+  return ((h ^ (h >>> 16)) & 0xffff) / 0xffff
 }
 
 const BOG_TREE_GIDS      = new Set([208])
 const WITHERED_TREE_GIDS = new Set([209])
-
-// -- Tree stamp tile row classification -----------------------------------
 
 const OAK_TOP_GIDS      = new Set([260, 261, 262])
 const OAK_MID_GIDS      = new Set([314, 315, 316, 422, 423, 424])
@@ -38,7 +36,6 @@ const WITHERED_TOP_GIDS  = new Set([266, 267, 268])
 const WITHERED_MID_GIDS  = new Set([320, 321, 322, 428, 429, 430])
 const WITHERED_BOT_GIDS  = new Set([374, 375, 376, 482, 483, 484])
 
-// All stamp sets (used in render block check)
 const OAK_STAMP_GIDS = new Set([
   ...OAK_TOP_GIDS, ...OAK_MID_GIDS, ...OAK_BOT_GIDS
 ])
@@ -49,65 +46,41 @@ const WITHERED_STAMP_GIDS = new Set([
   ...WITHERED_TOP_GIDS, ...WITHERED_MID_GIDS, ...WITHERED_BOT_GIDS
 ])
 
-// -- Stamp tint functions -------------------------------------------------
-// Each function varies hue (wide range for neighbour contrast),
-// saturation, and lightness (top tiles brighter, bottom darker).
-// _tileHash gives deterministic per-position variation.
-
 function _oakStampTint(gid, tx, ty) {
-  const t      = _tileHash(tx, ty)
-  const isTop  = OAK_TOP_GIDS.has(gid)
-  const isBot  = OAK_BOT_GIDS.has(gid)
+  const t       = _tileHash(tx, ty)
+  const isTop   = OAK_TOP_GIDS.has(gid)
+  const isBot   = OAK_BOT_GIDS.has(gid)
   const litBase = isTop ? 48 : isBot ? 20 : 32
   const litVar  = isTop ? 12 : isBot ? 10 : 16
-  return {
-    h: 80 + t * 55,         // 80-135 deg -- yellow-green to deep green
-    s: 35 + t * 30,         // 35-65%
-    l: litBase + t * litVar,
-  }
+  return { h: 80 + t * 55, s: 35 + t * 30, l: litBase + t * litVar }
 }
 
 function _bogStampTint(gid, tx, ty) {
-  const t      = _tileHash(tx, ty)
-  const isTop  = BOG_STAMP_TOP_GIDS.has(gid)
-  const isBot  = BOG_STAMP_BOT_GIDS.has(gid)
+  const t       = _tileHash(tx, ty)
+  const isTop   = BOG_STAMP_TOP_GIDS.has(gid)
+  const isBot   = BOG_STAMP_BOT_GIDS.has(gid)
   const litBase = isTop ? 42 : isBot ? 18 : 28
   const litVar  = isTop ? 12 : isBot ? 10 : 14
-  return {
-    h: 55 + t * 50,         // 55-105 deg -- olive to green
-    s: 22 + t * 28,         // 22-50%
-    l: litBase + t * litVar,
-  }
+  return { h: 55 + t * 50, s: 22 + t * 28, l: litBase + t * litVar }
 }
 
 function _witheredStampTint(gid, tx, ty) {
-  const t      = _tileHash(tx, ty)
-  const isTop  = WITHERED_TOP_GIDS.has(gid)
-  const isBot  = WITHERED_BOT_GIDS.has(gid)
+  const t       = _tileHash(tx, ty)
+  const isTop   = WITHERED_TOP_GIDS.has(gid)
+  const isBot   = WITHERED_BOT_GIDS.has(gid)
   const litBase = isTop ? 40 : isBot ? 16 : 26
   const litVar  = isTop ? 12 : isBot ? 10 : 14
-  return {
-    h: 15 + t * 35,         // 15-50 deg -- brown to warm taupe
-    s: 14 + t * 22,         // 14-36%
-    l: litBase + t * litVar,
-  }
+  return { h: 15 + t * 35, s: 14 + t * 22, l: litBase + t * litVar }
 }
 
-
 function _bogTreeTint(tx, ty) {
-  const t   = _tileHash(tx, ty)
-  const hue = 78 + t * 44          // 78-122 deg  (yellow-green -> green)
-  const sat = 28 + t * 28          // 28-56%
-  const lit = 38 + t * 22          // 38-60%
-  return { h: hue, s: sat, l: lit }
+  const t = _tileHash(tx, ty)
+  return { h: 78 + t * 44, s: 28 + t * 28, l: 38 + t * 22 }
 }
 
 function _witheredTreeTint(tx, ty) {
-  const t   = _tileHash(tx, ty)
-  const hue = 22 + t * 28          // 22-50 deg   (brown -> warm taupe)
-  const sat = 10 + t * 18          // 10-28%
-  const lit = 28 + t * 22          // 28-50%
-  return { h: hue, s: sat, l: lit }
+  const t = _tileHash(tx, ty)
+  return { h: 22 + t * 28, s: 10 + t * 18, l: 28 + t * 22 }
 }
 
 // -------------------------------------------------------------------------
@@ -116,20 +89,17 @@ export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
 
-  // Perspective
   static CAMERA_ROW_OFFSET    = 10.5
   static TILES_ACROSS         = 6.5
   static PLAYER_DIST_TILES    = 4.1
   static FOCAL_LENGTH         = 7.5
-  static HORIZON_Y_FRAC       = 0.3
+  static HORIZON_Y_FRAC       = 0.45
   static HEIGHT_MULTIPLIER    = 1.6
 
-  // Lighting
   static LIGHT_RADIUS   = 0.45
-  static LIGHT_DARKNESS = 0.82
+  static LIGHT_DARKNESS = 0
   static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
 
-  // Tileset
   static TW         = 24
   static TH         = 24
   static MG         = 24
@@ -184,6 +154,7 @@ export default class PerspectiveGroundRenderer {
     phaserCanvas.style.zIndex     = '10'
     phaserCanvas.style.background = 'transparent'
 
+    // Ground and object canvases -- full screen height, top:0
     this._groundCanvas = this._makeCanvas(container, 'pgr-ground',  1)
     this._objectCanvas = this._makeCanvas(container, 'pgr-objects', 2)
     this._gCtx         = this._groundCanvas.getContext('2d')
@@ -191,7 +162,9 @@ export default class PerspectiveGroundRenderer {
     this._gCtx.imageSmoothingEnabled = false
     this._oCtx.imageSmoothingEnabled = false
 
-    this._skyDiv = this._buildSkyVignette(container)
+    this._skyDiv = null
+    this._skyImg = null
+    this._buildSkyImage(container)
 
     this._lightDiv = document.createElement('div')
     this._lightDiv.id = 'pgr-light'
@@ -210,26 +183,6 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR v8] constructed -', this._sw, 'x', this._sh)
   }
 
-  _loadCatalogue() {
-    try {
-      const catalogue = this.scene.cache.json.get('oryxCatalogue')
-      if (!catalogue) {
-        console.warn('[PGR] oryxCatalogue not in cache -- all layer 1 tiles will be billboards')
-        return
-      }
-      let flatCount = 0
-      for (const [gidStr, entry] of Object.entries(catalogue)) {
-        if (entry?.flat === true) {
-          this._flatGids.add(parseInt(gidStr))
-          flatCount++
-        }
-      }
-      console.log(`[PGR] catalogue loaded - ${flatCount} flat GIDs, ${Object.keys(catalogue).length - flatCount} billboard GIDs`)
-    } catch(e) {
-      console.warn('[PGR] catalogue load failed:', e.message)
-    }
-  }
-
   _makeCanvas(container, id, zIndex) {
     const c = document.createElement('canvas')
     c.width  = this._sw
@@ -244,47 +197,34 @@ export default class PerspectiveGroundRenderer {
     return c
   }
 
-_buildSkyVignette(container, skyUrl) {
-  const sw = this._sw
-  const sh = this._sh
-
-  const img = document.createElement('img')  // declare first
-  img.id  = 'pgr-sky-img'
-  img.src = ''                               // then set
-  img.style.opacity = '0'
-  img.style.cssText = [
-    'position:absolute', 'top:0', 'left:0',
-    `width:${sw}px`, `height:${sh}px`,
-    'z-index:0', 'pointer-events:none',
-    'object-fit:cover', 'object-position:center top',
-    skyUrl ? 'opacity:1' : 'opacity:0',
-  ].join(';')
-  container.appendChild(img)
-  this._skyImg = img
-    // Gradient that fades the sky image into the ground
-  const div = document.createElement('div')
-  div.id = 'pgr-sky'
-  div.style.cssText = [
-    'position:absolute', 'top:0', 'left:0',
-    `width:${sw}px`, `height:${sh}px`,
-    'z-index:0', 'pointer-events:none',
-    // Transparent at top, solid dark at horizon
-    'background:linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.85) 82%, rgba(0,0,0,0.97) 92%)',
-  ].join(';')
-  container.appendChild(div)
-  return div
-}
-
-setSkyImage(url) {
-  if (!this._skyImg) return
-  if (url) {
-    this._skyImg.src = url
-    this._skyImg.style.opacity = '1'
-  } else {
-    this._skyImg.src = ''
-    this._skyImg.style.opacity = '0'
+  _buildSkyImage(container) {
+    const sw = this._sw
+    const sh = this._sh
+    const img = document.createElement('img')
+    img.id  = 'pgr-sky-img'
+    img.src = ''
+    img.style.cssText = [
+      'position:absolute', 'top:0', 'left:0',
+      `width:${sw}px`, `height:${sh}px`,
+      'z-index:0', 'pointer-events:none',
+      'object-fit:cover', 'object-position:center top',
+      'opacity:0',
+    ].join(';')
+    container.appendChild(img)
+    this._skyImg = img
   }
-}
+
+  setSkyImage(url) {
+    if (!this._skyImg) return
+    if (url) {
+      this._skyImg.src           = url
+      this._skyImg.style.opacity = '1'
+    } else {
+      this._skyImg.src           = ''
+      this._skyImg.style.opacity = '0'
+    }
+  }
+
   setLighting({ darkness, radius, groundColour } = {}) {
     if (darkness     != null) this._lightDarkness = darkness
     if (radius       != null) this._lightRadius   = radius
@@ -311,9 +251,6 @@ setSkyImage(url) {
     this._lastCamX = null
   }
 
-  // Encounter flag registration
-  // flags: array of { tileX, tileY, visual: { gid, flat } }
-
   setEncounterFlags(flags) {
     this._encounterFlags = flags || []
   }
@@ -323,6 +260,26 @@ setSkyImage(url) {
     this._encounterFlags = this._encounterFlags.filter(
       f => !(f.tileX === tileX && f.tileY === tileY)
     )
+  }
+
+  _loadCatalogue() {
+    try {
+      const catalogue = this.scene.cache.json.get('oryxCatalogue')
+      if (!catalogue) {
+        console.warn('[PGR] oryxCatalogue not in cache -- all layer 1 tiles will be flat')
+        return
+      }
+      let billboardCount = 0
+      for (const [gidStr, entry] of Object.entries(catalogue)) {
+        if (entry?.flat === false) {
+          this._flatGids.add(parseInt(gidStr))
+          billboardCount++
+        }
+      }
+      console.log(`[PGR] catalogue loaded - ${billboardCount} billboard GIDs, ${Object.keys(catalogue).length - billboardCount} flat GIDs`)
+    } catch(e) {
+      console.warn('[PGR] catalogue load failed:', e.message)
+    }
   }
 
   _refreshPlayerCanvas() {
@@ -485,49 +442,41 @@ setSkyImage(url) {
     const scaledH = scaledTileW * hm
     ctx.drawImage(img, screenX - scaledW / 2, screenY - scaledH, scaledW, scaledH)
   }
-_drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha) {
-  const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
-  const scaledW = scaledTileW
-  const scaledH = scaledTileW * hm
-  const dx      = screenX - scaledW / 2
-  const dy      = screenY - scaledH
 
-  ctx.save()
+  _drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha) {
+    const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
+    const scaledW = scaledTileW
+    const scaledH = scaledTileW * hm
+    const dx      = screenX - scaledW / 2
+    const dy      = screenY - scaledH
+    ctx.save()
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.drawImage(img, dx, dy, scaledW, scaledH)
+    const { h, s, l } = tintHSL
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.globalAlpha = tintAlpha ?? 0.38
+    ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
+    ctx.fillRect(dx, dy, scaledW, scaledH)
+    ctx.restore()
+  }
 
-  // 1. Draw sprite normally
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.drawImage(img, dx, dy, scaledW, scaledH)
-
-  // 2. Paint tint only over opaque pixels just drawn
-  const { h, s, l } = tintHSL
-  ctx.globalCompositeOperation = 'source-atop'
-  ctx.globalAlpha = tintAlpha ?? 0.38
-  ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
-  ctx.fillRect(dx, dy, scaledW, scaledH)
-
-  ctx.restore()
-}
-
-_updateLight(playerScreenX, playerScreenY) {
-  const sw       = this._sw
-  const sh       = this._sh
-  const horizonPx = this._horizonPx()
-  const groundH  = sh - horizonPx
-  const radius   = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
-  const dark     = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
-  const glow     = PerspectiveGroundRenderer.LIGHT_COLOR
-
-  // Offset playerScreenY relative to the clipped div's top
-  const relativePlayerY = playerScreenY - horizonPx
-
-  this._lightDiv.style.top    = `${horizonPx}px`
-  this._lightDiv.style.height = `${groundH}px`
-  this._lightDiv.style.background = [
-    `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
-    ` at ${playerScreenX.toFixed(1)}px ${relativePlayerY.toFixed(1)}px,`,
-    ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
-  ].join('')
-} 
+  _updateLight(playerScreenX, playerScreenY) {
+    const sw        = this._sw
+    const sh        = this._sh
+    const horizonPx = this._horizonPx()
+    const groundH   = sh - horizonPx
+    const radius    = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
+    const dark      = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
+    const glow      = PerspectiveGroundRenderer.LIGHT_COLOR
+    const relativePlayerY = playerScreenY - horizonPx
+    this._lightDiv.style.top    = `${horizonPx}px`
+    this._lightDiv.style.height = `${groundH}px`
+    this._lightDiv.style.background = [
+      `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
+      ` at ${playerScreenX.toFixed(1)}px ${relativePlayerY.toFixed(1)}px,`,
+      ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
+    ].join('')
+  }
 
   update(fov) {
     if (!this._ready) return
@@ -562,10 +511,18 @@ _updateLight(playerScreenX, playerScreenY) {
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    const horizonFill = this._horizonPx()
+    const groundColour = this._groundColour ?? '#2a3a1a'
+
+    // Clear full canvas then fill from horizon down only
     this._gCtx.clearRect(0, 0, sw, sh)
-    this._gCtx.fillStyle = this._groundColour ?? '#2a3a1a'
-    this._gCtx.fillRect(0, horizonFill, sw, sh - horizonFill)
+    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
+    groundGrad.addColorStop(0, 'rgba(42, 58, 26, 0)')
+    groundGrad.addColorStop(1, groundColour)
+    this._gCtx.fillStyle = groundGrad
+    this._gCtx.fillRect(0, horizonPx, sw, 80)
+    this._gCtx.fillStyle = groundColour
+    this._gCtx.fillRect(0, horizonPx + 80, sw, sh - horizonPx - 80)
+
     this._oCtx.clearRect(0, 0, sw, sh)
 
     const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
@@ -645,7 +602,7 @@ _updateLight(playerScreenX, playerScreenY) {
           groundCount++
         }
 
-        // Player (drawn at their tile row, before same-row objects)
+        // Player
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
           const playerHM    = this._playerHeightMult ?? 1.8
@@ -659,14 +616,10 @@ _updateLight(playerScreenX, playerScreenY) {
         }
 
         // Object tile -- flat or billboard depending on catalogue
-                  // Object tile -- flat or billboard depending on catalogue
-               // Object tile -- flat or billboard depending on catalogue
         if (layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
             if (OAK_STAMP_GIDS.has(gid1) || BOG_STAMP_GIDS.has(gid1) || WITHERED_STAMP_GIDS.has(gid1)) {
-              // Tree stamps always billboard regardless of catalogue --
-              // they have large transparent areas that break trapezoid rendering
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -678,22 +631,22 @@ _updateLight(playerScreenX, playerScreenY) {
                   this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
                     screenX, screenY, scaledTileW,
                     PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _oakStampTint(tileCol, tileRow), 0.28)
+                    _oakStampTint(gid1, tileCol, tileRow), 0.42)
                 } else if (BOG_STAMP_GIDS.has(gid1)) {
                   this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
                     screenX, screenY, scaledTileW,
                     PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _bogStampTint(tileCol, tileRow), 0.28)
+                    _bogStampTint(gid1, tileCol, tileRow), 0.42)
                 } else {
                   this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
                     screenX, screenY, scaledTileW,
                     PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _witheredStampTint(tileCol, tileRow), 0.28)
+                    _witheredStampTint(gid1, tileCol, tileRow), 0.42)
                 }
                 this._oCtx.globalAlpha = 1.0
               }
-            } else if (this._flatGids.has(gid1)) {
-              // Flat trapezoid -- ground-level tiles
+            } else if (!this._flatGids.has(gid1)) {
+              // Flat trapezoid -- default for unknown tiles and flat:true in catalogue
               const xTL = this._colToScreenX(tileCol,     tileRow)
               const xTR = this._colToScreenX(tileCol + 1, tileRow)
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
@@ -704,7 +657,7 @@ _updateLight(playerScreenX, playerScreenY) {
                 {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
               this._gCtx.globalAlpha = 1.0
             } else {
-              // Billboard -- upright objects
+              // Billboard -- explicitly marked flat:false in catalogue
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -732,10 +685,8 @@ _updateLight(playerScreenX, playerScreenY) {
             objectCount++
           }
         }
- 
- 
 
-        // Encounter flags -- rendered via _projectLogical for correct perspective
+        // Encounter flags
         if (this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
@@ -770,7 +721,6 @@ _updateLight(playerScreenX, playerScreenY) {
 
       } // tileCol
 
-      // Draw player after last column if their row matched but no column loop ran
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         const playerHM2   = this._playerHeightMult ?? 1.8
@@ -782,7 +732,6 @@ _updateLight(playerScreenX, playerScreenY) {
 
     } // tileRow
 
-    // Fallback: player row outside visible range
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
@@ -847,7 +796,6 @@ _updateLight(playerScreenX, playerScreenY) {
       if (c?.parentNode) c.parentNode.removeChild(c)
     })
     if (this._lightDiv?.parentNode) this._lightDiv.parentNode.removeChild(this._lightDiv)
-    if (this._skyDiv?.parentNode)   this._skyDiv.parentNode.removeChild(this._skyDiv)
     if (this._skyImg?.parentNode)   this._skyImg.parentNode.removeChild(this._skyImg)
     this._groundCanvas = null
     this._objectCanvas = null
@@ -861,4 +809,4 @@ _updateLight(playerScreenX, playerScreenY) {
     console.log('[PGR v8] destroyed')
   }
 }
-
+ 

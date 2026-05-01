@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import WorldMenu from '../../../ui/worldMenu.js'
@@ -14,6 +15,7 @@ import { createGameMenuHub } from '../../../ui/gameMenuHub.js'
 import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
 import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
 import { EncounterPanel } from '../../../ui/encounterPanel.js'
+import Easca3 from '../../../ui/easca3.js'
 
 window.GameState = GameState
 
@@ -275,7 +277,7 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
 
     if (this.perspectiveGround) {
-      this.fogRenderer = new FogRenderer(this.perspectiveGround)
+    //  this.fogRenderer = new FogRenderer(this.perspectiveGround)
     }
 
     this._lastFovKey = null
@@ -391,8 +393,15 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this._menuHub?.open()
   }
 
-  _createWorldUI() {
+_createWorldUI() {
     this.worldMenu = new WorldMenu(this, { player: this.player })
+
+    // Easca3 keyboard — hidden until Labhair tab is opened
+    this._easca = new Easca3(this, (text) => {
+      console.log('[Labhair] Player said:', text)
+      // TODO: route `text` to NPC handler / LLM endpoint
+      // e.g. this.events.emit('playerSpoke', text)
+    })
 
     this._menuHub = createGameMenuHub({
       onInventoryOpen:  () => {
@@ -401,6 +410,8 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
       onInventoryClose: () => {
         if (this.worldMenu?.isOpen) this._closeWorldMenuSilently()
       },
+      onLabhairtOpen:  () => { this._easca?.showKeyboard() },
+      onLabhairtClose: () => { this._easca?.hideKeyboard() },
     })
 
     this._moonWidget = createMoonWidget({
@@ -419,6 +430,8 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
 
     this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
+
+ 
 
   _closeWorldMenuSilently() {
     if (!this.worldMenu) return
@@ -630,10 +643,12 @@ getSkyImage() { return '/assets/skies/bog_threshold_sky.png' }
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
-  shutdown() {
+ shutdown() {
     if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
     if (this._moonWidget)     { this._moonWidget.destroy();     this._moonWidget     = null }
     if (this._menuHub)        { this._menuHub.destroy();        this._menuHub        = null }
+    if (this._easca)          { this._easca.destroy();          this._easca          = null }
+    
     if (this.perspectiveGround) {
       this.perspectiveGround.destroy()
       this.perspectiveGround = null

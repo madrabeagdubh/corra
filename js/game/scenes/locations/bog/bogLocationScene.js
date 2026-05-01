@@ -309,20 +309,32 @@ this.walkGrid   = this._buildWalkGrid()
 
 
 
-
+const gameContainer = document.getElementById('gameContainer')
 this._statusBar = document.createElement('div')
+this._statusBar.id = 'status-bar'
+this._statusBar.style.cssText = [
+  'position:absolute', 'bottom:0', 'left:0', 'right:0',
+  'height:42px',
+  'z-index:50',
+  'pointer-events:none',
+  'background:rgba(45, 35, 20, 1)',
+].join(';')
+gameContainer.appendChild(this._statusBar)
+
+  
+const container = document.getElementById('gameContainer')
 this._statusBar.id = 'status-bar'
 this._statusBar.style.cssText = [
   'position:fixed', 'bottom:0', 'left:0', 'right:0',
   'height: 42px',
-  'z-index:20',
+  'z-index:590',
   'pointer-events:none',
   'background:rgba(45, 35, 20, 1)',
 ].join(';')
-document.body.appendChild(this._statusBar)
 
+container.appendChild(this._statusBar)
 
-   this.bowMechanics = new BowMechanics(this, this.player)
+ this.bowMechanics = new BowMechanics(this, this.player)
     this.showIntroNarrative()
     this.onEnter()
 
@@ -362,8 +374,11 @@ document.body.appendChild(this._statusBar)
       if (this.textPanel?.isVisible) return
       if (!this.perspectiveGround) return
       if (this._bowAiming) return
-      if (this._menuHub?.isOpen()) return
-
+if (this._menuHub?.isOpen()) {
+  this._menuHub.close()
+  return
+}
+this._menuHub?.open()
       const tile = PathFinder.screenToTile(
         pointer.x, pointer.y,
         this.perspectiveGround,
@@ -430,20 +445,33 @@ _createWorldUI() {
       onLabhairtClose: () => { this._easca?.hideKeyboard() },
     })
 
-    this._moonWidget = createMoonWidget({
-      initialPhase: GameSettings.englishOpacity,
-      showSlider:   false,
-      corner:       'top-right',
-      onChange: (phase) => {
-        GameSettings.setEnglishOpacity(phase)
-        if (this.textPanel)  this.textPanel.updateEnglishOpacity()
-        if (this.worldMenu?.itemDetailPanel)
-          this.worldMenu.itemDetailPanel.updateLanguageOpacity()
-        if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
-      },
-      onTap: () => this._onMoonTap(),
-    })
 
+
+
+
+// Create joystick with hub callbacks
+this._joystick = new Joystick(this, {
+  x: joystickX, y: joystickY, radius: joystickR,
+  onTap:       () => this._onMoonTap(),
+  onLongPress: () => this._menuHub?.isOpen() ? this._menuHub.close() : this._menuHub.open(),
+  onSwipe:     (dx) => this._moonWidget?.nudgePhase(dx),
+})
+
+// Create moon widget in embedded mode using joystick's hub canvas
+this._moonWidget = createMoonWidget({
+  initialPhase:   GameSettings.englishOpacity,
+  embeddedCanvas: this._joystick.getMoonCanvas(),
+  embeddedRadius: this._joystick.getMoonRadius(),
+  swipeRange:     150,
+  onChange: (phase) => {
+    GameSettings.setEnglishOpacity(phase)
+   if (this.textPanel)  this.textPanel.updateEnglishOpacity()
+    if (this.worldMenu?.itemDetailPanel)
+      this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+    if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
+  },
+  onTap: () => this._onMoonTap(),
+}) 
     this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
 

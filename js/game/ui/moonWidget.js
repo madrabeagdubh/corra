@@ -2,194 +2,173 @@
  * moonWidget.js
  *
  * Universal moon phase widget for Corra.
- * Two modes:
+ * Three modes:
  *
- *   showSlider: true  — full-width strip with track (dawnCrossing)
- *   showSlider: false — standalone fixed moon, top-left corner, swipe to change
+ *   showSlider: true   — full-width strip with track (dawnCrossing)
+ *   showSlider: false  — standalone fixed moon, corner position, swipe to change
+ *   embeddedCanvas     — renders into an existing canvas (dpad hub mode)
  *
- * Swipe right → wax (fuller moon, more English visible)
- * Swipe left  → wane (darker crescent, less English)
- *
- * Drift behaviour:
- *   Phase > 0.25 → drifts back toward 0.25 at ~1% per 9 s.
- *   Phase ≤ 0.25 → no action.
- *   Pauses while dragging or when pauseDrift() is called externally.
+ * In embedded mode, interaction is handled externally by Joystick.js
+ * via onSwipe/onTap/onLongPress callbacks. moonWidget just owns the
+ * drawing and phase state.
  *
  * Public API:
  *   moon.setPhase(v)    — set phase 0–1
  *   moon.getPhase()     — current phase
+ *   moon.nudgePhase(dx) — called by Joystick swipe with pixel delta
  *   moon.pauseDrift()
  *   moon.resumeDrift()
  *   moon.destroy()
  */
 
-// ── Constants ──────────────────────────────────────────────────────────────────
 const DRIFT_TARGET = 0.25;
-const DRIFT_RATE   = 0.1 / 9000;   // gentle drift — only active when English is bright
+const DRIFT_RATE   = 0.1 / 9000;
 
-// ── Factory ────────────────────────────────────────────────────────────────────
 export function createMoonWidget(opts = {}) {
     const {
-        initialPhase = 0.15,
-        onChange     = null,
-        onTap        = null,   // called when moon is tapped (not dragged)
-        showSlider   = false,
-        corner       = 'top-right',  // 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
-        container    = document.body,
+        initialPhase   = 0.15,
+        onChange       = null,
+        onTap          = null,
+        showSlider     = false,
+        corner         = 'top-right',
+        container      = document.body,
+        embeddedCanvas = null,   // pass a canvas element to use embedded mode
+        embeddedRadius = null,   // moon radius in embedded canvas pixels
+        swipeRange     = 120,    // px of swipe for full 0→1 phase sweep in embedded mode
     } = opts;
 
-    // ── Size ───────────────────────────────────────────────────────────────────
-    // Fixed mode: large enough to touch comfortably through a phone case.
-    // Using 11% of smaller dimension, minimum 48px diameter.
-    // Slider mode: slim, fits inside the strip.
+    const embedded = !!embeddedCanvas;
+
     const minDim = Math.min(window.innerWidth, window.innerHeight);
-    const moonR  = opts.size
+    const moonR  = embeddedRadius ?? (opts.size
         ? Math.round(opts.size / 2)
         : showSlider
             ? Math.round(minDim * 0.025)
-            : Math.max(24, Math.round(minDim * 0.055));
+            : Math.max(24, Math.round(minDim * 0.055)));
     const moonD  = moonR * 2;
 
     let phase         = Math.max(0, Math.min(1, initialPhase));
-    let rawPhase      = phase;   // unbounded accumulator for cyclic moon
+    let rawPhase      = phase;
     let dragging      = false;
     let driftPaused   = false;
     let lastFrameTime = null;
     let rafId         = null;
     let destroyed     = false;
 
-    // ── Canvas ─────────────────────────────────────────────────────────────────
-    const canvas  = document.createElement('canvas');
-    canvas.width  = moonD;
-    canvas.height = moonD;
+    // Use provided canvas or create one
+    const canvas  = embeddedCanvas ?? document.createElement('canvas');
+    if (!embedded) {
+        canvas.width  = moonD;
+        canvas.height = moonD;
+    }
 
-    // ── DOM structure ──────────────────────────────────────────────────────────
-    let rootEl;
+    let rootEl      = null;
     let sliderInput = null;
     let trackFillEl = null;
     let wrapperEl   = null;
 
-    if (showSlider) {
-        const built = _buildSliderStrip(canvas, moonR, moonD);
-        rootEl      = built.strip;
-        sliderInput = built.input;
-        trackFillEl = built.trackFill;
-        wrapperEl   = built.wrapper;
+    if (!embedded) {
+        if (showSlider) {
+            const built = _buildSliderStrip(canvas, moonR, moonD);
+            rootEl      = built.strip;
+            sliderInput = built.input;
+            trackFillEl = built.trackFill;
+            wrapperEl   = built.wrapper;
 
-        sliderInput.value = phase;
-        _updateTrackFill(trackFillEl, phase);
-        container.appendChild(rootEl);
+            sliderInput.value = phase;
+            _updateTrackFill(trackFillEl, phase);
+            container.appendChild(rootEl);
 
-        sliderInput.addEventListener('input', (e) => {
-            _setPhaseInternal(parseFloat(e.target.value));
-        });
-    } else {
-        rootEl = _buildFixed(canvas, moonR, moonD, corner);
-        document.body.appendChild(rootEl);
+            sliderInput.addEventListener('input', (e) => {
+                _setPhaseInternal(parseFloat(e.target.value));
+            });
+        } else {
+            rootEl = _buildFixed(canvas, moonR, moonD, corner);
+            document.body.appendChild(rootEl);
+        }
+
+        // Pointer events for standalone mode
+        const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3;
+
+        let dragStartX    = 0;
+        let dragStartTime = 0;
+        let phaseAtStart  = rawPhase;
+
+        const onStart = (clientX) => {
+            dragging      = true;
+            dragStartX    = clientX;
+            dragStartTime = performance.now();
+            phaseAtStart  = rawPhase;
+            canvas.style.cursor = 'grabbing';
+        };
+
+        const onMove = (clientX) => {
+            if (!dragging) return;
+            const range = showSlider && wrapperEl
+                ? wrapperEl.offsetWidth - moonR * 2
+                : SWIPE_RANGE();
+            const delta = (clientX - dragStartX) / range;
+            _setPhaseInternal(phaseAtStart + delta);
+        };
+
+        const onEnd = (clientX) => {
+            if (!dragging) return;
+            dragging = false;
+            canvas.style.cursor = 'grab';
+            const dt  = performance.now() - dragStartTime;
+            const dx  = Math.abs((clientX ?? dragStartX) - dragStartX);
+            if (onTap && dt < 400 && dx < 12) onTap();
+        };
+
+        const pdHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            canvas.setPointerCapture(e.pointerId);
+            onStart(e.clientX);
+        };
+        const pmHandler = (e) => {
+            if (!dragging) return;
+            e.preventDefault();
+            onMove(e.clientX);
+        };
+        const puHandler = (e) => {
+            if (!dragging) return;
+            e.preventDefault();
+            canvas.releasePointerCapture(e.pointerId);
+            onEnd(e.clientX);
+        };
+
+        canvas.addEventListener('pointerdown',   pdHandler, { passive: false });
+        canvas.addEventListener('pointermove',   pmHandler, { passive: false });
+        canvas.addEventListener('pointerup',     puHandler, { passive: false });
+        canvas.addEventListener('pointercancel', puHandler, { passive: false });
     }
 
-    // ── Swipe / drag interaction ───────────────────────────────────────────────
-    // Fixed mode: moonD*3 px covers full 0→1 sweep (~3 moon-diameters).
-    // This means a short swipe near the corner gives the full range.
-    // Slider mode keeps a wider range so the track feels proportional.
-    const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3;
-
-    let dragStartX    = 0;
-    let dragStartTime = 0;
-    let phaseAtStart  = rawPhase;   // tracks unbounded accumulator
-
-    const onStart = (clientX) => {
-        dragging      = true;
-        dragStartX    = clientX;
-        dragStartTime = performance.now();
-        phaseAtStart  = rawPhase;
-        canvas.style.cursor = 'grabbing';
-    };
-
-    const onMove = (clientX) => {
-        if (!dragging) return;
-        const range = showSlider && wrapperEl
-            ? wrapperEl.offsetWidth - moonR * 2
-            : SWIPE_RANGE();
-        const delta = (clientX - dragStartX) / range;
-        // Accumulate into rawPhase (unbounded) — cyclic triangle wave
-        // maps this to display phase so moon rolls continuously.
-        _setPhaseInternal(phaseAtStart + delta);
-    };
-
-    const onEnd = (clientX) => {
-        if (!dragging) return;
-        dragging = false;
-        canvas.style.cursor = 'grab';
-        // Tap = short duration + small movement
-        const dt  = performance.now() - dragStartTime;
-        const dx  = Math.abs((clientX ?? dragStartX) - dragStartX);
-        console.log('[moonWidget] onEnd dt:', dt.toFixed(0), 'dx:', dx.toFixed(1), 'hasTap:', !!onTap);
-        if (onTap && dt < 400 && dx < 12) onTap();
-    };
-
-    // Pointer events with setPointerCapture — reliable on mobile, no window listeners.
-    // Captured pointer events always fire on the element even if finger moves off it.
-    const pdHandler = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        canvas.setPointerCapture(e.pointerId);
-        onStart(e.clientX);
-    };
-    const pmHandler = (e) => {
-        if (!dragging) return;
-        e.preventDefault();
-        onMove(e.clientX);
-    };
-    const puHandler = (e) => {
-        if (!dragging) return;
-        e.preventDefault();
-        canvas.releasePointerCapture(e.pointerId);
-        onEnd(e.clientX);
-    };
-
-    canvas.addEventListener('pointerdown',   pdHandler, { passive: false });
-    canvas.addEventListener('pointermove',   pmHandler, { passive: false });
-    canvas.addEventListener('pointerup',     puHandler, { passive: false });
-    canvas.addEventListener('pointercancel', puHandler, { passive: false });
-
-    // ── Drift loop ─────────────────────────────────────────────────────────────
+    // -- Drift loop -----------------------------------------------------------
     function driftLoop(timestamp) {
         if (destroyed) return;
         rafId = requestAnimationFrame(driftLoop);
 
-        // Only drift when English is brighter than half (phase > 0.5).
-        // At or below half the moon is in Irish-dominant territory — leave it alone.
         if (dragging || driftPaused || phase <= 0.25) {
             lastFrameTime = timestamp;
             return;
         }
         if (lastFrameTime === null) { lastFrameTime = timestamp; return; }
 
-        const dt = Math.min(timestamp - lastFrameTime, 100);
+        const dt  = Math.min(timestamp - lastFrameTime, 100);
         lastFrameTime = timestamp;
-        // Always drift toward lower phase (darker moon, less English).
-        // Find the nearest integer that represents a dark moon BELOW current cyclePos.
-        // cyclePos 0..1 = waxing: drift toward 0 (rawPhase decreases)
-        // cyclePos 1..2 = waning: drift toward 2 (rawPhase increases, phase still falling)
         const cp  = _rawToCyclePos(rawPhase);
-        const dir = cp <= 1 ? -1 : 1;   // waxing: go back toward dark; waning: continue to dark
+        const dir = cp <= 1 ? -1 : 1;
         _setPhaseInternal(rawPhase + dir * DRIFT_RATE * dt);
     }
 
     rafId = requestAnimationFrame(driftLoop);
 
-    // ── Internal setter ────────────────────────────────────────────────────────
-    // rawPhase is an unbounded accumulator. displayPhase is derived via a
-    // triangle wave so the moon cycles full→crescent→dark→crescent→full
-    // continuously in either swipe direction.
-    // cyclePos in [0,2): 0..1 = waxing (dark->full), 1..2 = waning (full->dark)
+    // -- Phase internals ------------------------------------------------------
     function _rawToCyclePos(raw) {
         return ((raw % 2) + 2) % 2;
     }
 
-    // Triangle wave: 0=dark, 1=full, and both visual phase and opacity track together.
-    // Swipe right = fuller moon = more English. Simple and clear.
     function _cycleToPhase(cp) {
         return cp <= 1 ? cp : 2 - cp;
     }
@@ -197,10 +176,15 @@ export function createMoonWidget(opts = {}) {
     function _setPhaseInternal(v) {
         rawPhase       = v;
         const cyclePos = _rawToCyclePos(rawPhase);
-        phase          = _cycleToPhase(cyclePos);  // 0=dark/no English, 1=full/full English
-        _drawMoon(canvas, phase, moonR, cyclePos);
+        phase          = _cycleToPhase(cyclePos);
 
-        if (showSlider) {
+        const r = embedded
+            ? Math.floor(canvas.width / 2)
+            : moonR;
+
+        _drawMoon(canvas, phase, r, cyclePos);
+
+        if (!embedded && showSlider) {
             if (sliderInput) sliderInput.value = phase;
             if (trackFillEl) _updateTrackFill(trackFillEl, phase);
             if (wrapperEl)   _positionMoonCanvas(canvas, wrapperEl, phase, moonR);
@@ -209,59 +193,57 @@ export function createMoonWidget(opts = {}) {
         if (onChange) onChange(phase);
     }
 
-    // ── Initial render ─────────────────────────────────────────────────────────
-    _drawMoon(canvas, phase, moonR, 0);   // initial: waxing
-    if (showSlider && wrapperEl) {
+    // Initial render
+    const initR = embedded ? Math.floor(canvas.width / 2) : moonR;
+    _drawMoon(canvas, phase, initR, 0);
+    if (!embedded && showSlider && wrapperEl) {
         requestAnimationFrame(() => _positionMoonCanvas(canvas, wrapperEl, phase, moonR));
     }
 
-    // ── Public API ─────────────────────────────────────────────────────────────
+    // -- Public API -----------------------------------------------------------
     return {
         element:      rootEl,
-        setPhase(v)   { _setPhaseInternal(v); },   // v treated as rawPhase
+
+        setPhase(v)   { _setPhaseInternal(v); },
         getPhase()    { return phase; },
+
+        // Called by Joystick swipe -- dx is incremental pixel delta
+        nudgePhase(dx) {
+            _setPhaseInternal(rawPhase + dx / swipeRange);
+        },
+
         pauseDrift()  { driftPaused = true; },
         resumeDrift() { driftPaused = false; lastFrameTime = null; },
+
         destroy() {
             destroyed = true;
             if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-            canvas.removeEventListener('pointerdown',   pdHandler);
-            canvas.removeEventListener('pointermove',   pmHandler);
-            canvas.removeEventListener('pointerup',     puHandler);
-            canvas.removeEventListener('pointercancel', puHandler);
-            if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
+            if (rootEl?.parentNode) rootEl.parentNode.removeChild(rootEl);
         },
     };
 }
 
-// ── Fixed-position standalone moon ────────────────────────────────────────────
-// Sits in the top-left with generous margin to clear phone case edges.
-// The wrapper is meaningfully larger than the moon canvas for a comfortable
-// touch target — important for thick-cased phones where corner px are stiff.
+// ── Fixed-position standalone moon ───────────────────────────────────────────
 function _buildFixed(moonCanvas, moonR, moonD, corner = 'top-right') {
     const margin = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.04);
     const pad    = 18;
 
-    // Map corner string to CSS edge properties
-    const isTop    = corner.startsWith('top');
-    const isLeft   = corner.endsWith('left');
-    const vEdge    = isTop  ? `top:${margin}px;`    : `bottom:${margin}px;`;
-    const hEdge    = isLeft ? `left:${margin}px;`   : `right:${margin}px;`;
+    const isTop  = corner.startsWith('top');
+    const isLeft = corner.endsWith('left');
+    const vEdge  = isTop  ? `top:${margin}px;`  : `bottom:${margin}px;`;
+    const hEdge  = isLeft ? `left:${margin}px;` : `right:${margin}px;`;
 
     const wrapper = document.createElement('div');
     wrapper.style.cssText = [
         'position:fixed;',
-        vEdge,
-        hEdge,
+        vEdge, hEdge,
         `width:${moonD + pad * 2}px;`,
         `height:${moonD + pad * 2}px;`,
-        'z-index:1000003;',   // above scene (999999), veils (1000000), and hub (1000002)
+        'z-index:1000003;',
         'display:flex;',
         'align-items:center;',
         'justify-content:center;',
         'pointer-events:all;',
-        // Tile only — no rgba backing so the transparent canvas corners
-        // don't produce a visible dark square around the moon.
         'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
     ].join('');
 
@@ -271,8 +253,6 @@ function _buildFixed(moonCanvas, moonR, moonD, corner = 'top-right') {
         'cursor:grab;',
         'touch-action:none;',
         'display:block;',
-        // 180° flips the lit face rightward (matches swipe direction).
-        // Additional -20° tilts the moon CCW for a natural sky-hanging angle.
         'transform:rotate(160deg);',
     ].join('');
 
@@ -280,7 +260,7 @@ function _buildFixed(moonCanvas, moonR, moonD, corner = 'top-right') {
     return wrapper;
 }
 
-// ── Slider strip (dawnCrossing / full-width strip contexts) ───────────────────
+// ── Slider strip ─────────────────────────────────────────────────────────────
 function _buildSliderStrip(moonCanvas, moonR, moonD) {
     if (!document.getElementById('moonWidgetThumbStyle')) {
         const s = document.createElement('style');
@@ -354,7 +334,7 @@ function _buildSliderStrip(moonCanvas, moonR, moonD) {
     return { strip, input, trackFill, wrapper };
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function _updateTrackFill(trackFill, phase) {
     if (trackFill) trackFill.style.width = (phase * 100).toFixed(2) + '%';
 }
@@ -365,9 +345,8 @@ function _positionMoonCanvas(canvas, wrapper, phase, moonR) {
     canvas.style.left = (moonR + phase * usable - moonR) + 'px';
 }
 
-// ── Drawing ────────────────────────────────────────────────────────────────────
+// ── Drawing ──────────────────────────────────────────────────────────────────
 function _drawMoon(canvas, phase, r, cyclePos) {
-    // cyclePos: 0..1 = waxing (right crescent), 1..2 = waning (left crescent)
     const waning = (cyclePos !== undefined) && (cyclePos > 1);
     const ctx = canvas.getContext('2d');
     const cx = r, cy = r;
@@ -382,14 +361,13 @@ function _drawMoon(canvas, phase, r, cyclePos) {
     ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dark disc — prevents anything behind bleeding through
+    // Dark disc
     ctx.fillStyle = 'rgb(8,4,30)';
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
     ctx.fill();
 
     // Lit face
-    // Blue-violet tint — muted at low phase, richer at full moon
     const lr = Math.round(160 + phase * 20);
     const lg = Math.round(170 + phase * 20);
     const lb = Math.round(225 + phase * 25);
@@ -400,11 +378,9 @@ function _drawMoon(canvas, phase, r, cyclePos) {
     } else {
         const tx = r * 0.92 * Math.cos(phase * Math.PI);
         if (!waning) {
-            // Waxing: lit on right — arc right half, ellipse closes left
             ctx.arc(cx, cy, r * 0.92, -Math.PI / 2, Math.PI / 2);
             ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, Math.PI / 2, -Math.PI / 2, tx > 0);
         } else {
-            // Waning: lit on left — arc left half, ellipse closes right
             ctx.arc(cx, cy, r * 0.92, Math.PI / 2, -Math.PI / 2);
             ctx.ellipse(cx, cy, Math.abs(tx), r * 0.92, 0, -Math.PI / 2, Math.PI / 2, tx > 0);
         }
@@ -418,7 +394,7 @@ function _drawMoon(canvas, phase, r, cyclePos) {
     ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Mare detail at higher phases
+    // Mare detail
     if (phase > 0.1) {
         const mare = (mx, my, mr, a) => {
             ctx.fillStyle = `rgba(140,130,200,${(a * phase).toFixed(3)})`;

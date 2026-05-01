@@ -4,37 +4,64 @@
  * A swipeable panel system that wraps multiple game views.
  * Lives as a DOM overlay above the Phaser canvas.
  *
- * - Tab indicator bar at top shows current panel + neighbours
- * - Horizontal swipe navigates between panels
- * - For 'inventory': fires onInventoryOpen/onInventoryClose to show/hide WorldMenu
- * - For 'labhairt':  fires onLabhairtOpen/onLabhairtClose to show/hide Easca3 keyboard
- * - For other panels: renders a DOM panel directly
+ * Tab strip sits bottom-right, mirroring the dpad position bottom-left.
+ * DOM content panel expands leftward/upward from the tab strip.
  *
- * moon tap -> hub.open() -> shows current panel
- * moon tap -> hub.close() -> hides everything
+ * Panels (in order):
+ *   inventory  -- backpack icon  -- fires onInventoryOpen/onInventoryClose
+ *   stats      -- sword/shield   -- DOM panel
+ *   labhairt   -- speech bubble  -- fires onLabhairtOpen/onLabhairtClose
+ *   log        -- scroll/book    -- DOM panel
+ *   about      -- question mark  -- DOM panel (credits)
  */
 
 import { FONTS, COLORS } from '../systems/gameTypography.js';
 import { GameSettings }  from '../settings/gameSettings.js';
 
 const PANELS = [
-    { key: 'inventory', ga: 'Stóras',    en: 'Inventory' },
-    { key: 'quests',    ga: 'Turas',     en: 'Quests'    },
-    { key: 'stats',     ga: 'Staid',     en: 'Stats'     },
-    { key: 'map',       ga: 'Léarscáil', en: 'Map'       },
-    { key: 'labhairt',  ga: 'Labhair',   en: 'Speak'     },
-    { key: 'settings',  ga: 'Socruithe', en: 'Settings'  },
+    { key: 'inventory', ga: 'Stóras',  en: 'Inventory', icon: '/assets/icons/backpack.png',    iconFallback: '🎒' },
+    { key: 'stats',     ga: 'Staid',   en: 'Stats',     icon: '/assets/icons/stats.png',        iconFallback: '⚔️' },
+    { key: 'labhairt',  ga: 'Labhair', en: 'Speak',     icon: '/assets/icons/speechbubble.png', iconFallback: '💬' },
+    { key: 'log',       ga: 'Dialann', en: 'Log',        icon: '/assets/icons/log.png',          iconFallback: '📜' },
+    { key: 'about',     ga: 'Fúinn',   en: 'About',     icon: '/assets/icons/about.png',        iconFallback: '?' },
 ];
 
-// Keys that are handled as Phaser-side panels (no domArea content)
 const PHASER_PANELS = new Set(['inventory', 'labhairt']);
 
-// Derived CSS strings from the single COLORS.queen source of truth
-const GOLD_FULL      = COLORS.queen;            // '#d4af37'
-const GOLD_DIM       = COLORS.queen + '73';     // ~45% opacity via hex alpha
-const GOLD_BORDER    = COLORS.queen + '4d';     // ~30% opacity
-const GOLD_ACTIVE_BG = COLORS.queen + '1a';     // ~10% opacity fill on active tab
+const GOLD_FULL      = COLORS.queen;
+const GOLD_DIM       = COLORS.queen + '73';
+const GOLD_BORDER    = COLORS.queen + '4d';
+const GOLD_ACTIVE_BG = COLORS.queen + '1a';
 const PANEL_BG       = 'rgba(8,6,2,0.95)';
+
+const ABOUT_CONTENT = {
+    sections: [
+        {
+            titleGa: 'Íomhánna',
+            titleEn: 'Images',
+            bodyGa:  'Lorem ipsum agus lorem an ipsum. Gailearaí Náisiúnta na hÉireann.',
+            bodyEn:  'Landscape paintings used with permission. National Gallery of Ireland, Dublin.',
+        },
+        {
+            titleGa: 'Ceol',
+            titleEn: 'Music',
+            bodyGa:  'Lorem ipsum agus lorem an ipsum. Ceol traidisiúnta na hÉireann.',
+            bodyEn:  'Traditional Irish music. Lorem ipsum and lorem the ipsum.',
+        },
+        {
+            titleGa: 'Tileanna',
+            titleEn: 'Tiles',
+            bodyGa:  'Lorem ipsum agus lorem an ipsum. Oryx Design Lab.',
+            bodyEn:  'Pixel art tileset by Oryx Design Lab. Lorem ipsum.',
+        },
+        {
+            titleGa: 'Forbairt',
+            titleEn: 'Development',
+            bodyGa:  'Lorem ipsum agus lorem an ipsum. Claude Sonnet, Anthropic.',
+            bodyEn:  'Developed with assistance from Claude (Anthropic). Lorem ipsum agus lorem.',
+        },
+    ]
+}
 
 export function createGameMenuHub({
     onInventoryOpen  = null,
@@ -46,26 +73,48 @@ export function createGameMenuHub({
     let destroyed = false;
     let curIdx    = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
 
-    // -- Root overlay --
+    // -- Root -- positioned bottom-right, mirroring dpad bottom-left
     const root = document.createElement('div');
     root.id = 'gameMenuHub';
     root.style.cssText = [
-        'position:fixed;inset:0;',
+        'position:fixed;bottom:0;right:0;',
         'z-index:1000002;',
         'display:none;',
-        'flex-direction:column;',
+        'flex-direction:row;',         // tab strip on right, content to left
+        'align-items:flex-end;',       // both anchored to bottom
         'pointer-events:none;',
         'opacity:0;',
         'transition:opacity 0.18s ease;',
     ].join('');
     document.body.appendChild(root);
 
-    // -- Tab indicator bar --
+    // -- DOM content panel -- appears to the left of the tab strip --
+    const domArea = document.createElement('div');
+    domArea.style.cssText = [
+        'flex:1;',
+        'min-width:0;',
+        'width:calc(100vw - 64px);',   // full width minus tab strip
+        'max-height:60vh;',
+        'overflow:hidden;',
+        'pointer-events:all;',
+        'display:none;',
+        `background:${PANEL_BG};`,
+        `border:1px solid ${GOLD_BORDER};`,
+        'border-bottom:none;',
+        'border-right:none;',
+    ].join('');
+    root.appendChild(domArea);
+
+    // -- Tab strip -- vertical column on the right --
     const tabBar = document.createElement('div');
     tabBar.style.cssText = [
-        'display:flex;align-items:stretch;',
+        'display:flex;',
+        'flex-direction:column;',
+        'align-items:stretch;',
+        'width:60px;',
         `background:${PANEL_BG};`,
-        `border-bottom:2px solid ${GOLD_BORDER};`,
+        `border-left:2px solid ${GOLD_BORDER};`,
+        `border-top:2px solid ${GOLD_BORDER};`,
         'pointer-events:all;',
         'flex-shrink:0;',
     ].join('');
@@ -73,13 +122,38 @@ export function createGameMenuHub({
     const tabEls = PANELS.map((panel, i) => {
         const tab = document.createElement('div');
         tab.style.cssText = [
-            'flex:1;padding:0.65rem 0.1rem;',
+            'padding:0.7rem 0.1rem;',
             'text-align:center;cursor:pointer;',
-            'font-size:0.72rem;',
-            `border-right:1px solid ${GOLD_BORDER};`,
-            'transition:color 0.15s, background 0.15s;',
+            'display:flex;flex-direction:column;',
+            'align-items:center;justify-content:center;',
+            `border-top:1px solid ${GOLD_BORDER};`,
+            'transition:background 0.15s;',
             'user-select:none;-webkit-user-select:none;',
         ].join('');
+
+        const iconEl = document.createElement('div')
+        iconEl.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;'
+
+        const iconImg = document.createElement('img')
+        iconImg.src = panel.icon
+        iconImg.style.cssText = [
+            'width:24px;height:24px;',
+            'object-fit:contain;',
+            'image-rendering:pixelated;',
+            'filter:brightness(0.55);',
+            'transition:filter 0.15s;',
+        ].join('')
+        iconImg.onerror = () => {
+            iconImg.style.display = 'none'
+            const fallback = document.createElement('span')
+            fallback.textContent = panel.iconFallback
+            fallback.style.cssText = 'font-size:1.2rem;line-height:1;'
+            iconEl.appendChild(fallback)
+        }
+        iconEl.appendChild(iconImg)
+        tab._iconImg = iconImg
+
+        tab.appendChild(iconEl)
         tab.addEventListener('pointerup', (e) => {
             e.stopPropagation();
             _goTo(i);
@@ -90,19 +164,7 @@ export function createGameMenuHub({
 
     root.appendChild(tabBar);
 
-    // -- DOM panel area --
-    // Only shown for non-Phaser panels.
-    const domArea = document.createElement('div');
-    domArea.style.cssText = [
-        'flex:1;',
-        'overflow:hidden;',
-        'pointer-events:all;',
-        'display:none;',
-        `background:${PANEL_BG};`,
-    ].join('');
-    root.appendChild(domArea);
-
-    // Placeholder panels for pure DOM panels
+    // -- Build DOM panels --
     const domPanels = {};
     PANELS.forEach((panel) => {
         if (PHASER_PANELS.has(panel.key)) return;
@@ -113,35 +175,93 @@ export function createGameMenuHub({
             'display:flex;flex-direction:column;',
             'align-items:center;justify-content:center;',
             'gap:0.5rem;',
+            'overflow-y:auto;',
         ].join('');
 
-        const title = document.createElement('div');
-        title.style.cssText = `font-size:1.4rem;color:${COLORS.speaker};`;
-        title.textContent = panel.ga;
+        if (panel.key === 'about') {
+            _buildAboutPanel(el)
+        } else {
+            const title = document.createElement('div');
+            title.style.cssText = `font-size:1.4rem;color:${COLORS.speaker};font-family:${FONTS.irish};`;
+            title.textContent = panel.ga;
+            const sub = document.createElement('div');
+            sub.style.cssText = `font-size:0.9rem;color:${COLORS.uiDim};font-family:${FONTS.english};`;
+            sub.textContent = panel.en;
+            el.appendChild(title);
+            el.appendChild(sub);
+        }
 
-        const sub = document.createElement('div');
-        sub.style.cssText = `font-size:0.9rem;color:${COLORS.uiDim};`;
-        sub.textContent = panel.en;
-
-        el.appendChild(title);
-        el.appendChild(sub);
         el.style.display = 'none';
         domArea.appendChild(el);
         domPanels[panel.key] = el;
     });
 
-    // -- Swipe detection --
+    function _buildAboutPanel(container) {
+        container.style.cssText += 'padding:1.2rem;gap:1rem;justify-content:flex-start;'
+
+        const heading = document.createElement('div')
+        heading.style.cssText = [
+            `font-family:${FONTS.irish};`,
+            'font-size:1.4rem;',
+            `color:${COLORS.speaker};`,
+            'text-align:center;',
+            'padding-bottom:0.4rem;',
+            `border-bottom:1px solid ${GOLD_BORDER};`,
+            'width:100%;',
+        ].join('')
+        heading.textContent = 'Corra'
+        container.appendChild(heading)
+
+        ABOUT_CONTENT.sections.forEach(section => {
+            const block = document.createElement('div')
+            block.style.cssText = 'width:100%;'
+
+            const sTitle = document.createElement('div')
+            sTitle.style.cssText = [
+                `font-family:${FONTS.irish};`,
+                'font-size:0.95rem;',
+                `color:${COLORS.speaker};`,
+                'margin-bottom:0.2rem;',
+            ].join('')
+
+            const sBody = document.createElement('div')
+            sBody.style.cssText = [
+                `font-family:${FONTS.english};`,
+                'font-size:0.78rem;',
+                `color:${COLORS.uiDim};`,
+                'line-height:1.5;',
+            ].join('')
+
+            const update = () => {
+                const useEn = GameSettings.englishOpacity >= 0.5
+                sTitle.textContent = useEn ? section.titleEn : section.titleGa
+                sBody.textContent  = useEn ? section.bodyEn  : section.bodyGa
+            }
+            update()
+            block._update = update
+
+            block.appendChild(sTitle)
+            block.appendChild(sBody)
+            container.appendChild(block)
+        })
+
+        container._updateLanguage = () => {
+            Array.from(container.children).forEach(c => c._update?.())
+        }
+    }
+
+    // -- Swipe detection on domArea --
     let swipeStartX = 0;
     let swipeStartT = 0;
     let swiping     = false;
 
-    root.addEventListener('pointerdown', (e) => {
+    domArea.addEventListener('pointerdown', (e) => {
         swipeStartX = e.clientX;
         swipeStartT = performance.now();
         swiping     = true;
     }, { passive: true });
 
-    root.addEventListener('pointerup', (e) => {
+    domArea.addEventListener('pointerup', (e) => {
         if (!swiping) return;
         swiping = false;
         const dx = e.clientX - swipeStartX;
@@ -161,7 +281,6 @@ export function createGameMenuHub({
 
         _updateTabs();
 
-        // --- Teardown previous panel ---
         if (!skipCallbacks) {
             if (prev === 'inventory' && current !== 'inventory') {
                 if (onInventoryClose) onInventoryClose();
@@ -171,16 +290,12 @@ export function createGameMenuHub({
             }
         }
 
-        // --- Setup new panel ---
         if (current === 'inventory') {
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onInventoryOpen) onInventoryOpen();
 
         } else if (current === 'labhairt') {
-            // Labhair: Phaser-side keyboard, no DOM content area needed.
-            // We keep the tab bar visible (DOM) but hide the domArea so the
-            // Phaser canvas shows through beneath — Easca3 renders there.
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onLabhairtOpen) onLabhairtOpen();
@@ -194,17 +309,22 @@ export function createGameMenuHub({
     }
 
     function _updateTabs() {
-        const useEn = GameSettings.englishOpacity >= 0.5;
         PANELS.forEach((panel, i) => {
             const active = i === curIdx;
-            tabEls[i].textContent      = useEn ? panel.en : panel.ga;
-            tabEls[i].style.color      = active ? GOLD_FULL : GOLD_DIM;
-            tabEls[i].style.background = active ? GOLD_ACTIVE_BG : 'transparent';
-            tabEls[i].style.fontFamily = useEn ? FONTS.english : FONTS.irish;
+            tabEls[i].style.background = active ? GOLD_ACTIVE_BG : 'transparent'
+            if (tabEls[i]._iconImg) {
+                tabEls[i]._iconImg.style.filter = active
+                    ? `brightness(1) drop-shadow(0 0 4px ${GOLD_FULL}88)`
+                    : 'brightness(0.55)'
+            }
         });
     }
 
-    window.addEventListener('englishOpacityChange', _updateTabs);
+    window.addEventListener('englishOpacityChange', () => {
+        _updateTabs()
+        const aboutEl = domPanels['about']
+        if (aboutEl?._updateLanguage) aboutEl._updateLanguage()
+    })
 
     // -- Open / close --
     function _open() {
@@ -219,7 +339,6 @@ export function createGameMenuHub({
         open = false;
         root.style.opacity = '0';
 
-        // Fire close callbacks for whichever Phaser panel is active
         const current = PANELS[curIdx].key;
         if (current === 'inventory' && onInventoryClose) onInventoryClose();
         if (current === 'labhairt'  && onLabhairtClose)  onLabhairtClose();
@@ -231,7 +350,6 @@ export function createGameMenuHub({
         root.addEventListener('transitionend', onFaded);
     }
 
-    // -- Public API --
     return {
         open()         { _open(); },
         close()        { _close(); },

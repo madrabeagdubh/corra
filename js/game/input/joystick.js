@@ -1,11 +1,17 @@
 // Joystick.js
 //
-// 8-directional d-pad with:
+// 8-directional d-pad with moon widget embedded in the hub centre.
+//
 //   - 4 cardinal buttons (up/down/left/right) -- TileSprite with darkStone texture
 //   - 4 diagonal buttons (corners) -- invisible hit areas
 //   - Base circle -- TileSprite with darkStone, clipped by geometry mask
 //   - Gold stroke overlay via Graphics
-//   - Drag-thumb analog mode still works alongside buttons
+//   - Centre hub: moon canvas (no drag-thumb analog mode)
+//
+// Centre hub interactions:
+//   - Swipe left/right  → change moon phase
+//   - Long press        → onLongPress() callback (open menu hub)
+//   - Short tap         → onTap() callback (open encounter panel / toggle menu)
 
 export default class Joystick {
   constructor(scene, config) {
@@ -19,15 +25,19 @@ export default class Joystick {
 
     this._activeButton = null;
 
+    // Callbacks for centre hub
+    this._onTap       = config.onTap       ?? null;   // short tap
+    this._onLongPress = config.onLongPress  ?? null;   // long press
+    this._onSwipe     = config.onSwipe      ?? null;   // (deltaX) swipe delta
+
     const R  = this.radius;
     const bx = this.baseX;
     const by = this.baseY;
 
-    // -- Base circle -- TileSprite masked to circle shape ---------------------
+    // -- Base circle ----------------------------------------------------------
     const hasStone = this._textureExists('darkStone');
 
     if (hasStone) {
-      // Draw the circle mask shape
       const maskGfx = scene.add.graphics();
       maskGfx.fillStyle(0xffffff, 1);
       maskGfx.fillCircle(bx, by, R);
@@ -42,7 +52,7 @@ export default class Joystick {
     this.base.setScrollFactor(0);
     this.base.setDepth(1000);
 
-    // Gold ring over the base circle edge
+    // Gold ring
     this._baseRingGfx = scene.add.graphics();
     this._baseRingGfx.setScrollFactor(0);
     this._baseRingGfx.setDepth(1001);
@@ -51,14 +61,13 @@ export default class Joystick {
 
     // -- Layout constants -----------------------------------------------------
     const cardOff  = R * 0.72;
-    const cardSize = R * 0.55 + 1;   // +1px to close gap at circle edge
+    const cardSize = R * 0.55 + 1;
 
     const diagOff  = R * 0.72;
     const diagSize = R * 0.38 + 1;
     const diagXY   = diagOff * Math.cos(Math.PI / 4);
 
     // -- Gold stroke Graphics layer -------------------------------------------
-    // Depth layering: base(1000) < baseRing(1001) < buttons(1002) < strokeGfx(1003) < thumb(1004)
     this._strokeGfx = scene.add.graphics();
     this._strokeGfx.setScrollFactor(0);
     this._strokeGfx.setDepth(1003);
@@ -71,68 +80,171 @@ export default class Joystick {
     this.buttons.left  = this._makeButton(bx - cardOff, by,           cardSize, 180);
     this.buttons.right = this._makeButton(bx + cardOff, by,           cardSize,   0);
 
-    // Diagonals -- invisible hit areas
+    // Diagonals
     this.buttons.upRight   = this._makeButton(bx + diagXY, by - diagXY, diagSize, -45,  true);
     this.buttons.downRight = this._makeButton(bx + diagXY, by + diagXY, diagSize,  45,  true);
     this.buttons.downLeft  = this._makeButton(bx - diagXY, by + diagXY, diagSize, 135,  true);
     this.buttons.upLeft    = this._makeButton(bx - diagXY, by - diagXY, diagSize, -135, true);
 
-    // Draw initial gold strokes
     this._redrawStrokes();
 
-    // -- Centre thumb ---------------------------------------------------------
-    this.thumb = scene.add.circle(bx, by, R * 0.22, 0x0a0a0a, 0.9);
-    this.thumb.setStrokeStyle(1.5, 0xd4af37, 0.7);
-    this.thumb.setScrollFactor(0);
-    this.thumb.setDepth(1004);
+    // -- Centre moon hub DOM element ------------------------------------------
+    // A DOM canvas sits over the Phaser canvas at the hub position.
+    // The moon widget will render into this canvas.
+    const hubD    = Math.round(R * 0.48) * 2   // diameter of hub moon
+    this._hubDom  = document.createElement('div')
+    this._hubDom.id = 'dpad-moon-hub'
 
-    // -- Drag (analog) mode ---------------------------------------------------
-    this.thumb.setInteractive();
-    scene.input.setDraggable(this.thumb);
+    // Convert Phaser canvas-local coords to page coords
+    const phaserCanvas = scene.game.canvas
+    const canvasRect   = phaserCanvas.getBoundingClientRect()
+    const scaleX       = canvasRect.width  / phaserCanvas.width
+    const scaleY       = canvasRect.height / phaserCanvas.height
+    const pageX        = canvasRect.left + bx * scaleX
+    const pageY        = canvasRect.top  + by * scaleY
+    const hubDScaled   = hubD * Math.min(scaleX, scaleY)
 
-    scene.input.on('dragstart', (pointer, obj) => {
-      if (obj !== this.thumb) return;
-      this.thumb.setFillStyle(0x1a1200, 0.95);
-      this.thumb.setScale(1.1);
-    });
+    this._hubDom.style.cssText = [
+      'position:fixed;',
+      `left:${pageX - hubDScaled / 2}px;`,
+      `top:${pageY  - hubDScaled / 2}px;`,
+      `width:${hubDScaled}px;`,
+      `height:${hubDScaled}px;`,
+      'z-index:1000005;',
+      'border-radius:50%;',
+      'overflow:hidden;',
+      'pointer-events:all;',
+      'cursor:grab;',
+      // Gold ring matching dpad aesthetic
+      `border:1.5px solid rgba(212,175,55,0.7);`,
+      'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
+    ].join('')
 
-    scene.input.on('drag', (pointer, obj, dragX, dragY) => {
-      if (obj !== this.thumb) return;
-      if (this._activeButton) this._releaseButton(this._activeButton);
+    // The actual moon canvas inside the hub
+    this._moonCanvas = document.createElement('canvas')
+    this._moonCanvas.width  = hubD
+    this._moonCanvas.height = hubD
+    this._moonCanvas.style.cssText = [
+      `width:${hubDScaled}px;`,
+      `height:${hubDScaled}px;`,
+      'transform:rotate(160deg);',
+      'display:block;',
+      'touch-action:none;',
+    ].join('')
+    this._hubDom.appendChild(this._moonCanvas)
 
-      const dx   = pointer.x - bx;
-      const dy   = pointer.y - by;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const ang  = Math.atan2(dy, dx);
+    // Fullscreen icon overlay -- small, top-right of hub
+    this._fsIcon = document.createElement('div')
+    this._fsIcon.style.cssText = [
+      'position:absolute;',
+      'top:2px;right:2px;',
+      'width:14px;height:14px;',
+      'display:flex;align-items:center;justify-content:center;',
+      'font-size:9px;',
+      'color:rgba(212,175,55,0.7);',
+      'pointer-events:all;',
+      'cursor:pointer;',
+      'z-index:2;',
+    ].join('')
+    this._fsIcon.textContent = '⛶'
+    this._fsIcon.addEventListener('pointerup', (e) => {
+      e.stopPropagation()
+      this._requestFullscreen()
+    })
+    this._hubDom.appendChild(this._fsIcon)
 
-      if (dist < R) {
-        this.thumb.x = pointer.x;
-        this.thumb.y = pointer.y;
-        this.force   = dist;
-      } else {
-        this.thumb.x = bx + Math.cos(ang) * R;
-        this.thumb.y = by + Math.sin(ang) * R;
-        this.force   = R;
+    phaserCanvas.parentNode.appendChild(this._hubDom)
+
+    // -- Centre hub interaction -----------------------------------------------
+    this._hubSwipeStartX  = 0
+    this._hubSwipeStartT  = 0
+    this._hubDragging     = false
+    this._longPressTimer  = null
+    this._longPressFired  = false
+    const LONG_PRESS_MS   = 500
+
+    this._moonCanvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      this._moonCanvas.setPointerCapture(e.pointerId)
+      this._hubSwipeStartX = e.clientX
+      this._hubSwipeStartT = performance.now()
+      this._hubDragging    = false
+      this._longPressFired = false
+
+      this._longPressTimer = setTimeout(() => {
+        this._longPressFired = true
+        if (this._onLongPress) this._onLongPress()
+      }, LONG_PRESS_MS)
+    }, { passive: false })
+
+    this._moonCanvas.addEventListener('pointermove', (e) => {
+      if (performance.now() - this._hubSwipeStartT < 50) return
+      const dx = e.clientX - this._hubSwipeStartX
+      if (Math.abs(dx) > 6) {
+        // Cancel long press if swiping
+        if (this._longPressTimer) {
+          clearTimeout(this._longPressTimer)
+          this._longPressTimer = null
+        }
+        this._hubDragging = true
+        if (this._onSwipe) this._onSwipe(dx)
+        this._hubSwipeStartX = e.clientX  // incremental deltas
       }
-      this.angle = Math.atan2(this.thumb.y - by, this.thumb.x - bx) * (180 / Math.PI);
-    });
+    }, { passive: true })
 
-    scene.input.on('dragend', (pointer, obj) => {
-      if (obj !== this.thumb) return;
-      this._resetThumb();
-      this.force = 0;
-      this.angle = 0;
-    });
+    this._moonCanvas.addEventListener('pointerup', (e) => {
+      e.preventDefault()
+      if (this._longPressTimer) {
+        clearTimeout(this._longPressTimer)
+        this._longPressTimer = null
+      }
+      this._moonCanvas.releasePointerCapture(e.pointerId)
+
+      const dt = performance.now() - this._hubSwipeStartT
+      const dx = Math.abs(e.clientX - this._hubSwipeStartX)
+
+      if (!this._longPressFired && !this._hubDragging && dt < 400 && dx < 12) {
+        if (this._onTap) this._onTap()
+      }
+      this._hubDragging    = false
+      this._longPressFired = false
+    }, { passive: false })
+
+    this._moonCanvas.addEventListener('pointercancel', () => {
+      if (this._longPressTimer) {
+        clearTimeout(this._longPressTimer)
+        this._longPressTimer = null
+      }
+      this._hubDragging    = false
+      this._longPressFired = false
+    })
   }
 
-  // -- Texture check ---------------------------------------------------------
+  // -- Fullscreen -----------------------------------------------------------
+  _requestFullscreen() {
+    const el = document.documentElement
+    try {
+      if (el.requestFullscreen)             el.requestFullscreen()
+      else if (el.webkitRequestFullscreen)  el.webkitRequestFullscreen()
+    } catch(e) {}
+  }
 
+  // -- Moon canvas access ---------------------------------------------------
+  getMoonCanvas() {
+    return this._moonCanvas
+  }
+
+  getMoonRadius() {
+    return Math.round(this.radius * 0.24)
+  }
+
+  // -- Texture check --------------------------------------------------------
   _textureExists(key) {
     try { return this.scene.textures.exists(key); } catch(e) { return false; }
   }
 
-  // -- Button factory --------------------------------------------------------
-
+  // -- Button factory -------------------------------------------------------
   _makeButton(x, y, size, angleDeg, invisible = false) {
     let btn;
 
@@ -156,14 +268,11 @@ export default class Joystick {
 
     btn.setScrollFactor(0);
     btn.setDepth(1002);
-
-    // Use natural bounds -- works correctly for both TileSprite and Rectangle
     btn.setInteractive();
 
     btn.on('pointerdown', () => this._pressButton(btn, angleDeg));
     btn.on('pointerup',   () => { if (this._activeButton === btn) this._releaseButton(btn); });
     btn.on('pointerout',  () => { if (this._activeButton === btn) this._releaseButton(btn); });
-
     btn.on('pointerover', () => {
       if (!btn._invisible && !btn._active) {
         btn.setAlpha(0.95);
@@ -174,8 +283,7 @@ export default class Joystick {
     return btn;
   }
 
-  // -- Gold stroke overlay ---------------------------------------------------
-
+  // -- Gold stroke overlay --------------------------------------------------
   _redrawStrokes() {
     const gfx = this._strokeGfx;
     gfx.clear();
@@ -194,14 +302,12 @@ export default class Joystick {
       gfx.lineStyle(weight, color, alpha);
       gfx.strokeRect(x, y, size, size);
 
-      // Faux bevel -- lighter line along top edge
       gfx.lineStyle(1, 0xf5e090, isActive ? 0.35 : 0.18);
       gfx.lineBetween(x + 2, y + 2, x + size - 2, y + 2);
     }
   }
 
-  // -- Press / release -------------------------------------------------------
-
+  // -- Press / release ------------------------------------------------------
   _pressButton(btn, angleDeg) {
     if (this._activeButton && this._activeButton !== btn)
       this._releaseButton(this._activeButton);
@@ -236,19 +342,10 @@ export default class Joystick {
     }
   }
 
-  _resetThumb() {
-    this.thumb.x = this.baseX;
-    this.thumb.y = this.baseY;
-    this.thumb.setFillStyle(0x0a0a0a, 0.9);
-    this.thumb.setScale(1.0);
-  }
-
-  // -- Public API ------------------------------------------------------------
-
+  // -- Public API -----------------------------------------------------------
   reset() {
     this.force = 0;
     this.angle = 0;
-    this._resetThumb();
     if (this._activeButton) {
       this._releaseButton(this._activeButton);
       this._activeButton = null;
@@ -261,6 +358,11 @@ export default class Joystick {
       }
     });
     this._redrawStrokes();
+  }
+
+  destroy() {
+    if (this._longPressTimer) clearTimeout(this._longPressTimer)
+    if (this._hubDom?.parentNode) this._hubDom.parentNode.removeChild(this._hubDom)
   }
 }
 

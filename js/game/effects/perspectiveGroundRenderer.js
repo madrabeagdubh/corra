@@ -1,4 +1,4 @@
-   // PerspectiveGroundRenderer.js  (v8)
+  // PerspectiveGroundRenderer.js  (v8)
 //
 // Two-canvas architecture:
 //   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
@@ -12,7 +12,9 @@
 // Proximity detection uses logicalX/Y pixel coords in BaseLocationScene.
 // Register flags via setEncounterFlags(). Clear via clearEncounterFlag().
 
-// --- Tree tint helpers ---------------------------------------------------
+import { TintManager } from './tintManager.js'
+
+// --- Tree tint helpers (kept for single-tree GIDs) -----------------------
 
 function _tileHash(tx, ty) {
   let h = (tx * 374761393 + ty * 1103515245) | 0
@@ -46,55 +48,19 @@ const WITHERED_STAMP_GIDS = new Set([
   ...WITHERED_TOP_GIDS, ...WITHERED_MID_GIDS, ...WITHERED_BOT_GIDS
 ])
 
-function _oakStampTint(gid, tx, ty) {
-  const t       = _tileHash(tx, ty)
-  const isTop   = OAK_TOP_GIDS.has(gid)
-  const isBot   = OAK_BOT_GIDS.has(gid)
-  const litBase = isTop ? 48 : isBot ? 20 : 32
-  const litVar  = isTop ? 12 : isBot ? 10 : 16
-  return { h: 80 + t * 55, s: 35 + t * 30, l: litBase + t * litVar }
-}
-
-function _bogStampTint(gid, tx, ty) {
-  const t       = _tileHash(tx, ty)
-  const isTop   = BOG_STAMP_TOP_GIDS.has(gid)
-  const isBot   = BOG_STAMP_BOT_GIDS.has(gid)
-  const litBase = isTop ? 42 : isBot ? 18 : 28
-  const litVar  = isTop ? 12 : isBot ? 10 : 14
-  return { h: 55 + t * 50, s: 22 + t * 28, l: litBase + t * litVar }
-}
-
-function _witheredStampTint(gid, tx, ty) {
-  const t       = _tileHash(tx, ty)
-  const isTop   = WITHERED_TOP_GIDS.has(gid)
-  const isBot   = WITHERED_BOT_GIDS.has(gid)
-  const litBase = isTop ? 40 : isBot ? 16 : 26
-  const litVar  = isTop ? 12 : isBot ? 10 : 14
-  return { h: 15 + t * 35, s: 14 + t * 22, l: litBase + t * litVar }
-}
-
-function _bogTreeTint(tx, ty) {
-  const t = _tileHash(tx, ty)
-  return { h: 78 + t * 44, s: 28 + t * 28, l: 38 + t * 22 }
-}
-
-function _witheredTreeTint(tx, ty) {
-  const t = _tileHash(tx, ty)
-  return { h: 22 + t * 28, s: 10 + t * 18, l: 28 + t * 22 }
-}
-
 // -------------------------------------------------------------------------
 
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
+static CAMERA_ROW_OFFSET    = 14.0
+static TILES_ACROSS         = 4.8
+static PLAYER_DIST_TILES    = 1.2
+static FOCAL_LENGTH         = 12.0
+static HORIZON_Y_FRAC       = 0.25
+static HEIGHT_MULTIPLIER    = 1.2
 
-  static CAMERA_ROW_OFFSET    = 10.5
-  static TILES_ACROSS         = 6.5
-  static PLAYER_DIST_TILES    = 4.1
-  static FOCAL_LENGTH         = 7.5
-  static HORIZON_Y_FRAC       = 0.45
-  static HEIGHT_MULTIPLIER    = 1.6
+
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
@@ -112,6 +78,8 @@ export default class PerspectiveGroundRenderer {
     this._playerCanvas   = null
     this._playerFrameKey = null
     this._encounterFlags = []
+
+    this.tintManager = new TintManager()
 
     ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
       const el = document.getElementById(id)
@@ -154,7 +122,6 @@ export default class PerspectiveGroundRenderer {
     phaserCanvas.style.zIndex     = '10'
     phaserCanvas.style.background = 'transparent'
 
-    // Ground and object canvases -- full screen height, top:0
     this._groundCanvas = this._makeCanvas(container, 'pgr-ground',  1)
     this._objectCanvas = this._makeCanvas(container, 'pgr-objects', 2)
     this._gCtx         = this._groundCanvas.getContext('2d')
@@ -214,15 +181,98 @@ export default class PerspectiveGroundRenderer {
     this._skyImg = img
   }
 
-  setSkyImage(url) {
-    if (!this._skyImg) return
-    if (url) {
-      this._skyImg.src           = url
-      this._skyImg.style.opacity = '1'
-    } else {
-      this._skyImg.src           = ''
-      this._skyImg.style.opacity = '0'
+// Drop these two methods into perspectiveGroundRenderer.js
+// replacing the existing setSkyImage() method.
+
+setSkyImage(url) {
+  if (!this._skyImg) return
+  if (url) {
+    this._skyImg.onload = () => {
+      this._extractPaletteFromImage(this._skyImg)
     }
+    this._skyImg.src           = url
+    this._skyImg.style.opacity = '1'
+  } else {
+    this._skyImg.src           = ''
+    this._skyImg.style.opacity = '0'
+    // Reset to default palette when no image
+    this.tintManager.setMood('default')
+  }
+}
+
+_extractPaletteFromImage(imgEl) {
+  try {
+    const c   = document.createElement('canvas')
+    c.width   = 64
+    c.height  = 64
+    const ctx = c.getContext('2d')
+    ctx.drawImage(imgEl, 0, 0, 64, 64)
+
+    // Sample three vertical zones
+    const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
+    const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
+    const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
+
+    console.log('[PGR] palette sampled -- sky:', sky, 'mid:', mid, 'ground:', ground)
+
+    this.tintManager.setPaletteFromRGB({ sky, mid, ground })
+    this._lastCamX = null  // force redraw with new palette
+  } catch(e) {
+    console.warn('[PGR] palette extraction failed:', e.message)
+  }
+}
+
+_avgPixels(imageData) {
+  const d = imageData.data
+  let r = 0, g = 0, b = 0, count = 0
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 10) continue  // skip transparent pixels
+    r += d[i]; g += d[i+1]; b += d[i+2]
+    count++
+  }
+  if (count === 0) return { r: 128, g: 128, b: 128 }
+  return {
+    r: Math.round(r / count),
+    g: Math.round(g / count),
+    b: Math.round(b / count),
+  }
+}
+ 
+
+_extractPaletteFromImage(imgEl) {
+  const c = document.createElement('canvas')
+  c.width = 64; c.height = 64
+  const ctx = c.getContext('2d')
+  ctx.drawImage(imgEl, 0, 0, 64, 64)
+
+  // Sample three zones
+  const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
+  const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
+  const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
+
+  console.log('[PGR] palette extracted:',
+    'sky:', sky, 'mid:', mid, 'ground:', ground)
+
+  // Pass to TintManager
+  this.tintManager.setPaletteFromRGB({ sky, mid, ground })
+}
+
+_avgPixels(imageData) {
+  const d = imageData.data
+  let r = 0, g = 0, b = 0, count = 0
+  for (let i = 0; i < d.length; i += 4) {
+    r += d[i]; g += d[i+1]; b += d[i+2]; count++
+  }
+  return {
+    r: Math.round(r/count),
+    g: Math.round(g/count),
+    b: Math.round(b/count)
+  }
+} 
+
+  setMood(mood) {
+    this.tintManager.setMood(mood)
+    this._lastCamX = null  // force redraw
   }
 
   setLighting({ darkness, radius, groundColour } = {}) {
@@ -396,7 +446,9 @@ export default class PerspectiveGroundRenderer {
     tc.width   = sw; tc.height = sh
     const tCtx = tc.getContext('2d')
     tCtx.imageSmoothingEnabled = false
+    tCtx.filter = 'saturate(60%)'
     tCtx.drawImage(this._tilesetImg, sx, sy, sw, sh, 0, 0, sw, sh)
+    tCtx.filter = 'none'
     this._tileCache.set(gid, tc)
     return tc
   }
@@ -428,12 +480,31 @@ export default class PerspectiveGroundRenderer {
     ctx.restore()
   }
 
-  _drawTrapezoid(ctx, gid, tl, tr, bl, br) {
+  // Draw trapezoid with optional tint
+  _drawTrapezoidTinted(ctx, gid, tl, tr, bl, br, tint) {
     const img = this._getTileCanvas(gid)
     if (!img) return
     const W = img.width, H = img.height
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:0},{u:W,v:H}, tl, tr, br)
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:H},{u:0,v:H}, tl, br, bl)
+
+    if (tint) {
+      const { h, s, l, alpha } = tint
+      ctx.save()
+      ctx.globalCompositeOperation = 'source-atop'
+      ctx.globalAlpha = alpha ?? 0.45
+      ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
+      // Fill the trapezoid shape for tinting
+      ctx.beginPath()
+      ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y)
+      ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y)
+      ctx.closePath(); ctx.fill()
+      ctx.restore()
+    }
+  }
+
+  _drawTrapezoid(ctx, gid, tl, tr, bl, br) {
+    this._drawTrapezoidTinted(ctx, gid, tl, tr, bl, br, null)
   }
 
   _drawBillboard(ctx, img, screenX, screenY, scaledTileW, heightMult) {
@@ -511,9 +582,8 @@ export default class PerspectiveGroundRenderer {
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    const groundColour = this._groundColour ?? '#2a3a1a'
+    const groundColour = this._groundColour ?? 'transparent'
 
-    // Clear full canvas then fill from horizon down only
     this._gCtx.clearRect(0, 0, sw, sh)
     const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
     groundGrad.addColorStop(0, 'rgba(42, 58, 26, 0)')
@@ -564,18 +634,16 @@ export default class PerspectiveGroundRenderer {
       const colEnd    = Math.min(mapW-1, Math.ceil (camCol + halfCols))
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
-
-        const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
-        const edgeAlpha = edgeDist === 0 ? 0.08
-                        : edgeDist === 1 ? 0.30
-                        : edgeDist === 2 ? 0.55
-                        : 1.0
-
-        if (fov && fov.isHidden(tileCol, tileRow)) continue
+  const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
+const edgeAlpha = edgeDist === 0 ? 0.85
+                : edgeDist === 1 ? 0.92
+                : edgeDist === 2 ? 0.97
+                : 1.0
+      if (fov && fov.isHidden(tileCol, tileRow)) continue
 
         const tileAlpha = edgeAlpha
 
-        // Ground tile
+        // Ground tile -- tinted via TintManager
         const gid0 = layer0[tileRow]?.[tileCol]
         if (gid0) {
           const xTL = this._colToScreenX(tileCol,     tileRow)
@@ -594,9 +662,11 @@ export default class PerspectiveGroundRenderer {
             this._gCtx.strokeStyle = 'rgba(255,255,255,0.25)'
             this._gCtx.lineWidth = 0.5; this._gCtx.stroke()
           } else {
-            this._drawTrapezoid(this._gCtx, gid0,
+            const tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
+            this._drawTrapezoidTinted(this._gCtx, gid0,
               {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
-              {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
+              {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
+              tint0)
           }
           this._gCtx.globalAlpha = 1.0
           groundCount++
@@ -615,11 +685,16 @@ export default class PerspectiveGroundRenderer {
           playerDrawn = true
         }
 
-        // Object tile -- flat or billboard depending on catalogue
+        // Object tile -- tinted via TintManager for all types
         if (layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
-            if (OAK_STAMP_GIDS.has(gid1) || BOG_STAMP_GIDS.has(gid1) || WITHERED_STAMP_GIDS.has(gid1)) {
+            const tint1       = this.tintManager.getTint(gid1, tileCol, tileRow)
+            const isStamp     = OAK_STAMP_GIDS.has(gid1) || BOG_STAMP_GIDS.has(gid1) || WITHERED_STAMP_GIDS.has(gid1)
+            const isBillboard = this._flatGids.has(gid1)
+
+            if (isStamp || isBillboard) {
+              // Billboard rendering
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -627,60 +702,29 @@ export default class PerspectiveGroundRenderer {
                   screenY >= horizonPx &&
                   screenY <= sh + this.tileDisplaySize * 2) {
                 this._oCtx.globalAlpha = tileAlpha
-                if (OAK_STAMP_GIDS.has(gid1)) {
+                if (tint1) {
                   this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
                     screenX, screenY, scaledTileW,
                     PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _oakStampTint(gid1, tileCol, tileRow), 0.42)
-                } else if (BOG_STAMP_GIDS.has(gid1)) {
-                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW,
-                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _bogStampTint(gid1, tileCol, tileRow), 0.42)
-                } else {
-                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW,
-                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _witheredStampTint(gid1, tileCol, tileRow), 0.42)
-                }
-                this._oCtx.globalAlpha = 1.0
-              }
-            } else if (!this._flatGids.has(gid1)) {
-              // Flat trapezoid -- default for unknown tiles and flat:true in catalogue
-              const xTL = this._colToScreenX(tileCol,     tileRow)
-              const xTR = this._colToScreenX(tileCol + 1, tileRow)
-              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
-              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
-              this._gCtx.globalAlpha = tileAlpha
-              this._drawTrapezoid(this._gCtx, gid1,
-                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
-                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
-              this._gCtx.globalAlpha = 1.0
-            } else {
-              // Billboard -- explicitly marked flat:false in catalogue
-              const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-              const screenY     = this._rowToScreenY(tileRow + 1)
-              const scaledTileW = this._scaleAtRow(tileRow + 1)
-              if (screenY !== null &&
-                  screenY >= horizonPx &&
-                  screenY <= sh + this.tileDisplaySize * 2) {
-                this._oCtx.globalAlpha = tileAlpha
-                if (BOG_TREE_GIDS.has(gid1)) {
-                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW,
-                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _bogTreeTint(tileCol, tileRow), 0.36)
-                } else if (WITHERED_TREE_GIDS.has(gid1)) {
-                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW,
-                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    _witheredTreeTint(tileCol, tileRow), 0.32)
+                    tint1, tint1.alpha)
                 } else {
                   this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
                     screenX, screenY, scaledTileW)
                 }
                 this._oCtx.globalAlpha = 1.0
               }
+            } else {
+              // Flat trapezoid rendering
+              const xTL = this._colToScreenX(tileCol,     tileRow)
+              const xTR = this._colToScreenX(tileCol + 1, tileRow)
+              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
+              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+              this._gCtx.globalAlpha = tileAlpha
+              this._drawTrapezoidTinted(this._gCtx, gid1,
+                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
+                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
+                tint1)
+              this._gCtx.globalAlpha = 1.0
             }
             objectCount++
           }
@@ -731,7 +775,13 @@ export default class PerspectiveGroundRenderer {
       }
 
     } // tileRow
-
+// After the tile rendering loops, fill any gap at south edge
+const lastRowY = this._rowToScreenY(tileRowEnd + 1)
+if (lastRowY !== null && lastRowY < sh) {
+  this._gCtx.fillStyle = groundColour
+  this._gCtx.globalAlpha = 1.0
+  this._gCtx.fillRect(0, lastRowY, sw, sh - lastRowY)
+}
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {

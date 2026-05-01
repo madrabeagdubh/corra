@@ -1,4 +1,4 @@
-  // PerspectiveGroundRenderer.js  (v8)
+ // PerspectiveGroundRenderer.js  (v8)
 //
 // Two-canvas architecture:
 //   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
@@ -13,8 +13,6 @@
 // Register flags via setEncounterFlags(). Clear via clearEncounterFlag().
 
 import { TintManager } from './tintManager.js'
-
-// --- Tree tint helpers (kept for single-tree GIDs) -----------------------
 
 function _tileHash(tx, ty) {
   let h = (tx * 374761393 + ty * 1103515245) | 0
@@ -53,24 +51,26 @@ const WITHERED_STAMP_GIDS = new Set([
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS = false
-static CAMERA_ROW_OFFSET    = 14.0
-static TILES_ACROSS         = 4.8
-static PLAYER_DIST_TILES    = 1.2
-static FOCAL_LENGTH         = 12.0
-static HORIZON_Y_FRAC       = 0.25
-static HEIGHT_MULTIPLIER    = 1.2
 
-
+  // Preset: "subtle 3d outdoor" -- good for bog/forest maps
+  static CAMERA_ROW_OFFSET    = 14.0
+  static PLAYER_DIST_TILES    = 1.2
+  static FOCAL_LENGTH         = 12.0
+  static HEIGHT_MULTIPLIER    = 1.2
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
   static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
-
+static TILES_ACROSS      = 3.8
+static HORIZON_Y_FRAC    = 0.28
   static TW         = 24
   static TH         = 24
   static MG         = 24
   static SHEET_COLS = 54
   static TILESET_URL = '/assets/oryx/oryx_16bit_fantasy_world_trans.png'
+
+  // How many rows/cols beyond the map edge to render fill tiles
+  static EDGE_EXTEND = 6
 
   constructor(scene) {
     this.scene           = scene
@@ -94,6 +94,7 @@ static HEIGHT_MULTIPLIER    = 1.2
     this._tilesetImg = null
     this._tileCache  = new Map()
     this._ready      = false
+    this._gcR        = null
 
     this._flatGids = new Set()
     this._loadCatalogue()
@@ -181,98 +182,67 @@ static HEIGHT_MULTIPLIER    = 1.2
     this._skyImg = img
   }
 
-// Drop these two methods into perspectiveGroundRenderer.js
-// replacing the existing setSkyImage() method.
-
-setSkyImage(url) {
-  if (!this._skyImg) return
-  if (url) {
-    this._skyImg.onload = () => {
-      this._extractPaletteFromImage(this._skyImg)
+  setSkyImage(url) {
+    if (!this._skyImg) return
+    if (url) {
+      this._skyImg.onload = () => this._extractPaletteFromImage(this._skyImg)
+      this._skyImg.src           = url
+      this._skyImg.style.opacity = '1'
+    } else {
+      this._skyImg.src           = ''
+      this._skyImg.style.opacity = '0'
+      this.tintManager.setMood('default')
+      this._gcR = null
     }
-    this._skyImg.src           = url
-    this._skyImg.style.opacity = '1'
-  } else {
-    this._skyImg.src           = ''
-    this._skyImg.style.opacity = '0'
-    // Reset to default palette when no image
-    this.tintManager.setMood('default')
   }
-}
 
-_extractPaletteFromImage(imgEl) {
-  try {
-    const c   = document.createElement('canvas')
-    c.width   = 64
-    c.height  = 64
-    const ctx = c.getContext('2d')
-    ctx.drawImage(imgEl, 0, 0, 64, 64)
+  _extractPaletteFromImage(imgEl) {
+    try {
+      const c   = document.createElement('canvas')
+      c.width   = 64
+      c.height  = 64
+      const ctx = c.getContext('2d')
+      ctx.drawImage(imgEl, 0, 0, 64, 64)
 
-    // Sample three vertical zones
-    const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
-    const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
-    const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
+      const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
+      const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
+      const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
 
-    console.log('[PGR] palette sampled -- sky:', sky, 'mid:', mid, 'ground:', ground)
+      console.log('[PGR] palette sampled -- sky:', sky, 'mid:', mid, 'ground:', ground)
 
-    this.tintManager.setPaletteFromRGB({ sky, mid, ground })
-    this._lastCamX = null  // force redraw with new palette
-  } catch(e) {
-    console.warn('[PGR] palette extraction failed:', e.message)
+      this.tintManager.setPaletteFromRGB({ sky, mid, ground })
+
+      const gt = this.tintManager.getTint(733, 0, 0)
+      if (gt) {
+        this._gcR = `hsl(${gt.h},${Math.round(gt.s * 0.7)}%,${Math.max(gt.l - 8, 8)}%)`
+      }
+
+      this._lastCamX = null
+    } catch(e) {
+      console.warn('[PGR] palette extraction failed:', e.message)
+    }
   }
-}
 
-_avgPixels(imageData) {
-  const d = imageData.data
-  let r = 0, g = 0, b = 0, count = 0
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < 10) continue  // skip transparent pixels
-    r += d[i]; g += d[i+1]; b += d[i+2]
-    count++
+  _avgPixels(imageData) {
+    const d = imageData.data
+    let r = 0, g = 0, b = 0, count = 0
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 10) continue
+      r += d[i]; g += d[i+1]; b += d[i+2]
+      count++
+    }
+    if (count === 0) return { r: 128, g: 128, b: 128 }
+    return {
+      r: Math.round(r / count),
+      g: Math.round(g / count),
+      b: Math.round(b / count),
+    }
   }
-  if (count === 0) return { r: 128, g: 128, b: 128 }
-  return {
-    r: Math.round(r / count),
-    g: Math.round(g / count),
-    b: Math.round(b / count),
-  }
-}
- 
-
-_extractPaletteFromImage(imgEl) {
-  const c = document.createElement('canvas')
-  c.width = 64; c.height = 64
-  const ctx = c.getContext('2d')
-  ctx.drawImage(imgEl, 0, 0, 64, 64)
-
-  // Sample three zones
-  const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
-  const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
-  const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
-
-  console.log('[PGR] palette extracted:',
-    'sky:', sky, 'mid:', mid, 'ground:', ground)
-
-  // Pass to TintManager
-  this.tintManager.setPaletteFromRGB({ sky, mid, ground })
-}
-
-_avgPixels(imageData) {
-  const d = imageData.data
-  let r = 0, g = 0, b = 0, count = 0
-  for (let i = 0; i < d.length; i += 4) {
-    r += d[i]; g += d[i+1]; b += d[i+2]; count++
-  }
-  return {
-    r: Math.round(r/count),
-    g: Math.round(g/count),
-    b: Math.round(b/count)
-  }
-} 
 
   setMood(mood) {
     this.tintManager.setMood(mood)
-    this._lastCamX = null  // force redraw
+    this._gcR      = null
+    this._lastCamX = null
   }
 
   setLighting({ darkness, radius, groundColour } = {}) {
@@ -480,21 +450,18 @@ _avgPixels(imageData) {
     ctx.restore()
   }
 
-  // Draw trapezoid with optional tint
   _drawTrapezoidTinted(ctx, gid, tl, tr, bl, br, tint) {
     const img = this._getTileCanvas(gid)
     if (!img) return
     const W = img.width, H = img.height
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:0},{u:W,v:H}, tl, tr, br)
     this._drawAffineTriangle(ctx, img, {u:0,v:0},{u:W,v:H},{u:0,v:H}, tl, br, bl)
-
     if (tint) {
       const { h, s, l, alpha } = tint
       ctx.save()
       ctx.globalCompositeOperation = 'source-atop'
       ctx.globalAlpha = alpha ?? 0.45
       ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
-      // Fill the trapezoid shape for tinting
       ctx.beginPath()
       ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y)
       ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y)
@@ -572,6 +539,7 @@ _avgPixels(imageData) {
     const sh        = this._sh
     const FL        = PerspectiveGroundRenderer.FOCAL_LENGTH
     const horizonPx = this._horizonPx()
+    const EX        = PerspectiveGroundRenderer.EDGE_EXTEND
 
     const layer0 = this.scene.mapData?.layers?.[0]
     const layer1 = this.scene.mapData?.layers?.[1] ?? null
@@ -582,21 +550,24 @@ _avgPixels(imageData) {
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    const groundColour = this._groundColour ?? 'transparent'
+    const fillGid  = layer0[mapH - 1]?.[Math.floor(mapW / 2)] ?? 733
+    const fillTint = this.tintManager.getTint(fillGid, 0, 0)
+
+    const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
 
     this._gCtx.clearRect(0, 0, sw, sh)
     const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
-    groundGrad.addColorStop(0, 'rgba(42, 58, 26, 0)')
-    groundGrad.addColorStop(1, groundColour)
+    groundGrad.addColorStop(0, 'rgba(0,0,0,0)')
+    groundGrad.addColorStop(1, gcR)
     this._gCtx.fillStyle = groundGrad
     this._gCtx.fillRect(0, horizonPx, sw, 80)
-    this._gCtx.fillStyle = groundColour
+    this._gCtx.fillStyle = gcR
     this._gCtx.fillRect(0, horizonPx + 80, sw, sh - horizonPx - 80)
 
     this._oCtx.clearRect(0, 0, sw, sh)
 
-    const tileRowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
-    const tileRowStart = Math.max(0, Math.floor(camRow - FL * 15))
+    const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX)
+    const tileRowStart = Math.max(0, Math.floor(camRow - FL * 8))
 
     const p = this._player
     let playerTileRow = -1
@@ -620,34 +591,56 @@ _avgPixels(imageData) {
       const yTop = this._rowToScreenY(tileRow)
       const yBot = this._rowToScreenY(tileRow + 1)
 
-      if (yBot === null) continue
-      if (yTop !== null && yTop > sh) continue
-      if (yBot < horizonPx) continue
 
-      const yTopClamped = (yTop === null || yTop < horizonPx) ? horizonPx : yTop
-      const yBotClamped = Math.min(sh + 2, yBot)
-      if (yBotClamped <= yTopClamped) continue
+
+if (yBot === null) continue
+if (yTop !== null && yTop > sh + 100) continue
+if (yBot < horizonPx - this.tileDisplaySize * 3) continue
+
+const yTopClamped = (yTop === null || yTop < horizonPx - this.tileDisplaySize) ? horizonPx - this.tileDisplaySize : yTop
+const yBotClamped = Math.min(sh + 100, yBot)
+if (yBotClamped <= yTopClamped) continue
+
+// Fade rows as they approach the horizon -- prevents pop-in flicker
+const distFromHorizon = yBotClamped - horizonPx
+const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60) : 1.0
+         // Fade rows as they approach the horizon -- prevents pop-in flicker
 
       const scaleNear = this._scaleAtRow(tileRow + 1)
       const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW
-      const colStart  = Math.max(0,      Math.floor(camCol - halfCols))
-      const colEnd    = Math.min(mapW-1, Math.ceil (camCol + halfCols))
+
+      const colStart = Math.floor(camCol - halfCols) - EX
+      const colEnd   = Math.ceil(camCol + halfCols)  + EX
+
+      const rowInMap = tileRow >= 0 && tileRow < mapH
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
-  const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
-const edgeAlpha = edgeDist === 0 ? 0.85
-                : edgeDist === 1 ? 0.92
-                : edgeDist === 2 ? 0.97
-                : 1.0
-      if (fov && fov.isHidden(tileCol, tileRow)) continue
 
-        const tileAlpha = edgeAlpha
+        // Early cull -- skip tiles off screen horizontally
+        const xTL = this._colToScreenX(tileCol,     tileRow)
+        const xTR = this._colToScreenX(tileCol + 1, tileRow)
+        if (xTR < -10 || xTL > sw + 10) continue
 
-        // Ground tile -- tinted via TintManager
-        const gid0 = layer0[tileRow]?.[tileCol]
+        const colInMap = tileCol >= 0 && tileCol < mapW
+        const inMap    = rowInMap && colInMap
+
+        const edgeDist  = inMap
+          ? Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
+          : -1
+        const edgeAlpha = edgeDist === 0 ? 0.85
+                        : edgeDist === 1 ? 0.92
+                        : edgeDist === 2 ? 0.97
+                        : 1.0
+
+        if (inMap && fov && fov.isHidden(tileCol, tileRow)) continue
+
+        const tileAlpha = edgeAlpha * horizonFade
+
+        const gid0 = inMap
+          ? (layer0[tileRow]?.[tileCol] ?? fillGid)
+          : fillGid
+
         if (gid0) {
-          const xTL = this._colToScreenX(tileCol,     tileRow)
-          const xTR = this._colToScreenX(tileCol + 1, tileRow)
           const xBL = this._colToScreenX(tileCol,     tileRow + 1)
           const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
           this._gCtx.globalAlpha = tileAlpha
@@ -659,10 +652,10 @@ const edgeAlpha = edgeDist === 0 ? 0.85
             this._gCtx.moveTo(xTL, yTopClamped); this._gCtx.lineTo(xTR, yTopClamped)
             this._gCtx.lineTo(xBR, yBotClamped); this._gCtx.lineTo(xBL, yBotClamped)
             this._gCtx.closePath(); this._gCtx.fill()
-            this._gCtx.strokeStyle = 'rgba(255,255,255,0.25)'
-            this._gCtx.lineWidth = 0.5; this._gCtx.stroke()
           } else {
-            const tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
+            const tint0 = inMap
+              ? this.tintManager.getTint(gid0, tileCol, tileRow)
+              : fillTint
             this._drawTrapezoidTinted(this._gCtx, gid0,
               {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
               {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
@@ -685,8 +678,8 @@ const edgeAlpha = edgeDist === 0 ? 0.85
           playerDrawn = true
         }
 
-        // Object tile -- tinted via TintManager for all types
-        if (layer1) {
+        // Object tile -- only for in-map tiles
+        if (inMap && layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
             const tint1       = this.tintManager.getTint(gid1, tileCol, tileRow)
@@ -694,7 +687,6 @@ const edgeAlpha = edgeDist === 0 ? 0.85
             const isBillboard = this._flatGids.has(gid1)
 
             if (isStamp || isBillboard) {
-              // Billboard rendering
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
@@ -714,9 +706,6 @@ const edgeAlpha = edgeDist === 0 ? 0.85
                 this._oCtx.globalAlpha = 1.0
               }
             } else {
-              // Flat trapezoid rendering
-              const xTL = this._colToScreenX(tileCol,     tileRow)
-              const xTR = this._colToScreenX(tileCol + 1, tileRow)
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
               this._gCtx.globalAlpha = tileAlpha
@@ -730,14 +719,12 @@ const edgeAlpha = edgeDist === 0 ? 0.85
           }
         }
 
-        // Encounter flags
-        if (this._encounterFlags?.length) {
+        // Encounter flags -- only for in-map tiles
+        if (inMap && this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
             if (!flag.visual?.gid) continue
             if (flag.visual.flat) {
-              const xTL = this._colToScreenX(tileCol,     tileRow)
-              const xTR = this._colToScreenX(tileCol + 1, tileRow)
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
               this._gCtx.globalAlpha = tileAlpha
@@ -775,13 +762,7 @@ const edgeAlpha = edgeDist === 0 ? 0.85
       }
 
     } // tileRow
-// After the tile rendering loops, fill any gap at south edge
-const lastRowY = this._rowToScreenY(tileRowEnd + 1)
-if (lastRowY !== null && lastRowY < sh) {
-  this._gCtx.fillStyle = groundColour
-  this._gCtx.globalAlpha = 1.0
-  this._gCtx.fillRect(0, lastRowY, sw, sh - lastRowY)
-}
+
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
@@ -859,4 +840,4 @@ if (lastRowY !== null && lastRowY < sh) {
     console.log('[PGR v8] destroyed')
   }
 }
- 
+

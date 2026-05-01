@@ -271,8 +271,8 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.itemSheet = new ItemSheetHelper(this)
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
-
-    this.walkGrid   = this._buildWalkGrid()
+this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
+this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
 
@@ -306,7 +306,23 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
     this._createWorldUI()
-    this.bowMechanics = new BowMechanics(this, this.player)
+
+
+
+
+this._statusBar = document.createElement('div')
+this._statusBar.id = 'status-bar'
+this._statusBar.style.cssText = [
+  'position:fixed', 'bottom:0', 'left:0', 'right:0',
+  'height: 42px',
+  'z-index:20',
+  'pointer-events:none',
+  'background:rgba(45, 35, 20, 1)',
+].join(';')
+document.body.appendChild(this._statusBar)
+
+
+   this.bowMechanics = new BowMechanics(this, this.player)
     this.showIntroNarrative()
     this.onEnter()
 
@@ -663,7 +679,12 @@ getSkyImage() { return '/assets/skies/bog_threshold_sky.png' }
     if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
-  }
+ 
+if (this._statusBar?.parentNode) {
+  this._statusBar.parentNode.removeChild(this._statusBar)
+  this._statusBar = null
+}
+ }
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }

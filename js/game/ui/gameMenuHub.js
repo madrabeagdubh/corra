@@ -2,17 +2,15 @@
  * gameMenuHub.js
  *
  * A swipeable panel system that wraps multiple game views.
- * Lives as a DOM overlay above the Phaser canvas.
+ * Tab bar sits at the TOP of the screen.
+ * Content panel fills below the tab bar.
  *
- * Tab strip sits bottom-right, mirroring the dpad position bottom-left.
- * DOM content panel expands leftward/upward from the tab strip.
- *
- * Panels (in order):
- *   inventory  -- backpack icon  -- fires onInventoryOpen/onInventoryClose
- *   stats      -- sword/shield   -- DOM panel
- *   labhairt   -- speech bubble  -- fires onLabhairtOpen/onLabhairtClose
- *   log        -- scroll/book    -- DOM panel
- *   about      -- question mark  -- DOM panel (credits)
+ * Panels:
+ *   inventory  🎒  -- fires onInventoryOpen/onInventoryClose
+ *   stats      ⚔️  -- DOM panel
+ *   labhairt   💬  -- fires onLabhairtOpen/onLabhairtClose
+ *   log        📜  -- DOM panel
+ *   about      ?   -- DOM panel (credits)
  */
 
 import { FONTS, COLORS } from '../systems/gameTypography.js';
@@ -37,26 +35,22 @@ const PANEL_BG       = 'rgba(8,6,2,0.95)';
 const ABOUT_CONTENT = {
     sections: [
         {
-            titleGa: 'Íomhánna',
-            titleEn: 'Images',
+            titleGa: 'Íomhánna',   titleEn: 'Images',
             bodyGa:  'Lorem ipsum agus lorem an ipsum. Gailearaí Náisiúnta na hÉireann.',
             bodyEn:  'Landscape paintings used with permission. National Gallery of Ireland, Dublin.',
         },
         {
-            titleGa: 'Ceol',
-            titleEn: 'Music',
+            titleGa: 'Ceol',       titleEn: 'Music',
             bodyGa:  'Lorem ipsum agus lorem an ipsum. Ceol traidisiúnta na hÉireann.',
             bodyEn:  'Traditional Irish music. Lorem ipsum and lorem the ipsum.',
         },
         {
-            titleGa: 'Tileanna',
-            titleEn: 'Tiles',
+            titleGa: 'Tileanna',   titleEn: 'Tiles',
             bodyGa:  'Lorem ipsum agus lorem an ipsum. Oryx Design Lab.',
             bodyEn:  'Pixel art tileset by Oryx Design Lab. Lorem ipsum.',
         },
         {
-            titleGa: 'Forbairt',
-            titleEn: 'Development',
+            titleGa: 'Forbairt',   titleEn: 'Development',
             bodyGa:  'Lorem ipsum agus lorem an ipsum. Claude Sonnet, Anthropic.',
             bodyEn:  'Developed with assistance from Claude (Anthropic). Lorem ipsum agus lorem.',
         },
@@ -73,48 +67,26 @@ export function createGameMenuHub({
     let destroyed = false;
     let curIdx    = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
 
-    // -- Root -- positioned bottom-right, mirroring dpad bottom-left
+    // -- Root overlay -- full screen, flex column, tab bar on top
     const root = document.createElement('div');
     root.id = 'gameMenuHub';
     root.style.cssText = [
-        'position:fixed;bottom:0;right:0;',
+        'position:fixed;inset:0;',
         'z-index:1000002;',
         'display:none;',
-        'flex-direction:row;',         // tab strip on right, content to left
-        'align-items:flex-end;',       // both anchored to bottom
+        'flex-direction:column;',
         'pointer-events:none;',
         'opacity:0;',
         'transition:opacity 0.18s ease;',
     ].join('');
     document.body.appendChild(root);
 
-    // -- DOM content panel -- appears to the left of the tab strip --
-    const domArea = document.createElement('div');
-    domArea.style.cssText = [
-        'flex:1;',
-        'min-width:0;',
-        'width:calc(100vw - 64px);',   // full width minus tab strip
-        'max-height:60vh;',
-        'overflow:hidden;',
-        'pointer-events:all;',
-        'display:none;',
-        `background:${PANEL_BG};`,
-        `border:1px solid ${GOLD_BORDER};`,
-        'border-bottom:none;',
-        'border-right:none;',
-    ].join('');
-    root.appendChild(domArea);
-
-    // -- Tab strip -- vertical column on the right --
+    // -- Tab bar -- horizontal strip at TOP --
     const tabBar = document.createElement('div');
     tabBar.style.cssText = [
-        'display:flex;',
-        'flex-direction:column;',
-        'align-items:stretch;',
-        'width:60px;',
+        'display:flex;align-items:stretch;',
         `background:${PANEL_BG};`,
-        `border-left:2px solid ${GOLD_BORDER};`,
-        `border-top:2px solid ${GOLD_BORDER};`,
+        `border-bottom:2px solid ${GOLD_BORDER};`,
         'pointer-events:all;',
         'flex-shrink:0;',
     ].join('');
@@ -122,11 +94,12 @@ export function createGameMenuHub({
     const tabEls = PANELS.map((panel, i) => {
         const tab = document.createElement('div');
         tab.style.cssText = [
-            'padding:0.7rem 0.1rem;',
+            'flex:1;padding:0.55rem 0.1rem;',
             'text-align:center;cursor:pointer;',
             'display:flex;flex-direction:column;',
             'align-items:center;justify-content:center;',
-            `border-top:1px solid ${GOLD_BORDER};`,
+            'gap:3px;',
+            `border-right:1px solid ${GOLD_BORDER};`,
             'transition:background 0.15s;',
             'user-select:none;-webkit-user-select:none;',
         ].join('');
@@ -164,6 +137,17 @@ export function createGameMenuHub({
 
     root.appendChild(tabBar);
 
+    // -- DOM content area -- fills remaining space below tab bar --
+    const domArea = document.createElement('div');
+    domArea.style.cssText = [
+        'flex:1;',
+        'overflow:hidden;',
+        'pointer-events:all;',
+        'display:none;',
+        `background:${PANEL_BG};`,
+    ].join('');
+    root.appendChild(domArea);
+
     // -- Build DOM panels --
     const domPanels = {};
     PANELS.forEach((panel) => {
@@ -174,8 +158,7 @@ export function createGameMenuHub({
             'width:100%;height:100%;',
             'display:flex;flex-direction:column;',
             'align-items:center;justify-content:center;',
-            'gap:0.5rem;',
-            'overflow-y:auto;',
+            'gap:0.5rem;overflow-y:auto;',
         ].join('');
 
         if (panel.key === 'about') {
@@ -198,40 +181,23 @@ export function createGameMenuHub({
 
     function _buildAboutPanel(container) {
         container.style.cssText += 'padding:1.2rem;gap:1rem;justify-content:flex-start;'
-
         const heading = document.createElement('div')
         heading.style.cssText = [
-            `font-family:${FONTS.irish};`,
-            'font-size:1.4rem;',
-            `color:${COLORS.speaker};`,
-            'text-align:center;',
-            'padding-bottom:0.4rem;',
+            `font-family:${FONTS.irish};font-size:1.4rem;`,
+            `color:${COLORS.speaker};text-align:center;`,
+            'padding-bottom:0.4rem;width:100%;',
             `border-bottom:1px solid ${GOLD_BORDER};`,
-            'width:100%;',
         ].join('')
         heading.textContent = 'Corra'
         container.appendChild(heading)
 
         ABOUT_CONTENT.sections.forEach(section => {
-            const block = document.createElement('div')
+            const block  = document.createElement('div')
             block.style.cssText = 'width:100%;'
-
             const sTitle = document.createElement('div')
-            sTitle.style.cssText = [
-                `font-family:${FONTS.irish};`,
-                'font-size:0.95rem;',
-                `color:${COLORS.speaker};`,
-                'margin-bottom:0.2rem;',
-            ].join('')
-
-            const sBody = document.createElement('div')
-            sBody.style.cssText = [
-                `font-family:${FONTS.english};`,
-                'font-size:0.78rem;',
-                `color:${COLORS.uiDim};`,
-                'line-height:1.5;',
-            ].join('')
-
+            sTitle.style.cssText = `font-family:${FONTS.irish};font-size:0.95rem;color:${COLORS.speaker};margin-bottom:0.2rem;`
+            const sBody  = document.createElement('div')
+            sBody.style.cssText  = `font-family:${FONTS.english};font-size:0.78rem;color:${COLORS.uiDim};line-height:1.5;`
             const update = () => {
                 const useEn = GameSettings.englishOpacity >= 0.5
                 sTitle.textContent = useEn ? section.titleEn : section.titleGa
@@ -239,67 +205,47 @@ export function createGameMenuHub({
             }
             update()
             block._update = update
-
             block.appendChild(sTitle)
             block.appendChild(sBody)
             container.appendChild(block)
         })
-
-        container._updateLanguage = () => {
-            Array.from(container.children).forEach(c => c._update?.())
-        }
+        container._updateLanguage = () => Array.from(container.children).forEach(c => c._update?.())
     }
 
-    // -- Swipe detection on domArea --
-    let swipeStartX = 0;
-    let swipeStartT = 0;
-    let swiping     = false;
-
-    domArea.addEventListener('pointerdown', (e) => {
-        swipeStartX = e.clientX;
-        swipeStartT = performance.now();
-        swiping     = true;
-    }, { passive: true });
-
-    domArea.addEventListener('pointerup', (e) => {
+    // -- Swipe detection --
+    let swipeStartX = 0, swipeStartT = 0, swiping = false;
+    root.addEventListener('pointerdown', (e) => { swipeStartX = e.clientX; swipeStartT = performance.now(); swiping = true; }, { passive: true });
+    root.addEventListener('pointerup', (e) => {
         if (!swiping) return;
         swiping = false;
         const dx = e.clientX - swipeStartX;
         const dt = performance.now() - swipeStartT;
         if (Math.abs(dx) > 45 && dt < 400) {
-            const dir = dx < 0 ? 1 : -1;
-            _goTo(Math.max(0, Math.min(PANELS.length - 1, curIdx + dir)));
+            _goTo(Math.max(0, Math.min(PANELS.length - 1, curIdx + (dx < 0 ? 1 : -1))));
         }
     }, { passive: true });
 
     // -- Panel navigation --
     function _goTo(idx, skipCallbacks) {
-        const prev    = PANELS[curIdx].key;
-        curIdx        = idx;
+        const prev = PANELS[curIdx].key;
+        curIdx = idx;
         const current = PANELS[curIdx].key;
         GameSettings.lastMenuPanel = current;
-
         _updateTabs();
 
         if (!skipCallbacks) {
-            if (prev === 'inventory' && current !== 'inventory') {
-                if (onInventoryClose) onInventoryClose();
-            }
-            if (prev === 'labhairt' && current !== 'labhairt') {
-                if (onLabhairtClose) onLabhairtClose();
-            }
+            if (prev === 'inventory' && current !== 'inventory' && onInventoryClose) onInventoryClose();
+            if (prev === 'labhairt'  && current !== 'labhairt'  && onLabhairtClose)  onLabhairtClose();
         }
 
         if (current === 'inventory') {
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onInventoryOpen) onInventoryOpen();
-
         } else if (current === 'labhairt') {
             domArea.style.display = 'none';
             Object.values(domPanels).forEach(p => p.style.display = 'none');
             if (!skipCallbacks && onLabhairtOpen) onLabhairtOpen();
-
         } else {
             domArea.style.display = 'block';
             Object.entries(domPanels).forEach(([key, el]) => {
@@ -322,13 +268,11 @@ export function createGameMenuHub({
 
     window.addEventListener('englishOpacityChange', () => {
         _updateTabs()
-        const aboutEl = domPanels['about']
-        if (aboutEl?._updateLanguage) aboutEl._updateLanguage()
+        domPanels['about']?._updateLanguage?.()
     })
 
-    // -- Open / close --
     function _open() {
-        open   = true;
+        open = true;
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
         _goTo(curIdx, false);
@@ -338,11 +282,9 @@ export function createGameMenuHub({
     function _close() {
         open = false;
         root.style.opacity = '0';
-
         const current = PANELS[curIdx].key;
         if (current === 'inventory' && onInventoryClose) onInventoryClose();
         if (current === 'labhairt'  && onLabhairtClose)  onLabhairtClose();
-
         const onFaded = () => {
             root.removeEventListener('transitionend', onFaded);
             if (!open) root.style.display = 'none';
@@ -355,14 +297,9 @@ export function createGameMenuHub({
         close()        { _close(); },
         isOpen()       { return open; },
         currentPanel() { return PANELS[curIdx].key; },
-
         setContent(key, el) {
-            if (domPanels[key]) {
-                domPanels[key].innerHTML = '';
-                domPanels[key].appendChild(el);
-            }
+            if (domPanels[key]) { domPanels[key].innerHTML = ''; domPanels[key].appendChild(el); }
         },
-
         destroy() {
             if (destroyed) return;
             destroyed = true;

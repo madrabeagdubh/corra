@@ -78,11 +78,19 @@ export default class BaseLocationScene extends Phaser.Scene {
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
 
-    this.joystick = new Joystick(this, {
-      x: 100,
-      y: this.scale.height - 100,
-      radius: 60
-    });
+
+
+
+
+
+
+  if (!this.joystick) {  
+	  this.joystick = new Joystick(this, { x: 100,     y: this.scale.height - 100, radius: 60 })            }
+
+
+
+
+
 
     this.textPanel = new TextPanel(this);
 

@@ -425,55 +425,69 @@ this._menuHub?.open()
   }
 
 _createWorldUI() {
-    this.worldMenu = new WorldMenu(this, { player: this.player })
+  this.worldMenu = new WorldMenu(this, { player: this.player })
 
-    // Easca3 keyboard — hidden until Labhair tab is opened
-    this._easca = new Easca3(this, (text) => {
-      console.log('[Labhair] Player said:', text)
-      // TODO: route `text` to NPC handler / LLM endpoint
-      // e.g. this.events.emit('playerSpoke', text)
-    })
+  this._easca = new Easca3(this, (text) => {
+    console.log('[Labhair] Player said:', text)
+  })
 
-    this._menuHub = createGameMenuHub({
-      onInventoryOpen:  () => {
-        this.time.delayedCall(50, () => this.worldMenu?.open())
-      },
-      onInventoryClose: () => {
-        if (this.worldMenu?.isOpen) this._closeWorldMenuSilently()
-      },
-      onLabhairtOpen:  () => { this._easca?.showKeyboard() },
-      onLabhairtClose: () => { this._easca?.hideKeyboard() },
-    })
+  this._menuHub = createGameMenuHub({
+    onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()) },
+    onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently() },
+    onLabhairtOpen:   () => { this._easca?.showKeyboard() },
+    onLabhairtClose:  () => { this._easca?.hideKeyboard() },
+  })
 
+  // Joystick with embedded moon hub
+  // Must be created HERE before initializeLocation() runs, so base class
+  // skips its own joystick creation (guard added to baseLocationScene.js)
+  const joyX = 100
+  const joyY = this.scale.height - 100
+  const joyR = 60
 
+  this.joystick = new Joystick(this, {
+    x:           joyX,
+    y:           joyY,
+    radius:      joyR,
+    onTap:       () => this._onMoonTap(),
+    onLongPress: () => this._menuHub?.isOpen() ? this._menuHub.close() : this._menuHub.open(),
+    onSwipe:     (dx) => this._moonWidget?.nudgePhase(dx),
+  })
 
+  // Moon widget in embedded mode -- renders into the joystick hub canvas
+  const hubCanvas = this.joystick.getMoonCanvas()
+  const hubR      = this.joystick.getMoonRadius()
 
+  this._moonWidget = createMoonWidget({
+    initialPhase:   GameSettings.englishOpacity,
+    embeddedCanvas: hubCanvas,
+    embeddedRadius: hubR,
+    swipeRange:     150,
+    onChange: (phase) => {
+      GameSettings.setEnglishOpacity(phase)
+      if (this.textPanel)  this.textPanel.updateEnglishOpacity()
+      if (this.worldMenu?.itemDetailPanel)
+        this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+      if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
+    },
+  })
 
-// Create joystick with hub callbacks
-this._joystick = new Joystick(this, {
-  x: joystickX, y: joystickY, radius: joystickR,
-  onTap:       () => this._onMoonTap(),
-  onLongPress: () => this._menuHub?.isOpen() ? this._menuHub.close() : this._menuHub.open(),
-  onSwipe:     (dx) => this._moonWidget?.nudgePhase(dx),
-})
+  // Status bar
+  const gameContainer = document.getElementById('gameContainer')
+  this._statusBar = document.createElement('div')
+  this._statusBar.id = 'status-bar'
+  this._statusBar.style.cssText = [
+    'position:absolute', 'bottom:0', 'left:0', 'right:0',
+    'height:42px',
+    'z-index:50',
+    'pointer-events:none',
+    'background:rgba(45,35,20,1)',
+  ].join(';')
+  gameContainer.appendChild(this._statusBar)
 
-// Create moon widget in embedded mode using joystick's hub canvas
-this._moonWidget = createMoonWidget({
-  initialPhase:   GameSettings.englishOpacity,
-  embeddedCanvas: this._joystick.getMoonCanvas(),
-  embeddedRadius: this._joystick.getMoonRadius(),
-  swipeRange:     150,
-  onChange: (phase) => {
-    GameSettings.setEnglishOpacity(phase)
-   if (this.textPanel)  this.textPanel.updateEnglishOpacity()
-    if (this.worldMenu?.itemDetailPanel)
-      this.worldMenu.itemDetailPanel.updateLanguageOpacity()
-    if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
-  },
-  onTap: () => this._onMoonTap(),
-}) 
-    this._encounterPanel = new EncounterPanel(this, this._moonWidget)
-  }
+  this._encounterPanel = new EncounterPanel(this, this._moonWidget)
+}
+
 
  
 

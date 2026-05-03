@@ -50,8 +50,19 @@ export class EncounterPanel {
   // -- Badge ----------------------------------------------------------------
 
   _buildBadge() {
-    const moonCanvas = this._moonWidget.element.querySelector('canvas')
-    const size       = moonCanvas ? (moonCanvas.offsetWidth || moonCanvas.width || 48) : 48
+    // Support both standalone mode (element is a div wrapping a canvas)
+    // and embedded mode (element is null, canvas is in the joystick hub)
+    const moonElement = this._moonWidget?.element
+
+    // Get the canvas -- try getCanvas() first (embedded mode),
+    // then fall back to querySelector on the element (standalone mode)
+    const moonCanvas = this._moonWidget?.getCanvas?.()
+      ?? moonElement?.querySelector('canvas')
+      ?? null
+
+    const size = moonCanvas
+      ? (moonCanvas.offsetWidth || moonCanvas.width || 48)
+      : 48
 
     const badge = document.createElement('canvas')
     badge.width  = size
@@ -77,7 +88,18 @@ export class EncounterPanel {
       this._openPanel()
     })
 
-    this._moonWidget.element.appendChild(badge)
+    // Append to the moon element if standalone, or to the joystick hub if embedded
+    const hubEl = document.getElementById('dpad-moon-hub')
+    const parent = moonElement ?? hubEl
+
+    if (parent) {
+      parent.appendChild(badge)
+    } else {
+      // Last resort -- append to body, positioned over hub
+      document.body.appendChild(badge)
+      console.warn('[EncounterPanel] could not find moon element to attach badge')
+    }
+
     this._badgeEl = badge
   }
 
@@ -160,9 +182,6 @@ export class EncounterPanel {
   }
 
   // -- Fixed encounter ------------------------------------------------------
-  // Selects the appropriate dialogue for the current cycle position,
-  // respecting `requires` conditions. Advances npcProgress on dismiss.
-  // The flag is never cleared from the map.
 
   _openFixedEncounter(zone) {
     this._isOpen = true
@@ -176,19 +195,14 @@ export class EncounterPanel {
     const dialogues = zone.getData('dialogues') || []
     if (!dialogues.length) { this._onPanelClosed(); return }
 
-    // Walk the dialogue list from the current progress index, wrapping around,
-    // and pick the first entry whose `requires` condition is satisfied (or
-    // which has no condition). This means conditional lines slot naturally
-    // into the cycle -- if the condition isn't met they're skipped entirely.
-
     const baseIndex = GameState.getNPCProgress(stateKey)
     const total     = dialogues.length
     let   chosen    = null
     let   chosenIdx = baseIndex
 
     for (let i = 0; i < total; i++) {
-      const idx  = (baseIndex + i) % total
-      const d    = dialogues[idx]
+      const idx = (baseIndex + i) % total
+      const d   = dialogues[idx]
       if (this._requiresMet(d.requires)) {
         chosen    = d
         chosenIdx = idx
@@ -196,11 +210,7 @@ export class EncounterPanel {
       }
     }
 
-    if (!chosen) {
-      // All dialogues gated -- nothing to show right now
-      this._onPanelClosed()
-      return
-    }
+    if (!chosen) { this._onPanelClosed(); return }
 
     const bgKey      = this._resolveBgKey()
     const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
@@ -213,20 +223,12 @@ export class EncounterPanel {
       graphicKey,
       options:  null,
       onDismiss: () => {
-        // Advance to the next dialogue in the cycle for next visit
         const nextIdx = (chosenIdx + 1) % total
         GameState.setNPCProgress(stateKey, nextIdx)
         this._onPanelClosed()
       }
     })
   }
-
-  // Checks a `requires` object against current GameState.
-  // Returns true if there is no condition, or the condition is met.
-  // Supported:
-  //   { note: 'flag_name' }
-  //   { quest: 'quest_id' }         -- active OR complete
-  //   { questComplete: 'quest_id' } -- complete only
 
   _requiresMet(requires) {
     if (!requires) return true
@@ -320,7 +322,6 @@ export class EncounterPanel {
     const graphicKey = this._resolveGraphicKey(card?.visual)
 
     switch (outcome.type) {
-
       case 'loot': {
         if (outcome.sound) {
           try { this._scene.sound.play(outcome.sound) } catch(e) {}
@@ -340,11 +341,9 @@ export class EncounterPanel {
         }
         break
       }
-
       case 'persist':
         this._onPanelClosed()
         break
-
       case 'dismiss':
       default:
         if (outcome.textGa || outcome.textEn) {
@@ -366,8 +365,6 @@ export class EncounterPanel {
 
   // -- Dismiss helpers ------------------------------------------------------
 
-  // Called when a random encounter is fully resolved -- marks collected,
-  // clears the PGR flag, removes from interactables.
   _finalDismiss() {
     const obj      = this._active
     const stateKey = obj?.getData('stateKey')
@@ -391,7 +388,6 @@ export class EncounterPanel {
     this._onPanelClosed()
   }
 
-  // Called after any encounter closes (fixed or random).
   _onPanelClosed() {
     if (this._chainTimer) { clearTimeout(this._chainTimer); this._chainTimer = null }
     this._isOpen     = false
@@ -419,4 +415,4 @@ export class EncounterPanel {
     this._scene = null
   }
 }
- 
+

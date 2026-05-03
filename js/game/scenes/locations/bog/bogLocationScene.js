@@ -16,6 +16,7 @@ import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
 import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
 import { EncounterPanel } from '../../../ui/encounterPanel.js'
 import Easca3 from '../../../ui/easca3.js'
+import Joystick from '../../../input/joystick.js'
 
 window.GameState = GameState
 
@@ -23,16 +24,11 @@ const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54
 const SCALE = 2
 
 const ALWAYS_UNWALKABLE = new Set([
-  1634, 1688,
-  740,
-  228, 231, 233, 234,
-  235, 236, 226, 229,
-  230, 232, 242, 243,
+  1634, 1688, 740,
+  228, 231, 233, 234, 235, 236, 226, 229, 230, 232, 242, 243,
   217, 218, 219,
-  120, 121, 122, 123,
-  124, 125, 126, 127,
-  128, 129, 130, 131,
-  132, 133, 134, 135,
+  120, 121, 122, 123, 124, 125, 126, 127,
+  128, 129, 130, 131, 132, 133, 134, 135,
 ])
 
 export default class BogLocationScene extends BaseLocationScene {
@@ -44,23 +40,16 @@ export default class BogLocationScene extends BaseLocationScene {
   getMusicTrack()          { return null }
   getExtraUnwalkableGIDs() { return new Set() }
   onEnter()                {}
+  getSkyImage()            { return '/assets/skies/bog_threshold_sky.png' }
 
   init(data) {
     this.entryData = data || {}
     console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
   }
 
-
-
-
-
-getSkyImage() { return null }
-
-
   preload() {
-   
-this.load.image('encounterPanelBG', '/assets/panelBG.png');
-	  this.load.image('darkStone',            'assets/darkStone.png')
+    this.load.image('encounterPanelBG', '/assets/panelBG.png')
+    this.load.image('darkStone',            'assets/darkStone.png')
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png')
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png')
     this.load.json('championAtlas', 'assets/champions/champions0.json')
@@ -87,15 +76,6 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.load.image('oryxItems',   '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
   }
 
-// REPLACEMENT for _loadContent() in bogLocationScene.js
-// Drop this in place of the existing _loadContent() method.
-//
-// Changes from original:
-//   1. Random encounters: saved layout is restored from GameState on re-entry
-//      rather than re-drawing from the deck. Only draws fresh on first visit.
-//   2. Fixed encounters: loaded from content.fixedEncounters and placed at
-//      their exact tile positions, registered with PGR exactly like random flags.
-
   async _loadContent() {
     const jsKey  = this.getContentKey()
     const mapKey = this.getMapKey()
@@ -108,26 +88,18 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
 
-      // -- Fixed encounters -------------------------------------------------
-      // Placed at exact narrative positions. Never consumed; dialogue cycles
-      // via GameState.npcProgress. Registered with PGR for badge + perspective.
-
       const fixedEncounters = content.fixedEncounters || []
       fixedEncounters.forEach(enc => {
         this.mapData.objects.push({
-          id:       enc.id,
-          type:     'fixed_encounter',
-          x:        enc.x,
-          y:        enc.y,
-          stateKey: `${mapKey}.${enc.id}`,
-          visual:   enc.visual || { gid: 255, flat: false },
+          id:        enc.id,
+          type:      'fixed_encounter',
+          x:         enc.x,
+          y:         enc.y,
+          stateKey:  `${mapKey}.${enc.id}`,
+          visual:    enc.visual || { gid: 255, flat: false },
           dialogues: enc.dialogues || [],
         })
       })
-
-      // -- Random encounters ------------------------------------------------
-      // On first visit: draw from deck, save layout to GameState.
-      // On re-entry: restore saved layout (same positions, skip collected).
 
       const occupied = new Set()
       this.mapData.objects.forEach(o => occupied.add(`${o.x},${o.y}`))
@@ -136,15 +108,11 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
       const savedLayout = GameState.getEncounterLayout(mapKey)
 
       if (savedLayout) {
-        // Restore -- only place encounters not yet collected
         savedLayout.forEach(entry => {
           const stateKey = `${mapKey}.${entry.id}`
           if (GameState.isCollected(stateKey)) return
-
-          // Find the card definition from the deck so we keep visual/text
           const card = forestDeck.find(c => c.id === entry.id)
           if (!card) return
-
           this.mapData.objects.push({
             id:       card.id,
             type:     'encounter_flag',
@@ -156,79 +124,60 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
             actions:  card.actions || [],
           })
         })
-
         console.log(`[${this.scene.key}] restored encounter layout (${savedLayout.length} cards)`)
-
       } else {
-        // First visit -- draw, place, save layout
-
         const layer0   = this.mapData.layers[0]
         const mapH     = this.mapData.height
         const mapW     = this.mapData.width
         const walkable = []
-
         for (let y = 1; y < mapH - 1; y++) {
           for (let x = 1; x < mapW - 1; x++) {
             const gid = layer0[y]?.[x]
-            if (!gid) continue
-            if (ALWAYS_UNWALKABLE.has(gid)) continue
-            if (occupied.has(`${x},${y}`)) continue
+            if (!gid || ALWAYS_UNWALKABLE.has(gid) || occupied.has(`${x},${y}`)) continue
             walkable.push({ x, y })
           }
         }
-
         walkable.sort(() => Math.random() - 0.5)
 
-        const deck      = new EncounterDeck(forestDeck)
-        const drawn     = deck.draw(6)
-        let   wi        = 0
-        const placed    = []
-        const layoutToSave = []
-        const MIN_SPACING  = 6
+        const deck = new EncounterDeck(forestDeck)
+        const drawn = deck.draw(6)
+        let wi = 0
+        const placed = [], layoutToSave = []
+        const MIN_SPACING = 6
 
         drawn.forEach(card => {
           const stateKey = `${mapKey}.${card.id}`
           if (GameState.isCollected(stateKey)) return
-
           let tile = null
           while (wi < walkable.length) {
             const candidate = walkable[wi++]
-            const tooClose = placed.some(p =>
-              Math.abs(candidate.x - p.x) + Math.abs(candidate.y - p.y) < MIN_SPACING
-            )
-            if (!tooClose) { tile = candidate; break }
+            if (!placed.some(p => Math.abs(candidate.x - p.x) + Math.abs(candidate.y - p.y) < MIN_SPACING)) {
+              tile = candidate; break
+            }
           }
           if (!tile) return
-
           placed.push(tile)
           layoutToSave.push({ id: card.id, x: tile.x, y: tile.y })
-
           this.mapData.objects.push({
-            id:       card.id,
-            type:     'encounter_flag',
-            x:        tile.x,
-            y:        tile.y,
-            stateKey: stateKey,
-            visual:   card.visual,
-            text:     { ga: card.ga, en: card.en },
-            actions:  card.actions || [],
+            id: card.id, type: 'encounter_flag',
+            x: tile.x, y: tile.y, stateKey,
+            visual: card.visual,
+            text: { ga: card.ga, en: card.en },
+            actions: card.actions || [],
           })
         })
-
         GameState.setEncounterLayout(mapKey, layoutToSave)
         console.log(`[${this.scene.key}] new encounter layout saved (${layoutToSave.length} cards)`)
       }
 
       console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
-
     } catch(e) {
       console.warn(`[${this.scene.key}] content file not found for ${jsKey}:`, e.message)
-      this.mapData.objects        = []
-      this.mapData.npcs           = []
+      this.mapData.objects = []
+      this.mapData.npcs = []
       this.mapData.introNarrative = []
     }
   }
- 
 
   getContentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
@@ -253,16 +202,24 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.mapData.tiles           = this.mapData.layers[0]
     this.mapData.unwalkableTiles = []
 
-    if (!this.mapData.spawns) this.mapData.spawns = { player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) } }
-    if (!this.mapData.exits)  this.mapData.exits  = {}
+    if (!this.mapData.spawns) this.mapData.spawns = {
+      player: { x: Math.floor(this.mapData.width / 2), y: Math.floor(this.mapData.height / 2) }
+    }
+    if (!this.mapData.exits) this.mapData.exits = {}
 
+    // Input UI first -- creates this.joystick so base class skips its plain one
+    this._createInputUI()
+
+    // Creates player, uses this.joystick if it already exists
     this.initializeLocation()
+
+    // Player UI -- needs player to exist
+    this._createPlayerUI()
 
     if (this.perspectiveGround) {
       this.perspectiveGround.setPlayer(this.player)
     }
 
-    // Register encounter flags with PGR
     if (this._pendingFlags?.length && this.perspectiveGround) {
       this.perspectiveGround.setEncounterFlags(this._pendingFlags)
       this._pendingFlags = []
@@ -271,18 +228,16 @@ this.load.image('encounterPanelBG', '/assets/panelBG.png');
     this.itemSheet = new ItemSheetHelper(this)
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
-this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
-this.walkGrid   = this._buildWalkGrid()
+    this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
+
+    this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
     this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
 
-    if (this.perspectiveGround) {
-    //  this.fogRenderer = new FogRenderer(this.perspectiveGround)
-    }
+    // this.fogRenderer = new FogRenderer(this.perspectiveGround)
 
     this._lastFovKey = null
     this._recomputeFov()
-
     this._setupTapToPath()
 
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
@@ -293,8 +248,7 @@ this.walkGrid   = this._buildWalkGrid()
 
     const pl = this.getPlayerLight()
     this.playerLight = this.lights.addLight(
-      this.player.logicalX, this.player.logicalY,
-      pl.radius || 300
+      this.player.logicalX, this.player.logicalY, pl.radius || 300
     ).setIntensity(pl.intensity || 2.0).setColor(pl.color || 0xfff2cc)
 
     const mw = this.mapWidth, mh = this.mapHeight
@@ -305,47 +259,171 @@ this.walkGrid   = this._buildWalkGrid()
     const track = this.getMusicTrack()
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
-    this._createWorldUI()
-
-
-
-const gameContainer = document.getElementById('gameContainer')
-this._statusBar = document.createElement('div')
-this._statusBar.id = 'status-bar'
-this._statusBar.style.cssText = [
-  'position:absolute', 'bottom:0', 'left:0', 'right:0',
-  'height:42px',
-  'z-index:50',
-  'pointer-events:none',
-  'background:rgba(45, 35, 20, 1)',
-].join(';')
-gameContainer.appendChild(this._statusBar)
-
-  
-const container = document.getElementById('gameContainer')
-this._statusBar.id = 'status-bar'
-this._statusBar.style.cssText = [
-  'position:fixed', 'bottom:0', 'left:0', 'right:0',
-  'height: 42px',
-  'z-index:590',
-  'pointer-events:none',
-  'background:rgba(45, 35, 20, 1)',
-].join(';')
-
-container.appendChild(this._statusBar)
-
- this.bowMechanics = new BowMechanics(this, this.player)
+    this.bowMechanics = new BowMechanics(this, this.player)
     this.showIntroNarrative()
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
   }
 
+  // ── Input UI -- no player needed -----------------------------------------
+
+  _createInputUI() {
+    this._easca = new Easca3(this, (text) => {
+      console.log('[Labhair] Player said:', text)
+    })
+
+    this._menuHub = createGameMenuHub({
+      onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()) },
+      onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently() },
+      onLabhairtOpen:   () => { this._easca?.showKeyboard() },
+      onLabhairtClose:  () => { this._easca?.hideKeyboard() },
+    })
+
+    // Preview overlay -- completely separate from gameMenuHub
+    // Fades in during long press to signal intent without touching the real menu
+    const existingPreview = document.getElementById('menu-preview-overlay')
+    if (existingPreview) existingPreview.parentNode?.removeChild(existingPreview)
+
+ 
+this._menuPreview = document.createElement('div')
+this._menuPreview.id = 'menu-preview-overlay'
+this._menuPreview.style.cssText = [
+  'position:fixed;inset:0;',
+  'background:rgba(8,6,2,0.6);',
+  'z-index:1000001;',
+  'pointer-events:none;',
+  'opacity:0;',
+  'transition:opacity 0.3s ease;',
+].join('')
+document.body.appendChild(this._menuPreview)
+ 
+ document.body.appendChild(this._menuPreview)
+
+    // Dpad bottom-right
+    const joyX = this.scale.width  - 100
+    const joyY = this.scale.height - 100
+    const joyR = 60
+
+    this.joystick = new Joystick(this, {
+      x:      joyX,
+      y:      joyY,
+      radius: joyR,
+
+      onTap: () => this._onMoonTap(),
+onLongPressProgress: (p) => {
+  if (p < 0.15) return
+  this._menuPreview.style.transition = 'none'
+  this._menuPreview.style.opacity = ((p - 0.15) * 1.2).toFixed(2)
+},
+
+onLongPress: () => {
+  this._menuPreview.style.transition = 'opacity 0.2s ease'
+  this._menuPreview.style.opacity = '0'
+  this._menuHub?.open()
+},
+
+
+onLongPressCancel: () => {
+  console.log('[moon] cancel fired')
+  this._menuPreview.style.opacity = '0'
+},
+
+ onSwipe: (dx) => this._moonWidget?.nudgePhase(dx),
+    })
+
+    this._moonWidget = createMoonWidget({
+      initialPhase:   GameSettings.englishOpacity,
+      embeddedCanvas: this.joystick.getMoonCanvas(),
+      embeddedRadius: this.joystick.getMoonRadius(),
+      swipeRange:     150,
+      onChange: (phase) => {
+        GameSettings.setEnglishOpacity(phase)
+        if (this.textPanel)  this.textPanel.updateEnglishOpacity()
+        if (this.worldMenu?.itemDetailPanel)
+          this.worldMenu.itemDetailPanel.updateLanguageOpacity()
+        if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
+      },
+    })
+
+    // Status bar
+    const gameContainer = document.getElementById('gameContainer')
+    if (gameContainer) {
+      this._statusBar = document.createElement('div')
+      this._statusBar.id = 'status-bar'
+      this._statusBar.style.cssText = [
+        'position:absolute', 'bottom:0', 'left:0', 'right:0',
+        'height:42px', 'z-index:50', 'pointer-events:none',
+        'background:rgba(45,35,20,1)',
+      ].join(';')
+      gameContainer.appendChild(this._statusBar)
+    }
+  }
+
+  // ── Player UI -- needs player ---------------------------------------------
+
+  _createPlayerUI() {
+    this.worldMenu       = new WorldMenu(this, { player: this.player })
+    this._encounterPanel = new EncounterPanel(this, this._moonWidget)
+  }
+
+  // ── Tap to path ----------------------------------------------------------
+
+  _setupTapToPath() {
+    this.input.on('pointerdown', (pointer) => {
+      // Ignore dpad zone -- bottom-right
+      if (pointer.x > this.scale.width - 220 && pointer.y > this.scale.height - 220) return
+      if (this.textPanel?.isVisible) return
+      if (!this.perspectiveGround) return
+      if (this._bowAiming) return
+
+      const tile = PathFinder.screenToTile(
+        pointer.x, pointer.y,
+        this.perspectiveGround,
+        this.tileSize
+      )
+      if (!tile) return
+
+      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
+      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
+      const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
+      if (path.length > 0) this.player.setPath(path)
+    })
+  }
+
+  // ── Moon tap -------------------------------------------------------------
+
+_onMoonTap() {
+  const now = Date.now()
+  if (now - (this._lastMoonTap || 0) < 700) return
+  this._lastMoonTap = now
+
+  // Encounter panel takes priority
+  if (this._encounterPanel?._card) {
+    this._encounterPanel._openPanel()
+    return
+  }
+
+  // Close menu if open
+  if (this._menuHub?.isOpen()) {
+    this._menuHub.close()
+    return
+  }
+
+  // Tap does NOT open menu -- use long press for that
+} 
+
+  _closeWorldMenuSilently() {
+    if (!this.worldMenu) return
+    this.worldMenu.close()
+  }
+
+  // ── Walk grid / FOV -------------------------------------------------------
+
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
-    const h     = tiles.length
-    const w     = tiles[0].length
-    const grid  = []
+    const h = tiles.length, w = tiles[0].length
+    const grid = []
     for (let y = 0; y < h; y++) {
       grid[y] = []
       for (let x = 0; x < w; x++) {
@@ -366,136 +444,6 @@ container.appendChild(this._statusBar)
     if (this.fogRenderer) this.fogRenderer.update(this.fovSystem)
   }
 
-  _setupTapToPath() {
-    this.input.on('pointerdown', (pointer) => {
-      if (pointer.x < 220 && pointer.y > this.scale.height - 220) return
-      const _moonZone = Math.round(Math.min(this.scale.width, this.scale.height) * 0.16)
-      if (pointer.x > this.scale.width - _moonZone && pointer.y > this.scale.height - _moonZone) return
-      if (this.textPanel?.isVisible) return
-      if (!this.perspectiveGround) return
-      if (this._bowAiming) return
-if (this._menuHub?.isOpen()) {
-  this._menuHub.close()
-  return
-}
-this._menuHub?.open()
-      const tile = PathFinder.screenToTile(
-        pointer.x, pointer.y,
-        this.perspectiveGround,
-        this.tileSize
-      )
-      if (!tile) return
-
-      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
-      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
-
-      const path = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
-      if (path.length > 0) {
-        this.player.setPath(path)
-      }
-    })
-  }
-
-  _onMoonTap() {
-    const now = Date.now()
-    if (now - (this._lastMoonTap || 0) < 700) return
-    this._lastMoonTap = now
-
-    if (this._encounterPanel?._card) {
-      this._encounterPanel._openPanel()
-      return
-    }
-
-    if (this.worldMenu?.itemDetailPanel?.isVisible) {
-      this.worldMenu.itemDetailPanel.hide()
-      return
-    }
-
-    if (this.worldMenu?.isOpen) {
-      this._closeWorldMenuSilently()
-      return
-    }
-
-    if (this._menuHub?.isOpen()) {
-      this._menuHub.close()
-      return
-    }
-
-    this._menuHub?.open()
-  }
-
-_createWorldUI() {
-  this.worldMenu = new WorldMenu(this, { player: this.player })
-
-  this._easca = new Easca3(this, (text) => {
-    console.log('[Labhair] Player said:', text)
-  })
-
-  this._menuHub = createGameMenuHub({
-    onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()) },
-    onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently() },
-    onLabhairtOpen:   () => { this._easca?.showKeyboard() },
-    onLabhairtClose:  () => { this._easca?.hideKeyboard() },
-  })
-
-  // Joystick with embedded moon hub
-  // Must be created HERE before initializeLocation() runs, so base class
-  // skips its own joystick creation (guard added to baseLocationScene.js)
-  const joyX = 100
-  const joyY = this.scale.height - 100
-  const joyR = 60
-
-  this.joystick = new Joystick(this, {
-    x:           joyX,
-    y:           joyY,
-    radius:      joyR,
-    onTap:       () => this._onMoonTap(),
-    onLongPress: () => this._menuHub?.isOpen() ? this._menuHub.close() : this._menuHub.open(),
-    onSwipe:     (dx) => this._moonWidget?.nudgePhase(dx),
-  })
-
-  // Moon widget in embedded mode -- renders into the joystick hub canvas
-  const hubCanvas = this.joystick.getMoonCanvas()
-  const hubR      = this.joystick.getMoonRadius()
-
-  this._moonWidget = createMoonWidget({
-    initialPhase:   GameSettings.englishOpacity,
-    embeddedCanvas: hubCanvas,
-    embeddedRadius: hubR,
-    swipeRange:     150,
-    onChange: (phase) => {
-      GameSettings.setEnglishOpacity(phase)
-      if (this.textPanel)  this.textPanel.updateEnglishOpacity()
-      if (this.worldMenu?.itemDetailPanel)
-        this.worldMenu.itemDetailPanel.updateLanguageOpacity()
-      if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
-    },
-  })
-
-  // Status bar
-  const gameContainer = document.getElementById('gameContainer')
-  this._statusBar = document.createElement('div')
-  this._statusBar.id = 'status-bar'
-  this._statusBar.style.cssText = [
-    'position:absolute', 'bottom:0', 'left:0', 'right:0',
-    'height:42px',
-    'z-index:50',
-    'pointer-events:none',
-    'background:rgba(45,35,20,1)',
-  ].join(';')
-  gameContainer.appendChild(this._statusBar)
-
-  this._encounterPanel = new EncounterPanel(this, this._moonWidget)
-}
-
-
- 
-
-  _closeWorldMenuSilently() {
-    if (!this.worldMenu) return
-    this.worldMenu.close()
-  }
-
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
@@ -511,7 +459,6 @@ _createWorldUI() {
   applyEntryPosition() {
     const edge = this.entryData?.entryEdge
     if (!edge || !this.mapData.entries) return
-
     const entry = this.mapData.entries[edge]
     if (!entry) return
 
@@ -523,8 +470,7 @@ _createWorldUI() {
     let entryY
     if (entry.yFromSource && sourceY != null) {
       const fraction = sourceY / sourceH
-      entryY = Math.round(fraction * destH)
-      entryY = Math.max(1, Math.min(destH - 2, entryY))
+      entryY = Math.max(1, Math.min(destH - 2, Math.round(fraction * destH)))
     } else {
       entryY = entry.y ?? Math.floor(destH / 2)
     }
@@ -542,7 +488,6 @@ _createWorldUI() {
       this.player.startY   = py
       this.cameras.main.centerOn(px, py)
     }
-
     console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
@@ -557,10 +502,7 @@ _createWorldUI() {
     this.narrativeQueue = [...narrative]
     this._narrativeSafetyTimer = this.time.delayedCall(30000, () => {
       this.narrativeInProgress = false
-      if (this.textPanel) {
-        this.textPanel._cooldown   = false
-        this.textPanel._cooldownId = null
-      }
+      if (this.textPanel) { this.textPanel._cooldown = false; this.textPanel._cooldownId = null }
     })
     const showNext = () => {
       if (!this.narrativeQueue.length) {
@@ -584,29 +526,16 @@ _createWorldUI() {
   createObjects() {
     if (!this.mapData.objects) return
     this.interactables = []
-
     this.mapData.objects.forEach(obj => {
       const stateKey = obj.stateKey || `${this.getMapKey()}.${obj.id}`
-  
-
-if (obj.type === 'collectable'    && GameState.isCollected(stateKey)) return
-if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
-// fixed_encounter is NEVER skipped -- always present
-
-	    if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
-     
-
-
-
-
-
- if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
+      if (obj.type === 'collectable'    && GameState.isCollected(stateKey)) return
+      if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
+      if (obj.requiresQuest && !GameState.isQuestActive(obj.requiresQuest) &&
           !GameState.isQuestComplete(obj.requiresQuest)) return
 
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
       const pixelY = obj.y * this.tileSize + this.tileSize / 2
-
-      const zone = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize)
+      const zone   = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize)
       zone.setData('id',       obj.id)
       zone.setData('type',     obj.type)
       zone.setData('text',     obj.text)
@@ -618,32 +547,22 @@ if (obj.type === 'encounter_flag' && GameState.isCollected(stateKey)) return
       zone.x = pixelX
       zone.y = pixelY
 
-
-
-if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
-  zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
-  zone.setData('actions',    obj.actions    || [])
-  zone.setData('dialogues',  obj.dialogues  || [])
-  zone.setData('visual',     obj.visual     || {})
-  this._pendingFlags = this._pendingFlags || []
-  this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, visual: obj.visual || { gid: 255, flat: false } })
-}
-
-
-
-
-
-
+      if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
+        zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
+        zone.setData('actions',    obj.actions   || [])
+        zone.setData('dialogues',  obj.dialogues || [])
+        zone.setData('visual',     obj.visual    || {})
+        this._pendingFlags = this._pendingFlags || []
+        this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, visual: obj.visual || { gid: 255, flat: false } })
+      }
       this.interactables.push(zone)
     })
-
     console.log(`[${this.scene.key}] ${this.interactables.length} objects loaded`)
   }
 
   createNPCs() {
     if (!this.mapData.npcs) return
     this.npcs = []
-
     this.mapData.npcs.forEach(npcData => {
       const stateKey = npcData.stateKey || `${this.getMapKey()}.${npcData.id}`
       if (npcData.requiresQuest && !GameState.isQuestActive(npcData.requiresQuest) &&
@@ -663,8 +582,7 @@ if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
       sprite.setData('isNPC',         true)
       sprite.setData('logicalX',      pixelX)
       sprite.setData('logicalY',      pixelY)
-      sprite.setDepth(10)
-      sprite.setInteractive()
+      sprite.setDepth(10).setInteractive()
 
       this.add.text(pixelX, pixelY - radius - 6, npcData.name, {
         fontSize: '12px', fontFamily: 'Arial',
@@ -675,10 +593,9 @@ if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
       sprite.on('pointerdown', () => this.talkToNPC(sprite))
       this.npcs.push(sprite)
     })
-
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
-getSkyImage() { return '/assets/skies/bog_threshold_sky.png' }
+
   update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
@@ -692,41 +609,35 @@ getSkyImage() { return '/assets/skies/bog_threshold_sky.png' }
         this._recomputeFov()
       }
     }
-    if (this.fogRenderer && this.fovSystem) {
-      this.fogRenderer.update(this.fovSystem)
-    }
 
-    if (this.playerLight && this.player)
-      this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
+    if (this.fogRenderer && this.fovSystem) this.fogRenderer.update(this.fovSystem)
+    if (this.playerLight && this.player) this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
- shutdown() {
+  shutdown() {
     if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
     if (this._moonWidget)     { this._moonWidget.destroy();     this._moonWidget     = null }
     if (this._menuHub)        { this._menuHub.destroy();        this._menuHub        = null }
     if (this._easca)          { this._easca.destroy();          this._easca          = null }
-    
-    if (this.perspectiveGround) {
-      this.perspectiveGround.destroy()
-      this.perspectiveGround = null
+    if (this.joystick)        { this.joystick.destroy();        this.joystick        = null }
+    if (this._menuPreview?.parentNode) {
+      this._menuPreview.parentNode.removeChild(this._menuPreview)
+      this._menuPreview = null
     }
-    if (this.fogRenderer) {
-      this.fogRenderer.destroy()
-      this.fogRenderer = null
+    if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null }
+    if (this.fogRenderer)    { this.fogRenderer.destroy();   this.fogRenderer   = null }
+    if (this.itemSheet)      { this.itemSheet.clear();       this.itemSheet     = null }
+    if (this.bowMechanics)   { this.bowMechanics.destroy();  this.bowMechanics  = null }
+    if (this._statusBar?.parentNode) {
+      this._statusBar.parentNode.removeChild(this._statusBar)
+      this._statusBar = null
     }
-    if (this.itemSheet)    { this.itemSheet.clear();      this.itemSheet    = null }
-    if (this.fovSystem)    { this.fovSystem  = null }
-    if (this.pathFinder)   { this.pathFinder = null }
-    if (this.bowMechanics) { this.bowMechanics.destroy(); this.bowMechanics = null }
+    this.fovSystem  = null
+    this.pathFinder = null
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
- 
-if (this._statusBar?.parentNode) {
-  this._statusBar.parentNode.removeChild(this._statusBar)
-  this._statusBar = null
-}
- }
+  }
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
@@ -779,11 +690,8 @@ if (this._statusBar?.parentNode) {
 
     if (this.usePerspective) {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
-   
-const skyUrl = this.getSkyImage()
-if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl)
-
-
+      const skyUrl = this.getSkyImage()
+      if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl)
     }
   }
 }

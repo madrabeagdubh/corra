@@ -1,22 +1,22 @@
 // PathFinder.js
 //
 // A* pathfinding on the tile grid.
-// Only traverses tiles that are visible or visited (fog-of-war aware).
+// FOV-aware but gracefully handles null fovSystem (outdoor maps).
 // Returns an array of {dx, dy} steps from origin to destination.
 //
 // Also provides screenToTile() — converts a screen touch position back
 // through the perspective projection to a tile coordinate.
 //
 // Usage:
-//   const pf = new PathFinder(walkGrid, fovSystem)
+//   const pf = new PathFinder(walkGrid, fovSystem)  // fovSystem can be null
 //   const path = pf.findPath(fromX, fromY, toX, toY)
 //   // path = [{dx:0,dy:-1}, {dx:1,dy:0}, ...] or [] if unreachable
 
 export default class PathFinder {
-
+// Diagonal moves cost slightly more than cardinal
   constructor(walkGrid, fovSystem) {
     this._grid = walkGrid
-    this._fov  = fovSystem
+    this._fov  = fovSystem ?? null  // null = no FOV restriction
     this._h    = walkGrid.length
     this._w    = walkGrid[0]?.length ?? 0
   }
@@ -30,17 +30,14 @@ export default class PathFinder {
   // ── A* ────────────────────────────────────────────────────────────────────
 
   findPath(fromX, fromY, toX, toY) {
-    // Can't path to hidden tiles
-    if (this._fov.isHidden(toX, toY)) return []
+    // Can't path to hidden tiles (only when FOV is active)
+    if (this._fov?.isHidden(toX, toY)) return []
 
-    // Can't path to unwalkable tiles (unless it's the destination — allow
-    // pathing toward solid targets, stop one tile before)
+    // Can't path to unwalkable tiles -- try adjacent
     if (!this._walkable(toX, toY)) {
-      // Try to find a walkable tile adjacent to target
       const adj = this._walkableNeighbours(toX, toY)
-        .filter(n => !this._fov.isHidden(n.x, n.y))
+        .filter(n => !this._fov?.isHidden(n.x, n.y))
       if (!adj.length) return []
-      // Pick the adjacent tile closest to the player
       adj.sort((a, b) =>
         this._heuristic(a.x, a.y, fromX, fromY) -
         this._heuristic(b.x, b.y, fromX, fromY)
@@ -51,8 +48,8 @@ export default class PathFinder {
 
     if (fromX === toX && fromY === toY) return []
 
-    const open   = new MinHeap()
-    const closed  = new Set()
+    const open     = new MinHeap()
+    const closed   = new Set()
     const cameFrom = new Map()
     const gScore   = new Map()
     const fScore   = new Map()
@@ -63,7 +60,7 @@ export default class PathFinder {
     open.push({ x: fromX, y: fromY, f: fScore.get(startKey) })
 
     while (!open.isEmpty()) {
-      const current = open.pop()
+      const current    = open.pop()
       const { x: cx, y: cy } = current
       const currentKey = `${cx},${cy}`
 
@@ -77,10 +74,10 @@ export default class PathFinder {
       for (const nb of this._neighbours(cx, cy)) {
         const nbKey = `${nb.x},${nb.y}`
         if (closed.has(nbKey)) continue
-        // Only traverse visible or visited tiles
-        if (this._fov.isHidden(nb.x, nb.y)) continue
-
-        const tentativeG = (gScore.get(currentKey) ?? Infinity) + 1
+        // Only skip hidden tiles when FOV is active
+        if (this._fov?.isHidden(nb.x, nb.y)) continue
+const moveCost   = (nb.x !== cx && nb.y !== cy) ? 1.4 : 1.0
+const tentativeG = (gScore.get(currentKey) ?? Infinity) + moveCost
         if (tentativeG < (gScore.get(nbKey) ?? Infinity)) {
           cameFrom.set(nbKey, { x: cx, y: cy })
           gScore.set(nbKey, tentativeG)
@@ -91,7 +88,7 @@ export default class PathFinder {
       }
     }
 
-    return [] // no path found
+    return []
   }
 
   _reconstructPath(cameFrom, tx, ty, fromX, fromY) {
@@ -107,17 +104,20 @@ export default class PathFinder {
     return steps
   }
 
-  _heuristic(ax, ay, bx, by) {
-    // Chebyshev distance — allows diagonal movement
-    return Math.max(Math.abs(ax - bx), Math.abs(ay - by))
-  }
+
+_heuristic(ax, ay, bx, by) {
+  const dx = Math.abs(ax - bx)
+  const dy = Math.abs(ay - by)
+  // Chebyshev + small nudge to prefer straight lines
+  return Math.max(dx, dy) + 0.001 * (dx + dy)
+}
 
   _neighbours(x, y) {
     const dirs = [
-      { dx: 0, dy: -1 }, { dx: 0, dy:  1 },
-      { dx:-1, dy:  0 }, { dx: 1, dy:  0 },
-      { dx:-1, dy: -1 }, { dx: 1, dy: -1 },
-      { dx:-1, dy:  1 }, { dx: 1, dy:  1 },
+      { dx:  0, dy: -1 }, { dx: 0, dy:  1 },
+      { dx: -1, dy:  0 }, { dx: 1, dy:  0 },
+      { dx: -1, dy: -1 }, { dx: 1, dy: -1 },
+      { dx: -1, dy:  1 }, { dx: 1, dy:  1 },
     ]
     return dirs
       .map(d => ({ x: x + d.dx, y: y + d.dy }))
@@ -126,8 +126,8 @@ export default class PathFinder {
 
   _walkableNeighbours(x, y) {
     const dirs = [
-      { dx: 0, dy: -1 }, { dx: 0, dy:  1 },
-      { dx:-1, dy:  0 }, { dx: 1, dy:  0 },
+      { dx:  0, dy: -1 }, { dx: 0, dy:  1 },
+      { dx: -1, dy:  0 }, { dx: 1, dy:  0 },
     ]
     return dirs
       .map(d => ({ x: x + d.dx, y: y + d.dy }))
@@ -143,42 +143,24 @@ export default class PathFinder {
   }
 
   // ── Screen → tile projection ──────────────────────────────────────────────
-  //
-  // Inverts PGR's perspective projection to find which tile was tapped.
-  // Works by inverting the row-from-screenY formula and then finding the
-  // closest column using the horizontal scale at that row.
-  //
-  // pgr: PerspectiveGroundRenderer instance
-  // screenX/Y: touch position in screen pixels (pointer.x / pointer.y)
-  // tileSize: scene.tileSize (pixels per tile in world space)
-  //
-  // Returns { tx, ty } tile coords, or null if tap is above the horizon.
 
   static screenToTile(screenX, screenY, pgr, tileSize) {
-    const horizonPx  = pgr._horizonPx()
-    if (screenY <= horizonPx) return null   // tapped sky
+    const horizonPx   = pgr._horizonPx()
+    if (screenY <= horizonPx) return null
 
-    const groundH    = pgr._groundH()
-    const FL         = pgr.constructor.FOCAL_LENGTH
+    const groundH     = pgr._groundH()
+    const FL          = pgr.constructor.FOCAL_LENGTH
     const perspCamRow = pgr._perspCamRow()
-    const ts         = pgr.tileDisplaySize
 
-    // Invert: screenY = horizonPx + groundH * FL / (FL + d)
-    // where d = perspCamRow - tileRow
-    // → tileRow = perspCamRow - (FL * groundH / (screenY - horizonPx) - FL)
     const denom    = screenY - horizonPx
     if (denom <= 0) return null
     const d        = FL * groundH / denom - FL
     const worldRow = perspCamRow - d
 
-    // Use round not floor — gives the tile whose centre is closest to the tap
     const ty = Math.round(worldRow - 0.5)
 
-    // Find column: invert colToScreenX
-    // screenX = sw/2 + (worldCol - camCol) * scaleAtRow
-    // where tiles are projected at their bottom edge (worldRow + 1 scale)
-    const camCol = pgr._perspCamCol()
-    const scale  = pgr._scaleAtRow(worldRow)
+    const camCol   = pgr._perspCamCol()
+    const scale    = pgr._scaleAtRow(worldRow)
     if (scale < 0.001) return null
 
     const worldCol = (screenX - pgr._sw / 2) / scale + camCol
@@ -188,7 +170,7 @@ export default class PathFinder {
   }
 }
 
-// ── Minimal binary min-heap for A* open set ───────────────────────────────────
+// ── Minimal binary min-heap for A* open set ──────────────────────────────────
 
 class MinHeap {
   constructor() { this._data = [] }
@@ -232,4 +214,4 @@ class MinHeap {
     }
   }
 }
-
+ 

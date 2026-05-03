@@ -41,7 +41,13 @@ export default class BogLocationScene extends BaseLocationScene {
   getExtraUnwalkableGIDs() { return new Set() }
   onEnter()                {}
   getSkyImage()            { return '/assets/skies/bog_threshold_sky.png' }
-
+get _joyY() {
+  const canvasRect = this.game?.canvas?.getBoundingClientRect()
+  const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
+  if (!canvasRect || !statusRect) return this.scale.height - 80
+  const scaleY = this.scale.height / canvasRect.height
+  return (statusRect.top - canvasRect.top) * scaleY - 60
+}
   init(data) {
     this.entryData = data || {}
     console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
@@ -232,8 +238,7 @@ export default class BogLocationScene extends BaseLocationScene {
 
     this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
-    this.pathFinder = new PathFinder(this.walkGrid, this.fovSystem)
-
+this.pathFinder = new PathFinder(this.walkGrid, null)
     // this.fogRenderer = new FogRenderer(this.perspectiveGround)
 
     this._lastFovKey = null
@@ -267,7 +272,6 @@ export default class BogLocationScene extends BaseLocationScene {
   }
 
   // ── Input UI -- no player needed -----------------------------------------
-
   _createInputUI() {
     this._easca = new Easca3(this, (text) => {
       console.log('[Labhair] Player said:', text)
@@ -281,28 +285,45 @@ export default class BogLocationScene extends BaseLocationScene {
     })
 
     // Preview overlay -- completely separate from gameMenuHub
-    // Fades in during long press to signal intent without touching the real menu
     const existingPreview = document.getElementById('menu-preview-overlay')
     if (existingPreview) existingPreview.parentNode?.removeChild(existingPreview)
 
- 
-this._menuPreview = document.createElement('div')
-this._menuPreview.id = 'menu-preview-overlay'
-this._menuPreview.style.cssText = [
-  'position:fixed;inset:0;',
-  'background:rgba(8,6,2,0.6);',
-  'z-index:1000001;',
-  'pointer-events:none;',
-  'opacity:0;',
-  'transition:opacity 0.3s ease;',
-].join('')
-document.body.appendChild(this._menuPreview)
- 
- document.body.appendChild(this._menuPreview)
+    this._menuPreview = document.createElement('div')
+    this._menuPreview.id = 'menu-preview-overlay'
+    this._menuPreview.style.cssText = [
+      'position:fixed;inset:0;',
+      'background:rgba(8,6,2,0.6);',
+      'z-index:1000001;',
+      'pointer-events:none;',
+      'opacity:0;',
+      'transition:opacity 0.3s ease;',
+    ].join('')
+    document.body.appendChild(this._menuPreview)
 
-    // Dpad bottom-right
-    const joyX = this.scale.width  - 100
-    const joyY = this.scale.height - 100
+    // -- Status bar -- created FIRST so we can measure it for joyY -----------
+    const gameContainer = document.getElementById('gameContainer')
+    if (gameContainer) {
+      this._statusBar = document.createElement('div')
+      this._statusBar.id = 'status-bar'
+      this._statusBar.style.cssText = [
+        'position:absolute', 'bottom:0', 'left:0', 'right:0',
+        'height:42px', 'z-index:50', 'pointer-events:none',
+        'background:rgba(45,35,20,1)',
+      ].join(';')
+      gameContainer.appendChild(this._statusBar)
+    }
+
+    // -- Calculate joyY from status bar position in canvas coords ------------
+    const canvas     = this.game.canvas
+    const canvasRect = canvas.getBoundingClientRect()
+    const scaleY     = this.scale.height / canvasRect.height
+    const statusRect = this._statusBar?.getBoundingClientRect()
+    const statusTopInCanvas = statusRect
+      ? (statusRect.top - canvasRect.top) * scaleY
+      : this.scale.height - 42
+
+    const joyX = this.scale.width / 2
+    const joyY = statusTopInCanvas - 60  // 60 = joystick radius, bottom of dpad touches status bar top
     const joyR = 60
 
     this.joystick = new Joystick(this, {
@@ -311,25 +332,24 @@ document.body.appendChild(this._menuPreview)
       radius: joyR,
 
       onTap: () => this._onMoonTap(),
-onLongPressProgress: (p) => {
-  if (p < 0.15) return
-  this._menuPreview.style.transition = 'none'
-  this._menuPreview.style.opacity = ((p - 0.15) * 1.2).toFixed(2)
-},
 
-onLongPress: () => {
-  this._menuPreview.style.transition = 'opacity 0.2s ease'
-  this._menuPreview.style.opacity = '0'
-  this._menuHub?.open()
-},
+      onLongPressProgress: (p) => {
+        if (p < 0.15) return
+        this._menuPreview.style.display = 'block'
+        this._menuPreview.style.opacity = ((p - 0.15) * 1.2).toFixed(2)
+      },
 
+      onLongPress: () => {
+        this._menuPreview.style.transition = 'opacity 0.2s ease'
+        this._menuPreview.style.opacity = '0'
+        this._menuHub?.open()
+      },
 
-onLongPressCancel: () => {
-  console.log('[moon] cancel fired')
-  this._menuPreview.style.opacity = '0'
-},
+      onLongPressCancel: () => {
+        this._menuPreview.style.opacity = '0'
+      },
 
- onSwipe: (dx) => this._moonWidget?.nudgePhase(dx),
+      onSwipe: (dx) => this._moonWidget?.nudgePhase(dx),
     })
 
     this._moonWidget = createMoonWidget({
@@ -345,20 +365,8 @@ onLongPressCancel: () => {
         if (this._encounterPanel) this._encounterPanel.updateLanguageOpacity()
       },
     })
-
-    // Status bar
-    const gameContainer = document.getElementById('gameContainer')
-    if (gameContainer) {
-      this._statusBar = document.createElement('div')
-      this._statusBar.id = 'status-bar'
-      this._statusBar.style.cssText = [
-        'position:absolute', 'bottom:0', 'left:0', 'right:0',
-        'height:42px', 'z-index:50', 'pointer-events:none',
-        'background:rgba(45,35,20,1)',
-      ].join(';')
-      gameContainer.appendChild(this._statusBar)
-    }
   }
+
 
   // ── Player UI -- needs player ---------------------------------------------
 
@@ -368,28 +376,40 @@ onLongPressCancel: () => {
   }
 
   // ── Tap to path ----------------------------------------------------------
+_setupTapToPath() {
+  const canvas = this.game.canvas
+  canvas.addEventListener('pointerdown', (e) => {
+    const rect    = canvas.getBoundingClientRect()
+    const scaleX  = canvas.width  / rect.width
+    const scaleY  = canvas.height / rect.height
+    const canvasX = (e.clientX - rect.left) * scaleX
+    const canvasY = (e.clientY - rect.top)  * scaleY
 
-  _setupTapToPath() {
-    this.input.on('pointerdown', (pointer) => {
-      // Ignore dpad zone -- bottom-right
-      if (pointer.x > this.scale.width - 220 && pointer.y > this.scale.height - 220) return
-      if (this.textPanel?.isVisible) return
-      if (!this.perspectiveGround) return
-      if (this._bowAiming) return
+    // Circular deadzone around dpad
+    const joyX = this.scale.width / 2
+    const joyY = this._joyY
+    const joyR = 100
+    const dx   = canvasX - joyX
+    const dy   = canvasY - joyY
+    if (dx * dx + dy * dy < joyR * joyR) return
 
-      const tile = PathFinder.screenToTile(
-        pointer.x, pointer.y,
-        this.perspectiveGround,
-        this.tileSize
-      )
-      if (!tile) return
+    if (this.textPanel?.isVisible) return
+    if (!this.perspectiveGround) return
+    if (this._bowAiming) return
 
-      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
-      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
-      const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
-      if (path.length > 0) this.player.setPath(path)
-    })
-  }
+    const tile = PathFinder.screenToTile(
+      canvasX, canvasY,
+      this.perspectiveGround,
+      this.tileSize
+    )
+    if (!tile) return
+
+    const fromTX = Math.floor(this.player.logicalX / this.tileSize)
+    const fromTY = Math.floor(this.player.logicalY / this.tileSize)
+    const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
+    if (path.length > 0) this.player.setPath(path)
+  })
+}
 
   // ── Moon tap -------------------------------------------------------------
 

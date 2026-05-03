@@ -1,164 +1,201 @@
-
 // Joystick.js
 //
-// 8-directional d-pad with moon widget embedded in the hub centre.
-//
-//   - 4 cardinal buttons (up/down/left/right) -- TileSprite with darkStone texture
-//   - 4 diagonal buttons (corners) -- invisible hit areas
-//   - Base circle -- TileSprite with darkStone, clipped by geometry mask
-//   - Gold stroke overlay via Graphics
-//   - Centre hub: moon canvas (no drag-thumb analog mode)
+// Fully DOM-based 8-directional d-pad with moon widget in the hub centre.
+// All elements are position:fixed DOM divs -- no Phaser game objects.
+// This means _reposition() can correctly align everything after fullscreen
+// changes, scene transitions, or browser bar show/hide.
 //
 // Centre hub interactions:
-//   - Swipe left/right      → change moon phase
-//   - Long press            → onLongPress() callback (open menu hub)
-//   - Long press in progress → onLongPressProgress(0..1) for fade-in preview
-//   - Long press cancelled  → onLongPressCancel() to fade back out
-//   - Short tap             → onTap() callback
+//   - Swipe left/right       → onSwipe(dx)
+//   - Long press             → onLongPress()
+//   - Long press in progress → onLongPressProgress(0..1)
+//   - Long press cancelled   → onLongPressCancel()
+//   - Short tap              → onTap()
+//
+// Phaser integration:
+//   - this.force and this.angle are set when a direction button is held
+//   - baseLocationScene reads these each frame to move the player
+//   - reset() clears force/angle
 
 export default class Joystick {
   constructor(scene, config) {
-    this.scene  = scene;
-    this.radius = config.radius || 60;
-    this.baseX  = config.x;
-    this.baseY  = config.y;
+    this.scene  = scene
+    this.radius = config.radius || 60
+    this.baseX  = config.x
+    this.baseY  = config.y
 
-    this.force = 0;
-    this.angle = 0;
+    this.force = 0
+    this.angle = 0
 
-    this._activeButton = null;
+    this._onTap               = config.onTap               ?? null
+    this._onLongPress         = config.onLongPress          ?? null
+    this._onLongPressProgress = config.onLongPressProgress  ?? null
+    this._onLongPressCancel   = config.onLongPressCancel    ?? null
+    this._onSwipe             = config.onSwipe              ?? null
 
-    this._onTap               = config.onTap               ?? null;
-    this._onLongPress         = config.onLongPress          ?? null;
-    this._onLongPressProgress = config.onLongPressProgress  ?? null;
-    this._onLongPressCancel   = config.onLongPressCancel    ?? null;
-    this._onSwipe             = config.onSwipe              ?? null;
+    const R = this.radius
 
-    const R  = this.radius;
-    const bx = this.baseX;
-    const by = this.baseY;
+    // Hub diameter
+    const hubD = Math.round(R * 0.48) * 2
 
-    // -- Base circle ----------------------------------------------------------
-    const hasStone = this._textureExists('darkStone');
-
-    if (hasStone) {
-      const maskGfx = scene.add.graphics();
-      maskGfx.fillStyle(0xffffff, 1);
-      maskGfx.fillCircle(bx, by, R);
-      maskGfx.setScrollFactor(0);
-
-      this.base = scene.add.tileSprite(bx, by, R * 2, R * 2, 'darkStone');
-      this.base.setAlpha(0.88);
-      this.base.setMask(maskGfx.createGeometryMask());
-    } else {
-      this.base = scene.add.circle(bx, by, R, 0x050505, 0.85);
-    }
-    this.base.setScrollFactor(0);
-    this.base.setDepth(1000);
-
-    // Gold ring
-    this._baseRingGfx = scene.add.graphics();
-    this._baseRingGfx.setScrollFactor(0);
-    this._baseRingGfx.setDepth(1001);
-    this._baseRingGfx.lineStyle(1.5, 0xd4af37, 0.6);
-    this._baseRingGfx.strokeCircle(bx, by, R);
-
-    // -- Layout constants -----------------------------------------------------
-    const cardOff  = R * 0.72;
-    const cardSize = R * 0.55 + 1;
-    const diagOff  = R * 0.72;
-    const diagSize = R * 0.38 + 1;
-    const diagXY   = diagOff * Math.cos(Math.PI / 4);
-
-    // -- Gold stroke Graphics layer -------------------------------------------
-    this._strokeGfx = scene.add.graphics();
-    this._strokeGfx.setScrollFactor(0);
-    this._strokeGfx.setDepth(1003);
-
-    this.buttons = {};
-
-    this.buttons.up    = this._makeButton(bx,           by - cardOff, cardSize, -90);
-    this.buttons.down  = this._makeButton(bx,           by + cardOff, cardSize,  90);
-    this.buttons.left  = this._makeButton(bx - cardOff, by,           cardSize, 180);
-    this.buttons.right = this._makeButton(bx + cardOff, by,           cardSize,   0);
-
-    this.buttons.upRight   = this._makeButton(bx + diagXY, by - diagXY, diagSize, -45,  true);
-    this.buttons.downRight = this._makeButton(bx + diagXY, by + diagXY, diagSize,  45,  true);
-    this.buttons.downLeft  = this._makeButton(bx - diagXY, by + diagXY, diagSize, 135,  true);
-    this.buttons.upLeft    = this._makeButton(bx - diagXY, by - diagXY, diagSize, -135, true);
-
-    this._redrawStrokes();
-
-    // -- Centre moon hub DOM element ------------------------------------------
-    // Remove any existing hub/icon from a previous scene
-    const existingHub = document.getElementById('dpad-moon-hub')
-    if (existingHub) existingHub.parentNode?.removeChild(existingHub)
-    const existingFs = document.getElementById('dpad-fs-icon')
-    if (existingFs) existingFs.parentNode?.removeChild(existingFs)
-
-    const hubD   = Math.round(R * 0.48) * 2
-    this._hubDom = document.createElement('div')
-    this._hubDom.id = 'dpad-moon-hub'
+    // Remove stale elements from previous scene
+    ;['dpad-root', 'dpad-moon-hub', 'dpad-fs-icon'].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.parentNode?.removeChild(el)
+    })
 
     const phaserCanvas = scene.game.canvas
-    const canvasRect   = phaserCanvas.getBoundingClientRect()
-    const scaleX       = canvasRect.width  / phaserCanvas.width
-    const scaleY       = canvasRect.height / phaserCanvas.height
-    const pageX        = canvasRect.left + bx * scaleX
-    const pageY        = canvasRect.top  + by * scaleY
-    const hubDScaled   = hubD * Math.min(scaleX, scaleY)
 
-    this._hubDom.style.cssText = [
-      'position:fixed;',
-      `left:${(pageX - hubDScaled / 2).toFixed(1)}px;`,
-      `top:${(pageY  - hubDScaled / 2).toFixed(1)}px;`,
-      `width:${hubDScaled.toFixed(1)}px;`,
-      `height:${hubDScaled.toFixed(1)}px;`,
-      'z-index:1000005;',
+    // -- Root container -------------------------------------------------------
+    // All dpad elements live inside this fixed div.
+    // _reposition() moves this div to the correct position.
+    this._root = document.createElement('div')
+    this._root.id = 'dpad-root'
+    this._root.style.cssText = [
+  'position:fixed;',
+  'left:0;top:0;',
+  `width:${R * 2}px;`,
+  `height:${R * 2}px;`,
+  'z-index:1000004;',
+  'pointer-events:none;',
+  'opacity:0;',                           // start hidden
+  'transition:opacity 0.3s ease;',        // fade in
+].join('')  
+
+  document.body.appendChild(this._root)
+
+    // -- Base circle ----------------------------------------------------------
+    this._base = document.createElement('div')
+    this._base.style.cssText = [
+      'position:absolute;',
+      `width:${R * 2}px;height:${R * 2}px;`,
       'border-radius:50%;',
-      'pointer-events:all;',
-      'cursor:grab;',
+      'background:rgba(5,5,5,0.85);',
+      `border:1.5px solid rgba(212,175,55,0.6);`,
+      'left:0;top:0;',
+      'pointer-events:none;',
+    ].join('')
+    this._root.appendChild(this._base)
+
+    // -- Direction buttons ----------------------------------------------------
+    // Each button is a div at the correct position within the root container.
+    // angleDeg: the movement angle this button produces.
+
+    const GOLD = 'rgba(212,175,55,0.55)'
+    const GOLD_ACTIVE = 'rgba(245,208,96,1.0)'
+
+    const cardOff  = R * 0.72
+    const cardSize = R * 0.55 + 1
+    const diagOff  = R * 0.72
+    const diagSize = R * 0.38 + 1
+    const diagXY   = diagOff * Math.cos(Math.PI / 4)
+
+    this._buttons = []
+    this._activeBtn = null
+
+    const makeBtn = (offsetX, offsetY, size, angleDeg, invisible = false) => {
+      const btn = document.createElement('div')
+      btn._angle     = angleDeg
+      btn._active    = false
+      btn._invisible = invisible
+
+      btn.style.cssText = [
+        'position:absolute;',
+        `width:${size}px;height:${size}px;`,
+        `left:${(R + offsetX - size / 2).toFixed(1)}px;`,
+        `top:${(R + offsetY - size / 2).toFixed(1)}px;`,
+        invisible
+          ? 'pointer-events:all;'
+          : [
+            'pointer-events:all;',
+            'background:rgba(8,8,8,0.82);',
+            `border:1px solid ${GOLD};`,
+            'box-sizing:border-box;',
+          ].join(''),
+      ].join('')
+
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        btn.setPointerCapture(e.pointerId)
+        this._pressBtn(btn)
+      })
+      btn.addEventListener('pointerup',     () => this._releaseBtn(btn))
+      btn.addEventListener('pointercancel', () => this._releaseBtn(btn))
+      btn.addEventListener('pointerout',    (e) => {
+        if (!btn.hasPointerCapture(e.pointerId)) this._releaseBtn(btn)
+      })
+
+      this._root.appendChild(btn)
+      this._buttons.push(btn)
+      return btn
+    }
+
+    // Cardinals
+    makeBtn(0,         -cardOff, cardSize, -90)   // up
+    makeBtn(0,          cardOff, cardSize,  90)   // down
+    makeBtn(-cardOff,   0,       cardSize, 180)   // left
+    makeBtn( cardOff,   0,       cardSize,   0)   // right
+
+    // Diagonals (invisible hit areas)
+    makeBtn( diagXY, -diagXY, diagSize, -45,  true)
+    makeBtn( diagXY,  diagXY, diagSize,  45,  true)
+    makeBtn(-diagXY,  diagXY, diagSize, 135,  true)
+    makeBtn(-diagXY, -diagXY, diagSize, -135, true)
+
+    // -- Moon hub -------------------------------------------------------------
+    this._hubDom = document.createElement('div')
+    this._hubDom.id = 'dpad-moon-hub'
+    this._hubDom.style.cssText = [
+      'position:absolute;',
+      `width:${hubD}px;height:${hubD}px;`,
+      `left:${(R - hubD / 2).toFixed(1)}px;`,
+      `top:${(R - hubD / 2).toFixed(1)}px;`,
+      'border-radius:50%;',
+      'pointer-events:none;',
       `border:1.5px solid rgba(212,175,55,0.7);`,
       'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
+      'z-index:2;',
     ].join('')
+    this._root.appendChild(this._hubDom)
 
-    // Moon canvas fills hub
+    // Moon canvas inside hub
     this._moonCanvas = document.createElement('canvas')
     this._moonCanvas.width  = hubD
     this._moonCanvas.height = hubD
     this._moonCanvas.style.cssText = [
-      `width:${hubDScaled.toFixed(1)}px;`,
-      `height:${hubDScaled.toFixed(1)}px;`,
+      `width:${hubD}px;height:${hubD}px;`,
       'transform:rotate(160deg);',
       'display:block;',
       'touch-action:none;',
+      'pointer-events:all;',
+      'border-radius:50%;',
     ].join('')
     this._hubDom.appendChild(this._moonCanvas)
-    phaserCanvas.parentNode.appendChild(this._hubDom)
 
-    // Fullscreen icon -- body-level so position:fixed works correctly
+    // -- Fullscreen icon ------------------------------------------------------
+    // Separate body-level element so its position:fixed is viewport-relative
     const fsSize = 36
-    const fsX    = pageX - fsSize / 2
-    const fsY    = pageY - fsSize / 2
-
     this._fsIcon = document.createElement('div')
     this._fsIcon.id = 'dpad-fs-icon'
-    this._fsIcon.style.cssText = [
-      'position:fixed;',
-      `left:${fsX.toFixed(1)}px;`,
-      `top:${fsY.toFixed(1)}px;`,
-      `width:${fsSize}px;height:${fsSize}px;`,
-      'display:flex;align-items:center;justify-content:center;',
-      'font-size:18px;',
-      'color:rgba(212,175,55,0.9);',
-      'pointer-events:all;',
-      'cursor:pointer;',
-      'z-index:1000006;',
-      'background:rgba(8,6,2,0.6);',
-      'border-radius:50%;',
-      `border:1px solid rgba(212,175,55,0.4);`,
-    ].join('')
-    this._fsIcon.textContent = '⛶'
+   this._fsIcon.style.cssText = [
+  'position:fixed;',
+  'left:0;top:0;',
+  `width:${fsSize}px;height:${fsSize}px;`,
+  'display:flex;align-items:center;justify-content:center;',
+  'font-size:18px;',
+  'color:rgba(212,175,55,0.9);',
+  'pointer-events:all;',
+  'cursor:pointer;',
+  'z-index:1000006;',
+  'background:rgba(8,6,2,0.6);',
+  'border-radius:50%;',
+  `border:1px solid rgba(212,175,55,0.4);`,
+  'opacity:0;',                       // start hidden
+  'transition:opacity 0.3s ease;',    // fade in
+].join('') 
+
+  this._fsIcon.textContent = '⛶'
     this._fsIcon.addEventListener('pointerup', (e) => {
       e.stopPropagation()
       this._fsIcon.style.display = 'none'
@@ -166,27 +203,92 @@ export default class Joystick {
     })
     document.body.appendChild(this._fsIcon)
 
-    // Hide immediately if already fullscreen
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
+    
+
+if (document.fullscreenElement || document.webkitFullscreenElement) {
       this._fsIcon.style.display = 'none'
     }
 
-    // Show/hide on fullscreen change
+    // -- Reposition -----------------------------------------------------------
+    // Anchors the root div so its centre matches bx horizontally,
+    // and its bottom touches the top of the status bar vertically.
+    // Everything inside root (buttons, hub) automatically follows.
+
+    const _reposition = () => {
+      const r          = phaserCanvas.getBoundingClientRect()
+      const sx         = r.width / phaserCanvas.width
+
+      // Horizontal centre follows bx
+      const px         = r.left + this.baseX * sx
+
+      // Vertical: bottom of dpad (root height = R*2) touches status bar top
+      const statusBar  = document.getElementById('status-bar')
+      const statusRect = statusBar?.getBoundingClientRect()
+      const rootH      = R * 2 * sx
+      const rootW      = R * 2 * sx
+      const py         = statusRect
+        ? statusRect.top - rootH        // top of root = statusTop - full height
+        : r.bottom - rootH - 42
+
+      // Scale the root to match canvas scale
+      this._root.style.width     = `${rootW.toFixed(1)}px`
+      this._root.style.height    = `${rootH.toFixed(1)}px`
+      this._root.style.left      = `${(px - rootW / 2).toFixed(1)}px`
+      this._root.style.top       = `${py.toFixed(1)}px`
+      this._root.style.transform = `scale(${sx.toFixed(4)})`
+      this._root.style.transformOrigin = 'top left'
+
+      // fsIcon: centred on hub, which is at root centre
+      const fs = 36
+      const hubCentreX = px
+      const hubCentreY = py + rootH / 2
+      if (this._fsIcon) {
+        this._fsIcon.style.left = `${(hubCentreX - fs / 2).toFixed(1)}px`
+        this._fsIcon.style.top  = `${(hubCentreY - fs / 2).toFixed(1)}px`
+   } 
+if (this._root.style.opacity === '0') {
+    requestAnimationFrame(() => {
+      this._root.style.opacity = '1'
+    })
+
+
+  }
+
+if (this._root.style.opacity === '0') {
+  requestAnimationFrame(() => {
+    this._root.style.opacity = '1'
+    // Only show fsIcon if not in fullscreen
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement)
+    if (this._fsIcon && !isFs) {
+      this._fsIcon.style.opacity = '1'
+    }
+  })
+}
+
+
+    }
+    this._reposition = _reposition
+
+    setTimeout(_reposition, 300)
+    setTimeout(_reposition, 600)
+
     this._onFsChange = () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement)
       this._fsIcon.style.display = isFs ? 'none' : 'flex'
+      setTimeout(_reposition, 300)
+      setTimeout(_reposition, 600)
     }
     document.addEventListener('fullscreenchange',       this._onFsChange)
     document.addEventListener('webkitfullscreenchange', this._onFsChange)
 
-    // -- Centre hub interaction -----------------------------------------------
-    this._hubSwipeStartX  = 0
-    this._hubSwipeStartT  = 0
-    this._hubDragging     = false
-    this._longPressTimer  = null
+    // -- Moon hub interactions ------------------------------------------------
+    this._hubSwipeStartX    = 0
+    this._hubSwipeStartT    = 0
+    this._hubDragging       = false
+    this._longPressTimer    = null
     this._longPressInterval = null
-    this._longPressFired  = false
-    const LONG_PRESS_MS   = 700
+    this._longPressFired    = false
+    const LONG_PRESS_MS     = 700
 
     this._moonCanvas.addEventListener('pointerdown', (e) => {
       e.preventDefault()
@@ -197,14 +299,13 @@ export default class Joystick {
       this._hubDragging    = false
       this._longPressFired = false
 
-      // Progress interval -- drives menu fade-in preview during hold
-     this._longPressInterval = setInterval(() => {
-  if (this._hubDragging) return
-  const elapsed = performance.now() - this._hubSwipeStartT
-  if (elapsed < 80) return  // dead zone -- ignore very short presses
-  const progress = Math.min((elapsed - 80) / (LONG_PRESS_MS - 80), 1.0)
-  if (this._onLongPressProgress) this._onLongPressProgress(progress)
-}, 16) 
+      this._longPressInterval = setInterval(() => {
+        if (this._hubDragging) return
+        const elapsed  = performance.now() - this._hubSwipeStartT
+        if (elapsed < 80) return
+        const progress = Math.min((elapsed - 80) / (LONG_PRESS_MS - 80), 1.0)
+        if (this._onLongPressProgress) this._onLongPressProgress(progress)
+      }, 16)
 
       this._longPressTimer = setTimeout(() => {
         this._longPressFired = true
@@ -220,14 +321,8 @@ export default class Joystick {
       if (performance.now() - this._hubSwipeStartT < 50) return
       const dx = e.clientX - this._hubSwipeStartX
       if (Math.abs(dx) > 6) {
-        if (this._longPressTimer) {
-          clearTimeout(this._longPressTimer)
-          this._longPressTimer = null
-        }
-        if (this._longPressInterval) {
-          clearInterval(this._longPressInterval)
-          this._longPressInterval = null
-        }
+        if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
+        if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
         this._hubDragging = true
         if (this._onSwipe) this._onSwipe(dx)
         this._hubSwipeStartX = e.clientX
@@ -236,31 +331,17 @@ export default class Joystick {
 
     this._moonCanvas.addEventListener('pointerup', (e) => {
       e.preventDefault()
-      if (this._longPressTimer) {
-        clearTimeout(this._longPressTimer)
-        this._longPressTimer = null
-      }
-      if (this._longPressInterval) {
-        clearInterval(this._longPressInterval)
-        this._longPressInterval = null
-      }
+      if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
+      if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
       this._moonCanvas.releasePointerCapture(e.pointerId)
 
       const dt = performance.now() - this._hubSwipeStartT
       const dx = Math.abs(e.clientX - this._hubSwipeStartX)
 
       if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
-        // Short tap
-
-if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
-  if (this._onLongPressCancel) this._onLongPressCancel()  // reset preview
-  if (this._onTap) this._onTap()
-} else if (!this._longPressFired) {
-  if (this._onLongPressCancel) this._onLongPressCancel()
-}
+        if (this._onLongPressCancel) this._onLongPressCancel()
         if (this._onTap) this._onTap()
       } else if (!this._longPressFired) {
-        // Released before long press completed -- cancel the preview fade
         if (this._onLongPressCancel) this._onLongPressCancel()
       }
 
@@ -269,18 +350,39 @@ if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
     }, { passive: false })
 
     this._moonCanvas.addEventListener('pointercancel', () => {
-      if (this._longPressTimer) {
-        clearTimeout(this._longPressTimer)
-        this._longPressTimer = null
-      }
-      if (this._longPressInterval) {
-        clearInterval(this._longPressInterval)
-        this._longPressInterval = null
-      }
+      if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
+      if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
       if (this._onLongPressCancel) this._onLongPressCancel()
       this._hubDragging    = false
       this._longPressFired = false
     })
+  }
+
+  // -- Button press/release -------------------------------------------------
+  _pressBtn(btn) {
+    if (this._activeBtn && this._activeBtn !== btn) this._releaseBtn(this._activeBtn)
+    this._activeBtn = btn
+    btn._active = true
+    if (!btn._invisible) {
+      btn.style.background = 'rgba(20,18,8,0.98)'
+      btn.style.borderColor = 'rgba(245,208,96,1.0)'
+    }
+    this.force = this.radius
+    this.angle = btn._angle
+  }
+
+  _releaseBtn(btn) {
+    if (!btn) return
+    btn._active = false
+    if (!btn._invisible) {
+      btn.style.background = 'rgba(8,8,8,0.82)'
+      btn.style.borderColor = 'rgba(212,175,55,0.55)'
+    }
+    if (this._activeBtn === btn) {
+      this._activeBtn = null
+      this.force = 0
+      this.angle = 0
+    }
   }
 
   // -- Fullscreen -----------------------------------------------------------
@@ -296,125 +398,14 @@ if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
   getMoonCanvas() { return this._moonCanvas }
   getMoonRadius() { return Math.round(this.radius * 0.24) }
 
-  // -- Texture check --------------------------------------------------------
-  _textureExists(key) {
-    try { return this.scene.textures.exists(key); } catch(e) { return false; }
-  }
-
-  // -- Button factory -------------------------------------------------------
-  _makeButton(x, y, size, angleDeg, invisible = false) {
-    let btn;
-
-    if (invisible) {
-      btn = this.scene.add.rectangle(x, y, size, size, 0x000000, 0);
-      btn._invisible = true;
-    } else {
-      if (this._textureExists('darkStone')) {
-        btn = this.scene.add.tileSprite(x, y, size, size, 'darkStone');
-        btn.setAlpha(0.82);
-      } else {
-        btn = this.scene.add.rectangle(x, y, size, size, 0x080808, 0.7);
-      }
-      btn._invisible = false;
-    }
-
-    btn._x      = x;
-    btn._y      = y;
-    btn._size   = size;
-    btn._active = false;
-
-    btn.setScrollFactor(0);
-    btn.setDepth(1002);
-    btn.setInteractive();
-
-    btn.on('pointerdown', () => this._pressButton(btn, angleDeg));
-    btn.on('pointerup',   () => { if (this._activeButton === btn) this._releaseButton(btn); });
-    btn.on('pointerout',  () => { if (this._activeButton === btn) this._releaseButton(btn); });
-    btn.on('pointerover', () => {
-      if (!btn._invisible && !btn._active) {
-        btn.setAlpha(0.95);
-        this._redrawStrokes();
-      }
-    });
-
-    return btn;
-  }
-
-  // -- Gold stroke overlay --------------------------------------------------
-  _redrawStrokes() {
-    const gfx = this._strokeGfx;
-    gfx.clear();
-
-    for (const btn of Object.values(this.buttons)) {
-      if (btn._invisible) continue;
-
-      const isActive = btn._active;
-      const color    = isActive ? 0xf5d060 : 0xd4af37;
-      const alpha    = isActive ? 1.0      : 0.55;
-      const weight   = isActive ? 2        : 1;
-      const size     = btn._size;
-      const x        = btn._x - size / 2;
-      const y        = btn._y - size / 2;
-
-      gfx.lineStyle(weight, color, alpha);
-      gfx.strokeRect(x, y, size, size);
-
-      gfx.lineStyle(1, 0xf5e090, isActive ? 0.35 : 0.18);
-      gfx.lineBetween(x + 2, y + 2, x + size - 2, y + 2);
-    }
-  }
-
-  // -- Press / release ------------------------------------------------------
-  _pressButton(btn, angleDeg) {
-    if (this._activeButton && this._activeButton !== btn)
-      this._releaseButton(this._activeButton);
-
-    this._activeButton = btn;
-
-    if (!btn._invisible) {
-      btn._active = true;
-      btn.setAlpha(0.98);
-      btn.setScale(1.08);
-      this._redrawStrokes();
-    }
-
-    this.force = this.radius;
-    this.angle = angleDeg;
-  }
-
-  _releaseButton(btn) {
-    if (!btn) return;
-
-    if (!btn._invisible) {
-      btn._active = false;
-      btn.setAlpha(0.82);
-      btn.setScale(1.0);
-      this._redrawStrokes();
-    }
-
-    if (this._activeButton === btn) {
-      this._activeButton = null;
-      this.force = 0;
-      this.angle = 0;
-    }
-  }
-
   // -- Public API -----------------------------------------------------------
   reset() {
-    this.force = 0;
-    this.angle = 0;
-    if (this._activeButton) {
-      this._releaseButton(this._activeButton);
-      this._activeButton = null;
+    this.force = 0
+    this.angle = 0
+    if (this._activeBtn) {
+      this._releaseBtn(this._activeBtn)
+      this._activeBtn = null
     }
-    Object.values(this.buttons).forEach(btn => {
-      if (!btn._invisible) {
-        btn._active = false;
-        btn.setAlpha(0.82);
-        btn.setScale(1.0);
-      }
-    });
-    this._redrawStrokes();
   }
 
   destroy() {
@@ -424,7 +415,7 @@ if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
       document.removeEventListener('fullscreenchange',       this._onFsChange)
       document.removeEventListener('webkitfullscreenchange', this._onFsChange)
     }
-    if (this._hubDom?.parentNode) this._hubDom.parentNode.removeChild(this._hubDom)
+    if (this._root?.parentNode)   this._root.parentNode.removeChild(this._root)
     if (this._fsIcon?.parentNode) this._fsIcon.parentNode.removeChild(this._fsIcon)
   }
 }

@@ -206,7 +206,7 @@ export function createMoonWidget(opts = {}) {
 
         setPhase(v)   { _setPhaseInternal(v); },
         getPhase()    { return phase; },
-
+getCanvas() { return canvas },
         // Called by Joystick swipe -- dx is incremental pixel delta
         nudgePhase(dx) {
             _setPhaseInternal(rawPhase + dx / swipeRange);

@@ -3,7 +3,6 @@ import './heroSelect.js'
 import BowTutorial from './game/scenes/locations/bowTutorial.js'
 import WorldScene from './game/scenes/worldScene.js'
 import BogMeadow from './game/scenes/locations/bog/bogMeadow.js'
-import { initFullscreenButton } from './game/ui/fullscreenButton.js'
 // Bog world scenes
 import GreatOpenBog        from './game/scenes/locations/bog/greatOpenBog.js'
 import AbandonedSettlement from './game/scenes/locations/bog/abandonedSettlement.js'
@@ -100,7 +99,6 @@ function _createGame(selectedChampion, options) {
     config.selectedChampion = selectedChampion
     window.game = new Phaser.Game(config)
 
-initFullscreenButton();
     window.game.registry.set('selectedChampion', selectedChampion)
 
     const sceneToStart = options.startScene || 'BowTutorial'

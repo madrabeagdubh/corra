@@ -1,3 +1,4 @@
+
 // Joystick.js
 //
 // 8-directional d-pad with moon widget embedded in the hub centre.
@@ -9,9 +10,11 @@
 //   - Centre hub: moon canvas (no drag-thumb analog mode)
 //
 // Centre hub interactions:
-//   - Swipe left/right  → change moon phase
-//   - Long press        → onLongPress() callback (open menu hub)
-//   - Short tap         → onTap() callback (open encounter panel / toggle menu)
+//   - Swipe left/right      → change moon phase
+//   - Long press            → onLongPress() callback (open menu hub)
+//   - Long press in progress → onLongPressProgress(0..1) for fade-in preview
+//   - Long press cancelled  → onLongPressCancel() to fade back out
+//   - Short tap             → onTap() callback
 
 export default class Joystick {
   constructor(scene, config) {
@@ -25,10 +28,11 @@ export default class Joystick {
 
     this._activeButton = null;
 
-    // Callbacks for centre hub
-    this._onTap       = config.onTap       ?? null;   // short tap
-    this._onLongPress = config.onLongPress  ?? null;   // long press
-    this._onSwipe     = config.onSwipe      ?? null;   // (deltaX) swipe delta
+    this._onTap               = config.onTap               ?? null;
+    this._onLongPress         = config.onLongPress          ?? null;
+    this._onLongPressProgress = config.onLongPressProgress  ?? null;
+    this._onLongPressCancel   = config.onLongPressCancel    ?? null;
+    this._onSwipe             = config.onSwipe              ?? null;
 
     const R  = this.radius;
     const bx = this.baseX;
@@ -62,7 +66,6 @@ export default class Joystick {
     // -- Layout constants -----------------------------------------------------
     const cardOff  = R * 0.72;
     const cardSize = R * 0.55 + 1;
-
     const diagOff  = R * 0.72;
     const diagSize = R * 0.38 + 1;
     const diagXY   = diagOff * Math.cos(Math.PI / 4);
@@ -74,13 +77,11 @@ export default class Joystick {
 
     this.buttons = {};
 
-    // Cardinals
     this.buttons.up    = this._makeButton(bx,           by - cardOff, cardSize, -90);
     this.buttons.down  = this._makeButton(bx,           by + cardOff, cardSize,  90);
     this.buttons.left  = this._makeButton(bx - cardOff, by,           cardSize, 180);
     this.buttons.right = this._makeButton(bx + cardOff, by,           cardSize,   0);
 
-    // Diagonals
     this.buttons.upRight   = this._makeButton(bx + diagXY, by - diagXY, diagSize, -45,  true);
     this.buttons.downRight = this._makeButton(bx + diagXY, by + diagXY, diagSize,  45,  true);
     this.buttons.downLeft  = this._makeButton(bx - diagXY, by + diagXY, diagSize, 135,  true);
@@ -89,13 +90,16 @@ export default class Joystick {
     this._redrawStrokes();
 
     // -- Centre moon hub DOM element ------------------------------------------
-    // A DOM canvas sits over the Phaser canvas at the hub position.
-    // The moon widget will render into this canvas.
-    const hubD    = Math.round(R * 0.48) * 2   // diameter of hub moon
-    this._hubDom  = document.createElement('div')
+    // Remove any existing hub/icon from a previous scene
+    const existingHub = document.getElementById('dpad-moon-hub')
+    if (existingHub) existingHub.parentNode?.removeChild(existingHub)
+    const existingFs = document.getElementById('dpad-fs-icon')
+    if (existingFs) existingFs.parentNode?.removeChild(existingFs)
+
+    const hubD   = Math.round(R * 0.48) * 2
+    this._hubDom = document.createElement('div')
     this._hubDom.id = 'dpad-moon-hub'
 
-    // Convert Phaser canvas-local coords to page coords
     const phaserCanvas = scene.game.canvas
     const canvasRect   = phaserCanvas.getBoundingClientRect()
     const scaleX       = canvasRect.width  / phaserCanvas.width
@@ -106,62 +110,83 @@ export default class Joystick {
 
     this._hubDom.style.cssText = [
       'position:fixed;',
-      `left:${pageX - hubDScaled / 2}px;`,
-      `top:${pageY  - hubDScaled / 2}px;`,
-      `width:${hubDScaled}px;`,
-      `height:${hubDScaled}px;`,
+      `left:${(pageX - hubDScaled / 2).toFixed(1)}px;`,
+      `top:${(pageY  - hubDScaled / 2).toFixed(1)}px;`,
+      `width:${hubDScaled.toFixed(1)}px;`,
+      `height:${hubDScaled.toFixed(1)}px;`,
       'z-index:1000005;',
       'border-radius:50%;',
-      'overflow:hidden;',
       'pointer-events:all;',
       'cursor:grab;',
-      // Gold ring matching dpad aesthetic
       `border:1.5px solid rgba(212,175,55,0.7);`,
       'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
     ].join('')
 
-    // The actual moon canvas inside the hub
+    // Moon canvas fills hub
     this._moonCanvas = document.createElement('canvas')
     this._moonCanvas.width  = hubD
     this._moonCanvas.height = hubD
     this._moonCanvas.style.cssText = [
-      `width:${hubDScaled}px;`,
-      `height:${hubDScaled}px;`,
+      `width:${hubDScaled.toFixed(1)}px;`,
+      `height:${hubDScaled.toFixed(1)}px;`,
       'transform:rotate(160deg);',
       'display:block;',
       'touch-action:none;',
     ].join('')
     this._hubDom.appendChild(this._moonCanvas)
+    phaserCanvas.parentNode.appendChild(this._hubDom)
 
-    // Fullscreen icon overlay -- small, top-right of hub
+    // Fullscreen icon -- body-level so position:fixed works correctly
+    const fsSize = 36
+    const fsX    = pageX - fsSize / 2
+    const fsY    = pageY - fsSize / 2
+
     this._fsIcon = document.createElement('div')
+    this._fsIcon.id = 'dpad-fs-icon'
     this._fsIcon.style.cssText = [
-      'position:absolute;',
-      'top:2px;right:2px;',
-      'width:14px;height:14px;',
+      'position:fixed;',
+      `left:${fsX.toFixed(1)}px;`,
+      `top:${fsY.toFixed(1)}px;`,
+      `width:${fsSize}px;height:${fsSize}px;`,
       'display:flex;align-items:center;justify-content:center;',
-      'font-size:9px;',
-      'color:rgba(212,175,55,0.7);',
+      'font-size:18px;',
+      'color:rgba(212,175,55,0.9);',
       'pointer-events:all;',
       'cursor:pointer;',
-      'z-index:2;',
+      'z-index:1000006;',
+      'background:rgba(8,6,2,0.6);',
+      'border-radius:50%;',
+      `border:1px solid rgba(212,175,55,0.4);`,
     ].join('')
     this._fsIcon.textContent = '⛶'
     this._fsIcon.addEventListener('pointerup', (e) => {
       e.stopPropagation()
+      this._fsIcon.style.display = 'none'
       this._requestFullscreen()
     })
-    this._hubDom.appendChild(this._fsIcon)
+    document.body.appendChild(this._fsIcon)
 
-    phaserCanvas.parentNode.appendChild(this._hubDom)
+    // Hide immediately if already fullscreen
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      this._fsIcon.style.display = 'none'
+    }
+
+    // Show/hide on fullscreen change
+    this._onFsChange = () => {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement)
+      this._fsIcon.style.display = isFs ? 'none' : 'flex'
+    }
+    document.addEventListener('fullscreenchange',       this._onFsChange)
+    document.addEventListener('webkitfullscreenchange', this._onFsChange)
 
     // -- Centre hub interaction -----------------------------------------------
     this._hubSwipeStartX  = 0
     this._hubSwipeStartT  = 0
     this._hubDragging     = false
     this._longPressTimer  = null
+    this._longPressInterval = null
     this._longPressFired  = false
-    const LONG_PRESS_MS   = 500
+    const LONG_PRESS_MS   = 700
 
     this._moonCanvas.addEventListener('pointerdown', (e) => {
       e.preventDefault()
@@ -172,8 +197,21 @@ export default class Joystick {
       this._hubDragging    = false
       this._longPressFired = false
 
+      // Progress interval -- drives menu fade-in preview during hold
+     this._longPressInterval = setInterval(() => {
+  if (this._hubDragging) return
+  const elapsed = performance.now() - this._hubSwipeStartT
+  if (elapsed < 80) return  // dead zone -- ignore very short presses
+  const progress = Math.min((elapsed - 80) / (LONG_PRESS_MS - 80), 1.0)
+  if (this._onLongPressProgress) this._onLongPressProgress(progress)
+}, 16) 
+
       this._longPressTimer = setTimeout(() => {
         this._longPressFired = true
+        if (this._longPressInterval) {
+          clearInterval(this._longPressInterval)
+          this._longPressInterval = null
+        }
         if (this._onLongPress) this._onLongPress()
       }, LONG_PRESS_MS)
     }, { passive: false })
@@ -182,14 +220,17 @@ export default class Joystick {
       if (performance.now() - this._hubSwipeStartT < 50) return
       const dx = e.clientX - this._hubSwipeStartX
       if (Math.abs(dx) > 6) {
-        // Cancel long press if swiping
         if (this._longPressTimer) {
           clearTimeout(this._longPressTimer)
           this._longPressTimer = null
         }
+        if (this._longPressInterval) {
+          clearInterval(this._longPressInterval)
+          this._longPressInterval = null
+        }
         this._hubDragging = true
         if (this._onSwipe) this._onSwipe(dx)
-        this._hubSwipeStartX = e.clientX  // incremental deltas
+        this._hubSwipeStartX = e.clientX
       }
     }, { passive: true })
 
@@ -199,14 +240,30 @@ export default class Joystick {
         clearTimeout(this._longPressTimer)
         this._longPressTimer = null
       }
+      if (this._longPressInterval) {
+        clearInterval(this._longPressInterval)
+        this._longPressInterval = null
+      }
       this._moonCanvas.releasePointerCapture(e.pointerId)
 
       const dt = performance.now() - this._hubSwipeStartT
       const dx = Math.abs(e.clientX - this._hubSwipeStartX)
 
-      if (!this._longPressFired && !this._hubDragging && dt < 400 && dx < 12) {
+      if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
+        // Short tap
+
+if (!this._longPressFired && !this._hubDragging && dt < 700 && dx < 12) {
+  if (this._onLongPressCancel) this._onLongPressCancel()  // reset preview
+  if (this._onTap) this._onTap()
+} else if (!this._longPressFired) {
+  if (this._onLongPressCancel) this._onLongPressCancel()
+}
         if (this._onTap) this._onTap()
+      } else if (!this._longPressFired) {
+        // Released before long press completed -- cancel the preview fade
+        if (this._onLongPressCancel) this._onLongPressCancel()
       }
+
       this._hubDragging    = false
       this._longPressFired = false
     }, { passive: false })
@@ -216,6 +273,11 @@ export default class Joystick {
         clearTimeout(this._longPressTimer)
         this._longPressTimer = null
       }
+      if (this._longPressInterval) {
+        clearInterval(this._longPressInterval)
+        this._longPressInterval = null
+      }
+      if (this._onLongPressCancel) this._onLongPressCancel()
       this._hubDragging    = false
       this._longPressFired = false
     })
@@ -225,19 +287,14 @@ export default class Joystick {
   _requestFullscreen() {
     const el = document.documentElement
     try {
-      if (el.requestFullscreen)             el.requestFullscreen()
-      else if (el.webkitRequestFullscreen)  el.webkitRequestFullscreen()
+      if (el.requestFullscreen)            el.requestFullscreen()
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
     } catch(e) {}
   }
 
   // -- Moon canvas access ---------------------------------------------------
-  getMoonCanvas() {
-    return this._moonCanvas
-  }
-
-  getMoonRadius() {
-    return Math.round(this.radius * 0.24)
-  }
+  getMoonCanvas() { return this._moonCanvas }
+  getMoonRadius() { return Math.round(this.radius * 0.24) }
 
   // -- Texture check --------------------------------------------------------
   _textureExists(key) {
@@ -361,8 +418,14 @@ export default class Joystick {
   }
 
   destroy() {
-    if (this._longPressTimer) clearTimeout(this._longPressTimer)
+    if (this._longPressTimer)    clearTimeout(this._longPressTimer)
+    if (this._longPressInterval) clearInterval(this._longPressInterval)
+    if (this._onFsChange) {
+      document.removeEventListener('fullscreenchange',       this._onFsChange)
+      document.removeEventListener('webkitfullscreenchange', this._onFsChange)
+    }
     if (this._hubDom?.parentNode) this._hubDom.parentNode.removeChild(this._hubDom)
+    if (this._fsIcon?.parentNode) this._fsIcon.parentNode.removeChild(this._fsIcon)
   }
 }
 

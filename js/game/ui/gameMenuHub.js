@@ -1,16 +1,6 @@
 /**
  * gameMenuHub.js
- *
- * A swipeable panel system that wraps multiple game views.
- * Tab bar sits at the TOP of the screen.
- * Content panel fills below the tab bar.
- *
- * Panels:
- *   inventory  🎒  -- fires onInventoryOpen/onInventoryClose
- *   stats      ⚔️  -- DOM panel
- *   labhairt   💬  -- fires onLabhairtOpen/onLabhairtClose
- *   log        📜  -- DOM panel
- *   about      ?   -- DOM panel (credits)
+ * Tab bar at TOP. Single tap closes everything cleanly.
  */
 
 import { FONTS, COLORS } from '../systems/gameTypography.js';
@@ -27,7 +17,6 @@ const PANELS = [
 const PHASER_PANELS = new Set(['inventory', 'labhairt']);
 
 const GOLD_FULL      = COLORS.queen;
-const GOLD_DIM       = COLORS.queen + '73';
 const GOLD_BORDER    = COLORS.queen + '4d';
 const GOLD_ACTIVE_BG = COLORS.queen + '1a';
 const PANEL_BG       = 'rgba(8,6,2,0.95)';
@@ -67,7 +56,6 @@ export function createGameMenuHub({
     let destroyed = false;
     let curIdx    = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
 
-    // -- Root overlay -- full screen, flex column, tab bar on top
     const root = document.createElement('div');
     root.id = 'gameMenuHub';
     root.style.cssText = [
@@ -81,7 +69,7 @@ export function createGameMenuHub({
     ].join('');
     document.body.appendChild(root);
 
-    // -- Tab bar -- horizontal strip at TOP --
+    // Tab bar at top
     const tabBar = document.createElement('div');
     tabBar.style.cssText = [
         'display:flex;align-items:stretch;',
@@ -111,10 +99,8 @@ export function createGameMenuHub({
         iconImg.src = panel.icon
         iconImg.style.cssText = [
             'width:24px;height:24px;',
-            'object-fit:contain;',
-            'image-rendering:pixelated;',
-            'filter:brightness(0.55);',
-            'transition:filter 0.15s;',
+            'object-fit:contain;image-rendering:pixelated;',
+            'filter:brightness(0.55);transition:filter 0.15s;',
         ].join('')
         iconImg.onerror = () => {
             iconImg.style.display = 'none'
@@ -125,8 +111,8 @@ export function createGameMenuHub({
         }
         iconEl.appendChild(iconImg)
         tab._iconImg = iconImg
-
         tab.appendChild(iconEl)
+
         tab.addEventListener('pointerup', (e) => {
             e.stopPropagation();
             _goTo(i);
@@ -137,18 +123,15 @@ export function createGameMenuHub({
 
     root.appendChild(tabBar);
 
-    // -- DOM content area -- fills remaining space below tab bar --
     const domArea = document.createElement('div');
     domArea.style.cssText = [
-        'flex:1;',
-        'overflow:hidden;',
+        'flex:1;overflow:hidden;',
         'pointer-events:all;',
         'display:none;',
         `background:${PANEL_BG};`,
     ].join('');
     root.appendChild(domArea);
 
-    // -- Build DOM panels --
     const domPanels = {};
     PANELS.forEach((panel) => {
         if (PHASER_PANELS.has(panel.key)) return;
@@ -212,7 +195,6 @@ export function createGameMenuHub({
         container._updateLanguage = () => Array.from(container.children).forEach(c => c._update?.())
     }
 
-    // -- Swipe detection --
     let swipeStartX = 0, swipeStartT = 0, swiping = false;
     root.addEventListener('pointerdown', (e) => { swipeStartX = e.clientX; swipeStartT = performance.now(); swiping = true; }, { passive: true });
     root.addEventListener('pointerup', (e) => {
@@ -225,7 +207,11 @@ export function createGameMenuHub({
         }
     }, { passive: true });
 
-    // -- Panel navigation --
+    function _teardownCurrent(panelKey) {
+        if (panelKey === 'inventory' && onInventoryClose) onInventoryClose()
+        if (panelKey === 'labhairt'  && onLabhairtClose)  onLabhairtClose()
+    }
+
     function _goTo(idx, skipCallbacks) {
         const prev = PANELS[curIdx].key;
         curIdx = idx;
@@ -233,10 +219,7 @@ export function createGameMenuHub({
         GameSettings.lastMenuPanel = current;
         _updateTabs();
 
-        if (!skipCallbacks) {
-            if (prev === 'inventory' && current !== 'inventory' && onInventoryClose) onInventoryClose();
-            if (prev === 'labhairt'  && current !== 'labhairt'  && onLabhairtClose)  onLabhairtClose();
-        }
+        if (!skipCallbacks) _teardownCurrent(prev)
 
         if (current === 'inventory') {
             domArea.style.display = 'none';
@@ -279,18 +262,22 @@ export function createGameMenuHub({
         requestAnimationFrame(() => { root.style.opacity = '1'; });
     }
 
-    function _close() {
-        open = false;
-        root.style.opacity = '0';
-        const current = PANELS[curIdx].key;
-        if (current === 'inventory' && onInventoryClose) onInventoryClose();
-        if (current === 'labhairt'  && onLabhairtClose)  onLabhairtClose();
-        const onFaded = () => {
-            root.removeEventListener('transitionend', onFaded);
-            if (!open) root.style.display = 'none';
-        };
-        root.addEventListener('transitionend', onFaded);
-    }
+  function _close() {
+  open = false
+  root.style.opacity = '0'
+  _teardownCurrent(PANELS[curIdx].key)
+
+  // Use both transitionend and a timeout fallback
+  const hide = () => {
+    if (!open) root.style.display = 'none'
+  }
+  const onFaded = () => {
+    root.removeEventListener('transitionend', onFaded)
+    hide()
+  }
+  root.addEventListener('transitionend', onFaded)
+  setTimeout(hide, 300)  // fallback in case transitionend doesn't fire
+} 
 
     return {
         open()         { _open(); },

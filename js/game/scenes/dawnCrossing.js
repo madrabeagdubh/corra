@@ -4,9 +4,6 @@ import { FONTS, SPACING, TYPE } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOAT
-// ─────────────────────────────────────────────────────────────────────────────
 const BOAT_PIXELS = [
     '0000000110000000',
     '0000001111000000',
@@ -30,9 +27,6 @@ const CATCH_ANGLE  = -0.44;
 const FINISH_ANGLE =  0.40;
 const READY_LIFT   =  2.4;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
 const rnd    = (a, b) => a + Math.random() * (b - a);
 const clamp  = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp   = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
@@ -40,15 +34,10 @@ const easeIO = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
 const easeOut = t => 1 - (1-clamp(t,0,1))*(1-clamp(t,0,1));
 const easeIn  = t => clamp(t,0,1)*clamp(t,0,1);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
 export function initDawnCrossing(champion, sliderValue, onComplete) {
-    // Seed moonPhase from whatever was set in heroSelect / constellation scene
     let moonPhase = typeof sliderValue === 'number' ? sliderValue : (GameSettings.englishOpacity ?? 0.15);
     GameSettings.setEnglishOpacity(moonPhase);
 
-    // ── Container ─────────────────────────────────────────────────────────────
     const container = document.createElement('div');
     container.id = 'dawnCrossing';
     container.style.cssText = [
@@ -57,8 +46,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     ].join('');
     document.body.appendChild(container);
 
-    // ── Font override for ScrollingTextPlayer ─────────────────────────────────
-    const W0 = window.innerWidth, H0 = window.innerHeight;
     const gaFontPx = TYPE.domBody.sizePx;
     const enFontPx = TYPE.domBodyEn.sizePx;
     const SCENE_IRISH_COLOR = '#e8c84a';
@@ -94,36 +81,31 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     `;
     document.head.appendChild(fontOverride);
 
-    // ── Moon widget ───────────────────────────────────────────────────────────
-    // Fixed corner, swipe to change English opacity.
-    // dawnCrossing uses showSlider:false — same corner moon as heroSelect.
+    // Moon widget — bottom-centre, position matched to dpad hub
     const moonWidget = createMoonWidget({
         initialPhase : moonPhase,
         showSlider   : false,
+        corner       : 'bottom-center',
         onChange     : (phase) => {
             moonPhase = phase;
             GameSettings.setEnglishOpacity(phase);
-            // ScrollingTextPlayer reads moonPhase via getMoonPhase() each frame
         },
     });
 
-    // ── Canvas ────────────────────────────────────────────────────────────────
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
-    container.appendChild(canvas);   // moonWidget appends to body independently
+    container.appendChild(canvas);
     const ctx = canvas.getContext('2d');
 
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     resize();
     window.addEventListener('resize', resize);
 
-    // ── Timing ────────────────────────────────────────────────────────────────
     const SCENE_DURATION = 95000;
     const STAR_FADE_END  = 44000;
     const SEA_DAWN_END   = 74000;
     const BOAT_DURATION  = 88000;
 
-    // ── Stars ─────────────────────────────────────────────────────────────────
     const stars = Array.from({ length: 520 }, () => {
         const ang = Math.random() * Math.PI * 2;
         const rad = Math.pow(Math.random(), 0.6);
@@ -140,9 +122,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         };
     });
 
-    // ── Text (ScrollingTextPlayer) ────────────────────────────────────────────
-    const DAWN_TEXTS_PATH    = new URL('/data/dawnCrossingTexts.js',    import.meta.url).href;
-    const SCROLLING_TEXT_PATH = new URL('/ui/scrollingTextPlayer.js',   import.meta.url).href;
+    const DAWN_TEXTS_PATH     = new URL('/data/dawnCrossingTexts.js',  import.meta.url).href;
+    const SCROLLING_TEXT_PATH = new URL('/ui/scrollingTextPlayer.js',  import.meta.url).href;
     let textPlayer = null;
     let sceneDone  = false;
 
@@ -179,9 +160,7 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                     if (Math.abs(this._velocity - natural) > 0.0001) {
                         const a = 1 - Math.exp(-dt / 200);
                         this._velocity += (natural - this._velocity) * a;
-                        if (this._velocity > -natural && this._velocity < natural) {
-                            this._velocity = natural;
-                        }
+                        if (this._velocity > -natural && this._velocity < natural) this._velocity = natural;
                     } else {
                         this._velocity = natural;
                     }
@@ -197,6 +176,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                 const mp     = this._getMoonPhase();
                 const CEIL   = 58 + 8;
                 const FADEPX = 80;
+                // Bottom fade: 18% of screen height clears the moon widget at dpad position
+                const BOTTOM_FADE_FRAC = 0.18;
                 for (const entry of this._lineEls) {
                     const y      = this._screenY(entry);
                     const h      = entry._cachedH || (entry._cachedH = entry.wrapper.offsetHeight);
@@ -209,7 +190,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                     }
                     let alpha = 1;
                     if (y < CEIL + FADEPX) alpha = Math.max(0, (y - CEIL) / FADEPX);
-                    if (bottom > H2 * (1 - 0.07)) alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * 0.07)));
+                    if (bottom > H2 * (1 - BOTTOM_FADE_FRAC))
+                        alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * BOTTOM_FADE_FRAC)));
                     entry.gaEl.style.opacity = String(alpha);
                     if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
                 }
@@ -222,9 +204,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             textPlayer._onComplete     = function() {};
 
             if (textPlayer._hitZone) {
-                const SLIDER_H = 0;   // no slider strip in this scene
-                textPlayer._hitZone.style.top    = SLIDER_H + 'px';
-                textPlayer._hitZone.style.height = (window.innerHeight - SLIDER_H) + 'px';
+                textPlayer._hitZone.style.top    = '0px';
+                textPlayer._hitZone.style.height = (window.innerHeight) + 'px';
                 textPlayer._hitZone.style.bottom = '';
             }
 
@@ -232,9 +213,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             textPlayer._gestureEnd = function(endY, wasTap) {
                 origGestureEnd(endY, wasTap);
                 if (!wasTap && !this._atCeiling) {
-                    if (this._velocity > -this._naturalVel && this._velocity < this._naturalVel) {
+                    if (this._velocity > -this._naturalVel && this._velocity < this._naturalVel)
                         this._velocity = this._naturalVel;
-                    }
                 }
             };
 
@@ -256,7 +236,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         }
     }, 2000);
 
-    // ── Music fade ────────────────────────────────────────────────────────────
     (async () => {
         try {
             const mod = await import('../../heroSelect.js');
@@ -275,7 +254,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
 
     const hardCap = setTimeout(() => { if (!sceneDone) beginExit(); }, SCENE_DURATION);
 
-    // ── Exit ──────────────────────────────────────────────────────────────────
     function beginExit() {
         if (sceneDone) return;
         sceneDone = true;
@@ -311,17 +289,16 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             veil.remove();
             const gc = document.getElementById('gameContainer');
             if (gc) {
-                gc.style.display   = '';
-                gc.style.opacity   = '1';
-                gc.style.position  = 'fixed';
-                gc.style.inset     = '0';
-                gc.style.zIndex    = '999999';
+                gc.style.display  = '';
+                gc.style.opacity  = '1';
+                gc.style.position = 'fixed';
+                gc.style.inset    = '0';
+                gc.style.zIndex   = '999999';
             }
             if (onComplete) onComplete();
         }, 3900);
     }
 
-    // ── Boat audio ────────────────────────────────────────────────────────────
     let boatAC    = null;
     let masterOut = null;
     let lastCreak = 0;
@@ -355,10 +332,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     function playWaterRush(intensity) {
         if (!ensureAudio()) return;
         const ac = boatAC, now = ac.currentTime;
-        const buf = getNoiseBuf();
-        if (!buf) return;
-        const src = ac.createBufferSource();
-        src.buffer = buf; src.loop = true;
+        const buf = getNoiseBuf(); if (!buf) return;
+        const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
         const bp  = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 380; bp.Q.value = 1.8;
         const bp2 = ac.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = 720; bp2.Q.value = 2.4;
         const g = ac.createGain(), g2 = ac.createGain();
@@ -441,7 +416,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         if (!inStroke && now - lastOminous > 12000 && Math.random() < 0.0004) { lastOminous = now; playOminousCreak(); }
     }
 
-    // ── Ripples ───────────────────────────────────────────────────────────────
     const RIPPLE_LIFE  = 11000;
     const RIPPLE_MAX_R = 0.30;
     const RIPPLE_SETS  = 10;
@@ -458,12 +432,12 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     function drawSquirmArc(ctx, R, startAngle, endAngle, sqAmp, sqFreq, sqTime, sqPh, sqPh2, baseAlpha, hue) {
         const STEPS = 52, FADE_END = 0.18;
         for (let s = 0; s < STEPS; s++) {
-            const t0 = s / STEPS, t1 = (s + 1) / STEPS;
+            const t0 = s / STEPS;
             const endFade0 = t0 < FADE_END ? t0 / FADE_END : t0 > 1 - FADE_END ? (1 - t0) / FADE_END : 1;
             const segAlpha = baseAlpha * endFade0;
             if (segAlpha < 0.003) continue;
             const a0 = startAngle + (endAngle - startAngle) * t0;
-            const a1 = startAngle + (endAngle - startAngle) * t1;
+            const a1 = startAngle + (endAngle - startAngle) * (t0 + 1/STEPS);
             const sq0 = sqAmp * (Math.sin(sqFreq*a0 + sqTime*1.1 + sqPh)*0.65 + Math.sin(sqFreq*a0*3 + sqTime*0.7 + sqPh2)*0.35);
             const sq1 = sqAmp * (Math.sin(sqFreq*a1 + sqTime*1.1 + sqPh)*0.65 + Math.sin(sqFreq*a1*3 + sqTime*0.7 + sqPh2)*0.35);
             ctx.beginPath();
@@ -474,14 +448,12 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         }
     }
 
-    // ── Skye image ────────────────────────────────────────────────────────────
     const skyeImg = new Image();
     skyeImg.src = 'assets/skye0.png';
     let skyeLoaded = false;
     skyeImg.onload  = () => { skyeLoaded = true; };
     skyeImg.onerror = () => { console.warn('[dawnCrossing] skye0.png not found'); };
 
-    // ── Render loop ───────────────────────────────────────────────────────────
     const startTime    = performance.now();
     let   rafId        = null;
     let   boatProgress = 0;
@@ -540,7 +512,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             }
         }
 
-        // Ripples
         {
             const rNow = performance.now();
             ripples = ripples.filter(r => (rNow - r.born) < RIPPLE_LIFE);
@@ -578,8 +549,7 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             ctx.restore();
         }
 
-        // ── Boat ──────────────────────────────────────────────────────────────
-        const cycMs   = elapsed % OAR_CYCLE;
+        const cycMs    = elapsed % OAR_CYCLE;
         const inReady  = cycMs < READY_MS;
         const inStroke = !inReady && cycMs < READY_MS + STROKE_MS;
         const inReturn = !inReady && !inStroke;

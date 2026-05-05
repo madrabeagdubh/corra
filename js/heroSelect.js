@@ -8,12 +8,12 @@ import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerSchedul
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
-import { createMoonWidget } from './game/ui/moonWidget.js';
+import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 
 console.log('[HeroSelect] MODULE LOADED - heroSelect.js is executing');
 
-// ── Global state ──────────────────────────────────────────────────────────────
-let initialized      = false;
+// ── Module-level state ────────────────────────────────────────────────────────
+let initialized       = false;
 let sequenceTriggered = false;
 function resetState() { initialized = false; }
 
@@ -30,40 +30,82 @@ let lastMusicChangeTime  = 0;
 const MUSIC_CHANGE_DELAY = 500;
 
 let initialSliderValue = 0.05;
-
-let scrollContainer  = null;
+let scrollContainer    = null;
 
 // Swipe nudge state
-let swipeNudgeTimer   = null;
+let swipeNudgeTimer     = null;
 let swipeNudgeCancelled = false;
 let swipeNudgePanning   = false;
 
-// Active moonWidget instance
+// Moon widget — exported so characterModal can call setTapHandler
 let moonWidgetInstance = null;
+export function getMoonWidget() { return moonWidgetInstance; }
+
+// ── _doFinalize — MODULE SCOPE ────────────────────────────────────────────────
+// Hoisted here so showHeroSelect() and the restored tap handler in characterModal
+// can always reference it, regardless of when initMainHeroSelect() ran.
+async function _doFinalize() {
+    try {
+        const el = document.documentElement;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        }
+    } catch(e) {}
+
+    if (!validChampions[currentChampionIndex]) return;
+
+    const musicReady = musicPlayer &&
+                       musicPlayer.tracks &&
+                       musicPlayer.tracks.length > 0 &&
+                       musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
+    if (musicReady) {
+        await unmutePiano();
+        setTimeout(() => finalize(validChampions[currentChampionIndex]), 800);
+    } else {
+        setTimeout(() => finalize(validChampions[currentChampionIndex]), 200);
+    }
+}
+
+// ── _restoreHeroSelectTap — MODULE SCOPE ──────────────────────────────────────
+// Sets the moon tap handler back to the heroSelect "Continue" behaviour.
+// Called by showHeroSelect() and by characterModal when it closes.
+export function restoreHeroSelectTap() {
+    if (!moonWidgetInstance) return;
+    moonWidgetInstance.setTapHandler(() => {
+        // If a stat popup is open, close it first
+        const popup = document.getElementById('statPopup');
+        if (popup) { popup.click(); return; }
+        cancelSwipeNudge();
+        _doFinalize();
+    });
+}
+
+// ── Clearance helper ──────────────────────────────────────────────────────────
+function _moonClearance() {
+    const minDim   = Math.min(window.innerWidth, window.innerHeight);
+    const moonR    = Math.max(24, Math.round(minDim * 0.055));
+    const moonD    = moonR * 2;
+    const pad      = 18;
+    const wrapperH = moonD + pad * 2;
+    return Math.round(102 + wrapperH / 2) + 8;
+}
 
 // ── Stat descriptions ─────────────────────────────────────────────────────────
 const statDescriptions = {
-  attack:  { irish: 'Troid',   english: 'Fight'   },
-  defense: { irish: 'Cosain',  english: 'Defend'  },
-  health:  { irish: 'Sláinte', english: 'Health'  },
+    attack:  { irish: 'Troid',   english: 'Fight'   },
+    defense: { irish: 'Cosain',  english: 'Defend'  },
+    health:  { irish: 'Sláinte', english: 'Health'  },
 };
-
-
-
-
 
 const statIcons = {
     attack:  'assets/icons/sword.png',
     defense: 'assets/icons/shield.png',
     health:  'assets/icons/heart.png',
     speed:   'assets/icons/wing.png',
- //  magic:   'assets/icons/star.png',
     luck:    'assets/icons/clover.png',
 };
 
-// Helper used by both createStatsDisplay and createStatPopup.
-// Returns an <img> element sized to `size` px, falling back to the stat key
-// as text if the image fails to load.
 function makeStatIcon(statName, size = 32) {
     const img = document.createElement('img');
     img.src    = statIcons[statName];
@@ -77,7 +119,6 @@ function makeStatIcon(statName, size = 32) {
         display:block;
     `;
     img.onerror = () => {
-        // Graceful fallback if asset not yet present
         const span = document.createElement('span');
         span.textContent = statName[0].toUpperCase();
         span.style.cssText = `font-size:${size * 0.7}px;line-height:1;`;
@@ -86,23 +127,16 @@ function makeStatIcon(statName, size = 32) {
     return img;
 }
 
-
-
-
-
-
-
-
-
-
 function createStatsDisplay(champion) {
     if (!champion || !champion.stats) return null;
+
+    const moonClear = _moonClearance();
 
     const statsContainer = document.createElement('div');
     statsContainer.id = 'global-stats-bar';
     statsContainer.style.cssText = `
         position: fixed !important;
-        bottom: 120px !important;
+        bottom: ${moonClear + 8}px !important;
         left: 0 !important;
         right: 0 !important;
         z-index: 10005 !important;
@@ -127,10 +161,7 @@ function createStatsDisplay(champion) {
         `;
 
         const iconWrap = document.createElement('div');
-        iconWrap.style.cssText = `
-            width:40px;height:40px;
-            display:flex;align-items:center;justify-content:center;
-        `;
+        iconWrap.style.cssText = `width:40px;height:40px;display:flex;align-items:center;justify-content:center;`;
         iconWrap.appendChild(makeStatIcon(statName, 36));
 
         const val = document.createElement('span');
@@ -145,23 +176,13 @@ function createStatsDisplay(champion) {
         item.appendChild(iconWrap);
         item.appendChild(val);
 
-
-
-item.onclick = (e) => {
-    e.stopPropagation();
-    cancelSwipeNudge();
-    const existing = document.getElementById('statPopup');
-    if (existing && existing.dataset.stat === statName) { existing.click(); return; }
-    createStatPopup(statName);
-};
-
-item.onclick = (e) => {
-    e.stopPropagation();
-    cancelSwipeNudge();
-    const existing = document.getElementById('statPopup');
-    if (existing && existing.dataset.stat === statName) { existing.click(); return; }
-    createStatPopup(statName);
-};
+        item.onclick = (e) => {
+            e.stopPropagation();
+            cancelSwipeNudge();
+            const existing = document.getElementById('statPopup');
+            if (existing && existing.dataset.stat === statName) { existing.click(); return; }
+            createStatPopup(statName);
+        };
 
         statsContainer.appendChild(item);
     });
@@ -177,7 +198,7 @@ function createStatPopup(statName) {
 
     const popup = document.createElement('div');
     popup.id = 'statPopup';
-popup.dataset.stat = statName;
+    popup.dataset.stat = statName;
     popup.style.cssText = `
         position: fixed;
         top: 50%;
@@ -201,49 +222,31 @@ popup.dataset.stat = statName;
         box-sizing: border-box;
     `;
 
-    // Icon: image at 48px, centered
     const iconWrap = document.createElement('div');
     iconWrap.style.cssText = `
-        height: 4rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        margin-bottom: 0.4rem;
+        height: 4rem;display: flex;align-items: center;
+        justify-content: center;flex-shrink: 0;margin-bottom: 0.4rem;
     `;
     iconWrap.appendChild(makeStatIcon(statName, 48));
 
     const irishText = document.createElement('div');
     irishText.id = 'statPopupIrish';
     irishText.style.cssText = `
-        font-size: ${TYPE.body.size};
-        color: ${COLORS.irish};
-        line-height: ${SPACING.irishLineHeight};
-        font-family: ${FONTS.irish};
-        text-align: center;
-        height: 2.2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        overflow: hidden;
+        font-size: ${TYPE.body.size};color: ${COLORS.irish};
+        line-height: ${SPACING.irishLineHeight};font-family: ${FONTS.irish};
+        text-align: center;height: 2.2rem;
+        display: flex;align-items: center;justify-content: center;
+        flex-shrink: 0;overflow: hidden;
     `;
 
     const englishText = document.createElement('div');
     englishText.id = 'statPopupEnglish';
     englishText.style.cssText = `
-        font-size: ${TYPE.bodyEn.size};
-        color: ${COLORS.english};
-        line-height: ${SPACING.englishLineHeight};
-        font-family: ${FONTS.english};
-        text-align: center;
-        height: 1.8rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        opacity: 0;
-        transition: opacity 0.5s ease;
+        font-size: ${TYPE.bodyEn.size};color: ${COLORS.english};
+        line-height: ${SPACING.englishLineHeight};font-family: ${FONTS.english};
+        text-align: center;height: 1.8rem;
+        display: flex;align-items: center;justify-content: center;
+        flex-shrink: 0;opacity: 0;transition: opacity 0.5s ease;
     `;
     englishText.textContent = statDescriptions[statName].english;
 
@@ -327,10 +330,7 @@ export function initHeroSelect() {
         console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
         initialSliderValue = sliderValue;
         currentAmerginLineForExport = amerginLine;
-
-        // Sync GameSettings so everything downstream has the right initial value
         GameSettings.setEnglishOpacity(sliderValue);
-
         await waitForHeroAssets();
         initMainHeroSelect();
     });
@@ -363,12 +363,14 @@ function initMainHeroSelect() {
     const randomStartIndex    = preloaded.randomStartIndex;
 
     const CHAMPION_SUBSET_SIZE = 30;
-    const shuffled    = [...allValidChampions].sort(() => Math.random() - 0.5);
-    validChampions    = shuffled.slice(0, CHAMPION_SUBSET_SIZE);
+    const shuffled   = [...allValidChampions].sort(() => Math.random() - 0.5);
+    validChampions   = shuffled.slice(0, CHAMPION_SUBSET_SIZE);
 
     const preRenderedChamp = allValidChampions[randomStartIndex];
     if (!validChampions.includes(preRenderedChamp)) validChampions[0] = preRenderedChamp;
     const newStartIndex = validChampions.indexOf(preRenderedChamp);
+
+    const moonClear = _moonClearance();
 
     // ── Layout styles ─────────────────────────────────────────────────────────
     const layoutStyle = document.createElement('style');
@@ -379,24 +381,24 @@ function initMainHeroSelect() {
             100% { transform:scale(1);   filter:brightness(1); }
         }
         @keyframes swipeWiggle {
-            0%   { transform:translateX(0)    scaleY(1);    }
-            12%  { transform:translateX(-32px) scaleY(0.96); }
-            30%  { transform:translateX(26px)  scaleY(1.03); }
-            48%  { transform:translateX(-16px) scaleY(0.98); }
-            64%  { transform:translateX(10px)  scaleY(1.01); }
-            80%  { transform:translateX(-5px)  scaleY(1);    }
-            100% { transform:translateX(0)    scaleY(1);    }
+            0%   { transform:translateX(0)     scaleY(1);    }
+            12%  { transform:translateX(-32px)  scaleY(0.96); }
+            30%  { transform:translateX(26px)   scaleY(1.03); }
+            48%  { transform:translateX(-16px)  scaleY(0.98); }
+            64%  { transform:translateX(10px)   scaleY(1.01); }
+            80%  { transform:translateX(-5px)   scaleY(1);    }
+            100% { transform:translateX(0)     scaleY(1);    }
         }
         @keyframes championBoogie {
-            0%,24.9%  { transform:translateY(0px)   scale(1,1);   }
-            12.5%     { transform:translateY(-12px)  scale(0.9,1.15)  rotate(3deg);  }
-            25%,49.9% { transform:translateY(0px)   scale(-1,1);  }
-            37.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg); }
-            50%,74.9% { transform:translateY(0px)   scale(1,1);   }
-            62.5%     { transform:translateY(-12px)  scale(0.9,1.15)  rotate(3deg);  }
-            75%,99.9% { transform:translateY(0px)   scale(-1,1);  }
-            87.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg); }
-            100%      { transform:translateY(0px)   scale(1,1);   }
+            0%,24.9%  { transform:translateY(0px)   scale(1,1);                   }
+            12.5%     { transform:translateY(-12px)  scale(0.9,1.15) rotate(3deg);  }
+            25%,49.9% { transform:translateY(0px)   scale(-1,1);                  }
+            37.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg);}
+            50%,74.9% { transform:translateY(0px)   scale(1,1);                   }
+            62.5%     { transform:translateY(-12px)  scale(0.9,1.15) rotate(3deg);  }
+            75%,99.9% { transform:translateY(0px)   scale(-1,1);                  }
+            87.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg);}
+            100%      { transform:translateY(0px)   scale(1,1);                   }
         }
         .champion-canvas.floating {
             animation:championBoogie 2s linear infinite;
@@ -420,7 +422,8 @@ function initMainHeroSelect() {
             display:flex;flex-direction:column;
             align-items:center;justify-content:center !important;
             scroll-snap-align:start;box-sizing:border-box;
-            text-align:center;padding-bottom:180px;
+            text-align:center;
+            padding-bottom:${moonClear + 70}px;
         }
         .champion-canvas {
             max-width:85%;max-height:55vh;object-fit:contain;
@@ -428,19 +431,14 @@ function initMainHeroSelect() {
             filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5));
         }
         .champion-name-ga {
-            font-family:${FONTS.irish};
-            font-size:3rem;
-            color:${COLORS.speaker};
-            margin:10px 0 5px 0;
+            font-family:${FONTS.irish};font-size:3rem;
+            color:${COLORS.speaker};margin:10px 0 5px 0;
             text-shadow:2px 2px 4px rgba(0,0,0,0.8);
         }
         .champion-name-en {
-            font-family:${FONTS.english};
-            font-size:1.4rem;
-            margin-bottom:20px;
-            color:${COLORS.english};
+            font-family:${FONTS.english};font-size:1.4rem;
+            margin-bottom:20px;color:${COLORS.english};
         }
-        .champion-bottom-panel { padding:20px;z-index:10; }
     `;
     document.head.appendChild(layoutStyle);
 
@@ -452,69 +450,26 @@ function initMainHeroSelect() {
     scrollContainer.style.webkitOverflowScrolling = 'touch';
     scrollContainer.style.scrollBehavior = 'auto';
     container.appendChild(scrollContainer);
-    // ── Bottom panel ──────────────────────────────────────────────────────────
-  
 
- const bottomPanel = document.createElement('div');
-bottomPanel.className = 'champion-bottom-panel';
-    bottomPanel.style.opacity = '0';
-
-    const chooseBtn = createDomButton({
-        ga:      'Ar Aghaidh',
-        en:      'Continue',
-        opacity: GameSettings.englishOpacity,
-        onClick: async () => {
-            cancelSwipeNudge();
-            try {
-                const el = document.documentElement;
-                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                    if (el.requestFullscreen) el.requestFullscreen().catch(e => console.warn('[HeroSelect] Fullscreen:', e));
-                    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-                }
-            } catch(e) { console.warn('[HeroSelect] Fullscreen error:', e); }
-
-            if (validChampions[currentChampionIndex]) {
-                const musicReady = musicPlayer &&
-                                   musicPlayer.tracks &&
-                                   musicPlayer.tracks.length > 0 &&
-                                   musicPlayer.tracks.every(t => t && t.name && typeof t.active !== 'undefined');
-                if (musicReady) {
-                    await unmutePiano();
-                    setTimeout(() => finalize(validChampions[currentChampionIndex]), 800);
-                } else {
-                    setTimeout(() => finalize(validChampions[currentChampionIndex]), 200);
-                }
-            }
-        },
-    });
-    chooseBtn.el.style.width = '100%';
-    bottomPanel.appendChild(chooseBtn.el);
-    container.appendChild(bottomPanel);
-
-
- 
-    // ── Moon widget — fixed top-left corner, swipe to change phase ───────────
-    // Appends itself directly to document.body at a fixed position.
-    // Swipe right = fuller moon / more English opacity.
-    // Swipe left  = darker crescent / less English.
+    // ── Moon widget — tap = Continue ──────────────────────────────────────────
+    // restoreHeroSelectTap() (module scope) wires the handler and is called
+    // here on first load, and again by showHeroSelect() + characterModal on return.
     moonWidgetInstance = createMoonWidget({
         initialPhase : initialSliderValue,
         showSlider   : false,
+        corner       : 'bottom-center',
         onChange     : (phase) => {
             GameSettings.setEnglishOpacity(phase);
-
             document.querySelectorAll('.champion-name-en').forEach(el => {
                 el.style.opacity = String(phase);
             });
-
             const popup = document.getElementById('statPopupEnglish');
             if (popup) popup.style.opacity = String(phase);
-chooseBtn.applyLanguage(phase);
         },
     });
 
-
-
+    // Wire the tap handler for the first time
+    restoreHeroSelectTap();
 
     // ── Render champions ──────────────────────────────────────────────────────
     currentChampionIndex = newStartIndex;
@@ -523,9 +478,9 @@ chooseBtn.applyLanguage(phase);
     const firstChamp        = validChampions[newStartIndex];
     const englishOpacity    = GameSettings.englishOpacity ?? initialSliderValue;
 
-    const BATCH_SIZE  = 30;
-    let currentIndex  = 0;
-    let hasScrolled   = false;
+    const BATCH_SIZE = 30;
+    let currentIndex = 0;
+    let hasScrolled  = false;
 
     function renderBatch() {
         const endIndex = Math.min(currentIndex + BATCH_SIZE, infiniteChampions.length);
@@ -589,7 +544,6 @@ chooseBtn.applyLanguage(phase);
             scrollContainer.scrollLeft = targetScroll;
             hasScrolled = true;
 
-            // ── Atmospheric entrance ──────────────────────────────────────────
             const veil = document.createElement('div');
             veil.style.cssText = `
                 position:fixed;inset:0;z-index:99998;
@@ -636,8 +590,6 @@ chooseBtn.applyLanguage(phase);
             scrollContainer.style.opacity    = '0';
             scrollContainer.style.transform  = 'translateY(28px)';
             scrollContainer.style.transition = 'opacity 1.4s ease,transform 1.4s ease';
-            bottomPanel.style.opacity    = '0';
-            bottomPanel.style.transition = 'opacity 1s ease';
 
             try {
                 const tuneKey = getTuneKeyForChampion(firstChamp);
@@ -683,9 +635,7 @@ chooseBtn.applyLanguage(phase);
                                 globalStatsBar.style.transform = 'translateY(0)';
                             });
                         }
-
                         setTimeout(() => {
-                            bottomPanel.style.opacity = '1';
                             veil.remove();
                             runSwipeNudge();
                         }, 900);
@@ -787,7 +737,6 @@ function initSwipe(scrollContainer, champCount) {
                 }
             }
 
-            // Infinite scroll wraparound
             if (scrollContainer.scrollLeft < w * 0.5) {
                 scrollContainer.style.scrollSnapType = 'none';
                 scrollContainer.scrollLeft += champCount * w;
@@ -847,8 +796,11 @@ async function unmutePiano() {
 // ── Finalize / exit ───────────────────────────────────────────────────────────
 function finalize(champ) {
     const currentSliderValue = GameSettings.englishOpacity ?? 0.15;
-
-    if (moonWidgetInstance) moonWidgetInstance.pauseDrift();
+    if (moonWidgetInstance) {
+        moonWidgetInstance.pauseDrift();
+        // Null the tap handler during transition to prevent double-fire
+        moonWidgetInstance.setTapHandler(null);
+    }
 
     const exitVeil = document.createElement('div');
     exitVeil.id = 'heroSelectExitVeil';
@@ -872,13 +824,18 @@ function finalize(champ) {
     }, 1100);
 }
 
+// ── Show hero select (return path) ────────────────────────────────────────────
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called');
 
     const staleVeil = document.getElementById('heroSelectExitVeil');
     if (staleVeil) staleVeil.remove();
 
-    if (moonWidgetInstance) moonWidgetInstance.resumeDrift();
+    if (moonWidgetInstance) {
+        moonWidgetInstance.resumeDrift();
+        // Always restore via the module-scope function — no closure risk
+        restoreHeroSelectTap();
+    }
 
     const returnVeil = document.createElement('div');
     returnVeil.style.cssText = [
@@ -891,11 +848,7 @@ function showHeroSelect() {
     const container = document.getElementById('heroSelect');
     if (container) { container.style.transition = 'opacity 0.01s'; container.style.opacity = '1'; container.style.pointerEvents = 'auto'; }
     if (scrollContainer) { scrollContainer.style.opacity = '1'; scrollContainer.style.transform = 'translateY(0)'; }
-
-    const bottomPanel = document.querySelector('.champion-bottom-panel');
-    if (bottomPanel) bottomPanel.style.opacity = '1';
-
-    if (globalStatsBar) { globalStatsBar.style.opacity = '1'; globalStatsBar.style.pointerEvents = 'auto'; }
+    if (globalStatsBar)  { globalStatsBar.style.opacity = '1'; globalStatsBar.style.pointerEvents = 'auto'; }
 
     requestAnimationFrame(() => {
         returnVeil.style.opacity = '0';
@@ -937,9 +890,9 @@ function initBackgroundParticles() {
             this.y  = Math.random() * canvas.height;
             this.vx = (Math.random() - 0.5) * 0.25;
             this.vy = (Math.random() - 0.5) * 0.25;
-            this.radius       = Math.random() * 1.4 + 0.3;
-            this.opacity      = Math.random() * 0.35 + 0.08;
-            this.twinkleSpeed = 0.008 + Math.random() * 0.012;
+            this.radius        = Math.random() * 1.4 + 0.3;
+            this.opacity       = Math.random() * 0.35 + 0.08;
+            this.twinkleSpeed  = 0.008 + Math.random() * 0.012;
             this.twinkleOffset = Math.random() * Math.PI * 2;
         }
         update(t) {
@@ -970,10 +923,10 @@ function initBackgroundParticles() {
 }
 
 // ── DOM init ──────────────────────────────────────────────────────────────────
-const _skipHeroSelect = new URLSearchParams(window.location.search).get('scene')
+const _skipHeroSelect = new URLSearchParams(window.location.search).get('scene');
 if (!_skipHeroSelect) {
-  document.addEventListener('DOMContentLoaded', initHeroSelect)
-  if (document.readyState !== 'loading') initHeroSelect()
+    document.addEventListener('DOMContentLoaded', initHeroSelect);
+    if (document.readyState !== 'loading') initHeroSelect();
 }
 
 // ── Exports ───────────────────────────────────────────────────────────────────

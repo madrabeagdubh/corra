@@ -3,8 +3,8 @@
 import { initReturnCrossing } from './game/scenes/returnCrossing.js';
 import { initDawnCrossing }   from './game/scenes/dawnCrossing.js';
 import { FONTS, COLORS, TYPE, BUTTON, createDomButton } from './game/systems/gameTypography.js';
-import { GameSettings }         from './game/settings/gameSettings.js';
-import { createMoonWidget }     from './game/ui/moonWidget.js';
+import { GameSettings }     from './game/settings/gameSettings.js';
+import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 
 const _state = {
     currentAmerginLine: null,
@@ -13,6 +13,15 @@ const _state = {
 
 export function setCurrentAmerginLine(line) {
     _state.currentAmerginLine = line;
+}
+
+function _moonClearance() {
+    const minDim   = Math.min(window.innerWidth, window.innerHeight);
+    const moonR    = Math.max(24, Math.round(minDim * 0.055));
+    const moonD    = moonR * 2;
+    const pad      = 18;
+    const wrapperH = moonD + pad * 2;
+    return Math.round(102 + wrapperH / 2) + 8;
 }
 
 // ---------------------------------------------
@@ -89,7 +98,6 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
 
     console.log('[TutorialOrAdventure] Initializing with champion:', champion.nameEn);
 
-    // Unmute all instruments
     (async () => {
         try {
             const mod = await import('./heroSelect.js');
@@ -102,7 +110,6 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         } catch(e) { console.error('[TutorialOrAdventure] Unmute error:', e); }
     })();
 
-    // Boogie keyframes
     if (!document.getElementById('tutorialBoogieStyle')) {
         const s = document.createElement('style');
         s.id = 'tutorialBoogieStyle';
@@ -126,18 +133,13 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         document.head.appendChild(s);
     }
 
-    // Black background
     const blackBg = document.createElement('div');
     blackBg.id = 'tutorialBlackBg';
-    blackBg.style.cssText = `
-        position:fixed;inset:0;background:#000;
-        z-index:99999;pointer-events:none;
-    `;
+    blackBg.style.cssText = `position:fixed;inset:0;background:#000;z-index:99999;pointer-events:none;`;
     document.body.appendChild(blackBg);
 
     let stopStarfield = createStarfield();
 
-    // UI container
     const uiContainer = document.createElement('div');
     uiContainer.id = 'championIntro';
     uiContainer.style.cssText = `
@@ -169,7 +171,6 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     `;
     textContainer.appendChild(irishTextEl);
 
-    // -- Champion area --
     const championHolder = document.createElement('div');
     championHolder.style.cssText = `
         flex:1;width:100%;min-height:0;
@@ -214,13 +215,10 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         max-height:0;overflow:hidden;
     `;
 
-    // Append response elements
     textContainer.appendChild(responseIrish);
     textContainer.appendChild(responseEnglish);
-
     championHolder.appendChild(championCanvas);
 
-    // Load sprite
     (async function loadSprite() {
         try {
             const atlas = await fetch('assets/champions/champions0.json').then(r => r.json());
@@ -244,19 +242,18 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         }
     })();
 
-    // -- Buttons --
+    // Button stack: Training + Bog only (Back removed — moon tap handles it)
+    const moonClear = _moonClearance();
     const bottomSection = document.createElement('div');
     bottomSection.style.cssText = `
         width:100%;max-width:800px;
         display:flex;flex-direction:column;
         gap:${BUTTON.gap}px;
-        padding:1rem;
+        padding:1rem 1rem ${moonClear}px 1rem;
         box-sizing:border-box;flex-shrink:0;
         transition:opacity 0.6s ease;
     `;
 
-    // Use createDomButton from gameTypography for consistent styling across the game.
-    // Language switches at the 0.5 moon threshold via applyLanguage(opacity).
     function cleanupHeroSelect() {
         document.getElementById('heroSelect')?.remove();
         document.getElementById('global-stats-bar')?.remove();
@@ -274,9 +271,10 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         responseEnglish.style.opacity   = String(GameSettings.englishOpacity);
         bottomSection.style.opacity       = '0';
         bottomSection.style.pointerEvents = 'none';
+        // Disable moon tap during transition
+        moonWidget.setTapHandler(null);
         await new Promise(r => setTimeout(r, 2000));
 
-        // Fade music
         try {
             const heroSelect = await import('./heroSelect.js');
             const mp = heroSelect.getMusicPlayer?.();
@@ -365,42 +363,39 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         },
     });
 
-    const backBtn = createDomButton({
-        ga: 'Ar Ais', en: 'Back',
-        opacity: GameSettings.englishOpacity,
-        onClick: async () => {
-            try {
-                const mod = await import('./heroSelect.js');
-                if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
-                cleanup();
-                moonWidget.destroy();
-                const hsc = document.getElementById('heroSelect');
-                if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
-                if (mod.showHeroSelect) mod.showHeroSelect();
-            } catch(e) {
-                console.error('[TutorialOrAdventure] Back error:', e);
-                cleanup();
-            }
-        },
-    });
+    // Back button removed — moon tap handles returning to heroSelect
+    bottomSection.append(trainingBtn.el, bogBtn.el);
 
-    bottomSection.append(trainingBtn.el, bogBtn.el, backBtn.el);
-
-    // -- Moon widget --
+    // -- Moon widget — tap = go back to heroSelect ----------------------------
     const moonWidget = createMoonWidget({
         initialPhase : GameSettings.englishOpacity,
         showSlider   : false,
+        corner       : 'bottom-center',
         onChange     : (phase) => {
             GameSettings.setEnglishOpacity(phase);
             _applyOpacity(phase);
         },
     });
 
+    moonWidget.setTapHandler(async () => {
+        try {
+            const mod = await import('./heroSelect.js');
+            if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
+            cleanup();
+            moonWidget.destroy();
+            const hsc = document.getElementById('heroSelect');
+            if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
+            if (mod.showHeroSelect) mod.showHeroSelect();
+        } catch(e) {
+            console.error('[TutorialOrAdventure] Back (moon tap) error:', e);
+            cleanup();
+        }
+    });
+
     function _applyOpacity(opacity) {
         if (_responseRevealed) responseEnglish.style.opacity = String(opacity);
         trainingBtn.applyLanguage(opacity);
         bogBtn.applyLanguage(opacity);
-        backBtn.applyLanguage(opacity);
     }
 
     _applyOpacity(GameSettings.englishOpacity);

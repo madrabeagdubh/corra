@@ -15,18 +15,12 @@ import TreeMaze            from './game/scenes/locations/bog/treeMaze.js'
 import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
 import OakWood             from './game/scenes/locations/bog/oakWood.js'
 import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
-import { champions } from '../data/champions.js' // adjust path as needed
-
-
-
-
-
+import { champions } from '../data/champions.js'
 
 export function startGame(selectedChampion, options = {}) {
     if (window.game) {
         window.game.destroy(true)
         window.game = null
-        // Wait for Phaser to fully clean up before creating new instance
         setTimeout(() => _createGame(selectedChampion, options), 100)
         return
     }
@@ -34,40 +28,36 @@ export function startGame(selectedChampion, options = {}) {
 }
 
 function _createGame(selectedChampion, options) {
-  // URL override: ?scene=Bog_Threshold
-  const urlParams = new URLSearchParams(window.location.search)
-  const sceneOverride = urlParams.get('scene')
-  if (sceneOverride) options.startScene = sceneOverride
+    // URL override: ?scene=Bog_Threshold
+    const urlParams = new URLSearchParams(window.location.search)
+    const sceneOverride = urlParams.get('scene')
+    if (sceneOverride) options.startScene = sceneOverride
 
-  if (sceneOverride && !selectedChampion) {
-    selectedChampion = window.devChampion || { id: 'dev', nameGa: 'Dev' }
-  } 
+    if (sceneOverride && !selectedChampion) {
+        selectedChampion = window.devChampion || { id: 'dev', nameGa: 'Dev' }
+    }
+
     // Hide starfield loader
     const starfieldLoader = document.getElementById('starfieldLoader')
     if (starfieldLoader) starfieldLoader.style.display = 'none'
+
     // Make sure gameContainer is visible and sized before Phaser boots
     const gameContainer = document.getElementById('gameContainer')
     if (gameContainer) {
-        gameContainer.style.display = 'block'
-        gameContainer.style.width   = window.innerWidth + 'px'
-        gameContainer.style.height  = window.innerHeight + 'px'
-	    gameContainer.style.background = 'transparent'  //
-
-
-	    gameContainer.style.background = 'transparent'  // dark grey-blue — visible as sky above horizon
-    gameContainer.style.position   = 'relative'      // ← needed for absolute children
-
+        gameContainer.style.display    = 'block'
+        gameContainer.style.width      = window.innerWidth + 'px'
+        gameContainer.style.height     = window.innerHeight + 'px'
+        gameContainer.style.background = 'transparent'
+        gameContainer.style.position   = 'relative'
     }
 
     window.selectedChampion = selectedChampion
 
-    // Build config fresh so width/height are current, not stale from module load
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-	    transparent:true,
-//        backgroundColor: '#222222',
+        transparent: true,
         parent: 'gameContainer',
         scene: [
             WorldScene,
@@ -104,13 +94,11 @@ function _createGame(selectedChampion, options) {
     const sceneToStart = options.startScene || 'BowTutorial'
     console.log('[main.js] Starting scene:', sceneToStart)
     window.startGame = startGame
-if (sceneToStart !== 'BowTutorial') {
-  // Direct scene load -- skip WorldScene
-  window.game.scene.start(sceneToStart, { champion: selectedChampion })
-} else {
-  window.game.scene.start('WorldScene', { champion: selectedChampion })
-}
-    console.log('Game created, champion stored in registry')
+
+    // All scenes start directly — WorldScene is only used as an idle holder
+    // and does not route to other scenes. BowTutorial is no longer a special
+    // case; it starts the same way every other scene does.
+    window.game.scene.start(sceneToStart, { champion: selectedChampion })
 }
 
 window.startGame = startGame
@@ -130,23 +118,25 @@ window.addEventListener('load', resizeGame)
 window.addEventListener('resize', resizeGame)
 window.addEventListener('orientationchange', resizeGame)
 window.addEventListener('load', () => console.log('Game started'))
+
 // Dev shortcut: ?scene=Bog_Threshold boots directly, bypassing hero select
 window.addEventListener('load', () => {
-  const urlParams = new URLSearchParams(window.location.search)
-  const sceneOverride = urlParams.get('scene')
-  if (sceneOverride) {
-    const devChampion = champions[0]
-    const champId = devChampion.id || devChampion.nameGa || 'dev'
-    localStorage.setItem(`${sceneOverride}_intro_${champId}`, 'true')
-    startGame(devChampion, { startScene: sceneOverride })
-    setTimeout(() => {
-      window.game?.scene.stop('WorldScene')
-      window.stopStarfield?.()
-      const toHide = ['starfieldLoader', 'heroSelect']
-      toHide.forEach(id => {
-        const el = document.getElementById(id)
-        if (el) el.style.display = 'none'
-      })
-    }, 200)
-  }
+    const urlParams = new URLSearchParams(window.location.search)
+    const sceneOverride = urlParams.get('scene')
+    if (sceneOverride) {
+        const devChampion = champions[0]
+        const champId = devChampion.id || devChampion.nameGa || 'dev'
+        localStorage.setItem(`${sceneOverride}_intro_${champId}`, 'true')
+        startGame(devChampion, { startScene: sceneOverride })
+        setTimeout(() => {
+            window.game?.scene.stop('WorldScene')
+            window.stopStarfield?.()
+            const toHide = ['starfieldLoader', 'heroSelect']
+            toHide.forEach(id => {
+                const el = document.getElementById(id)
+                if (el) el.style.display = 'none'
+            })
+        }, 200)
+    }
 })
+

@@ -302,29 +302,30 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     // ── Moon widget ───────────────────────────────────────────────────────────
-    addSettingsSlider() {
-        if (this._moonWidget) {
-            this._moonWidget.destroy();
-            this._moonWidget = null;
-        }
-
-        this._moonWidget = createMoonWidget({
-            initialPhase : GameSettings.englishOpacity ?? 0.7,
-            showSlider   : false,
-            onChange     : (phase) => {
-                GameSettings.setEnglishOpacity(phase);
-
-                if (this.textPanel) this.textPanel.updateEnglishOpacity?.();
-
-                for (const player of [this.storyPlayer, this._flashPlayer]) {
-                    if (!player?._lineEls) continue;
-                    for (const entry of player._lineEls) {
-                        if (entry.enEl) entry.enEl.style.opacity = String(phase);
-                    }
-                }
-            },
-        });
+  addSettingsSlider() {
+    if (this._moonWidget) {
+        this._moonWidget.destroy();
+        this._moonWidget = null;
     }
+
+    this._moonWidget = createMoonWidget({
+        initialPhase : GameSettings.englishOpacity ?? 0.7,
+        showSlider   : false,
+        corner       : 'bottom-center',
+        onChange     : (phase) => {
+            GameSettings.setEnglishOpacity(phase);
+
+            if (this.textPanel) this.textPanel.updateEnglishOpacity?.();
+
+            for (const player of [this.storyPlayer, this._flashPlayer]) {
+                if (!player?._lineEls) continue;
+                for (const entry of player._lineEls) {
+                    if (entry.enEl) entry.enEl.style.opacity = String(phase);
+                }
+            }
+        },
+    });
+} 
 
     // ── Bullseye effect ───────────────────────────────────────────────────────
     showBullseyeEffect(x, y) {

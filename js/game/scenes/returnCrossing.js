@@ -99,10 +99,12 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     `;
     document.head.appendChild(fontOverride);
 
-    // ── Moon widget ───────────────────────────────────────────────────────────
+    // ── Moon widget — fixed bottom-centre, swipe to change English opacity ────
+    // No buttons in this scene; scrolling text has its own bottom fade margin.
     const moonWidget = createMoonWidget({
         initialPhase : moonPhase,
         showSlider   : false,
+        corner       : 'bottom-center',
         onChange     : (phase) => {
             moonPhase = phase;
             GameSettings.setEnglishOpacity(phase);
@@ -283,7 +285,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
                 if (!this._overlay) return;
                 const H2     = window.innerHeight;
                 const mp     = this._getMoonPhase();
-                const CEIL   = 8;    // no slider strip — minimal top clearance
+                const CEIL   = 8;
                 const FADEPX = 80;
                 for (const entry of this._lineEls) {
                     const y      = this._screenY(entry);
@@ -297,7 +299,8 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
                     }
                     let alpha = 1;
                     if (y < CEIL + FADEPX) alpha = Math.max(0, (y - CEIL) / FADEPX);
-                    if (bottom > H2 * (1 - 0.07)) alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * 0.07)));
+                    // Fade text out before it reaches the moon widget at bottom
+                    if (bottom > H2 * (1 - 0.18)) alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * 0.18)));
                     entry.gaEl.style.opacity = String(alpha);
                     if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
                 }

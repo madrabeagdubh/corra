@@ -117,6 +117,7 @@ export function initConstellationScene(onComplete) {
     _sceneInitialized = true;
     _fullscreenDone = false;
     document.fonts.load('1.8rem Urchlo').catch(() => {});
+    document.fonts.load('1.8rem Aonchlo').catch(() => {});
     const game = new Phaser.Game({
         type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight,
         backgroundColor: '#00060f', parent: 'gameContainer',
@@ -197,7 +198,7 @@ const RIPPLE_MS = 900, RIPPLE_MAX_R = 55, RIPPLE_ALPHA = 0.75;
 // ── Moon rest position ────────────────────────────────────────────────────────
 // Fixed px from the bottom edge of the screen after swipe.
 // This is the only value you need to tune — consistent across all window sizes.
-const MOON_REST_FROM_BOTTOM = 220;
+const MOON_REST_FROM_BOTTOM = 120;
 
 const AMERGIN_LINES = [
     { ga: 'Cé an té le nod slí na gcloch sléibhe?', en: 'Who knows the way of the mountain stones?' },
@@ -438,7 +439,16 @@ export class ConstellationScene extends Phaser.Scene {
         });
 
         // Position moon at 35vh to start
-        const wrapper = this._moonWidget.element;
+    
+const wrapper = this._moonWidget.element;
+if (wrapper) {
+    const earlyUnlock = () => {
+        _requestFullscreen();
+        _unlockAudio();
+        wrapper.removeEventListener('pointerdown', earlyUnlock);
+    };
+    wrapper.addEventListener('pointerdown', earlyUnlock, { passive: true });
+}
         if (wrapper) {
             const moonD    = this._moonWidget.moonD;
             const pad      = 18;

@@ -199,15 +199,23 @@ export function createMoonWidget(opts = {}) {
             _lpStart(clientX, clientY ?? 0)
         }
 
-        const onMove = (clientX, clientY) => {
-            if (!dragging) return
-            _lpCheckMove(clientX, clientY ?? dragStartY)
-            const range = showSlider && wrapperEl
-                ? wrapperEl.offsetWidth - moonR * 2
-                : SWIPE_RANGE()
-            const delta = (clientX - dragStartX) / range
-            _setPhaseInternal(phaseAtStart + delta)
-        }
+       const onMove = (clientX, clientY) => {
+    if (!dragging) return
+    _lpCheckMove(clientX, clientY ?? dragStartY)
+    const range = showSlider && wrapperEl
+        ? wrapperEl.offsetWidth - moonR * 2
+        : SWIPE_RANGE()
+    // Use total distance in any direction, not just horizontal
+    const dx = clientX - dragStartX
+    const dy = clientY - (dragStartY ?? 0)
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    // Preserve sign based on whichever axis is dominant
+    const sign = Math.abs(dx) >= Math.abs(dy)
+        ? Math.sign(dx)
+        : Math.sign(-dy) // upward swipe = increasing phase
+    const delta = (dist * sign) / range
+    _setPhaseInternal(phaseAtStart + delta)
+} 
 
         const onEnd = (clientX) => {
             if (!dragging) return

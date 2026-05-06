@@ -16,7 +16,8 @@ import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
 import OakWood             from './game/scenes/locations/bog/oakWood.js'
 import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
 import { champions } from '../data/champions.js'
-
+import { initFullscreenButton } from './game/ui/fullscreenButton.js'
+initFullscreenButton()  // call at module load time, not inside _createGame()
 export function startGame(selectedChampion, options = {}) {
     if (window.game) {
         window.game.destroy(true)

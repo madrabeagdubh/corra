@@ -1,47 +1,45 @@
-
 /**
  * ScrollingTextPlayer
  *
- * Scrolls Irish/English paired lines upward into the bottom half of the screen,
- * holds them there briefly, then fades out. The top half of the screen is always
- * free for star interaction.
+ * Scrolls Irish/English paired lines upward through the screen.
+ * Text enters just above the bottom UI (moon widget or dpad hub),
+ * travels the full screen height, and exits off the top with no fade.
+ *
+ * Constructor options:
+ *   lines              — array of { ga, en?, speaker? }
+ *   getMoonPhase       — () => 0..1, controls English opacity
+ *   onComplete         — called after final fade-out
+ *   container          — DOM element to append to (default: document.body)
+ *   bottomClearancePx  — px from screen bottom to keep clear of UI
+ *                        (moon widget top edge, or dpad hub top edge).
+ *                        Defaults to 0.
  *
  * Behaviour:
- *   - Lines enter from below the screen bottom, scroll upward.
- *   - Scroll stops when the last line reaches the vertical midpoint (SCROLL_CEILING).
- *   - After HOLD_MS, the overlay fades out and onComplete fires.
- *   - The user can drag downward at any time to pull content back into view,
- *     resetting the hold timer.
- *   - Dragging upward accelerates scroll toward the ceiling but cannot exceed it.
+ *   - Lines enter from just above bottomClearancePx, scroll upward.
+ *   - Scroll stops when the last line reaches SCROLL_CEILING (~5% from top).
+ *   - After HOLD_MS, overlay fades out and onComplete fires.
+ *   - User can swipe anywhere on screen (above clearance) to scroll text.
  *   - Tapping pauses for PAUSE_MS then auto-resumes.
+ *   - No fade at the top — text simply scrolls off screen.
  *
- * The overlay is pointer-events:none everywhere except a hit zone in the bottom
- * half, so Phaser star-drawing and the moon slider both work unobstructed.
- *
- * Speaker colours:
- *   queen  →  gold  (#d4af37)
- *   druid  →  grey  (#a0a0b8)
+ * NOTE: offsetY values and ceilingY are measured at start() time (inside a
+ * rAF) so wrapper.offsetHeight is accurate after the browser has rendered.
  */
 
 import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn } from '../systems/gameTypography.js';
 
-// ── Tuning ─────────────────────────────────────────────────────────────────────
+// ── Tuning ────────────────────────────────────────────────────────────────────
 
-const SCROLL_PX_PER_SEC = 30;    // upward scroll speed — comfortable reading pace
-const PAUSE_MS          = 5000;  // tap-to-pause duration before auto-resume
-const RESUME_EASE_MS    = 1600;  // ms to ease back to natural speed after a fling
-const HOLD_MS           = 4000;  // ms to hold at ceiling before fading out
-const FADE_OUT_MS       = 1000;  // fade-out transition duration
-const END_PAUSE_MS      = 400;   // ms after fade completes before onComplete fires
+const SCROLL_PX_PER_SEC = 30;
+const PAUSE_MS          = 5000;
+const RESUME_EASE_MS    = 1600;
+const HOLD_MS           = 4000;
+const FADE_OUT_MS       = 1000;
+const END_PAUSE_MS      = 400;
 
-// Layout fractions of screen height
-const SCROLL_CEILING    = 0.48;  // content stops scrolling when top line reaches this Y
-const FADE_ZONE_BOTTOM  = 0.08;  // lines fade in over this fraction as they enter from bottom
-const FADE_ZONE_TOP     = 0.10;  // lines fade out over this fraction as they approach ceiling
-const MOON_SAFE_ZONE    = 0.13;  // top strip reserved for moon — excluded from hit zone
-const HIT_ZONE_TOP      = 0.50;  // hit zone starts at midpoint — bottom half only
+const SCROLL_CEILING    = 0.05;   // last line stops at 5% from top
+const FADE_ZONE_BOTTOM  = 0.10;   // entry fade zone as fraction of screen height
 
-// Typography — sourced from gameTypography.js
 const LINE_GAP_PX       = 10;
 const PAIR_GAP_PX       = 42;
 const IRISH_FONT_SIZE   = TYPE.domBody.size;
@@ -50,7 +48,7 @@ const IRISH_FONT        = FONTS.irish;
 const ENGLISH_FONT      = FONTS.english;
 const STROKE_COLOR      = 'rgba(0,6,26,0.9)';
 
-// ── ScrollingTextPlayer ────────────────────────────────────────────────────────
+// ── ScrollingTextPlayer ───────────────────────────────────────────────────────
 
 export class ScrollingTextPlayer {
 
@@ -59,16 +57,15 @@ export class ScrollingTextPlayer {
      * @param {() => number} getMoonPhase
      * @param {() => void}   onComplete
      * @param {HTMLElement}  [container]
+     * @param {number}       [bottomClearancePx]
      */
-    constructor({ lines, getMoonPhase, onComplete, container }) {
-        this._lines        = lines;
-        this._getMoonPhase = getMoonPhase || (() => 0);
-        this._onComplete   = onComplete   || (() => {});
-        this._container    = container    || document.body;
+    constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0 }) {
+        this._lines             = lines;
+        this._getMoonPhase      = getMoonPhase || (() => 0);
+        this._onComplete        = onComplete   || (() => {});
+        this._container         = container    || document.body;
+        this._bottomClearancePx = Math.max(0, bottomClearancePx);
 
-        // scrollY: distance content has moved upward in px.
-        // 0 = content at natural start (just below screen bottom).
-        // Increases as content scrolls up toward ceiling.
         this._scrollY      = 0;
         this._velocity     = SCROLL_PX_PER_SEC / 60;
         this._naturalVel   = SCROLL_PX_PER_SEC / 60;
@@ -77,13 +74,11 @@ export class ScrollingTextPlayer {
         this._pauseTimer   = null;
         this._rafId        = null;
 
-        // Hold + fade state
-        this._atCeiling    = false;   // true once scroll has reached ceiling
-        this._holdTimer    = null;    // setTimeout for hold period
-        this._fadingOut    = false;   // true during CSS fade-out
+        this._atCeiling    = false;
+        this._holdTimer    = null;
+        this._fadingOut    = false;
         this._completed    = false;
 
-        // Drag tracking
         this._dragging        = false;
         this._dragStartY      = 0;
         this._dragStartScroll = 0;
@@ -96,29 +91,34 @@ export class ScrollingTextPlayer {
         this._overlay  = null;
         this._hitZone  = null;
         this._lineEls  = [];
-        this._ceilingY = 0;   // computed scroll value at which top line hits SCROLL_CEILING
+        this._ceilingY = 0;
 
         this._buildDOM();
         this._bindEvents();
     }
 
-    // ── Public API ─────────────────────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────────
 
     start() {
         if (this._running) return;
-        this._running  = true;
-        this._scrollY  = 0;
+        this._running   = true;
+        this._scrollY   = 0;
         this._atCeiling = false;
         this._fadingOut = false;
         this._completed = false;
-        this._overlay.style.opacity  = '1';
+        this._overlay.style.opacity    = '1';
         this._overlay.style.transition = '';
-        this._rafId = requestAnimationFrame(this._loop.bind(this));
+
+        // Measure after one rAF so wrapper.offsetHeight is real
+        requestAnimationFrame(() => {
+            this._measureOffsets();
+            this._rafId = requestAnimationFrame(this._loop.bind(this));
+        });
     }
 
     destroy() {
         this._running = false;
-        if (this._rafId)     cancelAnimationFrame(this._rafId);
+        if (this._rafId)      cancelAnimationFrame(this._rafId);
         if (this._pauseTimer) clearTimeout(this._pauseTimer);
         if (this._holdTimer)  clearTimeout(this._holdTimer);
         this._unbindEvents();
@@ -129,8 +129,6 @@ export class ScrollingTextPlayer {
         this._hitZone = null;
         this._lineEls = [];
     }
-
-    // ── Static helpers ─────────────────────────────────────────────────────────
 
     static parseLines(str) {
         const raw = str.split('\n').map(s => s.trim()).filter(Boolean);
@@ -145,14 +143,14 @@ export class ScrollingTextPlayer {
         return out;
     }
 
-    // ── DOM ────────────────────────────────────────────────────────────────────
+    // ── DOM ───────────────────────────────────────────────────────────────────
 
     _buildDOM() {
-        const H = window.innerHeight;
+        const H       = window.innerHeight;
+        const clearPx = this._bottomClearancePx;
 
-        // Full-screen visual container — pointer-events:none so stars and moon
-        // receive events through it unobstructed.
         const overlay = document.createElement('div');
+        overlay.setAttribute('data-stp', '');
         overlay.style.cssText = [
             'position:fixed;inset:0;',
             'z-index:99998;',
@@ -162,21 +160,22 @@ export class ScrollingTextPlayer {
         this._overlay = overlay;
         this._container.appendChild(overlay);
 
-        // Hit zone — bottom half only, below moon safe area.
-        // Only this region captures scroll/drag/tap gestures.
-        const hitTop = Math.round(H * HIT_ZONE_TOP);
+        // Hit zone covers the full screen height above the clearance strip.
+        // Text now travels the full screen so the gesture area must match.
+        // The bottom boundary stops at the clearance strip so the moon/dpad
+        // widget below it still receives its own touch events.
         const hitZone = document.createElement('div');
         hitZone.style.cssText = [
             'position:absolute;',
-            `top:${hitTop}px;left:0;right:0;bottom:0;`,
+            'top:0;left:0;right:0;',
+            `bottom:${clearPx}px;`,
             'pointer-events:all;',
             'touch-action:none;',
         ].join('');
         this._hitZone = hitZone;
         overlay.appendChild(hitZone);
 
-        // Build line elements
-        let cursor = 0;
+        // Build wrapper elements — positioned off-screen until _measureOffsets()
         this._lineEls = this._lines.map(line => {
             const wrapper = document.createElement('div');
             wrapper.style.cssText = [
@@ -185,10 +184,11 @@ export class ScrollingTextPlayer {
                 'text-align:center;',
                 'padding:0 8%;',
                 'pointer-events:none;',
+                'top:-9999px;',
             ].join('');
 
             const gaColor = speakerColor(line.speaker);
-            const gaEl = document.createElement('div');
+            const gaEl    = document.createElement('div');
             gaEl.textContent = line.ga;
             gaEl.style.cssText = [
                 `font-family:${IRISH_FONT};`,
@@ -218,81 +218,102 @@ export class ScrollingTextPlayer {
             }
 
             overlay.appendChild(wrapper);
-
-            const entry = { wrapper, gaEl, enEl, offsetY: cursor };
-            cursor += wrapper.offsetHeight + PAIR_GAP_PX;
-            return entry;
+            return { wrapper, gaEl, enEl, offsetY: 0 };
         });
+    }
 
-        // Compute the scrollY value at which the last line's top edge
-        // sits at the ceiling fraction.
-        // screenY(last) = H - scrollY + last.offsetY  (see _screenY)
-        // We want screenY(last) = H * SCROLL_CEILING
-        // → ceilingY = H - H*SCROLL_CEILING + last.offsetY
-        //            = H*(1 - SCROLL_CEILING) + last.offsetY
+    // ── _measureOffsets ───────────────────────────────────────────────────────
+    // Called at start() time after one rAF so offsetHeight values are real.
+
+    _measureOffsets() {
+        const H       = window.innerHeight;
+        const clearPx = this._bottomClearancePx;
+        let cursor    = 0;
+
+        for (const entry of this._lineEls) {
+            entry.offsetY = cursor;
+            cursor += (entry.wrapper.offsetHeight || 60) + PAIR_GAP_PX;
+        }
+
+        // ceilingY: scrollY at which last line's top reaches H * SCROLL_CEILING
+        // screenY(last) = (H - clearPx) - scrollY + last.offsetY
+        // want: screenY(last) = H * SCROLL_CEILING
+        // → scrollY = (H - clearPx) - H*SCROLL_CEILING + last.offsetY
         const lastEntry = this._lineEls[this._lineEls.length - 1];
         if (lastEntry) {
-            this._ceilingY = H * (1 - SCROLL_CEILING) + lastEntry.offsetY;
+            this._ceilingY = (H - clearPx) - H * SCROLL_CEILING + lastEntry.offsetY;
         }
     }
 
-    // ── Main loop ──────────────────────────────────────────────────────────────
+    // ── Main loop ─────────────────────────────────────────────────────────────
 
-    _loop() {
-        if (!this._running || this._fadingOut) return;
+    
+_loop() {
+    if (!this._running) return;
 
-        if (!this._paused && !this._dragging && !this._atCeiling) {
-            // Ease velocity back toward natural after a fling
-            if (Math.abs(this._velocity - this._naturalVel) > 0.01) {
-                const a = 1 - Math.exp(-16 / (RESUME_EASE_MS / (1000 / 60)));
-                this._velocity += (this._naturalVel - this._velocity) * a;
-            } else {
-                this._velocity = this._naturalVel;
-            }
+    if (!this._paused && !this._dragging && !this._fadingOut) {
+        if (Math.abs(this._velocity - this._naturalVel) > 0.01) {
+            const a = 1 - Math.exp(-16 / (RESUME_EASE_MS / (1000 / 60)));
+            this._velocity += (this._naturalVel - this._velocity) * a;
+        } else {
+            this._velocity = this._naturalVel;
+        }
+        this._scrollY += this._velocity;
 
-            this._scrollY += this._velocity;
-
-            // Clamp to ceiling
-            if (this._scrollY >= this._ceilingY) {
-                this._scrollY = this._ceilingY;
-                this._onReachCeiling();
+        if (!this._completed) {
+            const lastEntry = this._lineEls[this._lineEls.length - 1];
+            if (lastEntry) {
+                const lastY = this._screenY(lastEntry);
+                if (lastY < 0) {
+                    this._completed = true;
+                    if (this._hitZone) {
+                        this._hitZone.style.pointerEvents = 'none';
+                        this._hitZone.removeEventListener('touchstart', this._onTouchStart);
+                        this._hitZone.removeEventListener('mousedown',  this._onMouseDown);
+                    }
+                    window.removeEventListener('touchmove', this._onTouchMove);
+                    window.removeEventListener('touchend',  this._onTouchEnd);
+                    window.removeEventListener('mousemove', this._onMouseMove);
+                    window.removeEventListener('mouseup',   this._onMouseUp);
+                    this._beginFadeOut();
+                }
             }
         }
-
-        this._render();
-        this._rafId = requestAnimationFrame(this._loop.bind(this));
     }
 
-    _render() {
+    this._render();
+    this._rafId = requestAnimationFrame(this._loop.bind(this));
+}
+
+_render() {
         if (!this._overlay) return;
-        const H          = window.innerHeight;
-        const ceilPx     = H * SCROLL_CEILING;
-        const bottomFade = H * (1 - FADE_ZONE_BOTTOM);
-        const moonPhase  = this._getMoonPhase();
+        const H         = window.innerHeight;
+        const clearPx   = this._bottomClearancePx;
+        const entryZone = H * FADE_ZONE_BOTTOM;
+        const entryEdge = H - clearPx;   // Y below which text is hidden behind UI
+        const moonPhase = this._getMoonPhase();
 
         for (const entry of this._lineEls) {
             const y      = this._screenY(entry);
-            const bottom = y + entry.wrapper.offsetHeight;
+            const bottom = y + (entry.wrapper.offsetHeight || 60);
 
             entry.wrapper.style.top = y + 'px';
 
-            // Cull off-screen
-            if (bottom < 0 || y > H) {
+            // Cull: fully above top of screen, or fully below clearance strip
+            if (bottom < 0 || y > entryEdge) {
                 entry.gaEl.style.opacity = '0';
                 if (entry.enEl) entry.enEl.style.opacity = '0';
                 continue;
             }
 
-            // Fade in from bottom, fade out near ceiling
             let alpha = 1;
-            if (y < ceilPx + H * FADE_ZONE_TOP) {
-                // Approaching ceiling — fade out
-                alpha = Math.max(0, (y - ceilPx) / (H * FADE_ZONE_TOP));
+
+            // Entry fade: lines fade in as they rise above the clearance strip
+            if (bottom > entryEdge - entryZone) {
+                alpha = Math.min(alpha, Math.max(0, (entryEdge - y) / entryZone));
             }
-            if (bottom > bottomFade) {
-                // Entering from bottom — fade in
-                alpha = Math.min(alpha, Math.max(0, (H - y) / (H * FADE_ZONE_BOTTOM)));
-            }
+
+            // No top fade — text exits off the top of the screen
 
             entry.gaEl.style.opacity = String(alpha);
             if (entry.enEl) {
@@ -301,7 +322,7 @@ export class ScrollingTextPlayer {
         }
     }
 
-    // ── Ceiling hold + fade ────────────────────────────────────────────────────
+    // ── Ceiling hold + fade ───────────────────────────────────────────────────
 
     _onReachCeiling() {
         if (this._atCeiling) return;
@@ -318,33 +339,25 @@ export class ScrollingTextPlayer {
         }, HOLD_MS);
     }
 
-    _beginFadeOut() {
-        if (!this._running || this._fadingOut || this._completed) return;
-        this._fadingOut = true;
+_beginFadeOut() {
+    if (this._fadingOut) return;
+    this._fadingOut = true;
+    if (this._overlay) {
         this._overlay.style.transition = `opacity ${FADE_OUT_MS}ms ease-out`;
         this._overlay.style.opacity    = '0';
-        setTimeout(() => {
-            if (this._running) {
-                this.destroy();
-                this._onComplete();
-            }
-        }, FADE_OUT_MS + END_PAUSE_MS);
     }
+    setTimeout(() => {
+        this.destroy();
+        this._onComplete();
+    }, FADE_OUT_MS);
+}
+    // ── Screen coordinate ─────────────────────────────────────────────────────
 
-    // ── Screen coordinate ──────────────────────────────────────────────────────
-
-    /**
-     * screenY = H - scrollY + entry.offsetY
-     *
-     * scrollY=0  → first line (offsetY=0) sits at y=H  (just below screen) ✓
-     * scrollY>0  → lines move upward ✓
-     * scrollY=ceilingY → last line top sits at H*SCROLL_CEILING ✓
-     */
     _screenY(entry) {
-        return window.innerHeight - this._scrollY + entry.offsetY;
+        return (window.innerHeight - this._bottomClearancePx) - this._scrollY + entry.offsetY;
     }
 
-    // ── Touch / mouse ──────────────────────────────────────────────────────────
+    // ── Touch / mouse ─────────────────────────────────────────────────────────
 
     _bindEvents() {
         this._onTouchStart = this._onTouchStart.bind(this);
@@ -377,14 +390,11 @@ export class ScrollingTextPlayer {
         this._dragging        = true;
         this._paused          = false;
         this._fadingOut       = false;
-
-        // If fading out, snap back to visible and restart hold timer
         if (this._overlay) {
             this._overlay.style.transition = '';
             this._overlay.style.opacity    = '1';
         }
         if (this._holdTimer) { clearTimeout(this._holdTimer); this._holdTimer = null; }
-
         this._dragStartY      = clientY;
         this._dragStartScroll = this._scrollY;
         this._lastDragY       = clientY;
@@ -397,19 +407,11 @@ export class ScrollingTextPlayer {
         const now = performance.now();
         const dt  = now - this._lastDragTime;
         const dy  = clientY - this._lastDragY;
-
-        if (dt > 0) {
-            this._dragVelocity = this._dragVelocity * 0.6 + (dy / dt) * 0.4;
-        }
-
-        // Drag up (negative dy) → increase scrollY → content moves up
+        if (dt > 0) this._dragVelocity = this._dragVelocity * 0.6 + (dy / dt) * 0.4;
         let newScroll = this._dragStartScroll + (this._dragStartY - clientY);
-
-        // Clamp: floor at 0 (can't scroll below start), ceiling at ceilingY
         newScroll = Math.max(0, Math.min(this._ceilingY, newScroll));
-        this._scrollY  = newScroll;
+        this._scrollY   = newScroll;
         this._atCeiling = (newScroll >= this._ceilingY);
-
         this._lastDragY    = clientY;
         this._lastDragTime = now;
     }
@@ -418,7 +420,6 @@ export class ScrollingTextPlayer {
         if (wasTap) {
             this._dragging = false;
             this._paused   = true;
-            // Also cancel any in-progress fade and restart hold timer
             if (this._fadingOut) {
                 this._fadingOut = false;
                 if (this._overlay) {
@@ -430,7 +431,6 @@ export class ScrollingTextPlayer {
             this._pauseTimer = setTimeout(() => {
                 this._paused     = false;
                 this._pauseTimer = null;
-                // If content is at ceiling, restart hold timer
                 if (this._atCeiling) {
                     this._startHoldTimer();
                 } else {
@@ -442,20 +442,14 @@ export class ScrollingTextPlayer {
             }, PAUSE_MS);
             return;
         }
-
-        // Fling: convert drag velocity to scroll velocity
-        // dragVelocity: px/ms, negative = dragging upward
         const flingVel = -(this._dragVelocity * (1000 / 60));
         const maxVel   = this._naturalVel * 10;
         this._velocity = Math.max(-this._naturalVel * 3, Math.min(maxVel, flingVel));
         this._dragging = false;
-
-        // If dragged back down, resume scrolling upward
         if (this._atCeiling) {
             this._startHoldTimer();
         } else {
             this._atCeiling = false;
-            // Resume loop if it stopped
             if (!this._rafId && this._running) {
                 this._rafId = requestAnimationFrame(this._loop.bind(this));
             }
@@ -468,32 +462,27 @@ export class ScrollingTextPlayer {
         this._tapStartTime = performance.now();
         this._gestureStart(e.touches[0].clientY);
     }
-
     _onTouchMove(e) {
         if (!this._dragging) return;
         e.preventDefault();
         this._gestureMove(e.touches[0].clientY);
     }
-
     _onTouchEnd(e) {
         if (!this._dragging) return;
-        const endY   = e.changedTouches[0]?.clientY ?? this._lastDragY;
-        const dy     = Math.abs(endY - this._tapStartY);
-        const dt     = performance.now() - this._tapStartTime;
+        const endY = e.changedTouches[0]?.clientY ?? this._lastDragY;
+        const dy   = Math.abs(endY - this._tapStartY);
+        const dt   = performance.now() - this._tapStartTime;
         this._gestureEnd(endY, dy < 8 && dt < 300);
     }
-
     _onMouseDown(e) {
         this._tapStartY    = e.clientY;
         this._tapStartTime = performance.now();
         this._gestureStart(e.clientY);
     }
-
     _onMouseMove(e) {
         if (!this._dragging) return;
         this._gestureMove(e.clientY);
     }
-
     _onMouseUp(e) {
         if (!this._dragging) return;
         const dy = Math.abs(e.clientY - this._tapStartY);
@@ -501,4 +490,4 @@ export class ScrollingTextPlayer {
         this._gestureEnd(e.clientY, dy < 8 && dt < 300);
     }
 }
- 
+

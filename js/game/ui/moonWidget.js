@@ -12,29 +12,28 @@
  *   'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'bottom-center'
  *
  * Tap feedback (standalone mode only):
- *   - Outer glow pulses outward and brightens (canvas)
- *   - Wrapper div bounces scale: 1 → 1.12 → 0.96 → 1.0
- *   Both driven by rAF, peak at ~100ms, fully settled by ~480ms.
- *   Fires before the tapHandler so it runs even if the handler triggers a
- *   screen transition.
+ *   Outer glow pulses + wrapper bounces scale on tap.
+ *   Canvas clipped to circle (border-radius:50%) so glow never bleeds into
+ *   transparent square corners.
+ *
+ * Long press (standalone mode only):
+ *   700ms threshold. Progress (0→1) fires every frame via onLongPressProgress.
+ *   onLongPress fires at threshold. Cancelled by release before threshold or
+ *   by movement > 12px.
  *
  * Public API:
- *   moon.setPhase(v)       — set phase 0–1
- *   moon.getPhase()        — current phase
- *   moon.nudgePhase(dx)    — called by Joystick swipe with pixel delta
- *   moon.setTapHandler(fn) — override tap callback at runtime (pass null to clear)
+ *   moon.setPhase(v)
+ *   moon.getPhase()
+ *   moon.nudgePhase(dx)
+ *   moon.setTapHandler(fn)
+ *   moon.setLongPressHandler(fn)           — fires at 700ms
+ *   moon.setLongPressProgressHandler(fn)   — fires each frame with 0→1 progress
  *   moon.pauseDrift()
  *   moon.resumeDrift()
  *   moon.destroy()
- *   moon.moonD             — pixel diameter (useful for calculating clearance)
+ *   moon.moonD
  */
 
-// ---------------------------------------------------------------------------
-// getMoonBottomOffset(moonD, pad?)
-// Status bar height  = STATUS_H = 42px  (matches _statusBar in bogLocationScene)
-// Joystick radius    = JOY_R    = 60px  (matches joyR in bogLocationScene)
-// Moon centre from screen bottom = STATUS_H + JOY_R = 102px
-// ---------------------------------------------------------------------------
 const STATUS_H = 42
 const JOY_R    = 60
 
@@ -44,23 +43,21 @@ export function getMoonBottomOffset(moonD, pad = 18) {
     return Math.max(8, Math.round(centreFromBottom - wrapperH / 2))
 }
 
-// ---------------------------------------------------------------------------
-
 const DRIFT_RATE = 0.1 / 9000
 
-// Tap feedback timing
-const PULSE_ATTACK_MS  = 100   // time to peak glow/scale
-const PULSE_DECAY_MS   = 380   // time from peak back to rest
+const PULSE_ATTACK_MS  = 100
+const PULSE_DECAY_MS   = 380
 const PULSE_TOTAL_MS   = PULSE_ATTACK_MS + PULSE_DECAY_MS
 
-// Glow boost at peak
-const PULSE_GLOW_RADIUS_BOOST = 0.55   // added to the base 1.6× radius multiplier
-const PULSE_GLOW_ALPHA_BOOST  = 0.28   // added to base glow alpha
+const PULSE_GLOW_RADIUS_BOOST = 0.55
+const PULSE_GLOW_ALPHA_BOOST  = 0.28
 
-// Scale bounce keyframes (wrapper div)
 const SCALE_PEAK      = 1.12
 const SCALE_OVERSHOOT = 0.96
 const SCALE_REST      = 1.00
+
+const LONG_PRESS_MS   = 700
+const LONG_PRESS_MOVE = 12   // px movement cancels long press
 
 export function createMoonWidget(opts = {}) {
     const {
@@ -94,11 +91,20 @@ export function createMoonWidget(opts = {}) {
     let rafId         = null
     let destroyed     = false
 
-    // Runtime-overridable tap handler
-    let tapHandler = onTap
+    // Runtime-overridable handlers
+    let tapHandler              = onTap
+    let longPressHandler        = null
+    let longPressProgressHandler = null
 
-    // Pulse state — shared between the draw function and the pulse animator
-    let pulseT = 0   // 0 = no pulse, >0 = pulse in progress (0..1 maps attack+decay)
+    // Pulse state
+    let pulseT = 0
+
+    // Long press state
+    let _lpTimer      = null
+    let _lpStartX     = 0
+    let _lpStartY     = 0
+    let _lpFired      = false
+    let _lpProgressId = null
 
     const canvas  = embeddedCanvas ?? document.createElement('canvas')
     if (!embedded) {
@@ -134,19 +140,68 @@ export function createMoonWidget(opts = {}) {
         const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3
 
         let dragStartX    = 0
+        let dragStartY    = 0
         let dragStartTime = 0
         let phaseAtStart  = rawPhase
 
-        const onStart = (clientX) => {
+        // ── Long press helpers ────────────────────────────────────────────────
+        const _lpCancel = () => {
+            if (_lpTimer)      { clearTimeout(_lpTimer);          _lpTimer      = null }
+            if (_lpProgressId) { cancelAnimationFrame(_lpProgressId); _lpProgressId = null }
+            _lpFired = false
+            if (longPressProgressHandler) longPressProgressHandler(0)
+        }
+
+        const _lpStart = (clientX, clientY) => {
+            _lpCancel()
+            _lpStartX = clientX
+            _lpStartY = clientY
+            _lpFired  = false
+
+            const startMs = performance.now()
+
+            // Progress animation
+            const tickProgress = () => {
+                if (!dragging || _lpFired) return
+                const elapsed = performance.now() - startMs
+                const prog    = Math.min(elapsed / LONG_PRESS_MS, 1)
+                if (longPressProgressHandler) longPressProgressHandler(prog)
+                if (prog < 1) _lpProgressId = requestAnimationFrame(tickProgress)
+            }
+            _lpProgressId = requestAnimationFrame(tickProgress)
+
+            // Fire at threshold
+            _lpTimer = setTimeout(() => {
+                _lpTimer = null
+                if (!dragging) return
+                _lpFired = true
+                if (_lpProgressId) { cancelAnimationFrame(_lpProgressId); _lpProgressId = null }
+                if (longPressProgressHandler) longPressProgressHandler(1)
+                if (longPressHandler) longPressHandler()
+            }, LONG_PRESS_MS)
+        }
+
+        const _lpCheckMove = (clientX, clientY) => {
+            if (_lpFired) return
+            const dx = Math.abs(clientX - _lpStartX)
+            const dy = Math.abs(clientY - _lpStartY)
+            if (dx > LONG_PRESS_MOVE || dy > LONG_PRESS_MOVE) _lpCancel()
+        }
+
+        // ── Pointer handlers ──────────────────────────────────────────────────
+        const onStart = (clientX, clientY) => {
             dragging      = true
             dragStartX    = clientX
+            dragStartY    = clientY ?? 0
             dragStartTime = performance.now()
             phaseAtStart  = rawPhase
             canvas.style.cursor = 'grabbing'
+            _lpStart(clientX, clientY ?? 0)
         }
 
-        const onMove = (clientX) => {
+        const onMove = (clientX, clientY) => {
             if (!dragging) return
+            _lpCheckMove(clientX, clientY ?? dragStartY)
             const range = showSlider && wrapperEl
                 ? wrapperEl.offsetWidth - moonR * 2
                 : SWIPE_RANGE()
@@ -160,12 +215,17 @@ export function createMoonWidget(opts = {}) {
             canvas.style.cursor = 'grab'
             const dt = performance.now() - dragStartTime
             const dx = Math.abs((clientX ?? dragStartX) - dragStartX)
-            if (dt < 400 && dx < 12) {
-                // Trigger visual feedback first, then fire the handler.
-                // Feedback runs independently via rAF so a screen transition
-                // won't cut it short.
-                _triggerTapFeedback()
-                if (tapHandler) tapHandler()
+            const wasTap = dt < 400 && dx < 12
+
+            if (_lpFired) {
+                // Long press already fired — don't also fire tap
+                _lpCancel()
+            } else {
+                _lpCancel()
+                if (wasTap && tapHandler) {
+                    _triggerTapFeedback()
+                    tapHandler()
+                }
             }
         }
 
@@ -173,12 +233,12 @@ export function createMoonWidget(opts = {}) {
             e.preventDefault()
             e.stopPropagation()
             canvas.setPointerCapture(e.pointerId)
-            onStart(e.clientX)
+            onStart(e.clientX, e.clientY)
         }
         const pmHandler = (e) => {
             if (!dragging) return
             e.preventDefault()
-            onMove(e.clientX)
+            onMove(e.clientX, e.clientY)
         }
         const puHandler = (e) => {
             if (!dragging) return
@@ -194,15 +254,6 @@ export function createMoonWidget(opts = {}) {
     }
 
     // ── Tap feedback ──────────────────────────────────────────────────────────
-    // Drives two simultaneous effects:
-    //   1. pulseT fed into _drawMoon to boost the outer glow
-    //   2. CSS transform on rootEl for the scale bounce
-    //
-    // Timeline (ms):
-    //   0              → PULSE_ATTACK_MS  : ease-out ramp up  (glow + scale expand)
-    //   PULSE_ATTACK_MS → ~60% of decay   : ease-in ramp down + overshoot on scale
-    //   remainder                         : settle back to rest
-    //
     function _easeOut(t) { return 1 - (1 - t) * (1 - t) }
     function _easeIn(t)  { return t * t }
 
@@ -210,7 +261,6 @@ export function createMoonWidget(opts = {}) {
     let _pulseStartMs = 0
 
     function _triggerTapFeedback() {
-        // Cancel any in-progress pulse and restart
         if (_pulseRafId) { cancelAnimationFrame(_pulseRafId); _pulseRafId = null }
         _pulseStartMs = performance.now()
         _animatePulse()
@@ -221,7 +271,6 @@ export function createMoonWidget(opts = {}) {
         const elapsed = performance.now() - _pulseStartMs
 
         if (elapsed >= PULSE_TOTAL_MS) {
-            // Settled — ensure clean rest state
             pulseT = 0
             _drawMoon(canvas, phase, moonR, _rawToCyclePos(rawPhase), 0)
             if (rootEl) rootEl.style.transform = _buildTransform(corner, SCALE_REST)
@@ -229,23 +278,15 @@ export function createMoonWidget(opts = {}) {
             return
         }
 
-        let glowPulse   // 0..1, drives glow boost
-        let scaleFactor // actual CSS scale value
+        let glowPulse, scaleFactor
 
         if (elapsed < PULSE_ATTACK_MS) {
-            // Attack: ease-out ramp up
             const t = _easeOut(elapsed / PULSE_ATTACK_MS)
             glowPulse   = t
             scaleFactor = SCALE_REST + (SCALE_PEAK - SCALE_REST) * t
         } else {
-            // Decay: ease-in ramp down with a scale overshoot
-            const t = (elapsed - PULSE_ATTACK_MS) / PULSE_DECAY_MS  // 0..1
-
-            // Glow fades straight back
+            const t = (elapsed - PULSE_ATTACK_MS) / PULSE_DECAY_MS
             glowPulse = _easeIn(1 - t)
-
-            // Scale: peak → overshoot at ~50% → rest
-            // Split decay into two halves
             if (t < 0.5) {
                 const t2 = _easeOut(t / 0.5)
                 scaleFactor = SCALE_PEAK + (SCALE_OVERSHOOT - SCALE_PEAK) * t2
@@ -262,8 +303,6 @@ export function createMoonWidget(opts = {}) {
         _pulseRafId = requestAnimationFrame(_animatePulse)
     }
 
-    // Build the correct transform string for the wrapper, preserving any
-    // existing translateX(-50%) that bottom-center positioning requires.
     function _buildTransform(corner, scale) {
         if (corner === 'bottom-center') {
             return `translateX(-50%) scale(${scale.toFixed(4)})`
@@ -295,7 +334,6 @@ export function createMoonWidget(opts = {}) {
         const cyclePos = _rawToCyclePos(rawPhase)
         phase          = _cycleToPhase(cyclePos)
         const r        = embedded ? Math.floor(canvas.width / 2) : moonR
-        // Pass current pulseT so the drift loop doesn't clobber an active pulse
         _drawMoon(canvas, phase, r, cyclePos, pulseT)
         if (!embedded && showSlider) {
             if (sliderInput) sliderInput.value = phase
@@ -321,7 +359,9 @@ export function createMoonWidget(opts = {}) {
         getCanvas()    { return canvas },
         nudgePhase(dx) { _setPhaseInternal(rawPhase + dx / swipeRange) },
 
-        setTapHandler(fn) { tapHandler = fn ?? null },
+        setTapHandler(fn)              { tapHandler = fn ?? null },
+        setLongPressHandler(fn)        { longPressHandler = fn ?? null },
+        setLongPressProgressHandler(fn){ longPressProgressHandler = fn ?? null },
 
         pauseDrift()   { driftPaused = true },
         resumeDrift()  { driftPaused = false; lastFrameTime = null },
@@ -330,6 +370,8 @@ export function createMoonWidget(opts = {}) {
             destroyed = true
             if (rafId)       { cancelAnimationFrame(rafId);       rafId       = null }
             if (_pulseRafId) { cancelAnimationFrame(_pulseRafId); _pulseRafId = null }
+            if (_lpTimer)    { clearTimeout(_lpTimer);            _lpTimer    = null }
+            if (_lpProgressId) { cancelAnimationFrame(_lpProgressId); _lpProgressId = null }
             if (rootEl?.parentNode) rootEl.parentNode.removeChild(rootEl)
         },
     }
@@ -342,8 +384,6 @@ function _buildFixed(moonCanvas, moonR, moonD, pad, corner) {
     let posCSS
     if (corner === 'bottom-center') {
         const bottomPx = getMoonBottomOffset(moonD, pad)
-        // Note: transform is set here for positioning; scale is appended
-        // dynamically by _buildTransform() during pulse animation.
         posCSS = `bottom:${bottomPx}px;left:50%;transform:translateX(-50%);`
     } else {
         const isTop  = corner.startsWith('top')
@@ -361,7 +401,6 @@ function _buildFixed(moonCanvas, moonR, moonD, pad, corner) {
         'z-index:1000003;',
         'display:flex;align-items:center;justify-content:center;',
         'pointer-events:all;',
-        // Allow scale transform to expand beyond wrapper bounds
         'transform-origin:center center;',
         'will-change:transform;',
         'background:url(assets/ciorcal-glass-bg.png) center/cover no-repeat;',
@@ -371,6 +410,8 @@ function _buildFixed(moonCanvas, moonR, moonD, pad, corner) {
         `width:${moonD}px;height:${moonD}px;`,
         'cursor:grab;touch-action:none;display:block;',
         'transform:rotate(160deg);',
+        'border-radius:50%;',
+        'overflow:hidden;',
     ].join('')
 
     wrapper.appendChild(moonCanvas)
@@ -458,14 +499,12 @@ function _positionMoonCanvas(canvas, wrapper, phase, moonR) {
 }
 
 // ── Drawing ──────────────────────────────────────────────────────────────────
-// pulseT (0..1) boosts the outer glow radius and alpha when > 0.
 function _drawMoon(canvas, phase, r, cyclePos, pulseT = 0) {
     const waning = (cyclePos !== undefined) && (cyclePos > 1)
     const ctx    = canvas.getContext('2d')
     const cx = r, cy = r
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Outer glow — expanded and brightened during pulse
     const glowRadiusMult = 1.6 + PULSE_GLOW_RADIUS_BOOST * pulseT
     const glowAlphaBase  = 0.14 + phase * 0.12 + PULSE_GLOW_ALPHA_BOOST * pulseT
     const grd = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * glowRadiusMult)
@@ -476,11 +515,9 @@ function _drawMoon(canvas, phase, r, cyclePos, pulseT = 0) {
     ctx.arc(cx, cy, r * glowRadiusMult, 0, Math.PI * 2)
     ctx.fill()
 
-    // Dark disc
     ctx.fillStyle = 'rgb(8,4,30)'
     ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.fill()
 
-    // Lit face
     const lr = Math.round(160 + phase * 20)
     const lg = Math.round(170 + phase * 20)
     const lb = Math.round(225 + phase * 25)
@@ -500,13 +537,11 @@ function _drawMoon(canvas, phase, r, cyclePos, pulseT = 0) {
     }
     ctx.fill()
 
-    // Rim highlight — slightly more visible during pulse
     const rimAlpha = 0.20 + phase * 0.30 + 0.15 * pulseT
     ctx.strokeStyle = `rgba(180,160,255,${Math.min(1, rimAlpha).toFixed(3)})`
     ctx.lineWidth   = 1
     ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.stroke()
 
-    // Mare detail
     if (phase > 0.1) {
         const mare = (mx, my, mr, a) => {
             ctx.fillStyle = `rgba(140,130,200,${(a * phase).toFixed(3)})`

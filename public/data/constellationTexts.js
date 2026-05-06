@@ -4,9 +4,13 @@ export const constellationTexts = {
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────
     cu: {
         waiting: [
-            {
-                ga: 'Tríd oichí fada gan codladh a bhanríonn, tá córthaí na spéire cúrtaithe agam',
-                en: 'Through long and sleepless nights o queen, I have searched the signs of the sky.',
+             {
+                ga: 'Tríd oichí fada gan codladh a bhanríonn,',
+                en: 'Through long and sleepless nights o queen,',
+                speaker: 'druid',
+            },{
+                ga: 'tá córthaí na spéire cúrtaithe agam',
+                en: 'I have searched the signs of the sky',
                 speaker: 'druid',
             },
             {

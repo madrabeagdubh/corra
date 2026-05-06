@@ -1,24 +1,12 @@
 export function initFullscreenButton() {
-  const btn = document.createElement('button')
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) return
 
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-if (isIOS) return  // skip creating button
+  const btn = document.createElement('button')
   btn.id = 'pgr-fullscreen-btn'
   btn.textContent = '⛶'
 
-  const minDim = Math.min(window.innerWidth, window.innerHeight)
-  const margin = Math.round(minDim * 0.04)
-  const moonR  = Math.max(24, Math.round(minDim * 0.055))
-  const moonD  = moonR * 2
-  const pad    = 18
-  const wrapperSize = moonD + pad * 2
-
   btn.style.cssText = [
     'position:fixed',
-    `top:${margin}px`,
-    `right:${margin}px`,
-    `width:${wrapperSize}px`,
-    `height:${wrapperSize}px`,
     'z-index:1000004',
     'font-size:20px',
     'background:rgba(0,0,0,0.45)',
@@ -28,16 +16,37 @@ if (isIOS) return  // skip creating button
     'cursor:pointer',
     'display:none',
     'pointer-events:auto',
+    'transform:translate(-50%,-50%)',  // centre over target
   ].join(';')
+
+ const positionOverMoon = () => {
+  // Try several ways to find the moon wrapper
+  const moon = 
+    document.getElementById('moon-widget') ??
+    document.querySelector('[style*="ciorcal-glass-bg"]') ??
+    document.querySelector('[style*="1000003"]')
+
+  if (moon) {
+    const r = moon.getBoundingClientRect()
+    btn.style.left   = (r.left + r.width  / 2) + 'px'
+    btn.style.top    = (r.top  + r.height / 2) + 'px'
+    btn.style.width  = r.width  + 'px'
+    btn.style.height = r.height + 'px'
+  } else {
+    // Moon not in DOM yet — try again shortly
+    setTimeout(positionOverMoon, 200)
+  }
+} 
 
   btn.addEventListener('click', () => {
     const el = document.documentElement
-    if (el.requestFullscreen)            el.requestFullscreen()
+    if      (el.requestFullscreen)       el.requestFullscreen()
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
   })
 
   const update = () => {
     const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement)
+    if (!inFS) positionOverMoon()
     btn.style.display = inFS ? 'none' : 'block'
   }
 

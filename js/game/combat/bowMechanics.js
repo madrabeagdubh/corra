@@ -2,16 +2,6 @@ import Phaser from 'phaser';
 
 /**
  * BowMechanics — perspective-aware bow and arrow system.
- *
- * Trigger: tap+drag on the player character. Drag 30px+ to fire.
- * Short drags cancel. Tap alone does nothing.
- *
- * Arrow physics run in logical world-pixel space, projected to screen
- * each frame via PGR. Arrows are simple white lines.
- *
- * Aiming visuals (pull-back line + arc dots) are rendered in a full-screen
- * SVG element that sits above every DOM layer, so PGR overlays and the moon
- * widget can never obscure or intercept the drag.
  */
 export default class BowMechanics {
   constructor(scene, player) {
@@ -19,21 +9,22 @@ export default class BowMechanics {
     this.player = player
 
     this.isAiming       = false
-    this.aimLine        = null   // kept for API compat — not used for rendering during aim
+    this.aimLine        = null
     this.arrows         = []
     this.creakSound     = null
     this.creakIsPlaying = false
 
-    this.maxDrawDistance = 180   // screen pixels max drag
-    this.minDistance     = 96    // world-pixel minimum travel (~2 tiles)
-    this.maxDistance     = 800   // world-pixel maximum travel
-    this.flightTime      = 600   // ms at full force
-    this.arcHeight       = 120   // max screen-pixel arc
+    this.maxDrawDistance = 180
+    this.minDistance     = 96
+    this.maxDistance     = 800
+    this.flightTime      = 600
+    this.arcHeight       = 120
 
     this._aimStartPointer = null
-    this._aimOverlay      = null   // SVG element
+    this._aimOverlay      = null
     this._svgPullLine     = null
     this._svgDots         = null
+    this._activePointerId = null
 
     this._setupInput()
   }
@@ -41,23 +32,10 @@ export default class BowMechanics {
   // ── Input ─────────────────────────────────────────────────────────────────
 
   _setupInput() {
-    // All input handled via document-level DOM events using raw clientX/Y.
-    // This avoids all Phaser camera offsets, canvas scaling, and z-index
-    // interference from PGR layers sitting between document and Phaser canvas.
-    //
-    // Flow:
-    //   pointerdown in lower screen → register as potential draw start
-    //   pointermove with same pointerId → update aim line (no overlay needed yet)
-    //   pointerup with same pointerId → shoot or cancel if drag too short
-    //
-    // The SVG overlay is only created once aiming is confirmed (after first move),
-    // so the pointerdown event never accidentally also triggers pointerup on overlay.
-
-    this._activePointerId = null
+    // Document-level pointer handling. preventDefault is the FIRST thing
+    // called so the browser never gets a chance to claim the gesture.
 
     this._domPointerDown = (e) => {
-      // preventDefault at the very top — must happen before any async
-      // browser gesture handling kicks in, otherwise scroll/pan wins
       e.preventDefault()
 
       const H = window.innerHeight
@@ -66,10 +44,10 @@ export default class BowMechanics {
       const y = e.clientY
 
       if (this._activePointerId !== null) return
-      if (!this._canStartAiming()) return
-      if (x < 180 && y > H - 180) return   // bottom-left UI corner
-      if (x > W - 90 && y < 120)  return   // top-right UI corner
-      if (y < H * 0.50) return              // above ground / horizon area
+      if (!this._canStartAiming())        return
+      if (x < 180 && y > H - 180)        return  // bottom-left UI
+      if (x > W - 90 && y < 120)         return  // top-right UI
+      if (y < H * 0.45)                  return  // above play area
 
       this._activePointerId = e.pointerId
       this._startAiming({ x, y, pointerId: e.pointerId })
@@ -79,21 +57,17 @@ export default class BowMechanics {
       if (e.pointerId !== this._activePointerId) return
       if (!this.isAiming) return
       e.preventDefault()
-      const ptr = { x: e.clientX, y: e.clientY }
-
-      // Create SVG overlay on first move — guarantees pointerdown never
-      // also hits the overlay's own pointerup handler
       if (!this._aimOverlay) this._createAimOverlay()
-
-      this._updateAimLine(ptr)
+      this._updateAimLine({ x: e.clientX, y: e.clientY })
     }
 
     this._domPointerUp = (e) => {
       if (e.pointerId !== this._activePointerId) return
       this._activePointerId = null
-      if (!this.isAiming) return
       e.preventDefault()
-      this._shootArrow({ x: e.clientX, y: e.clientY })
+      if (this.isAiming) {
+        this._shootArrow({ x: e.clientX, y: e.clientY })
+      }
       this._removeAimOverlay()
     }
 
@@ -114,7 +88,6 @@ export default class BowMechanics {
     document.addEventListener('visibilitychange', this._blurHandler)
   }
 
-  // Guards for aiming — bow equipped, arrows available, not already aiming
   _canStartAiming() {
     if (this.isAiming) return false
     const equippedRight = this.player.inventory?.getEquippedItem('rightHand')
@@ -123,19 +96,23 @@ export default class BowMechanics {
     return true
   }
 
-  _isUIZone(pointer) {
-    const W = this.scene.scale.width
-    const H = this.scene.scale.height
-    // Bottom-left: joystick / inventory area
-    if (pointer.x < 200 && pointer.y > H - 200) return true
-    // Top-right: settings / hit tracker area
-    if (pointer.x > W - 100 && pointer.y < 120) return true
-    return false
+  // Allow external scenes to temporarily bypass the bow check
+  // e.g. advanced training restocks arrows and re-enables aiming
+  forceEnableAiming() {
+    this._activePointerId = null
+    this.isAiming = false
   }
 
   _isTapOnPlayer(pointer) {
-    // Kept for compatibility — actual check now done in _domPointerDown
-    return true
+    return true  // zone check handled in _domPointerDown
+  }
+
+  _isUIZone(pointer) {
+    const W = this.scene.scale.width
+    const H = this.scene.scale.height
+    if (pointer.x < 200 && pointer.y > H - 200) return true
+    if (pointer.x > W - 100 && pointer.y < 120)  return true
+    return false
   }
 
   // ── Player screen position ────────────────────────────────────────────────
@@ -147,20 +124,14 @@ export default class BowMechanics {
       if (!sprite) return null
       return { x: sprite.x, y: sprite.y - (sprite.displayHeight ?? 64) * 0.3 }
     }
-
     const proj = pgr._projectLogical(this.player.logicalX, this.player.logicalY)
     if (!proj) return null
-
     const ts      = pgr.tileDisplaySize
     const tileRow = this.player.logicalY / ts - 0.5
     const scaledW = pgr._scaleAtRow(tileRow + 1)
     const hm      = pgr.constructor.HEIGHT_MULTIPLIER ?? 1.6
     const spriteH = scaledW * hm
-
-    return {
-      x: proj.screenX,
-      y: proj.screenY - spriteH * 0.5
-    }
+    return { x: proj.screenX, y: proj.screenY - spriteH * 0.5 }
   }
 
   // ── Inventory ─────────────────────────────────────────────────────────────
@@ -189,27 +160,17 @@ export default class BowMechanics {
   }
 
   // ── SVG aim overlay ───────────────────────────────────────────────────────
-  // A full-screen SVG sits above every DOM element (PGR layers, moon widget,
-  // everything) for the duration of a bow draw.
-  // It owns all pointer events AND renders the aim line + arc dots itself,
-  // bypassing the Phaser canvas entirely so z-index stacking is never an issue.
 
   _createAimOverlay() {
     if (this._aimOverlay) return
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     svg.style.cssText = [
-      'position:fixed;',
-      'top:0;left:0;',
-      `width:${window.innerWidth}px;`,
-      `height:${window.innerHeight}px;`,
-      'z-index:9999999;',
-      'pointer-events:all;',
-      'touch-action:none;',
-      'overflow:visible;',
+      'position:fixed;top:0;left:0;',
+      `width:${window.innerWidth}px;height:${window.innerHeight}px;`,
+      'z-index:9999999;pointer-events:none;touch-action:none;overflow:visible;',
     ].join('')
 
-    // Pull-back line (drag direction, yellow)
     const pullLine = document.createElementNS('http://www.w3.org/2000/svg', 'line')
     pullLine.setAttribute('stroke', '#ffcc44')
     pullLine.setAttribute('stroke-width', '2')
@@ -218,13 +179,8 @@ export default class BowMechanics {
     pullLine.setAttribute('x2', '0'); pullLine.setAttribute('y2', '0')
     svg.appendChild(pullLine)
 
-    // Arc dots group (fire direction, white)
     const dotsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     svg.appendChild(dotsGroup)
-
-    // No pointer handlers on the SVG itself — all handled at document level.
-    // SVG is purely visual: captures no events, just renders aim line + dots.
-    svg.style.pointerEvents = 'none'
 
     document.body.appendChild(svg)
     this._aimOverlay  = svg
@@ -241,11 +197,9 @@ export default class BowMechanics {
     }
   }
 
-  // Render pull-back line + arc dots into the SVG (called each frame during aim)
   _renderAimSVG(pos, dragAngle, fireAngle, force, clampedDist) {
     if (!this._svgPullLine || !this._svgDots) return
 
-    // Pull-back line endpoint
     const endX = pos.x + Math.cos(dragAngle) * clampedDist
     const endY = pos.y + Math.sin(dragAngle) * clampedDist
     this._svgPullLine.setAttribute('x1', pos.x)
@@ -253,23 +207,19 @@ export default class BowMechanics {
     this._svgPullLine.setAttribute('x2', endX)
     this._svgPullLine.setAttribute('y2', endY)
 
-    // Rebuild arc dots
     while (this._svgDots.firstChild) this._svgDots.removeChild(this._svgDots.firstChild)
 
     const pgr = this.scene.perspectiveGround
     if (!pgr) return
 
     const worldDist = this.minDistance + force * (this.maxDistance - this.minDistance)
-
     for (let i = 1; i <= 8; i++) {
       const t   = i / 8
       const arc = -4 * this.arcHeight * force * force * t * (t - 1)
       const lx  = this.player.logicalX + Math.cos(fireAngle) * worldDist * t
       const ly  = this.player.logicalY + Math.sin(fireAngle) * worldDist * t
-
       const proj = pgr._projectLogical(lx, ly)
       if (!proj || proj.screenY < pgr._horizonPx()) continue
-
       const dotR   = Math.max(1, 3.5 * (1 - t * 0.6))
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       circle.setAttribute('cx',   proj.screenX)
@@ -283,8 +233,6 @@ export default class BowMechanics {
   // ── Aiming ────────────────────────────────────────────────────────────────
 
   _startAiming(pointer) {
-    // Guards already checked by _canStartAiming() in _domPointerDown.
-    // _playerScreenPos used only for the visual aim origin, not for tap detection.
     const pos = this._playerScreenPos()
     if (!pos) return
 
@@ -297,9 +245,6 @@ export default class BowMechanics {
     this._aimStartPointer = { x: pointer.x, y: pointer.y }
     this.isAiming   = true
     this._aimOrigin = pos
-
-    // SVG overlay is created on first pointermove (not here) so that the
-    // pointerdown event doesn't also trigger pointerup on the new overlay.
   }
 
   _updateAimLine(pointer) {
@@ -328,7 +273,6 @@ export default class BowMechanics {
     this._lastPointerX = pointer.x
     this._lastPointerY = pointer.y
 
-    // All rendering goes through the SVG overlay — always on top, never blocked
     this._renderAimSVG(pos, dragAngle, fireAngle, force, clampedDist)
   }
 
@@ -346,10 +290,7 @@ export default class BowMechanics {
     const ddy      = pointer.y - start.y
     const dragDist = Math.sqrt(ddx * ddx + ddy * ddy)
 
-    if (dragDist < 15) {
-      this._cancelAiming()
-      return
-    }
+    if (dragDist < 15) { this._cancelAiming(); return }
 
     if (!this.consumeArrow()) { this._cancelAiming(); return }
 
@@ -372,22 +313,20 @@ export default class BowMechanics {
     this._cancelAiming()
   }
 
-  // ── Predict landing point (used by tutorial) ──────────────────────────────
+  // ── Predict landing point ────────────────────────────────────────────────
+
   predictLandingPoint() {
     if (!this.isAiming) return null
     const pos   = this._playerScreenPos()
     const start = this._aimStartPointer
     if (!pos || !start) return null
-
     const dx   = pos.x - (this._lastPointerX ?? pos.x)
     const dy   = pos.y - (this._lastPointerY ?? pos.y)
     const dist = Math.sqrt(dx * dx + dy * dy)
     if (dist < 5) return null
-
     const force     = Math.min(dist / this.maxDrawDistance, 1)
     const angle     = Math.atan2(-dy, -dx)
     const worldDist = this.minDistance + force * (this.maxDistance - this.minDistance)
-
     return {
       x: this.player.logicalX + Math.cos(angle) * worldDist,
       y: this.player.logicalY + Math.sin(angle) * worldDist
@@ -576,6 +515,7 @@ export default class BowMechanics {
     this.scene._bowAiming = false
     this._aimStartPointer = null
     this._currentAimAngle = null
+    this._activePointerId = null
 
     this._removeAimOverlay()
 
@@ -614,8 +554,9 @@ export default class BowMechanics {
       const landScreenX = arrow.getData('landScreenX')
       const landScreenY = arrow.getData('landScreenY')
 
+      // 800ms window — generous enough for advanced training
       const landTime = arrow.getData('landTime')
-      if (landTime && Date.now() - landTime > 400) continue
+      if (landTime && Date.now() - landTime > 800) continue
 
       const useScreen = (target.logicalX == null) && landScreenX != null
       const d = useScreen

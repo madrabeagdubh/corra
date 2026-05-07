@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import PathFinder from '../systems/pathFinder.js';
 
 /**
  * BowMechanics — perspective-aware bow and arrow system.
@@ -42,44 +41,101 @@ export default class BowMechanics {
   // ── Input ─────────────────────────────────────────────────────────────────
 
   _setupInput() {
-    this.scene.input.on('pointerdown', pointer => {
-      if (this._isUIZone(pointer)) return
-      if (!this._isTapOnPlayer(pointer)) return
-      this._startAiming(pointer)
-    })
+    // All input handled via document-level DOM events using raw clientX/Y.
+    // This avoids all Phaser camera offsets, canvas scaling, and z-index
+    // interference from PGR layers sitting between document and Phaser canvas.
+    //
+    // Flow:
+    //   pointerdown in lower screen → register as potential draw start
+    //   pointermove with same pointerId → update aim line (no overlay needed yet)
+    //   pointerup with same pointerId → shoot or cancel if drag too short
+    //
+    // The SVG overlay is only created once aiming is confirmed (after first move),
+    // so the pointerdown event never accidentally also triggers pointerup on overlay.
 
-    // Phaser pointermove/up only fire when SVG overlay is absent (fallback)
-    this.scene.input.on('pointermove', pointer => {
-      if (this.isAiming && !this._aimOverlay) this._updateAimLine(pointer)
-    })
-    this.scene.input.on('pointerup', pointer => {
-      if (this.isAiming && !this._aimOverlay) this._shootArrow(pointer)
-    })
+    this._activePointerId = null
 
-    this.scene.input.on('pointercancel', () => {
+    this._domPointerDown = (e) => {
+      // preventDefault at the very top — must happen before any async
+      // browser gesture handling kicks in, otherwise scroll/pan wins
+      e.preventDefault()
+
+      const H = window.innerHeight
+      const W = window.innerWidth
+      const x = e.clientX
+      const y = e.clientY
+
+      if (this._activePointerId !== null) return
+      if (!this._canStartAiming()) return
+      if (x < 180 && y > H - 180) return   // bottom-left UI corner
+      if (x > W - 90 && y < 120)  return   // top-right UI corner
+      if (y < H * 0.50) return              // above ground / horizon area
+
+      this._activePointerId = e.pointerId
+      this._startAiming({ x, y, pointerId: e.pointerId })
+    }
+
+    this._domPointerMove = (e) => {
+      if (e.pointerId !== this._activePointerId) return
+      if (!this.isAiming) return
+      e.preventDefault()
+      const ptr = { x: e.clientX, y: e.clientY }
+
+      // Create SVG overlay on first move — guarantees pointerdown never
+      // also hits the overlay's own pointerup handler
+      if (!this._aimOverlay) this._createAimOverlay()
+
+      this._updateAimLine(ptr)
+    }
+
+    this._domPointerUp = (e) => {
+      if (e.pointerId !== this._activePointerId) return
+      this._activePointerId = null
+      if (!this.isAiming) return
+      e.preventDefault()
+      this._shootArrow({ x: e.clientX, y: e.clientY })
+      this._removeAimOverlay()
+    }
+
+    this._domPointerCancel = (e) => {
+      if (e.pointerId !== this._activePointerId) return
+      this._activePointerId = null
       if (this.isAiming) this._cancelAiming()
-    })
+      this._removeAimOverlay()
+    }
+
+    document.addEventListener('pointerdown',   this._domPointerDown,   { passive: false })
+    document.addEventListener('pointermove',   this._domPointerMove,   { passive: false })
+    document.addEventListener('pointerup',     this._domPointerUp,     { passive: false })
+    document.addEventListener('pointercancel', this._domPointerCancel, { passive: false })
 
     this._blurHandler = () => { if (this.isAiming) this._cancelAiming() }
     window.addEventListener('blur', this._blurHandler)
     document.addEventListener('visibilitychange', this._blurHandler)
   }
 
+  // Guards for aiming — bow equipped, arrows available, not already aiming
+  _canStartAiming() {
+    if (this.isAiming) return false
+    const equippedRight = this.player.inventory?.getEquippedItem('rightHand')
+    if (equippedRight?.id !== 'simple_bow') return false
+    if (!this.hasArrows()) return false
+    return true
+  }
+
   _isUIZone(pointer) {
     const W = this.scene.scale.width
     const H = this.scene.scale.height
-    if (pointer.x < 220 && pointer.y > H - 220) return true
-    if (pointer.x > W - 120 && pointer.y < 150) return true
+    // Bottom-left: joystick / inventory area
+    if (pointer.x < 200 && pointer.y > H - 200) return true
+    // Top-right: settings / hit tracker area
+    if (pointer.x > W - 100 && pointer.y < 120) return true
     return false
   }
 
   _isTapOnPlayer(pointer) {
-    const TAP_RADIUS = 52
-    const pos = this._playerScreenPos()
-    if (!pos) return false
-    const dx = pointer.x - pos.x
-    const dy = pointer.y - pos.y
-    return dx * dx + dy * dy <= TAP_RADIUS * TAP_RADIUS
+    // Kept for compatibility — actual check now done in _domPointerDown
+    return true
   }
 
   // ── Player screen position ────────────────────────────────────────────────
@@ -166,24 +222,9 @@ export default class BowMechanics {
     const dotsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     svg.appendChild(dotsGroup)
 
-    const mkPtr = e => ({ x: e.clientX, y: e.clientY })
-
-    svg.addEventListener('pointermove', e => {
-      e.preventDefault()
-      if (!this.isAiming) return
-      this._updateAimLine(mkPtr(e))
-    }, { passive: false })
-
-    svg.addEventListener('pointerup', e => {
-      e.preventDefault()
-      if (this.isAiming) this._shootArrow(mkPtr(e))
-      this._removeAimOverlay()
-    }, { passive: false })
-
-    svg.addEventListener('pointercancel', () => {
-      if (this.isAiming) this._cancelAiming()
-      this._removeAimOverlay()
-    }, { passive: false })
+    // No pointer handlers on the SVG itself — all handled at document level.
+    // SVG is purely visual: captures no events, just renders aim line + dots.
+    svg.style.pointerEvents = 'none'
 
     document.body.appendChild(svg)
     this._aimOverlay  = svg
@@ -242,10 +283,8 @@ export default class BowMechanics {
   // ── Aiming ────────────────────────────────────────────────────────────────
 
   _startAiming(pointer) {
-    const equippedRight = this.player.inventory?.getEquippedItem('rightHand')
-    if (equippedRight?.id !== 'simple_bow') return
-    if (!this.hasArrows()) return
-
+    // Guards already checked by _canStartAiming() in _domPointerDown.
+    // _playerScreenPos used only for the visual aim origin, not for tap detection.
     const pos = this._playerScreenPos()
     if (!pos) return
 
@@ -259,9 +298,8 @@ export default class BowMechanics {
     this.isAiming   = true
     this._aimOrigin = pos
 
-    // SVG overlay created first — owns the full pointer stream immediately,
-    // nothing underneath (moon widget etc.) can intercept
-    this._createAimOverlay()
+    // SVG overlay is created on first pointermove (not here) so that the
+    // pointerdown event doesn't also trigger pointerup on the new overlay.
   }
 
   _updateAimLine(pointer) {
@@ -596,6 +634,14 @@ export default class BowMechanics {
   destroy() {
     this._cancelAiming()
     this._removeAimOverlay()
+    if (this._domPointerDown) {
+      document.removeEventListener('pointerdown',   this._domPointerDown)
+      document.removeEventListener('pointermove',   this._domPointerMove)
+      document.removeEventListener('pointerup',     this._domPointerUp)
+      document.removeEventListener('pointercancel', this._domPointerCancel)
+      this._domPointerDown = this._domPointerMove = null
+      this._domPointerUp   = this._domPointerCancel = null
+    }
     if (this._blurHandler) {
       window.removeEventListener('blur', this._blurHandler)
       document.removeEventListener('visibilitychange', this._blurHandler)

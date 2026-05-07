@@ -1,17 +1,17 @@
- import Phaser from 'phaser';
+import Phaser from 'phaser';
 import Player from '../../player/player.js';
 import BowMechanics from '../../combat/bowMechanics.js';
 import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js';
 import CreatureSheetHelper from '../../ui/inventory/creatureSheetHelper.js';
 import ItemSheetHelper from '../../ui/inventory/itemSheetHelper.js';
 
-import { initReturnCrossing } from '../returnCrossing.js';
+import { initReturnCrossing } from '../../scenes/returnCrossing.js';
 
 import TextPanel from '../../ui/textPanel.js';
 import { ScrollingTextPlayer } from '../../ui/scrollingTextPlayer.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import { createMoonWidget } from '../../ui/moonWidget.js';
-import AdvancedTraining from './advancedTraining.js';
+import AdvancedTraining from '../../scenes/locations/advancedTraining.js';
 
 export default class BowTutorial extends Phaser.Scene {
     constructor() {
@@ -71,8 +71,7 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     createHitTracker() {
-        const screenWidth  = this.scale.width;
-        const screenHeight = this.scale.height;
+        const screenWidth = this.scale.width;
         const startX  = screenWidth - 180;
         const startY  = 80;
         const spacing = 40;
@@ -216,7 +215,8 @@ export default class BowTutorial extends Phaser.Scene {
         this.champion = champion;
         this.tileSize = 48;
 
-        const MW = 20, MH = 22, BOG = 733;
+        // Tall narrow map — 14 cols, 50 rows gives a deep field toward horizon
+        const MW = 14, MH = 50, BOG = 733;
         const layer0 = Array.from({ length: MH }, () => Array(MW).fill(BOG));
         this.mapData = {
             width: MW, height: MH,
@@ -224,8 +224,14 @@ export default class BowTutorial extends Phaser.Scene {
             tiles:  layer0,
         };
 
+        // perspCamRow ≈ 22.61 with scrollY=0, horizonPx=231, groundH=596, FL=12
+        // Row 18 → screenY ≈ 690px — lower third, good player position
+        const PLAYER_ROW = 18;
         const playerX = 4 * this.tileSize + this.tileSize / 2;
-        const playerY = 16 * this.tileSize + this.tileSize / 2;
+        const playerY = PLAYER_ROW * this.tileSize + this.tileSize / 2;
+
+        // Centre camera horizontally on player column
+        
 
         try {
             this.player = new Player(this, playerX, playerY, champion);
@@ -254,11 +260,11 @@ export default class BowTutorial extends Phaser.Scene {
             groundColour: '#4a6a30',
         });
 
-        this.itemSheet    = new ItemSheetHelper(this);
+        this.itemSheet     = new ItemSheetHelper(this);
         this.creatureSheet = new CreatureSheetHelper(this);
-        this.bowMechanics = new BowMechanics(this, this.player);
-        this.textPanel    = new TextPanel(this);
-        this.storyPlayer  = null;
+        this.bowMechanics  = new BowMechanics(this, this.player);
+        this.textPanel     = new TextPanel(this);
+        this.storyPlayer   = null;
 
         this.hitCount          = 0;
         this.missCount         = 0;
@@ -270,7 +276,7 @@ export default class BowTutorial extends Phaser.Scene {
         this.usedMissDialogues = [];
         this.tutorialComplete  = false;
 
-        // ── Moon widget (replaces Phaser RenderTexture slider) ────────────────
+        this._createMountainBg();
         this.addSettingsSlider();
 
         this.events.once('shutdown', () => {
@@ -281,12 +287,13 @@ export default class BowTutorial extends Phaser.Scene {
             const container = document.getElementById('gameContainer');
             if (container) container.style.background = '';
 
-            if (this._moonWidget)       { this._moonWidget.destroy();       this._moonWidget       = null; }
-            if (this.storyPlayer)       { this.storyPlayer.destroy();       this.storyPlayer       = null; }
-            if (this._flashPlayer)      { this._flashPlayer.destroy();      this._flashPlayer      = null; }
-            if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null; }
-            if (this.itemSheet)         { this.itemSheet.clear();           this.itemSheet         = null; }
-            if (this.creatureSheet)     { this.creatureSheet.clear();       this.creatureSheet     = null; }
+            if (this._mountainBgEl)     { this._mountainBgEl.remove();       this._mountainBgEl     = null; }
+            if (this._moonWidget)       { this._moonWidget.destroy();         this._moonWidget       = null; }
+            if (this.storyPlayer)       { this.storyPlayer.destroy();         this.storyPlayer       = null; }
+            if (this._flashPlayer)      { this._flashPlayer.destroy();        this._flashPlayer      = null; }
+            if (this.perspectiveGround) { this.perspectiveGround.destroy();   this.perspectiveGround = null; }
+            if (this.itemSheet)         { this.itemSheet.clear();             this.itemSheet         = null; }
+            if (this.creatureSheet)     { this.creatureSheet.clear();         this.creatureSheet     = null; }
         });
 
         this.showExposition();
@@ -301,31 +308,54 @@ export default class BowTutorial extends Phaser.Scene {
         this.createHitTracker();
     }
 
-    // ── Moon widget ───────────────────────────────────────────────────────────
-  addSettingsSlider() {
-    if (this._moonWidget) {
-        this._moonWidget.destroy();
-        this._moonWidget = null;
+    // ── Mountain background ───────────────────────────────────────────────────
+    _createMountainBg() {
+        if (this._mountainBgEl) return;
+
+        const img = document.createElement('img');
+        img.src = 'assets/mountains.png';
+        img.style.cssText = [
+            'position:fixed;',
+            'top:0;left:0;',
+            'width:100%;',
+            'height:50%;',
+            'object-fit:cover;',
+            'object-position:center bottom;',
+            'z-index:1;',
+            'pointer-events:none;',
+            'opacity:0.92;',
+        ].join('');
+
+        img.style.webkitMaskImage = 'linear-gradient(to bottom, black 50%, transparent 100%)';
+        img.style.maskImage        = 'linear-gradient(to bottom, black 50%, transparent 100%)';
+
+        document.body.appendChild(img);
+        this._mountainBgEl = img;
     }
 
-    this._moonWidget = createMoonWidget({
-        initialPhase : GameSettings.englishOpacity ?? 0.7,
-        showSlider   : false,
-        corner       : 'bottom-center',
-        onChange     : (phase) => {
-            GameSettings.setEnglishOpacity(phase);
+    // ── Moon widget ───────────────────────────────────────────────────────────
+    addSettingsSlider() {
+        if (this._moonWidget) {
+            this._moonWidget.destroy();
+            this._moonWidget = null;
+        }
 
-            if (this.textPanel) this.textPanel.updateEnglishOpacity?.();
-
-            for (const player of [this.storyPlayer, this._flashPlayer]) {
-                if (!player?._lineEls) continue;
-                for (const entry of player._lineEls) {
-                    if (entry.enEl) entry.enEl.style.opacity = String(phase);
+        this._moonWidget = createMoonWidget({
+            initialPhase : GameSettings.englishOpacity ?? 0.7,
+            showSlider   : false,
+            corner       : 'bottom-center',
+            onChange     : (phase) => {
+                GameSettings.setEnglishOpacity(phase);
+                if (this.textPanel) this.textPanel.updateEnglishOpacity?.();
+                for (const player of [this.storyPlayer, this._flashPlayer]) {
+                    if (!player?._lineEls) continue;
+                    for (const entry of player._lineEls) {
+                        if (entry.enEl) entry.enEl.style.opacity = String(phase);
+                    }
                 }
-            }
-        },
-    });
-} 
+            },
+        });
+    }
 
     // ── Bullseye effect ───────────────────────────────────────────────────────
     showBullseyeEffect(x, y) {
@@ -395,7 +425,7 @@ export default class BowTutorial extends Phaser.Scene {
         return dialogue;
     }
 
-    // ── Story lines (ScrollingTextPlayer) ─────────────────────────────────────
+    // ── Story lines ───────────────────────────────────────────────────────────
     _showStoryLines(lines, onComplete) {
         if (this.storyPlayer) { this.storyPlayer.destroy(); this.storyPlayer = null; }
 
@@ -415,17 +445,17 @@ export default class BowTutorial extends Phaser.Scene {
         this.storyPlayer.start();
 
         const vel = 50 / 60;
-        this.storyPlayer._naturalVel = vel;
-        this.storyPlayer._velocity   = vel;
+        this.storyPlayer._naturalVel     = vel;
+        this.storyPlayer._velocity       = vel;
         this.storyPlayer._ceilingY       = 999999;
         this.storyPlayer._onReachCeiling = function() {};
         this.storyPlayer._onComplete     = function() {};
 
-        const H       = window.innerHeight;
+        const H      = window.innerHeight;
         this.storyPlayer._scrollY = H * 0.5;
 
-        const SLIDER_H  = 0;   // no strip — moon is a corner widget
-        const topZoneH  = H * 0.5 - SLIDER_H;
+        const SLIDER_H = 0;
+        const topZoneH = H * 0.5 - SLIDER_H;
         if (this.storyPlayer._hitZone) {
             const hz = this.storyPlayer._hitZone;
             hz.style.top           = SLIDER_H + 'px';
@@ -437,9 +467,9 @@ export default class BowTutorial extends Phaser.Scene {
             this.storyPlayer._overlay.style.pointerEvents = 'none';
         }
 
-        const CEIL_PX  = SLIDER_H + 8;
-        const FADE_PX  = 80;
-        const MID_PX   = H * 0.5;
+        const CEIL_PX = SLIDER_H + 8;
+        const FADE_PX = 80;
+        const MID_PX  = H * 0.5;
         this.storyPlayer._render = function() {
             if (!this._overlay) return;
             const mp = this._getMoonPhase();
@@ -609,6 +639,16 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     // ── Targets ───────────────────────────────────────────────────────────────
+    // perspCamRow=22.61, horizonPx=231, groundH=596, FL=12
+    // screenY = 231 + 596*12/(12 + (22.61 - worldRow - 1))
+    //
+    // Player at row 18 → screenY ≈ 690px (lower third)
+    // Target rows 10-13 → screenY 560-620px (mid screen, clearly visible)
+    // Scáthach at row 6 → screenY ≈ 490px (upper-mid, far field, smaller)
+    //
+    // Targets placed centrally (dx -1 to +1) so they fill the middle of the view.
+    // Scáthach far right (screen-space) so she is clearly not a target.
+
     _targetGids() { return [1987, 1988, 1989, 1990, 1991]; }
 
     createTarget() {
@@ -619,12 +659,23 @@ export default class BowTutorial extends Phaser.Scene {
         this.currentTargetIndex = (this.currentTargetIndex ?? -1) + 1;
         if (this.currentTargetIndex >= 5) this.currentTargetIndex = 0;
 
-        const SPAWN_LX = 4 * 48 + 24;
-        const SPAWN_LY = 16 * 48 + 24;
+        // All targets north of player (dy negative from row 18),
+        // central horizontal position (dx -2 to +1)
+        // Row 10-13 all project to mid-screen, fully visible
+        // Player row 18, perspCamRow≈22.61.
+        // Targets as far back as possible — rows 1-5, near horizon.
+        // screenY: row5≈472px, row3≈460px, row1≈450px (just above mid-screen)
         const positions = [
-            { dx:  0, dy: -10 }, { dx: -3, dy: -10 }, { dx:  3, dy: -10 },
-            { dx: -4, dy: -12 }, { dx:  4, dy: -12 },
+            { dx: -2, dy: -14, axis: 'x' },   // row 4,  left-centre,   E-W
+            { dx: -3, dy: -16, axis: 'x' },   // row 2,  left,          E-W
+            { dx: -1, dy: -13, axis: 'y' },   // row 5,  centre-left,   N-S
+            { dx: -2, dy: -15, axis: 'y' },   // row 3,  left-centre,   N-S
+            { dx: -1, dy: -17, axis: 'x' },   // row 1,  centre-left, horizon, E-W
         ];
+
+        const SPAWN_LX = 4 * 48 + 24;   // player column centre
+        const SPAWN_LY = 18 * 48 + 24;  // player row
+
         const pos      = positions[this.currentTargetIndex];
         const logicalX = SPAWN_LX + pos.dx * 48;
         const logicalY = SPAWN_LY + pos.dy * 48;
@@ -634,10 +685,12 @@ export default class BowTutorial extends Phaser.Scene {
         const ts      = pgr?.tileDisplaySize ?? 48;
         const tileRow = logicalY / ts - 0.5;
         const scaledW = pgr?._scaleAtRow(tileRow + 1) ?? 20;
-        const scale   = (scaledW / ts) * 3.0;
 
-        const screenX = proj?.screenX ?? this.scale.width / 2;
-        const screenY = proj?.screenY ?? this.scale.height * 0.45;
+        // 1.5× scale, capped
+        const scale = Math.min((scaledW / ts) * 3.0 * 1.5, 7.0);
+
+        const screenX = proj?.screenX ?? this.scale.width  * 0.5;
+        const screenY = proj?.screenY ?? this.scale.height * 0.65;
         const standY  = screenY - scaledW * 0.3;
         const buriedY = screenY + scaledW * 2;
 
@@ -645,33 +698,96 @@ export default class BowTutorial extends Phaser.Scene {
         const canvas = this.creatureSheet?.getCanvas(gid);
         let target;
 
+        // Depth reflects perspective — closer row = higher depth number.
+        // Scáthach is at depth 20 (screen-space, ~row 12 equivalent).
+        // Targets at rows 1-5 are further away so get depth 5-9 (behind her).
+        // If a target were at row 13+ it would get depth 21+ (in front of her).
+        const targetDepth = Math.round(tileRow + 4);
+
         if (canvas) {
             const texKey = `creature_${gid}`;
             if (!this.textures.exists(texKey)) this.textures.addCanvas(texKey, canvas);
             target = this.add.image(screenX, buriedY, texKey)
-                .setDepth(10).setScale(scale).setOrigin(0.5, 1);
+                .setDepth(targetDepth).setScale(scale).setOrigin(0.5, 1);
         } else {
             target = this.add.circle(screenX, buriedY, 22, 0xcc2200, 0.9)
-                .setStrokeStyle(2, 0xffffff).setDepth(10);
+                .setStrokeStyle(2, 0xffffff).setDepth(targetDepth);
         }
+
+        // Hit radius matches actual rendered size — scaledW * scale factor * 0.5
+        // so shots that visually land on the sprite register as hits.
+        const renderedHalfW = (scaledW * 1.5) * 0.55;
 
         target._worldLogicalX = logicalX;
         target._worldLogicalY = logicalY;
         target._standY        = standY;
         target._scaledW       = scaledW;
+        target._moveAxis      = pos.axis;
+        target._hitRadius     = renderedHalfW;
         target.setData('hit', false);
         this.target = target;
+
+        // Movement ranges scale with depth — far targets move more in screen pixels
+        // to compensate for their small size, making them feel alive not static.
+        // Close targets move less so they don't feel jittery.
+        // depth factor: row 18 is player, row 2 is far. Normalise 0=close 1=far.
+        const targetRow   = logicalY / 48 - 0.5;
+        const depthFactor = 1 - Math.max(0, Math.min(1, (targetRow - 2) / 16));
+
+        // E-W range: close=60px, far=180px (far targets sweep wide)
+        const xRange = Math.round(60 + depthFactor * 120);
+        // N-S range: close=20px, far=60px
+        const yRange = Math.round(20 + depthFactor * 40);
+        // Speed: far targets move faster in screen time (they cover more ground)
+        const speed  = Phaser.Math.Between(
+            Math.round(800  + depthFactor * 600),
+            Math.round(1600 + depthFactor * 1200)
+        );
 
         this.tweens.add({
             targets: target, y: standY, duration: 350, ease: 'Back.easeOut',
             onComplete: () => {
                 if (!this.target) return;
-                const range = Phaser.Math.Between(70, 130);
-                const speed = Phaser.Math.Between(1800, 3200);
-                this._targetTween = this.tweens.add({
-                    targets: this.target, x: screenX + range,
-                    duration: speed, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-                });
+
+                if (pos.axis === 'y') {
+                    // North-south patrol with a slight wobble on the return
+                    this._targetTween = this.tweens.add({
+                        targets:   this.target,
+                        y:         standY + yRange,
+                        duration:  speed,
+                        yoyo:      true,
+                        repeat:    -1,
+                        ease:      'Sine.easeInOut',
+                    });
+                    // Add a subtle x-drift on top for character
+                    this.tweens.add({
+                        targets:  this.target,
+                        x:        screenX + Math.round(xRange * 0.3),
+                        duration: speed * 1.7,
+                        yoyo:     true,
+                        repeat:   -1,
+                        ease:     'Sine.easeInOut',
+                    });
+                } else {
+                    // East-west patrol with slight bob
+                    this._targetTween = this.tweens.add({
+                        targets:  this.target,
+                        x:        screenX + xRange,
+                        duration: speed,
+                        yoyo:     true,
+                        repeat:   -1,
+                        ease:     'Sine.easeInOut',
+                    });
+                    // Subtle y-bob gives a lumbering quality
+                    this.tweens.add({
+                        targets:  this.target,
+                        y:        standY + Math.round(yRange * 0.4),
+                        duration: speed * 0.6,
+                        yoyo:     true,
+                        repeat:   -1,
+                        ease:     'Sine.easeInOut',
+                    });
+                }
             },
         });
     }
@@ -742,7 +858,8 @@ export default class BowTutorial extends Phaser.Scene {
         this.bowMechanics.update(delta);
 
         if (this.target && !this.hitLocked) {
-            const hit = this.bowMechanics.checkHit(this.target, 30);
+            const radius = this.target._hitRadius ?? 45;
+            const hit = this.bowMechanics.checkHit(this.target, radius);
             if (hit) this.onTargetHit(hit);
         }
 
@@ -770,7 +887,7 @@ export default class BowTutorial extends Phaser.Scene {
                     const landSY = arrow.getData('landScreenY');
                     if (landSX == null) return;
                     const distance = Phaser.Math.Distance.Between(landSX, landSY, this.target.x, this.target.y);
-                    if (distance > 50) { this.missCount++; this.onMiss(); }
+                    if (distance > 60) { this.missCount++; this.onMiss(); }
                 }
             });
         }
@@ -854,7 +971,7 @@ export default class BowTutorial extends Phaser.Scene {
 
         this.sound.play('parrySound', { volume: 1 });
 
-        const deflectGfx  = this.add.graphics();
+        const deflectGfx = this.add.graphics();
         deflectGfx.setDepth(200);
         deflectGfx.setScrollFactor(0);
 
@@ -892,25 +1009,35 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     // ── Scáthach ──────────────────────────────────────────────────────────────
+    // Large, far right, upper portion of screen — clearly an observer.
+    // Row 6 → screenY ≈ 490px, right edge of screen.
+    // She is intentionally further away (smaller in perspective) and off to
+    // the side so she reads as instructor, not target.
     createScathach() {
         const screenWidth  = this.scale.width;
         const screenHeight = this.scale.height;
-        const scathachX    = screenWidth  * 0.75;
-        const scathachY    = screenHeight * 0.58;
+
+        // Screen-space position — far right, upper-mid screen.
+        // PGR is not guaranteed ready at create time so we use fixed screen coords.
+        // She reads clearly as observer: tall, right edge, not in the target zone.
+        // Far right, mid-lower screen — closer than targets, clearly an observer
+        const scathachX = screenWidth  * 0.82;
+        const scathachY = screenHeight * 0.62;
 
         this.wind = { x: -15, y: 5 };
 
         this.scathach = this.add.image(scathachX, scathachY, 'scathach');
-        this.scathach.setScale(0.8);
-        this.scathach.setDepth(20);
+        this.scathach.setScale(1.3);   // large and prominent
+        // Depth 50 — always renders in front of all targets (depth 5-9)
+        this.scathach.setDepth(50);
 
-        this.scathachHitbox = this.add.circle(scathachX, scathachY, 40, 0xff0000, 0);
+        this.scathachHitbox = this.add.circle(scathachX, scathachY, 55, 0xff0000, 0);
         this.scathachHitbox.setData('isScathach', true);
         this.scathachHitbox.setDepth(19);
 
-        this.cape = this.add.image(scathachX - 20, scathachY - 15, 'cape');
+        this.cape = this.add.image(scathachX - 18, scathachY - 18, 'cape');
         this.cape.setOrigin(0, 0);
-        this.cape.setDepth(15);
+        this.cape.setDepth(49);
 
         this.capeTime = 0;
 
@@ -941,4 +1068,4 @@ export default class BowTutorial extends Phaser.Scene {
         });
     }
 }
- 
+

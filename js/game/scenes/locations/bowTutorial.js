@@ -294,6 +294,9 @@ export default class BowTutorial extends Phaser.Scene {
             if (this.perspectiveGround) { this.perspectiveGround.destroy();   this.perspectiveGround = null; }
             if (this.itemSheet)         { this.itemSheet.clear();             this.itemSheet         = null; }
             if (this.creatureSheet)     { this.creatureSheet.clear();         this.creatureSheet     = null; }
+            // Destroy bow mechanics so document-level pointer listeners
+            // don't bleed into the next scene (returnJourney etc.)
+            if (this.bowMechanics)      { this.bowMechanics.destroy();        this.bowMechanics      = null; }
         });
 
         this.showExposition();
@@ -313,23 +316,41 @@ export default class BowTutorial extends Phaser.Scene {
         if (this._mountainBgEl) return;
 
         const img = document.createElement('img');
-        img.src = 'assets/mountains.png';
+        img.src = '/assets/skies/bog_threshold_sky.png';
+
+        // Must sit inside gameContainer (which has the solid bg colour)
+        // at z-index below PGR layers (ground=1, objects=2) but above nothing.
+        // We also clear the container's solid bg so the image shows through
+        // in the sky region above the PGR horizon.
         img.style.cssText = [
-            'position:fixed;',
+            'position:absolute;',
             'top:0;left:0;',
             'width:100%;',
             'height:50%;',
             'object-fit:cover;',
-            'object-position:center bottom;',
-            'z-index:1;',
+            'object-position:center top;',
+            'z-index:0;',
             'pointer-events:none;',
-            'opacity:0.92;',
+            'display:block;',
         ].join('');
 
-        img.style.webkitMaskImage = 'linear-gradient(to bottom, black 50%, transparent 100%)';
-        img.style.maskImage        = 'linear-gradient(to bottom, black 50%, transparent 100%)';
+        img.style.webkitMaskImage = 'linear-gradient(to bottom, black 55%, transparent 100%)';
+        img.style.maskImage        = 'linear-gradient(to bottom, black 55%, transparent 100%)';
 
-        document.body.appendChild(img);
+        img.onload  = () => console.log('[BowTutorial] mountain bg loaded');
+        img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
+
+        // Insert inside gameContainer so it sits behind PGR layers
+        const gc = document.getElementById('gameContainer');
+        if (gc) {
+            // Replace solid bg with gradient so sky region is transparent
+            gc.style.background = 'linear-gradient(to bottom, #8aabbf 0%, #8aabbf 100%)';
+            gc.style.position   = gc.style.position || 'relative';
+            gc.insertBefore(img, gc.firstChild);
+        } else {
+            document.body.appendChild(img);
+        }
+
         this._mountainBgEl = img;
     }
 
@@ -604,7 +625,7 @@ export default class BowTutorial extends Phaser.Scene {
         if (!farewell || farewell.length === 0) return;
 
         this.tutorialComplete    = true;
-        this.narrativeInProgress = true;
+        this.narrativeInProgress = false;
 
         const lines = farewell.map(e => ({
             ga:      e.irish,
@@ -612,9 +633,9 @@ export default class BowTutorial extends Phaser.Scene {
             speaker: 'queen',
         }));
 
-        this._showStoryLines(lines, () => {
-            this.narrativeInProgress = false;
-
+        // Use direct Phaser text (same as _tell in advancedTraining) so the
+        // completion callback reliably fires — _showStoryLines polling can stall.
+        this._tellDirect(lines, () => {
             this.cameras.main.fadeOut(500, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
                 ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
@@ -626,6 +647,15 @@ export default class BowTutorial extends Phaser.Scene {
 
                 const currentOpacity = GameSettings.englishOpacity;
 
+                // Explicitly destroy bow mechanics here so document-level
+                // pointer listeners are removed before the next scene loads.
+                // We can't rely on Phaser shutdown since returnCrossing is
+                // a DOM scene that doesn't trigger it.
+                if (this.bowMechanics) {
+                    this.bowMechanics.destroy();
+                    this.bowMechanics = null;
+                }
+
                 initReturnCrossing(this.champion, currentOpacity, () => {
                     if (window.startGame) {
                         window.startGame(this.champion, { startScene: 'Bog_Threshold' });
@@ -636,6 +666,66 @@ export default class BowTutorial extends Phaser.Scene {
                 });
             });
         });
+    }
+
+    // Direct Phaser text display — no ScrollingTextPlayer, no polling loop.
+    // Each line fades in, holds, fades out, then fires onComplete when done.
+    _tellDirect(lines, onComplete) {
+        const sw = this.scale.width;
+        const sh = this.scale.height;
+        const moonPhase = GameSettings.englishOpacity ?? 0.7;
+
+        let idx = 0;
+
+        const showLine = () => {
+            if (idx >= lines.length) {
+                if (onComplete) onComplete();
+                return;
+            }
+
+            const line = lines[idx++];
+
+            const gaText = this.add.text(sw / 2, sh * 0.22, line.ga, {
+                fontSize:        '25px',
+                fontFamily:      'Urchlo, serif',
+                color:           '#d4af37',
+                stroke:          '#000000',
+                strokeThickness: 4,
+                align:           'center',
+                wordWrap:        { width: sw * 0.82 },
+            }).setOrigin(0.5, 0).setDepth(600).setScrollFactor(0).setAlpha(0);
+
+            const enText = this.add.text(sw / 2, sh * 0.22 + gaText.height + 10, line.en, {
+                fontSize:        '20px',
+                fontFamily:      '"Courier New", monospace',
+                color:           '#a0c8a0',
+                stroke:          '#000000',
+                strokeThickness: 3,
+                align:           'center',
+                wordWrap:        { width: sw * 0.82 },
+            }).setOrigin(0.5, 0).setDepth(600).setScrollFactor(0).setAlpha(0);
+
+            this.tweens.add({
+                targets: [gaText, enText], alpha: 1,
+                duration: 600, ease: 'Power2',
+                onComplete: () => {
+                    enText.setAlpha(moonPhase);
+                    this.time.delayedCall(3200, () => {
+                        this.tweens.add({
+                            targets: [gaText, enText], alpha: 0,
+                            duration: 500, ease: 'Power2',
+                            onComplete: () => {
+                                gaText.destroy();
+                                enText.destroy();
+                                showLine();
+                            }
+                        });
+                    });
+                }
+            });
+        };
+
+        showLine();
     }
 
     // ── Targets ───────────────────────────────────────────────────────────────
@@ -829,7 +919,7 @@ export default class BowTutorial extends Phaser.Scene {
         if (this.perspectiveGround) this.perspectiveGround.update();
         if (this.textPanel)         this.textPanel.update(time, delta);
 
-        if (this.bowMechanics.isAiming && this.predictionDot) {
+        if (this.bowMechanics?.isAiming && this.predictionDot) {
             const prediction = this.bowMechanics.predictLandingPoint();
             if (prediction) { this.predictionDot.setPosition(prediction.x, prediction.y); this.predictionDot.setVisible(false); }
         } else if (this.predictionDot) {
@@ -855,16 +945,16 @@ export default class BowTutorial extends Phaser.Scene {
             }
         }
 
-        this.bowMechanics.update(delta);
+        this.bowMechanics?.update(delta);
 
         if (this.target && !this.hitLocked) {
             const radius = this.target._hitRadius ?? 45;
-            const hit = this.bowMechanics.checkHit(this.target, radius);
+            const hit = this.bowMechanics?.checkHit(this.target, radius);
             if (hit) this.onTargetHit(hit);
         }
 
         if (this.scathach && this.scathachHitbox) {
-            this.bowMechanics.arrows.forEach(arrow => {
+            this.bowMechanics?.arrows?.forEach(arrow => {
                 if (arrow.getData('parried') || arrow.getData('hitTarget')) return;
                 const sx = arrow.getData('hasLanded')
                     ? (arrow.getData('landScreenX') ?? arrow.getData('prevScreenX'))
@@ -879,7 +969,7 @@ export default class BowTutorial extends Phaser.Scene {
         }
 
         if (this.target) {
-            this.bowMechanics.arrows.forEach(arrow => {
+            this.bowMechanics?.arrows?.forEach(arrow => {
                 if (arrow.getData('hasLanded') && !arrow.getData('counted')) {
                     arrow.setData('counted', true);
                     if (arrow.getData('hitTarget')) return;

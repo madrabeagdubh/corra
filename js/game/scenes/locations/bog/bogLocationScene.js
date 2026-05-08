@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { createStatusBar } from '../../../ui/statusBar.js'
 
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
@@ -300,19 +301,8 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     ].join('')
     document.body.appendChild(this._menuPreview)
 
-    // -- Status bar -- created FIRST so we can measure it for joyY -----------
-    const gameContainer = document.getElementById('gameContainer')
-    if (gameContainer) {
-      this._statusBar = document.createElement('div')
-      this._statusBar.id = 'status-bar'
-      this._statusBar.style.cssText = [
-        'position:absolute', 'bottom:0', 'left:0', 'right:0',
-        'height:42px', 'z-index:50', 'pointer-events:none',
-        'background:rgba(45,35,20,1)',
-      ].join(';')
-      gameContainer.appendChild(this._statusBar)
-    }
-
+   this._statusBar = createStatusBar(document.getElementById('gameContainer'))
+//
     // -- Calculate joyY from status bar position in canvas coords ------------
     const canvas     = this.game.canvas
     const canvasRect = canvas.getBoundingClientRect()

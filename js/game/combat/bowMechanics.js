@@ -47,7 +47,13 @@ export default class BowMechanics {
       if (!this._canStartAiming())        return
       if (x < 180 && y > H - 180)        return  // bottom-left UI
       if (x > W - 90 && y < 120)         return  // top-right UI
-      if (y < H * 0.45)                  return  // above play area
+
+      // Only allow draw to start in the lower 60% of the screen.
+      // The player is always in this zone. Text panels and map taps
+      // that occur above the horizon won't trigger the bow.
+      // We use the PGR horizon as a natural boundary — bow tutorial
+      // horizon is at ~28% of screen height, so 40% is safely below it.
+      if (y < H * 0.40) return
 
       this._activePointerId = e.pointerId
       this._startAiming({ x, y, pointerId: e.pointerId })
@@ -106,6 +112,8 @@ export default class BowMechanics {
   _isTapOnPlayer(pointer) {
     return true  // zone check handled in _domPointerDown
   }
+
+
 
   _isUIZone(pointer) {
     const W = this.scene.scale.width

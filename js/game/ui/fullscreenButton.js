@@ -2,7 +2,11 @@
  * fullscreenButton.js
  *
  * Floating fullscreen-restore button, overlaid exactly on the moon widget.
- * Appears only when not in fullscreen. Hidden on iOS (no Fullscreen API).
+ * Appears only when not in fullscreen AND the main game is running
+ * (i.e. #gameContainer is visible). This naturally excludes introModal,
+ * which hides #gameContainer while it runs.
+ *
+ * Hidden on iOS (no Fullscreen API).
  *
  * Call once at module load time in main.js:
  *   import { initFullscreenButton } from './ui/fullscreenButton.js'
@@ -31,30 +35,29 @@ export function initFullscreenButton() {
     'line-height:1',
   ].join(';')
 
+  const isGameActive = () => {
+    const gc = document.getElementById('gameContainer')
+    return gc && gc.style.display !== 'none' && gc.style.display !== ''
+  }
+
   const positionOverMoon = () => {
-    // Find moon widget by its background image — unique to that element
     const moon =
       document.querySelector('[style*="ciorcal-glass-bg"]') ??
       document.getElementById('moon-widget')
 
     if (!moon) {
-      // Not in DOM yet — retry shortly
       setTimeout(positionOverMoon, 200)
       return
     }
 
     const r = moon.getBoundingClientRect()
     if (r.width === 0) {
-      // Not laid out yet
       setTimeout(positionOverMoon, 200)
       return
     }
 
-    const cx = r.left + r.width  / 2
-    const cy = r.top  + r.height / 2
-
-    btn.style.left   = `${cx}px`
-    btn.style.top    = `${cy}px`
+    btn.style.left   = `${r.left + r.width  / 2}px`
+    btn.style.top    = `${r.top  + r.height / 2}px`
     btn.style.width  = `${r.width}px`
     btn.style.height = `${r.height}px`
   }
@@ -67,18 +70,22 @@ export function initFullscreenButton() {
 
   const update = () => {
     const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement)
-    if (!inFS) positionOverMoon()
-    btn.style.display = inFS ? 'none' : 'block'
+    // Only show when: not fullscreen AND the main game (not introModal) is active
+    if (inFS || !isGameActive()) {
+      btn.style.display = 'none'
+      return
+    }
+    positionOverMoon()
+    btn.style.display = 'block'
   }
 
   document.addEventListener('fullscreenchange',       update)
   document.addEventListener('webkitfullscreenchange', update)
+  window.addEventListener('resize', update)
 
-  // Re-position whenever window resizes (browser bar appearing/disappearing)
-  window.addEventListener('resize', () => {
-    const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement)
-    if (!inFS) positionOverMoon()
-  })
+  // Poll so the button appears as soon as gameContainer becomes visible
+  // (e.g. after introModal completes and startGame() is called)
+  setInterval(update, 600)
 
   update()
   document.body.appendChild(btn)

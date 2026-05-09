@@ -229,14 +229,9 @@ export default class BowTutorial extends Phaser.Scene {
             tiles:  layer0,
         };
 
-        // perspCamRow ≈ 22.61 with scrollY=0, horizonPx=231, groundH=596, FL=12
-        // Row 18 → screenY ≈ 690px — lower third, good player position
         const PLAYER_ROW = 18;
         const playerX = 4 * this.tileSize + this.tileSize / 2;
         const playerY = PLAYER_ROW * this.tileSize + this.tileSize / 2;
-
-        // Centre camera horizontally on player column
-        
 
         try {
             this.player = new Player(this, playerX, playerY, champion);
@@ -256,30 +251,20 @@ export default class BowTutorial extends Phaser.Scene {
         this.game.renderer.gl?.clearColor(0, 0, 0, 0);
         this.game.canvas.style.background = 'transparent';
         const container = document.getElementById('gameContainer');
-        if (container) container.style.background = '#8aabbf';
-
+if (container) container.style.background = '#b5956a';
         this.perspectiveGround.setPlayerScale(2.0);
         this.perspectiveGround.setLighting({
-            darkness:     0.0,   // no dark vignette overlay
+            darkness:     0.0,
             radius:       0.8,
-            groundColour: 'rgba(0,0,0,0)',  // transparent — tiles fill the ground
+            groundColour: 'rgba(0,0,0,0)',
         });
 
-        // Set a manual mood immediately so tiles look right even before
-        // the image finishes loading and extracts its palette.
         this.perspectiveGround.setMood('bog_threshold');
 
-        // Then refine from the actual backdrop image — overwrites the mood
-        // once extraction completes (async).
-        this.perspectiveGround.setSkyImage('/assets/skies/bog_threshold_sky.png');
-
-        // After extraction runs (~100ms), override gcR to a lighter warm tone
-        // so the horizon gradient band isn't too dark.
         this.time.delayedCall(400, () => {
             if (this.perspectiveGround) {
-                // Use rgba so the horizon gradient band is nearly invisible
                 this.perspectiveGround._gcR = 'rgba(0,0,0,0)';
-                this.perspectiveGround._lastCamX = null; // force redraw
+                this.perspectiveGround._lastCamX = null;
             }
         });
 
@@ -302,7 +287,14 @@ export default class BowTutorial extends Phaser.Scene {
         this._createMountainBg();
         this.addSettingsSlider();
 
+        // ── Resize handler — reposition screen-space objects on fullscreen toggle
+        this._boundOnResize = () => this._onResize();
+        this.scale.on('resize', this._boundOnResize);
+
         this.events.once('shutdown', () => {
+            // Remove resize listener
+            this.scale.off('resize', this._boundOnResize);
+
             ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
@@ -318,11 +310,8 @@ export default class BowTutorial extends Phaser.Scene {
             if (this.perspectiveGround) { this.perspectiveGround.destroy();   this.perspectiveGround = null; }
             if (this.itemSheet)         { this.itemSheet.clear();             this.itemSheet         = null; }
             if (this.creatureSheet)     { this.creatureSheet.clear();         this.creatureSheet     = null; }
-            // Destroy bow mechanics so document-level pointer listeners
-            // don't bleed into the next scene (returnJourney etc.)
             if (this.bowMechanics)      { this.bowMechanics.destroy();        this.bowMechanics      = null; }
 
-            // Remove status bar — bogLocationScene recreates its own on load
             if (this._statusBar?.parentNode) {
                 this._statusBar.parentNode.removeChild(this._statusBar);
                 this._statusBar = null;
@@ -341,49 +330,89 @@ export default class BowTutorial extends Phaser.Scene {
         this.createHitTracker();
     }
 
-    // ── Mountain background ───────────────────────────────────────────────────
-    _createMountainBg() {
-        if (this._mountainBgEl) return;
+    // ── Resize handler ────────────────────────────────────────────────────────
+    // Called when the screen size changes (e.g. fullscreen toggle).
+    // Targets and Scáthach are positioned in screen-space so they must be
+    // recreated / repositioned to match the new dimensions.
+    _onResize() {
+        // Give PGR one frame to re-layout before we re-project
+        this.time.delayedCall(50, () => {
+            // Recreate the current target at its correct screen position
+            if (this.target && !this.tutorialComplete) {
+                // Step back the index so createTarget() reuses the same slot
+                this.currentTargetIndex = (this.currentTargetIndex ?? 0) - 1;
+                if (this.currentTargetIndex < 0) this.currentTargetIndex = 4;
+                if (this._targetTween) { this._targetTween.stop(); this._targetTween = null; }
+                this.target.destroy();
+                this.target = null;
+                this.createTarget();
+            }
 
-        const img = document.createElement('img');
-        img.src = '/assets/skies/bog_threshold_sky.png';
+            // Reposition Scáthach to match new screen dimensions
+            if (this.scathach) {
+                const sw = this.scale.width;
+                const sh = this.scale.height;
+                const nx = sw * 0.82;
+                const ny = sh * 0.62;
+                this.scathach.setPosition(nx, ny);
+                if (this.scathachHitbox) this.scathachHitbox.setPosition(nx, ny);
+                if (this.cape) this.cape.setPosition(nx - 18, ny - 18);
+            }
 
-        // Must sit inside gameContainer (which has the solid bg colour)
-        // at z-index below PGR layers (ground=1, objects=2) but above nothing.
-        // We also clear the container's solid bg so the image shows through
-        // in the sky region above the PGR horizon.
-        // Set size via JS after appending so we get real screen dimensions
-        img.style.cssText = [
-            'position:fixed;',
-            'top:0;left:0;',
-            'z-index:0;',
-            'pointer-events:none;',
-            'display:block;',
-        ].join('');
-
-        // Gentle fade at bottom edge
-        img.style.webkitMaskImage = 'linear-gradient(to bottom, black 70%, transparent 100%)';
-        img.style.maskImage        = 'linear-gradient(to bottom, black 70%, transparent 100%)';
-
-        img.onload  = () => console.log('[BowTutorial] mountain bg loaded');
-        img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
-
-        // position:fixed so it escapes gameContainer and fills the viewport.
-        document.body.appendChild(img);
-
-        // Size using real screen pixels after DOM insertion
-        const _sizeImg = () => {
-            const W = window.innerWidth;
-            const H = Math.round(W * 1000 / 837);  // skye.png is 837x1000
-            img.style.width  = W + 'px';
-            img.style.height = H + 'px';
-        };
-        _sizeImg();
-        window.addEventListener('resize', _sizeImg);
-        this._mountainBgResize = _sizeImg;
-
-        this._mountainBgEl = img;
+            // Reposition hit tracker circles
+            if (this.hitTrackerCircles) {
+                const startX  = this.scale.width - 180;
+                const startY  = 80;
+                const spacing = 40;
+                this.hitTrackerCircles.forEach((circle, i) => {
+                    circle.outer.setPosition(startX + i * spacing, startY);
+                    circle.inner.setPosition(startX + i * spacing, startY);
+                });
+            }
+        });
     }
+
+    // ── Mountain background ─────────────────────────────────────────────────
+_createMountainBg() {
+    if (this._mountainBgEl) return;
+
+    const container = document.getElementById('gameContainer');
+    if (!container) return;
+
+    const img = document.createElement('img');
+    img.src = '/assets/skies/skye.png';
+
+    img.style.cssText = [
+        'position:absolute;',
+        'top:0;left:0;',
+        'width:100%;',
+        'height:50%;',           // covers sky region above PGR horizon (~28vh)
+        'object-fit:cover;',
+        'object-position:center top;',
+        'z-index:0;',            // behind pgr-ground (1), pgr-objects (2)
+        'pointer-events:none;',
+    ].join('');
+
+    img.style.webkitMaskImage = 'linear-gradient(to bottom, black 70%, transparent 100%)';
+    img.style.maskImage        = 'linear-gradient(to bottom, black 70%, transparent 100%)';
+
+    
+img.onload = () => {
+    console.log('[BowTutorial] mountain bg loaded');
+    if (this.perspectiveGround) {
+        this.perspectiveGround._extractPaletteFromImage(img);
+        // _extractPaletteFromImage is synchronous (canvas drawImage + getImageData)
+        // so _gcR is already set by the time we get here — just override it now
+        this.perspectiveGround._gcR = 'hsl(35, 25%, 32%)';
+        this.perspectiveGround._lastCamX = null;
+    }
+};
+img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
+
+    container.appendChild(img);
+    this._mountainBgEl = img;
+    this._mountainBgResize = null;
+}
 
     // ── Moon widget ───────────────────────────────────────────────────────────
 
@@ -665,8 +694,6 @@ export default class BowTutorial extends Phaser.Scene {
             speaker: 'queen',
         }));
 
-        // Use direct Phaser text (same as _tell in advancedTraining) so the
-        // completion callback reliably fires — _showStoryLines polling can stall.
         this._tellDirect(lines, () => {
             this.cameras.main.fadeOut(500, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -679,16 +706,12 @@ export default class BowTutorial extends Phaser.Scene {
 
                 const currentOpacity = GameSettings.englishOpacity;
 
-                // Unequip the bow before leaving so _canStartAiming()
-                // returns false in all subsequent scenes — no proximity
-                // check needed, the bow check does the job.
                 const inv = this.player?.inventory;
                 if (inv) {
                     const rh = inv.getEquippedItem('rightHand');
                     if (rh?.id === 'simple_bow') inv.unequipItem('rightHand');
                 }
 
-                // Destroy bow mechanics to remove document-level listeners
                 if (this.bowMechanics) {
                     this.bowMechanics.destroy();
                     this.bowMechanics = null;
@@ -706,8 +729,6 @@ export default class BowTutorial extends Phaser.Scene {
         });
     }
 
-    // Direct Phaser text display — no ScrollingTextPlayer, no polling loop.
-    // Each line fades in, holds, fades out, then fires onComplete when done.
     _tellDirect(lines, onComplete) {
         const sw = this.scale.width;
         const sh = this.scale.height;
@@ -767,16 +788,6 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     // ── Targets ───────────────────────────────────────────────────────────────
-    // perspCamRow=22.61, horizonPx=231, groundH=596, FL=12
-    // screenY = 231 + 596*12/(12 + (22.61 - worldRow - 1))
-    //
-    // Player at row 18 → screenY ≈ 690px (lower third)
-    // Target rows 10-13 → screenY 560-620px (mid screen, clearly visible)
-    // Scáthach at row 6 → screenY ≈ 490px (upper-mid, far field, smaller)
-    //
-    // Targets placed centrally (dx -1 to +1) so they fill the middle of the view.
-    // Scáthach far right (screen-space) so she is clearly not a target.
-
     _targetGids() { return [1987, 1988, 1989, 1990, 1991]; }
 
     createTarget() {
@@ -787,22 +798,16 @@ export default class BowTutorial extends Phaser.Scene {
         this.currentTargetIndex = (this.currentTargetIndex ?? -1) + 1;
         if (this.currentTargetIndex >= 5) this.currentTargetIndex = 0;
 
-        // All targets north of player (dy negative from row 18),
-        // central horizontal position (dx -2 to +1)
-        // Row 10-13 all project to mid-screen, fully visible
-        // Player row 18, perspCamRow≈22.61.
-        // Targets as far back as possible — rows 1-5, near horizon.
-        // screenY: row5≈472px, row3≈460px, row1≈450px (just above mid-screen)
         const positions = [
-            { dx: -2, dy: -14, axis: 'x' },   // row 4,  left-centre,   E-W
-            { dx: -3, dy: -16, axis: 'x' },   // row 2,  left,          E-W
-            { dx: -1, dy: -13, axis: 'y' },   // row 5,  centre-left,   N-S
-            { dx: -2, dy: -15, axis: 'y' },   // row 3,  left-centre,   N-S
-            { dx: -1, dy: -17, axis: 'x' },   // row 1,  centre-left, horizon, E-W
+            { dx: -2, dy: -14, axis: 'x' },
+            { dx: -3, dy: -16, axis: 'x' },
+            { dx: -1, dy: -13, axis: 'y' },
+            { dx: -2, dy: -15, axis: 'y' },
+            { dx: -1, dy: -17, axis: 'x' },
         ];
 
-        const SPAWN_LX = 4 * 48 + 24;   // player column centre
-        const SPAWN_LY = 18 * 48 + 24;  // player row
+        const SPAWN_LX = 4 * 48 + 24;
+        const SPAWN_LY = 18 * 48 + 24;
 
         const pos      = positions[this.currentTargetIndex];
         const logicalX = SPAWN_LX + pos.dx * 48;
@@ -814,7 +819,6 @@ export default class BowTutorial extends Phaser.Scene {
         const tileRow = logicalY / ts - 0.5;
         const scaledW = pgr?._scaleAtRow(tileRow + 1) ?? 20;
 
-        // 1.5× scale, capped
         const scale = Math.min((scaledW / ts) * 3.0 * 1.5, 7.0);
 
         const screenX = proj?.screenX ?? this.scale.width  * 0.5;
@@ -826,10 +830,6 @@ export default class BowTutorial extends Phaser.Scene {
         const canvas = this.creatureSheet?.getCanvas(gid);
         let target;
 
-        // Depth reflects perspective — closer row = higher depth number.
-        // Scáthach is at depth 20 (screen-space, ~row 12 equivalent).
-        // Targets at rows 1-5 are further away so get depth 5-9 (behind her).
-        // If a target were at row 13+ it would get depth 21+ (in front of her).
         const targetDepth = Math.round(tileRow + 4);
 
         if (canvas) {
@@ -842,8 +842,6 @@ export default class BowTutorial extends Phaser.Scene {
                 .setStrokeStyle(2, 0xffffff).setDepth(targetDepth);
         }
 
-        // Hit radius matches actual rendered size — scaledW * scale factor * 0.5
-        // so shots that visually land on the sprite register as hits.
         const renderedHalfW = (scaledW * 1.5) * 0.55;
 
         target._worldLogicalX = logicalX;
@@ -855,18 +853,11 @@ export default class BowTutorial extends Phaser.Scene {
         target.setData('hit', false);
         this.target = target;
 
-        // Movement ranges scale with depth — far targets move more in screen pixels
-        // to compensate for their small size, making them feel alive not static.
-        // Close targets move less so they don't feel jittery.
-        // depth factor: row 18 is player, row 2 is far. Normalise 0=close 1=far.
         const targetRow   = logicalY / 48 - 0.5;
         const depthFactor = 1 - Math.max(0, Math.min(1, (targetRow - 2) / 16));
 
-        // E-W range: close=60px, far=180px (far targets sweep wide)
         const xRange = Math.round(60 + depthFactor * 120);
-        // N-S range: close=20px, far=60px
         const yRange = Math.round(20 + depthFactor * 40);
-        // Speed: far targets move faster in screen time (they cover more ground)
         const speed  = Phaser.Math.Between(
             Math.round(800  + depthFactor * 600),
             Math.round(1600 + depthFactor * 1200)
@@ -878,7 +869,6 @@ export default class BowTutorial extends Phaser.Scene {
                 if (!this.target) return;
 
                 if (pos.axis === 'y') {
-                    // North-south patrol with a slight wobble on the return
                     this._targetTween = this.tweens.add({
                         targets:   this.target,
                         y:         standY + yRange,
@@ -887,7 +877,6 @@ export default class BowTutorial extends Phaser.Scene {
                         repeat:    -1,
                         ease:      'Sine.easeInOut',
                     });
-                    // Add a subtle x-drift on top for character
                     this.tweens.add({
                         targets:  this.target,
                         x:        screenX + Math.round(xRange * 0.3),
@@ -897,7 +886,6 @@ export default class BowTutorial extends Phaser.Scene {
                         ease:     'Sine.easeInOut',
                     });
                 } else {
-                    // East-west patrol with slight bob
                     this._targetTween = this.tweens.add({
                         targets:  this.target,
                         x:        screenX + xRange,
@@ -906,7 +894,6 @@ export default class BowTutorial extends Phaser.Scene {
                         repeat:   -1,
                         ease:     'Sine.easeInOut',
                     });
-                    // Subtle y-bob gives a lumbering quality
                     this.tweens.add({
                         targets:  this.target,
                         y:        standY + Math.round(yRange * 0.4),
@@ -1137,26 +1124,17 @@ export default class BowTutorial extends Phaser.Scene {
     }
 
     // ── Scáthach ──────────────────────────────────────────────────────────────
-    // Large, far right, upper portion of screen — clearly an observer.
-    // Row 6 → screenY ≈ 490px, right edge of screen.
-    // She is intentionally further away (smaller in perspective) and off to
-    // the side so she reads as instructor, not target.
     createScathach() {
         const screenWidth  = this.scale.width;
         const screenHeight = this.scale.height;
 
-        // Screen-space position — far right, upper-mid screen.
-        // PGR is not guaranteed ready at create time so we use fixed screen coords.
-        // She reads clearly as observer: tall, right edge, not in the target zone.
-        // Far right, mid-lower screen — closer than targets, clearly an observer
         const scathachX = screenWidth  * 0.82;
         const scathachY = screenHeight * 0.62;
 
         this.wind = { x: -15, y: 5 };
 
         this.scathach = this.add.image(scathachX, scathachY, 'scathach');
-        this.scathach.setScale(1.3);   // large and prominent
-        // Depth 50 — always renders in front of all targets (depth 5-9)
+        this.scathach.setScale(1.3);
         this.scathach.setDepth(50);
 
         this.scathachHitbox = this.add.circle(scathachX, scathachY, 55, 0xff0000, 0);

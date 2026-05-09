@@ -2,9 +2,8 @@
  * fullscreenButton.js
  *
  * Floating fullscreen-restore button, overlaid exactly on the moon widget.
- * Appears only when not in fullscreen AND the main game is running
- * (i.e. #gameContainer is visible). This naturally excludes introModal,
- * which hides #gameContainer while it runs.
+ * Only shown when the main game is active — i.e. #heroSelect is gone and
+ * #gameContainer is visible. This excludes introModal and hero select screens.
  *
  * Hidden on iOS (no Fullscreen API).
  *
@@ -21,7 +20,7 @@ export function initFullscreenButton() {
   btn.textContent = '⛶'
   btn.style.cssText = [
     'position:fixed',
-    'z-index:1000004',        // above moon widget (1000003)
+    'z-index:2147483647',     // max z-index — guaranteed on top of everything
     'font-size:20px',
     'background:rgba(0,0,0,0.45)',
     'color:white',
@@ -36,33 +35,36 @@ export function initFullscreenButton() {
   ].join(';')
 
   const isGameActive = () => {
+    // Must not be in introModal / hero select phase
+    const heroSelect = document.getElementById('heroSelect')
+    if (heroSelect && heroSelect.style.display !== 'none' && heroSelect.style.opacity !== '0') return false
+
+    // gameContainer must be present and visible
     const gc = document.getElementById('gameContainer')
-    return gc && gc.style.display !== 'none' && gc.style.display !== ''
+    return gc && gc.style.display !== 'none'
   }
 
-  const positionOverMoon = () => {
+  // Returns true if position was found and applied, false if moon not ready yet
+  const tryPositionOverMoon = () => {
     const moon =
       document.querySelector('[style*="ciorcal-glass-bg"]') ??
       document.getElementById('moon-widget')
 
-    if (!moon) {
-      setTimeout(positionOverMoon, 200)
-      return
-    }
+    if (!moon) return false
 
     const r = moon.getBoundingClientRect()
-    if (r.width === 0) {
-      setTimeout(positionOverMoon, 200)
-      return
-    }
+    if (r.width === 0 || r.height === 0) return false
 
     btn.style.left   = `${r.left + r.width  / 2}px`
     btn.style.top    = `${r.top  + r.height / 2}px`
     btn.style.width  = `${r.width}px`
     btn.style.height = `${r.height}px`
+    return true
   }
 
-  btn.addEventListener('click', () => {
+  btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault() })
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation()
     const el = document.documentElement
     if      (el.requestFullscreen)       el.requestFullscreen()
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
@@ -70,13 +72,19 @@ export function initFullscreenButton() {
 
   const update = () => {
     const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement)
-    // Only show when: not fullscreen AND the main game (not introModal) is active
+
+    // Hide when fullscreen or pre-game screens are showing
     if (inFS || !isGameActive()) {
       btn.style.display = 'none'
       return
     }
-    positionOverMoon()
-    btn.style.display = 'block'
+
+    // Position first — only show once we know where it goes
+    if (tryPositionOverMoon()) {
+      btn.style.display = 'block'
+    } else {
+      btn.style.display = 'none'
+    }
   }
 
   document.addEventListener('fullscreenchange',       update)
@@ -84,7 +92,7 @@ export function initFullscreenButton() {
   window.addEventListener('resize', update)
 
   // Poll so the button appears as soon as gameContainer becomes visible
-  // (e.g. after introModal completes and startGame() is called)
+  // and stays correctly positioned as the moon widget may move (e.g. resize)
   setInterval(update, 600)
 
   update()

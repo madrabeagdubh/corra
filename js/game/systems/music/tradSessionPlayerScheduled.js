@@ -4,19 +4,22 @@ import { MusicEngine } from './musicEngine.js';
 import { allTunes } from './allTunes.js';
 
 const ENSEMBLE_PRESETS = {
-    reel:      [46, 0, 105],
-    jig:       [46, 0, 105],
-    slipjig:   [46, 0, 105],
-    hornpipe:  [46, 0, 105],
-    polka:     [46, 0, 105],
-    waltz:     [46, 0, 105],
-    march:     [46, 0, 105],
-    slide:     [46, 0, 105],
-    barndance: [46, 0, 105],
-
-air: [46, 0, 94], // Harp 1, Harp 2, and a tiny bit of Halo Pad
-
-drone:     [92, 94],
+    reel:          [46, 0, 105],
+    jig:           [46, 0, 105],
+    slipjig:       [46, 0, 105],
+    hornpipe:      [46, 0, 105],
+    polka:         [46, 0, 105],
+    waltz:         [46, 0, 105],
+    march:         [46, 0, 105],
+    slide:         [46, 0, 105],
+    barndance:     [46, 0, 105],
+    air:           [46, 0, 94],
+    drone:         [92, 94],
+    forge_sparse:  [114, 94],
+    // Village: Steel Drums + Banjo + Choir Aahs + Pad Bowed
+    // Track 0 starts audible, 1-3 start muted.
+    // villageMusic.js unmutes them on a timer.
+    forge_village: [114, 105, 52, 92],
     defaultPreset: [46, 0, 105],
 };
 
@@ -25,38 +28,51 @@ const PATCH_NAMES = {
     105: 'Banjo',
     0:   'Piano',
     22:  'Harmonica',
+    52:  'Choir Aahs',
+    53:  'Voice Oohs',
     92:  'Pad Bowed',
     94:  'Pad Halo',
+    114: 'Steel Drums',
+    115: 'Woodblock',
 };
 
 const TEMPO_SETTINGS = {
-    reel:      1300,
-    jig:       1550,
-    slipjig:   1650,
-    hornpipe:  1500,
-    polka:     1100,
-    waltz:     2000,
-    march:     1400,
-    slide:     1000,
-    barndance: 1200,
-    air:       1800,
-    drone:     8000,
-bagpipe: 2200,
-    defaultTempo: 1300,
+    reel:          1300,
+    jig:           1550,
+    slipjig:       1650,
+    hornpipe:      1500,
+    polka:         1100,
+    waltz:         2000,
+    march:         1400,
+    slide:         1000,
+    barndance:     1200,
+    air:           1800,
+    drone:         8000,
+    bagpipe:       2200,
+    forge_sparse:  3000,
+    forge_village: 2200,  // slow and stately — working men's pace
+    defaultTempo:  1300,
+};
+
+const REVERB_SETTINGS = {
+    forge_sparse:  { wetGain: 0.75, decay: 5.0 },
+    forge_village: { wetGain: 0.20, decay: 1.5 },
+    air:           { wetGain: 0.15, decay: 1.2 },
 };
 
 export class TradSessionPlayer {
     constructor() {
-        this.audioContext = null;
-        this.engine       = null;
-        this.tracks       = [];
-        this.isPlaying    = false;
+        this.audioContext       = null;
+        this.engine             = null;
+        this.tracks             = [];
+        this.isPlaying          = false;
         this.scheduledStartTime = null;
         this.loopTimeoutId      = null;
         this._tuneType          = null;
+        this._reverbNode        = null;
 
-        this.loop    = true;   // set false to play once then fire onEnded
-        this.onEnded = null;   // callback fired after a single-play completes
+        this.loop    = true;
+        this.onEnded = null;
 
         this.stage = document.createElement('div');
         this.stage.style.display = 'none';
@@ -70,6 +86,38 @@ export class TradSessionPlayer {
         }
     }
 
+    _buildReverb(decay = 2.0, wetGain = 0.4) {
+        const ac      = this.audioContext;
+        const rate    = ac.sampleRate;
+        const length  = Math.floor(rate * decay);
+        const impulse = ac.createBuffer(2, length, rate);
+
+        for (let ch = 0; ch < 2; ch++) {
+            const data = impulse.getChannelData(ch);
+            for (let i = 0; i < length; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+            }
+        }
+
+        const convolver = ac.createConvolver();
+        convolver.buffer = impulse;
+
+        const wet = ac.createGain();
+        wet.gain.value = wetGain;
+
+        convolver.connect(wet);
+        wet.connect(this.engine.masterGain);
+
+        return convolver;
+    }
+
+    _teardownReverb() {
+        if (this._reverbNode) {
+            try { this._reverbNode.disconnect(); } catch (e) {}
+            this._reverbNode = null;
+        }
+    }
+
     async loadTune(tuneKey, preservePlayback = false) {
         console.log(`[TradSessionPlayer] Loading tune: ${tuneKey}`);
         this._ensureAudioContext();
@@ -78,6 +126,8 @@ export class TradSessionPlayer {
             if (!preservePlayback) {
                 await this.stop();
             }
+
+            this._teardownReverb();
 
             const tuneData = allTunes[tuneKey];
             if (!tuneData) throw new Error(`Tune "${tuneKey}" not found`);
@@ -99,6 +149,12 @@ export class TradSessionPlayer {
 
             const tempoMs = TEMPO_SETTINGS[tuneType] || TEMPO_SETTINGS.defaultTempo;
             console.log(`[TradSessionPlayer] Tempo: ${tempoMs}ms per measure`);
+
+            const reverbSettings = REVERB_SETTINGS[tuneType];
+            if (reverbSettings) {
+                console.log(`[TradSessionPlayer] Building reverb: decay=${reverbSettings.decay}s wet=${reverbSettings.wetGain}`);
+                this._reverbNode = this._buildReverb(reverbSettings.decay, reverbSettings.wetGain);
+            }
 
             const soundFontUrls = [
                 'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/',
@@ -144,14 +200,6 @@ export class TradSessionPlayer {
                         throw new Error(`Failed to init synth for ${PATCH_NAMES[patchId] || patchId}`);
                     }
 
-                    // NOTE: we do NOT prime here. Priming is done immediately
-                    // before start() in play(), to avoid the buffer expiring
-                    // between loadTune() and play() being called.
-
-                    if (index === 0 && tuneType !== 'drone') {
-                        // Duration will be read after prime in play()
-                    }
-
                     this.tracks[index] = {
                         name:   PATCH_NAMES[patchId] || String(patchId),
                         synth,
@@ -159,9 +207,8 @@ export class TradSessionPlayer {
                         active: (index === 0),
                     };
 
-                    if (index === 0) {
-                        gain.gain.value = gain.targetVolume || 1.0;
-                    }
+                    // Track 0 audible from start, rest silent
+                    gain.gain.value = (index === 0) ? (gain.targetVolume || 1.0) : 0;
 
                 } catch (error) {
                     console.error(`[Track ${index}] Error:`, error);
@@ -236,17 +283,11 @@ export class TradSessionPlayer {
 
             this.isPlaying = true;
 
-            // ── Prime all synths immediately before start ─────────────────────
-            // This must happen as close to start() as possible. Priming in
-            // loadTune() leaves a gap during which the AudioContext may process
-            // other audio (e.g. drone loading in parallel), invalidating the
-            // AudioBufferSourceNodes that abcjs prepared internally.
             console.log('[TradSessionPlayer] Priming all tracks...');
             for (let i = 0; i < this.tracks.length; i++) {
                 try {
                     await this.tracks[i].synth.prime();
                     console.log(`[Track ${i}] Primed`);
-                    // Capture duration from track 0 for non-drone tunes
                     if (i === 0 && this._tuneType !== 'drone' && this.tracks[i].synth.duration) {
                         this.tuneDuration = this.tracks[i].synth.duration;
                     }
@@ -259,21 +300,13 @@ export class TradSessionPlayer {
             const scheduleAhead = 0.1;
             this.scheduledStartTime = this.audioContext.currentTime + scheduleAhead;
 
-            console.log(`[Scheduled] Will start at time: ${this.scheduledStartTime.toFixed(3)}`);
-            console.log(`[Scheduled] Current time: ${this.audioContext.currentTime.toFixed(3)}`);
-
             const startPromises = this.tracks.map(async (track, i) => {
-                const startTime = this.audioContext.currentTime;
-                console.log(`[Track ${i}] Starting at: ${startTime.toFixed(4)}`);
                 try {
                     await track.synth.start();
                 } catch(e) {
-                    // Log the actual DOMException details so we can identify it
                     console.error(`[Track ${i}] start() threw: name="${e.name}" message="${e.message}"`, e);
                     throw e;
                 }
-                const endTime = this.audioContext.currentTime;
-                console.log(`[Track ${i}] Start completed in: ${((endTime - startTime) * 1000).toFixed(2)}ms`);
 
                 if (track.synth.audioBufferPlayer) {
                     try { track.synth.audioBufferPlayer.disconnect(); } catch (e) {}
@@ -286,6 +319,10 @@ export class TradSessionPlayer {
                         source.connect(track.gain);
                     });
                 }
+
+                if (this._reverbNode) {
+                    track.gain.connect(this._reverbNode);
+                }
             });
 
             await Promise.all(startPromises);
@@ -294,8 +331,6 @@ export class TradSessionPlayer {
             if (this.tuneDuration > 0) {
                 this.setupLooping();
             }
-
-            console.log('[TradSessionPlayer] Play complete - waiting for external track control');
 
         } catch (error) {
             console.error('[TradSessionPlayer] Play error:', error);
@@ -313,7 +348,6 @@ export class TradSessionPlayer {
         this.loopTimeoutId = setTimeout(async () => {
             if (!this.isPlaying) return;
 
-            // Single-play mode: stop and fire onEnded instead of looping.
             if (!this.loop) {
                 console.log('[TradSessionPlayer] Track ended (loop=false), firing onEnded');
                 this.isPlaying = false;
@@ -325,7 +359,6 @@ export class TradSessionPlayer {
 
             console.log('[Loop] Restarting all synths...');
 
-            // Re-prime before every restart — mandatory for abcjs
             try {
                 for (const track of this.tracks) {
                     await track.synth.prime();
@@ -356,6 +389,9 @@ export class TradSessionPlayer {
                         try { source.disconnect(); } catch (e) {}
                         source.connect(track.gain);
                     });
+                }
+                if (this._reverbNode) {
+                    track.gain.connect(this._reverbNode);
                 }
             }
 
@@ -414,7 +450,9 @@ export class TradSessionPlayer {
             } catch (e) {}
         }
 
-        this.tracks      = [];
+        this._teardownReverb();
+
+        this.tracks             = [];
         this.scheduledStartTime = null;
     }
 }

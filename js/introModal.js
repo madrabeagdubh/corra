@@ -12,7 +12,9 @@ import { constellationTexts } from '../data/constellationTexts.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 import { createDomButton } from './game/systems/gameTypography.js';
 
-allTunes['myLaganLove'] = levelTunes.myLaganLove;
+
+
+import { startVillageMusic, windDownVillageMusic } from './game/systems/music/villageMusic.js';
 
 var _audioUnlocked  = false;
 var _fullscreenDone = false;
@@ -1040,25 +1042,37 @@ if (wrapper) {
         return [65.41,73.42,55.00,49.00,41.20,73.42,65.41,55.00,43.65,49.00,73.42][Math.min(i,10)];
     }
 
-    async _startHarpOnSwipe() {
-        if (this._harpSilentStarted) return;
-        this._harpSilentStarted=true; this._harpStarted=true;
-        try {
-            const player=new TradSessionPlayer();
-            const loaded=await player.loadTune('myLaganLove');
-            if (!loaded){console.warn('[audio] Harp load failed');return;}
-            if (player.tracks[1]){player.tracks[1].gain.gain.value=0;player.tracks[1].active=false;}
-            if (player.tracks[2]){player.tracks[2].gain.gain.value=0;player.tracks[2].active=false;}
-            player.engine.masterGain.gain.value=0.0001;
-            this._harpPlayer=player;
-            await player.play();
-            const harpAC=player.audioContext;
-            if (harpAC&&harpAC.state==='suspended') await harpAC.resume();
-            const mg=player.engine.masterGain, now=harpAC.currentTime;
-            mg.gain.cancelScheduledValues(now); mg.gain.setValueAtTime(0.0001,now);
-            mg.gain.exponentialRampToValueAtTime(0.85,now+2.5);
-        } catch(e){console.warn('[audio] _startHarpOnSwipe error:',e);}
-    }
+   async _startHarpOnSwipe() {
+    if (this._harpSilentStarted) return;
+    this._harpSilentStarted = true;
+    this._harpStarted = true;
+    try {
+        const { startVillageMusic } = await import('./game/systems/music/villageMusic.js');
+        const player = new TradSessionPlayer();
+
+        // Register the village tune
+        allTunes['dingDongVillage'] = levelTunes.dingDongVillage;
+
+        const loaded = await player.loadTune('dingDongVillage');
+        if (!loaded) { console.warn('[audio] Village load failed'); return; }
+
+        player.engine.masterGain.gain.value = 0.0001;
+        this._harpPlayer = player;
+        await player.play();
+
+        const ac = player.audioContext;
+        if (ac && ac.state === 'suspended') await ac.resume();
+
+        const mg = player.engine.masterGain, now = ac.currentTime;
+        mg.gain.cancelScheduledValues(now);
+        mg.gain.setValueAtTime(0.0001, now);
+        mg.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
+
+        // Start the escalation — banjo joins after one loop, choir after two, pad after three
+        startVillageMusic(player);
+
+    } catch(e) { console.warn('[audio] _startHarpOnSwipe error:', e); }
+} 
 
     _stopAllAudio() {
         try{if(this._harpPlayer){this._harpPlayer.stop().catch(()=>{});this._harpPlayer=null;}}catch(e){}

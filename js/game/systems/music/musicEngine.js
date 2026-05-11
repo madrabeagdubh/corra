@@ -1,4 +1,4 @@
-// Music Engine v2.1 - Spatial Audio (Simplified)
+// Music Engine v2.2 - Spatial Audio
 export class MusicEngine {
     constructor(audioContext) {
         this.ctx = audioContext;
@@ -13,50 +13,62 @@ export class MusicEngine {
         gainNode.connect(this.masterGain);
         return gainNode;
     }
-    
+
     createTrackGainWithPanning(patchId) {
         const gainNode = this.ctx.createGain();
-        gainNode.gain.value = 0; // Start silent
+        gainNode.gain.value = 0;
 
-        // Create stereo panner for spatial separation
         const panner = this.ctx.createStereoPanner();
 
         let targetVolume = 1.0;
 
-        if (patchId === 105) {
-            // Banjo: Center-left (lead instrument)
-            panner.pan.value = -0.2;
-            targetVolume = 0.9;
-        } else if (patchId === 0) {
-            // Piano: Center-right (accompaniment)
-            panner.pan.value = 0.3;
-            targetVolume = 0.7;
-        } else if (patchId === 32) {
-            // Acoustic Bass: Center (foundation)
+        if (patchId === 114) {
+            // Steel Drums: centre — melody lead
             panner.pan.value = 0;
-            targetVolume = 0.75;
-        } else if (patchId === 22) {
-            // Harmonica: Slight left
-            panner.pan.value = -0.3;
             targetVolume = 0.85;
+        } else if (patchId === 105) {
+            // Banjo: slight left
+            panner.pan.value = -0.2;
+            targetVolume = 0.8;
+        } else if (patchId === 53) {
+            // Voice Oohs: slight right
+            panner.pan.value = 0.2;
+            targetVolume = 0.7;
         } else if (patchId === 92) {
-            // Pad 5 Bowed: Wide left — ambient bed, sits behind everything
+            // Pad Bowed: wide left — ambient bed
             panner.pan.value = -0.5;
             targetVolume = 0.55;
         } else if (patchId === 94) {
-            // Pad 7 Halo: Wide right — mirrors the bowed pad
+            // Pad Halo: wide right
             panner.pan.value = 0.5;
             targetVolume = 0.45;
+        } else if (patchId === 70) {
+            // Bassoon: centre-left — like someone standing nearby
+            panner.pan.value = -0.15;
+            targetVolume = 0.65;
+        } else if (patchId === 0) {
+            // Piano: centre-right
+            panner.pan.value = 0.3;
+            targetVolume = 0.7;
+        } else if (patchId === 32) {
+            // Acoustic Bass: centre
+            panner.pan.value = 0;
+            targetVolume = 0.75;
+        } else if (patchId === 22) {
+            // Harmonica: slight left
+            panner.pan.value = -0.3;
+            targetVolume = 0.85;
+        } else if (patchId === 46) {
+            // Harp: centre-right
+            panner.pan.value = 0.25;
+            targetVolume = 0.9;
         } else {
-            // Default
             panner.pan.value = 0;
             targetVolume = 0.8;
         }
 
-        // Connect: gain -> panner -> master
         gainNode.connect(panner);
         panner.connect(this.masterGain);
-
         gainNode.targetVolume = targetVolume;
 
         return gainNode;

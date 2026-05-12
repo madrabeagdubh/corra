@@ -384,7 +384,7 @@ _createMountainBg() {
 
     img.style.cssText = [
         'position:absolute;',
-        'top:0;left:0;',
+        'top:-10%;left:0;',
         'width:100%;',
         'height:50%;',           // covers sky region above PGR horizon (~28vh)
         'object-fit:cover;',

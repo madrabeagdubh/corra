@@ -295,6 +295,10 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                 gc.style.inset    = '0';
                 gc.style.zIndex   = '999999';
             }
+
+
+		console.log('[dawnCrossing] calling onComplete, gameContainer:',
+    document.getElementById('gameContainer')?.style.display);
             if (onComplete) onComplete();
         }, 3900);
     }

@@ -381,8 +381,7 @@ export class ConstellationScene extends Phaser.Scene {
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
         irishEl.style.cssText = [
-            `font-family:${FONTS.irish};font-size:${TYPE.domBody.size};`,
-            `color:${COLORS.irish};text-align:center;`,
+            `font-family:Aonchlo, serif;font-size:${TYPE.domBody.size};`,`color:${COLORS.irish};text-align:center;`,
             'text-shadow:0 0 18px rgba(0,0,0,0.9);padding:0 6%;',
             'pointer-events:none;opacity:1;transition:opacity 0.8s ease-in-out;',
             'position:absolute;left:0;right:0;',

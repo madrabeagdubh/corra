@@ -356,7 +356,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
                 cleanupHeroSelect();
                 initReturnCrossing(champion, GameSettings.englishOpacity, () => {
                     window.startGame
-                        ? window.startGame(champion, { startScene: 'Bog_Threshold' })
+                        ? window.startGame(champion, { startScene: 'd3' })
                         : console.error('[TutorialOrAdventure] window.startGame not found!');
                 });
             });

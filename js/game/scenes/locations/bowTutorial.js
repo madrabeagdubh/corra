@@ -245,6 +245,14 @@ export default class BowTutorial extends Phaser.Scene {
         }
         this.player.canMove = false;
 
+        // Auto-equip bow for tutorial — player arrives with bow in inventory
+        const bow = this.player.inventory.getItem(5);
+        if (bow && bow.id === 'simple_bow') {
+            this.player.inventory.setItem(0, bow);
+            this.player.inventory.setItem(5, null);
+            this.player.updateStatsFromEquipment();
+        }
+
         this.perspectiveGround = new PerspectiveGroundRenderer(this);
         this.perspectiveGround.setPlayer(this.player);
 

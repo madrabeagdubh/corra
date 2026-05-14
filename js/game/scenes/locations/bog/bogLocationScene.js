@@ -279,8 +279,8 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     })
 
     this._menuHub = createGameMenuHub({
-      onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()) },
-      onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently() },
+      onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()); if (this.player) this.player.canMove = false; },
+      onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently(); if (this.player) this.player.canMove = true; },
       onLabhairtOpen:   () => { this._easca?.showKeyboard() },
       onLabhairtClose:  () => { this._easca?.hideKeyboard() },
     })
@@ -384,6 +384,7 @@ _setupTapToPath() {
     if (dx * dx + dy * dy < joyR * joyR) return
 
     if (this.textPanel?.isVisible) return
+    if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return
     if (!this.perspectiveGround) return
     if (this._bowAiming) return
 

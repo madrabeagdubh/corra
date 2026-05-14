@@ -15,6 +15,22 @@ import TreeMaze            from './game/scenes/locations/bog/treeMaze.js'
 import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
 import OakWood             from './game/scenes/locations/bog/oakWood.js'
 import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
+import BogA1 from './game/scenes/locations/bog/a1.js'
+import BogA2 from './game/scenes/locations/bog/a2.js'
+import BogA3 from './game/scenes/locations/bog/a3.js'
+import BogA4 from './game/scenes/locations/bog/a4.js'
+import BogB1 from './game/scenes/locations/bog/b1.js'
+import BogB2 from './game/scenes/locations/bog/b2.js'
+import BogB3 from './game/scenes/locations/bog/b3.js'
+import BogB4 from './game/scenes/locations/bog/b4.js'
+import BogC1 from './game/scenes/locations/bog/c1.js'
+import BogC2 from './game/scenes/locations/bog/c2.js'
+import BogC3 from './game/scenes/locations/bog/c3.js'
+import BogC4 from './game/scenes/locations/bog/c4.js'
+import BogD1 from './game/scenes/locations/bog/d1.js'
+import BogD2 from './game/scenes/locations/bog/d2.js'
+import BogD3 from './game/scenes/locations/bog/d3.js'
+import BogD4 from './game/scenes/locations/bog/d4.js'
 import { champions } from '../data/champions.js'
 import { initFullscreenButton } from './game/ui/fullscreenButton.js'
 initFullscreenButton()  // call at module load time, not inside _createGame()
@@ -74,6 +90,10 @@ function _createGame(selectedChampion, options) {
             HeartOfTheBog,
             TreeMaze,
             BogThreshold,
+            BogA1, BogA2, BogA3, BogA4,
+            BogB1, BogB2, BogB3, BogB4,
+            BogC1, BogC2, BogC3, BogC4,
+            BogD1, BogD2, BogD3, BogD4,
             OakWood,
             DruidTemple,
         ],

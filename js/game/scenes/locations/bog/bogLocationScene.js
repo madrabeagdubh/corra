@@ -270,6 +270,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
+    this._drawExitDebug()
   }
 
   // ── Input UI -- no player needed -----------------------------------------
@@ -705,5 +706,28 @@ _onMoonTap() {
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl)
     }
   }
+  _drawExitDebug() {
+    if (!window._devExits) return
+    if (!this.mapData?.exits) return
+    const T = this.tileSize
+    const COLOURS = { north: 0x00ffff, south: 0xff8800, west: 0xffff00, east: 0xff00ff }
+    for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
+      const col = COLOURS[dir] ?? 0xffffff
+      exitData.tiles.forEach(([tx, ty]) => {
+        this.add.rectangle(tx*T + T/2, ty*T + T/2, T-2, T-2, col, 0.45).setDepth(200)
+        this.add.text(tx*T + 2, ty*T + 2, exitData.destination,
+          { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(201)
+      })
+    }
+    if (this.mapData.entries) {
+      for (const [dir, entry] of Object.entries(this.mapData.entries)) {
+        const ex = (entry.x ?? 18)*T + T/2, ey = (entry.y ?? 18)*T + T/2
+        this.add.rectangle(ex, ey, T, T, 0xffffff, 0.3).setDepth(200)
+        this.add.text(ex - T/2 + 2, ey - T/2 + 2, 'in:'+dir,
+          { fontSize: '9px', fontFamily: 'monospace', color: '#00ff00' }).setDepth(201)
+      }
+    }
+  }
+
 }
 

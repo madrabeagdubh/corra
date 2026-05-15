@@ -4,17 +4,17 @@ import BowTutorial from './game/scenes/locations/bowTutorial.js'
 import WorldScene from './game/scenes/worldScene.js'
 import BogMeadow from './game/scenes/locations/bog/bogMeadow.js'
 // Bog world scenes
-import GreatOpenBog        from './game/scenes/locations/bog/greatOpenBog.js'
-import AbandonedSettlement from './game/scenes/locations/bog/abandonedSettlement.js'
-import FortressOfBlood     from './game/scenes/locations/bog/fortressOfBlood.js'
-import FairyMargin         from './game/scenes/locations/bog/fairyMargin.js'
-import CursedWood          from './game/scenes/locations/bog/cursedWood.js'
-import LakeOfShadows       from './game/scenes/locations/bog/lakeOfShadows.js'
-import HeartOfTheBog       from './game/scenes/locations/bog/heartOfTheBog.js'
-import TreeMaze            from './game/scenes/locations/bog/treeMaze.js'
+// import GreatOpenBog        from './game/scenes/locations/bog/greatOpenBog.js'
+// import AbandonedSettlement from './game/scenes/locations/bog/abandonedSettlement.js'
+// import FortressOfBlood     from './game/scenes/locations/bog/fortressOfBlood.js'
+// import FairyMargin         from './game/scenes/locations/bog/fairyMargin.js'
+// import CursedWood          from './game/scenes/locations/bog/cursedWood.js'
+// import LakeOfShadows       from './game/scenes/locations/bog/lakeOfShadows.js'
+// import HeartOfTheBog       from './game/scenes/locations/bog/heartOfTheBog.js'
+// import TreeMaze            from './game/scenes/locations/bog/treeMaze.js'
 import BogThreshold        from './game/scenes/locations/bog/bogThreshold.js'
-import OakWood             from './game/scenes/locations/bog/oakWood.js'
-import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
+// import OakWood             from './game/scenes/locations/bog/oakWood.js'
+// import DruidTemple         from './game/scenes/locations/bog/druidTemple.js'
 import BogA1 from './game/scenes/locations/bog/a1.js'
 import BogA2 from './game/scenes/locations/bog/a2.js'
 import BogA3 from './game/scenes/locations/bog/a3.js'
@@ -81,21 +81,21 @@ function _createGame(selectedChampion, options) {
             BogMeadow,
             BowTutorial,
             // Bog world
-            GreatOpenBog,
-            AbandonedSettlement,
-            FortressOfBlood,
-            FairyMargin,
-            CursedWood,
-            LakeOfShadows,
-            HeartOfTheBog,
-            TreeMaze,
+//             GreatOpenBog,
+//             AbandonedSettlement,
+//             FortressOfBlood,
+//             FairyMargin,
+//             CursedWood,
+//             LakeOfShadows,
+//             HeartOfTheBog,
+//             TreeMaze,
             BogThreshold,
             BogA1, BogA2, BogA3, BogA4,
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
             BogD1, BogD2, BogD3, BogD4,
-            OakWood,
-            DruidTemple,
+//             OakWood,
+//             DruidTemple,
         ],
         autoStart: false,
         scale: {

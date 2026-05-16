@@ -272,7 +272,6 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
     this._drawExitDebug()
-    this._addExitBlooms()
   }
 
   // ── Input UI -- no player needed -----------------------------------------
@@ -467,6 +466,18 @@ _onMoonTap() {
     if (ALWAYS_UNWALKABLE.has(g0) || extra.has(g0)) return true
     const g1 = this.mapData.layers[1]?.[ty]?.[tx]
     if (g1 && (ALWAYS_UNWALKABLE.has(g1) || extra.has(g1))) return true
+    // Map edge collision
+    const W = this.mapData.width, H = this.mapData.height
+    const border = this.mapData.border
+    // Outer border: void tiles, only passable at exit corridor
+    const onOuter = tx===0 || tx===W-1 || ty===0 || ty===H-1
+    if (onOuter) {
+      if (!border) return true
+      const inCorridor =
+        ((tx===0||tx===W-1) && border.openRows?.includes(ty)) ||
+        ((ty===0||ty===H-1) && border.openCols?.includes(tx))
+      if (!inCorridor) return true
+    }
     return false
   }
 
@@ -813,12 +824,8 @@ _onMoonTap() {
     for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
       const tiles  = exitData.tiles
       const mid    = tiles[Math.floor(tiles.length / 2)]
-      // Place marker one tile inside the map from the exit edge
+      // Place marker ON the exit tile (the visible protruding tile)
       let tx = mid[0], ty = mid[1]
-      if (dir === 'west')  tx += 1
-      if (dir === 'east')  tx -= 1
-      if (dir === 'north') ty += 1
-      if (dir === 'south') ty -= 1
 
       exitMarkers.push({ tileX: tx, tileY: ty, dir })
     }

@@ -128,16 +128,16 @@ function makeExitEntry(exits_def) {
     let tiles, entryX, entryY, entryPoint
     if(dir==='north'){
       tiles=[[MID-HALF,1],[MID-1,1],[MID,1],[MID+1,1],[MID+HALF,1]]
-      entryPoint='south'; entryX=MID; entryY=2
+      entryPoint='south'; entryX=MID; entryY=4
     } else if(dir==='south'){
       tiles=[[MID-HALF,H-2],[MID-1,H-2],[MID,H-2],[MID+1,H-2],[MID+HALF,H-2]]
-      entryPoint='north'; entryX=MID; entryY=H-2
+      entryPoint='north'; entryX=MID; entryY=H-4
     } else if(dir==='west'){
       tiles=[[0,MID-HALF],[0,MID-1],[0,MID],[0,MID+1],[0,MID+HALF]]
-      entryPoint='east'; entryX=2; entryY=MID
+      entryPoint='east'; entryX=4; entryY=MID
     } else {
       tiles=[[W-2,MID-HALF],[W-2,MID-1],[W-2,MID],[W-2,MID+1],[W-2,MID+HALF]]
-      entryPoint='west'; entryX=W-2; entryY=MID
+      entryPoint='west'; entryX=W-4; entryY=MID
     }
     exits[dir]={tiles, destination:dest, entryPoint}
     entries[dir]={x:entryX, y:entryY, yFromSource: (dir==='east'||dir==='west')}
@@ -344,7 +344,56 @@ function buildMap(name,base,overlay,exits,entries,spawn) {
   }
 }
 
+function addBorder(map) {
+  const W=map.width, H=map.height
+  const HALF=2  // half-width of exit corridor (matches exit tiles)
+  const layer0=map.layers[0]
+  const layer1=map.layers[1]
+
+  // Build set of exit corridor positions on each edge
+  const openCols = new Set()  // x values open on north/south edges
+  const openRows = new Set()  // y values open on east/west edges
+
+  for (const [dir, ex] of Object.entries(map.exits||{})) {
+    for (const [tx,ty] of ex.tiles) {
+      if (dir==='north'||dir==='south') openCols.add(tx)
+      if (dir==='east' ||dir==='west')  openRows.add(ty)
+    }
+  }
+
+  // Blank out border ring except at exit corridors
+  for (let x=0;x<W;x++) {
+    // Top edge (north border)
+    if (!openCols.has(x)) {
+      layer0[0][x]=0
+      if (layer1[0]) layer1[0][x]=0
+    }
+    // Bottom edge (south border)
+    if (!openCols.has(x)) {
+      layer0[H-1][x]=0
+      if (layer1[H-1]) layer1[H-1][x]=0
+    }
+  }
+  for (let y=0;y<H;y++) {
+    // Left edge (west border)
+    if (!openRows.has(y)) {
+      layer0[y][0]=0
+      if (layer1[y]) layer1[y][0]=0
+    }
+    // Right edge (east border)
+    if (!openRows.has(y)) {
+      layer0[y][W-1]=0
+      if (layer1[y]) layer1[y][W-1]=0
+    }
+  }
+
+  // Store border info for collision detection in scene
+  map.border = { openCols:[...openCols], openRows:[...openRows] }
+  return map
+}
+
 function writeMap(map) {
+  addBorder(map)
   const path=resolve(OUT,`${map.name}.json`)
   writeFileSync(path,JSON.stringify(map))
   console.log(`  ✓ ${map.name}.json`)

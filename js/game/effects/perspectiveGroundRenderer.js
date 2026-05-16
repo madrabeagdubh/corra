@@ -617,8 +617,10 @@ static HORIZON_Y_FRAC    = 0.28
     let playerDrawn   = false
 
     if (p) {
-      const proj     = this._projectLogical(p.logicalX + this.tileDisplaySize * 0.5, p.logicalY)
-      const projFoot = this._projectLogical(p.logicalX + this.tileDisplaySize * 0.5, p.logicalY - this.tileDisplaySize * 0.62)
+      const snapX    = Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapY    = Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const proj     = this._projectLogical(snapX, snapY)
+      const projFoot = this._projectLogical(snapX, snapY - this.tileDisplaySize * 0.28)
       if (proj) {
         playerScreenX = proj.screenX
         playerScreenY = projFoot ? projFoot.screenY : proj.screenY
@@ -862,8 +864,8 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     // Player tile highlight -- drawn once after tile loop
     if (p) {
-      const pTileCol = Math.floor((p.logicalX + this.tileDisplaySize * 0.5) / this.tileDisplaySize)
-      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize) - 1
+      const pTileCol = Math.floor(p.logicalX / this.tileDisplaySize)
+      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
       const hxTL = this._colToScreenX(pTileCol,     pTileRow)
       const hxTR = this._colToScreenX(pTileCol + 1, pTileRow)
       const hxBL = this._colToScreenX(pTileCol,     pTileRow + 1)

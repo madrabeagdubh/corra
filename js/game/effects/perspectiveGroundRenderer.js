@@ -275,6 +275,39 @@ static HORIZON_Y_FRAC    = 0.28
     this._encounterFlags = flags || []
   }
 
+  setExitMarkers(markers) {
+    this._exitMarkers  = markers || []
+    // Build a set of exit edges for quick tile lookup: 'north','south','east','west'
+    this._exitEdges    = new Set(markers.map(m => m.dir))
+    this._exitArrowCanvases = {}
+    for (const { dir } of markers) {
+      if (this._exitArrowCanvases[dir]) continue
+      const size = 24
+      const c    = document.createElement('canvas')
+      c.width = size; c.height = size
+      const ctx = c.getContext('2d')
+      ctx.strokeStyle = 'rgba(180,255,220,0.95)'
+      ctx.fillStyle   = 'rgba(180,255,220,0.4)'
+      ctx.lineWidth   = 2.5
+      const m = size / 2, s = size * 0.32
+      ctx.beginPath()
+      if (dir === 'west') {
+        ctx.moveTo(m+s, m-s); ctx.lineTo(m-s, m); ctx.lineTo(m+s, m+s)
+      } else if (dir === 'east') {
+        ctx.moveTo(m-s, m-s); ctx.lineTo(m+s, m); ctx.lineTo(m-s, m+s)
+      } else if (dir === 'north') {
+        ctx.moveTo(m-s, m+s); ctx.lineTo(m, m-s); ctx.lineTo(m+s, m+s)
+      } else {
+        ctx.moveTo(m-s, m-s); ctx.lineTo(m, m+s); ctx.lineTo(m+s, m-s)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 0.4
+      ctx.fill()
+      this._exitArrowCanvases[dir] = c
+    }
+    this._exitPulseT = 0
+  }
+
   clearEncounterFlag(tileX, tileY) {
     if (!this._encounterFlags) return
     this._encounterFlags = this._encounterFlags.filter(
@@ -478,7 +511,8 @@ static HORIZON_Y_FRAC    = 0.28
     const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
     const scaledW = scaledTileW
     const scaledH = scaledTileW * hm
-    ctx.drawImage(img, screenX - scaledW / 2, screenY - scaledH, scaledW, scaledH)
+    // screenY is tile bottom -- draw upward so feet are grounded
+    ctx.drawImage(img, Math.round(screenX - scaledW / 2), Math.round(screenY - scaledH), Math.round(scaledW), Math.round(scaledH))
   }
 
   _drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha) {
@@ -576,11 +610,12 @@ static HORIZON_Y_FRAC    = 0.28
     let playerDrawn   = false
 
     if (p) {
-      const proj = this._projectLogical(p.logicalX, p.logicalY)
+      const proj     = this._projectLogical(p.logicalX + this.tileDisplaySize * 0.5, p.logicalY)
+      const projFoot = this._projectLogical(p.logicalX + this.tileDisplaySize * 0.5, p.logicalY - this.tileDisplaySize * 0.62)
       if (proj) {
         playerScreenX = proj.screenX
-        playerScreenY = proj.screenY
-        playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize - 0.5)
+        playerScreenY = projFoot ? projFoot.screenY : proj.screenY
+        playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
       }
     }
 
@@ -660,6 +695,28 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
               {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
               {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
               tint0)
+            // Exit edge strip overlay
+            if (inMap && this._exitEdges?.size) {
+              const onExit = (
+                (this._exitEdges.has('west')  && tileCol === 0) ||
+                (this._exitEdges.has('east')  && tileCol === mapW - 1) ||
+                (this._exitEdges.has('north') && tileRow === 0) ||
+                (this._exitEdges.has('south') && tileRow === mapH - 1)
+              )
+              if (onExit) {
+                this._gCtx.save()
+                this._gCtx.globalAlpha = 0.22 + 0.10 * Math.sin((this._exitPulseT||0) * 1.5 + tileCol + tileRow)
+                this._gCtx.fillStyle = 'rgba(160,255,200,1)'
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(xTL, yTopClamped)
+                this._gCtx.lineTo(xTR, yTopClamped)
+                this._gCtx.lineTo(xBR, yBotClamped)
+                this._gCtx.lineTo(xBL, yBotClamped)
+                this._gCtx.closePath()
+                this._gCtx.fill()
+                this._gCtx.restore()
+              }
+            }
           }
           this._gCtx.globalAlpha = 1.0
           groundCount++
@@ -672,6 +729,7 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           const aimAngle    = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
+          // Tile highlight drawn separately after all tiles
           this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle)
           this._drawBillboard(this._oCtx, this._playerCanvas,
             playerScreenX, playerScreenY, scaledTileW, playerHM)
@@ -716,6 +774,26 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
               this._gCtx.globalAlpha = 1.0
             }
             objectCount++
+          }
+        }
+
+        // Exit markers
+        if (inMap && this._exitMarkers?.length) {
+          for (const marker of this._exitMarkers) {
+            if (marker.tileX !== tileCol || marker.tileY !== tileRow) continue
+            const arrowCanvas = this._exitArrowCanvases?.[marker.dir]
+            if (!arrowCanvas) continue
+            const proj = this._projectLogical(
+              (marker.tileX + 0.5) * this.tileDisplaySize,
+              (marker.tileY + 0.5) * this.tileDisplaySize
+            )
+            if (!proj) continue
+            const pulse = 0.5 + 0.5 * Math.sin((this._exitPulseT || 0) + marker.tileX)
+            this._oCtx.globalAlpha = 0.6 + pulse * 0.4
+            this._drawBillboard(this._oCtx, arrowCanvas,
+              proj.screenX, proj.screenY,
+              proj.scale * this.tileDisplaySize * 1.2, 1.4)
+            this._oCtx.globalAlpha = 1.0
           }
         }
 
@@ -769,6 +847,31 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         this._drawBillboard(this._oCtx, this._playerCanvas,
           proj.screenX, proj.screenY, scaledTileW, 1.8)
+      }
+    }
+
+    if (this._exitMarkers?.length) this._exitPulseT = (this._exitPulseT || 0) + 0.04
+
+    // Player tile highlight -- drawn once after tile loop
+    if (p) {
+      const pTileCol = Math.floor((p.logicalX + this.tileDisplaySize * 0.5) / this.tileDisplaySize)
+      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize) - 1 - 1
+      const hxTL = this._colToScreenX(pTileCol,     pTileRow)
+      const hxTR = this._colToScreenX(pTileCol + 1, pTileRow)
+      const hxBL = this._colToScreenX(pTileCol,     pTileRow + 1)
+      const hxBR = this._colToScreenX(pTileCol + 1, pTileRow + 1)
+      const hyT  = this._rowToScreenY(pTileRow)
+      const hyB  = this._rowToScreenY(pTileRow + 1)
+      if (hyT !== null && hyB !== null) {
+        this._gCtx.save()
+        this._gCtx.globalAlpha = 0.28
+        this._gCtx.fillStyle = 'rgba(255,255,180,1)'
+        this._gCtx.beginPath()
+        this._gCtx.moveTo(hxTL, hyT); this._gCtx.lineTo(hxTR, hyT)
+        this._gCtx.lineTo(hxBR, hyB); this._gCtx.lineTo(hxBL, hyB)
+        this._gCtx.closePath(); this._gCtx.fill()
+
+        this._gCtx.restore()
       }
     }
 

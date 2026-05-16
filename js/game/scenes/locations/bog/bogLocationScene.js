@@ -51,6 +51,7 @@ get _joyY() {
 }
   init(data) {
     this.entryData = data || {}
+    this._exiting  = false
     console.log(`[${this.scene.key}] init -- entryEdge: ${data?.entryEdge}`)
   }
 
@@ -271,6 +272,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
     this._drawExitDebug()
+    this._addExitBlooms()
   }
 
   // ── Input UI -- no player needed -----------------------------------------
@@ -498,8 +500,15 @@ _onMoonTap() {
       this.player.targetY  = py
       this.player.startX   = px
       this.player.startY   = py
-      this.cameras.main.centerOn(px, py)
     }
+
+    const cam = this.cameras.main
+    cam.centerOn(px, py)
+    cam.fadeIn(180, 0, 0, 0)
+    this.time.delayedCall(180, () => {
+      cam.startFollow(this._camProxy, true, 0.1, 0.1)
+    })
+    // arrivedAt timestamp in entryData handles the exit cooldown
     console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
@@ -729,5 +738,92 @@ _onMoonTap() {
     }
   }
 
+
+  // ── Exits ─────────────────────────────────────────────────────────────────
+  checkExits() {
+    if (!this.mapData?.exits) return
+    if (this._exiting) return
+    if (this.entryData?.arrivedAt && Date.now() - this.entryData.arrivedAt < 900) return
+    const tileX = Math.floor(this.player.logicalX / this.tileSize)
+    const tileY = Math.floor(this.player.logicalY / this.tileSize)
+    for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
+      if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
+        console.log(`[${this.scene.key}] exit -> ${exitData.destination} via ${dir}`)
+        this._triggerExit(dir, exitData)
+        return
+      }
+    }
+  }
+
+  _triggerExit(dir, exitData) {
+    if (this._exiting) return
+    this._exiting = true
+    if (this.joystick) this.joystick.reset()
+
+    const T  = this.tileSize
+    const px = this.player.logicalX
+    const py = this.player.logicalY
+
+    // Capture source tile BEFORE walk-off moves the player
+    const sourceTileX = Math.floor(px / T)
+    const sourceTileY = Math.floor(py / T)
+
+    const WALK = T * 3
+    const DUR  = 320
+
+    let tx = px, ty = py
+    if (dir === 'west')  tx = px - WALK
+    if (dir === 'east')  tx = px + WALK
+    if (dir === 'north') ty = py - WALK
+    if (dir === 'south') ty = py + WALK
+
+    this.player.isMoving = true
+    this.tweens.add({
+      targets:  this.player,
+      logicalX: tx,
+      logicalY: ty,
+      duration: DUR,
+      ease:     'Sine.easeIn',
+      onUpdate: () => {
+        this.player.targetX = this.player.logicalX
+        this.player.targetY = this.player.logicalY
+      },
+      onComplete: () => {
+        this.player.isMoving = false
+        this.cameras.main.fadeOut(180, 0, 0, 0)
+        this.time.delayedCall(200, () => {
+          this.scene.start(exitData.destination, {
+            entryEdge:    exitData.entryPoint,
+            sourceTile:   { x: sourceTileX, y: sourceTileY },
+            sourceHeight: this.mapData.height,
+            sourceWidth:  this.mapData.width,
+            entryDir:     dir,
+          })
+        })
+      }
+    })
+  }
+
+  _addExitBlooms() {
+    if (!this.mapData?.exits) return
+    if (!this.perspectiveGround) return
+
+    // Build arrow canvases and register with PGR as billboard markers
+    const exitMarkers = []
+    for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
+      const tiles  = exitData.tiles
+      const mid    = tiles[Math.floor(tiles.length / 2)]
+      // Place marker one tile inside the map from the exit edge
+      let tx = mid[0], ty = mid[1]
+      if (dir === 'west')  tx += 1
+      if (dir === 'east')  tx -= 1
+      if (dir === 'north') ty += 1
+      if (dir === 'south') ty -= 1
+
+      exitMarkers.push({ tileX: tx, tileY: ty, dir })
+    }
+
+    this.perspectiveGround.setExitMarkers(exitMarkers)
+  }
 }
 

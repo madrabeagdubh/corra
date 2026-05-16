@@ -128,16 +128,16 @@ function makeExitEntry(exits_def) {
     let tiles, entryX, entryY, entryPoint
     if(dir==='north'){
       tiles=[[MID-HALF,1],[MID-1,1],[MID,1],[MID+1,1],[MID+HALF,1]]
-      entryPoint='south'; entryX=MID; entryY=4
+      entryPoint='south'; entryX=MID; entryY=2
     } else if(dir==='south'){
       tiles=[[MID-HALF,H-2],[MID-1,H-2],[MID,H-2],[MID+1,H-2],[MID+HALF,H-2]]
-      entryPoint='north'; entryX=MID; entryY=H-4
+      entryPoint='north'; entryX=MID; entryY=H-2
     } else if(dir==='west'){
-      tiles=[[1,MID-HALF],[1,MID-1],[1,MID],[1,MID+1],[1,MID+HALF]]
-      entryPoint='east'; entryX=4; entryY=MID
+      tiles=[[0,MID-HALF],[0,MID-1],[0,MID],[0,MID+1],[0,MID+HALF]]
+      entryPoint='east'; entryX=2; entryY=MID
     } else {
       tiles=[[W-2,MID-HALF],[W-2,MID-1],[W-2,MID],[W-2,MID+1],[W-2,MID+HALF]]
-      entryPoint='west'; entryX=W-4; entryY=MID
+      entryPoint='west'; entryX=W-2; entryY=MID
     }
     exits[dir]={tiles, destination:dest, entryPoint}
     entries[dir]={x:entryX, y:entryY, yFromSource: (dir==='east'||dir==='west')}

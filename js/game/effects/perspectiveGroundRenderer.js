@@ -605,6 +605,17 @@ static HORIZON_Y_FRAC    = 0.28
     this._gCtx.fillStyle = gcR
     this._gCtx.fillRect(0, horizonPx + 80, sw, sh - horizonPx - 80)
 
+    // Clip ground fill to map horizontal extent at each row
+    // Calculate left/right screen X of map edges at the bottom visible row
+    const bottomRow  = Math.min(Math.floor(camRow) - 1, mapH - 1)
+    const leftX      = this._colToScreenX(0,    bottomRow + 1)
+    const rightX     = this._colToScreenX(mapW, bottomRow + 1)
+    const clipLeft   = Math.max(0,  leftX)
+    const clipRight  = Math.min(sw, rightX)
+    const clipW      = Math.max(0,  clipRight - clipLeft)
+
+    // No background fill -- ground canvas is transparent outside map tiles
+
     this._oCtx.clearRect(0, 0, sw, sh)
 
     const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX)
@@ -668,21 +679,20 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const colInMap = tileCol >= 0 && tileCol < mapW
         const inMap    = rowInMap && colInMap
 
-        const edgeDist  = inMap
-          ? Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
-          : -1
+        // Don't render outside map bounds
+        if (!inMap) continue
+
+        const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
         const edgeAlpha = edgeDist === 0 ? 0.85
                         : edgeDist === 1 ? 0.92
                         : edgeDist === 2 ? 0.97
                         : 1.0
 
-        if (inMap && fov && fov.isHidden(tileCol, tileRow)) continue
+        if (fov && fov.isHidden(tileCol, tileRow)) continue
 
         const tileAlpha = edgeAlpha * horizonFade
 
-        const gid0 = inMap
-          ? (layer0[tileRow]?.[tileCol] ?? fillGid)
-          : fillGid
+        const gid0 = layer0[tileRow]?.[tileCol] ?? 0
 
         if (gid0) {
           const xBL = this._colToScreenX(tileCol,     tileRow + 1)

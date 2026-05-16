@@ -57,6 +57,7 @@ export default class PerspectiveGroundRenderer {
   static PLAYER_DIST_TILES    = 1.2
   static FOCAL_LENGTH         = 12.0
   static HEIGHT_MULTIPLIER    = 1.2
+  static PLAYER_SCALE         = 0.7
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
@@ -557,11 +558,17 @@ static HORIZON_Y_FRAC    = 0.28
     const zoom = this._zoom()
 
     const bowAiming = this.scene.bowMechanics?.isAiming ?? false
-    if (cam.scrollX === this._lastCamX &&
-        cam.scrollY === this._lastCamY &&
-        zoom        === this._lastCamZoom &&
-        !this._player?.isMoving &&
-        !bowAiming) return
+    const now = Date.now()
+    if (this._player && !this._player.isMoving && this._lastMoveTime) {
+      // Allow idle animation to run for 8s after stopping, then freeze
+      if (now - this._lastMoveTime > 8000) {
+        if (cam.scrollX === this._lastCamX &&
+            cam.scrollY === this._lastCamY &&
+            zoom        === this._lastCamZoom &&
+            !bowAiming) return
+      }
+    }
+    if (this._player?.isMoving) this._lastMoveTime = now
 
     this._lastCamX    = cam.scrollX
     this._lastCamY    = cam.scrollY
@@ -725,13 +732,13 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         // Player
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-          const playerHM    = this._playerHeightMult ?? 1.8
+          const playerHM    = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
           const aimAngle    = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
           // Tile highlight drawn separately after all tiles
           this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle)
-          this._drawBillboard(this._oCtx, this._playerCanvas,
+          this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
             playerScreenX, playerScreenY, scaledTileW, playerHM)
           playerDrawn = true
         }
@@ -832,9 +839,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-        const playerHM2   = this._playerHeightMult ?? 1.8
+        const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
         this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, null)
-        this._drawBillboard(this._oCtx, this._playerCanvas,
+        this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
           playerScreenX, playerScreenY, scaledTileW, playerHM2)
         playerDrawn = true
       }
@@ -850,12 +857,13 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       }
     }
 
+    this._animT = ((this._animT || 0) + 0.016) % (Math.PI * 200)
     if (this._exitMarkers?.length) this._exitPulseT = (this._exitPulseT || 0) + 0.04
 
     // Player tile highlight -- drawn once after tile loop
     if (p) {
       const pTileCol = Math.floor((p.logicalX + this.tileDisplaySize * 0.5) / this.tileDisplaySize)
-      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize) - 1 - 1
+      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize) - 1
       const hxTL = this._colToScreenX(pTileCol,     pTileRow)
       const hxTR = this._colToScreenX(pTileCol + 1, pTileRow)
       const hxBL = this._colToScreenX(pTileCol,     pTileRow + 1)
@@ -922,6 +930,99 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     } catch(e) {
       // non-fatal
     }
+  }
+
+
+  _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) {
+    if (!img) return
+    const t   = this._animT || 0
+    const p   = this._player
+    const ps  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
+    const hm  = (heightMult ?? 1.8) * ps
+    const W   = Math.round(scaledTileW * ps)
+    const H   = Math.round(scaledTileW * hm)
+
+    // Track tile steps
+    const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
+    const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
+    const vx = curTileX - (this._prevTileX ?? curTileX)
+    const vy = curTileY - (this._prevTileY ?? curTileY)
+    const stepped = vx !== 0 || vy !== 0
+    this._prevTileX = curTileX
+    this._prevTileY = curTileY
+
+    if (vx < 0)      this._facingLeft = true
+    else if (vx > 0) this._facingLeft = false
+
+    if (stepped) {
+      this._moveDir = Math.abs(vx) > 0 ? 'ew' : 'ns'
+      // Only queue the new sway -- apply it when current arc finishes
+      this._nextSwaySign = vx !== 0 ? (vx > 0 ? 1 : -1) : (this._swaySign ?? 1)
+      // If arc is nearly done or not started, reset cleanly
+      const st = this._stepT ?? 1
+      if (st > 0.85 || st === 0) {
+        this._stepT    = 0
+        this._swaySign = this._nextSwaySign
+      }
+      // Otherwise let current arc finish -- _stepT keeps advancing
+    }
+
+    const moving = p?.isMoving ?? false
+    if (moving) {
+      this._stepT = (this._stepT || 0) + 0.09
+      // When arc completes, start fresh with queued direction
+      if (this._stepT >= 1.0) {
+        this._stepT    = 0
+        this._swaySign = this._nextSwaySign ?? this._swaySign ?? 1
+      }
+    }
+
+    ctx.save()
+    ctx.translate(screenX, screenY)
+
+    if (moving) {
+      const st     = this._stepT ?? 0
+      const arc    = Math.sin(st * Math.PI)  // clean 0→1→0 arc
+      const bounce = arc * scaledTileW * 0.18
+      const scaleY = 1.0 + arc * 0.09
+      const scaleX = 1.0 - arc * 0.04
+      const dir    = this._moveDir ?? 'ew'
+
+      let sway = 0, lean = 0
+      if (dir === 'ew') {
+        sway = (this._swaySign ?? 1) * arc * scaledTileW * 0.055
+        lean = arc * 0.05 * (this._facingLeft ? 1 : -1)
+      } else {
+        // N/S: reduced bounce, no sway, slight scale pulse only
+        const nsBounce = arc * scaledTileW * 0.07
+        ctx.transform(
+          1.0 * (this._facingLeft ? -1 : 1), 0,
+          0, 1.0 + arc * 0.04,
+          0, -nsBounce
+        )
+        ctx.drawImage(img, -W/2, -H, W, H)
+        ctx.restore()
+        return
+      }
+
+      ctx.transform(
+        scaleX * (this._facingLeft ? -1 : 1), lean,
+        0, scaleY,
+        sway, -bounce
+      )
+    } else {
+      const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
+      const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
+      const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
+      ctx.transform(
+        breathScale * (this._facingLeft ? -1 : 1), 0,
+        0, breathScale,
+        shift, watch
+      )
+    }
+
+    ctx.drawImage(img, -W/2, -H, W, H)
+    ctx.restore()
   }
 
   destroy() {

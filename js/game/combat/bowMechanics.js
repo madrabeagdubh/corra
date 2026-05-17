@@ -15,10 +15,10 @@ export default class BowMechanics {
     this.creakIsPlaying = false
 
     this.maxDrawDistance = 180
-    this.minDistance     = 64
-    this.maxDistance     = 480
-    this.flightTime      = 600
-    this.arcHeight       = 120
+    this.minDistance     = 48
+    this.maxDistance     = 280
+    this.flightTime      = 400
+    this.arcHeight       = 40
 
     this._aimStartPointer = null
     this._aimOverlay      = null
@@ -132,14 +132,11 @@ export default class BowMechanics {
       if (!sprite) return null
       return { x: sprite.x, y: sprite.y - (sprite.displayHeight ?? 64) * 0.3 }
     }
-    const proj = pgr._projectLogical(this.player.logicalX, this.player.logicalY)
-    if (!proj) return null
-    const ts      = pgr.tileDisplaySize
-    const tileRow = this.player.logicalY / ts - 0.5
-    const scaledW = pgr._scaleAtRow(tileRow + 1)
-    const hm      = pgr.constructor.HEIGHT_MULTIPLIER ?? 1.6
-    const spriteH = scaledW * hm
-    return { x: proj.screenX, y: proj.screenY - spriteH * 0.5 }
+    if (pgr.playerScreenX == null) return null
+    const feetY   = pgr.playerScreenY
+    const spriteH = pgr.playerSpriteH ?? 120
+    const chestY  = feetY + spriteH * 0.5
+    return { x: pgr.playerScreenX, y: chestY }
   }
 
   // ── Inventory ─────────────────────────────────────────────────────────────
@@ -210,8 +207,11 @@ export default class BowMechanics {
 
     const endX = pos.x + Math.cos(dragAngle) * clampedDist
     const endY = pos.y + Math.sin(dragAngle) * clampedDist
-    this._svgPullLine.setAttribute('x1', pos.x)
-    this._svgPullLine.setAttribute('y1', pos.y)
+    const playerPos2 = this._playerScreenPos()
+    const lineX = playerPos2?.x ?? pos.x
+    const lineY = playerPos2?.y ?? pos.y
+    this._svgPullLine.setAttribute('x1', lineX)
+    this._svgPullLine.setAttribute('y1', lineY)
     this._svgPullLine.setAttribute('x2', endX)
     this._svgPullLine.setAttribute('y2', endY)
 
@@ -220,18 +220,25 @@ export default class BowMechanics {
     const pgr = this.scene.perspectiveGround
     if (!pgr) return
 
-    const worldDist = this.minDistance + force * (this.maxDistance - this.minDistance)
+    const southFactor = Math.max(1, 1 + Math.sin(fireAngle) * 3)
+    const worldDist = (this.minDistance + force * (this.maxDistance - this.minDistance)) * southFactor
+    const playerPos = this._playerScreenPos()
+    const startX = playerPos?.x ?? this.player.logicalX
+    const startY = playerPos?.y ?? this.player.logicalY
     for (let i = 1; i <= 8; i++) {
-      const t   = i / 8
-      const arc = -4 * this.arcHeight * force * force * t * (t - 1)
-      const lx  = this.player.logicalX + Math.cos(fireAngle) * worldDist * t
-      const ly  = this.player.logicalY + Math.sin(fireAngle) * worldDist * t
-      const proj = pgr._projectLogical(lx, ly)
-      if (!proj || proj.screenY < pgr._horizonPx()) continue
-      const dotR   = Math.max(1, 3.5 * (1 - t * 0.6))
+      const t    = i / 8
+      const arc  = -4 * this.arcHeight * force * force * t * (t - 1)
+      const lx   = this.player.logicalX + Math.cos(fireAngle) * worldDist * t
+      const ly   = this.player.logicalY + Math.sin(fireAngle) * worldDist * t
+      const proj = pgr._projectLogical(lx, ly, true)
+      if (!proj) continue
+      // Interpolate from player screen pos to world projection
+      const cx   = startX + (proj.screenX - startX) * t
+      const cy   = startY + (proj.screenY - arc - startY) * t
+      const dotR = Math.max(1, 3.5 * (1 - t * 0.6))
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-      circle.setAttribute('cx',   proj.screenX)
-      circle.setAttribute('cy',   proj.screenY - arc)
+      circle.setAttribute('cx',   cx)
+      circle.setAttribute('cy',   cy)
       circle.setAttribute('r',    dotR)
       circle.setAttribute('fill', 'rgba(255,255,255,0.6)')
       this._svgDots.appendChild(circle)
@@ -315,7 +322,8 @@ export default class BowMechanics {
     const dist  = Math.sqrt(dx * dx + dy * dy)
     const force = Math.min(dist / this.maxDrawDistance, 1)
     const angle = this._currentAimAngle ?? Math.atan2(-dy, -dx)
-    const worldDist = this.minDistance + force * (this.maxDistance - this.minDistance)
+    const southFactor = Math.max(1, 1 + Math.sin(angle) * 3)
+    const worldDist = (this.minDistance + force * (this.maxDistance - this.minDistance)) * southFactor
 
     this._createArrow(angle, force, worldDist)
     this._cancelAiming()
@@ -403,12 +411,13 @@ export default class BowMechanics {
       const dynamicArc = this.arcHeight * force * force
       const arcOffset  = -4 * dynamicArc * progress * (progress - 1)
 
-      const proj = pgr._projectLogical(lx, ly)
+      const proj = pgr._projectLogical(lx, ly, true)
       if (!proj || proj.screenY < pgr._horizonPx()) {
         if (!arrow.getData('landScreenX')) {
           const endProj = pgr._projectLogical(
             startLX + Math.cos(angle) * worldDist,
-            startLY + Math.sin(angle) * worldDist
+            startLY + Math.sin(angle) * worldDist,
+            true
           )
           if (endProj) {
             arrow.setData('landScreenX', endProj.screenX)
@@ -429,25 +438,21 @@ export default class BowMechanics {
         return
       }
 
-      const ts2      = pgr.tileDisplaySize
-      const scaledW  = pgr._scaleAtRow(pgr._perspCamRow() - (this.player.logicalY / ts2 - 0.5))
-      const heightPx = scaledW * 1.8 * 0.5
-
       const sx = proj.screenX
-      const sy = proj.screenY - arcOffset - heightPx
+      const sy = proj.screenY - arcOffset
 
       const scale  = pgr._scaleAtRow(pgr._perspCamRow() - (pgr.constructor.PLAYER_DIST_TILES))
-      const arrowL = Math.max(2, scale * 0.4)
+      const arrowL = Math.max(1, scale * 0.2)
 
       const lookAhead = Math.min(progress + 0.05, 1)
       const lxA   = startLX + Math.cos(angle) * worldDist * lookAhead
       const lyA   = startLY + Math.sin(angle) * worldDist * lookAhead
       const arcA  = -4 * dynamicArc * lookAhead * (lookAhead - 1)
-      const projA = pgr._projectLogical(lxA, lyA)
+      const projA = pgr._projectLogical(lxA, lyA, true)
       let rot
       if (projA && projA.screenY >= pgr._horizonPx()) {
         const aheadSX = projA.screenX
-        const aheadSY = projA.screenY - arcA - heightPx
+        const aheadSY = projA.screenY - arcA
         rot = Math.atan2(aheadSY - sy, aheadSX - sx)
       } else {
         rot = angle
@@ -455,7 +460,7 @@ export default class BowMechanics {
 
       arrow.clear()
       if (!arrow.getData('hasLanded')) {
-        arrow.lineStyle(1.5, 0xffffff, 0.95)
+        arrow.lineStyle(1, 0xffffff, 0.95)
         arrow.beginPath()
         arrow.moveTo(sx - Math.cos(rot) * arrowL * 0.5, sy - Math.sin(rot) * arrowL * 0.5)
         arrow.lineTo(sx + Math.cos(rot) * arrowL * 0.5, sy + Math.sin(rot) * arrowL * 0.5)
@@ -490,10 +495,10 @@ export default class BowMechanics {
           startLY + Math.sin(angle) * worldDist
         )
         arrow.setData('landScreenX', endProj?.screenX ?? sx)
-        arrow.setData('landScreenY', endProj?.screenY ?? sy)
+        arrow.setData('landScreenY', endProj?.screenY ?? proj.screenY)
         if (trail) trail.clear()
         this._createImpactEffect(sx, sy, force)
-        arrow.lineStyle(1.5, 0xffffff, 0.7)
+        arrow.lineStyle(1, 0xffffff, 0.7)
         arrow.beginPath()
         arrow.moveTo(sx, sy - arrowL * 0.4)
         arrow.lineTo(sx, sy + arrowL * 0.4)

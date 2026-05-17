@@ -415,10 +415,17 @@ static HORIZON_Y_FRAC    = 0.28
     return { screenX, screenY, scale }
   }
 
-  _projectLogical(logicalPixelX, logicalPixelY) {
+  _projectLogical(logicalPixelX, logicalPixelY, allowOffscreen=false) {
     const ts         = this.tileDisplaySize
     const worldTileX = logicalPixelX / ts - 0.5
     const worldTileY = logicalPixelY / ts - 0.5
+    if (allowOffscreen) {
+      const screenY = this._rowToScreenY(worldTileY + 1)
+      if (screenY === null || screenY < this._horizonPx()) return null
+      const scale   = this._scaleAtRow(worldTileY + 1) / this.tileDisplaySize
+      const screenX = this._colToScreenX(worldTileX + 0.5, worldTileY + 1)
+      return { screenX, screenY, scale }
+    }
     return this.perspectiveProject(worldTileX, worldTileY)
   }
 
@@ -575,6 +582,10 @@ static HORIZON_Y_FRAC    = 0.28
     this._lastCamZoom = zoom
 
     this._refreshPlayerCanvas()
+    this.playerScreenX = null
+    this.playerScreenY = null
+    this.playerScreenX = null
+    this.playerScreenY = null
 
     const sw        = this._sw
     const sh        = this._sh
@@ -636,6 +647,9 @@ static HORIZON_Y_FRAC    = 0.28
         playerScreenX = proj.screenX
         playerScreenY = projFoot ? projFoot.screenY : proj.screenY
         playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
+        this.playerScreenX = playerScreenX
+        this.playerScreenY = playerScreenY
+
       }
     }
 
@@ -745,6 +759,7 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
           const playerHM    = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
+          this.playerSpriteH = scaledTileW * playerHM
           const aimAngle    = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null

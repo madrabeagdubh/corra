@@ -260,7 +260,7 @@ export default class BowTutorial extends Phaser.Scene {
         this.game.canvas.style.background = 'transparent';
         const container = document.getElementById('gameContainer');
 if (container) container.style.background = '#b5956a';
-        this.perspectiveGround.setPlayerScale(2.0);
+        this.perspectiveGround.setPlayerScale(2.0, 1.0);
         this.perspectiveGround.setLighting({
             darkness:     0.0,
             radius:       0.8,
@@ -278,7 +278,9 @@ if (container) container.style.background = '#b5956a';
 
         this.itemSheet     = new ItemSheetHelper(this);
         this.creatureSheet = new CreatureSheetHelper(this);
-        this.bowMechanics  = new BowMechanics(this, this.player);
+        this.bowMechanics  = new BowMechanics(this, this.player)
+        this.bowMechanics.maxDistance = 1200
+        this.bowMechanics.bowOriginOffsetFrac = -0.3;
         this.textPanel     = new TextPanel(this);
         this.storyPlayer   = null;
 
@@ -727,10 +729,10 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
 
                 initReturnCrossing(this.champion, currentOpacity, () => {
                     if (window.startGame) {
-                        window.startGame(this.champion, { startScene: 'Bog_Threshold' });
+                        window.startGame(this.champion, { startScene: 'd3' });
                     } else {
                         console.error('[BowTutorial] window.startGame not found!');
-                        this.scene.start('Bog_Threshold');
+                        this.scene.start('d3');
                     }
                 });
             });

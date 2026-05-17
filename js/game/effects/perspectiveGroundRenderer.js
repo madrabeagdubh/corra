@@ -57,7 +57,7 @@ export default class PerspectiveGroundRenderer {
   static PLAYER_DIST_TILES    = 1.2
   static FOCAL_LENGTH         = 12.0
   static HEIGHT_MULTIPLIER    = 1.2
-  static PLAYER_SCALE         = 0.7
+  static PLAYER_SCALE         = 0.7  // default; override per-instance via setPlayerScale  // default; override per-instance via setPlayerScale
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
@@ -259,8 +259,9 @@ static HORIZON_Y_FRAC    = 0.28
     console.log('[PGR v8] player registered')
   }
 
-  setPlayerScale(mult) {
+  setPlayerScale(mult, scale) {
     this._playerHeightMult = mult ?? 1.8
+    if (scale != null) this._playerScale = scale
     this._playerFrameKey   = null
   }
 
@@ -608,22 +609,21 @@ static HORIZON_Y_FRAC    = 0.28
     const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
 
     this._gCtx.clearRect(0, 0, sw, sh)
-    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
-    groundGrad.addColorStop(0, 'rgba(0,0,0,0)')
-    groundGrad.addColorStop(1, gcR)
-    this._gCtx.fillStyle = groundGrad
-    this._gCtx.fillRect(0, horizonPx, sw, 80)
-    this._gCtx.fillStyle = gcR
-    this._gCtx.fillRect(0, horizonPx + 80, sw, sh - horizonPx - 80)
-
-    // Clip ground fill to map horizontal extent at each row
-    // Calculate left/right screen X of map edges at the bottom visible row
+    // Clip ground fill to map horizontal extent
     const bottomRow  = Math.min(Math.floor(camRow) - 1, mapH - 1)
     const leftX      = this._colToScreenX(0,    bottomRow + 1)
     const rightX     = this._colToScreenX(mapW, bottomRow + 1)
     const clipLeft   = Math.max(0,  leftX)
     const clipRight  = Math.min(sw, rightX)
     const clipW      = Math.max(0,  clipRight - clipLeft)
+
+    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
+    groundGrad.addColorStop(0, 'rgba(0,0,0,0)')
+    groundGrad.addColorStop(1, gcR)
+    this._gCtx.fillStyle = groundGrad
+    this._gCtx.fillRect(clipLeft, horizonPx, clipW, 80)
+    this._gCtx.fillStyle = gcR
+    this._gCtx.fillRect(clipLeft, horizonPx + 80, clipW, sh - horizonPx - 80)
 
     // No background fill -- ground canvas is transparent outside map tiles
 
@@ -758,8 +758,10 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         // Player
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
           const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-          const playerHM    = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
+          const playerHM    = (this._playerHeightMult ?? 1.8) * (this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE)
           this.playerSpriteH = scaledTileW * playerHM
+          this._lastPlayerScale = this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE
+          this._lastPlayerScale = this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE
           const aimAngle    = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null

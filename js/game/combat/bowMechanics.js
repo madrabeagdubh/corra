@@ -14,11 +14,12 @@ export default class BowMechanics {
     this.creakSound     = null
     this.creakIsPlaying = false
 
-    this.maxDrawDistance = 180
+    this.maxDrawDistance = 280
+    this.bowOriginOffsetFrac = 0.35  // fraction of spriteH to add to playerScreenY
     this.minDistance     = 48
-    this.maxDistance     = 280
+    this.maxDistance     = 480
     this.flightTime      = 400
-    this.arcHeight       = 40
+    this.arcHeight       = 120
 
     this._aimStartPointer = null
     this._aimOverlay      = null
@@ -133,9 +134,9 @@ export default class BowMechanics {
       return { x: sprite.x, y: sprite.y - (sprite.displayHeight ?? 64) * 0.3 }
     }
     if (pgr.playerScreenX == null) return null
-    const feetY   = pgr.playerScreenY
     const spriteH = pgr.playerSpriteH ?? 120
-    const chestY  = feetY + spriteH * 0.5
+    const frac    = this.bowOriginOffsetFrac ?? 0.6
+    const chestY  = pgr.playerScreenY + spriteH * frac
     return { x: pgr.playerScreenX, y: chestY }
   }
 
@@ -220,8 +221,8 @@ export default class BowMechanics {
     const pgr = this.scene.perspectiveGround
     if (!pgr) return
 
-    const southFactor = Math.max(1, 1 + Math.sin(fireAngle) * 3)
-    const worldDist = (this.minDistance + force * (this.maxDistance - this.minDistance)) * southFactor
+    const southFactor = Math.max(1, 1 + Math.sin(fireAngle) * 1.5)
+    const worldDist   = (this.minDistance + force * (this.maxDistance - this.minDistance)) * southFactor
     const playerPos = this._playerScreenPos()
     const startX = playerPos?.x ?? this.player.logicalX
     const startY = playerPos?.y ?? this.player.logicalY
@@ -322,9 +323,10 @@ export default class BowMechanics {
     const dist  = Math.sqrt(dx * dx + dy * dy)
     const force = Math.min(dist / this.maxDrawDistance, 1)
     const angle = this._currentAimAngle ?? Math.atan2(-dy, -dx)
-    const southFactor = Math.max(1, 1 + Math.sin(angle) * 3)
+    const southFactor = Math.max(1, 1 + Math.sin(angle) * 1.5)
     const worldDist = (this.minDistance + force * (this.maxDistance - this.minDistance)) * southFactor
 
+    console.log("[arrow] force:", force.toFixed(3), "worldDist:", worldDist.toFixed(0), "max:", this.maxDistance)
     this._createArrow(angle, force, worldDist)
     this._cancelAiming()
   }

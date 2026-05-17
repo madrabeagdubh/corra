@@ -15,8 +15,8 @@ export default class BowMechanics {
     this.creakIsPlaying = false
 
     this.maxDrawDistance = 180
-    this.minDistance     = 96
-    this.maxDistance     = 800
+    this.minDistance     = 64
+    this.maxDistance     = 480
     this.flightTime      = 600
     this.arcHeight       = 120
 

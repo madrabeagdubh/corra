@@ -925,11 +925,13 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       }
       if (!itemImg?.width) return
       const ctx  = this._oCtx
-      const iw   = scaledTileW * 0.9
+      const ps   = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
+      const iw   = scaledTileW * 0.9 * ps
       const ih   = iw * (itemImg.height / itemImg.width)
       const REST_ANGLE    = (345 * Math.PI) / 180
       const angle         = aimAngle != null ? aimAngle + (Math.PI / 2) + (135 * Math.PI / 180) : REST_ANGLE
-      const spriteCentreY = playerScreenY - scaledTileW * 1.8 * 0.5
+      const ps2  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
+      const spriteCentreY = playerScreenY - scaledTileW * 1.8 * ps2 * 0.5
       const offsetX       = scaledTileW * 0.12
       ctx.save()
       ctx.translate(playerScreenX + offsetX, spriteCentreY)

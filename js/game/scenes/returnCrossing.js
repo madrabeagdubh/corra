@@ -3,6 +3,7 @@
 //
 // The return journey: Skye → Éire. Top-centre to bottom-left.
 // Choppy day, light swell, wind from the north-east.
+import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
 import { FONTS, COLORS, SPACING, TYPE } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
@@ -539,6 +540,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         setTimeout(() => {
             cancelAnimationFrame(rafId);
             requestAnimationFrame(() => { veil.style.opacity = '1'; });
+            transitionOut(2800);
         }, 500);
 
         setTimeout(() => {
@@ -555,6 +557,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             });
 
             veil.remove();
+            transitionIn();
 
             const gc = document.getElementById('gameContainer');
             if (gc) {

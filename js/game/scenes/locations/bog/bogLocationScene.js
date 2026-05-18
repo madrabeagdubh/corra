@@ -282,7 +282,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
 
     this._menuHub = createGameMenuHub({
       onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()); if (this.player) this.player.canMove = false; },
-      onInventoryClose: () => { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently(); if (this.player) this.player.canMove = true; },
+      onInventoryClose: () => { if (this.worldMenu?.itemDetailPanel?.isVisible) { this.worldMenu.itemDetailPanel.hide(); this.worldMenu.inventoryGrid.show(); } else { if (this.worldMenu?.isOpen) this._closeWorldMenuSilently(); if (this.player) this.player.canMove = true; } },
       onLabhairtOpen:   () => { this._easca?.showKeyboard() },
       onLabhairtClose:  () => { this._easca?.hideKeyboard() },
     })

@@ -102,7 +102,24 @@ export default class BaseLocationScene extends Phaser.Scene {
 
   // ── Update ────────────────────────────────────────────────────────────────
 
+  _updateDroppedItems() {
+    if (!this.droppedItems?.length) return
+    const pgr = this.perspectiveGround
+    if (!pgr) return
+    this.droppedItems.forEach(d => {
+      if (!d.active) return
+      const proj = pgr._projectLogical(d._logicalX, d._logicalY)
+      if (proj) { d.setPosition(proj.screenX, proj.screenY) }
+      // Scale by perspective
+      const ts  = this.tileSize ?? 48
+      const row = d._logicalY / ts - 0.5
+      const sc  = pgr._scaleAtRow(row + 1) / ts * 1.5
+      d.setScale(Math.max(0.3, Math.min(2, sc)))
+    })
+  }
+
   update(time, delta) {
+    this._updateDroppedItems()
     if (this.textPanel) this.textPanel.update(time, delta);
 
     if (this.player && this.joystick) {
@@ -460,12 +477,9 @@ export default class BaseLocationScene extends Phaser.Scene {
       }
     });
 
-    const collider = this.physics.add.overlap(
-      this.player.sprite, dropped,
-      () => this.tryPickupItem(dropped, collider),
-      null, this
-    );
-    dropped.pickupCollider = collider;
+    // Proximity pickup checked in update via _checkDroppedItemPickup
+    dropped.justDropped = true
+    this.time.delayedCall(1500, () => { if (dropped?.active) dropped.justDropped = false })
   }
 
   tryPickupItem(dropped, collider) {

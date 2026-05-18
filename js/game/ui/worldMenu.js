@@ -348,6 +348,7 @@ throwItem(item, slotInfo) {
   toggle() {
     if (this.itemDetailPanel && this.itemDetailPanel.isVisible) {
       this.itemDetailPanel.hide();
+      this.inventoryGrid.show();
       return;
     }
     this.isOpen ? this.close() : this.open();

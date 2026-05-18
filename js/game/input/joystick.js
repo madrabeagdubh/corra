@@ -408,6 +408,29 @@ if (this._root.style.opacity === '0') {
     }
   }
 
+  hideRing() {
+    if (this._base) this._base.style.opacity = '0'
+  }
+
+  showRing() {
+    if (this._base) this._base.style.opacity = '1'
+  }
+
+  hideDirections() {
+    // Hide the 4 cardinal buttons (first 4 in _buttons)
+    this._buttons.slice(0, 4).forEach(btn => {
+      btn.style.opacity = '0'
+      btn.style.pointerEvents = 'none'
+    })
+  }
+
+  showDirections() {
+    this._buttons.slice(0, 4).forEach(btn => {
+      btn.style.opacity = '1'
+      btn.style.pointerEvents = 'all'
+    })
+  }
+
   destroy() {
     if (this._longPressTimer)    clearTimeout(this._longPressTimer)
     if (this._longPressInterval) clearInterval(this._longPressInterval)

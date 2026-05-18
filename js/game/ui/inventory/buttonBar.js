@@ -25,7 +25,9 @@ export default class ButtonBar {
     };
 
     const finalActions = actions.map(a => (isEquipped && a === 'equip') ? 'unequip' : a);
-    const spacing = Math.min(100, Math.round(this.width / Math.max(finalActions.length, 1)));
+    // Use more screen width -- dpad arrows are hidden while menu is open
+    const availW = Math.min(window.innerWidth * 0.9, 400)
+    const spacing = Math.round(availW / Math.max(finalActions.length, 1));
     let currentX  = -((finalActions.length - 1) * spacing) / 2;
 
     finalActions.forEach((actionKey) => {

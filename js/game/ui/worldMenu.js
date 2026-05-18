@@ -11,7 +11,7 @@ export default class WorldMenu {
     const { width, height } = scene.cameras.main;
 
     // --- Semi-transparent background overlay ---
-    this.bg = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+    this.bg = scene.add.rectangle(width / 2, height, width + 20, height * 2, 0x000000, 1.0)
       .setScrollFactor(0)
       .setDepth(1900)
       .setInteractive({ priorityID: 0 }) 
@@ -31,7 +31,7 @@ export default class WorldMenu {
       this.pointerStartedInDetailPanel = false;
 
       // Check if we tapped outside the main inventory panel to close menu
-      const panelHeight = height * 0.8;
+      const panelHeight = height * 0.68;
       const panelWidth = Math.min(panelHeight, width * 0.9);
       const panelLeft = width / 2 - panelWidth / 2;
       const panelRight = width / 2 + panelWidth / 2;
@@ -56,24 +56,32 @@ export default class WorldMenu {
     });
 
     // --- Main inventory panel ---
-    const panelHeight = height * 0.8;
-    const panelWidth = Math.min(panelHeight, width * 0.9);
+    // Position panel from bottom of status bar to bottom of screen
+    const statusEl = document.getElementById('status-bar')
+    const statusH  = statusEl ? statusEl.getBoundingClientRect().height : 80
+    const canvasEl = scene.game.canvas
+    const canvasRect = canvasEl.getBoundingClientRect()
+    const scaleY   = height / canvasRect.height
+    const statusBottom = statusH * scaleY  // status bar bottom in canvas coords
+    const panelHeight = height - statusBottom + 20
+    const panelWidth = Math.min(width * 0.97, height * 0.85);
 
+    const panelCY = statusBottom + panelHeight / 2
     if (scene.textures.exists('panel_stone')) {
-      this.panel = scene.add.sprite(width / 2, height / 2, 'panel_stone')
+      this.panel = scene.add.sprite(width / 2, panelCY, 'panel_stone')
         .setDisplaySize(panelWidth, panelHeight)
         .setScrollFactor(0)
         .setDepth(1901)
         .setVisible(false);
 
-      this.panelBorder = scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight)
-        .setStrokeStyle(3, 0xffffff)
+      this.panelBorder = scene.add.rectangle(width / 2, panelCY, panelWidth, panelHeight)
+        .setStrokeStyle(0)
         .setFillStyle(0x000000, 0)
         .setScrollFactor(0)
         .setDepth(1901)
         .setVisible(false);
     } else {
-      this.panel = scene.add.rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x888888)
+      this.panel = scene.add.rectangle(width / 2, panelCY, panelWidth, panelHeight, 0x888888)
         .setScrollFactor(0)
         .setDepth(1901)
         .setStrokeStyle(3, 0xffffff)
@@ -84,7 +92,7 @@ export default class WorldMenu {
     const gridSize = panelWidth * 0.85;
     this.inventoryGrid = new InventoryGrid(scene, {
       x: width / 2,
-      y: height / 2,
+      y: panelCY,
       size: gridSize,
       rows: 5,
       cols: 5,
@@ -95,7 +103,7 @@ export default class WorldMenu {
     // --- Item Detail Panel ---
     this.itemDetailPanel = new ItemDetailPanel(scene, {
       x: width / 2,
-      y: height / 2,
+      y: panelCY,
       width: panelWidth * 0.95,
       height: panelHeight * 0.95,
       onAction: (action, item, slotInfo) => this.handleItemAction(action, item, slotInfo)
@@ -350,6 +358,8 @@ throwItem(item, slotInfo) {
     this.panel.setVisible(true);
     if (this.panelBorder) this.panelBorder.setVisible(true);
     this.inventoryGrid.show();
+    this.scene.joystick?.hideDirections();
+    this.scene.joystick?.hideRing();
     this.refreshGridDisplay();
     this.isOpen = true;
   }
@@ -360,6 +370,8 @@ throwItem(item, slotInfo) {
     if (this.panelBorder) this.panelBorder.setVisible(false);
     this.inventoryGrid.hide();
     this.itemDetailPanel.hide();
+    this.scene.joystick?.showDirections();
+    this.scene.joystick?.showRing();
     this.isOpen = false;
   }
 

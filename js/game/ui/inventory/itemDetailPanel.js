@@ -230,6 +230,7 @@ export default class ItemDetailPanel {
 
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault()
+      window._lastDomButtonTap = Date.now()
       this._destroyDomButtons()
       this.onAction?.(actionKey, this._currentItem, this._currentSlot)
     })

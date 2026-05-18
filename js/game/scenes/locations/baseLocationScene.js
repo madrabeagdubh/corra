@@ -415,71 +415,69 @@ export default class BaseLocationScene extends Phaser.Scene {
   // ── Item pickups ──────────────────────────────────────────────────────────
 
   checkItemPickups() {
-    if (!this.droppedItems?.length) return;
-
-    const playerX = this.player.logicalX;
-    const playerY = this.player.logicalY;
+    if (!this.droppedItems?.length) return
+    const ts      = this.tileSize ?? 48
+    const playerX = this.player.logicalX
+    const playerY = this.player.logicalY
+    const pTileX  = Math.floor(playerX / ts)
+    const pTileY  = Math.floor(playerY / ts)
 
     for (let i = this.droppedItems.length - 1; i >= 0; i--) {
-      const item = this.droppedItems[i];
-      if (item.justDropped) continue;
+      const item = this.droppedItems[i]
+      if (!item.active || item.justDropped) continue
 
-      const dist = Phaser.Math.Distance.Between(playerX, playerY, item.x, item.y);
-      if (dist >= 30) continue;
+      // Pickup when player walks onto same tile as item
+      const iTileX = Math.floor(item._logicalX / ts)
+      const iTileY = Math.floor(item._logicalY / ts)
+      if (pTileX !== iTileX || pTileY !== iTileY) continue
 
-      const slot = this.player.inventory.findEmptyInventorySlot();
+      const slot = this.player.inventory.findEmptyInventorySlot()
       if (slot === -1) {
         if (this.textPanel) this.textPanel.show({
           irish: 'Tasc lan!', english: 'Inventory full!', type: 'notification'
-        });
-        continue;
+        })
+        continue
       }
 
-      this.player.inventory.setItem(slot, item.itemData);
+      this.player.inventory.setItem(slot, item.itemData)
       if (this.textPanel) this.textPanel.show({
         irish:   `Fuair me ${item.itemData.nameGa}`,
         english: `I got the ${item.itemData.nameEn}`,
         type: 'notification'
-      });
+      })
 
-      this.droppedItems.splice(i, 1);
-      if (item.pickupCollider) item.pickupCollider.destroy();
-      item.destroy();
-
-      if (this.worldMenu?.isOpen) this.worldMenu.refreshGridDisplay();
+      this.droppedItems.splice(i, 1)
+      item.destroy()
+      if (this.worldMenu?.isOpen) this.worldMenu.refreshGridDisplay()
     }
   }
 
   // ── Item spawning ─────────────────────────────────────────────────────────
 
   spawnItemOnMap(item, x, y) {
-    console.log('Spawning item:', item.nameEn, 'at', x, y);
+    // Spawn one tile south of player, projected through PGR
+    const pgr   = this.perspectiveGround
+    const ts    = this.tileSize ?? 48
+    const logX  = this.player.logicalX
+    const logY  = this.player.logicalY + ts
+    const proj  = pgr?._projectLogical(logX, logY)
+    const sx    = proj?.screenX ?? (this.scale.width / 2)
+    const sy    = proj?.screenY ?? (this.scale.height / 2)
 
-    const dropped = this.physics.add.sprite(x, y, item.spriteKey)
-      .setScale(1.0).setDepth(5);
+    const dropped = this.add.image(sx, sy, item.spriteKey)
+      .setDepth(50).setScrollFactor(0).setScale(0.4)
 
-    if (dropped.body) {
-      dropped.body.setSize(32, 32);
-      dropped.body.setAllowGravity(false);
-      dropped.body.immovable = true;
-    }
-
-    dropped.itemData    = item.clone();
-    dropped.justDropped = true;
-
-    if (!this.droppedItems) this.droppedItems = [];
-    this.droppedItems.push(dropped);
-
-    this.time.delayedCall(500, () => {
-      if (dropped?.active) {
-        dropped.justDropped = false;
-        console.log('Item ready for pickup:', item.nameEn);
-      }
-    });
-
-    // Proximity pickup checked in update via _checkDroppedItemPickup
+    dropped._logicalX   = logX
+    dropped._logicalY   = logY
+    dropped.itemData    = item.clone ? item.clone() : { ...item }
     dropped.justDropped = true
-    this.time.delayedCall(1500, () => { if (dropped?.active) dropped.justDropped = false })
+
+    if (!this.droppedItems) this.droppedItems = []
+    this.droppedItems.push(dropped)
+
+    this.time.delayedCall(2000, () => {
+      if (dropped?.active) dropped.justDropped = false
+    })
   }
 
   tryPickupItem(dropped, collider) {

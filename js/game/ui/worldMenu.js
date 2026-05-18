@@ -3,7 +3,8 @@ import InventoryGrid from './inventory/inventoryGrid.js';
 import ItemDetailPanel from './inventory/itemDetailPanel.js';
 
 export default class WorldMenu {
-  constructor(scene, { player }) {
+  constructor(scene, { player, onClose }) {
+    this.onClose = onClose
     this.scene = scene;
     this.player = player;
     this.isOpen = false;
@@ -153,23 +154,26 @@ export default class WorldMenu {
         break;
     }
   }
-throwItem(item, slotInfo) {
-  console.log(`Dropping ${item.nameEn}`);
-  
-  // Remove from inventory
-  this.player.inventory.removeItem(slotInfo.index);
-  
-  // Calculate drop position
-  const dropX = this.player.sprite.x;
-  const dropY = this.player.sprite.y + 32;
-  
-  // Use scene's spawn method
-  this.scene.spawnItemOnMap(item, dropX, dropY);
-  
-  // Refresh and close
-  this.refreshGridDisplay();
-  this.close();
-}
+  throwItem(item, slotInfo) {
+    if (slotInfo.isEquipSlot && item.equipSlot) {
+      // Unequip to inventory first, then remove from inventory
+      this.player.inventory.unequipItem(item.equipSlot)
+      // Find and remove the item we just unequipped
+      for (let i = 5; i < this.player.inventory.totalSlots; i++) {
+        const it = this.player.inventory.getItem(i)
+        if (it?.id === item.id) {
+          this.player.inventory.removeItem(i)
+          break
+        }
+      }
+    } else {
+      this.player.inventory.removeItem(slotInfo.index)
+    }
+    this.player.updateStatsFromEquipment()
+    this.scene.spawnItemOnMap(item)
+    this.refreshGridDisplay()
+    this.close()
+  }
   equipItem(item, slotInfo) {
     console.log('equipItem called - slotInfo:', slotInfo);
     
@@ -202,6 +206,7 @@ throwItem(item, slotInfo) {
   }
 
   unequipItem(item, slotInfo) {
+    console.log("[unequip] item:", item?.id, "equipSlot:", item?.equipSlot, "slotInfo:", slotInfo)
     const success = this.player.inventory.unequipItem(item.equipSlot);
     if (success) {
       // Special case: If unequipping a bow, clear the left hand placeholder
@@ -225,76 +230,6 @@ throwItem(item, slotInfo) {
     this.itemDetailPanel.hide();
   }
 
-  throwItem(item, slotInfo) {
-    console.log(`Dropped ${item.nameEn}`);
-    
-    // Remove from inventory
-    this.player.inventory.removeItem(slotInfo.index);
-    
-    // Spawn the item on the map near the player
-    this.spawnItemOnMap(item);
-    
-    // Refresh and close
-    this.refreshGridDisplay();
-    this.close();
-  }
-
-  spawnItemOnMap(item) {
-    // Get player position - drop slightly in front based on facing direction
-    const dropX = this.player.sprite.x;
-    const dropY = this.player.sprite.y + 32; // Slightly below player
-    
-    // Create the dropped item sprite
-    const droppedItem = this.scene.physics.add.sprite(dropX, dropY, item.spriteKey)
-      .setScale(1.0)
-      .setDepth(this.player.sprite.depth - 1); // Below player so they can walk over it
-    
-    // DEBUG: Check physics body
-    console.log('Dropped item body:', droppedItem.body);
-    console.log('Player body:', this.player.sprite.body);
-    
-    // Configure the body
-    if (droppedItem.body) {
-      droppedItem.body.setSize(32, 32);
-      droppedItem.body.setAllowGravity(false);
-      droppedItem.body.immovable = true;
-      console.log('Physics body configured successfully');
-    } else {
-      console.error('NO PHYSICS BODY CREATED!');
-    }
-    
-    // Store the full item data on the sprite for pickup
-    droppedItem.itemData = item.clone(); // Use clone to preserve all properties
-    
-    // Mark as just dropped to prevent immediate pickup
-    droppedItem.justDropped = true;
-    
-    // Clear the flag after a short delay
-    this.scene.time.delayedCall(500, () => {
-      if (droppedItem && droppedItem.active) {
-        droppedItem.justDropped = false;
-        console.log('Item ready for pickup');
-      }
-    });
-    
-    // Initialize dropped items array if needed
-    if (!this.scene.droppedItems) {
-      this.scene.droppedItems = [];
-    }
-    this.scene.droppedItems.push(droppedItem);
-    
-    // Set up pickup collision
-    const pickupCollider = this.scene.physics.add.overlap(
-      this.player.sprite,
-      droppedItem,
-      () => this.tryPickupItem(droppedItem, pickupCollider)
-    );
-    
-    // Store the collider reference so we can destroy it later
-    droppedItem.pickupCollider = pickupCollider;
-    
-    console.log(`Spawned ${item.nameEn} at ${dropX}, ${dropY}`);
-  }
 
   tryPickupItem(droppedItem, collider) {
     console.log('🎯 OVERLAP DETECTED!', 'justDropped:', droppedItem.justDropped);
@@ -374,6 +309,7 @@ throwItem(item, slotInfo) {
     this.scene.joystick?.showDirections();
     this.scene.joystick?.showRing();
     this.isOpen = false;
+    this.onClose?.();
   }
 
   destroy() {

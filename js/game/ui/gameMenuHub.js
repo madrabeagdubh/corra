@@ -255,6 +255,8 @@ export function createGameMenuHub({
     })
 
     function _open() {
+  console.log('[hub] _open called, stack:', new Error().stack.split('\n').slice(1,4).join(' | '))
+  console.log('[hub] _open called')
         open = true;
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
@@ -263,6 +265,8 @@ export function createGameMenuHub({
     }
 
   function _close() {
+  console.log('[hub] _close called, open was:', open)
+  console.log('[hub] _close called, open was:', open)
   open = false
   root.style.opacity = '0'
   _teardownCurrent(PANELS[curIdx].key)

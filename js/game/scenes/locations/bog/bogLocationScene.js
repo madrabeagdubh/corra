@@ -332,6 +332,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
       },
 
       onLongPress: () => {
+      if (Date.now() - (this._lastMenuClose ?? 0) < 400) return  // ignore long press right after menu close
         this._menuPreview.style.transition = 'opacity 0.2s ease'
         this._menuPreview.style.opacity = '0'
         this._menuHub?.open()
@@ -363,7 +364,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
   // ── Player UI -- needs player ---------------------------------------------
 
   _createPlayerUI() {
-    this.worldMenu       = new WorldMenu(this, { player: this.player })
+    this.worldMenu       = new WorldMenu(this, { player: this.player, onClose: () => { if (this._menuHub?.isOpen()) this._menuHub.close(); this._lastMenuClose = Date.now() } })
     this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
 
@@ -429,6 +430,7 @@ _onMoonTap() {
   _closeWorldMenuSilently() {
     if (!this.worldMenu) return
     this.worldMenu.close()
+    this._lastMenuClose = Date.now()
   }
 
   // ── Walk grid / FOV -------------------------------------------------------

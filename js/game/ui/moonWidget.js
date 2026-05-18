@@ -338,7 +338,6 @@ export function createMoonWidget(opts = {}) {
     function _cycleToPhase(cp)   { return cp <= 1 ? cp : 2 - cp }
 
     function _setPhaseInternal(v) {
-        // Persist to GameSettings so new widget starts at same phase
         rawPhase       = v
         const cyclePos = _rawToCyclePos(rawPhase)
         phase          = _cycleToPhase(cyclePos)
@@ -376,6 +375,8 @@ export function createMoonWidget(opts = {}) {
         resumeDrift()  { driftPaused = false; window._moonDriftPaused = false; lastFrameTime = null },
 
         destroy() {
+            // Save final phase so next widget starts here
+            if (typeof GameSettings !== 'undefined') GameSettings.setEnglishOpacity(phase)
             destroyed = true
             if (rafId)       { cancelAnimationFrame(rafId);       rafId       = null }
             if (_pulseRafId) { cancelAnimationFrame(_pulseRafId); _pulseRafId = null }

@@ -338,6 +338,7 @@ export function createMoonWidget(opts = {}) {
     function _cycleToPhase(cp)   { return cp <= 1 ? cp : 2 - cp }
 
     function _setPhaseInternal(v) {
+        // Persist to GameSettings so new widget starts at same phase
         rawPhase       = v
         const cyclePos = _rawToCyclePos(rawPhase)
         phase          = _cycleToPhase(cyclePos)
@@ -371,8 +372,8 @@ export function createMoonWidget(opts = {}) {
         setLongPressHandler(fn)        { longPressHandler = fn ?? null },
         setLongPressProgressHandler(fn){ longPressProgressHandler = fn ?? null },
 
-        pauseDrift()   { driftPaused = true },
-        resumeDrift()  { driftPaused = false; lastFrameTime = null },
+        pauseDrift()   { driftPaused = true; window._moonDriftPaused = true },
+        resumeDrift()  { driftPaused = false; window._moonDriftPaused = false; lastFrameTime = null },
 
         destroy() {
             destroyed = true

@@ -6,6 +6,7 @@ import { GameSettings } from '../../../settings/gameSettings.js'
 import WorldMenu from '../../../ui/worldMenu.js'
 import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
+import { transitionIn } from '../../../ui/sceneTransition.js'
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
 import FovSystem       from '../../../systems/fovSystem.js'
 import ItemSheetHelper from '../../../ui/inventory/itemSheetHelper.js'
@@ -271,6 +272,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     this.onEnter()
 
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
+    transitionIn()
     this._drawExitDebug()
   }
 
@@ -518,6 +520,7 @@ _onMoonTap() {
     const cam = this.cameras.main
     cam.centerOn(px, py)
     cam.fadeIn(180, 0, 0, 0)
+    import('../../../ui/sceneTransition.js').then(m => m.transitionIn(180))
     this.time.delayedCall(180, () => {
       cam.startFollow(this._camProxy, true, 0.1, 0.1)
     })
@@ -804,6 +807,7 @@ _onMoonTap() {
       onComplete: () => {
         this.player.isMoving = false
         this.cameras.main.fadeOut(180, 0, 0, 0)
+        import('../../../ui/sceneTransition.js').then(m => m.transitionOut(180))
         this.time.delayedCall(200, () => {
           this.scene.start(exitData.destination, {
             entryEdge:    exitData.entryPoint,

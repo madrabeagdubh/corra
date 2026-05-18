@@ -1,5 +1,6 @@
 // dawnCrossing.js  — v9
 // Call: initDawnCrossing(champion, sliderValue, onComplete)
+import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
 import { FONTS, SPACING, TYPE } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
@@ -283,10 +284,12 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         setTimeout(() => {
             cancelAnimationFrame(rafId);
             requestAnimationFrame(() => { veil.style.opacity = '1'; });
+            transitionOut(2800);
         }, 500);
         setTimeout(() => {
             container.remove();
             veil.remove();
+            transitionIn();
             const gc = document.getElementById('gameContainer');
             if (gc) {
                 gc.style.display  = '';

@@ -33,7 +33,7 @@ export default class ItemDetailPanel {
       .setScrollFactor(0)
       .setVisible(false);
 
-    this.bg = scene.add.rectangle(0, 0, width, height, 0x2a1810, 0.98)
+    this.bg = scene.add.rectangle(0, 0, width + 40, height + 200, 0x080f08, 1.0)
       .setStrokeStyle(3, 0x888888)
       .setDepth(3001)
       .setInteractive({ priorityID: 2000 });
@@ -151,12 +151,113 @@ export default class ItemDetailPanel {
         this.onAction?.(actionKey, this.currentItem, this.currentSlot);
       }
     });
-    this.buttonBar.container.y = (this.height / 2) - 50;
+    this.buttonBar.container.y = 99999;  // hidden -- DOM buttons used instead
     this.buttonBar.container.setDepth(3100);
     this.container.add(this.buttonBar.container);
   }
 
   /* ================= SHOW ================= */
+  _createDomButtons(actions, isEquipped) {
+    this._destroyDomButtons()
+    const labelMap = {
+      equip:   { ga: 'Feisteáil',   en: 'Equip'   },
+      unequip: { ga: 'Difheistigh', en: 'Unequip'  },
+      drop:    { ga: 'Scaoil',      en: 'Drop'     },
+      throw:   { ga: 'Caith',       en: 'Throw'    },
+      drink:   { ga: 'Ól',          en: 'Drink'    },
+    }
+    const finalActions = actions.map(a => (isEquipped && a === 'equip') ? 'unequip' : a)
+    if (!finalActions.length) return
+
+    const moonEl   = document.getElementById('dpad-moon-hub')
+    const moonRect = moonEl?.getBoundingClientRect()
+    const moonCX   = moonRect ? moonRect.left + moonRect.width  / 2 : window.innerWidth  / 2
+    const moonCY   = moonRect ? moonRect.top  + moonRect.height / 2 : window.innerHeight - 80
+    const moonR    = moonRect ? moonRect.width / 2 + 12 : 62  // +12 gap from moon edge
+    const btnW     = Math.min(110, moonCX - moonR - 8)
+    const btnH     = 44
+    const gap      = 6
+
+    // Split: left column and right column
+    const mid   = Math.ceil(finalActions.length / 2)
+    const left  = finalActions.slice(0, mid)
+    const right = finalActions.slice(mid)
+
+    // Left column: right-aligned to moon left edge, centred vertically on moon
+    const totalLeftH  = left.length  * btnH + (left.length  - 1) * gap
+    const totalRightH = right.length * btnH + (right.length - 1) * gap
+    const leftStartY  = moonCY - totalLeftH  / 2
+    const rightStartY = moonCY - totalRightH / 2
+    const leftX       = moonCX - moonR - btnW
+    const rightX      = moonCX + moonR
+
+    left.forEach((actionKey, i) => {
+      const labels = labelMap[actionKey] || { ga: actionKey, en: actionKey }
+      this._makeDomBtn(labels, actionKey, leftX, leftStartY + i * (btnH + gap), btnW, btnH)
+    })
+    right.forEach((actionKey, i) => {
+      const labels = labelMap[actionKey] || { ga: actionKey, en: actionKey }
+      this._makeDomBtn(labels, actionKey, rightX, rightStartY + i * (btnH + gap), btnW, btnH)
+    })
+  }
+
+  _makeDomBtn(labels, actionKey, x, y, w, h) {
+    const btn = document.createElement('button')
+    btn.dataset.ga = labels.ga
+    btn.dataset.en = labels.en
+
+    const op = typeof GameSettings !== 'undefined' ? (GameSettings.englishOpacity ?? 0.5) : 0.5
+    const isEn = op >= 0.5
+    const font = isEn
+      ? '"Courier New", monospace'
+      : 'Urchlo, serif'
+    btn.textContent = isEn ? labels.en : labels.ga
+
+    btn.style.cssText = [
+      'position:fixed;',
+      `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;`,
+      `width:${w.toFixed(1)}px;height:${h}px;`,
+      'background:rgba(30,15,5,0.92);',
+      'border:1.5px solid rgba(212,175,55,0.8);',
+      'border-radius:6px;',
+      'color:#d4af37;',
+      `font-size:18px;font-family:${font};`,
+      'cursor:pointer;z-index:4000;',
+      'display:flex;align-items:center;justify-content:center;',
+      'padding:2px 6px;text-align:center;',
+      'touch-action:none;',
+    ].join('')
+
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      this._destroyDomButtons()
+      this.onAction?.(actionKey, this._currentItem, this._currentSlot)
+    })
+
+    // Live language update
+    btn._langHandler = () => {
+      const newOp = typeof GameSettings !== 'undefined' ? (GameSettings.englishOpacity ?? 0.5) : 0.5
+      const newEn = newOp >= 0.5
+      btn.textContent  = newEn ? btn.dataset.en : btn.dataset.ga
+      btn.style.fontFamily = newEn ? '"Courier New", monospace' : 'Urchlo, serif'
+    }
+    window.addEventListener('englishOpacityChange', btn._langHandler)
+
+    document.body.appendChild(btn)
+    this._domBtns = this._domBtns || []
+    this._domBtns.push(btn)
+  }
+
+  _destroyDomButtons() {
+    if (this._domBtns) {
+      this._domBtns.forEach(b => {
+        if (b._langHandler) window.removeEventListener('englishOpacityChange', b._langHandler)
+        b.parentNode?.removeChild(b)
+      })
+      this._domBtns = []
+    }
+  }
+
   show(item, slotInfo) {
     if (!item) return this.hide();
 
@@ -213,6 +314,9 @@ export default class ItemDetailPanel {
     }
 
     this.buttonBar.refresh(item.actions || [], slotInfo.isEquipSlot);
+    this._currentItem = item;
+    this._currentSlot = slotInfo;
+    this._createDomButtons(item.actions || [], slotInfo.isEquipSlot);
     this.buttonBar.updatePositions();
 
     this.scrollY  = 0;
@@ -271,6 +375,7 @@ export default class ItemDetailPanel {
   /* ================= HIDE ================= */
   hide() {
     this.blocker.setVisible(false);
+    this._destroyDomButtons();
     this.container.setVisible(false);
     this.hitArea.setVisible(false);
     this.buttonBar.hide();

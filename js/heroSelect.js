@@ -73,7 +73,12 @@ async function _doFinalize() {
 export function restoreHeroSelectTap() {
     if (!moonWidgetInstance) return;
     moonWidgetInstance.setTapHandler(() => {
-        // If a stat popup is open, close it first
+        const popup = document.getElementById('statPopup');
+        if (popup) { popup.click(); return; }
+        cancelSwipeNudge();
+        _doFinalize();
+    });
+    moonWidgetInstance.setLongPressHandler(() => {
         const popup = document.getElementById('statPopup');
         if (popup) { popup.click(); return; }
         cancelSwipeNudge();
@@ -411,7 +416,7 @@ function initMainHeroSelect() {
         }
         .champion-scroll {
             flex:1;display:flex;overflow-x:auto;
-            scroll-snap-type:x proximity;
+            scroll-snap-type:x mandatory;
             scrollbar-width:none;-ms-overflow-style:none;
             overflow-y:visible !important;
             -webkit-overflow-scrolling:touch;
@@ -661,7 +666,7 @@ function cancelSwipeNudge() {
     swipeNudgeCancelled = true;
     swipeNudgePanning   = false;
     if (swipeNudgeTimer) { clearTimeout(swipeNudgeTimer); swipeNudgeTimer = null; }
-    if (scrollContainer) scrollContainer.style.scrollSnapType = 'x proximity';
+    if (scrollContainer) scrollContainer.style.scrollSnapType = 'x mandatory';
 }
 
 function runSwipeNudge() {
@@ -693,14 +698,14 @@ function runSwipeNudge() {
         const baseX = scrollContainer.scrollLeft;
 
         animatePan(baseX, baseX - PAN_PX, EASE_MS, () => {
-            if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x proximity'; return; }
+            if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x mandatory'; return; }
             setTimeout(() => {
                 animatePan(baseX - PAN_PX, baseX + PAN_PX, EASE_MS * 2, () => {
-                    if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x proximity'; return; }
+                    if (swipeNudgeCancelled) { swipeNudgePanning = false; scrollContainer.style.scrollSnapType = 'x mandatory'; return; }
                     setTimeout(() => {
                         animatePan(baseX + PAN_PX, baseX, EASE_MS, () => {
                             swipeNudgePanning = false;
-                            scrollContainer.style.scrollSnapType = 'x proximity';
+                            scrollContainer.style.scrollSnapType = 'x mandatory';
                             if (!swipeNudgeCancelled) swipeNudgeTimer = setTimeout(runCycle, REPEAT_MS);
                         });
                     }, HOLD_MS);
@@ -715,12 +720,21 @@ function runSwipeNudge() {
 // ── Swipe / scroll tracking ───────────────────────────────────────────────────
 function initSwipe(scrollContainer, champCount) {
     let debounceTimer = null;
+    let snapRestoreTimer = null;
+
+    // Start with no snap — let momentum carry freely
+    scrollContainer.style.scrollSnapType = 'none';
 
     scrollContainer.addEventListener('scroll', () => {
         if (!swipeNudgePanning) cancelSwipeNudge();
         clearTimeout(debounceTimer);
+        clearTimeout(snapRestoreTimer);
+
+        // While scrolling: no snap, free momentum
+        scrollContainer.style.scrollSnapType = 'none';
 
         debounceTimer = setTimeout(() => {
+            // Scrolling has settled — snap nearest hero to center
             const w        = window.innerWidth;
             const rawIndex = Math.round(scrollContainer.scrollLeft / w);
             const actual   = rawIndex % champCount;
@@ -737,16 +751,20 @@ function initSwipe(scrollContainer, champCount) {
                 }
             }
 
+            // Handle infinite loop wraparound silently
             if (scrollContainer.scrollLeft < w * 0.5) {
-                scrollContainer.style.scrollSnapType = 'none';
                 scrollContainer.scrollLeft += champCount * w;
-                requestAnimationFrame(() => { scrollContainer.style.scrollSnapType = 'x proximity'; });
             } else if (scrollContainer.scrollLeft > (champCount * 2 - 0.5) * w) {
-                scrollContainer.style.scrollSnapType = 'none';
                 scrollContainer.scrollLeft -= champCount * w;
-                requestAnimationFrame(() => { scrollContainer.style.scrollSnapType = 'x proximity'; });
             }
-        }, 100);
+
+            // Snap to nearest hero, then release snap again
+            scrollContainer.style.scrollSnapType = 'x mandatory';
+            snapRestoreTimer = setTimeout(() => {
+                scrollContainer.style.scrollSnapType = 'none';
+            }, 400);
+
+        }, 120);
     });
 }
 

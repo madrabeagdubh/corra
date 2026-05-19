@@ -381,7 +381,7 @@ static HORIZON_Y_FRAC    = 0.28
   _perspCamRow() {
     const c = this.scene.cameras.main, zoom = this._zoom()
     return (c.scrollY + this._sh / (2 * zoom)) / this.tileDisplaySize
-         + PerspectiveGroundRenderer.CAMERA_ROW_OFFSET
+         + (this._cameraRowOffset ?? PerspectiveGroundRenderer.CAMERA_ROW_OFFSET)
   }
 
   _perspCamCol() {

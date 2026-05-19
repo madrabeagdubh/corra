@@ -57,7 +57,7 @@ export default class BowMechanics {
       if (y < H * 0.40) return
 
       this._activePointerId = e.pointerId
-      this._startAiming({ x, y, pointerId: e.pointerId })
+      if (!this.disabled) this._startAiming({ x, y, pointerId: e.pointerId })
     }
 
     this._domPointerMove = (e) => {

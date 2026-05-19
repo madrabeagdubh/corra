@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { ScrollingTextPlayer } from '../../ui/scrollingTextPlayer.js';
 import { wordPairs } from '/data/wordPairs';
 import { TYPE, COLORS, FONTS } from '../../systems/gameTypography.js';
 
@@ -87,7 +88,7 @@ export default class AdvancedTraining {
 
     // Player at col=4, row=18. Push targets to row 3 (dy=-15) — far field,
     // near horizon. Separated by 4 tiles either side of centre.
-    const SPAWN_LX = 4 * ts + ts / 2;
+    const SPAWN_LX = 12 * ts + ts / 2;
     const SPAWN_LY = 18 * ts + ts / 2;
 
     const darkLogX  = SPAWN_LX - 4 * ts;
@@ -264,6 +265,11 @@ export default class AdvancedTraining {
   complete() {
     this.isActive = false;
     this._clearWordPrompt();
+    // Hide targets
+    if (this.darkTarget)  this.darkTarget.setVisible(false)
+    if (this.lightTarget) this.lightTarget.setVisible(false)
+    // Disable bow
+    if (this.scene.bowMechanics) this.scene.bowMechanics.disabled = true
     this.createScathachForKata();
   }
 
@@ -271,13 +277,29 @@ export default class AdvancedTraining {
 
   createScathachForKata() {
     this.dragonKataComplete = false;
-    const sw = this.scene.scale.width;
-    const sh = this.scene.scale.height;
-    const targetX = sw * 0.5;
-    const targetY = sh * 0.45;
+    const sw  = this.scene.scale.width;
+    const sh  = this.scene.scale.height;
+    const pgr = this.scene.perspectiveGround
+    const ts  = this.scene.tileSize ?? 48
 
-    this.scene.scathach = this.scene.add.image(sw + 50, targetY, 'scathach');
-    this.scene.scathach.setScale(0.8).setDepth(20);
+    // Place Scáthach at far field -- same col as player, row 3
+    const SPAWN_LX = 12 * ts + ts / 2
+    const SPAWN_LY = 28 * ts + ts / 2
+    const scathLogX = SPAWN_LX
+    const scathLogY = SPAWN_LY - 15 * ts
+    const proj = pgr?._projectLogical(scathLogX, scathLogY)
+    const tileRow = scathLogY / ts - 0.5
+    const scaledW = pgr?._scaleAtRow(tileRow + 1) ?? 20
+    const scathScale = Math.min((scaledW / ts) * 5.0, 6.0)
+
+    const targetX = proj?.screenX ?? sw * 0.5
+    const targetY = proj?.screenY ?? sh * 0.45
+
+    const camScrollX2 = this.scene.cameras.main.scrollX
+    const camScrollY2 = this.scene.cameras.main.scrollY
+    const worldTargetY = targetY + camScrollY2
+    this.scene.scathach = this.scene.add.image(sw + camScrollX2 + 50, worldTargetY, 'scathach');
+    this.scene.scathach.setScale(scathScale).setDepth(20);
 
     this.spear = this.scene.add.container(this.scene.scathach.x - 1, this.scene.scathach.y + 20);
     this.spear.setDepth(19);
@@ -286,110 +308,112 @@ export default class AdvancedTraining {
     sg.fillStyle(0xcd7f32, 1); sg.fillTriangle(-4, -60, 4, -60, 0, -75);
     this.spear.add(sg);
 
-    this.hobbleToCenter(targetX, targetY);
+    const worldTargetX = targetX + this.scene.cameras.main.scrollX
+    this.hobbleToCenter(worldTargetX);
   }
 
-  hobbleToCenter(targetX, targetY) {
-    const stepDistance = 18;
-    const numSteps = Math.floor((this.scene.scathach.x - targetX) / stepDistance);
-    let currentStep = 0;
-
-    const takeStep = () => {
-      if (currentStep >= numSteps) {
-        this.scene.time.delayedCall(500, () => { this.revealSpear1(); });
-        return;
-      }
+  hobbleToCenter(targetX) {
+    const duration = 3500
+    if (this.spear) {
       this.scene.tweens.add({
-        targets: this.spear, x: this.spear.x - stepDistance, angle: 8,
-        duration: 200, ease: 'Quad.easeOut',
-        onComplete: () => {
-          this.scene.tweens.add({
-            targets: this.scene.scathach,
-            x: this.scene.scathach.x - stepDistance,
-            y: this.scene.scathach.y + Math.sin(currentStep) * 2,
-            duration: 300, ease: 'Sine.easeInOut',
-            onComplete: () => {
-              this.scene.tweens.add({ targets: this.spear, angle: 0, duration: 100 });
-              currentStep++;
-              this.scene.time.delayedCall(150, takeStep);
-            }
-          });
-        }
-      });
-    };
-    takeStep();
+        targets: this.spear, x: targetX,
+        duration, ease: 'Sine.easeInOut'
+      })
+    }
+    this.scene.tweens.add({
+      targets: [this.scene.scathach, this.spear], x: targetX,
+      duration, ease: 'Sine.easeInOut',
+    });
+    setTimeout(() => { this.revealSpear1(); }, duration + 500);
   }
 
-  // Show story lines for kata sequences.
-  // Uses Phaser text directly — no ScrollingTextPlayer, no polling loop,
-  // no narrativeInProgress dependency. Each line shows for a fixed duration
-  // then fades, then the next fires. onComplete fires after all lines done.
   _tell(lines, onComplete) {
-    this.scene.narrativeInProgress = false;
+    // Use a dedicated storyPlayer channel for advancedTraining
+    // so it doesn't conflict with bowTutorial's storyPlayer
+    if (this._tellPlayer) { this._tellPlayer.destroy(); this._tellPlayer = null }
 
-    const sw = this.scene.scale.width;
-    const sh = this.scene.scale.height;
-    const moonPhase = this.scene._moonWidget?.getPhase?.() ?? 0.7;
 
-    let idx = 0;
 
-    const showLine = () => {
-      if (idx >= lines.length) {
-        this.scene.narrativeInProgress = false;
-        if (onComplete) onComplete();
-        return;
-      }
+    const canvas    = this.scene.sys.game.canvas
+    const container = canvas.parentElement || document.body
+    const H         = window.innerHeight
 
-      const line = lines[idx++];
+    this._tellPlayer = new ScrollingTextPlayer({
+      lines: lines.map(l => ({ ga: l.ga, en: l.en, speaker: l.speaker || 'queen' })),
+      getMoonPhase: () => this.scene._moonWidget?.getPhase?.() ?? 0.7,
+      onComplete: () => { this._tellPlayer = null; if (onComplete) onComplete() },
+      container,
+    })
 
-      // Irish text
-      const gaText = this.scene.add.text(sw / 2, sh * 0.22, line.ga, {
-        fontSize:        '25px',
-        fontFamily:      'Urchlo, serif',
-        color:           '#d4af37',
-        stroke:          '#000000',
-        strokeThickness: 4,
-        align:           'center',
-        wordWrap:        { width: sw * 0.82 },
-      }).setOrigin(0.5, 0).setDepth(600).setScrollFactor(0).setAlpha(0);
+    this._tellPlayer.start()
 
-      // English text
-      const enText = this.scene.add.text(sw / 2, sh * 0.22 + gaText.height + 10, line.en, {
-        fontSize:        '20px',
-        fontFamily:      '"Courier New", monospace',
-        color:           '#a0c8a0',
-        stroke:          '#000000',
-        strokeThickness: 3,
-        align:           'center',
-        wordWrap:        { width: sw * 0.82 },
-      }).setOrigin(0.5, 0).setDepth(600).setScrollFactor(0).setAlpha(0);
+    const vel = 50 / 60
+    this._tellPlayer._naturalVel     = vel
+    this._tellPlayer._velocity       = vel
+    this._tellPlayer._ceilingY       = 999999
+    this._tellPlayer._onReachCeiling = function() {}
+    this._tellPlayer._onComplete     = function() {}
+    this._tellPlayer._scrollY        = H * 0.5
 
-      // Fade in
-      this.scene.tweens.add({
-        targets: [gaText, enText], alpha: 1,
-        duration: 600, ease: 'Power2',
-        onComplete: () => {
-          enText.setAlpha(moonPhase);
-          // Hold, then fade out and show next
-          this.scene.time.delayedCall(3200, () => {
-            this.scene.tweens.add({
-              targets: [gaText, enText], alpha: 0,
-              duration: 500, ease: 'Power2',
-              onComplete: () => {
-                gaText.destroy();
-                enText.destroy();
-                showLine();
-              }
-            });
-          });
+    if (this._tellPlayer._hitZone) {
+      const hz = this._tellPlayer._hitZone
+      hz.style.top    = '0px'
+      hz.style.height = (H * 0.5) + 'px'
+      hz.style.bottom = ''
+      hz.style.pointerEvents = 'all'
+    }
+    if (this._tellPlayer._overlay) {
+      this._tellPlayer._overlay.style.pointerEvents = 'none'
+    }
+
+    const MID_PX  = H * 0.5
+    const CEIL_PX = 8
+    const FADE_PX = 80
+    this._tellPlayer._render = function() {
+      if (!this._overlay) return
+      const mp = this._getMoonPhase()
+      for (const entry of this._lineEls) {
+        const y      = this._screenY(entry)
+        const bottom = y + entry.wrapper.offsetHeight
+        entry.wrapper.style.top = y + 'px'
+        if (bottom < 0 || y > MID_PX + 40) {
+          entry.gaEl.style.opacity = '0'
+          if (entry.enEl) entry.enEl.style.opacity = '0'
+          continue
         }
-      });
-    };
+        let alpha = 1
+        if (y < CEIL_PX + FADE_PX) alpha = Math.max(0, (y - CEIL_PX) / FADE_PX)
+        if (bottom > MID_PX - FADE_PX) alpha = Math.min(alpha, Math.max(0, (MID_PX - y) / FADE_PX))
+        entry.gaEl.style.opacity = String(alpha)
+        if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp)
+      }
+    }
 
-    showLine();
+    // Poll for completion
+    const player = this._tellPlayer
+    const poll = setInterval(() => {
+      if (!player || !player._lineEls) { clearInterval(poll); return }
+      const last = player._lineEls[player._lineEls.length - 1]
+      if (!last) return
+      const lastY = player._screenY(last)
+      if (lastY < 0) {
+        clearInterval(poll)
+        player._running = false
+        if (player._overlay) {
+          player._overlay.style.transition = 'opacity 0.8s ease'
+          player._overlay.style.opacity = '0'
+        }
+        setTimeout(() => {
+          if (player.destroy) player.destroy()
+          if (this._tellPlayer === player) this._tellPlayer = null
+          if (onComplete) onComplete()
+        }, 900)
+      }
+    }, 150)
   }
 
   revealSpear1() {
+    console.log('[AT] revealSpear1')
     this._tell([
       { ga: 'Fíor nó bréagach. Bás nó saol. Sin a nochtan an saighead. Sin uile',
         en: 'True or false. Death or life. So reveals the arrow. Nothing more.', speaker: 'queen' }
@@ -397,6 +421,7 @@ export default class AdvancedTraining {
   }
 
   spearKata1() {
+    console.log('[AT] spearKata1')
     const startX = this.scene.scathach.x;
     const startY = this.scene.scathach.y;
     this.scene.scathach.setFlipX(true);
@@ -418,6 +443,7 @@ export default class AdvancedTraining {
   }
 
   revealSpear2() {
+    console.log('[AT] revealSpear2')
     this._tell([
       { ga: '...ní dheiltar dán an ga.', en: '...spearfate is irreducable.', speaker: 'queen' }
     ], () => { this.revealSpear3(); });
@@ -675,13 +701,17 @@ export default class AdvancedTraining {
   showDragonSilhouette(x, y) {
     const sw = this.scene.scale.width;
     const sh = this.scene.scale.height;
-    const dark = this.scene.add.rectangle(sw/2, sh/2, sw, sh, 0x000000, 0).setDepth(420);
+    const dsx = this.scene.cameras.main.scrollX
+    const dsy = this.scene.cameras.main.scrollY
+    const dark = this.scene.add.rectangle(sw/2 + dsx, sh/2 + dsy, sw, sh, 0x000000, 0).setDepth(420);
     this.scene.tweens.add({ targets: dark, alpha: 0.75, duration: 800 });
 
     const ds = (sw * 1.1) / 500;
     let dragon;
     if (this.scene.textures.exists('dragon')) {
-      dragon = this.scene.add.sprite(sw + 400, -300, 'dragon')
+      const dScrollX = this.scene.cameras.main.scrollX
+      const dScrollY = this.scene.cameras.main.scrollY
+      dragon = this.scene.add.sprite(sw + dScrollX + 400, dScrollY - 300, 'dragon')
         .setScale(ds).setOrigin(0.5, 0).setDepth(430).setAngle(-45);
       dragon.play('dragon_idle');
     } else {
@@ -754,6 +784,7 @@ export default class AdvancedTraining {
   }
 
   grantMagicArrows() {
+    if (this.scene.bowMechanics) this.scene.bowMechanics.disabled = false
     this.scene.registry.set('magicArrows', this.bullseyeHits);
     if (this.bullseyeHits > 0) {
       this.scene._flashLine(

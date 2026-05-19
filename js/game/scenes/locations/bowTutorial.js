@@ -221,7 +221,7 @@ export default class BowTutorial extends Phaser.Scene {
         this.tileSize = 48;
 
         // Tall narrow map — 14 cols, 50 rows gives a deep field toward horizon
-        const MW = 14, MH = 50, BOG = 733;
+        const MW = 28, MH = 90, BOG = 733;
         const layer0 = Array.from({ length: MH }, () => Array(MW).fill(BOG));
         this.mapData = {
             width: MW, height: MH,
@@ -229,8 +229,8 @@ export default class BowTutorial extends Phaser.Scene {
             tiles:  layer0,
         };
 
-        const PLAYER_ROW = 18;
-        const playerX = 4 * this.tileSize + this.tileSize / 2;
+        const PLAYER_ROW = 48;
+        const playerX = 12 * this.tileSize + this.tileSize / 2;
         const playerY = PLAYER_ROW * this.tileSize + this.tileSize / 2;
 
         try {
@@ -244,6 +244,7 @@ export default class BowTutorial extends Phaser.Scene {
             return;
         }
         this.player.canMove = false;
+        this.cameras.main.centerOn(playerX, playerY);
 
         // Auto-equip bow for tutorial — player arrives with bow in inventory
         const bow = this.player.inventory.getItem(5);
@@ -261,6 +262,7 @@ export default class BowTutorial extends Phaser.Scene {
         const container = document.getElementById('gameContainer');
 if (container) container.style.background = '#b5956a';
         this.perspectiveGround.setPlayerScale(2.0, 1.0);
+        this.perspectiveGround._cameraRowOffset = 8.0;  // player lower on screen
         this.perspectiveGround.setLighting({
             darkness:     0.0,
             radius:       0.8,
@@ -268,6 +270,7 @@ if (container) container.style.background = '#b5956a';
         });
 
         this.perspectiveGround.setMood('bog_threshold');
+
 
         this.time.delayedCall(400, () => {
             if (this.perspectiveGround) {
@@ -279,7 +282,7 @@ if (container) container.style.background = '#b5956a';
         this.itemSheet     = new ItemSheetHelper(this);
         this.creatureSheet = new CreatureSheetHelper(this);
         this.bowMechanics  = new BowMechanics(this, this.player)
-        this.bowMechanics.maxDistance = 1200
+        this.bowMechanics.maxDistance = 1800
         this.bowMechanics.bowOriginOffsetFrac = -0.3;
         this.textPanel     = new TextPanel(this);
         this.storyPlayer   = null;
@@ -816,8 +819,8 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
             { dx: -1, dy: -17, axis: 'x' },
         ];
 
-        const SPAWN_LX = 4 * 48 + 24;
-        const SPAWN_LY = 18 * 48 + 24;
+        const SPAWN_LX = 12 * 48 + 24;
+        const SPAWN_LY = 48 * 48 + 24;  // fixed, independent of PLAYER_ROW
 
         const pos      = positions[this.currentTargetIndex];
         const logicalX = SPAWN_LX + pos.dx * 48;
@@ -840,16 +843,17 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         const canvas = this.creatureSheet?.getCanvas(gid);
         let target;
 
-        const targetDepth = Math.round(tileRow + 4);
+        const targetRow   = logicalY / 48 - 0.5;
+        const targetDepth = 500
 
         if (canvas) {
             const texKey = `creature_${gid}`;
             if (!this.textures.exists(texKey)) this.textures.addCanvas(texKey, canvas);
             target = this.add.image(screenX, buriedY, texKey)
-                .setDepth(targetDepth).setScale(scale).setOrigin(0.5, 1);
+                .setDepth(targetDepth).setScale(scale).setOrigin(0.5, 1).setScrollFactor(0);
         } else {
             target = this.add.circle(screenX, buriedY, 22, 0xcc2200, 0.9)
-                .setStrokeStyle(2, 0xffffff).setDepth(targetDepth);
+                .setStrokeStyle(2, 0xffffff).setDepth(targetDepth).setScrollFactor(0);
         }
 
         const renderedHalfW = (scaledW * 1.5) * 0.55;
@@ -862,8 +866,6 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         target._hitRadius     = renderedHalfW;
         target.setData('hit', false);
         this.target = target;
-
-        const targetRow   = logicalY / 48 - 0.5;
         const depthFactor = 1 - Math.max(0, Math.min(1, (targetRow - 2) / 16));
 
         const xRange = Math.round(60 + depthFactor * 120);
@@ -1138,50 +1140,21 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         const screenWidth  = this.scale.width;
         const screenHeight = this.scale.height;
 
-        const scathachX = screenWidth  * 0.82;
-        const scathachY = screenHeight * 0.62;
+        const scrollX = this.cameras.main.scrollX
+        const scrollY = this.cameras.main.scrollY
+        const scathachX = screenWidth  * 0.75 + scrollX;
+        const scathachY = screenHeight * 0.55 + scrollY;
 
         this.wind = { x: -15, y: 5 };
 
         this.scathach = this.add.image(scathachX, scathachY, 'scathach');
-        this.scathach.setScale(1.3);
-        this.scathach.setDepth(50);
+        this.scathach.setScale(2.6).setDepth(50);
 
         this.scathachHitbox = this.add.circle(scathachX, scathachY, 55, 0xff0000, 0);
         this.scathachHitbox.setData('isScathach', true);
         this.scathachHitbox.setDepth(19);
 
-        this.cape = this.add.image(scathachX - 18, scathachY - 18, 'cape');
-        this.cape.setOrigin(0, 0);
-        this.cape.setDepth(49);
-
-        this.capeTime = 0;
-
-        this.capeUpdateCallback = (time, delta) => {
-            if (!this.cape) return;
-            this.capeTime += delta * 0.001;
-            const windStrength = Phaser.Math.Clamp(Math.abs(this.wind.x) / 15, 0.4, 1);
-            this.cape.rotation = -0.12 * windStrength + Math.sin(this.capeTime * 1.1) * 0.05;
-            this.cape.scaleX   = 1 + Math.sin(this.capeTime * 0.9) * 0.1;
-            this.cape.scaleY   = 1 + Math.sin(this.capeTime * 1.3 + 1) * 0.04;
-        };
-        this.events.on('update', this.capeUpdateCallback);
-
-        this.time.addEvent({
-            delay:    5000,
-            loop:     true,
-            callback: () => {
-                if (!this.cape) return;
-                this.tweens.add({
-                    targets:  this.cape,
-                    scaleX:   1.25,
-                    rotation: -0.2,
-                    duration: 900,
-                    yoyo:     true,
-                    ease:     'Sine.easeInOut',
-                });
-            },
-        });
+        // Cape removed -- new Scáthach graphic
     }
 }
 

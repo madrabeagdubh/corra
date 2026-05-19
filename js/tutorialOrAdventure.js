@@ -189,34 +189,36 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         max-width:800px;width:100%;
         opacity:0;transition:opacity 0.5s ease;
         pointer-events:none;
-    `;
-
-    const championCanvas = document.createElement('canvas');
-    championCanvas.className = 'tutorial-champion-canvas';
-    championCanvas.style.cssText = `
-        display:block !important;
-        max-width:85%;max-height:25vh;
-        object-fit:contain;
-        image-rendering:pixelated;
-        image-rendering:-moz-crisp-edges;
-        image-rendering:crisp-edges;
-        filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5));
-        margin-bottom:20px;
+        min-height:2.7rem;
     `;
 
     const responseEnglish = document.createElement('div');
     responseEnglish.textContent = 'Who, if not I.';
     responseEnglish.style.cssText = `
         font-family:${FONTS.english};
-        font-size:1.7rem;color:${COLORS.english};
+        font-size:1.4rem;color:${COLORS.english};
         opacity:0;transition:opacity 0.3s ease;line-height:1.5;
         pointer-events:none;
         text-align:center;max-width:800px;width:100%;
-        max-height:0;overflow:hidden;
+        min-height:2.1rem;
     `;
 
     textContainer.appendChild(responseIrish);
     textContainer.appendChild(responseEnglish);
+
+    const championCanvas = document.createElement('canvas');
+    championCanvas.className = 'tutorial-champion-canvas';
+    championCanvas.style.cssText = `
+        display:block !important;
+        max-width:75%;max-height:20vh;
+        object-fit:contain;
+        image-rendering:pixelated;
+        image-rendering:-moz-crisp-edges;
+        image-rendering:crisp-edges;
+        filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+        margin-bottom:0;
+    `;
+
     championHolder.appendChild(championCanvas);
 
     (async function loadSprite() {
@@ -267,7 +269,6 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         responseEnglish.style.pointerEvents = 'auto';
         responseIrish.style.opacity          = '1';
         _responseRevealed = true;
-        responseEnglish.style.maxHeight = '10rem';
         responseEnglish.style.opacity   = String(GameSettings.englishOpacity);
         bottomSection.style.opacity       = '0';
         bottomSection.style.pointerEvents = 'none';
@@ -377,7 +378,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         },
     });
 
-    moonWidget.setTapHandler(async () => {
+    const _goBack = async () => {
         try {
             const mod = await import('./heroSelect.js');
             if (mod.muteSecondInstrument) await mod.muteSecondInstrument();
@@ -387,10 +388,12 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
             if (hsc) { hsc.style.opacity = '1'; hsc.style.pointerEvents = 'auto'; }
             if (mod.showHeroSelect) mod.showHeroSelect();
         } catch(e) {
-            console.error('[TutorialOrAdventure] Back (moon tap) error:', e);
+            console.error('[TutorialOrAdventure] Back error:', e);
             cleanup();
         }
-    });
+    };
+    moonWidget.setTapHandler(_goBack);
+    moonWidget.setLongPressHandler(_goBack);
 
     function _applyOpacity(opacity) {
         if (_responseRevealed) responseEnglish.style.opacity = String(opacity);

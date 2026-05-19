@@ -338,7 +338,7 @@ export async function showCharacterModal(champion) {
         bioEnElement.id = 'bioEnText';
         bioEnElement.style.cssText = `
             font-family:${FONTS.english};
-            font-size:clamp(1.1rem,3.5vw,1.5rem);
+            font-size:${TYPE.bodyEn.size};
             color:${COLORS.english};line-height:${SPACING.englishLineHeight};
             margin:0;opacity:0;transition:opacity 0.8s ease;
         `;

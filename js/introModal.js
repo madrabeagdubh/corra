@@ -604,14 +604,7 @@ if (wrapper) {
         });
         skipBtn.el.style.width = '100%';
 
-        const backBtn = createDomButton({
-            ga: 'Síar', en: 'Back', opacity: this.moonPhase,
-            onClick: () => { this._closeSkipMenu(); },
-        });
-        backBtn.el.style.width = '100%';
-
         card.appendChild(skipBtn.el);
-        card.appendChild(backBtn.el);
 
         this._moonWidget.setTapHandler(() => { this._closeSkipMenu(); });
 

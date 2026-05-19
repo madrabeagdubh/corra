@@ -722,7 +722,7 @@ export default class AdvancedTraining {
 
     this.scene.cameras.main.shake(400, 0.005);
     this.scene.tweens.add({
-      targets: dragon, x: sw * 0.55, y: sh * 0.08, duration: 2800, ease: 'Sine.easeIn',
+      targets: dragon, x: sw * 0.55 + dsx, y: sh * 0.08 + dsy, duration: 2800, ease: 'Sine.easeIn',
       onComplete: () => {
         if (dragon.play) dragon.play('dragon_roar');
         this.scene.cameras.main.shake(1400, 0.02);
@@ -733,7 +733,7 @@ export default class AdvancedTraining {
           if (dragon.play) dragon.play('dragon_idle');
           this.scene.cameras.main.shake(400, 0.01);
           this.scene.tweens.add({
-            targets: dragon, x: -sw * 0.8, y: -400, duration: 2400, ease: 'Sine.easeOut',
+            targets: dragon, x: -sw * 0.8 + dsx, y: dsy - 400, duration: 2400, ease: 'Sine.easeOut',
             onComplete: () => {
               dragon.destroy();
               this.scene.tweens.add({ targets: dark, alpha: 0, duration: 1600, onComplete: () => dark.destroy() });

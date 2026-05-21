@@ -8,4 +8,5 @@ export default class BogC2 extends BogLocationScene {
   getWisps()       { return [] }
   getMusicTrack()  { return null }
   getSkyImage()    { return '/assets/skies/bog_threshold_sky.png' }
+  getSkyPosition() { return '58% 50%' }
 }

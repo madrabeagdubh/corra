@@ -7,5 +7,6 @@ export default class BogC3 extends BogLocationScene {
   getPlayerLight() { return { color: 0xcceeee, intensity: 1.7, radius: 300 } }
   getWisps()       { return [] }
   getMusicTrack()  { return null }
-  getSkyImage()    { return '/assets/skies/river_sky.png' }
+  getSkyImage()    { return '/assets/skies/bog_threshold_sky.png' }
+  getSkyPosition() { return '58% 50%' }
 }

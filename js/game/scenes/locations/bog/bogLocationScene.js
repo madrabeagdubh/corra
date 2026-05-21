@@ -43,6 +43,7 @@ export default class BogLocationScene extends BaseLocationScene {
   getExtraUnwalkableGIDs() { return new Set() }
   onEnter()                {}
   getSkyImage()            { return '/assets/skies/bog_threshold_sky.png' }
+  getSkyPosition()         { return '50% 50%' }
 get _joyY() {
   const canvasRect = this.game?.canvas?.getBoundingClientRect()
   const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
@@ -728,7 +729,7 @@ _onMoonTap() {
     if (this.usePerspective) {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
       const skyUrl = this.getSkyImage()
-      if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl)
+      if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
     }
   }
   _drawExitDebug() {

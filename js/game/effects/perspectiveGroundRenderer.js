@@ -183,12 +183,15 @@ static HORIZON_Y_FRAC    = 0.28
     this._skyImg = img
   }
 
-  setSkyImage(url) {
+  setSkyImage(url, position = 'center top') {
     if (!this._skyImg) return
     if (url) {
-      this._skyImg.onload = () => this._extractPaletteFromImage(this._skyImg)
-      this._skyImg.src           = url
-      this._skyImg.style.opacity = '1'
+      if (this._skyImg.src !== url) {
+        this._skyImg.onload = () => this._extractPaletteFromImage(this._skyImg)
+        this._skyImg.src = url
+      }
+      this._skyImg.style.opacity        = '1'
+      this._skyImg.style.objectPosition = position
     } else {
       this._skyImg.src           = ''
       this._skyImg.style.opacity = '0'
@@ -203,7 +206,13 @@ static HORIZON_Y_FRAC    = 0.28
       c.width   = 64
       c.height  = 64
       const ctx = c.getContext('2d')
-      ctx.drawImage(imgEl, 0, 0, 64, 64)
+      // Sample from bottom 40% of image to get hill/earth colours
+      // rather than the dominant sky/cloud colours
+      const imgH = imgEl.naturalHeight || imgEl.height || 1
+      const imgW = imgEl.naturalWidth  || imgEl.width  || 1
+      const srcY = Math.floor(imgH * 0.60)
+      const srcH = Math.floor(imgH * 0.40)
+      ctx.drawImage(imgEl, 0, srcY, imgW, srcH, 0, 0, 64, 64)
 
       const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
       const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
@@ -608,7 +617,7 @@ static HORIZON_Y_FRAC    = 0.28
 
     const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
 
-    this._gCtx.clearRect(0, 0, sw, sh)
+    this._gCtx.clearRect(0, horizonPx, sw, sh - horizonPx)
     // Clip ground fill to map horizontal extent
     const bottomRow  = Math.min(Math.floor(camRow) - 1, mapH - 1)
     const leftX      = this._colToScreenX(0,    bottomRow + 1)
@@ -617,13 +626,13 @@ static HORIZON_Y_FRAC    = 0.28
     const clipRight  = Math.min(sw, rightX)
     const clipW      = Math.max(0,  clipRight - clipLeft)
 
-    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 80)
-    groundGrad.addColorStop(0, 'rgba(0,0,0,0)')
+    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 160)
+    groundGrad.addColorStop(0, 'rgba(30,24,18,0)')
     groundGrad.addColorStop(1, gcR)
     this._gCtx.fillStyle = groundGrad
-    this._gCtx.fillRect(clipLeft, horizonPx, clipW, 80)
+    this._gCtx.fillRect(0, horizonPx, sw, 160)
     this._gCtx.fillStyle = gcR
-    this._gCtx.fillRect(clipLeft, horizonPx + 80, clipW, sh - horizonPx - 80)
+    this._gCtx.fillRect(0, horizonPx + 160, sw, sh - horizonPx - 160)
 
     // No background fill -- ground canvas is transparent outside map tiles
 

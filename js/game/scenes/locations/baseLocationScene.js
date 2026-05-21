@@ -142,8 +142,8 @@ export default class BaseLocationScene extends Phaser.Scene {
         else if (angle >= -112.5 && angle <  -67.5) dy = -1;
         else if (angle >=  -67.5 && angle <  -22.5) { dx =  1; dy = -1; }
 
-        const currentX = Math.round(this.player.logicalX / this.player.tileSize) * this.player.tileSize;
-        const currentY = Math.round(this.player.logicalY / this.player.tileSize) * this.player.tileSize;
+        const currentX = Math.floor(this.player.logicalX / this.player.tileSize) * this.player.tileSize + this.player.tileSize / 2;
+        const currentY = Math.floor(this.player.logicalY / this.player.tileSize) * this.player.tileSize + this.player.tileSize / 2;
         const targetX  = currentX + dx * this.player.tileSize;
         const targetY  = currentY + dy * this.player.tileSize;
 

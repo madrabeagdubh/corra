@@ -379,7 +379,8 @@ static HORIZON_Y_FRAC    = 0.28
     }
   }
 
-  _zoom()      { return this.scene.cameras.main.zoom || 1 }
+  _zoom()      { return this.scene.cameras?.main?.zoom || 1 }
+  _cameraReady() { return !!(this.scene.cameras?.main) }
   _horizonPx() { return Math.floor(this._sh * PerspectiveGroundRenderer.HORIZON_Y_FRAC) }
   _groundH()   { return this._sh - this._horizonPx() }
 
@@ -570,6 +571,7 @@ static HORIZON_Y_FRAC    = 0.28
 
   update(fov) {
     if (!this._ready) return
+    if (!this._cameraReady()) return
 
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()

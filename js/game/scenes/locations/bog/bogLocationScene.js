@@ -763,6 +763,7 @@ _onMoonTap() {
     if (this.entryData?.arrivedAt && Date.now() - this.entryData.arrivedAt < 900) return
     const tileX = Math.floor(this.player.logicalX / this.tileSize)
     const tileY = Math.floor(this.player.logicalY / this.tileSize)
+    if (tileX >= this.mapData.width - 2) console.log('[exit] tileX:', tileX, 'tileY:', tileY, 'logicalX:', this.player.logicalX, 'tileSize:', this.tileSize)
     for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
       if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
         console.log(`[${this.scene.key}] exit -> ${exitData.destination} via ${dir}`)

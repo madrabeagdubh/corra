@@ -15,15 +15,18 @@
 export default class FogRenderer {
 
   static PHASER_TEXTURE_KEY = 'fogTexture'
-  static BLUR_PX            = 10
-  static HIDDEN_OPACITY     = 0.97   // fog texture opacity over hidden tiles
+  static BLUR_PX            = 22
+  static HIDDEN_OPACITY     = 0.96   // fog texture opacity over hidden tiles
   static VISITED_TINT       = 0.32   // max dark tint alpha over visited tiles
-  static VISITED_TINT_COL   = '5,5,18'
+  static VISITED_TINT_COL   = '180,190,200'
 
   constructor(pgr) {
     this._pgr     = pgr
     this._pattern = null
     this._ready   = false
+    this._sparkles = []
+    this._sparkleTime = 0
+    this._forestStampIds = new Set([315,318,321,324]) // centre tiles only
 
     const phaserCanvas = pgr.scene.game.canvas
     const container    = phaserCanvas.parentNode
@@ -45,6 +48,7 @@ export default class FogRenderer {
       zIndex:        '6',
       pointerEvents: 'none',
       filter:        `blur(${FogRenderer.BLUR_PX}px)`,
+      overflow:      'visible',
     })
     container.appendChild(this._canvas)
     this._ctx = this._canvas.getContext('2d')
@@ -164,6 +168,70 @@ export default class FogRenderer {
         }
       }
     }
+
+    // ── Forest interior fog — only when player is outside forest ────────
+    const layer1 = pgr.scene.mapData?.layers?.[1]
+    const playerInForest = pgr.scene.terrainManager?.currentTerrain?.name === 'Forest'
+    if (layer1 && playerInForest) {
+      ctx.globalAlpha = 0.45
+      ctx.fillStyle = 'rgba(160,175,180,1)'
+      for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
+        const yTop = pgr._rowToScreenY(tileRow)
+        const yBot = pgr._rowToScreenY(tileRow + 1)
+        if (yBot === null || yBot < horizonPx) continue
+        const yTopClamped = (yTop === null || yTop < horizonPx) ? horizonPx : yTop
+        const yBotClamped = Math.min(sh + 2, yBot)
+        if (yBotClamped <= yTopClamped) continue
+        const scaleNear = pgr._scaleAtRow(tileRow + 1)
+        const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW
+        const colStart  = Math.max(0,      Math.floor(camCol - halfCols))
+        const colEnd    = Math.min(mapW-1, Math.ceil (camCol + halfCols))
+        for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
+          if (!this._forestStampIds.has(layer1[tileRow]?.[tileCol])) continue
+          const xTL = pgr._colToScreenX(tileCol,     tileRow)
+          const xTR = pgr._colToScreenX(tileCol + 1, tileRow)
+          const xBL = pgr._colToScreenX(tileCol,     tileRow + 1)
+          const xBR = pgr._colToScreenX(tileCol + 1, tileRow + 1)
+          ctx.beginPath()
+          ctx.moveTo(xTL, yTopClamped); ctx.lineTo(xTR, yTopClamped)
+          ctx.lineTo(xBR, yBotClamped); ctx.lineTo(xBL, yBotClamped)
+          ctx.closePath(); ctx.fill()
+        }
+      }
+    }
+
+    // ── Sparkles ────────────────────────────────────────────────────────
+    this._sparkleTime += 0.016
+    // Spawn new sparkles occasionally
+    if (Math.random() < 0.25) {
+      const col = Math.floor(camCol - 8 + Math.random() * 16)
+      const row = Math.floor(camRow - 8 + Math.random() * 8)
+      const sx  = pgr._colToScreenX(col + 0.5, row + 0.5)
+      const sy  = pgr._rowToScreenY(row + 0.5)
+      if (sx !== null && sy !== null && sy > horizonPx && sy < sh) {
+        const scale = pgr._scaleAtRow(row + 0.5) / pgr.tileDisplaySize
+        this._sparkles.push({
+          x: sx, y: sy,
+          life: 0, maxLife: 1.5 + Math.random() * 2,
+          size: scale * (6 + Math.random() * 8),
+          hue: 160 + Math.random() * 40,
+          sat: 15 + Math.random() * 25,
+        })
+      }
+    }
+    // Draw and age sparkles
+    this._sparkles = this._sparkles.filter(sp => {
+      sp.life += 0.016
+      const t = sp.life / sp.maxLife
+      if (t >= 1) return false
+      const alpha = t < 0.3 ? t / 0.3 : 1 - (t - 0.3) / 0.7
+      ctx.globalAlpha = alpha * 0.9
+      ctx.fillStyle = `hsl(${sp.hue},${sp.sat}%,88%)`
+      ctx.beginPath()
+      ctx.arc(sp.x, sp.y, sp.size * (0.5 + 0.5 * Math.sin(t * Math.PI)), 0, Math.PI * 2)
+      ctx.fill()
+      return true
+    })
 
     ctx.globalAlpha = 1.0
   }

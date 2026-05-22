@@ -9,6 +9,13 @@ export class SwallowSystem {
     this._rafId  = null
     this._active = false
     this._lastTime = 0
+    // Preload sprite frames
+    this._frames = ['assets/swal1.png','assets/swal2.png','assets/swal3.png'].map(src => {
+      const img = new Image()
+      img.src = src
+      return img
+    })
+    this._frameTime = 0
   }
 
   start() {
@@ -162,51 +169,33 @@ export class SwallowSystem {
   }
 
   _drawSwallow(ctx, b, wingSpread) {
+    if (!this._frames?.length) return
     const horizonY = window.innerHeight * this._getHorizonFrac()
-    // Perspective scale — birds below horizon appear larger
     const belowHorizon = Math.max(0, b.y - horizonY)
     const perspScale = 1 + belowHorizon / (window.innerHeight * 0.4)
-    const s = b.size * perspScale
+    const size = b.size * perspScale * 20
+
+    // Always flap — use angle change for speed variation
+    b._flapPhase = ((b._flapPhase ?? (b.wingPhase * 6)) + 0.3)
+    const cycle = [0,1,2,1,0,1,2,2,1,0]
+    const frameIdx = cycle[Math.floor(b._flapPhase) % cycle.length]
+    const img = this._frames[frameIdx]
+    if (!img.complete || !img.naturalWidth) return
+
+    const flyingLeft = Math.cos(b.angle) < 0
+    const bank = b.bank || 0
+    const scaleY = 1 - Math.abs(bank) * 0.4
+    // Vertical component of angle gives the tilt we want
+    const tilt = Math.sin(b.angle) * 0.5
+
     ctx.save()
     ctx.translate(b.x, b.y)
-    ctx.rotate(b.angle)
-
-    ctx.fillStyle = 'rgba(25,18,12,0.82)'
-    ctx.strokeStyle = 'rgba(25,18,12,0.82)'
-
-    // Body — slim teardrop
-    ctx.beginPath()
-    ctx.ellipse(0, 0, s * 1.8, s * 0.45, 0, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Wings — swept back crescents, characteristic swallow shape
-    const bank = b.bank || 0
-    const ws = wingSpread * s * 2.2
-    // Left wing
-    ctx.beginPath()
-    ctx.moveTo(-s * 0.2, 0)
-    ctx.bezierCurveTo(-s * 0.8, -ws, -s * 2.5, -ws * 0.8, -s * 3.2, ws * 0.2)
-    ctx.bezierCurveTo(-s * 2.2, (-ws + bank * s) * 0.1, -s * 0.8, (ws - bank * s) * 0.3, -s * 0.2, s * 0.2)
-    ctx.fill()
-    // Right wing — opposite bank
-    ctx.beginPath()
-    ctx.moveTo(s * 0.2, 0)
-    ctx.bezierCurveTo(s * 0.8, -(ws + bank * s), s * 2.5, -(ws + bank * s) * 0.8, s * 3.2, (ws + bank * s) * 0.2)
-    ctx.bezierCurveTo(s * 2.2, -(ws + bank * s) * 0.1, s * 0.8, (ws + bank * s) * 0.3, s * 0.2, s * 0.2)
-    ctx.fill()
-
-    // Forked tail — distinctive deep fork
-    ctx.lineWidth = s * 0.35
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(-s * 1.6, s * 0.1)
-    ctx.lineTo(-s * 2.8, s * 2.2)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(-s * 1.6, s * 0.1)
-    ctx.lineTo(-s * 0.8, s * 2.0)
-    ctx.stroke()
-
+    // Apply flip FIRST, then tilt — so tilt is always in screen space
+    if (flyingLeft) ctx.scale(-1, scaleY)
+    else ctx.scale(1, scaleY)
+    ctx.rotate(tilt)
+    ctx.globalAlpha = 0.82
+    ctx.drawImage(img, -size / 2, -size / 2, size, size)
     ctx.restore()
   }
 }

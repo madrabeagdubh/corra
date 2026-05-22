@@ -8,6 +8,7 @@ import BowMechanics from '../../../combat/bowMechanics.js'
 import { GameState } from '../../../systems/gameState.js'
 import { transitionIn } from '../../../ui/sceneTransition.js'
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
+import { SwallowSystem } from '../../../effects/swallows.js'
 import FovSystem       from '../../../systems/fovSystem.js'
 import ItemSheetHelper from '../../../ui/inventory/itemSheetHelper.js'
 import PathFinder from '../../../systems/pathFinder.js'
@@ -665,6 +666,7 @@ _onMoonTap() {
       this._menuPreview.parentNode.removeChild(this._menuPreview)
       this._menuPreview = null
     }
+    if (this._swallows) { this._swallows.stop(); this._swallows = null }
     if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null }
     if (this.fogRenderer)    { this.fogRenderer.destroy();   this.fogRenderer   = null }
     if (this.itemSheet)      { this.itemSheet.clear();       this.itemSheet     = null }
@@ -732,6 +734,16 @@ _onMoonTap() {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
       const skyUrl = this.getSkyImage()
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
+      if (!this._swallows) {
+        this._swallows = new SwallowSystem(
+          () => PerspectiveGroundRenderer.HORIZON_Y_FRAC
+        )
+        this._swallows.start()
+      } else if (!document.getElementById('swallow-canvas')) {
+        // Canvas was removed, restart
+        this._swallows.start()
+      }
+      console.log('[swallow] active:', !!this._swallows, 'canvas:', !!document.getElementById('swallow-canvas'))
       const mtnUrl = this.getMountainImage()
       if (mtnUrl) {
         const mtnPos = this.getMountainPosition()

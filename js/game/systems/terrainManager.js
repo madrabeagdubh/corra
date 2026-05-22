@@ -1,4 +1,5 @@
 // js/game/systems/terrainManager.js
+import FovSystem from './fovSystem.js'
 
 /**
  * TerrainManager - Handles terrain-specific effects on the player
@@ -47,6 +48,29 @@ export default class TerrainManager {
         }
       },
       
+      forest: {
+        ids: [260,261,262,314,315,316,368,369,370, 263,264,265,317,318,319,371,372,373, 266,267,268,320,321,322,374,375,376],
+        name: 'Forest',
+        speedModifier: 0.8,
+        spriteOffsetY: 0,
+        damagePerSecond: 0,
+        walkable: true,
+        onEnter: (player) => {
+          const scene = player.scene
+          if (!scene) return
+          scene.fovSystem._radius = 3
+          if (scene.fogRenderer) scene.fogRenderer._canvas.style.display = 'block'
+          console.log('[terrain] entered forest — fog on')
+        },
+        onExit: (player) => {
+          const scene = player.scene
+          if (!scene) return
+          scene.fovSystem._radius = 6 // FovSystem.FOV_RADIUS default
+          if (scene.fogRenderer) scene.fogRenderer._canvas.style.display = 'none'
+          console.log('[terrain] left forest — fog off')
+        },
+      },
+
       deepBog: {
         ids: [83, 84, 99, 100, 101, 102, 115, 116, 145, 146, 147, 148, 149, 150,
               177, 182, 214, 215, 248, 249, 281, 722, 723, 724, 752, 753, 754,
@@ -138,19 +162,29 @@ export default class TerrainManager {
     
     // Get current tile type based on GRID position (not visual sprite position)
     // Use targetY when moving, otherwise use sprite Y minus any sink offset
-    const baseY = this.player.isMoving ? this.player.targetY : (this.player.sprite.y - (this.player.terrainSinkOffset || 0));
-    const baseX = this.player.isMoving ? this.player.targetX : this.player.sprite.x;
+    const baseY = this.player.isMoving ? this.player.targetY : this.player.logicalY
+    const baseX = this.player.isMoving ? this.player.targetX : this.player.logicalX
     
     const tileX = Math.floor(baseX / this.scene.tileSize);
     const tileY = Math.floor(baseY / this.scene.tileSize);
     
-    if (!this.scene.mapData || !this.scene.mapData.tiles) return;
-    if (tileY < 0 || tileY >= this.scene.mapData.tiles.length) return;
-    if (tileX < 0 || tileX >= this.scene.mapData.tiles[0].length) return;
-    
-    const tileType = this.scene.mapData.tiles[tileY][tileX];
+    const mapData = this.scene.mapData
+    if (!mapData || !mapData.layers) return
+    const layer0 = mapData.layers[0]
+    const layer1 = mapData.layers[1]
+    if (!layer0 || tileY < 0 || tileY >= layer0.length) return
+    if (tileX < 0 || tileX >= layer0[0].length) return
+    const forestIds = new Set([260,261,262,314,315,316,368,369,370,263,264,265,317,318,319,371,372,373,266,267,268,320,321,322,374,375,376])
+    let nearForest = false
+    for (let dy = -1; dy <= 1 && !nearForest; dy++) {
+      for (let dx = -1; dx <= 1 && !nearForest; dx++) {
+        if (forestIds.has(layer1?.[tileY+dy]?.[tileX+dx] ?? 0)) nearForest = true
+      }
+    }
+    const tileType = nearForest ? 315 : (layer1?.[tileY]?.[tileX] || layer0[tileY][tileX])
     
     // Find matching terrain definition
+    if (!this._lastTile || this._lastTile !== tileType) { this._lastTile = tileType; console.log('[terrain] tileType:', tileType, 'at', tileX, tileY) }
     const terrain = this.getTerrainByTileType(tileType);
     
     // Check if terrain changed

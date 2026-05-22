@@ -9,4 +9,5 @@ export default class BogD2 extends BogLocationScene {
   getMusicTrack()  { return null }
   getSkyImage()    { return '/assets/skies/bog_threshold_sky.png' }
   getSkyPosition() { return '75% 50%' }
+  getMountainPosition() { return '75% 75%' }
 }

@@ -82,7 +82,8 @@ static HORIZON_Y_FRAC    = 0.28
 
     this.tintManager = new TintManager()
 
-    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-fog'].forEach(id => {
+    if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); document.removeEventListener('fullscreenchange', this._resizeHandler); document.removeEventListener('webkitfullscreenchange', this._resizeHandler); this._resizeHandler = null }
+    ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-mountain-img','pgr-fog'].forEach(id => {
       const el = document.getElementById(id)
       if (el) el.parentNode?.removeChild(el)
     })
@@ -124,8 +125,8 @@ static HORIZON_Y_FRAC    = 0.28
     phaserCanvas.style.zIndex     = '10'
     phaserCanvas.style.background = 'transparent'
 
-    this._groundCanvas = this._makeCanvas(container, 'pgr-ground',  1)
-    this._objectCanvas = this._makeCanvas(container, 'pgr-objects', 2)
+    this._groundCanvas = this._makeCanvas(container, 'pgr-ground',  2)
+    this._objectCanvas = this._makeCanvas(container, 'pgr-objects', 3)
     this._gCtx         = this._groundCanvas.getContext('2d')
     this._oCtx         = this._objectCanvas.getContext('2d')
     this._gCtx.imageSmoothingEnabled = false
@@ -140,7 +141,7 @@ static HORIZON_Y_FRAC    = 0.28
     this._lightDiv.style.cssText = [
       'position:absolute', 'top:0', 'left:0',
       `width:${this._sw}px`, `height:${this._sh}px`,
-      'z-index:3', 'pointer-events:none',
+      'z-index:4', 'pointer-events:none',
     ].join(';')
     container.appendChild(this._lightDiv)
 
@@ -174,13 +175,57 @@ static HORIZON_Y_FRAC    = 0.28
     img.src = ''
     img.style.cssText = [
       'position:absolute', 'top:0', 'left:0',
-      `width:${sw}px`, `height:${sh}px`,
+      `width:${sw}px`, `height:${Math.floor(sh * 0.85)}px`,
       'z-index:0', 'pointer-events:none',
       'object-fit:cover', 'object-position:center top',
       'opacity:0',
     ].join(';')
     container.appendChild(img)
     this._skyImg = img
+
+    const mtn = document.createElement('img')
+    mtn.id  = 'pgr-mountain-img'
+    mtn.src = ''
+    const mtnH = Math.floor(sh * (PerspectiveGroundRenderer.HORIZON_Y_FRAC + 0.10))
+    mtn.style.cssText = [
+      'position:absolute', 'left:0',
+      'width:100%',
+      'height:' + (PerspectiveGroundRenderer.HORIZON_Y_FRAC * 100).toFixed(2) + '%',
+      'top:0',
+      'z-index:0', 'pointer-events:none',
+      'object-fit:none', 'object-position:50% 100%',
+      'opacity:0',
+    ].join(';')
+    container.appendChild(mtn)
+    this._mountainImg = mtn
+
+    // Resize handler for fullscreen changes
+    this._resizeHandler = () => {
+      setTimeout(() => {
+      const canvas = this.scene?.game?.canvas
+      if (!canvas) return
+      const nw = canvas.clientWidth || canvas.width
+      const nh = canvas.clientHeight || canvas.height
+      if (nw === this._sw && nh === this._sh) return
+      this._sw = nw; this._sh = nh
+      const newSkyH   = Math.floor(nh * 0.85)
+      const horizonPx = Math.floor(nh * PerspectiveGroundRenderer.HORIZON_Y_FRAC)
+      const newMtnH   = horizonPx
+      const newMtnTop = horizonPx - Math.floor(newMtnH * 0.35)
+      if (this._skyImg) {
+        this._skyImg.style.width  = nw + 'px'
+        this._skyImg.style.height = newSkyH + 'px'
+      }
+      if (this._mountainImg) {
+        this._mountainImg.style.width  = nw + 'px'
+        this._mountainImg.style.height = newMtnH + 'px'
+        this._mountainImg.style.top    = newMtnTop + 'px'
+      }
+      }, 150) // wait for canvas to resize
+    }
+    window.addEventListener('resize', this._resizeHandler)
+    document.addEventListener('fullscreenchange', this._resizeHandler)
+    document.addEventListener('webkitfullscreenchange', this._resizeHandler)
   }
 
   setSkyImage(url, position = 'center top') {
@@ -197,6 +242,44 @@ static HORIZON_Y_FRAC    = 0.28
       this._skyImg.style.opacity = '0'
       this.tintManager.setMood('default')
       this._gcR = null
+    }
+  }
+
+  setMountainImage(url, position) {
+    if (!this._mountainImg) return
+    position = position || '50% 100%'
+    if (url) {
+      if (!this._mountainImg.src.endsWith(url.replace(/^.*\//, ''))) this._mountainImg.src = url
+      this._mountainImg.style.opacity = '1'
+      this._mountainImg.style.objectPosition = position
+    } else {
+      this._mountainImg.src = ''
+      this._mountainImg.style.opacity = '0'
+    }
+  }
+
+  updateMountainParallax(playerLogicalX, playerLogicalY, mapWidth, mapHeight) {
+    if (!this._mountainImg || !this._mountainImg.src) return
+    const baseX = this._mountainBaseX !== undefined ? this._mountainBaseX : 50
+    const baseY = this._mountainBaseY !== undefined ? this._mountainBaseY : 100
+    const ts    = this._tileSize || 48
+    const fracX = mapWidth  > 0 ? playerLogicalX / (mapWidth  * ts) : 0.5
+    const fracY = mapHeight > 0 ? playerLogicalY / (mapHeight * ts) : 0.5
+
+    // Ease out at edges (smooth deceleration near 0 and 1)
+    const easedX = fracX < 0.5
+      ? 2 * fracX * fracX
+      : 1 - Math.pow(-2 * fracX + 2, 2) / 2
+
+    const mtnPx = baseX + (easedX - 0.5) * 8
+    const mtnPy = baseY
+    this._mountainImg.style.objectPosition = mtnPx.toFixed(2) + '% ' + mtnPy.toFixed(2) + '%'
+
+    // Cloud subtle parallax — less than mountains
+    if (this._skyImg && this._skyImg.src) {
+      const skyPx = 50 + (easedX - 0.5) * 3
+      const skyPy = parseFloat(this._skyImg.style.objectPosition?.split(' ')[1] ?? '50') 
+      this._skyImg.style.objectPosition = skyPx.toFixed(2) + '% ' + skyPy.toFixed(2) + '%'
     }
   }
 
@@ -389,12 +472,14 @@ static HORIZON_Y_FRAC    = 0.28
   }
 
   _perspCamRow() {
+    if (!this._cameraReady()) return 0
     const c = this.scene.cameras.main, zoom = this._zoom()
     return (c.scrollY + this._sh / (2 * zoom)) / this.tileDisplaySize
          + (this._cameraRowOffset ?? PerspectiveGroundRenderer.CAMERA_ROW_OFFSET)
   }
 
   _perspCamCol() {
+    if (!this._cameraReady()) return 0
     const c = this.scene.cameras.main, zoom = this._zoom()
     return (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
   }
@@ -572,6 +657,30 @@ static HORIZON_Y_FRAC    = 0.28
   update(fov) {
     if (!this._ready) return
     if (!this._cameraReady()) return
+    // Sync dimensions with actual canvas in case of fullscreen change
+    const _canvas = this.scene.game.canvas
+    const _newSw = _canvas.width, _newSh = _canvas.height
+    if (_newSh !== this._sh) console.log('[PGR resize] sh:', this._sh, '->', _newSh)
+    this._sw = _newSw
+    this._sh = _newSh
+    this._waterPhase = ((this._waterPhase ?? 0) + 0.018) % 256
+    if (this._mountainImg && this._mountainImg.src) {
+      const p  = this.scene.player
+      const md = this.scene.mapData
+      if (p && md) this.updateMountainParallax(p.logicalX, p.logicalY, md.width, md.height)
+      // Anchor mountain bottom to horizon every frame
+      const _horizPx = this._horizonPx()
+      if (!this._mtnLogTimer || Date.now() - this._mtnLogTimer > 2000) { this._mtnLogTimer = Date.now(); console.log('[MTN] horizPx:', _horizPx, 'sh:', this._sh, 'canvas.h:', this.scene.game.canvas.height, 'mtnTop:', _horizPx - Math.floor(_horizPx * 0.35), 'mtn.style.top:', this._mountainImg.style.top) }
+      const _mtnH    = Math.floor(_horizPx * 3.0)
+      const _mtnTop  = Math.floor(_horizPx * 0.55)
+      this._mountainImg.style.height = _mtnH + 'px'
+      this._mountainImg.style.top    = _mtnTop + 'px'
+      this._mountainImg.style.width  = this._sw + 'px'
+      if (this._skyImg) {
+        this._skyImg.style.height = Math.floor(this._sh * 0.85) + 'px'
+        this._skyImg.style.width  = this._sw + 'px'
+      }
+    }
 
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
@@ -717,7 +826,13 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
         const tileAlpha = edgeAlpha * horizonFade
 
-        const gid0 = layer0[tileRow]?.[tileCol] ?? 0
+        const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
+        // Animate water tiles to give river flow effect
+        // Wave travels east (positive col direction)
+        const _isWater = _rawGid0 === 1625 || _rawGid0 === 1679
+        const gid0 = _isWater
+          ? (((Math.floor(this._waterPhase + tileCol * 0.7 - tileRow * 0.3)) & 1) ? 1625 : 1679)
+          : _rawGid0
 
         if (gid0) {
           const xBL = this._colToScreenX(tileCol,     tileRow + 1)

@@ -135,9 +135,15 @@ function resizeGame() {
     }
 }
 
+function onFullscreenChange() {
+    setTimeout(resizeGame, 100)
+}
+
 window.addEventListener('load', resizeGame)
 window.addEventListener('resize', resizeGame)
 window.addEventListener('orientationchange', resizeGame)
+document.addEventListener('fullscreenchange', onFullscreenChange)
+document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 window.addEventListener('load', () => console.log('Game started'))
 
 // Dev shortcut: ?scene=Bog_Threshold boots directly, bypassing hero select

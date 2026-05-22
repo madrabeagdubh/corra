@@ -44,6 +44,8 @@ export default class BogLocationScene extends BaseLocationScene {
   onEnter()                {}
   getSkyImage()            { return '/assets/skies/bog_threshold_sky.png' }
   getSkyPosition()         { return '50% 50%' }
+  getMountainImage()       { return '/assets/thresholdMountains.png' }
+  getMountainPosition()    { return '50% 100%' }
 get _joyY() {
   const canvasRect = this.game?.canvas?.getBoundingClientRect()
   const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
@@ -730,6 +732,15 @@ _onMoonTap() {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
       const skyUrl = this.getSkyImage()
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
+      const mtnUrl = this.getMountainImage()
+      if (mtnUrl) {
+        const mtnPos = this.getMountainPosition()
+        const parts  = mtnPos.split(' ')
+        this.perspectiveGround._mountainBaseX = parseFloat(parts[0])
+        this.perspectiveGround._mountainBaseY = parseFloat(parts[1])
+        this.perspectiveGround._tileSize      = this.tileSize
+        this.perspectiveGround.setMountainImage(mtnUrl, mtnPos)
+      }
     }
   }
   _drawExitDebug() {

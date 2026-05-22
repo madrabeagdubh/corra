@@ -277,9 +277,8 @@ static HORIZON_Y_FRAC    = 0.28
 
     // Cloud subtle parallax — less than mountains
     if (this._skyImg && this._skyImg.src) {
-      const skyPx = 50 + (easedX - 0.5) * 3
-      const skyPy = parseFloat(this._skyImg.style.objectPosition?.split(' ')[1] ?? '50') 
-      this._skyImg.style.objectPosition = skyPx.toFixed(2) + '% ' + skyPy.toFixed(2) + '%'
+      // Sky drift handled by cloudDrift in update() — store parallax offset only
+      this._skyParallaxX = (easedX - 0.5) * 3
     }
   }
 
@@ -664,6 +663,14 @@ static HORIZON_Y_FRAC    = 0.28
     this._sw = _newSw
     this._sh = _newSh
     this._waterPhase = ((this._waterPhase ?? 0) + 0.018) % 256
+    // Cloud drift — slow sine wave back and forth
+    this._cloudDrift = ((this._cloudDrift ?? 0) + 0.0004) % (Math.PI * 2)
+    if (this._skyImg && this._skyImg.src) {
+      const driftX = 50 + Math.sin(this._cloudDrift) * 12 + (this._skyParallaxX ?? 0)
+      const currentPos = this._skyImg.style.objectPosition || '50% 50%'
+      const currentY = currentPos.split(' ')[1] || '50%'
+      this._skyImg.style.objectPosition = driftX.toFixed(3) + '% ' + currentY
+    }
     if (this._mountainImg && this._mountainImg.src) {
       const p  = this.scene.player
       const md = this.scene.mapData

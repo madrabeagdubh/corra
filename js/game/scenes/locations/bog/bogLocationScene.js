@@ -332,19 +332,22 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
       onTap: () => this._onMoonTap(),
 
       onLongPressProgress: (p) => {
+        this.joystick?.drawChargeGlow(p)
         if (p < 0.15) return
         this._menuPreview.style.display = 'block'
         this._menuPreview.style.opacity = ((p - 0.15) * 1.2).toFixed(2)
       },
 
       onLongPress: () => {
-      if (Date.now() - (this._lastMenuClose ?? 0) < 400) return  // ignore long press right after menu close
+        if (Date.now() - (this._lastMenuClose ?? 0) < 400) return
+        this.joystick?.drawChargeGlow(0)
         this._menuPreview.style.transition = 'opacity 0.2s ease'
         this._menuPreview.style.opacity = '0'
         this._menuHub?.open()
       },
 
       onLongPressCancel: () => {
+        this.joystick?.drawChargeGlow(0)
         this._menuPreview.style.opacity = '0'
       },
 
@@ -407,13 +410,52 @@ _setupTapToPath() {
     const fromTX = Math.floor(this.player.logicalX / this.tileSize)
     const fromTY = Math.floor(this.player.logicalY / this.tileSize)
     const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
-    if (path.length > 0) this.player.setPath(path)
+    if (path.length > 0) {
+      this.player.setPath(path)
+      this._flashTargetTile(tile.tx, tile.ty)
+    }
   })
 }
 
   // ── Moon tap -------------------------------------------------------------
 
-_onMoonTap() {
+_flashTargetTile(tx, ty) {
+    if (!this.perspectiveGround) return
+    const ts   = this.tileSize
+    const lx   = tx * ts + ts / 2
+    const ly   = ty * ts + ts / 2
+    const proj = this.perspectiveGround._projectLogical(lx, ly)
+    if (!proj) return
+    if (this._tapMarker) { this._tapMarker.destroy(); this._tapMarker = null }
+    const g = this.add.graphics().setScrollFactor(0).setDepth(15)
+    this._tapMarker = g
+    // Snap to tile centre — project the exact tile centre
+    const snapLx  = tx * ts + ts / 2
+    const snapLy  = ty * ts + ts / 2
+    const snapProj = this.perspectiveGround._projectLogical(snapLx, snapLy)
+    if (!snapProj) { g.destroy(); return }
+    const cx = snapProj.screenX
+    const cy = snapProj.screenY
+    const r  = Math.round(ts * snapProj.scale * 0.5)
+    let alpha = 0.85, scale = 0.3
+    const expand = this.time.addEvent({
+      delay: 16, repeat: 18,
+      callback: () => {
+        g.clear()
+        scale = Math.min(1, scale + 0.05)
+        alpha = Math.max(0, alpha - 0.045)
+        // Squash ellipse to match ground plane perspective
+        const squash = snapProj.scale ? Math.min(0.45, snapProj.scale * 0.8) : 0.35
+        g.lineStyle(2, 0xffd700, alpha)
+        g.strokeEllipse(cx, cy, r * scale * 2, r * scale * squash * 2)
+        g.lineStyle(1, 0xffffff, alpha * 0.5)
+        g.strokeEllipse(cx, cy, r * scale * 1.2, r * scale * squash * 1.2)
+        if (alpha <= 0) { g.destroy(); this._tapMarker = null; expand.remove() }
+      }
+    })
+  }
+
+  _onMoonTap() {
   const now = Date.now()
   if (now - (this._lastMoonTap || 0) < 700) return
   this._lastMoonTap = now

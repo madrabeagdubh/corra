@@ -77,6 +77,20 @@ export default class Joystick {
     ].join('')
     this._root.appendChild(this._base)
 
+    // Charge glow overlay canvas
+    this._glowCanvas = document.createElement('canvas')
+    this._glowCanvas.width  = R * 2
+    this._glowCanvas.height = R * 2
+    this._glowCanvas.style.cssText = [
+      'position:absolute;left:0;top:0;',
+      `width:${R * 2}px;height:${R * 2}px;`,
+      'pointer-events:none;',
+      'border-radius:50%;',
+      'opacity:0;transition:opacity 0.1s ease;',
+    ].join('')
+    this._root.appendChild(this._glowCanvas)
+    this._glowCtx = this._glowCanvas.getContext('2d')
+
     // -- Direction buttons ----------------------------------------------------
     // Each button is a div at the correct position within the root container.
     // angleDeg: the movement angle this button produces.
@@ -395,6 +409,37 @@ if (this._root.style.opacity === '0') {
   }
 
   // -- Moon canvas access ---------------------------------------------------
+  drawChargeGlow(progress) {
+    const ctx = this._glowCtx
+    const R   = this.radius
+    if (!ctx) return
+    ctx.clearRect(0, 0, R * 2, R * 2)
+    if (progress <= 0) {
+      this._glowCanvas.style.opacity = '0'
+      return
+    }
+    this._glowCanvas.style.opacity = '1'
+    // Glow sweeps inward from outer ring toward centre as progress increases
+    const outerR = R * 0.98
+    const innerR = outerR * (1 - progress * 0.7)
+    const grad = ctx.createRadialGradient(R, R, innerR, R, R, outerR)
+    const intensity = Math.min(1, progress * 1.4)
+    grad.addColorStop(0,   `rgba(212,175,55,0)`)
+    grad.addColorStop(0.4, `rgba(212,175,55,${(intensity * 0.3).toFixed(3)})`)
+    grad.addColorStop(0.8, `rgba(255,220,80,${(intensity * 0.7).toFixed(3)})`)
+    grad.addColorStop(1,   `rgba(255,240,120,${(intensity * 0.9).toFixed(3)})`)
+    ctx.beginPath()
+    ctx.arc(R, R, outerR, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+    // Bright ring at outer edge
+    ctx.beginPath()
+    ctx.arc(R, R, outerR * 0.97, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(255,240,120,${(intensity * 0.8).toFixed(3)})`
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+
   getMoonCanvas() { return this._moonCanvas }
   getMoonRadius() { return Math.round(this.radius * 0.24) }
 

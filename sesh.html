@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trad Sesh Mobile</title>
+    <title>Spooky Tunes Debugger</title>
     <script src="https://cdn.jsdelivr.net/npm/abcjs@6.2.2/dist/abcjs-basic-min.js"></script>
     
     <style>
         :root {
             --bg: #121212;
             --card: #1e1e1e;
-            --accent: #2e7d32;
+            --accent: #7b1fa2;
             --text: #ffffff;
             --off: #333333;
         }
@@ -36,8 +36,9 @@
             text-align: center;
         }
 
-        h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: var(--accent); }
-        #tune-title { margin-bottom: 20px; font-weight: 300; min-height: 1.2em; }
+        h1 { margin: 0 0 4px 0; font-size: 1.5rem; color: var(--accent); }
+        #tune-index { font-size: 0.75rem; color: #666; margin-bottom: 6px; }
+        #tune-title { margin-bottom: 20px; font-weight: 300; min-height: 1.2em; font-size: 1rem; }
 
         button {
             -webkit-appearance: none;
@@ -64,7 +65,7 @@
             padding-top: 20px;
         }
 
-        .btn-play { background: #1976d2; }
+        .btn-play { background: #7b1fa2; }
         .btn-prev { background: #555; }
         .btn-next { background: #555; }
         .btn-beep { background: #d32f2f; margin-top: 10px; }
@@ -92,12 +93,30 @@
         .console-warn  { color: #ffa500; }
         .console-log   { color: #51cf66; }
         .loading       { color: #888; font-style: italic; }
+
+        .tempo-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #333;
+        }
+        .tempo-row label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+        .tempo-row input[type=range] {
+            flex: 1;
+            accent-color: #7b1fa2;
+            height: 4px;
+            cursor: pointer;
+        }
+        #tempo-value { font-size: 0.8rem; color: #aaa; white-space: nowrap; min-width: 48px; text-align: right; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>🍀 Trad Sesh Debugger</h1>
+        <h1>👻 Spooky Tunes</h1>
+        <div id="tune-index">— / —</div>
         <div id="tune-title">Loading...</div>
 
         <div class="main-actions">
@@ -107,7 +126,13 @@
         </div>
         
         <button class="btn-beep" id="btn-beep" disabled>🔊 TEST BEEP</button>
-        <button class="btn-beep" id="btn-note" style="background: #7b1fa2;" disabled>🎵 TEST NOTES</button>
+        <button class="btn-beep" id="btn-note" style="background: #1976d2;" disabled>🎵 TEST NOTES</button>
+
+        <div class="tempo-row">
+            <label>TEMPO</label>
+            <input type="range" id="tempo-slider" min="50" max="200" value="100" step="5">
+            <span id="tempo-value">100%</span>
+        </div>
 
         <div class="status" id="status-text">
             <div class="console-line loading">Initializing music system...</div>
@@ -116,15 +141,42 @@
     </div>
 
 <script type="module">
-    import { TradSessionPlayer } from './js/game/systems/music/tradSessionPlayerScheduled.js';
-    import { allTunes } from './js/game/systems/music/allTunes.js';
+    // ── Key insight: TradSessionPlayer reads directly from its own imported
+    // allTunes object. We can't patch the player instance. Instead we import
+    // allTunes here too (same module instance, shared by JS module cache) and
+    // mutate it — those mutations are visible to the player's loadTune().
+    import { allTunes }          from './js/game/systems/music/allTunes.js';
+    import { gameSpookyTunes }   from './js/game/systems/music/gameSpookyTunes.js';
+
+    // Inject spooky tunes into the shared allTunes object.
+    // Because ES modules are singletons, this is the same object the player holds.
+    Object.assign(allTunes, gameSpookyTunes);
+
+    // ── Tempo scaling ─────────────────────────────────────────────────────────
+    // TradSessionPlayer imports its own abcjs instance — we can't patch it from
+    // outside. The only clean hook is TEMPO_SETTINGS, which the player reads at
+    // loadTune() time. We need it exported from the player module.
+    // Import it here (requires the one-line change to tradSessionPlayerScheduled.js
+    // noted below) and mutate its values directly — the player reads them live.
+    import { TradSessionPlayer, TEMPO_SETTINGS } from './js/game/systems/music/tradSessionPlayerScheduled.js';
+
+    // Keep original values so we can scale from them, not compound-scale
+    const TEMPO_DEFAULTS = { ...TEMPO_SETTINGS };
+
+    let tempoScale = 1.0;
+
+    function applyTempoScale(scale) {
+        for (const key of Object.keys(TEMPO_DEFAULTS)) {
+            TEMPO_SETTINGS[key] = Math.round(TEMPO_DEFAULTS[key] / scale);
+        }
+    }
 
     console.log('[Main] Script loaded, initializing...');
 
-    let session = null;
-    let tuneKeys = [];
+    let session    = null;
+    let tuneKeys   = [];
     let currentIdx = 0;
-    let isBusy = false; // guard against overlapping play calls
+    let isBusy     = false;
 
     // ── Console mirror ────────────────────────────────────────────────────────
     const statusEl = document.getElementById('status-text');
@@ -148,10 +200,10 @@
     // ── Init ──────────────────────────────────────────────────────────────────
     try {
         session  = new TradSessionPlayer();
-        tuneKeys = Object.keys(allTunes);
+        // Only show spooky keys in the browser, even though allTunes now has both
+        tuneKeys = Object.keys(gameSpookyTunes);
 
-        console.log('[Main] Available tunes:', tuneKeys.length);
-        console.log('[Main] Tune keys:', tuneKeys);
+        console.log('[Main] Spooky tunes injected and available:', tuneKeys.length);
 
         document.getElementById('btn-start').disabled = false;
         document.getElementById('btn-prev').disabled  = false;
@@ -159,13 +211,22 @@
         document.getElementById('btn-beep').disabled  = false;
         document.getElementById('btn-note').disabled  = false;
 
-        document.getElementById('tune-title').textContent = 'Ready! Tap START to begin';
+        updateTitle();
         console.log('[Main] System initialized successfully');
 
     } catch (error) {
         console.error('[Main] Initialization error:', error);
         console.error('[Main] Error stack:', error.stack);
         document.getElementById('tune-title').textContent = 'Error - Check console';
+    }
+
+    // ── UI helpers ────────────────────────────────────────────────────────────
+    function updateTitle() {
+        const key = tuneKeys[currentIdx] || '—';
+        document.getElementById('tune-index').textContent =
+            `${currentIdx + 1} / ${tuneKeys.length}`;
+        document.getElementById('tune-title').textContent =
+            key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
 
     // ── Core play helper ──────────────────────────────────────────────────────
@@ -177,22 +238,23 @@
         isBusy = true;
 
         try {
-            // 1. Stop whatever is currently playing and wait for it to fully release.
             if (typeof session.stop === 'function') {
                 await session.stop();
             }
 
-            // 2. Load the new tune (harp only — no instrument grid needed).
+            updateTitle();
             console.log('[UI] Loading tune:', key);
-            document.getElementById('tune-title').textContent = key.toUpperCase();
 
             const loaded = await session.loadTune(key);
             if (!loaded) {
                 console.error('[UI] Failed to load tune:', key);
+                // Auto-skip to next rather than stalling
+                isBusy = false;
+                currentIdx = (currentIdx + 1) % tuneKeys.length;
+                playTune(tuneKeys[currentIdx]);
                 return;
             }
 
-            // 3. Single-play mode: auto-advance to next track on completion.
             session.loop    = false;
             session.onEnded = () => {
                 console.log('[UI] Track ended — auto-advancing');
@@ -202,8 +264,15 @@
 
             console.log('[UI] Calling play()...');
             await session.play();
-
             console.log('[UI] Playback started. AudioContext state:', session.audioContext?.state);
+
+            // Unmute banjo (track 2) straight away — harp leads, banjo accompanies.
+            // Piano (track 1) stays muted; too muddy for audition purposes.
+            if (session.tracks[2]) {
+                session.engine.applyFade(session.tracks[2].gain, session.tracks[2].gain.targetVolume || 0.7, 0.8);
+                session.tracks[2].active = true;
+                console.log('[UI] Banjo unmuted');
+            }
 
         } catch (err) {
             console.error('[UI] playTune error:', err);
@@ -236,6 +305,24 @@
     document.getElementById('btn-note').addEventListener('click', () => {
         console.log('[UI] Test note clicked');
         session.testSimpleNote();
+    });
+
+    // ── Tempo slider ──────────────────────────────────────────────────────────
+    const tempoSlider = document.getElementById('tempo-slider');
+    const tempoLabel  = document.getElementById('tempo-value');
+
+    tempoSlider.addEventListener('input', () => {
+        tempoScale = parseInt(tempoSlider.value) / 100;
+        tempoLabel.textContent = `${tempoSlider.value}%`;
+    });
+
+    // On release: scale TEMPO_SETTINGS in place, then reload+play current tune.
+    // The player reads TEMPO_SETTINGS fresh on each loadTune() call.
+    tempoSlider.addEventListener('change', async () => {
+        tempoScale = parseInt(tempoSlider.value) / 100;
+        applyTempoScale(tempoScale);
+        console.log(`[Tempo] Scale: ${tempoScale} — reloading tune`);
+        await playTune(tuneKeys[currentIdx]);
     });
 
     console.log('[Main] UI initialized and ready');

@@ -36,18 +36,13 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'A thiomáineann an bád beag ar aghaidh, agus ar aghaidh.',
-            en: 'That drives the small boat ever on.',
+            ga: 'A thiomáineann an bád beag ar aghaidh, agus ar aghaidh...',
+            en: 'That drives the small boat ever on...',
             speaker: 'hero',
         },
-        {
-            ga: 'Ní bóthar éasca é, bóthar an léinn,\nNíl cosán an feasa gan praghas,',
-            en: 'Not an easy road, that leads to learning,\nNo path to wisdom without cost.',
-            speaker: 'hero',
-        },
-        {
-            ga: 'Ach tá an fharraige ciúin agus tá an mhaidin séimh,\nAgus leagaim romham Oileánn an Cheo.',
-            en: 'But the sea is peaceful and the dawn is gentle,\nAnd I set before me the Isle of Skye.',
+              {
+            ga: '...go h-Oileánn an Cheo.',
+            en: '...to the Isle of Skye.',
             speaker: 'hero',
         },
     ],

@@ -1,4 +1,5 @@
 // swallows.js — fast swooping swallows hunting insects
+import { SoundBoard } from '../systems/soundBoard.js'
 
 export class SwallowSystem {
   constructor(horizonFracFn) {
@@ -27,7 +28,7 @@ export class SwallowSystem {
       'position:fixed', 'top:0', 'left:0',
       'width:100%', 'height:100%',
       'pointer-events:none',
-      'z-index:99995',
+      'z-index:9',
     ].join(';')
     document.body.appendChild(this._canvas)
     this._resize()
@@ -72,6 +73,12 @@ export class SwallowSystem {
     const count = burst ? 5 + Math.floor(Math.random() * 4) : 1 + Math.floor(Math.random() * 2)
 
     // Lead bird path — series of waypoints for erratic flight
+    // Occasional call — not every flock
+    if (Math.random() < 0.5) {
+      const delay = 200 + Math.random() * 600
+      setTimeout(() => SoundBoard.playWeb('SWALLOW_CALL'), delay)
+    }
+
     const startX = fromLeft ? -150 : W + 150
     const startY = skyH * 0.2 + Math.random() * skyH * 0.6
 
@@ -89,7 +96,7 @@ export class SwallowSystem {
         : prevX + (fromLeft ? W / steps * (0.8 + Math.random() * 0.4) : -W / steps * (0.8 + Math.random() * 0.4))
       waypoints.push({
         x,
-        y: Math.max(5, Math.min(window.innerHeight * 0.95, prevY + dy))
+        y: Math.max(5, Math.min(window.innerHeight * 0.55, prevY + dy))
       })
     }
 
@@ -130,7 +137,8 @@ export class SwallowSystem {
       if (b.seg >= b.waypoints.length - 1) { b.dead = true; continue }
 
       // Advance along waypoint path
-      b.t += b.speed
+      const _sFrac = b.y / window.innerHeight
+      b.t += b.speed * (_sFrac > 0.5 ? 1 + (_sFrac - 0.5) * 4 : 1)
       if (b.t >= 1) {
         b.t -= 1
         b.seg++

@@ -34,6 +34,8 @@
  *   moon.moonD
  */
 
+import { SoundBoard } from "../systems/soundBoard.js"
+
 const STATUS_H = 42
 const JOY_R    = 60
 
@@ -202,6 +204,12 @@ export function createMoonWidget(opts = {}) {
        const onMove = (clientX, clientY) => {
     if (!dragging) return
     _lpCheckMove(clientX, clientY ?? dragStartY)
+    const _mn = performance.now()
+    if (!onMove._t || _mn - onMove._t > 80) {
+        onMove._t = _mn
+        const _c = window._phaserAudioContext
+        if (_c) SoundBoard.playWeb("MOON_SWIPE", _c)
+    }
     const range = showSlider && wrapperEl
         ? wrapperEl.offsetWidth - moonR * 2
         : SWIPE_RANGE()
@@ -271,6 +279,8 @@ export function createMoonWidget(opts = {}) {
     function _triggerTapFeedback() {
         if (_pulseRafId) { cancelAnimationFrame(_pulseRafId); _pulseRafId = null }
         _pulseStartMs = performance.now()
+        const _c = window._phaserAudioContext
+        if (_c) SoundBoard.playWeb("BADGE_APPEAR", _c)
         _animatePulse()
     }
 

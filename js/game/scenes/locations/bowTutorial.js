@@ -12,7 +12,8 @@ import { ScrollingTextPlayer } from '../../ui/scrollingTextPlayer.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import { createMoonWidget } from '../../ui/moonWidget.js';
 import AdvancedTraining from '../../scenes/locations/advancedTraining.js';
-import { createStatusBar } from '../../ui/statusBar.js';
+import { createStatusBar } from '../../ui/statusBar.js'
+import { SoundBoard } from '../../systems/soundBoard.js';
 
 
 export default class BowTutorial extends Phaser.Scene {
@@ -105,6 +106,8 @@ export default class BowTutorial extends Phaser.Scene {
         this.hitTrackerCircles.forEach((circle, index) => {
             if (index < consecutiveHits && !circle.filled) {
                 circle.filled = true;
+                // Hit tracker tick
+                { const audioCtx = this.sound?.context; if (audioCtx) SoundBoard.playWeb('HIT_TRACKER_TICK', audioCtx) }
                 circle.inner.setVisible(true);
                 circle.inner.setAlpha(0);
                 circle.inner.setScale(1);
@@ -162,6 +165,8 @@ export default class BowTutorial extends Phaser.Scene {
     completeHitTracker() {
         if (this.hitTrackerComplete) return;
         this.hitTrackerComplete = true;
+        // Hit tracker complete arpeggio
+        { const audioCtx = this.sound?.context; if (audioCtx) SoundBoard.playWeb('HIT_TRACKER_COMPLETE', audioCtx) }
 
         this.hitTrackerCircles.forEach(circle => {
             this.tweens.killTweensOf(circle.inner);

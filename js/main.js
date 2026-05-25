@@ -136,7 +136,19 @@ function resizeGame() {
 }
 
 function onFullscreenChange() {
-    setTimeout(resizeGame, 100)
+    setTimeout(() => {
+        resizeGame()
+        // Recentre camera on player after resize so perspective stays accurate
+        if (window.game?.scene) {
+            window.game.scene.scenes.forEach(scene => {
+                if (scene.player && scene.cameras?.main) {
+                    const cam = scene.cameras.main
+                    cam.scrollX = scene.player.logicalX - window.innerWidth / 2
+                    cam.scrollY = scene.player.logicalY - window.innerHeight / 2
+                }
+            })
+        }
+    }, 150)
 }
 
 window.addEventListener('load', resizeGame)

@@ -1,3 +1,4 @@
+import { SoundBoard } from '../systems/soundBoard.js'
 /**
  * sceneTransition.js
  * Global fade+spinner overlay for scene transitions.
@@ -55,6 +56,7 @@ function _getOverlay() {
 }
 
 export function transitionOut(duration = 400) {
+  SoundBoard.playWeb('SCENE_TRANSITION')
   return new Promise(resolve => {
     const overlay = _getOverlay()
     // Position spinner over moon hub

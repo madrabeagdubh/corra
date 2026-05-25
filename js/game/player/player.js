@@ -1,3 +1,4 @@
+import { SoundBoard } from '../systems/soundBoard.js'
 import Inventory from '../ui/inventory/inventory.js';
 import { createItem } from '../ui/inventory/itemDefinitions.js';
 
@@ -257,6 +258,10 @@ export default class Player {
         this.logicalX     = this.targetX;
         this.logicalY     = this.targetY;
         this.isMoving     = false;
+        // Footstep sound based on terrain
+        const terrain = this.scene?.terrainManager?.currentTerrain?.name
+        if (terrain === 'Forest') SoundBoard.playWeb('FOOTSTEP_WOOD')
+        else SoundBoard.playWeb('FOOTSTEP_BOG')
         this.moveProgress = 0;
         if (force > 10) {
           this.pathQueue = [];

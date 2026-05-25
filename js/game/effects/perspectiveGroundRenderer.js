@@ -677,7 +677,7 @@ static HORIZON_Y_FRAC    = 0.28
       if (p && md) this.updateMountainParallax(p.logicalX, p.logicalY, md.width, md.height)
       // Anchor mountain bottom to horizon every frame
       const _horizPx = this._horizonPx()
-      if (!this._mtnLogTimer || Date.now() - this._mtnLogTimer > 2000) { this._mtnLogTimer = Date.now(); console.log('[MTN] horizPx:', _horizPx, 'sh:', this._sh, 'canvas.h:', this.scene.game.canvas.height, 'mtnTop:', _horizPx - Math.floor(_horizPx * 0.35), 'mtn.style.top:', this._mountainImg.style.top) }
+      if (!this._mtnLogTimer || Date.now() - this._mtnLogTimer > 2000) { this._mtnLogTimer = Date.now(); }
       const _mtnH    = Math.floor(_horizPx * 3.0)
       const _mtnTop  = Math.floor(_horizPx * 0.55)
       this._mountainImg.style.height = _mtnH + 'px'

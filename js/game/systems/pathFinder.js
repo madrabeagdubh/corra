@@ -145,26 +145,35 @@ _heuristic(ax, ay, bx, by) {
   // ── Screen → tile projection ──────────────────────────────────────────────
 
   static screenToTile(screenX, screenY, pgr, tileSize) {
-    const horizonPx   = pgr._horizonPx()
+    const sw        = pgr._sw
+    const sh        = pgr._sh  // pgr's cached render height
+    const horizonPx  = Math.floor(sh * pgr.constructor.HORIZON_Y_FRAC)
     if (screenY <= horizonPx) return null
 
-    const groundH     = pgr._groundH()
-    const FL          = pgr.constructor.FOCAL_LENGTH
-    const perspCamRow = pgr._perspCamRow()
+    const groundH     = sh - horizonPx
+    const FL     = pgr.constructor.FOCAL_LENGTH
+    const cam    = pgr.scene.cameras.main
+    const zoom   = cam.zoom || 1
+    const player = pgr.scene.player
+    const perspCamRow = player
+      ? player.logicalY / pgr.tileDisplaySize
+        + (pgr._cameraRowOffset ?? pgr.constructor.CAMERA_ROW_OFFSET)
+      : (cam.scrollY + sh / (2 * zoom)) / pgr.tileDisplaySize
+        + (pgr._cameraRowOffset ?? pgr.constructor.CAMERA_ROW_OFFSET)
+    const perspCamCol = (cam.scrollX + sw / (2 * zoom)) / pgr.tileDisplaySize
 
     const denom    = screenY - horizonPx
     if (denom <= 0) return null
     const d        = FL * groundH / denom - FL
     const worldRow = perspCamRow - d
 
-    const ty = Math.round(worldRow - 0.5)
+    const ty = Math.floor(worldRow)
 
-    const camCol   = pgr._perspCamCol()
-    const scale    = pgr._scaleAtRow(worldRow)
+    const scale = pgr._scaleAtRow(ty + 0.5)
     if (scale < 0.001) return null
 
-    const worldCol = (screenX - pgr._sw / 2) / scale + camCol
-    const tx       = Math.round(worldCol - 0.5)
+    const worldCol = (screenX - sw / 2) / scale + perspCamCol
+    const tx       = Math.floor(worldCol)
 
     return { tx, ty }
   }

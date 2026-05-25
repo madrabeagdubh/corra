@@ -72,9 +72,7 @@ export default class TerrainManager {
       },
 
       deepBog: {
-        ids: [83, 84, 99, 100, 101, 102, 115, 116, 145, 146, 147, 148, 149, 150,
-              177, 182, 214, 215, 248, 249, 281, 722, 723, 724, 752, 753, 754,
-              784, 785, 817],
+        ids: [], // disabled until water/bog tiles properly defined
         name: 'Deep Bog',
         speedModifier: 0.1, // Very slow (90% slower)
         spriteOffsetY: -50, // Sink down 20 pixels

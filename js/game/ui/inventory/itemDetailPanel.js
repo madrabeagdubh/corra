@@ -1,6 +1,7 @@
 import { FONTS, COLORS, TYPE, SPACING } from '../../systems/gameTypography.js';
 import { GameSettings } from '../../settings/gameSettings.js';
 import ButtonBar from './buttonBar.js';
+import { SoundBoard } from '../../systems/soundBoard.js'
 
 export default class ItemDetailPanel {
   constructor(scene, { x, y, width, height, onAction }) {
@@ -230,6 +231,7 @@ export default class ItemDetailPanel {
 
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault()
+      SoundBoard.playWeb('HIT_TRACKER_TICK', window._phaserAudioContext, { volume: 0.25, freq: 520 })
       window._lastDomButtonTap = Date.now()
       this._destroyDomButtons()
       this.onAction?.(actionKey, this._currentItem, this._currentSlot)

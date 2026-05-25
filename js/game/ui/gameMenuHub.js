@@ -1,3 +1,4 @@
+import { SoundBoard } from '../systems/soundBoard.js'
 /**
  * gameMenuHub.js
  * Tab bar at TOP. Single tap closes everything cleanly.
@@ -258,6 +259,7 @@ export function createGameMenuHub({
   console.log('[hub] _open called, stack:', new Error().stack.split('\n').slice(1,4).join(' | '))
   console.log('[hub] _open called')
         open = true;
+        SoundBoard.playWeb('MENU_OPEN')
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
         _goTo(curIdx, false);
@@ -268,6 +270,7 @@ export function createGameMenuHub({
   console.log('[hub] _close called, open was:', open)
   console.log('[hub] _close called, open was:', open)
   open = false
+  SoundBoard.playWeb('MENU_CLOSE')
   root.style.opacity = '0'
   _teardownCurrent(PANELS[curIdx].key)
 

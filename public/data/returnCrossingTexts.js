@@ -1,51 +1,87 @@
-// returnCrossingTexts.js
-// Bilingual poem for the return crossing scene.
 // speaker: 'hero' throughout.
 //
-// English by the user. Irish translated to match register and rhythm.
+// Irish corrected for poetic grammar, historical register, and rhythm.
 
 export const returnCrossingTexts = {
     crossing: [
         {
-            ga: 'Tarraingím na maidí tríd uisce dubh,\ngo n-iompróidh an naomhóg abhaile mé.',
-            en: 'I pull the oars through the black water,\nmay the curragh carry me home.',
+            ga: 'Tarraingím na maidí',
+            en: 'I pull the oars',
             speaker: 'hero',
         },
         {
-            ga: 'Cá leagfaidh mé chos amárach?\n Sa phortach gan tóin,\n plodach a shlogann Gael bródúl.',
-            en: 'Where shall I set my foot tomorrow?\nInto the bog that has no bottom,\nIn a mire that swallows proud Gaels.',
+            ga: 'go n-iompróidh an naomhóg abhaile mé',
+            en: 'that the curragh carry me home',
             speaker: 'hero',
         },
         {
-            ga: 'Cén faitíos a chuireann Móin Alúine orm?\nRud báite, úfásach foighneach.',
-            en: 'What do I dread in the Bog of Allen?\nA drowned thing which waits and waits.',
+            ga: 'Leagfaidh mé chos amárach',
+            en: 'I shall set foot tomorrow',
             speaker: 'hero',
         },
         {
-            ga: 'Cén fáth, mar sin, a rachfainn ann?',
-            en: 'Then why would I go there?',
+            ga: 'i bportach gan tóin',
+            en: 'in a bottomless fen',
             speaker: 'hero',
         },
-        {
-            ga: 'Ar thóir an focal\nar gá a thuilleamh as an nua gach maidin.',
-            en: 'In pursuit of the word which must be earned again each morning.',
-            speaker: 'hero',
-        },
- 
        {
-            ga: 'Ach rachaidh mé mar a théann an chorr réisc,\n ciúin ⁊ ar aire.',
-            en: 'But I shall go as the grey heron goes, \nquiet and alert.',
+            ga: 'Tá fíachla sa dorchadas sin',
+            en: 'There are teeth in that darkness',
             speaker: 'hero',
         },
- 
-	    {
-            ga: 'Agus má aimsíonn cibé rud faoin bportach mé\naimseoidh sé searbh mé.',
-            en: 'And if the thing beneath the bog finds me,\nIt will find me hard to swallow.',
+        {
+            ga: 'Agus cad chuige an turas?',
+            en: 'And what is the purpose of the journey?',
             speaker: 'hero',
         },
-	    {
-            ga: 'Tarraingím na maidí tríd an uisce dhubh',
-            en: 'I pull the oars through the black water',
+        {
+            ga: 'De dháníocht agam, m\'ainm a chur ós comhair na Fianna?',
+            en: 'The audacity of mine, to be counted among the Fianna?',
+            speaker: 'hero',
+        },
+        {
+            ga: 'An bhfuil dallamullóg orm?',
+            en: 'Am I blinded by foolishness?',
+            speaker: 'hero',
+        },
+         {
+            ga: 'Cuireann Móin Almhain faitíos orm',
+            en: 'The Bog of Allen frightens me',
+            speaker: 'hero',
+        },
+        {
+            ga: 'ach is leoir sin de dol smaointe',
+            en: 'Enough. Such thoughts are snares',
+            speaker: 'hero',
+        },
+        {
+            ga: 'Ní dhéanfainn léirscrios le maíomh',
+            en: 'I won\'t let boastfullness cause havoc',
+            speaker: 'hero',
+        },
+        {
+            ga: 'ná ní creachfaidh mheirt mhisneach.',
+            en: 'nor will meekness plunder courage',
+            speaker: 'hero',
+        },
+        {
+            ga: 'Rachfaidh mé mar chorra réisc',
+            en: 'I shall go as the heron',
+            speaker: 'hero',
+        },
+        {
+            ga: 'ciúin ⁊ ar aire',
+            en: 'quiet and alert',
+            speaker: 'hero',
+        },
+                {
+            ga: 'Agus má dhúisím uafáis an bportaigh',
+            en: 'And if I do rouse the bog\'s horrors',
+            speaker: 'hero',
+        },
+        {
+            ga: 'go n-aimseoidh siad searbh mé.',
+            en: 'may they find me bitter.',
             speaker: 'hero',
         },
     ],

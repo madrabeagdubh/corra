@@ -43,7 +43,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-|:E/F/|G> B2/e/d/|c> B2/A/G/|F (A2|A2) E/F/|G> B2/e/d/|c> e2/d/c/|d> e c/d/|B/c/A/B/G/F/|! G> B2/e/d/|c> B2/A/G/|F (A2|A2) A/B/|=c/B/A/ c/B/A/|B A/G/F/E/|(D3|D2 ):|! D/F/F/ A/A/F/|E/F/G/ A/B/c/|d/A/f/ e/d/c/|d A2|B/G/e/ d/c/A/|B2>|c2/B/A/ c/B/A/|B A/G/F/E/|! D/F/F/ A/A/F/|E/F/G/ A/B/c/|d/A/f/ e/d/c/|d> e2/f/|g> f2/e/d/|c> B2/A/G/|F A G/F/|D3|! K: D minor! D/E/F/ D/E/F/|A3|G/A/B/ G/A/B/|d3|e d> B|B/A/ A2|B A G/F/|A> G2/F/E/|! D/E/F/ D/E/F/|A3|G/A/B/ G/A/B/|d3|e d> B|B/A/ A2|G/B/A/ G/F/E/|D3||
+|:E/F/|G> B2/e/d/|c> B2/A/G/|F A2|A2) E/F/|G> B2/e/d/|c> e2/d/c/|d> e c/d/|B/c/A/B/G/F/|! G> B2/e/d/|c> B2/A/G/|F A2|A2) A/B/|=c/B/A/ c/B/A/|B A/G/F/E/|D3|D2 ):|! D/F/F/ A/A/F/|E/F/G/ A/B/c/|d/A/f/ e/d/c/|d A2|B/G/e/ d/c/A/|B2>|c2/B/A/ c/B/A/|B A/G/F/E/|! D/F/F/ A/A/F/|E/F/G/ A/B/c/|d/A/f/ e/d/c/|d> e2/f/|g> f2/e/d/|c> B2/A/G/|F A G/F/|D3|! K: D minor! D/E/F/ D/E/F/|A3|G/A/B/ G/A/B/|d3|e d> B|B/A/ A2|B A G/F/|A> G2/F/E/|! D/E/F/ D/E/F/|A3|G/A/B/ G/A/B/|d3|e d> B|B/A/ A2|G/B/A/ G/F/E/|D3||
 
 `,
 
@@ -68,7 +68,7 @@ R: three-two
 M: 4/4
 L: 1/8
 K: Fmajor
-|:G,3 D D/E/D C3 D F2|G,3 G, G2 E3 DCD|G,3 D D/E/D C3 D F2|G3 D F2 E3 D CD|! G,3 D D/E/D C3 D F2|G,3 G, G2 E3 D C2|D3 B, G,2 C3 F E2|D3 C G,2 C6:|! D3 B A2 G6|c3 G B2 A3 G F2|G3 _E C2 F3 B A2|G3 _E C2 F6|! D3 B A2 G6|c3 G B2 A3 G F2|G3 _E C2 F3 B A2|G3 _E C D3 C D2||
+|:G,3 D D/E/D C3 D F2|G,3 G, G2 E3 DCD|G,3 D D/E/D C3 D F2|G3 D F2 E3 D CD|! G,3 D D/E/D C3 D F2|G,3 G, G2 E3 D C2|D3 B, G,2 C3 F E2|D3 C G,2 C6:|! D3 B A2 G4-G2|c3 G B2 A3 G F2|G3 _E C2 F3 B A2|G3 _E C2 F4-F2|! D3 B A2 G4-G2|c3 G B2 A3 G F2|G3 _E C2 F3 B A2|G3 _E C D3 C D2||
 
 `,
 
@@ -92,7 +92,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Eminor
-e4 e2|e4 d2|B3 dB>A|A3 BB>d|G3 ge>d|G4 G>A|B6-|B2> d2 G2|! A3 GA>B|A>B G2 G2|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G6||! e4 e2|e4 d2|B3 dB>A|A3 BB>d|G3 ge>d|G4 G>A|B6|B2> d2 G2|! A3 GA>B|A>B G2 G>e-|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G6||! e4 {ge} d2|g4 e2|d3 e A2|B3 G3|{G}E>G G>D D>G|E>e d>B G>B|A6|A4 {BA} G2|! A3 GA>B|A>B G2 G>e-|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G6||! e4 {ge} d2|g4 e2|d3 e A2|B3 G3|{G}E>G G>D D>G|E>e d>B G>B|A6|A3 BA>G|! A4 A>B|A>B G2 G2|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G6||
+e4 e2|e4 d2|B3 dB>A|A3 BB>d|G3 ge>d|G4 G>A|B6-|B2> d2 G2|! A3 GA>B|A>B G2 G2|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G4-G2||! e4 e2|e4 d2|B3 dB>A|A3 BB>d|G3 ge>d|G4 G>A|B4-B2|B2> d2 G2|! A3 GA>B|A>B G2 G>e-|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G4-G2||! e4 d2|g4 e2|d3 e A2|B3 G3|E>G G>D D>G|E>e d>B G>B|A4-A2|A4 G2|! A3 GA>B|A>B G2 G>e-|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G4-G2||! e4 d2|g4 e2|d3 e A2|B3 G3|E>G G>D D>G|E>e d>B G>B|A4-A2|A3 BA>G|! A4 A>B|A>B G2 G2|e>g e>d B>d|e3-e2d|B3 dB>A|A3 BA>G|G6-|G4-G2||
 
 `,
 
@@ -380,7 +380,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Amajor
-e2|e2 ee f2 f2|a2 a2 f2 e2|e2 a2 f2 e2|g6 e2|! egbe gbeg|begb g2 e2|gfeg fefc|e6 e2|! ecec fcfc|acac f2 e2|e2 a2 e2 a2|f6 a2|! a3 b a2 f2|e3 f e2 ef|gfed cA B2|A4A4||! E2 AA E2 AA|F2 AA E2 E2|E2 AA E2 E2|B2 e4 e2|! BBee BeBB|eBBe e2 f2|gfeg fedB|AB AF E2 E2|! E2 AA E2 AA|F2 AA E2 E2|E2 AA E2 AA|F2 F4 a2|! a3b a2 f2|e3 f e2 ef|gfed cA B2|A4A2||
+e2|e2 ee f2 f2|a2 a2 f2 e2|e2 a2 f2 e2|g4-g2 e2|! egbe gbeg|begb g2 e2|gfeg fefc|e4-e2 e2|! ecec fcfc|acac f2 e2|e2 a2 e2 a2|f4-f2 a2|! a3 b a2 f2|e3 f e2 ef|gfed cA B2|A4A4||! E2 AA E2 AA|F2 AA E2 E2|E2 AA E2 E2|B2 e4 e2|! BBee BeBB|eBBe e2 f2|gfeg fedB|AB AF E2 E2|! E2 AA E2 AA|F2 AA E2 E2|E2 AA E2 AA|F2 F4 a2|! a3b a2 f2|e3 f e2 ef|gfed cA B2|A4A2||
 
 `,
 
@@ -416,7 +416,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gmajor
-|:"Gm"GFD(F GF)D(F|GF)DF "F"C4|"Gm"GFDF G2 d2-|"Dm"dcA(c dc)Ac|! "Gm"GFD(F GF)D(F|GF)DF "F"C4|"Gm"GFDF G2 d2-|"Dm"dcA2 "Gm"G4:|! "Gm"d2g2g4|gagf d4|"F"fAgA fAgf|"Dm"dcAc d4|! "Gm"d2g2g4|gagf d4|"F"fAgA fAgf|"Dm"dcA2 "Gm"G4:|
+|:"Gm"GFD(F GF)DF|GF)DF "F"C4|"Gm"GFDF G2 d2-|"Dm"dcA(c dc)Ac|! "Gm"GFD(F GF)DF|GF)DF "F"C4|"Gm"GFDF G2 d2-|"Dm"dcA2 "Gm"G4:|! "Gm"d2g2g4|gagf d4|"F"fAgA fAgf|"Dm"dcAc d4|! "Gm"d2g2g4|gagf d4|"F"fAgA fAgf|"Dm"dcA2 "Gm"G4:|
 
 `,
 
@@ -548,7 +548,7 @@ R: slip jig
 M: 4/4
 L: 1/8
 K: Gmajor
-|:d|dBG dBG A2d|dBG [D3A3] [G,2D2] d|! dBG dBG A2A|BAG [D3A3] [D2A2]:|! M:6/8! f|gee edB|gee edB|d3 d2 f|! gee edB|gee edB|[D3A3] [D2A2]:|
+|:d|dBG dBG A2d|dBG D3 G,2 d|! dBG dBG A2A|BAG D3 D2:|! M:6/8! f|gee edB|gee edB|d3 d2 f|! gee edB|gee edB|D3 D2:|
 
 `,
 
@@ -644,7 +644,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-EG|:A4 A2|G4 G2|E3 D C2|D4 GA|! [1 B3 A G2|B d3 G2|B3 A G2|A4 E2:|! [2 B3 D dB|A3 D BA|G6|G4 Bc||! d2 B2 d2|B3 A G2|E3 C E2|D4 GA|! B3 A G2|B d3 GA|B3 A G2|A4 E2|! A4 A2|G4 G2|E3 D C2|D4 GA|! B3 D dB|A3 D BA|G6|G6||
+EG|:A4 A2|G4 G2|E3 D C2|D4 GA|! [1 B3 A G2|B d3 G2|B3 A G2|A4 E2:|! [2 B3 D dB|A3 D BA|G4-G2|G4 Bc||! d2 B2 d2|B3 A G2|E3 C E2|D4 GA|! B3 A G2|B d3 GA|B3 A G2|A4 E2|! A4 A2|G4 G2|E3 D C2|D4 GA|! B3 D dB|A3 D BA|G4-G2|G4-G2||
 
 `,
 
@@ -680,7 +680,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gmajor
-|:Bc|d3 d {e}dc {Bc}BA|{F}G2 B2 D3 G|{EF}E2 {F}GE {DE}D3 B,|{B,}A,6 (Bc)|! d3 d {e}dc {Bc}BA|{F}G2 B2 D3 G|{EF}E2 {d}cA {G}F3 D|{D}G6:|! {C}B,A,|G,3 B, D3 D|{Bc}B3 A {F}G3 E|{DE}D2 {F}GE {DE}D3 B,|{B,}A,6 {C}B,A,|! G,3 B, D3 D|{Bc}B3 A {F}G3 E|{DE}D2 {F}GB, {A,B,}A,3 B,|{A,}G,6 {C}B,A,|! G,B,DG Bdga|{ga}b3 a {ga}g3 e|{^c}d2 {ga}ge {^c}d3 B|{B}A6 (Bc)|! d3 d {de}dc {Bc}BA|{F}G2 B2 D3 G|E2 {d}cA {G}FDCA,|{A,}G,6 z2|
+|:Bc|d3 d dc BA|G2 B2 D3 G|E2 GE D3 B,|A,4-A,2 (Bc)|! d3 d dc BA|G2 B2 D3 G|E2 cA F3 D|G6:|! B,A,|G,3 B, D3 D|B3 A G3 E|D2 GE D3 B,|A,4-A,2 B,A,|! G,3 B, D3 D|B3 A G3 E|D2 GB, A,3 B,|G,4-G,2 B,A,|! G,B,DG Bdga|b3 a g3 e|d2 ge d3 B|A4-A2 (Bc)|! d3 d dc BA|G2 B2 D3 G|E2 cA FDCA,|G,4-G,2 z2|
 
 `,
 
@@ -716,7 +716,7 @@ R: slide
 M: 4/4
 L: 1/8
 K: Eminor
-|:EGA AEG GED BEG|EGA AGA cdc BEG|! EGA AEG GED BEG|EGA ABG AAG cBG:|! EAc BG(e e)dc BAG|GAE EEA cd(B B)GF|! EAc BG(e e)dc BAG|EGA ABG AAG cBG:|! Ace g2(f f)ed eA(c|c)eg ffd eAc BAG|! Ace g2(f f)ed eg(a|a)eg fed eAc BAG:|! zc'b gge ga(e e)ed|ega ag(b b)ge gab|! c'bg gge ga(e e)ed|edB cBG AcB egb|! zc'b gge ga(e e)ed|ega ag(b b)ge gab|! c'bg gge ga(e e)ed|eeB dg(e e)ed ega||! eeB dg(e e)ed ega|eeB dge edB AGE|! eeB dg(e e)ed ega|abg abg geg abg|! eeB dg(e e)ed ega|eeB dge edB AGE|! eeB dg(e e)ed ega|abg abg gdg edB||! Ace g2(f (f6)|f12)|! Ace gf(a (a6)|(a3) a2)g/e/ d2 (e e3)|! Ace g2(f (f6)|f12)|! Ace gf(b (b6)|(b3) b2)f f2(e e3)||
+|:EGA AEG GED BEG|EGA AGA cdc BEG|! EGA AEG GED BEG|EGA ABG AAG cBG:|! EAc BG(e e)dc BAG|GAE EEA cd(B B)GF|! EAc BG(e e)dc BAG|EGA ABG AAG cBG:|! Ace g2(f f)ed eAc|c)eg ffd eAc BAG|! Ace g2(f f)ed ega|a)eg fed eAc BAG:|! zc'b gge ga(e e)ed|ega ag(b b)ge gab|! c'bg gge ga(e e)ed|edB cBG AcB egb|! zc'b gge ga(e e)ed|ega ag(b b)ge gab|! c'bg gge ga(e e)ed|eeB dg(e e)ed ega||! eeB dg(e e)ed ega|eeB dge edB AGE|! eeB dg(e e)ed ega|abg abg geg abg|! eeB dg(e e)ed ega|eeB dge edB AGE|! eeB dg(e e)ed ega|abg abg gdg edB||! Ace g2(f (f6)|f12)|! Ace gf(a (a6)|(a3) a2)g/e/ d2 (e e3)|! Ace g2(f (f6)|f12)|! Ace gf(b (b6)|(b3) b2)f f2(e e3)||
 
 `,
 
@@ -740,7 +740,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gminor
-(GABc) d3 c|(Bcd=e) f2 (ef)|(gd)(dc) ~B2 (AG)|A2 (GF) D2 z2|! (GA)Bc d2 cB|(cB)(AG) F2 Ac|(B2 AG) (AGAc)|B2 A>G G2 z2|! (GABc) d3 c|Bcd=e f2 ef|g2 d2 (edcB)|A2 ~G>F F2 z2|! (d>ed.B) .c.c.c.A|(B>cB).G .A.G.F(D|B3) (G A3) (F|~G)>FD^F G2 z2||
+(GABc) d3 c|(Bcd=e) f2 (ef)|(gd)(dc) ~B2 (AG)|A2 (GF) D2 z2|! (GA)Bc d2 cB|(cB)(AG) F2 Ac|(B2 AG) (AGAc)|B2 A>G G2 z2|! (GABc) d3 c|Bcd=e f2 ef|g2 d2 (edcB)|A2 ~G>F F2 z2|! (d>ed.B) .c.c.c.A|(B>cB).G .A.G.FD|B3) (G A3) F|~G)>FD^F G2 z2||
 
 `,
 
@@ -764,7 +764,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Dmajor
-|:D/B,/|A,>B,D {DC}D>ED|EFA B2d|A>FD {EF}E>DE|{DE}FDB, B,2D/B,/|! A,>B,D {DE}D>ED|EFA d2c/B/|A>FD {=C}B,2 A,|B,D>D D2:|! (3A/B/c/|d>fd {cd}ecA|{Bc}B/A/B/c/{Bc}d B/A/G/F/E/D/|{EF}E>DE {DE}F>ED|{D}FDB, B,2 (3A/B/c/|! d>fd {cd}ecA|B/A/B/c/{Bc}d B/A/G/F/E/D/|{EF}E>DE {DE}FDB,|A,<DD [D2A,2] (3A/B/c/|! {e}d>fd ecA|B/A/B/c/{Bc}d B/A/G/F/E/D/|F/D/A/F/d/A/ B/A/G/F/E/D/|{DE}FEE E2D/B,/|! A,B,D D>ED|EFA d2c/B/|A>FD {=C}B,2A,|B,<DD [D2A,2]||
+|:D/B,/|A,>B,D D>ED|EFA B2d|A>FD E>DE|FDB, B,2D/B,/|! A,>B,D D>ED|EFA d2c/B/|A>FD B,2 A,|B,D>D D2:|! (3A/B/c/|d>fd ecA|B/A/B/c/d B/A/G/F/E/D/|E>DE F>ED|FDB, B,2 (3A/B/c/|! d>fd ecA|B/A/B/c/d B/A/G/F/E/D/|E>DE FDB,|A,<DD D2 (3A/B/c/|! d>fd ecA|B/A/B/c/d B/A/G/F/E/D/|F/D/A/F/d/A/ B/A/G/F/E/D/|FEE E2D/B,/|! A,B,D D>ED|EFA d2c/B/|A>FD B,2A,|B,<DD D2||
 
 `,
 
@@ -776,7 +776,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-|:GE|D2 E>G GG/A/|BG/E/ D (5E/4G/4A/4B/4d/4 e>f|g2 (3fga g>e! (3fed (3edB (3dBA|Bd/B/ A>B (9d/4B/4d/4B/4d/4B/4A/4G/4E/4|(3DEG G2:|! dB|A2 Bd de/f/|ga/g/ f>e fe/f/|ab/g/ fe d>g|! a/4g/4f/4g/4 e/4f/4e/4d/4 B/4A/4B/4d/4 e/4d/4e/4f/4 g/4f/4g/4a/4 b/4a/4g/4f/4! g2 fg/a/ ge|(3fed (3edB (3dBA|B2 dB A2! (6G/E/D/E/G/A/ B/d/e/f/ g>a|g2 (3fga g>e|(3fed (3edB (3dBA! BG/4E/4 D/8E/8G/8B/8 A>B (9d/4B/4d/4B/4d/4B/4A/4G/4E/4|(3DEG G2|
+|:GE|D2 E>G GG/A/|BG/E/ D (3E/4G/4A/4B/4d/4 e>f|g2 (3fga g>e! (3fed (3edB (3dBA|Bd/B/ A>B (3d/4B/4d/4B/4d/4B/4A/4G/4E/4|(3DEG G2:|! dB|A2 Bd de/f/|ga/g/ f>e fe/f/|ab/g/ fe d>g|! a/4g/4f/4g/4 e/4f/4e/4d/4 B/4A/4B/4d/4 e/4d/4e/4f/4 g/4f/4g/4a/4 b/4a/4g/4f/4! g2 fg/a/ ge|(3fed (3edB (3dBA|B2 dB A2! (3G/E/D/E/G/A/ B/d/e/f/ g>a|g2 (3fga g>e|(3fed (3edB (3dBA! BG/4E/4 D/8E/8G/8B/8 A>B (3d/4B/4d/4B/4d/4B/4A/4G/4E/4|(3DEG G2|
 
 `,
 
@@ -788,7 +788,7 @@ R: strathspey
 M: 4/4
 L: 1/8
 K: Gmajor
-[B,/F/]<[A,/G/]|G,>B,D>G E<GD>G|A>B c/>B/A/<G/ E2- EF/G/|! G,>B,D>G E<G Dg/e/|d>B d/>c/B/<A/ G3:|! e|de/f/ g>d e>dg>B|c/B/c/a/ B/A/B/g/ A2- AF/G/|! G,>B,D>G E<G Dg/e/|d>B d/>c/B/<A/ G2- G>e|! de/f/ g>d e>dg>B|c/>B/c/<a/ B/>A/B/<g/ A2- A>B|! c/e/d/c/ B/d/c/B/ A/c/B/A/ G/B/A/G/|F/A/ (3G/F/E/ D/E/D/B,/ G,3||
+B,/<A,/|G,>B,D>G E<GD>G|A>B c/>B/A/<G/ E2- EF/G/|! G,>B,D>G E<G Dg/e/|d>B d/>c/B/<A/ G3:|! e|de/f/ g>d e>dg>B|c/B/c/a/ B/A/B/g/ A2- AF/G/|! G,>B,D>G E<G Dg/e/|d>B d/>c/B/<A/ G2- G>e|! de/f/ g>d e>dg>B|c/>B/c/<a/ B/>A/B/<g/ A2- A>B|! c/e/d/c/ B/d/c/B/ A/c/B/A/ G/B/A/G/|F/A/ (3G/F/E/ D/E/D/B,/ G,3||
 
 `,
 
@@ -800,7 +800,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Adorian
-e2{fe} dB|c2{Bc}B A3|A2 B/d/e/f/|g2a{b}a4|a2{ba}g {d}e2|! {fe}d2B d3 dB|{G}A3 {BA}GE|G4|G2 A/G//E// D>EG|A3B {G}A4||! A2 B/d/e/f/|g2a{b}a4|a2{ba}g {d}e2 e{fe}|d2B d3 dB A2|{BA}G2 {AB}A4||! A2 B/d/e/f/|g2 e2 {ef}e|d2 e2f|g2a a4|a2{ba}g e2 e{fe}|! d2B d4 d2B|A2 {BAGE} G4|G2 {AB}A/G//E// D>EG|A3B {cB}A4||! A2 B/d/e/f/|g2a{b}a4|{ab}a2{ba}g e2 e{fe}|d2B d3 dB A2|{BA}G2 {ABAG}A4||
+e2 dB|c2B A3|A2 B/d/e/f/|g2aa4|a2g e2|! d2B d3 dB|A3 GE|G4|G2 A/G//E// D>EG|A3B A4||! A2 B/d/e/f/|g2aa4|a2g e2 e|d2B d3 dB A2|G2 A4||! A2 B/d/e/f/|g2 e2 e|d2 e2f|g2a a4|a2g e2 e|! d2B d4 d2B|A2 G4|G2 A/G//E// D>EG|A3B A4||! A2 B/d/e/f/|g2aa4|a2g e2 e|d2B d3 dB A2|G2 A4||
 
 `,
 
@@ -824,7 +824,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Fmajor
-|:CF|A3 GGF|A,4 (3A,CF|A4 Ac|d2 f4|c3 AGF|A,4 A,C|D2 F4|F6:|! d4 de|A2 c4|d4 dc|a6|g4 gf|A2 c4|d2 f4|f6|! d4 de|A2 c4|d4 dc|a6|e4 ed|c2 A4|D2 F4|F6||
+|:CF|A3 GGF|A,4 (3A,CF|A4 Ac|d2 f4|c3 AGF|A,4 A,C|D2 F4|F6:|! d4 de|A2 c4|d4 dc|a4-a2|g4 gf|A2 c4|d2 f4|f4-f2|! d4 de|A2 c4|d4 dc|a4-a2|e4 ed|c2 A4|D2 F4|F4-F2||
 
 `,
 
@@ -836,7 +836,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Bminor
-|: B2 B2f2 | f8-f2de f2d2 | F8-F2B2 B2d2 | (d8 d2)ed A2B2 | -B8-B2 :|! |:a2a2e2{e}|f8-f2 de f2d2 | F8-F2 B2B2a2 |{e}f8-f2 def2 d2 | B8-B2:|
+|: B2 B2f2 | f8-f2de f2d2 | F8-F2B2 B2d2 | (d4-d4 d2)ed A2B2 | -B8-B2 :|! |:a2a2e2|f8-f2 de f2d2 | F8-F2 B2B2a2 |f8-f2 def2 d2 | B8-B2:|
 
 `,
 
@@ -860,7 +860,7 @@ R: barndance
 M: 4/4
 L: 1/8
 K: Fmajor
-F2|A2 F2 B2 d2|{c}A6 G2|F6 F2|A2 F2 B2 d2|{c}A4 (3GAG F2|! G6 F2|A2 GF A2 GF|A2 c2 f4|f4 d4|c2 A2 FA cB|! A4 G4 {AG}|F6||
+F2|A2 F2 B2 d2|A4-A2 G2|F4-F2 F2|A2 F2 B2 d2|A4 (3GAG F2|! G4-G2 F2|A2 GF A2 GF|A2 c2 f4|f4 d4|c2 A2 FA cB|! A4 G4 |F4-F2||
 
 `,
 
@@ -884,7 +884,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Gmajor
-ABd2 e4|eedB g2fe|ABd2 effe|d3B GABd|! ABdB e4|eedB g2fe|ABd2 effe|d3B GABd||! e2a2 ~a3b|agef g2ed|e2a2 abaf|g2gf defg|! e2a2 ~a3b|agef g2ed|e2a2 abaf|[M:6/4] g2gf d2g2 gfed||
+ABd2 e4|eedB g2fe|ABd2 effe|d3B GABd|! ABdB e4|eedB g2fe|ABd2 effe|d3B GABd||! e2a2 ~a3b|agef g2ed|e2a2 abaf|g2gf defg|! e2a2 ~a3b|agef g2ed|e2a2 abaf| g2gf d2g2 gfed||
 
 `,
 
@@ -920,7 +920,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Cmajor
-C6|:E>F|E<GG>A G2 E2|G>EG<A G2 E2|G>FE>D CDE<F|G4 G2 E<G|! A3 c A2 G2|A>GA>B A2 G<E|c2 cd e2 dc|A4 A2 e>g|! a2 g>e g2 e>d|e2 d>c e3 d|cBA<G c2 E2|G4 G2 cB|! A2 GA c2 Ac|d2 cd e3 d|c>BA<G c2 E2|1 D4 C2:|2 D4 C4||! |:e<gg>a g2 e2|g>ega g2 e2|g>fe<d c>de<f|g4 g2 e<g|! a3 c' a2 g2|a>ga>c' a2 g2|a>ge<d c>de<g|a4 a2 a<c'|! g2 e>d e2 d>c|d2 c<d e3 d|c>BA<G c2 E2|G4 G2 cB|! A2 GA c2 Ac|d2 cd e3 d|c>BA<G c2 E2|1 D4 C4:|2 D4 C2||
+C4-C2|:E>F|E<GG>A G2 E2|G>EG<A G2 E2|G>FE>D CDE<F|G4 G2 E<G|! A3 c A2 G2|A>GA>B A2 G<E|c2 cd e2 dc|A4 A2 e>g|! a2 g>e g2 e>d|e2 d>c e3 d|cBA<G c2 E2|G4 G2 cB|! A2 GA c2 Ac|d2 cd e3 d|c>BA<G c2 E2|1 D4 C2:|2 D4 C4||! |:e<gg>a g2 e2|g>ega g2 e2|g>fe<d c>de<f|g4 g2 e<g|! a3 c' a2 g2|a>ga>c' a2 g2|a>ge<d c>de<g|a4 a2 a<c'|! g2 e>d e2 d>c|d2 c<d e3 d|c>BA<G c2 E2|G4 G2 cB|! A2 GA c2 Ac|d2 cd e3 d|c>BA<G c2 E2|1 D4 C4:|2 D4 C2||
 
 `,
 
@@ -1124,7 +1124,7 @@ R: barndance
 M: 4/4
 L: 1/8
 K: Dmajor
-"^Swing" A, .D2 .E2 |: (F2{/G)} FD EFED | .B, z A,3 A,DE | (F2{/G)} FD ED E<F | A3 A, .D2 .E2 |! (F2{/G)} FD EFED | .B, z G,3 G,B,G, | A,3 D E<(C C2) |1 D3 A, .D2 .E2 :|2 D3 A .d2 .e2! |:$ (f2{/g)} fd efed | .B z A3 Ade | (f2{/g)} fd ed e<f | g4 .f2{g} .e2 |! d3 f efed | .B z .A2 d3 B | .A2 F2 ED E<F |1 D3 A .d2 .e2 :|2 D3 A, .D2 .E2
+"^Swing" A, .D2 .E2 |: (F2 FD EFED | .B, z A,3 A,DE | (F2 FD ED E<F | A3 A, .D2 .E2 |! (F2 FD EFED | .B, z G,3 G,B,G, | A,3 D E<(C C2) |1 D3 A, .D2 .E2 :|2 D3 A .d2 .e2! |:$ (f2 fd efed | .B z A3 Ade | (f2 fd ed e<f | g4 .f2 .e2 |! d3 f efed | .B z .A2 d3 B | .A2 F2 ED E<F |1 D3 A .d2 .e2 :|2 D3 A, .D2 .E2
 
 `,
 
@@ -1136,7 +1136,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:"Em" EEB2 A2B2|{d}"G"B>ABd "Bm" BAFA|"D" DDA2 F2A2|{B}"Am" A>GAB (3cBAGA|! "Em" EEB2 A2B2|"G" BAB^c "D" dcBA|"Bm" B^cdc BcBA|"D" BAFG "Em" E2E2:|! "Em" BBe2 d2e2|{f}e>def (3gfede|"D" ddA2 d2f2|"Bm7" a^gfe d2ff|! "Em" eeB2 e2f2|gfef gfga|"Bm"(3bagfg fede|"D" fadf "Em" e2gf|! "Em" eBGB "C" ecGc|"Em" edef "G" gfga|"D" fdAd fdAd|"Bm7" a2f2 "G" d2 gf|! "Em" eBGB "C" ecGc|egfa gbac'|"Bm"(3bagfg fede|"D" f2d2 "Em" e2 GF||
+|:"Em" EEB2 A2B2|"G"B>ABd "Bm" BAFA|"D" DDA2 F2A2|"Am" A>GAB (3cBAGA|! "Em" EEB2 A2B2|"G" BAB^c "D" dcBA|"Bm" B^cdc BcBA|"D" BAFG "Em" E2E2:|! "Em" BBe2 d2e2|e>def (3gfede|"D" ddA2 d2f2|"Bm7" a^gfe d2ff|! "Em" eeB2 e2f2|gfef gfga|"Bm"(3bagfg fede|"D" fadf "Em" e2gf|! "Em" eBGB "C" ecGc|"Em" edef "G" gfga|"D" fdAd fdAd|"Bm7" a2f2 "G" d2 gf|! "Em" eBGB "C" ecGc|egfa gbac'|"Bm"(3bagfg fede|"D" f2d2 "Em" e2 GF||
 
 `,
 
@@ -1184,7 +1184,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-B BA|G3 G Bd|g3 a/g/ fg|e3 f/e/ dc|d3 B BA|G3 G Bc|d4 Bd|e2 d2 B2|A3 B BA|! G3 G Bd|g3 a/g/ fg|e3 e dc|d3 B BA|G3 G Bc|d3 d BG|A2 BAGF|G3 g gf|! g4g/a/b/g/|a4 gf|g2 f2 e2|d4 Bd|e3 d e/f/g|{d}B4 Bd|e2 d2 B2|A3 g gf|! g4g/a/b/g/|a4 gf|g2 f2 e2|d4 GA|B g3 fe|d B3 G/A/B|A2 BAGF|G4z2|
+B BA|G3 G Bd|g3 a/g/ fg|e3 f/e/ dc|d3 B BA|G3 G Bc|d4 Bd|e2 d2 B2|A3 B BA|! G3 G Bd|g3 a/g/ fg|e3 e dc|d3 B BA|G3 G Bc|d3 d BG|A2 BAGF|G3 g gf|! g4g/a/b/g/|a4 gf|g2 f2 e2|d4 Bd|e3 d e/f/g|B4 Bd|e2 d2 B2|A3 g gf|! g4g/a/b/g/|a4 gf|g2 f2 e2|d4 GA|B g3 fe|d B3 G/A/B|A2 BAGF|G4z2|
 
 `,
 
@@ -1304,7 +1304,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dminor
-D4 DF|A4 FD|B2 B2 cd|AB/A/ G2 z2|! E4 EG|c4 zB|B2 A3 G|E6|! D3 A, DF|A4 FD|B2 B2 cd|AB/A/ G2 z2|! F4 G/F/|EF/E/ D3C|(D6|-D4)z2||! A4 f2|f3 z ed|B2 B2 f2|f2 z2 ed|! e2 e3 d|c2 d3 e|(A6|-A6)|! B4 Bc|d4 ef|A2 A2 f2|f2 z2 GA|! B4 GA|Bc/B/ A3G|A4 AG|E3||
+D4 DF|A4 FD|B2 B2 cd|AB/A/ G2 z2|! E4 EG|c4 zB|B2 A3 G|E4-E2|! D3 A, DF|A4 FD|B2 B2 cd|AB/A/ G2 z2|! F4 G/F/|EF/E/ D3C|(D4-D2|-D4)z2||! A4 f2|f3 z ed|B2 B2 f2|f2 z2 ed|! e2 e3 d|c2 d3 e|(A4-A2|-A6)|! B4 Bc|d4 ef|A2 A2 f2|f2 z2 GA|! B4 GA|Bc/B/ A3G|A4 AG|E3||
 
 `,
 
@@ -1328,7 +1328,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Amajor
-A,B,|"A" C2 B,2 C2 B,C|E6 EF|E2 C2 B,2 B,A,|"E"B,6 A,B,|"A"C2 B,2 C2 B,C|! E6 EF|E2 C2 "E"B,2 B,2|"A"A,6 EF|A3 BA2 EF|E6 EF|E3 CB,2 A,2|"E"B,6 A,B,|! "A" C2 B,2 C2 B,C|E6 EF|E2 C2 "E"B,2 B,2|"A"A,8||
+A,B,|"A" C2 B,2 C2 B,C|E4-E2 EF|E2 C2 B,2 B,A,|"E"B,4-B,2 A,B,|"A"C2 B,2 C2 B,C|! E4-E2 EF|E2 C2 "E"B,2 B,2|"A"A,4-A,2 EF|A3 BA2 EF|E4-E2 EF|E3 CB,2 A,2|"E"B,4-B,2 A,B,|! "A" C2 B,2 C2 B,C|E4-E2 EF|E2 C2 "E"B,2 B,2|"A"A,4-A,4||
 
 `,
 
@@ -1340,7 +1340,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-A,4 B,C|D6|E4 DC|A,6|A,4 AB|=c4 AG|A2 d4|d6|f4 e2|d3e dc|AG E3D|! CD/E/ D4|CA,3 B,2|=C6|=C4 A,B,/C/|D6|E4 DC|A,6|A,4 AB|=c4 AG|A2 d4|! d6|f4 e2|d3e dc|AG E4|D4 CD/E/|D6|E4 DC|D6|D6||A de|f3e (3def|! e2 A/B/c/d/ ec|d3c d3/2c/|A4 F2|G3F E2|D3D/E/ F/G/A/B/|=c4 AG|A2 d2 d/e/d/c/|! d6|d4 A,B,/C/|D6|E4 DC|A,6|A,4 AB|=c4 AG|A2 d4|d6|f4 e2|d3e dc|! AG E4|D4 CD/E/|D6|E4 DC|D6|D6||
+A,4 B,C|D4-D2|E4 DC|A,4-A,2|A,4 AB|=c4 AG|A2 d4|d4-d2|f4 e2|d3e dc|AG E3D|! CD/E/ D4|CA,3 B,2|=C4-C2|=C4 A,B,/C/|D4-D2|E4 DC|A,4-A,2|A,4 AB|=c4 AG|A2 d4|! d4-d2|f4 e2|d3e dc|AG E4|D4 CD/E/|D4-D2|E4 DC|D4-D2|D4-D2||A de|f3e (3def|! e2 A/B/c/d/ ec|d3c d3/2c/|A4 F2|G3F E2|D3D/E/ F/G/A/B/|=c4 AG|A2 d2 d/e/d/c/|! d4-d2|d4 A,B,/C/|D4-D2|E4 DC|A,4-A,2|A,4 AB|=c4 AG|A2 d4|d4-d2|f4 e2|d3e dc|! AG E4|D4 CD/E/|D4-D2|E4 DC|D4-D2|D4-D2||
 
 `,
 
@@ -1352,7 +1352,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-D2|B3 d B2|G4 F2|{GF}E3 F {EF}G2|D4 B,2|{B,}C3 D E2|{FE}D4 {C}B,2|{B,}A,6-|A,4 D2|! B3 d B2|G4 F2|{GF}E3 F {EF}G2|D4 B,2|{B,}C3 D E2|D C3 B,A,|[G,6D6]-|[G,4D4]D2|! B3 d B2|G4 F2|{GF}E3 F {EF}G2|D4 B,|{B,}C3 D E2|{FE}D4 B2|{B}A6-|A4 D2|! B3 d B2|G4 F2|{GF}E3 F {EF}G2|D4 B,|{B,}C3 D E2|D C3 B,A,|[G,6D6]-|[G,4D4] Bc|! {B}d4 g2|f4 fa|{a}g3 f e2|d4 B2|c3 d e2|d4 b|a6-|a4 Bc|! {B}d4 g2|f4 fa|{a}g3 f e2|d4 B2|c3 d e2|d c3 BA|{EF}G6-|G4 Bc|! {B}d4 g2|f4 fa|g4 b2|d4 B2|[A4e4][^c2a2]|e4 f2|{Bc}d6-|d4 D2|! B3 d B2|G4 F2|{GF}E3 F {EF}G2|D4 B,|{B,}C3 D E2|D C3 B,A,|[G,6D6]-|[G,6D6]|
+D2|B3 d B2|G4 F2|E3 F G2|D4 B,2|C3 D E2|D4 B,2|A,6-|A,4 D2|! B3 d B2|G4 F2|E3 F G2|D4 B,2|C3 D E2|D C3 B,A,|G,6-|G,4D2|! B3 d B2|G4 F2|E3 F G2|D4 B,|C3 D E2|D4 B2|A6-|A4 D2|! B3 d B2|G4 F2|E3 F G2|D4 B,|C3 D E2|D C3 B,A,|G,6-|G,4 Bc|! d4 g2|f4 fa|g3 f e2|d4 B2|c3 d e2|d4 b|a6-|a4 Bc|! d4 g2|f4 fa|g3 f e2|d4 B2|c3 d e2|d c3 BA|G6-|G4 Bc|! d4 g2|f4 fa|g4 b2|d4 B2|A4[^c2a2]|e4 f2|d6-|d4 D2|! B3 d B2|G4 F2|E3 F G2|D4 B,|C3 D E2|D C3 B,A,|G,6-|G,4-G,2|
 
 `,
 
@@ -1364,7 +1364,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-|:d|(B/A/G) G3 B|({A}G{F}E) D3 e|dc/B/ {d}cB AG|(AB/d/) (e3d)|! ({c}BA/G/) G3 ({GA}B)|(~E>G) D3 e|(dc/B/) (cB) (AG)|~B2d e2:|! |:d|(d/c/B/c/) (d3e)|(d/c/B/c/) d3d|(eg) ~g2 {ga}b2|{f}(e>d) d3 g|! (d/B/A/G/) ~E3G|(D/E/G) (e3d)|(d/B/A/G/) (~G>A) (B/A/B/)d/|(A2G) G2:|
+|:d|(B/A/G) G3 B|(GE) D3 e|dc/B/ cB AG|(AB/d/) (e3d)|! (BA/G/) G3 (B)|(~E>G) D3 e|(dc/B/) (cB) (AG)|~B2d e2:|! |:d|(d/c/B/c/) (d3e)|(d/c/B/c/) d3d|(eg) ~g2 b2|(e>d) d3 g|! (d/B/A/G/) ~E3G|(D/E/G) (e3d)|(d/B/A/G/) (~G>A) (B/A/B/)d/|(A2G) G2:|
 
 `,
 
@@ -1400,7 +1400,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Aminor
-|:A4 ^G2E2|c4 d2B2|c3d e4|e2d2 (d2c2)|c3d e3g|e2A2 ^G2E2|A4 ^G3B|! (c3 d/c/) (B2A2):|! |:A3B e4|A4 ^G2E2|A3 B e3g|(c3 d/c/) [G2B2] z2|A3 B e4|A4 ^G2E2|! e3 ^d e2 ^G2|A3 (3^G/A/B/ A4:|
+|:A4 ^G2E2|c4 d2B2|c3d e4|e2d2 (d2c2)|c3d e3g|e2A2 ^G2E2|A4 ^G3B|! (c3 d/c/) (B2A2):|! |:A3B e4|A4 ^G2E2|A3 B e3g|(c3 d/c/) G2 z2|A3 B e4|A4 ^G2E2|! e3 ^d e2 ^G2|A3 (3^G/A/B/ A4:|
 
 `,
 
@@ -1412,7 +1412,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Amajor
-|:e2|A4 B2|c4 e2|{a}e4 dc|d4 cd|e4 fe|d4 cB|~e2 d4 -|d4 e2|! e4 fe|d4 cB|d4 cB|A4 {ad}e2|{ad}e4 fe|d4 cB|c2 A4-|A4:|! |:ef|g4 fe|f4 ed|e4 dc|d4 cd|e4 fe|d4 cB|~e2 d4 -|d4 e2|! e4 fe|d4 cB|d4 cB|A4 {ad}e2|{ad}e4 fe|d4 cB|c2 A4-|A4:|
+|:e2|A4 B2|c4 e2|e4 dc|d4 cd|e4 fe|d4 cB|~e2 d4 -|d4 e2|! e4 fe|d4 cB|d4 cB|A4 e2|e4 fe|d4 cB|c2 A4-|A4:|! |:ef|g4 fe|f4 ed|e4 dc|d4 cd|e4 fe|d4 cB|~e2 d4 -|d4 e2|! e4 fe|d4 cB|d4 cB|A4 e2|e4 fe|d4 cB|c2 A4-|A4:|
 
 `,
 
@@ -1460,7 +1460,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Eminor
-|:e2d cBA|GAF E2 B|e2f gfe|gaf e3|! a2g fed|cdB A2E|A2B cBA|cdB A3|! BfB BfB|gcg cgc|BfB BfB|gcg cgc|! fBB gcc|fBB gcc|B^c^d efg|^def gab|! egb bge|^dfb fdB|dfa bfd|^cea aec|! =ceg ceg|Beg Beg|_Beg Beg|=Beg fe^d|! egb bge|^dfb fdB|dfa bfd|^cea aec|! =ceg ceg|Beg Beg|_Beg Beg|=Beg fe^d:|! e2d cBA|GAF E2 ^d|e6|e'6||
+|:e2d cBA|GAF E2 B|e2f gfe|gaf e3|! a2g fed|cdB A2E|A2B cBA|cdB A3|! BfB BfB|gcg cgc|BfB BfB|gcg cgc|! fBB gcc|fBB gcc|B^c^d efg|^def gab|! egb bge|^dfb fdB|dfa bfd|^cea aec|! =ceg ceg|Beg Beg|_Beg Beg|=Beg fe^d|! egb bge|^dfb fdB|dfa bfd|^cea aec|! =ceg ceg|Beg Beg|_Beg Beg|=Beg fe^d:|! e2d cBA|GAF E2 ^d|e4-e2|e'4-e'2||
 
 `,
 
@@ -1472,7 +1472,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-e2 dc BAGF|GAFG E2 B2|e2 ef gfef|gafg e4|! a2 gf edcB|cdBc A2E2|A2 AB cBAB|cdBc A4||! BB[Bf]B B[Bf]BB|[cg]cc[cg] cc[cg]c|BB[Bf]B B[Bf]BB|[cg]cc[cg] cc[cg]c|! [Bf]BBB [cg]ccc|[Bf]BBB [cg]ccc|[Bf]B^cc ^ddee|ffgg aabb|! |:egbe bgeg|^dfbf bfdf|=dfab afdB|^ceae aecA|! =cege cege|Bege Bege|_Bege Bege|=Bege fe^de:|! |:"Coda"e2 dc BAGF G2 e2 F2 ^d2|e4 B2 G2|E4 e2:|
+e2 dc BAGF|GAFG E2 B2|e2 ef gfef|gafg e4|! a2 gf edcB|cdBc A2E2|A2 AB cBAB|cdBc A4||! BBBB BBBB|cccc cccc|BBBB BBBB|cccc cccc|! BBBB cccc|BBBB cccc|BB^cc ^ddee|ffgg aabb|! |:egbe bgeg|^dfbf bfdf|=dfab afdB|^ceae aecA|! =cege cege|Bege Bege|_Bege Bege|=Bege fe^de:|! |:"Coda"e2 dc BAGF G2 e2 F2 ^d2|e4 B2 G2|E4 e2:|
 
 `,
 
@@ -1484,7 +1484,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Emajor
-|:B|ede BGE|EGB egb|!4!e'!3!d'!2!c' !1!b!3!g!1!e|cff (f2B)|1 ede BGE|cAF BGE|! AFD B,ec|BGE E2:|2 ede BGE|cAF BGE|afd e!4!e'!2!c'|bge e2||! g|:bge Beg|!2!b!4!e'!3!c' !2!b!4!g!2!e|Beg bge|cff (f2a)|1 bge Beg|!2!b!4!e'!3!c' !2!b!4!g!2!e|! egb agf|{/a}gee (e2g):|2 {/a}geg fdf|ede BGE|B,ec Bec|BGE E2||
+|:B|ede BGE|EGB egb|!4!e'!3!d'!2!c' !1!b!3!g!1!e|cff (f2B)|1 ede BGE|cAF BGE|! AFD B,ec|BGE E2:|2 ede BGE|cAF BGE|afd e!4!e'!2!c'|bge e2||! g|:bge Beg|!2!b!4!e'!3!c' !2!b!4!g!2!e|Beg bge|cff (f2a)|1 bge Beg|!2!b!4!e'!3!c' !2!b!4!g!2!e|! egb agf|gee (e2g):|2 geg fdf|ede BGE|B,ec Bec|BGE E2||
 
 `,
 
@@ -1496,7 +1496,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Aminor
-|:"Am"EDC A,CA,|"F"A2c AGF|"C"EFG GFE|"G"ED2- DEF|! "Am"FEE ECA|"F"AG2- GAG|"C"cAG GcG|"G"B3- BcE|! "Em"B3- BcE|"F"F3- FAC|"C"GDE- EFG|"G"ED2- DEF|! "Am"FEE ECA|"F"AG2- GAG|"C"cAG GcG|1 "G"d6:|2 "G"d3- dBE||! "Em"e3- ecA|"F"f3- fcA|"C"fee ecg|"G"d3- def|! "Am"fee ecc|"F"cA2- Aff|"C"fee ecg|"G"d3- dBE|! "Em"e3- ecA|"F"f3- fcA|"C"fec gec|"G"gd2- def|! "Am"fee ecc|"F"cA2- Aff|"Dm7"fec gec|"G"d3- dcE||! |:"Em"B3- BcE|"F"F3- FAC|"C"E3- EGG,|"G"B,3- B,cE|! "Em"BcB- BGE|"F"FGA- AGF|"Dm7"GAc- cAG|1 "G"ED2- DcE:|2 "G"D6||
+|:"Am"EDC A,CA,|"F"A2c AGF|"C"EFG GFE|"G"ED2- DEF|! "Am"FEE ECA|"F"AG2- GAG|"C"cAG GcG|"G"B3- BcE|! "Em"B3- BcE|"F"F3- FAC|"C"GDE- EFG|"G"ED2- DEF|! "Am"FEE ECA|"F"AG2- GAG|"C"cAG GcG|1 "G"d6:|2 "G"d3- dBE||! "Em"e3- ecA|"F"f3- fcA|"C"fee ecg|"G"d3- def|! "Am"fee ecc|"F"cA2- Aff|"C"fee ecg|"G"d3- dBE|! "Em"e3- ecA|"F"f3- fcA|"C"fec gec|"G"gd2- def|! "Am"fee ecc|"F"cA2- Aff|"Dm7"fec gec|"G"d3- dcE||! |:"Em"B3- BcE|"F"F3- FAC|"C"E3- EGG,|"G"B,3- B,cE|! "Em"BcB- BGE|"F"FGA- AGF|"Dm7"GAc- cAG|1 "G"ED2- DcE:|2 "G"D4-D2||
 
 `,
 
@@ -1532,7 +1532,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Dmajor
-A|FGA {B}AFA|BGB AFD|Bcd efg|efd cBA|! ~F3 ~A3|BGB AzA|Bcd efg|ABc d3|! FzA AFA|BGB AFD|Bcd efg|efd cBA|! FDF AFA|BGB A3|Bcd efg|ABc d2a|! ~f3 afa|~g3 efg|fdf fzf|EFD cBA|! AFA AFA|~G3 EzG|FED cde|dAF D3|! faa faa|geg {a}geg|~f3 dzf|efd cBA|! ~F3 AFA|~G3 EFG|fed cde|dAF D3|
+A|FGA AFA|BGB AFD|Bcd efg|efd cBA|! ~F3 ~A3|BGB AzA|Bcd efg|ABc d3|! FzA AFA|BGB AFD|Bcd efg|efd cBA|! FDF AFA|BGB A3|Bcd efg|ABc d2a|! ~f3 afa|~g3 efg|fdf fzf|EFD cBA|! AFA AFA|~G3 EzG|FED cde|dAF D3|! faa faa|geg geg|~f3 dzf|efd cBA|! ~F3 AFA|~G3 EFG|fed cde|dAF D3|
 
 `,
 
@@ -1604,7 +1604,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-P:A! d2 d2 BA|d4 BA|d2 d2 BA|d2 {f}e2 f2|d2 d2 AB|F4 dc|! B4 dc|d3 g f/g/f/e/|d3 f e/f/e/d/|c3 f e/f/e/d/|! B3 c BA|F3 g fe|{A}B3 d cB|A2 B2 dc|d6|D4||! P:B! de|~f3 e/f/ f2|fefgfg|{f}e4 e2|e2 f2 a2|d4 a2|! c4 ac|B3 c B/c/B/A/|F3 A Bc|d3 G F/G/F/E/|E3 d cd|! e3 d c/d/c/B/|A3 g fd|B3 d c/d/c/B/|A2 B2 dc|d6|D4||! P:C (octave up)! Bc|d2 d2 A2|d3 c B/c/B/A/|F3 G FE|D4 Bc|dcdedc|! BABcdB|e3 d c/d/c/B/|A4 de|f2 f2 B2|fefgfA|! {cd}e3 d c/d/c/B/|A4 f2|BcBcde|A2 B2 dc|{c}d6|D4||
+P:A! d2 d2 BA|d4 BA|d2 d2 BA|d2 e2 f2|d2 d2 AB|F4 dc|! B4 dc|d3 g f/g/f/e/|d3 f e/f/e/d/|c3 f e/f/e/d/|! B3 c BA|F3 g fe|B3 d cB|A2 B2 dc|d4-d2|D4||! P:B! de|~f3 e/f/ f2|fefgfg|e4 e2|e2 f2 a2|d4 a2|! c4 ac|B3 c B/c/B/A/|F3 A Bc|d3 G F/G/F/E/|E3 d cd|! e3 d c/d/c/B/|A3 g fd|B3 d c/d/c/B/|A2 B2 dc|d4-d2|D4||! P:C (octave up)! Bc|d2 d2 A2|d3 c B/c/B/A/|F3 G FE|D4 Bc|dcdedc|! BABcdB|e3 d c/d/c/B/|A4 de|f2 f2 B2|fefgfA|! e3 d c/d/c/B/|A4 f2|BcBcde|A2 B2 dc|d4-d2|D4||
 
 `,
 
@@ -1628,7 +1628,7 @@ R: mazurka
 M: 4/4
 L: 1/8
 K: Dmajor
-|:d4 A2|c4 A2|d4 A2|dc de fe|! d2 dc BA|F2 FE FA|B4 c2|d4 fe|! d2 d2 ed|c4 dc|BA Bc BA|F4 A2|! BA Bc dB|Af e4|d6|d6:|! |:f2 fe fg|fe fg fd|e2 ed ef|e2 f2 a2|! d4 ed|c4 dc|BA Bc BA|F4 (3ABc|! d2 dc BA|F2 EF D2|e2 ed cB|A4 de|! f2 B2 e2|A2 d2 dc|d6|d6:|! |:d4 c2|B2 A2 G2|FA dF EF|D6|! d4 A2|B2 c2 d2|e2 ed cB|A4 de|! f4 B2|e4 A2|d2 dc BA|F4 dc|! BA Bc BA|FE DE FA|B6|B6:|! |:d4 c2|B2 A2 G2|FA dF EF|D6|! d6|e6|f6|f4 A2|! BA Bc Bc|dc de dc|BA Bc BA|F4 dA|! BA Bc dB|Af e4|d6|d6:|
+|:d4 A2|c4 A2|d4 A2|dc de fe|! d2 dc BA|F2 FE FA|B4 c2|d4 fe|! d2 d2 ed|c4 dc|BA Bc BA|F4 A2|! BA Bc dB|Af e4|d4-d2|d6:|! |:f2 fe fg|fe fg fd|e2 ed ef|e2 f2 a2|! d4 ed|c4 dc|BA Bc BA|F4 (3ABc|! d2 dc BA|F2 EF D2|e2 ed cB|A4 de|! f2 B2 e2|A2 d2 dc|d4-d2|d6:|! |:d4 c2|B2 A2 G2|FA dF EF|D4-D2|! d4 A2|B2 c2 d2|e2 ed cB|A4 de|! f4 B2|e4 A2|d2 dc BA|F4 dc|! BA Bc BA|FE DE FA|B4-B2|B6:|! |:d4 c2|B2 A2 G2|FA dF EF|D4-D2|! d4-d2|e4-e2|f4-f2|f4 A2|! BA Bc Bc|dc de dc|BA Bc BA|F4 dA|! BA Bc dB|Af e4|d4-d2|d6:|
 
 `,
 
@@ -1700,7 +1700,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Cmajor
-|:cGAF EGGE|FAde d~A3|~c3G A{B}AcA|GEFE DEFG|! cGAF EGGE|FAde dcAc|efag gec2|decd (3BAG AB:|! |:cdeg {a}gceg|gage e~d3|cdea gcec|ABcd efed|! cdeg {a}gceg|gage ed{e}de|agea gedB|cAGF (3EFG AB:|
+|:cGAF EGGE|FAde d~A3|~c3G AAcA|GEFE DEFG|! cGAF EGGE|FAde dcAc|efag gec2|decd (3BAG AB:|! |:cdeg gceg|gage e~d3|cdea gcec|ABcd efed|! cdeg gceg|gage edde|agea gedB|cAGF (3EFG AB:|
 
 `,
 
@@ -1736,7 +1736,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:(BA)|"Em" G2 y E2 y G2 (AB)|"D" d6 (AB)|"Em" B3 y E "D" y D2 E2-|"Em" E6 (BA)|! w: 1.~A_ black-smith court-ed_ me, nine_ months and bet-ter._ He_! "Em" G2 E2 G2 (AB)|"D" d6 (AB)|"Em" B3 E "D" D2 E2-|"Em" E6 GB|! w: fair-ly won my_ heart, wrote_ me a let-ter._ With his! "G" d2 d2 (ed)(BA)|"Bm/F#" B6 (BA)|"Em" G2 y E2 (GA) A2-|"D" A6 EF|! w: Ham-mer in_ his_ hand, he_ looked quite cle--ver,_ and if! [1 "CMaj7" G2 A2 B2 (^cA)|B6 (EF)|"CMaj7" G3 A "D" F2 E2-|"Em" E6:|! w: I were with my_ love, I'd_ live for-e-ver._! ["Final""Em"2G2A2B2^cA|B6EF|"Em"G3A"D"F2E2-|"CMaj7"E6||! W: Verse 2.! W: But where is my love gone with his cheeks like roses?! W: He's gone across the sea gathering primroses.! W: I'm afraid the scorching sun will shine and burn his beauty,! W: And if I was with my love I'd do my duty.! W: Verse 3.! W: Strange news is come to town, strange news is carried.! W: Strange news flies up and down that my love is married.! W: I wish them both much joy although they cannot hear me.! W: And may God reward him well for the slighting of me.! W: Verse 4.! W: Don't you remember when you lay beside me?! W: And you said you'd marry me and not deny me?! W: If I said I'd marry you it was only for to try you,! W: So bring your witness love and I'll not deny you.! W: Verse 5! W: No, witness have I none save God Almighty,! W: And may he reward you well for the slighting of me.! W: Her cheeks grew pale and wan it made her poor heart tremble,! W: To think she loved that one and he proved deceitful.
+|:(BA)|"Em" G2 y E2 y G2 (AB)|"D" d4-d2 (AB)|"Em" B3 y E "D" y D2 E2-|"Em" E4-E2 (BA)|! w: 1.~A_ black-smith court-ed_ me, nine_ months and bet-ter._ He_! "Em" G2 E2 G2 (AB)|"D" d4-d2 (AB)|"Em" B3 E "D" D2 E2-|"Em" E4-E2 GB|! w: fair-ly won my_ heart, wrote_ me a let-ter._ With his! "G" d2 d2 (ed)(BA)|"Bm/F#" B4-B2 (BA)|"Em" G2 y E2 (GA) A2-|"D" A4-A2 EF|! w: Ham-mer in_ his_ hand, he_ looked quite cle--ver,_ and if! [1 "CMaj7" G2 A2 B2 (^cA)|B4-B2 (EF)|"CMaj7" G3 A "D" F2 E2-|"Em" E6:|! w: I were with my_ love, I'd_ live for-e-ver._! ["Final""Em"2G2A2B2^cA|B6EF|"Em"G3A"D"F2E2-|"CMaj7"E4-E2||! W: Verse 2.! W: But where is my love gone with his cheeks like roses?! W: He's gone across the sea gathering primroses.! W: I'm afraid the scorching sun will shine and burn his beauty,! W: And if I was with my love I'd do my duty.! W: Verse 3.! W: Strange news is come to town, strange news is carried.! W: Strange news flies up and down that my love is married.! W: I wish them both much joy although they cannot hear me.! W: And may God reward him well for the slighting of me.! W: Verse 4.! W: Don't you remember when you lay beside me?! W: And you said you'd marry me and not deny me?! W: If I said I'd marry you it was only for to try you,! W: So bring your witness love and I'll not deny you.! W: Verse 5! W: No, witness have I none save God Almighty,! W: And may he reward you well for the slighting of me.! W: Her cheeks grew pale and wan it made her poor heart tremble,! W: To think she loved that one and he proved deceitful.
 
 `,
 
@@ -1760,7 +1760,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Gmajor
-D|GAG GDE|GAG GAB|cec BdB|ABG E2D|! GDE GDE|GAG Bcd|edc B{c/B/}AG|~A3 {G/A/}G2||! A/B/|c2c cde|edd d2B|cdc BdB|ABG E D>D|! GDD EDD|GAG Bcd|edc B{c/B/}AG|~A3 G2||
+D|GAG GDE|GAG GAB|cec BdB|ABG E2D|! GDE GDE|GAG Bcd|edc BAG|~A3 G2||! A/B/|c2c cde|edd d2B|cdc BdB|ABG E D>D|! GDD EDD|GAG Bcd|edc BAG|~A3 G2||
 
 `,
 
@@ -1772,7 +1772,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-D|D3 F A3 B|AF E>D D2 d>A|B2 d>e {de}f2 e>d|B6 d2|! A>B d>e {de}f2 e>d|d2 D>E F2 ED|G>A B>c dF|E6 z2|! D3 F A3 B|AF E>F D2 d>c|B2 d>e d>e fA|B6 d2|! A>B d>e f2 e>d|dc BA {G}F2 ED|G3 B A>B dF|E6 z2|! D3 F A3 B|A<F E>A D2 z||
+D|D3 F A3 B|AF E>D D2 d>A|B2 d>e f2 e>d|B4-B2 d2|! A>B d>e f2 e>d|d2 D>E F2 ED|G>A B>c dF|E4-E2 z2|! D3 F A3 B|AF E>F D2 d>c|B2 d>e d>e fA|B4-B2 d2|! A>B d>e f2 e>d|dc BA F2 ED|G3 B A>B dF|E4-E2 z2|! D3 F A3 B|A<F E>A D2 z||
 
 `,
 
@@ -1892,7 +1892,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-de|:f3e d2|d2 de d2|B4 A2|F4 A2|BA Bc d2|e4 de|f2 f2 e2|! d4 f2|B4 e2|A4 d2|F4 E2|D4 e2|B4 e2|A4 dc|d6|d4 de:|! |:f2 fe d2|ed ef a2|b4 a2|f4 ed|e4 a2|f4 e2|d4 B2|A4 BA|! F4 E2|D4 f2|B4 e2|A4 a2|ba gf ed|e4 dc|d6|1 d4 de:|2 d6||
+de|:f3e d2|d2 de d2|B4 A2|F4 A2|BA Bc d2|e4 de|f2 f2 e2|! d4 f2|B4 e2|A4 d2|F4 E2|D4 e2|B4 e2|A4 dc|d4-d2|d4 de:|! |:f2 fe d2|ed ef a2|b4 a2|f4 ed|e4 a2|f4 e2|d4 B2|A4 BA|! F4 E2|D4 f2|B4 e2|A4 a2|ba gf ed|e4 dc|d4-d2|1 d4 de:|2 d4-d2||
 
 `,
 
@@ -1916,7 +1916,7 @@ R: polka
 M: 4/4
 L: 1/8
 K: Cmajor
-(3G/A/B/|c2 (GF/E/)|C2 (B,>C)|(E2 FE)|(C3 C)|(C4|C3)||! G|A2 (3_BAB|c2 (GF/E/)|C2 (B,>C)|(E2 FE)|(C3 C)|C3||! (C/C/)|(EF) (A>G)|(3GFE (FA/B/)|c2 (F (3A/G/A/ )|B2 c2|! _e (c2 B)|c2 (GF/E/)|C2 (B,z/C/)|(E2 FE)|(C3 C)|C3||
+(3G/A/B/|c2 (GF/E/)|C2 (B,>C)|(E2 FE)|(C3 C)|C4|C3)||! G|A2 (3_BAB|c2 (GF/E/)|C2 (B,>C)|(E2 FE)|(C3 C)|C3||! (C/C/)|(EF) (A>G)|(3GFE (FA/B/)|c2 (F (3A/G/A/ )|B2 c2|! _e (c2 B)|c2 (GF/E/)|C2 (B,z/C/)|(E2 FE)|(C3 C)|C3||
 
 `,
 
@@ -1976,7 +1976,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Emixolydian
-|:F2 E(3~E/E/E/E B|F2 E EDB,|~F(3F/E/F/F EDB,|A,B,D FBA|! FEE ~(3E/E/E/E B|F2 E EDB,|A,B,C [A,2D2] E|FED FED:|! |:~(3E/E/E/E B [B2G2] B|cBA Bcd|~E(3E/E/E/E GBE|FDB, DEF|! [B,3E3] GAB|def "4"[e2e2] f|edA ~(3B/B/B/B d|1 DFA BAF:|2 DFA BA=G||
+|:F2 E(3~E/E/E/E B|F2 E EDB,|~F(3F/E/F/F EDB,|A,B,D FBA|! FEE ~(3E/E/E/E B|F2 E EDB,|A,B,C A,2 E|FED FED:|! |:~(3E/E/E/E B B2 B|cBA Bcd|~E(3E/E/E/E GBE|FDB, DEF|! B,3 GAB|def "4"e2 f|edA ~(3B/B/B/B d|1 DFA BAF:|2 DFA BA=G||
 
 `,
 
@@ -2048,7 +2048,7 @@ R: polka
 M: 4/4
 L: 1/8
 K: Amajor
-e/|a(a/e/) (a/e/)(a/e/)|b(b/e/) (b/e/)(b/e/)|a(a/e/) ae|c/B/A/G/ Az/e/|! a/(e/{g}f/)e/ a/(e/{g}f/)e/|b(e/{g}f/)e/ b/(e/{g}f/)e/|a/g/a/e/ f/a/e/c/|c/B/A/G/ A/c/A/||! |:z/|e/e/e B/B/B|c/c/c d/B/G/E/|AA/c/ BB/d/|c/A/B/G/ AE:|! z/|E(3E/F/G/ AA/A/|A/c/B/A/ G/A/B/E/|c/A/B/c/ d/f/e/d/|c/B/A/G/ Az|! E(3E/F/G/ AA/A/|A/c/B/A/ G/A/B/E/|c/A/B/c/ d/f/e/d/|c/B/A/G/ Az/||
+e/|a(a/e/) (a/e/)(a/e/)|b(b/e/) (b/e/)(b/e/)|a(a/e/) ae|c/B/A/G/ Az/e/|! a/(e/f/)e/ a/(e/f/)e/|b(e/f/)e/ b/(e/f/)e/|a/g/a/e/ f/a/e/c/|c/B/A/G/ A/c/A/||! |:z/|e/e/e B/B/B|c/c/c d/B/G/E/|AA/c/ BB/d/|c/A/B/G/ AE:|! z/|E(3E/F/G/ AA/A/|A/c/B/A/ G/A/B/E/|c/A/B/c/ d/f/e/d/|c/B/A/G/ Az|! E(3E/F/G/ AA/A/|A/c/B/A/ G/A/B/E/|c/A/B/c/ d/f/e/d/|c/B/A/G/ Az/||
 
 `,
 
@@ -2168,7 +2168,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Dmajor
-A/G/|Fdd fee|fd.d dB.A|Fdd fdd|ed.d B2A|! Fdd fe.e|fd.d dB.A|Fdd fe.e|fdd B2A|! FE.E FD.D|FEd dBA|FEE FDD|FEd B2{cB}A|! FE.E FD.D|FEd dBA|FEE FDD|FEd B2A|! d2f e2f|d2e dBA/F/|ddf eef|d2e dBA/F/|! d2 f .eef|d2e d/e/d/c/A/F/|ddf eef|d2e dBA/F/|! B2A B2F|B2A B/c/B/A/F|B/c/d.B c2F|B/c/d.B cAF|! B2A B2F|B2A B/c/B/A/F|B/c/d.B c2F|Bdc B3|
+A/G/|Fdd fee|fd.d dB.A|Fdd fdd|ed.d B2A|! Fdd fe.e|fd.d dB.A|Fdd fe.e|fdd B2A|! FE.E FD.D|FEd dBA|FEE FDD|FEd B2A|! FE.E FD.D|FEd dBA|FEE FDD|FEd B2A|! d2f e2f|d2e dBA/F/|ddf eef|d2e dBA/F/|! d2 f .eef|d2e d/e/d/c/A/F/|ddf eef|d2e dBA/F/|! B2A B2F|B2A B/c/B/A/F|B/c/d.B c2F|B/c/d.B cAF|! B2A B2F|B2A B/c/B/A/F|B/c/d.B c2F|Bdc B3|
 
 `,
 
@@ -2180,7 +2180,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Gmajor
-|:"G"B3c d2B2|"D7"A3B c2A2|"Em"G3A B2G2|"Bm"G2F2E2D2|"C"E3F G2E2|! "G"D2G2B2d2|1 "Am"c3B A2G2|"D7"F2A2D2c2:|2 "Am"cBAG "D7"F2A2|"G"G6 dd||! "D7"c2d2 A2c2|F2A2 D2dd|"G"B2d2 G2B2|D2G2 B,2dd|! "D7"c2d2 A2c2|F2A2 D2dd|"G"d2D2 E2F2|G2A2 B2dd|! "D7"c2d2 A2c2|F2A2 D2dd|"G"B2d2 G2B2|D2G2 B,2D2|! "C"E3F "C#dim"G2E2|"G"D2G2 "Em"B2d2|"Am"cBAG "D7"F2A2|"G"G8||
+|:"G"B3c d2B2|"D7"A3B c2A2|"Em"G3A B2G2|"Bm"G2F2E2D2|"C"E3F G2E2|! "G"D2G2B2d2|1 "Am"c3B A2G2|"D7"F2A2D2c2:|2 "Am"cBAG "D7"F2A2|"G"G4-G2 dd||! "D7"c2d2 A2c2|F2A2 D2dd|"G"B2d2 G2B2|D2G2 B,2dd|! "D7"c2d2 A2c2|F2A2 D2dd|"G"d2D2 E2F2|G2A2 B2dd|! "D7"c2d2 A2c2|F2A2 D2dd|"G"B2d2 G2B2|D2G2 B,2D2|! "C"E3F "C#dim"G2E2|"G"D2G2 "Em"B2d2|"Am"cBAG "D7"F2A2|"G"G4-G4||
 
 `,
 
@@ -2216,7 +2216,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Gmajor
-B2 G c2 A|B2 d A3|B2 d c2 e|B2 d A3|! B>AB c3|B>AG A3|B>AB e>d e|B>AG A2 D|! G>AB c>GA|A>cd A2D|G>AB c>GA|B>cd A3|! GBG efe|GBG FAF|GBG cec|GBG dAD|! G>AB c>de|de/f/g f2 d|G>AB c>de|de/f/g f2 d|! GGd c e2|d g2 f a2|g2 d e2 c|d2 B c2 A|! G>AB c>dc|B>AG A2 D|GG/F/G Eec|BGg f d2|! B>cd e c2|dBg f d2|d>gd e c2|G>AG F D2|! G>AG/B/ A/d/ed/c/|B/A/B/c/d/e/ f/g/ag/f/|g f/e/d edc|Bc/B/A/G/ F/E/F/G/A/F/|! G/A/B/c/d/B/ c/d/e/f/g|G/A/B/c/d/e/ f>ga/f/|g3g3|g3 f3|! Gg/d/B/G/ c/B/c/d/c|Aa/g/f/e/ d/c/d/e/d|gB/=c/d edc|! Bc/B/ A/G/ F>ED|E>FG F>EF|G6|
+B2 G c2 A|B2 d A3|B2 d c2 e|B2 d A3|! B>AB c3|B>AG A3|B>AB e>d e|B>AG A2 D|! G>AB c>GA|A>cd A2D|G>AB c>GA|B>cd A3|! GBG efe|GBG FAF|GBG cec|GBG dAD|! G>AB c>de|de/f/g f2 d|G>AB c>de|de/f/g f2 d|! GGd c e2|d g2 f a2|g2 d e2 c|d2 B c2 A|! G>AB c>dc|B>AG A2 D|GG/F/G Eec|BGg f d2|! B>cd e c2|dBg f d2|d>gd e c2|G>AG F D2|! G>AG/B/ A/d/ed/c/|B/A/B/c/d/e/ f/g/ag/f/|g f/e/d edc|Bc/B/A/G/ F/E/F/G/A/F/|! G/A/B/c/d/B/ c/d/e/f/g|G/A/B/c/d/e/ f>ga/f/|g3g3|g3 f3|! Gg/d/B/G/ c/B/c/d/c|Aa/g/f/e/ d/c/d/e/d|gB/=c/d edc|! Bc/B/ A/G/ F>ED|E>FG F>EF|G4-G2|
 
 `,
 
@@ -2228,7 +2228,7 @@ R: barndance
 M: 4/4
 L: 1/8
 K: Dmajor
-(3ABc|:d2df edef|~d2df ecA2|~d2df efde|fA (3BAF A2 (3ABc|! d2df edef|~d2df ecA2|.d2 d2 (3cBA FB|A2D2 D4:|! dB|:A2{E}F2 {E}F2 {E}F2|DFED F3B|A2F2 EDEG|F2D2 D2 dB|! A2{E}F2 {E}F2 {E}F2|DFED F3B|A2F2 EDEG|F2D2 D4:|
+(3ABc|:d2df edef|~d2df ecA2|~d2df efde|fA (3BAF A2 (3ABc|! d2df edef|~d2df ecA2|.d2 d2 (3cBA FB|A2D2 D4:|! dB|:A2F2 F2 F2|DFED F3B|A2F2 EDEG|F2D2 D2 dB|! A2F2 F2 F2|DFED F3B|A2F2 EDEG|F2D2 D4:|
 
 `,
 
@@ -2252,7 +2252,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Amajor
-|:a2|e4c2|B4A2|A2c4|E4F2|A4A2|d4c2|c6|B4a2|! e4c2|B4A2|A2c4|E4F2|A4c2|B4A2|(A6|A4):|! c2|d4c2|d4e2|f4e2|a4f2|e4c2|B2c2e2|(f6|f2)g2a2|! e4c2|B4A2|A2c4|E4F2|A4c2|c2B3A|(A6|A4):|
+|:a2|e4c2|B4A2|A2c4|E4F2|A4A2|d4c2|c4-c2|B4a2|! e4c2|B4A2|A2c4|E4F2|A4c2|B4A2|(A4-A2|A4):|! c2|d4c2|d4e2|f4e2|a4f2|e4c2|B2c2e2|(f4-f2|f2)g2a2|! e4c2|B4A2|A2c4|E4F2|A4c2|c2B3A|(A4-A2|A4):|
 
 `,
 
@@ -2288,7 +2288,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Amajor
-|AB|:c4 c2e2|eAfA e2AB|c4 c2e2|{f}a2ec B2AB|! c4c2e2|eAfA e2AB|c2ae fded|c2A2 A2AB:|! |:c4 c2e2|d4 d2f2|c4 c2e2|{f}a2ec B2AB|! c4 c2e2|d4 d2f2|c2ae fded|1 c2A2 A2AB:|2 c2A2 A2g2||! |:a2af e2ec|A2Ac e2AB|c4 c2e2|{f}a2ec B2g2|! a2af e2ec|A2Ac e2AB|c2ae fded|1 c2A2 A2g2:|2 c2A2 A2AB||! |:c4 c2e2|fdad fdad|c4 c2e2|{f}a2ec B2AB|! c4 c2e2|fdad fdad|c2ae fded|c2A2 A2AB:|
+|AB|:c4 c2e2|eAfA e2AB|c4 c2e2|a2ec B2AB|! c4c2e2|eAfA e2AB|c2ae fded|c2A2 A2AB:|! |:c4 c2e2|d4 d2f2|c4 c2e2|a2ec B2AB|! c4 c2e2|d4 d2f2|c2ae fded|1 c2A2 A2AB:|2 c2A2 A2g2||! |:a2af e2ec|A2Ac e2AB|c4 c2e2|a2ec B2g2|! a2af e2ec|A2Ac e2AB|c2ae fded|1 c2A2 A2g2:|2 c2A2 A2AB||! |:c4 c2e2|fdad fdad|c4 c2e2|a2ec B2AB|! c4 c2e2|fdad fdad|c2ae fded|c2A2 A2AB:|
 
 `,
 
@@ -2336,7 +2336,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Gmajor
-|:D4 G3G|G8|G>F G>A B2A2|G6 (3GAB|! c4 c>B c>d|B6G2|A4 A>G A>B|A8:|! |:d3e d2 B2|G3A G4|c>B c>d c2 B2|A6 D2|! G3B A2G2|D4 G2 A2|B4 A3G|G8:|
+|:D4 G3G|G4-G4|G>F G>A B2A2|G4-G2 (3GAB|! c4 c>B c>d|B6G2|A4 A>G A>B|A8:|! |:d3e d2 B2|G3A G4|c>B c>d c2 B2|A4-A2 D2|! G3B A2G2|D4 G2 A2|B4 A3G|G8:|
 
 `,
 
@@ -2696,7 +2696,7 @@ R: strathspey
 M: 4/4
 L: 1/8
 K: Gmajor
-E/|D>B,G,>B, G>DB,>D|E<A,A,>D E<A, (3E/E/E/E|D>B,G,>B, G>DB,>D|C>ED>C B,<G,G,>E|! D<B,G,>B, G>DB,>D|E<A,A,>D E<A,A<c|B>GA<F G>ED<B,|C>ED>C B,<G,G,>B||! d>BG>B d>ed<B|d>BG>B A<A,A,>B|d>BG>B d>ed<B|c>ed<B (3G/G/G/G G>B|! d>BG>B d>ed<B|g>ba<g a2-a>g|b>ga<f g>ed<B|c>ed<B [G2G,2][G,G]>||
+E/|D>B,G,>B, G>DB,>D|E<A,A,>D E<A, (3E/E/E/E|D>B,G,>B, G>DB,>D|C>ED>C B,<G,G,>E|! D<B,G,>B, G>DB,>D|E<A,A,>D E<A,A<c|B>GA<F G>ED<B,|C>ED>C B,<G,G,>B||! d>BG>B d>ed<B|d>BG>B A<A,A,>B|d>BG>B d>ed<B|c>ed<B (3G/G/G/G G>B|! d>BG>B d>ed<B|g>ba<g a2-a>g|b>ga<f g>ed<B|c>ed<B G2G,>||
 
 `,
 
@@ -2732,7 +2732,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Eminor
-B,2|:E3 FE2|G4 A2|B4 A2|F3 ED2|E3 FE2|G4 A2|B3 AB2|d4 e2|! f3 ed2|Bd3 B2|A3 BA2|F3 ED2|E3 FE2|G2 A2 B2|AG3 F2|1 .E4B,2:|2 .E4 d2||! |:e3 fe2|d3 cB2|A2 B2 A2|F3 ED2|E2 e2 e2|e3 fg2|f2 e2 ^d2|e4f2|! g3 af2|e3 fd2|B2 d2 A2|F3 ED2|E3 FE2|G2 A2 B2|AG3 F2|1 .E4 d2:|2 .E6||
+B,2|:E3 FE2|G4 A2|B4 A2|F3 ED2|E3 FE2|G4 A2|B3 AB2|d4 e2|! f3 ed2|Bd3 B2|A3 BA2|F3 ED2|E3 FE2|G2 A2 B2|AG3 F2|1 .E4B,2:|2 .E4 d2||! |:e3 fe2|d3 cB2|A2 B2 A2|F3 ED2|E2 e2 e2|e3 fg2|f2 e2 ^d2|e4f2|! g3 af2|e3 fd2|B2 d2 A2|F3 ED2|E3 FE2|G2 A2 B2|AG3 F2|1 .E4 d2:|2 .E4-E2||
 
 `,
 
@@ -2744,7 +2744,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Aminor
-|:ABA a2 (a|{b}a)ge ~g3|~c3 edc|Bdg dBG|! (ABA) ~a3|a(ge) g3|ege deg|1 edB A3:|2 edB A2 B||! |:~c3 cec|~d3 ded|~c3 edc|Bdg dBG|! ~c3 edc|deg a2 (a|{b}a)ge deg|1 edB A2 B:|2 edB A3||
+|:ABA a2 a|a)ge ~g3|~c3 edc|Bdg dBG|! (ABA) ~a3|a(ge) g3|ege deg|1 edB A3:|2 edB A2 B||! |:~c3 cec|~d3 ded|~c3 edc|Bdg dBG|! ~c3 edc|deg a2 a|a)ge deg|1 edB A2 B:|2 edB A3||
 
 `,
 
@@ -2828,7 +2828,7 @@ R: strathspey
 M: 4/4
 L: 1/8
 K: Gmajor
-gf|:e2 dB d3 B|A/B/c BA BGGF|E2 D2 DEGA|! B/A/G dB A2 B/c/d|e2 dB d3 B|A/B/c BA BG{A}GF! [1 E2 D2 DEGB|AGGF G2 gf:|2 E2 D2 BDEB|AGGF G2 ga! |:bdgb a2 a/g/f|g2 gf edgf|eddB dBGA! [1 B/A/G dB A2 ga:|2 Bdgb a4||e2 e/d/B d3 B|! A/B/c BA BGGF|E2 D2 BDEB|AG{A}GF G4|
+gf|:e2 dB d3 B|A/B/c BA BGGF|E2 D2 DEGA|! B/A/G dB A2 B/c/d|e2 dB d3 B|A/B/c BA BGGF! [1 E2 D2 DEGB|AGGF G2 gf:|2 E2 D2 BDEB|AGGF G2 ga! |:bdgb a2 a/g/f|g2 gf edgf|eddB dBGA! [1 B/A/G dB A2 ga:|2 Bdgb a4||e2 e/d/B d3 B|! A/B/c BA BGGF|E2 D2 BDEB|AGGF G4|
 
 `,
 
@@ -3020,7 +3020,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Amajor
-E2-|E2 A2 B2|c6|B4 A2|B2 A2 F2|E6-|E4 c2|! d2 e2 f2|e6|c4 B2|A2 F2 A2|B6-|B4 e2|! e2 f2 e2|c6|B4 A2|B2 A2 F2|E6-|E4 c2|! d2 e2 f2|e6|c4 A2|B2 A2 F2|A6-|A4||
+E2-|E2 A2 B2|c4-c2|B4 A2|B2 A2 F2|E6-|E4 c2|! d2 e2 f2|e4-e2|c4 B2|A2 F2 A2|B6-|B4 e2|! e2 f2 e2|c4-c2|B4 A2|B2 A2 F2|E6-|E4 c2|! d2 e2 f2|e4-e2|c4 A2|B2 A2 F2|A6-|A4||
 
 `,
 
@@ -3080,7 +3080,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Aminor
-E|:CEE {FED}E2G|EGF EDC|CEE {FED}E2c|{Bc}B>A^G A2c|! CEE {FED}E2G|EGF EDC|CEEE ce|1 {e}dcB A2c:|2 {e}dcB A2e||! ceg ceg|c/B/c/d/e/f/ gec|cec' a/g/f/e/d/c/|deg {ba^g}a2e|! ceg ceg|c/B/c/d/e/f/ gec|f/e/d/c/B/A/ G/F/E/D/C|DEG A2e|! ceg ceg|c/B/c/d/e/f/ gec|cec' a/g/f/e/d/c/|deg {ba^g}a2e|! ceg ece|dBd cde|CEE EAc|{Bc}B>A^G A2c||
+E|:CEE E2G|EGF EDC|CEE E2c|B>A^G A2c|! CEE E2G|EGF EDC|CEEE ce|1 dcB A2c:|2 dcB A2e||! ceg ceg|c/B/c/d/e/f/ gec|cec' a/g/f/e/d/c/|deg a2e|! ceg ceg|c/B/c/d/e/f/ gec|f/e/d/c/B/A/ G/F/E/D/C|DEG A2e|! ceg ceg|c/B/c/d/e/f/ gec|cec' a/g/f/e/d/c/|deg a2e|! ceg ece|dBd cde|CEE EAc|B>A^G A2c||
 
 `,
 
@@ -3116,7 +3116,7 @@ R: slip jig
 M: 4/4
 L: 1/8
 K: Dmajor
-|:def e2 d dBA|BAF EDB, B,2 C|D2 E FAB ABd|fed dcd e2 f|! a2 B' afe def|g3 bge edB|cBA ecA bge|Ace gfe d3:|! A2 d BAF ABd|faf fed B3|GBe GBe g3|fed fed A3|! A2 d BAF ABd|faf fed B3|bge c3 bge|Ace gfe d3:|! AFD DDD AFD|DDD dfd BAF|E3 EDB, EDB,|A,3 DFB Adf|! afd ddd afd|ddd baf [c3e]|cBA ecA bge|Ace gfe d3:|
+|:def e2 d dBA|BAF EDB, B,2 C|D2 E FAB ABd|fed dcd e2 f|! a2 B' afe def|g3 bge edB|cBA ecA bge|Ace gfe d3:|! A2 d BAF ABd|faf fed B3|GBe GBe g3|fed fed A3|! A2 d BAF ABd|faf fed B3|bge c3 bge|Ace gfe d3:|! AFD DDD AFD|DDD dfd BAF|E3 EDB, EDB,|A,3 DFB Adf|! afd ddd afd|ddd baf c3|cBA ecA bge|Ace gfe d3:|
 
 `,
 
@@ -3164,7 +3164,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-|:a3 f gfed|fdAB dfed|a3 f gfed|fdAB df e2:|! |:f A2 A df (e2|e)fed fedB|ABAB df (e2|e)Adf e4:|
+|:a3 f gfed|fdAB dfed|a3 f gfed|fdAB df e2:|! |:f A2 A df e2|e)fed fedB|ABAB df e2|e)Adf e4:|
 
 `,
 
@@ -3236,7 +3236,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Gmajor
-z3 z2d|egcBee|gag dAG|A3 Bde|edA BGA|egcBee|gag d2B|A2A Bde|e6||! egcBee|gag d2B|A3 Bde|edA BGA|egcBee|gag dAG|A3 Bde|e3-edc|! a2beca-|a2be2g|gfd3e|ae/f/g fdc||a2beca-|a2be2c|Ad e2fd|c-c/ d/eg3|! a2beca-|a2be2g|gfd3e|ae/f/g fdc|agb eca-|a2be2c|d6-d6|
+z3 z2d|egcBee|gag dAG|A3 Bde|edA BGA|egcBee|gag d2B|A2A Bde|e4-e2||! egcBee|gag d2B|A3 Bde|edA BGA|egcBee|gag dAG|A3 Bde|e3-edc|! a2beca-|a2be2g|gfd3e|ae/f/g fdc||a2beca-|a2be2c|Ad e2fd|c-c/ d/eg3|! a2beca-|a2be2g|gfd3e|ae/f/g fdc|agb eca-|a2be2c|d6-d4-d2|
 
 `,
 
@@ -3440,7 +3440,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-D2 G3A|B2 G2 G2|A2 ^G2 A2|f3 gaf|! g2 d2 de|d2 c2 AF|G3 BAG|F3 AGF|! D2 G3A|B2 G2 GB|A2 ^G2 A2|f3 gaf|! g2 d2 de|d3 cAF|G6|G4||! g2|g2 d2 g2|g3 bag|f2 d2 e2|=f3 ga^f|! g2 d2 de|d2 c2 AF|G3 BAG|F4 g2|! g2 d2 g2|g3 bag|f2 d2 e2|f3 gaf|! g2 d2 de|d3 cAF|G6|G3 AGF||
+D2 G3A|B2 G2 G2|A2 ^G2 A2|f3 gaf|! g2 d2 de|d2 c2 AF|G3 BAG|F3 AGF|! D2 G3A|B2 G2 GB|A2 ^G2 A2|f3 gaf|! g2 d2 de|d3 cAF|G4-G2|G4||! g2|g2 d2 g2|g3 bag|f2 d2 e2|=f3 ga^f|! g2 d2 de|d2 c2 AF|G3 BAG|F4 g2|! g2 d2 g2|g3 bag|f2 d2 e2|f3 gaf|! g2 d2 de|d3 cAF|G4-G2|G3 AGF||
 
 `,
 
@@ -3548,7 +3548,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-A2|D3 F Ad|f3 d AF|G3 B dg|b6|a3 g ec|A4 (3cde|f3 e dB|! A4 A2|D3 F Ad|f3 d AF|G3 B dg|b6|a3 g ec|A4 (3cde|! f3 e dc|d4||A2|f3 A fa|g2 f2 e2|d2 G3 B|A4 a2|a3 g ec|! A4 (3cde|f3 e dB|A4 A2|f3 A fa|g2 f2 e2|d2 G3 B|A4 a2|! a3 g ec|A4 (3cde|f3 e dc|d4||
+A2|D3 F Ad|f3 d AF|G3 B dg|b4-b2|a3 g ec|A4 (3cde|f3 e dB|! A4 A2|D3 F Ad|f3 d AF|G3 B dg|b4-b2|a3 g ec|A4 (3cde|! f3 e dc|d4||A2|f3 A fa|g2 f2 e2|d2 G3 B|A4 a2|a3 g ec|! A4 (3cde|f3 e dB|A4 A2|f3 A fa|g2 f2 e2|d2 G3 B|A4 a2|! a3 g ec|A4 (3cde|f3 e dc|d4||
 
 `,
 
@@ -3560,7 +3560,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Edorian
-|:B,E|B3cB2|A3Bc2|dF3 E2|D3EF2|G2A2Bc|d2c2BA|{F}E4D2|E4:|! AB|e3~fe2|d4 e2|f2 e2 dc|dB3 AB|e3~fe2|d4 e2|f2e2 dc|d3 BAB|! e3~fe2|d4 e2|f2e2 dc|dB3AF|G2A2Bc|d2c2BA|{F}E4D2|E4:|
+|:B,E|B3cB2|A3Bc2|dF3 E2|D3EF2|G2A2Bc|d2c2BA|E4D2|E4:|! AB|e3~fe2|d4 e2|f2 e2 dc|dB3 AB|e3~fe2|d4 e2|f2e2 dc|d3 BAB|! e3~fe2|d4 e2|f2e2 dc|dB3AF|G2A2Bc|d2c2BA|E4D2|E4:|
 
 `,
 
@@ -3584,7 +3584,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Adorian
-e3g f2df|e2A2 A3e|edcB ABcd|~e2ef edBd|! [A3e3]g (3fgf df|e2A2 A3e|dcBA GABc|(3ded dB c2 d2|! e3g f2df|e2A2 A3e|edcB ABcd|e2 ~e2 e2 fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2(3BcB||! A2a2 ^c2a2|e2a2 a4|e2ae AB^cd|e2~e2 ed^cB|! A2a2 ^c2a2|e2a2 a4|dcBA GABc|d3B c2(3BcB|! A2a2 ^c2a2|e2a2 a4|e2ae AB^cd|e2~e2 e2fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2d2||! e2A2 (3fgf dB|e2A2 ABcd|~e2ef edBd|e3e edBd|! (3efe A2 (3fgf df|e2A2 ABce|d3e dBGB|(3deddB c2d2|! e2A2 (3fgf dB|e2A2 ABcd|~e2ef edBd|e3e ~e2fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2d2||
+e3g f2df|e2A2 A3e|edcB ABcd|~e2ef edBd|! A3g (3fgf df|e2A2 A3e|dcBA GABc|(3ded dB c2 d2|! e3g f2df|e2A2 A3e|edcB ABcd|e2 ~e2 e2 fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2(3BcB||! A2a2 ^c2a2|e2a2 a4|e2ae AB^cd|e2~e2 ed^cB|! A2a2 ^c2a2|e2a2 a4|dcBA GABc|d3B c2(3BcB|! A2a2 ^c2a2|e2a2 a4|e2ae AB^cd|e2~e2 e2fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2d2||! e2A2 (3fgf dB|e2A2 ABcd|~e2ef edBd|e3e edBd|! (3efe A2 (3fgf df|e2A2 ABce|d3e dBGB|(3deddB c2d2|! e2A2 (3fgf dB|e2A2 ABcd|~e2ef edBd|e3e ~e2fg|! agfa gfeg|(3fgf df e3d|dcBA GABc|(3ded dB c2d2||
 
 `,
 
@@ -3596,7 +3596,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Dmajor
-M:C|! |:de|"D"f2A2 gfed|f2A2 d2cd|"A7"e2A2 agfe|"D"dcdf "A7"eAde! "D"f2A2 gfed|f2A2 d2cd|"A7"eaca Aaca|"D"d4-d2:|! fg|"D"a3f d2a2|fAa2 d2cd|"A7"e2A2 agfe|"D"dcdf "A7"eAfg|! "D"a3f d2a2|fAa2 d2cd|"A7"eaca Aaca|"D"d6 fg|! "D"a3f d2a2|fAa2 d2cd||"A7"e2A2 agfe|"D"dcdf "A7"eAde|! "D"f2A2 gfed|f2A2 d2cd|"A7"eaca Aaca|"D"d4-d2||
+M:C|! |:de|"D"f2A2 gfed|f2A2 d2cd|"A7"e2A2 agfe|"D"dcdf "A7"eAde! "D"f2A2 gfed|f2A2 d2cd|"A7"eaca Aaca|"D"d4-d2:|! fg|"D"a3f d2a2|fAa2 d2cd|"A7"e2A2 agfe|"D"dcdf "A7"eAfg|! "D"a3f d2a2|fAa2 d2cd|"A7"eaca Aaca|"D"d4-d2 fg|! "D"a3f d2a2|fAa2 d2cd||"A7"e2A2 agfe|"D"dcdf "A7"eAde|! "D"f2A2 gfed|f2A2 d2cd|"A7"eaca Aaca|"D"d4-d2||
 
 `,
 
@@ -3656,7 +3656,7 @@ R: three-two
 M: 4/4
 L: 1/8
 K: Dmajor
-M:7/8! fge d2 AG|F{G}FD d2 AG|{FG}FED =c2 cd|! {Bc}BAG =c2 cd|{Bc}BAG (F/G/A) cd|FGE D2D2:|! M:5/8! GFD GF|GFD ED|M:7/8! GAB cd ef|M:2/4! d2 ef|! M:7/8! g>dd gd ad|bag (f/g/a) cd|FGE D2D2:|
+M:7/8! fge d2 AG|FFD d2 AG|FED =c2 cd|! BAG =c2 cd|BAG (F/G/A) cd|FGE D2D2:|! M:5/8! GFD GF|GFD ED|M:7/8! GAB cd ef|M:2/4! d2 ef|! M:7/8! g>dd gd ad|bag (f/g/a) cd|FGE D2D2:|
 
 `,
 
@@ -3740,7 +3740,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-A FE|"D"D3E FG|A2 F2 D2|"G"G3F GB|d4 dB|! "D"A4 AG|"F#m"F2 G2 F2|"Em"E6-|E3A FE|! "D"D3E FG|A2 F2 D2|"G"G3F GB|d4 dB|! "D"A4 AF|"A7"E2 F2 E2|"D"D6-|D3B AG||! "D"F3A de|"D7"f2 g2 a2|"G"g3a gd|B4 dB|! "D"A2 d3d|d2 e2 f2|"A7"e6-|e3B AG|! "D"F3A de|"D7"f2 g2 a2|"G"g3a gd|B4 dB|! "D"A2 d3d|"A7"e2 f2 e2|"D"d6-|d6|
+A FE|"D"D3E FG|A2 F2 D2|"G"G3F GB|d4 dB|! "D"A4 AG|"F#m"F2 G2 F2|"Em"E6-|E3A FE|! "D"D3E FG|A2 F2 D2|"G"G3F GB|d4 dB|! "D"A4 AF|"A7"E2 F2 E2|"D"D6-|D3B AG||! "D"F3A de|"D7"f2 g2 a2|"G"g3a gd|B4 dB|! "D"A2 d3d|d2 e2 f2|"A7"e6-|e3B AG|! "D"F3A de|"D7"f2 g2 a2|"G"g3a gd|B4 dB|! "D"A2 d3d|"A7"e2 f2 e2|"D"d6-|d4-d2|
 
 `,
 
@@ -3944,7 +3944,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Amixolydian
-a>f|:e2c<A e>Ac<A|A>Bc>d e2a>f|e2c<A e>Ac<A|G>AB>c d2a>f|! e2c<A e>Ac<A|f<ad>f e2c<A|c>Bc<a e>fe>A|1 {d}c2A2 A2a>f:|2 {d}c2A2 A2g2||! a4 e2a2|c2a2 e2c<A|g4 d2g2|B2g2 d2B<G|! a4 e2a2|d2f2 e2c<A|c>Bc<a e>fe>A|{d}c2A2 A2g2|! a4 e2a2|c2a2 e2c<A|g4 d2g2|B2g2 d2B<G|! A>Bc>d e>fe<c|f<ad>f e2c<A|c>Bc<a e>fe>A|{d}c2A2 A2a2|! |:A2c<A e>Ac<e|a>ec<e A2g2|G2B<G d>GB<d|g>dB<d G2e2|! A2c<A e>Ac<e|f<ad>f e2c<A|c>Bc<a e>fe>A|1 {d}c2A2 A2e2:|2 {d}c2A2 A2g2||! a>ga>e c<eA<c|a>ec<e a2g>f|g>fg>d B<dG<B|g>dB<d g2f>g|! a>ga>e c<eA>e|f<ad>f e2c<A|c>Bc<a e>fe>A|{d}c2A2 A2g2|! a>ga>e c<eA<c|a>ec<e a2g>f|g>fg>d B<dG<B|g>dB<d g2f<a|! A>Bc>d e>fe>c|f<ad>f e2c<A|c>Bc<a e>fe>A|{d}c2A2 A2||
+a>f|:e2c<A e>Ac<A|A>Bc>d e2a>f|e2c<A e>Ac<A|G>AB>c d2a>f|! e2c<A e>Ac<A|f<ad>f e2c<A|c>Bc<a e>fe>A|1 c2A2 A2a>f:|2 c2A2 A2g2||! a4 e2a2|c2a2 e2c<A|g4 d2g2|B2g2 d2B<G|! a4 e2a2|d2f2 e2c<A|c>Bc<a e>fe>A|c2A2 A2g2|! a4 e2a2|c2a2 e2c<A|g4 d2g2|B2g2 d2B<G|! A>Bc>d e>fe<c|f<ad>f e2c<A|c>Bc<a e>fe>A|c2A2 A2a2|! |:A2c<A e>Ac<e|a>ec<e A2g2|G2B<G d>GB<d|g>dB<d G2e2|! A2c<A e>Ac<e|f<ad>f e2c<A|c>Bc<a e>fe>A|1 c2A2 A2e2:|2 c2A2 A2g2||! a>ga>e c<eA<c|a>ec<e a2g>f|g>fg>d B<dG<B|g>dB<d g2f>g|! a>ga>e c<eA>e|f<ad>f e2c<A|c>Bc<a e>fe>A|c2A2 A2g2|! a>ga>e c<eA<c|a>ec<e a2g>f|g>fg>d B<dG<B|g>dB<d g2f<a|! A>Bc>d e>fe>c|f<ad>f e2c<A|c>Bc<a e>fe>A|c2A2 A2||
 
 `,
 
@@ -3980,7 +3980,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-|:D4 F2|A4 B2|d4 B2|ABB4|D4 F2|A4 B2|AFF4|E6|! D4 F2|A4 B2|d4 B2|ABB4|D4 F2|A4 F2|E6|D6:|! |:B4 c2|d4 c2|B4 A2|FAA4|B4 A2|d4 F2|E4 D2|EFF4|! A4 F2|d4 A2|B4 d2|BAA4|D4 F2|A4 F2|E6|D6:|
+|:D4 F2|A4 B2|d4 B2|ABB4|D4 F2|A4 B2|AFF4|E4-E2|! D4 F2|A4 B2|d4 B2|ABB4|D4 F2|A4 F2|E4-E2|D6:|! |:B4 c2|d4 c2|B4 A2|FAA4|B4 A2|d4 F2|E4 D2|EFF4|! A4 F2|d4 A2|B4 d2|BAA4|D4 F2|A4 F2|E4-E2|D6:|
 
 `,
 
@@ -3992,7 +3992,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Edorian
-|:E3D F2|E4E2|e3d B2|AB3 d2|! [1F4 E2|D4 F2|A3B d2|BA3 F2:|! [2FD3 F2|A3B d2|F3E E2|E6||
+|:E3D F2|E4E2|e3d B2|AB3 d2|! [1F4 E2|D4 F2|A3B d2|BA3 F2:|! [2FD3 F2|A3B d2|F3E E2|E4-E2||
 
 `,
 
@@ -4064,7 +4064,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Adorian
-E2|:"Am" A6|A3 B cd|e2 A3 B|A2 G2 EF|"G" G6|! G3 A B2|B2 A3 B|"G" A2 G2 E2|"Am" c6|"G" d6|! "C" e3 f g2|"G" B2 A3 G|"Am" A3 c e2|"G" d3 c B2|"Am" A B3 "G" G2|"Am" A6:|! |:"Am" e4 Ae|e4 Ae|"G" d2 e2 g2|e3 d BA|"Em" G4 G2|! d4 B2|"Am" e4 e2|"G" d3 c B2|"Am" c6|"G" d6|! "C" e3 f g2|"G" B2 A3 G|"Am" A3 c e2|"G" d3 c B2|"Am" A B3 "G" G2|"Am" A6:|
+E2|:"Am" A4-A2|A3 B cd|e2 A3 B|A2 G2 EF|"G" G4-G2|! G3 A B2|B2 A3 B|"G" A2 G2 E2|"Am" c4-c2|"G" d4-d2|! "C" e3 f g2|"G" B2 A3 G|"Am" A3 c e2|"G" d3 c B2|"Am" A B3 "G" G2|"Am" A6:|! |:"Am" e4 Ae|e4 Ae|"G" d2 e2 g2|e3 d BA|"Em" G4 G2|! d4 B2|"Am" e4 e2|"G" d3 c B2|"Am" c4-c2|"G" d4-d2|! "C" e3 f g2|"G" B2 A3 G|"Am" A3 c e2|"G" d3 c B2|"Am" A B3 "G" G2|"Am" A6:|
 
 `,
 
@@ -4100,7 +4100,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Aminor
-A6|A6|e2>d2e2|e2d2B2|G6|G4A2|B2>A2B2|A2>G2E2|c6|d6|! e2>^f2g2|B2>A2G2|A2>B2e2|d2c2B2|A6|A6||! e6|e6|d2e2g2|e2d2B2|G4G|d4B2|e4e2|d2>c2B2|A6|c6|! d2>e2g2|B2>A2G2|A2>B2e2|d2c2B2|A6|A6||
+A4-A2|A4-A2|e2>d2e2|e2d2B2|G4-G2|G4A2|B2>A2B2|A2>G2E2|c4-c2|d4-d2|! e2>^f2g2|B2>A2G2|A2>B2e2|d2c2B2|A4-A2|A4-A2||! e4-e2|e4-e2|d2e2g2|e2d2B2|G4G|d4B2|e4e2|d2>c2B2|A4-A2|c4-c2|! d2>e2g2|B2>A2G2|A2>B2e2|d2c2B2|A4-A2|A4-A2||
 
 `,
 
@@ -4328,7 +4328,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Aminor
-|:d2 B2 d2|g2 gf e2|d2 A2 c2|B2 BA G2|! c2 A2 A2|A4 G2|F2 FG AF|D2 E2 F2|! G4 d2|c2 A2 e2|c2 A2 g2|f2 fe d2|! g2 d2 B2|e2 ed cB|A6|A6||! |:B4 e2|e4 ef|g2 gf e2|f2 fe d2|! B4 e2|e4 GA|B2 BA G2|A6|! B4 e2|e4 ef|g2 gf e2|f2 fe d2|! B4 e2|e4 GA|B2 BA G2|A6:|
+|:d2 B2 d2|g2 gf e2|d2 A2 c2|B2 BA G2|! c2 A2 A2|A4 G2|F2 FG AF|D2 E2 F2|! G4 d2|c2 A2 e2|c2 A2 g2|f2 fe d2|! g2 d2 B2|e2 ed cB|A4-A2|A4-A2||! |:B4 e2|e4 ef|g2 gf e2|f2 fe d2|! B4 e2|e4 GA|B2 BA G2|A4-A2|! B4 e2|e4 ef|g2 gf e2|f2 fe d2|! B4 e2|e4 GA|B2 BA G2|A6:|
 
 `,
 
@@ -4376,7 +4376,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-|:DGA | B2 BA Bc | BA G2 FG | EG cE GA | G4 E2 |! D4 E2 | G2 B2 dB | A3 G AB | A3 D GA |! B2 BA Bd | BA G2 FG | EG cE GA | G4 E2 |! D4 B2 | A4 B2 | G6 | G3 :|! A Bd|e4 d2 | B3 A AG | A3 G AB | D3 A Bd |! e4 d2 | B2 d2 B/A/G | A6- | A3 A Bd |! e4 d2 | e2 g3 e | d3 BAB | G4 E2|! D4 B2 | A4 B2 | G6- | G3 ABd|! e4 d2 | B3 A AG | A3 G AB | D3 A Bd |! e4 d2 | g2 b2 ag | a4- ab | a2 g2 f2 |! e4 d2 | e2 g3 e | d3 B AB | G4 E2|! D4 B2 | A4 G2 | G6- | G3 ||
+|:DGA | B2 BA Bc | BA G2 FG | EG cE GA | G4 E2 |! D4 E2 | G2 B2 dB | A3 G AB | A3 D GA |! B2 BA Bd | BA G2 FG | EG cE GA | G4 E2 |! D4 B2 | A4 B2 | G4-G2 | G3 :|! A Bd|e4 d2 | B3 A AG | A3 G AB | D3 A Bd |! e4 d2 | B2 d2 B/A/G | A6- | A3 A Bd |! e4 d2 | e2 g3 e | d3 BAB | G4 E2|! D4 B2 | A4 B2 | G6- | G3 ABd|! e4 d2 | B3 A AG | A3 G AB | D3 A Bd |! e4 d2 | g2 b2 ag | a4- ab | a2 g2 f2 |! e4 d2 | e2 g3 e | d3 B AB | G4 E2|! D4 B2 | A4 G2 | G6- | G3 ||
 
 `,
 
@@ -4412,7 +4412,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Amajor
-|:agf gfe|d2 e d2 d|agf gfe|[M:2/4] af ge|! M:6/8! agf gfe|d2 e d2 d|def aba|fde d3:|! f'^e'd' e'd'c'|b2 c' b2 b|f'^e'd' e'd'c'|[M:2/4] f'd' e'c'|! M:6/8! f'^e'd' e'd'c'|b2 c' b2 b|bc'd' f'g'f'|d'bc' b3|! K: Dmaj! |:d2 e f2 f|edc d2 A|dag fed|e2 f e2 d|fd'c' bag|! f/e/dB e2 e|fba fed|c'f^g a2 a|baf efa|b3 z3:|
+|:agf gfe|d2 e d2 d|agf gfe| af ge|! M:6/8! agf gfe|d2 e d2 d|def aba|fde d3:|! f'^e'd' e'd'c'|b2 c' b2 b|f'^e'd' e'd'c'| f'd' e'c'|! M:6/8! f'^e'd' e'd'c'|b2 c' b2 b|bc'd' f'g'f'|d'bc' b3|! K: Dmaj! |:d2 e f2 f|edc d2 A|dag fed|e2 f e2 d|fd'c' bag|! f/e/dB e2 e|fba fed|c'f^g a2 a|baf efa|b3 z3:|
 
 `,
 
@@ -4508,7 +4508,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Amajor
-AB|:c4 B2|cB AB c2|E2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2 G2|1 A4 AB:|2 A6||! |:A2 ef ec|A2 ef ec|A2e2e2|e3dc2|! A2 ef ec|A2 ef ec|A2c2c2|c3B AB|! cB AB c2|ED CD E2|F2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2G2|A6:|! |:d2 fd fd|c2 ec ec|E2A2 Bc|d2c2B2|! d2 fd fd|c2 ec ec|E2A2G2|A6:|! |:A2f2f2|A2e2e2|A2e2e2|e3dc2|! A2f2f2|A2e2e2|A2c2c2|c3B AB|! cB AB c2|ED CD E2|F2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2G2|A6:|
+AB|:c4 B2|cB AB c2|E2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2 G2|1 A4 AB:|2 A4-A2||! |:A2 ef ec|A2 ef ec|A2e2e2|e3dc2|! A2 ef ec|A2 ef ec|A2c2c2|c3B AB|! cB AB c2|ED CD E2|F2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2G2|A6:|! |:d2 fd fd|c2 ec ec|E2A2 Bc|d2c2B2|! d2 fd fd|c2 ec ec|E2A2G2|A6:|! |:A2f2f2|A2e2e2|A2e2e2|e3dc2|! A2f2f2|A2e2e2|A2c2c2|c3B AB|! cB AB c2|ED CD E2|F2A2 Bc|d2c2B2|! cB AB c2|ED CD E2|F2A2G2|A6:|
 
 `,
 
@@ -4976,7 +4976,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-K:GLyd! "G" G3Gd2c2|"Bm" B3B1 ABAB|"G" G2GGd2c2|"Bm" B6 B2|! "G" G3Gd2c2|"Bm" B3B ABAB|"G" G2GG dedc|"Bm" B6 B2|! "G" G2GG dGcG|"Bm" B2BB ABAB|"G" G2GG dGcG|"Bm" B4 B2B2|! "G" G2GG dGcG|"Bm" B2BB AGFA|"G" G2GG dGcG|"Bm" B6 B2|! |:"Em" fg2e "Bm" f2d2|"A" ec2 "Bm" d3B2|"Em" fg2e "Bm" f2d2|"A" e2ed c4|! "Em" fg2e "Bm" f2d2|"A" ec2 "Bm" d3B2|"Em" cdefe2d2|"A" c8:|
+K:GLyd! "G" G3Gd2c2|"Bm" B3B1 ABAB|"G" G2GGd2c2|"Bm" B4-B2 B2|! "G" G3Gd2c2|"Bm" B3B ABAB|"G" G2GG dedc|"Bm" B4-B2 B2|! "G" G2GG dGcG|"Bm" B2BB ABAB|"G" G2GG dGcG|"Bm" B4 B2B2|! "G" G2GG dGcG|"Bm" B2BB AGFA|"G" G2GG dGcG|"Bm" B4-B2 B2|! |:"Em" fg2e "Bm" f2d2|"A" ec2 "Bm" d3B2|"Em" fg2e "Bm" f2d2|"A" e2ed c4|! "Em" fg2e "Bm" f2d2|"A" ec2 "Bm" d3B2|"Em" cdefe2d2|"A" c8:|
 
 `,
 
@@ -5036,7 +5036,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Eminor
-BA GA Bc|B4 B2|BA GA Bc|A4 A2|! AG FG AB|A4 A2|AG FG AB|G4 G2||! GF EF GA|F6|FE DE FG|E6|! GF EF GA|F6|eB AG FG|E6||
+BA GA Bc|B4 B2|BA GA Bc|A4 A2|! AG FG AB|A4 A2|AG FG AB|G4 G2||! GF EF GA|F4-F2|FE DE FG|E4-E2|! GF EF GA|F4-F2|eB AG FG|E4-E2||
 
 `,
 
@@ -5060,7 +5060,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-{A}B3GA F|-F5|-F5|{A}B3GA F|-F5|{F}G5-|G5|A3 FG E-|E5-|E5|! A3 FG E-|E5-|E5|F5|~E5|D5-|D5-|D5|! {A}B3GA F|-F5|-F5|{A}B3GA F|-F5|{F}G5-|G5|! A3 F2G|E5-|E5|G3AB2|{G}A5|! {A}B3GA F|-F5|-F5|G5|-G5|G5|AB {G}A4|! G5|d5|cB G4|DG A4|GF G4|E2 e4|dc G4|AB A4|! GF G4|c5|de d4|A5|B5|B2A2G2|G5|E5|D5|! G5|d5|cB G4|DG A4|GA B4|{G}A5|GF G4|F5|D2|F5|E5-|E5||
+B3GA F|-F5|-F5|B3GA F|-F5|G5-|G5|A3 FG E-|E5-|E5|! A3 FG E-|E5-|E5|F5|~E5|D5-|D5-|D5|! B3GA F|-F5|-F5|B3GA F|-F5|G5-|G5|! A3 F2G|E5-|E5|G3AB2|A5|! B3GA F|-F5|-F5|G5|-G5|G5|AB A4|! G5|d5|cB G4|DG A4|GF G4|E2 e4|dc G4|AB A4|! GF G4|c5|de d4|A5|B5|B2A2G2|G5|E5|D5|! G5|d5|cB G4|DG A4|GA B4|A5|GF G4|F5|D2|F5|E5-|E5||
 
 `,
 
@@ -5108,7 +5108,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Ddorian
-AG|:ADDC DEFG|AddB cBAG|ADDC DEFG|AA,A,G, A,2 AG|! ADDC DEFG|AddB cB (3ABc|dBcA BGAF|GECE D2zG|! AddB cBAG|Aaag fedc|dDDC DEFG|AA,A,G, A,2zG|! AddB cBAG|Aaag fedc|dDDC DEFG|AGEC D2 z G|! [K:Ador]Aeed cBAG|ABcd e2 ed|eaaf gfed|eA z A z A z E|! AEBE cEdE|egfd e2 (3efg|afge fdec|dBGB A2 z G|! Aeed cBAG|ABcd e2 ed|eaaf gfed|eA z A z A z E|! AEBE cEdE|egfd e2 (3efg|afge fdec|dBGB A2 AG:|
+AG|:ADDC DEFG|AddB cBAG|ADDC DEFG|AA,A,G, A,2 AG|! ADDC DEFG|AddB cB (3ABc|dBcA BGAF|GECE D2zG|! AddB cBAG|Aaag fedc|dDDC DEFG|AA,A,G, A,2zG|! AddB cBAG|Aaag fedc|dDDC DEFG|AGEC D2 z G|! Aeed cBAG|ABcd e2 ed|eaaf gfed|eA z A z A z E|! AEBE cEdE|egfd e2 (3efg|afge fdec|dBGB A2 z G|! Aeed cBAG|ABcd e2 ed|eaaf gfed|eA z A z A z E|! AEBE cEdE|egfd e2 (3efg|afge fdec|dBGB A2 AG:|
 
 `,
 
@@ -5156,7 +5156,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-FG{c}AFE2 ef|Jge f2efJgf|eBABcF A2-|A2 G/F/G/A/GFE z|! FG{c}AFE2 ef|{a}fJg2Ja3-a2|{a}gf e6-|e6z2|! FG{c}AFEBef|{a}ge f2efgf|eBABcF JA2-|A2 G/F/G/A/GFE z|! FG{c}AFE2ef|{a}fJg2Jb3-ag/e/|z{G}a>g ee4-|e6z2|! FGJBG A4-|A6 Bd|dJe4-e3-|!>!e6z2|Bdge Jf4-|fg/e/fg/e/fz ef! J{a}g3-f4B/d/|Je4z2JB2-|AGG6-|G8-|G2F6|z8|! FG{c}AFE2 ef|Jge f2ef{a}gf|eBABcF A2-|A2 G/F/G/A/GFE z|! FG{c}AFE2 ef|{a}fJg2Ja3-a2|{a}gf e6-|!>!e6z2|! FG{c}AFEBef|{a}g2 f2ef{a}gf|eBABcF JA2-|A2 JB/d/B/A/GFE z|! FG{c}AFE2ef|{a}fJg2Jb3-ag/e/|aJa3/2g/e3-e2|e6z2|! FGB^A A4-|A4z2 JBd|JgdJe6-|e6z2|Bdge J{a}f4-|!>!f6ze/f/! J{a}g4-Fz2g|f/d/e2-!>!e3BA|GG4-G3-|G8-|G2F6|z8|
+FGAFE2 ef|Jge f2efJgf|eBABcF A2-|A2 G/F/G/A/GFE z|! FGAFE2 ef|fJg2Ja3-a2|gf e6-|e6z2|! FGAFEBef|ge f2efgf|eBABcF JA2-|A2 G/F/G/A/GFE z|! FGAFE2ef|fJg2Jb3-ag/e/|za>g ee4-|e6z2|! FGJBG A4-|A4-A2 Bd|dJe4-e3-|!>!e6z2|Bdge Jf4-|fg/e/fg/e/fz ef! Jg3-f4B/d/|Je4z2JB2-|AGG6-|G8-|G2F4-F2|z4-z4|! FGAFE2 ef|Jge f2efgf|eBABcF A2-|A2 G/F/G/A/GFE z|! FGAFE2 ef|fJg2Ja3-a2|gf e6-|!>!e6z2|! FGAFEBef|g2 f2efgf|eBABcF JA2-|A2 JB/d/B/A/GFE z|! FGAFE2ef|fJg2Jb3-ag/e/|aJa3/2g/e3-e2|e6z2|! FGB^A A4-|A4z2 JBd|JgdJe6-|e6z2|Bdge Jf4-|!>!f6ze/f/! Jg4-Fz2g|f/d/e2-!>!e3BA|GG4-G3-|G8-|G2F4-F2|z4-z4|
 
 `,
 
@@ -5216,7 +5216,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gmajor
-|:G2BG BdBG|ABAB dBAB|G2BG BdBG|ABAG {EF}E2D2:|! |:g2gd edBd|g2gd ea{b}af|g2gd edBG|ABAG {EF}E2D2:|
+|:G2BG BdBG|ABAB dBAB|G2BG BdBG|ABAG E2D2:|! |:g2gd edBd|g2gd eaaf|g2gd edBG|ABAG E2D2:|
 
 `,
 
@@ -5324,7 +5324,7 @@ R: hornpipe
 M: 4/4
 L: 1/8
 K: Amajor
-|:(3cd^d|e>cA>c (3eea g>a|e>cA>c (3eea (3gga|f>ed>c B>AG>A|(3BcB (3AGF E2 (3fgf|! e>cA>c e>ag>a|e>cA>c e>ag>a|b>ga>f e>^ef>g|1 a2 a2 A,2 (3agf:|2 a2 (3bag a2||! |:(3_edc|B>GE>G B>c (3dcB|c>A (3FGA E>C (3DCB,|(3A,CD (3EFG a>ec>A|d>cd (7e/4f/4g/4a/4b/4c'/4d'/4- d'>ef>g|! a>ga>b a>ec>A|d>cd>e f>ed>c|B>AG>F E>GB>c|1 (3Ace (3agb a2:|2 (3ABA G>B A2||
+|:(3cd^d|e>cA>c (3eea g>a|e>cA>c (3eea (3gga|f>ed>c B>AG>A|(3BcB (3AGF E2 (3fgf|! e>cA>c e>ag>a|e>cA>c e>ag>a|b>ga>f e>^ef>g|1 a2 a2 A,2 (3agf:|2 a2 (3bag a2||! |:(3_edc|B>GE>G B>c (3dcB|c>A (3FGA E>C (3DCB,|(3A,CD (3EFG a>ec>A|d>cd (3e/4f/4g/4a/4b/4c'/4d'/4- d'>ef>g|! a>ga>b a>ec>A|d>cd>e f>ed>c|B>AG>F E>GB>c|1 (3Ace (3agb a2:|2 (3ABA G>B A2||
 
 `,
 
@@ -5576,7 +5576,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:EB,DE E2 DE| GEED EDB,E| EB, DE E2 DE | GEED E2 BA|! EB,DE E2 DE| GEED EDB,E| EB, DE E2 DE | GEED E2 BA:|! |:A,2 B, DB,DE (G|G) EEDE DB,D|A,B,DB,DEGE|GAGE DE A,2|! B, DB,DE G| EEDE DB,D| A,B,DB, DEDB, | A,B, G,2:|! |:B,DDB, E2 B, (D|D) B, EB,DB,A,B,|B,DDB, E2 B, DGFD E2 E:|! B,DDB, E2 D2|E3 DB,A,B, B,| DDB, E2 B, DGFD E2 E|! B,DDB, E2 B, (D|D) B, EB,DB,A,B,|B,DDB, E2 B, DGFD E2 E|
+|:EB,DE E2 DE| GEED EDB,E| EB, DE E2 DE | GEED E2 BA|! EB,DE E2 DE| GEED EDB,E| EB, DE E2 DE | GEED E2 BA:|! |:A,2 B, DB,DE G|G) EEDE DB,D|A,B,DB,DEGE|GAGE DE A,2|! B, DB,DE G| EEDE DB,D| A,B,DB, DEDB, | A,B, G,2:|! |:B,DDB, E2 B, D|D) B, EB,DB,A,B,|B,DDB, E2 B, DGFD E2 E:|! B,DDB, E2 D2|E3 DB,A,B, B,| DDB, E2 B, DGFD E2 E|! B,DDB, E2 B, D|D) B, EB,DB,A,B,|B,DDB, E2 B, DGFD E2 E|
 
 `,
 
@@ -5648,7 +5648,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Amajor
-|:E2|EAGA d2c2|F4 B2A2|GAB^B c=BGF|E6 E2|! EAGA d2c2|F4 B2A2|GA^A=B edFG|A6:|! |:c2|ca^de =c^cGA|g4f2 z2|EGBd edGd|c6c2|! ca^de =c^cGA|G4 F2=F2|EGBd edGB|A6:|
+|:E2|EAGA d2c2|F4 B2A2|GAB^B c=BGF|E4-E2 E2|! EAGA d2c2|F4 B2A2|GA^A=B edFG|A6:|! |:c2|ca^de =c^cGA|g4f2 z2|EGBd edGd|c6c2|! ca^de =c^cGA|G4 F2=F2|EGBd edGB|A6:|
 
 `,
 
@@ -5672,7 +5672,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Bminor
-|:f3 e df|ec Ac BA|GB dF Bd|Ac eA ab|! f3 e df|ec Ac BA|GF Ee fd|B2 gf eg:|! dB fe dc|A3 G AB|=c3 B Ac|BG E2 de|! fB gB ab|f2[f,4d4]|ed ce fd|B6:|
+|:f3 e df|ec Ac BA|GB dF Bd|Ac eA ab|! f3 e df|ec Ac BA|GF Ee fd|B2 gf eg:|! dB fe dc|A3 G AB|=c3 B Ac|BG E2 de|! fB gB ab|f2f,4|ed ce fd|B6:|
 
 `,
 
@@ -5792,7 +5792,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-|:d>A B>A F>A B>A|d>A B>A F>A A>A|d>A B>A F>A B>A|1 d>A B>A F>A A2:|2 d>A B>A (3ABc d>e||! f>d e>c d>e f>d|f>d e>c (3ABc d>e|f>d e>c d>e f>d|f>d e>c (3ABc d2|! a>f g>e f>d e>c|(3def e>c B>f f>f|e>c A>c B>f f>e|(3def a>f (3efe (d2||
+|:d>A B>A F>A B>A|d>A B>A F>A A>A|d>A B>A F>A B>A|1 d>A B>A F>A A2:|2 d>A B>A (3ABc d>e||! f>d e>c d>e f>d|f>d e>c (3ABc d>e|f>d e>c d>e f>d|f>d e>c (3ABc d2|! a>f g>e f>d e>c|(3def e>c B>f f>f|e>c A>c B>f f>e|(3def a>f (3efe d2||
 
 `,
 
@@ -5828,7 +5828,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gmajor
-|:GE|DG ~G2 B z AF|DGGF GDB,E|DGGF GABc|df {ef}g2 fdcA|! BGGA BGAF|DGGF GDB,G,|A,B,CD EFGB|cAFA G2:|! |:zB|dg ~g2 dgBg|~g2 bg agfg|ea ~a2 caea|az bg agfe|! dg ~g2 dgBg|g2 bg agfe|dega {a}bgdB|cAFA G2:|
+|:GE|DG ~G2 B z AF|DGGF GDB,E|DGGF GABc|df g2 fdcA|! BGGA BGAF|DGGF GDB,G,|A,B,CD EFGB|cAFA G2:|! |:zB|dg ~g2 dgBg|~g2 bg agfg|ea ~a2 caea|az bg agfe|! dg ~g2 dgBg|g2 bg agfe|dega bgdB|cAFA G2:|
 
 `,
 
@@ -5840,7 +5840,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-|:DE|F3G AFDd|=cAB2AFDB|AFDE FDB,G,|[=C/E/][=C/E/][=CE] [E2A2] [^C/E/][C/E/][CE] [E2A2]|! F3G AFDd|=cAc2AGFD|E=c c/c/c AGFD|A,DCE D2:|! |:z2|a2fa bafd|g2eg dgBg|{e}=f2=cf Afec|^c2fc acfc|! Af f/f/f afed|egdg B2=cB|Aaag e=cA=f|e=cA=F D2:|
+|:DE|F3G AFDd|=cAB2AFDB|AFDE FDB,G,|[=C/E/][=C/E/][=CE] E2 [^C/E/]C/C E2|! F3G AFDd|=cAc2AGFD|E=c c/c/c AGFD|A,DCE D2:|! |:z2|a2fa bafd|g2eg dgBg|=f2=cf Afec|^c2fc acfc|! Af f/f/f afed|egdg B2=cB|Aaag e=cA=f|e=cA=F D2:|
 
 `,
 
@@ -5912,7 +5912,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Aminor
-|:AB||"C"c6|c4 g2|e3 d c2|"G"B6|d6|e4 d2|"Am"A6|A4 c2|! B4 A2|"Em"G6|E6|E4 G2|"F"A6|A6|G4 A2|"C"c6|! "G"d6|z2 a2 g2|"Am"e6|"G"d4 c2|"Em"B3 AG2|"F"A6|A6|A4:|
+|:AB||"C"c4-c2|c4 g2|e3 d c2|"G"B4-B2|d4-d2|e4 d2|"Am"A4-A2|A4 c2|! B4 A2|"Em"G4-G2|E4-E2|E4 G2|"F"A4-A2|A4-A2|G4 A2|"C"c4-c2|! "G"d4-d2|z2 a2 g2|"Am"e4-e2|"G"d4 c2|"Em"B3 AG2|"F"A4-A2|A4-A2|A4:|
 
 `,
 
@@ -5996,7 +5996,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Cmajor
-GA{B}AGA{B}AGA|BcAAGA{B}AG|ABcdcB{B}AG|.AzA3{B}AGA|! BcAzJc'bag|{a}edcebz3|Ja8-|a8-|a8-|a8-|a4z4|z8|! |:EAcdez {g}ed|cAG{B}GEG{B}AG|~F3A{A}FED2|DEEdedc/c/d|! e A g{b}gfdAG|F2z (3B/c/d/ cB{c}Az|EAcdez{a}ed|cAG{A}GE.GAG|! ~JF3AFAcd|ez{a}edc/c/deg|dcBGEA{c}AG|A{c}AGABcAz:|! |:c~A3{B}cdeg|ef{a}fa{a}fedA|e~A3 {c}(3Bcd ed|cAGEJA3z|! e~A3cdeg|eJ~f3{a}fedA|(3Bcd Az (3Bcd {a}ed|cAGEJ~A3d|! e~A3cdeg|ef{a}fa{a}fed2|eA3cd{a}ed|cAGE{c}A3E|! e~A3cdeg|fAdf{a}fJged|(3Bcd Az (3Bcd {a}ed|cAGE{c}A2z2:|
+GAAGAAGA|BcAAGAAG|ABcdcBAG|.AzA3AGA|! BcAzJc'bag|edcebz3|Ja8-|a8-|a8-|a8-|a4z4|z4-z4|! |:EAcdez ed|cAGGEGAG|~F3AFED2|DEEdedc/c/d|! e A ggfdAG|F2z (3B/c/d/ cBAz|EAcdezed|cAGGE.GAG|! ~JF3AFAcd|ezedc/c/deg|dcBGEAAG|AAGABcAz:|! |:c~A3cdeg|effafedA|e~A3 (3Bcd ed|cAGEJA3z|! e~A3cdeg|eJ~f3fedA|(3Bcd Az (3Bcd ed|cAGEJ~A3d|! e~A3cdeg|effafed2|eA3cded|cAGEA3E|! e~A3cdeg|fAdffJged|(3Bcd Az (3Bcd ed|cAGEA2z2:|
 
 `,
 
@@ -6099,7 +6099,7 @@ K: Dminor
   spider_murphys_onions: `
 
 X: 509
-T: Spider  Murphys Onions
+T: Spider Murphys Onions
 R: reel
 M: 4/4
 L: 1/8
@@ -6116,7 +6116,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Aminor
-[A,3E3]cAG|F3c AG|Bd GB cB|_BA AG ED|! ED Ec AG|F3c AG|Bd GB cB|1 _BA AG ED:|2 AB ce ge||! |:a3e ga|f<e ed cA|{c}d2dcde|f2fe f/g/f|! e2 ae ga|fe ed cd|BB BA B/c/B|1 AB ce ge:|2 AG ED CB,||
+A,3cAG|F3c AG|Bd GB cB|_BA AG ED|! ED Ec AG|F3c AG|Bd GB cB|1 _BA AG ED:|2 AB ce ge||! |:a3e ga|f<e ed cA|d2dcde|f2fe f/g/f|! e2 ae ga|fe ed cd|BB BA B/c/B|1 AB ce ge:|2 AG ED CB,||
 
 `,
 
@@ -6152,7 +6152,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Amixolydian
-|:{g}A|{Gdc}d3/2f/{g}A{Gdc}d2f|{g}f3/2g/a{fg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{g}e3/2f/g{afg}f3/2e/d|! {gdc}d3/2f/{g}A{Gdc}d2f|{g}f3/2g/a{fg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{Gdc}d3{gdc}d2:|! |:{gf}g|{ag}a2f{Gdc}d2f|{g}f/a3/2f{gfg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{g}e3/2f/g{afg}f3/2e/d|! {ag}a2f{Gdc}d2f|{g}f/a3/2f{gfg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{Gdc}d3{gdc}d2:|! |:{g}A|{Gdc}d3{g}A3/2d/f|{g}f/a3/2f{gfg}f3/2e/d|{gcd}c3{g}A3/2{d}c/e|{g}e3/2f/g{afg}f3/2e/d|! {gdc}d3{g}A3/2d/f|{g}f/a3/2f{gfg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{Gdc}d3{gdc}d2:|! |:{gf}g|a2{GdG}aA3/2d/f|{g}f/a3/2f{gfg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{g}e3/2f/g{afg}f3/2e/d|! a2{GdG}aA3/2d/f|{g}f/a3/2f{gfg}f3/2e/d|{g}c2{GdG}e{g}A3/2{d}c/e|{Gdc}d3{gdc}d2:|
+|:A|d3/2f/Ad2f|f3/2g/af3/2e/d|c2eA3/2c/e|e3/2f/gf3/2e/d|! d3/2f/Ad2f|f3/2g/af3/2e/d|c2eA3/2c/e|d3d2:|! |:g|a2fd2f|f/a3/2ff3/2e/d|c2eA3/2c/e|e3/2f/gf3/2e/d|! a2fd2f|f/a3/2ff3/2e/d|c2eA3/2c/e|d3d2:|! |:A|d3A3/2d/f|f/a3/2ff3/2e/d|c3A3/2c/e|e3/2f/gf3/2e/d|! d3A3/2d/f|f/a3/2ff3/2e/d|c2eA3/2c/e|d3d2:|! |:g|a2aA3/2d/f|f/a3/2ff3/2e/d|c2eA3/2c/e|e3/2f/gf3/2e/d|! a2aA3/2d/f|f/a3/2ff3/2e/d|c2eA3/2c/e|d3d2:|
 
 `,
 
@@ -6224,7 +6224,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Dmajor
-|:A2 A Acd|edc dcA |G2 G GA/B/d |e2 g edB|! A2 A Acd |edc dcA | GAB dBG |1 ABADEG :|2 ABA A2 B ||! [K:G]c2 e gec |B2GdBG| AEcBGd |cegdBG |! c2 e gec |B2 G dBG | AEcBAG |1 ABA A2 B :|2 ABA A2 E ||
+|:A2 A Acd|edc dcA |G2 G GA/B/d |e2 g edB|! A2 A Acd |edc dcA | GAB dBG |1 ABADEG :|2 ABA A2 B ||! c2 e gec |B2GdBG| AEcBGd |cegdBG |! c2 e gec |B2 G dBG | AEcBAG |1 ABA A2 B :|2 ABA A2 E ||
 
 `,
 
@@ -6320,7 +6320,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Eminor
-|:B,EF G2A|~F3D3|E2E e2^c|dBA B2^c|! dfe d^cB|BAF G2A|BdB G2A|BGE {G}E2D:|! |:{d}B2B efg|fd^c d2f|efe ed^c|dBA B2^c|! dfe d^cB|{d}BAF G2A|BdB G2A|BGE ~E3:|
+|:B,EF G2A|~F3D3|E2E e2^c|dBA B2^c|! dfe d^cB|BAF G2A|BdB G2A|BGE E2D:|! |:B2B efg|fd^c d2f|efe ed^c|dBA B2^c|! dfe d^cB|BAF G2A|BdB G2A|BGE ~E3:|
 
 `,
 
@@ -6440,7 +6440,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Gmajor
-D|:GBd gdB|ece dBG|cec BdB|ABG FED|! GBd gdB|ece dBG|gfg ecA|1 DFA G2D:|2 DFA GBd||! |:gfg afd|ece dBG|cec BdB|ABA ABd|! gfg afd|ece dBG|gfg ecA|1 DFA GBd:|2 DFA [G3G,3]||
+D|:GBd gdB|ece dBG|cec BdB|ABG FED|! GBd gdB|ece dBG|gfg ecA|1 DFA G2D:|2 DFA GBd||! |:gfg afd|ece dBG|cec BdB|ABA ABd|! gfg afd|ece dBG|gfg ecA|1 DFA GBd:|2 DFA G3||
 
 `,
 
@@ -6476,7 +6476,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Amajor
-"A"A>AA A2A|"E"{A}B>AB {A/B/}"A"c2A|"D"{A}f>ff {f}"A"(e2c)|"B7"{d}c>BA {A/d/}"E7"B3|! "A"A>AA A2A|"E"{A}B>AB {A/B/}"A"c2A|"D"{A}f>ff {f}"A"(e2c)|"E7" (eBe) {e}"A"A2||! A|"A"{g}(a2A) {e/f/}"A7"(e2A)|"D"{A}(fAf) {f}"A"e2A|"A"{A}(a2A) {A}"A7"(e2A)|"B7"({c/d/}c>)BA {A/d/}"E7"(B2A)|! "A"{g}(a2A) "A7"(e2A)|"D"{A}(fAf) {f}"A"e2e|"D" (f<a)f {f}"A"(e2c)|"E7"(eBe) {e}"A"[E2A2]||
+"A"A>AA A2A|"E"B>AB "A"c2A|"D"f>ff "A"(e2c)|"B7"c>BA "E7"B3|! "A"A>AA A2A|"E"B>AB "A"c2A|"D"f>ff "A"(e2c)|"E7" (eBe) "A"A2||! A|"A"(a2A) "A7"(e2A)|"D"(fAf) "A"e2A|"A"(a2A) "A7"(e2A)|"B7"(c>)BA "E7"(B2A)|! "A"(a2A) "A7"(e2A)|"D"(fAf) "A"e2e|"D" (f<a)f "A"(e2c)|"E7"(eBe) "A"E2||
 
 `,
 
@@ -6512,7 +6512,7 @@ R: slide
 M: 4/4
 L: 1/8
 K: Gmajor
-D|:GDG B4 AG ABG|D3 GAB BAG ABG|! GDG B4 AG ABd|dcB AGA cGD G3:|! [Bd3] dBd B3 G2E|B3 EFG BAG A3|! [Bd3] dBd e3 B2A|GDD FGA G6:|
+D|:GDG B4 AG ABG|D3 GAB BAG ABG|! GDG B4 AG ABd|dcB AGA cGD G3:|! B dBd B3 G2E|B3 EFG BAG A3|! B dBd e3 B2A|GDD FGA G6:|
 
 `,
 
@@ -6548,7 +6548,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Eminor
-B2 E3 F | G3 E D2 | E2 G2 F2 | G6 | BE FG AG | F3 E D2 | d3 e d2 | d6 |! fB df gd | de B2 d2 | e3 d B2 | d6 | B3 A G2 | A2 D2 F2 | E6- | E6 ||! B2 E2 F2 | G3 A G2 | F3 E D2 | E6 | GF GA B2 | e3 d B2 | d6- |d4 ef |! ed B2 d2 | ^c3 B A2 | B2 E3 F | E4 DA, | B,D EF A2 | d3 B AF | E6- | E4 ef ||! |:eB e2 ef | eB fg eB | fg de A2 | AB d2 ^c2 | ^cB A4 | ^cd cA d2 | d6- | d3 B ^cd |! e3 d B2 | ^c3 B A2 | Be dB AF | G2 F2 E2 | F3 E D2 | d3 B AF | E6- |E6 :|
+B2 E3 F | G3 E D2 | E2 G2 F2 | G4-G2 | BE FG AG | F3 E D2 | d3 e d2 | d4-d2 |! fB df gd | de B2 d2 | e3 d B2 | d4-d2 | B3 A G2 | A2 D2 F2 | E6- | E4-E2 ||! B2 E2 F2 | G3 A G2 | F3 E D2 | E4-E2 | GF GA B2 | e3 d B2 | d6- |d4 ef |! ed B2 d2 | ^c3 B A2 | B2 E3 F | E4 DA, | B,D EF A2 | d3 B AF | E6- | E4 ef ||! |:eB e2 ef | eB fg eB | fg de A2 | AB d2 ^c2 | ^cB A4 | ^cd cA d2 | d6- | d3 B ^cd |! e3 d B2 | ^c3 B A2 | Be dB AF | G2 F2 E2 | F3 E D2 | d3 B AF | E6- |E4-E2 :|
 
 `,
 
@@ -6560,7 +6560,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Aminor
-|:E|c3 c {c}B2 B2|(Ac) (BA) (A^G) z (A/2B/2)|c3 c {c}B2 B2|A2 {c}B2 A2 z E|! c3 c {c}B2 B2|(Ac) (BA) (A^G) z (A/2B/2)|c3 c {c}B2 B2|A2 {c}B2 A2 z A|! (AB) (cd) e3 e|(ed) (dc) (cB) z B|c3 c (cB) z B|(A^G) (AB/2c/2) {c}B2 z E|! c3 c {c}B2 B2|(Ac) (BA) (A^G) (AB)|c3 c (cB) (dB)|A2 {c}B2 A2 z2:|
+|:E|c3 c B2 B2|(Ac) (BA) (A^G) z (A/2B/2)|c3 c B2 B2|A2 B2 A2 z E|! c3 c B2 B2|(Ac) (BA) (A^G) z (A/2B/2)|c3 c B2 B2|A2 B2 A2 z A|! (AB) (cd) e3 e|(ed) (dc) (cB) z B|c3 c (cB) z B|(A^G) (AB/2c/2) B2 z E|! c3 c B2 B2|(Ac) (BA) (A^G) (AB)|c3 c (cB) (dB)|A2 B2 A2 z2:|
 
 `,
 
@@ -6572,7 +6572,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Amajor
-|:a>g|f2e2c2|B3z c>B|A2F2E2|F3z c>e|f2c2e2|B4A2|(A6|A2)z2:|! c>e|f2e2f2|e3z a>g|f2e2c2|e3z f>a|b2f2a2|e4c2|(B6|B2)z2 a>g|! f2 e2 c2|B3z c>B|A2F2E2|F3z c>e|f2c2e2|B4A2|(A6|A2)z2||
+|:a>g|f2e2c2|B3z c>B|A2F2E2|F3z c>e|f2c2e2|B4A2|(A4-A2|A2)z2:|! c>e|f2e2f2|e3z a>g|f2e2c2|e3z f>a|b2f2a2|e4c2|(B4-B2|B2)z2 a>g|! f2 e2 c2|B3z c>B|A2F2E2|F3z c>e|f2c2e2|B4A2|(A4-A2|A2)z2||
 
 `,
 
@@ -6584,7 +6584,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Gmajor
-EF|:G2GA B2gf|e2dB A2GA|BA BG EG FA|1 G6EF:|2 G6ef||! g2gfe2fg|ag fed2B^d|e3f gf e^d|e6EF|! G2GA B2gf|e2dB A2GA|BA BG EG FA|G6||
+EF|:G2GA B2gf|e2dB A2GA|BA BG EG FA|1 G6EF:|2 G6ef||! g2gfe2fg|ag fed2B^d|e3f gf e^d|e6EF|! G2GA B2gf|e2dB A2GA|BA BG EG FA|G4-G2||
 
 `,
 
@@ -6596,7 +6596,7 @@ R: march
 M: 4/4
 L: 1/8
 K: Amajor
-cd||"A"e2c2e2|"F#Dim"f4f2|"A"efec BA|! E4 EF|A3 A A2|A2 B2 A2|"D"F6|! (3EFE D4|f6|"E" g6|"F#min" fgfe cA|"B" B4 Bc|! "E" e3 e e2|e2 f2 e2|"A" c4 c2|(3BcB A2 cd||! "A" e2c2e2|"F#Dim" f4 f2|"A" efec BA|E4 EF|! A3 A A2|A2 B2 A2|"D" F6|(3EFE D4|! F2 E2 F2|"D#Dim" B2 A2 B2|"E" c2 e2 g2|"F#" f4 ee|! "B7" c6|"E" c4 B2|"A" A4 AB|A4 cd||
+cd||"A"e2c2e2|"F#Dim"f4f2|"A"efec BA|! E4 EF|A3 A A2|A2 B2 A2|"D"F4-F2|! (3EFE D4|f4-f2|"E" g4-g2|"F#min" fgfe cA|"B" B4 Bc|! "E" e3 e e2|e2 f2 e2|"A" c4 c2|(3BcB A2 cd||! "A" e2c2e2|"F#Dim" f4 f2|"A" efec BA|E4 EF|! A3 A A2|A2 B2 A2|"D" F4-F2|(3EFE D4|! F2 E2 F2|"D#Dim" B2 A2 B2|"E" c2 e2 g2|"F#" f4 ee|! "B7" c4-c2|"E" c4 B2|"A" A4 AB|A4 cd||
 
 `,
 
@@ -6656,7 +6656,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmajor
-K:B! |:"B" B,2 z G (GF)(ED)|"F#" CD(EF)"G#m"{/A,} B,2{/C} B,A,|"E" (G,A,)B,C"G" (=DE)(FG)|"D" =A2- AB"F#sus4" F2 z d|! "F#" c{/d}cBA"G#m" G2 z f|"B" d{/e}dcB"F#" c2 z c|"G" (=dc)(B=A)"Em" (=GF)(E=D)|"F#sus4" CB, C2- C2 C{/=D}C:|! [K:D]"Gmaj7"{/^A,} B,4{/E} F4|"Dmaj7" f{/g}fed"A/C#"{/B} c2 z c|"Bm" d{/e}dcB"Bm/A"{/G} A2 (GF)|"Gmaj7"{/C} D8|! "Gmaj7" D4"A" A4|"D" a2 gf"A/C#"{/d} e2 z e|"Bm" f{/g}fed"F#m"{/B} c2 z c|! "Gmaj7" (dc)BA GF(ED)|1 "F#sus4" CB, C2- C2 C{/D}C:|2 "F#sus4" CB, C2- C4||! "Interlude:""F#/B" .B,2 [C^A]2- [CA]2"B" [^DB]2-|"E" [DB]2 [E^G]2-"F#" [EG][^DF][B,E][B,D]|! "G" [B,E][CF] [DG]2- [DG][FA][GB][Ac]|[M:2/4]"Bm" [Fd]{/e}[Fd] [Fc][EB]|[M:4/4]"F#" [Fc]8-|[Fc]8||
+K:B! |:"B" B,2 z G (GF)(ED)|"F#" CD(EF)"G#m" B,2 B,A,|"E" (G,A,)B,C"G" (=DE)(FG)|"D" =A2- AB"F#sus4" F2 z d|! "F#" ccBA"G#m" G2 z f|"B" ddcB"F#" c2 z c|"G" (=dc)(B=A)"Em" (=GF)(E=D)|"F#sus4" CB, C2- C2 CC:|! "Gmaj7" B,4 F4|"Dmaj7" ffed"A/C#" c2 z c|"Bm" ddcB"Bm/A" A2 (GF)|"Gmaj7" D4-D4|! "Gmaj7" D4"A" A4|"D" a2 gf"A/C#" e2 z e|"Bm" ffed"F#m" c2 z c|! "Gmaj7" (dc)BA GF(ED)|1 "F#sus4" CB, C2- C2 CC:|2 "F#sus4" CB, C2- C4||! "Interlude:""F#/B" .B,2 C2- C2"B" [^DB]2-|"E" D2 E2-"F#" E[^DF]B,B,|! "G" B,C D2- DFGA|"Bm" FF FE|"F#" F8-|F4-F4||
 
 `,
 
@@ -6728,7 +6728,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Dmajor
-|:"Bm(G)" B,DF B3 |"A(F#m)" {/c}BAB BAF |"Bm(G)" B,DF ~B3 |"(G)" {/c}BAF"A" A3 |! B,DF"Bm" B3 | {/c}BAB BAB |"D" dcB AFD |"A" EDB, A,3 :|! |:"D" ~f3 fef | afe dBA |"G" GBd ~g3 |"F#m" FAc ~f3 |! "(Bm)" ff/f/f {/g} fef |"D" afe deb |"G" afe def |1 "F#m" ecB"A" A3 :|2 "A" ecA"Bm(G)" B3 ||
+|:"Bm(G)" B,DF B3 |"A(F#m)" BAB BAF |"Bm(G)" B,DF ~B3 |"(G)" BAF"A" A3 |! B,DF"Bm" B3 | BAB BAB |"D" dcB AFD |"A" EDB, A,3 :|! |:"D" ~f3 fef | afe dBA |"G" GBd ~g3 |"F#m" FAc ~f3 |! "(Bm)" ff/f/f fef |"D" afe deb |"G" afe def |1 "F#m" ecB"A" A3 :|2 "A" ecA"Bm(G)" B3 ||
 
 `,
 
@@ -6764,7 +6764,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dminor
-A=B|Acc2 AddA|cAGE FEDC|A,3D FEFG|Adde fedc|! Add2 AccA|=BAGE FEDE|FEFG AddA|cAGE EDD=B|! Acc A2 ddA|cAGE FEDC|A,3D FEFG|Adde fedc|! Afff e2ab|agfe fedc|Add2 cAGE|FEDC D3E|! |:DA,A,2 FEFG|ADDB DDA^c|d^cde fefg|addb zdad|! [1gbeg ^ceAc|e^ccf ccec|d^cde fefg|[a3A3][a3A3]DE:|! [2bagf efed|^cAAgz Aec|dcdB AGFE|EDEF D2||
+A=B|Acc2 AddA|cAGE FEDC|A,3D FEFG|Adde fedc|! Add2 AccA|=BAGE FEDE|FEFG AddA|cAGE EDD=B|! Acc A2 ddA|cAGE FEDC|A,3D FEFG|Adde fedc|! Afff e2ab|agfe fedc|Add2 cAGE|FEDC D3E|! |:DA,A,2 FEFG|ADDB DDA^c|d^cde fefg|addb zdad|! [1gbeg ^ceAc|e^ccf ccec|d^cde fefg|a3a3DE:|! [2bagf efed|^cAAgz Aec|dcdB AGFE|EDEF D2||
 
 `,
 
@@ -6812,7 +6812,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-DE|:"D"F2 F2 FE|"D" F2 F2 FE|"D" F A3 AB|"D" AFED DE|! "D"F2 d2 "G"B2|"D" A3 F DE|"A" F2 AF EF|1 "D" D4 DE:|2 "D" D4 (3ABc||! |:"D"d6|"D" dc BA Bc|"D" d3 B AF|"D" D4 d2|! "Em"e e3 f2|"Em" e2 d2 e2|"Bm"f a3 f2|"Bm"gfed Bc|! "G"d3 cde|"G" dc BA Bc|"D" d3 B AF|"D" D4 DE|! "D"F2 d2 "G"B2|"D" A3 F DE|"A" F2 AF EF|"D" D4||
+DE|:"D"F2 F2 FE|"D" F2 F2 FE|"D" F A3 AB|"D" AFED DE|! "D"F2 d2 "G"B2|"D" A3 F DE|"A" F2 AF EF|1 "D" D4 DE:|2 "D" D4 (3ABc||! |:"D"d4-d2|"D" dc BA Bc|"D" d3 B AF|"D" D4 d2|! "Em"e e3 f2|"Em" e2 d2 e2|"Bm"f a3 f2|"Bm"gfed Bc|! "G"d3 cde|"G" dc BA Bc|"D" d3 B AF|"D" D4 DE|! "D"F2 d2 "G"B2|"D" A3 F DE|"A" F2 AF EF|"D" D4||
 
 `,
 
@@ -6896,7 +6896,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:eAAe d/c/BA2|F/G/A A/B/c B/c/d/B/ e/d/c/B/|eAA~e d/c/BA2|F/G/A A/B/c/d/ ~c~BA2:|! eAAe d/c/BA2|F/G/A A/B/c B/c/d/B/ e/d/c/B/|eAA~e d/c/BA2|! |:BB/c/ dd e2d e/f/|gg/f/ eg f/e/d Bc|[M:3/4]dc/B/ A2 G2|! [M:4/4]BB/c/ dd e2d e/f/|g2a2 ba/g/ fa|[M:5/4]gdce dc/B/ A2G2:|
+|:eAAe d/c/BA2|F/G/A A/B/c B/c/d/B/ e/d/c/B/|eAA~e d/c/BA2|F/G/A A/B/c/d/ ~c~BA2:|! eAAe d/c/BA2|F/G/A A/B/c B/c/d/B/ e/d/c/B/|eAA~e d/c/BA2|! |:BB/c/ dd e2d e/f/|gg/f/ eg f/e/d Bc|dc/B/ A2 G2|! BB/c/ dd e2d e/f/|g2a2 ba/g/ fa|gdce dc/B/ A2G2:|
 
 `,
 
@@ -6908,7 +6908,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Edorian
-M:4/4! JB3 d4 e-|e3{a}ed4-|dA3{c}A/G/A2JB-|B3{c}BAB3-|B4z4|z2 D2 G/A/ EFA|! AJB2d2Je3|{a}ed3-d2z2|GJA2 JB3 c/B/A-|AJB4-B3-|B2z4EG|A/B/d2Je2{a}ed2|! Je8|fJga/g/fJe2{a}ed|JBd4-d3-|d2z2G2FG|AJB4-B3|!>!A6z2|! zJG3{A}GE3|{A}EDE2F4-|!>!F6z2|z3DEGAA|B2d4e2-|e3{a}ed4-|! d2zJA4JE|GJA4B2A|B8|z4DJEAE|JF4 A/B/ d2e-|e2{a}ed4z|zA6B-|! B2c/B/A2B3-|B3z3z2|GA<Bd3e2-|e{a}ed2e4-|e6fJg-|g2{a}gfJe4-|! e4{a}edAJB-|Bd4-d3-|d2zG2{G}G/F/GA-|AB4{c}BGA-|!>!A6z2|FJG{A}GJE3-E2|! {A}DE2EF4-|!>!F6z2|z3fg3{a}g|fJe3-e2{a}ed-|d3ABc/B/AB|d6z2|! z3D (3GAE JF2|z2fJg a/g/fdJe-|e3{a}ed4|zAJB2 (3cBA GJA-|!>!A6z2|zfg2aJf2e|! dJe3{a}ed3|zAJB{c}BAG3-|G2{A}GE4{A}E-|E2JF6-|!>!F3z3z2|zFG3{A}GEJF-|! {A}FDJE6-|DG4-G3|z4EGAJF-|F4J.GJF3-|F2J.GJE3{A}ED-|DJE4-E3|!>!E8|
+M:4/4! JB3 d4 e-|e3ed4-|dA3A/G/A2JB-|B3BAB3-|B4z4|z2 D2 G/A/ EFA|! AJB2d2Je3|ed3-d2z2|GJA2 JB3 c/B/A-|AJB4-B3-|B2z4EG|A/B/d2Je2ed2|! Je4-e4|fJga/g/fJe2ed|JBd4-d3-|d2z2G2FG|AJB4-B3|!>!A6z2|! zJG3GE3|EDE2F4-|!>!F6z2|z3DEGAA|B2d4e2-|e3ed4-|! d2zJA4JE|GJA4B2A|B4-B4|z4DJEAE|JF4 A/B/ d2e-|e2ed4z|zA6B-|! B2c/B/A2B3-|B3z3z2|GA<Bd3e2-|eed2e4-|e6fJg-|g2gfJe4-|! e4edAJB-|Bd4-d3-|d2zG2G/F/GA-|AB4BGA-|!>!A6z2|FJGGJE3-E2|! DE2EF4-|!>!F6z2|z3fg3g|fJe3-e2ed-|d3ABc/B/AB|d6z2|! z3D (3GAE JF2|z2fJg a/g/fdJe-|e3ed4|zAJB2 (3cBA GJA-|!>!A6z2|zfg2aJf2e|! dJe3ed3|zAJBBAG3-|G2GE4E-|E2JF6-|!>!F3z3z2|zFG3GEJF-|! FDJE6-|DG4-G3|z4EGAJF-|F4J.GJF3-|F2J.GJE3ED-|DJE4-E3|!>!E4-E4|
 
 `,
 
@@ -6932,7 +6932,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Gmajor
-|:A|BDG EDB,|DED DB,D|(3EFG E DB,D|EFG ABc|! {c}BAG EDB,|DED DB,D|(3EFG E DB,D|EGF G2A:|! Bz d2 Bd|edB AGA|BAG EDB,|DED DB,D|! E3 EDB,|GFG A3|Bed BAG|AGF G2 A:|
+|:A|BDG EDB,|DED DB,D|(3EFG E DB,D|EFG ABc|! BAG EDB,|DED DB,D|(3EFG E DB,D|EGF G2A:|! Bz d2 Bd|edB AGA|BAG EDB,|DED DB,D|! E3 EDB,|GFG A3|Bed BAG|AGF G2 A:|
 
 `,
 
@@ -7028,7 +7028,7 @@ R: slip jig
 M: 4/4
 L: 1/8
 K: Gmajor
-|:{f}g2f{d} e3 d2e/f/|g2(3e/d/B/ d2e G3|{A}G2A/B/ c2 B~B2c|d2B/G/ A2B {F}GGG:|! d2e/f/ g2a b2a|g3 g2a b2a|g2e g3 g2a|b2a g2e g3|g2e/B/ d2e G3|! {d}g2f/d/ e3 d2e/f/|g2e/B/ d2e G3|G2A/B/ c2B/A/ B2c|d2B/G/ A2B {F}~G3||
+|:g2f e3 d2e/f/|g2(3e/d/B/ d2e G3|G2A/B/ c2 B~B2c|d2B/G/ A2B GGG:|! d2e/f/ g2a b2a|g3 g2a b2a|g2e g3 g2a|b2a g2e g3|g2e/B/ d2e G3|! g2f/d/ e3 d2e/f/|g2e/B/ d2e G3|G2A/B/ c2B/A/ B2c|d2B/G/ A2B ~G3||
 
 `,
 
@@ -7220,7 +7220,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Gmajor
-BA|G3 E D2|G3 A B2|e6|d4 BA|G3 A B2|B3 A GB|A6-|A4 BA|! G3 E D2|G3 A B2|e6|d4 BA|G3 A B2|A4 G2|G6-|G4 Bc|! d3 B d2|d2 e2 f2|g6|f4 e2|e3 d B2|B3 A GB|A6-|A4 BA|! G3 E D2|G3 A B2|e6|d4 BA|G3 A B2|A4 G2|G6-|G4||
+BA|G3 E D2|G3 A B2|e4-e2|d4 BA|G3 A B2|B3 A GB|A6-|A4 BA|! G3 E D2|G3 A B2|e4-e2|d4 BA|G3 A B2|A4 G2|G6-|G4 Bc|! d3 B d2|d2 e2 f2|g4-g2|f4 e2|e3 d B2|B3 A GB|A6-|A4 BA|! G3 E D2|G3 A B2|e4-e2|d4 BA|G3 A B2|A4 G2|G6-|G4||
 
 `,
 
@@ -7232,7 +7232,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Cmajor
-|:G2|c4 dd|cA2 G3|GA cc3|d/e c2c G3/2|A4 {d}e2|! e3 ef/e/d/c/|g4 e2|ed cc3|d/e c2c3/2 G|A4 e2|! dc3 dd|cA2 G3|GA cc3|d/e c2c3/2 G|A4 {d}e2|! e3 ef/e/d/c/|g4 g2|ed c3d|c4 dc/B/|c4:|
+|:G2|c4 dd|cA2 G3|GA cc3|d/e c2c G3/2|A4 e2|! e3 ef/e/d/c/|g4 e2|ed cc3|d/e c2c3/2 G|A4 e2|! dc3 dd|cA2 G3|GA cc3|d/e c2c3/2 G|A4 e2|! e3 ef/e/d/c/|g4 g2|ed c3d|c4 dc/B/|c4:|
 
 `,
 
@@ -7268,7 +7268,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-|:DE FG AB|A2 E2 Bc|d2 B2 ed|c2 A2 E2 }! d2 e2 f2|ef g2 e2|d2- de dB|c2 AG FE|! D2- Dd cd|A2 D2 DE|F2 FG A2|A2 E2 E2|! f2 ed cd|A2- Ad cd|A2 d2 c2|1 d6:|2 d4 e2||! |:=f2- fe d2|e2- e=f g2|a2 g=f eg|=f2 d2- de|! =f2 e2 d2|e2 A2 A2|g2 A2 A2|a2 A2 A2|! f2 ed cd|A4 ed|cd ef ge|f2 B2 a2|! g2 fg ed|e2 A2- AG|FA df ec|1 d4 e2:|2 d6||
+|:DE FG AB|A2 E2 Bc|d2 B2 ed|c2 A2 E2 }! d2 e2 f2|ef g2 e2|d2- de dB|c2 AG FE|! D2- Dd cd|A2 D2 DE|F2 FG A2|A2 E2 E2|! f2 ed cd|A2- Ad cd|A2 d2 c2|1 d6:|2 d4 e2||! |:=f2- fe d2|e2- e=f g2|a2 g=f eg|=f2 d2- de|! =f2 e2 d2|e2 A2 A2|g2 A2 A2|a2 A2 A2|! f2 ed cd|A4 ed|cd ef ge|f2 B2 a2|! g2 fg ed|e2 A2- AG|FA df ec|1 d4 e2:|2 d4-d2||
 
 `,
 
@@ -7292,7 +7292,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Amajor
-AEAc BEBd|cAcf e3f|=gfed ceAc|BEGB AdcB||! ~A3c ~B3d|cAcf e3f|=gfed ceAc|BE{A}G_B A2 AE||! AEAc BEBd|cAcf e3f|=gfed ceAc|BEGB AdcB||! AGAc B^ABd|c=c^cf e3f|=gfed ceAc|BEGB A2 B/c/d||! efed cEAc|BEGB ABcd|e3d cEAc|BEGB A2 B/c/d||! efed ceAc|BEGB ABcd|e^de=d ceAc|BEGB A2 AG||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB AdcB||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB A4||! e3 e3 (3^def|e3 e3 (3^def|e2 (3^def e2 (3^def|e2 (3^def e2 (3^def||! =gfe^d eAce|^defd eA (3 def|=gfe^d eAce|^defd e2 a2||! =gfe^d eAce|^defd eAce|=gfe^d eAce|^defd e2 e=d||! c~e3 ^defd|ed{_e}dc {_d}cB{c}BA|c~e3 ^defg|ag=gf =f{_g}=fe^d||! c2 (3efe ^defd|ed{_e}dc {_d}cB{c}BA|{_B}AE=BE cEdE|(3cdc (3BcB A2 A2||! c2 (3efe ^defd|ed{_e}dc {_d}cB{c}BA|{_B}AE=BE cEdE|(3cdc (3BcB A2 A2||! A3c ~B3d|c^Bcf e3f|=gfed ceAc|BEGB AdcB||! AGAc ~B3d|c^Bcf e3f|=gfed ceAc|BEGB A2 AA,||! AA,AA, BA,BA,|cA,cA, eA,eA,|=gfed ceAc|BAGB AcB2||! A3c B^ABd|{d}cBAf e3f|=gfed (3cdc Ac|BEGB A2 B/c/d||! e3d cBAc|BAGB ABcd|{f}e^de=d ecAc|BAGB Aagf||! (3efe ^de ceAc|BEGB ABcd|{f}e^de=d ceAc|BEGB A2 AG||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB AdcB||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB A4||! a3 a3 (3^gab|a3 a3 (3^gab|a2 (3^gab a2 (3^gab|a2 (3^gab a2 ef||! =gfe^d eAce|^defd eA (3 def|=gfe^d eAce|^defd e2 a2||! =gfe^d eAce|^defd eAce|=gfe^d eAce|^defd e2 e=d||! c~e3 ^defd|ed{_e}dc {_d}cB{c}BA|c2 (3efe ^defg|ag=gf =f{_g}=fe^d||! c2 (3efe ^defd|ed{_e}dc {_d}cB{c}BA|{_B}AE=BE cEdE|(3cdc (3BcB A2 A2||! c2 (3efe ^defd|ed{_e}dc {_d}cB{c}BA|{_B}AE=BE cEdE|(3cdc (3BcB A2 A2||
+AEAc BEBd|cAcf e3f|=gfed ceAc|BEGB AdcB||! ~A3c ~B3d|cAcf e3f|=gfed ceAc|BEG_B A2 AE||! AEAc BEBd|cAcf e3f|=gfed ceAc|BEGB AdcB||! AGAc B^ABd|c=c^cf e3f|=gfed ceAc|BEGB A2 B/c/d||! efed cEAc|BEGB ABcd|e3d cEAc|BEGB A2 B/c/d||! efed ceAc|BEGB ABcd|e^de=d ceAc|BEGB A2 AG||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB AdcB||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB A4||! e3 e3 (3^def|e3 e3 (3^def|e2 (3^def e2 (3^def|e2 (3^def e2 (3^def||! =gfe^d eAce|^defd eA (3 def|=gfe^d eAce|^defd e2 a2||! =gfe^d eAce|^defd eAce|=gfe^d eAce|^defd e2 e=d||! c~e3 ^defd|eddc cBBA|c~e3 ^defg|ag=gf =f=fe^d||! c2 (3efe ^defd|eddc cBBA|AE=BE cEdE|(3cdc (3BcB A2 A2||! c2 (3efe ^defd|eddc cBBA|AE=BE cEdE|(3cdc (3BcB A2 A2||! A3c ~B3d|c^Bcf e3f|=gfed ceAc|BEGB AdcB||! AGAc ~B3d|c^Bcf e3f|=gfed ceAc|BEGB A2 AA,||! AA,AA, BA,BA,|cA,cA, eA,eA,|=gfed ceAc|BAGB AcB2||! A3c B^ABd|cBAf e3f|=gfed (3cdc Ac|BEGB A2 B/c/d||! e3d cBAc|BAGB ABcd|e^de=d ecAc|BAGB Aagf||! (3efe ^de ceAc|BEGB ABcd|e^de=d ceAc|BEGB A2 AG||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB AdcB||! ABcd e^def|=gfe^d edef|=gfed ceAc|BEGB A4||! a3 a3 (3^gab|a3 a3 (3^gab|a2 (3^gab a2 (3^gab|a2 (3^gab a2 ef||! =gfe^d eAce|^defd eA (3 def|=gfe^d eAce|^defd e2 a2||! =gfe^d eAce|^defd eAce|=gfe^d eAce|^defd e2 e=d||! c~e3 ^defd|eddc cBBA|c2 (3efe ^defg|ag=gf =f=fe^d||! c2 (3efe ^defd|eddc cBBA|AE=BE cEdE|(3cdc (3BcB A2 A2||! c2 (3efe ^defd|eddc cBBA|AE=BE cEdE|(3cdc (3BcB A2 A2||
 
 `,
 
@@ -7328,7 +7328,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Gmajor
-[M:3/2]|dc|[M:2/2] BG G2 FGAB|c3 d cBce|d3 e dcBd|! cBAc BAGB|[M:3/2] AFDF AGGF G2:|! df|g2 dg Bgdg baa^g|a2 ea caea c'aaf|[M:2/2] g2 dg Bgdg|! bagf gedB|cBAc BAGB|[M:3/2] AFDF AGGF G2:|
+|dc| BG G2 FGAB|c3 d cBce|d3 e dcBd|! cBAc BAGB| AFDF AGGF G2:|! df|g2 dg Bgdg baa^g|a2 ea caea c'aaf| g2 dg Bgdg|! bagf gedB|cBAc BAGB| AFDF AGGF G2:|
 
 `,
 
@@ -7400,7 +7400,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Bdorian
-|:fff f2e|f3B3|fff f2e|f2g a3|fff f2e|f3B3|! [1e2fe2c|A2B cBA:|2 f2d edc|B6||! |:BBB B2A|B2cd3|ccc c2B|c2de3|! fff f2e|f3B3|1 e2fe2c|A2B cBA:|2 f2d edc|B6||
+|:fff f2e|f3B3|fff f2e|f2g a3|fff f2e|f3B3|! [1e2fe2c|A2B cBA:|2 f2d edc|B4-B2||! |:BBB B2A|B2cd3|ccc c2B|c2de3|! fff f2e|f3B3|1 e2fe2c|A2B cBA:|2 f2d edc|B4-B2||
 
 `,
 
@@ -7448,7 +7448,7 @@ R: mazurka
 M: 4/4
 L: 1/8
 K: Edorian
-A|:B2 EB ed|BA dB AF|BB EB ed|eg gf ed|! B/B/B EB ed|dA BF AD|FD E/F/G AB|1 Ag g/f/e ed:|2 Ag g/f/e e[dB]||! [bg]2 eg f/e/d|eB B[bg] [bg][af]|[bg]2 eg f/e/d|dA Aa fa|! [1 [bg]2 eg f/e/d|dA dB AF|AD E/F/G Ad|Bg g/f/e e[dB]:|! [2 [bg]2 eg f/e/d|eb ba bg|be eb ge|fd dA F||
+A|:B2 EB ed|BA dB AF|BB EB ed|eg gf ed|! B/B/B EB ed|dA BF AD|FD E/F/G AB|1 Ag g/f/e ed:|2 Ag g/f/e ed||! b2 eg f/e/d|eB Bb ba|b2 eg f/e/d|dA Aa fa|! [1 b2 eg f/e/d|dA dB AF|AD E/F/G Ad|Bg g/f/e ed:|! [2 b2 eg f/e/d|eb ba bg|be eb ge|fd dA F||
 
 `,
 
@@ -7460,7 +7460,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|: B2 DEED B2|DEED GABG|FGFG A dz c|BAGA AFGA|! [1 B2 DEED B2|DEED GABc|A2 Ad dcBA|GF E6 :|! [2 B2 DEED B2|DEEF dcBA|cBAG AdBc|BA A4 cd||! |: e2 edeg (B2|B)ABc dcBA|AGA B2 AGA|AGAB dzgf|! [1 e2 ed eg(B2|B) ABc dcBA|A2Ad dcBA|GFE4cd :|! [2 e2 ed eg(B2|B) ABc dcBA|cBAG AdBc|BA A6 ||
+|: B2 DEED B2|DEED GABG|FGFG A dz c|BAGA AFGA|! [1 B2 DEED B2|DEED GABc|A2 Ad dcBA|GF E4-E2 :|! [2 B2 DEED B2|DEEF dcBA|cBAG AdBc|BA A4 cd||! |: e2 edeg B2|B)ABc dcBA|AGA B2 AGA|AGAB dzgf|! [1 e2 ed egB2|B) ABc dcBA|A2Ad dcBA|GFE4cd :|! [2 e2 ed egB2|B) ABc dcBA|cBAG AdBc|BA A4-A2 ||
 
 `,
 
@@ -7508,7 +7508,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Dmajor
-|:AG|"D"F2 A2 de|f2d2A2|"G"Bc ed Bd|"D"A2F2 z E|! D2F2A2|1 "Em"B2G2B2|"A7"A6-|A4:|2 "Em"B2E2"A7"F2|"D"D6-|D4||! |:A2|"D"f2d2A2|"A"e2c2A2|"G"GA BA GB|"D"A2F2 z E|! D2F2A2|1 "A"e2c2B2|"A7"A6-|A4:|2 "A7"e2d2c2|"D"d6-|d6||
+|:AG|"D"F2 A2 de|f2d2A2|"G"Bc ed Bd|"D"A2F2 z E|! D2F2A2|1 "Em"B2G2B2|"A7"A6-|A4:|2 "Em"B2E2"A7"F2|"D"D6-|D4||! |:A2|"D"f2d2A2|"A"e2c2A2|"G"GA BA GB|"D"A2F2 z E|! D2F2A2|1 "A"e2c2B2|"A7"A6-|A4:|2 "A7"e2d2c2|"D"d6-|d4-d2||
 
 `,
 
@@ -7628,7 +7628,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Edorian
-|:FA|B2Ad BEAF|GFGA BcdB|{d}BAFB AD~D2|DEFA dfed|! B2Ad BEAF|GFGA (3Bcd ef|[B2g2] fg egfe|dBAF E2:|! FA|Beef g2fe|dB~B2 dfaf|eB ~B2 egfe|dBAF EFGA|! Beef g2fe|dB~B2 dfaf|g2fg egfe|dBAF E2FA||! Beef g2fe|dB~B2 dfaf|eB~B2 egfe|dBAd BEFA|! BABd efge|fedc dfaf|bgaf g2fe|dBAF E2||
+|:FA|B2Ad BEAF|GFGA BcdB|BAFB AD~D2|DEFA dfed|! B2Ad BEAF|GFGA (3Bcd ef|B2 fg egfe|dBAF E2:|! FA|Beef g2fe|dB~B2 dfaf|eB ~B2 egfe|dBAF EFGA|! Beef g2fe|dB~B2 dfaf|g2fg egfe|dBAF E2FA||! Beef g2fe|dB~B2 dfaf|eB~B2 egfe|dBAd BEFA|! BABd efge|fedc dfaf|bgaf g2fe|dBAF E2||
 
 `,
 
@@ -7640,7 +7640,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Eminor
-|:B2|A4 G2|E4 D2|G4 A2|B4 d2|B4 A2|G4 D2|! E6|E4 B2|A2 A2 G2|E4 DD|G4 A2|B4 d2|! B4 A2|G4 D2|E6|E4 D2|G4 G2|G2 A2 B2|d4 d2|! B4 dd|e4 e2|d4 e2|B6|B4 B2|A4 G2|E4 D2|! G2 G2 A2|B4 d2|B4 A2|G4 D2|E6|E2:|
+|:B2|A4 G2|E4 D2|G4 A2|B4 d2|B4 A2|G4 D2|! E4-E2|E4 B2|A2 A2 G2|E4 DD|G4 A2|B4 d2|! B4 A2|G4 D2|E4-E2|E4 D2|G4 G2|G2 A2 B2|d4 d2|! B4 dd|e4 e2|d4 e2|B4-B2|B4 B2|A4 G2|E4 D2|! G2 G2 A2|B4 d2|B4 A2|G4 D2|E4-E2|E2:|
 
 `,
 
@@ -7652,7 +7652,7 @@ R: waltz
 M: 4/4
 L: 1/8
 K: Edorian
-|:a3g|e3d B3A GE|G2AB d2e/d/B/A/|B9 a3g|! e3d BAGD|B4 A3G E4E2|E9:|! B2|e2dBe4ga|b3a gef2e/f/e/d/B/A/|B9 GA|! B>e g>f e4ga|b2ba gef2|e9Bd|! e3f (6e/d/B/d/B/A/|B3A GE G2AB d2e/d/B/A/|B9 a3g|! e3d BAGD|B4 A3G E4E2|E9||
+|:a3g|e3d B3A GE|G2AB d2e/d/B/A/|B4-B4-B1 a3g|! e3d BAGD|B4 A3G E4E2|E9:|! B2|e2dBe4ga|b3a gef2e/f/e/d/B/A/|B4-B4-B1 GA|! B>e g>f e4ga|b2ba gef2|e9Bd|! e3f (3e/d/B/d/B/A/|B3A GE G2AB d2e/d/B/A/|B4-B4-B1 a3g|! e3d BAGD|B4 A3G E4E2|E4-E4-E1||
 
 `,
 
@@ -7772,7 +7772,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Edorian
-B3c dBAd|Beee dBAd|BEEE GABd|dBAd Beed|! B3c dBAd|Beee dBAF|GGGA FAAA|B2AF E2ed|! B3c dBAd|Beee dBAd|BEEE GABd|dBAd Beed|! B3c dBAd|Beee dBag|f2ef dBAF|B2AF [e3E3]g||! f2ef dBAF|BAFB ABdg|f2ef dBAF|Bcdf e3g|! f2ef dBAF|BAFB AFDF|G3A FAAA|BB[aA][fF] [e3E3]g|! f2ef dBAF|BAFB ABdg|f2ef dBAF|Bcdf efga|! bafe dBAF|BAFB ABd[ge]|f2ef dBAF|B2AF E4||
+B3c dBAd|Beee dBAd|BEEE GABd|dBAd Beed|! B3c dBAd|Beee dBAF|GGGA FAAA|B2AF E2ed|! B3c dBAd|Beee dBAd|BEEE GABd|dBAd Beed|! B3c dBAd|Beee dBag|f2ef dBAF|B2AF e3g||! f2ef dBAF|BAFB ABdg|f2ef dBAF|Bcdf e3g|! f2ef dBAF|BAFB AFDF|G3A FAAA|BBaf e3g|! f2ef dBAF|BAFB ABdg|f2ef dBAF|Bcdf efga|! bafe dBAF|BAFB ABdg|f2ef dBAF|B2AF E4||
 
 `,
 
@@ -7928,7 +7928,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:e2 ed BAGB|AGFA GE E2|e2 ed BAGB|ABde gagf|! e2 ed BAGB|AGFA GE E2|EFGA BAGB|1 ABde gagf:|2 ABde fgab||! |:ge (3eee gebe|fd (3ddd fgab|ge (3eee gebe|fede fgab|! ge (3eee gebe|fd (3ddd fga(b|b)gaf gfed|1 Bdef gaba:|2 Bdef gagf|e8||
+|:e2 ed BAGB|AGFA GE E2|e2 ed BAGB|ABde gagf|! e2 ed BAGB|AGFA GE E2|EFGA BAGB|1 ABde gagf:|2 ABde fgab||! |:ge (3eee gebe|fd (3ddd fgab|ge (3eee gebe|fede fgab|! ge (3eee gebe|fd (3ddd fgab|b)gaf gfed|1 Bdef gaba:|2 Bdef gagf|e4-e4||
 
 `,
 
@@ -8048,7 +8048,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:e2(3BBB B2AB|dB (3BBB B2AG|A2AB GAE2|DEB,D EGeg|! e2(3BBB B2AB|dB (3BBB B2AG|1 AAGG EEG(A|A)AGG gfed:|2 AG(G2 G)BAG|AG(E2 E)GAB ]|! |:AAGG EEG(A|A)AGG EDB,D|EEDD B,B,D(E|E)EED EGAB|! [1 AAGG EEG(A|A)AGG EDB,D|E2ED EGD(E|E)E2D EGAB:|! [2 ABG(A A2)Bd|AB2A Bdeg|e3(e e2)eg|aAgG ed3:|
+|:e2(3BBB B2AB|dB (3BBB B2AG|A2AB GAE2|DEB,D EGeg|! e2(3BBB B2AB|dB (3BBB B2AG|1 AAGG EEGA|A)AGG gfed:|2 AG(G2 G)BAG|AG(E2 E)GAB ]|! |:AAGG EEGA|A)AGG EDB,D|EEDD B,B,DE|E)EED EGAB|! [1 AAGG EEGA|A)AGG EDB,D|E2ED EGDE|E)E2D EGAB:|! [2 ABG(A A2)Bd|AB2A Bdeg|e3(e e2)eg|aAgG ed3:|
 
 `,
 
@@ -8132,7 +8132,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Adorian
-|:d|eAAg eAga|[M:10/8]eAGA AEAA GA|[M:4/4]eAAa aegf|egec d/d/dcd|! eAAg eAga|[M:10/8]eAGA AEAA GA|[M:4/4]egae Bcde|1 ABAG A3:|2 ABAG AEA||! |:B|{B}c3d eged|egBc dBAG|AEAB eBde|dece BAGE|! AEAB eBde|agbg dABd|egae Bcde|1 ABAG AEA:|2 ABAG A3||
+|:d|eAAg eAga|eAGA AEAA GA|eAAa aegf|egec d/d/dcd|! eAAg eAga|eAGA AEAA GA|egae Bcde|1 ABAG A3:|2 ABAG AEA||! |:B|c3d eged|egBc dBAG|AEAB eBde|dece BAGE|! AEAB eBde|agbg dABd|egae Bcde|1 ABAG AEA:|2 ABAG A3||
 
 `,
 
@@ -8168,7 +8168,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Eminor
-|:EBBA BcAB|GAFG EDB,D|EB,FG AGAd|CAFB|AGFB,|! EFGA BedB|GEFE DFAd|edBd BAGB|AFGB e4:|! [M:6/8] edc dcB|[M:7/8] cBA BE Bd|[M:4/4] cEcd BcAB|GAFG EedB|! CBAG FDFG|CGFE B,Fde|(3cdc (3Bcd (3BA (3GAG|(3GA ED E4:|
+|:EBBA BcAB|GAFG EDB,D|EB,FG AGAd|CAFB|AGFB,|! EFGA BedB|GEFE DFAd|edBd BAGB|AFGB e4:|! edc dcB| cBA BE Bd| cEcd BcAB|GAFG EedB|! CBAG FDFG|CGFE B,Fde|(3cdc (3Bcd (3BA (3GAG|(3GA ED E4:|
 
 `,
 
@@ -8192,7 +8192,7 @@ R: jig
 M: 4/4
 L: 1/8
 K: Adorian
-AeB cdB|AGE GAB|deg agb|{b}age dBG|! AEE CEB|AGE GAB|ded BAG|BAA A2G|! AeB cdB|AGE GAB|deg agb|{b}age dBG|! AEE c2B|AGE GAB|ded BAG|BAA Adc|! Bdd gdb|dgb {b}aec|Bdg bgd|cee {g}edc|! Bdd gdb|dgb aec|Bdd {f}dcA|AGF G2c|! Bdd gdb|dgb {b}aec|Bdg bgd|cee {g}edc|! Bdd gdb|dgb aec|Bdd {f}dcA|AGF GcB|
+AeB cdB|AGE GAB|deg agb|age dBG|! AEE CEB|AGE GAB|ded BAG|BAA A2G|! AeB cdB|AGE GAB|deg agb|age dBG|! AEE c2B|AGE GAB|ded BAG|BAA Adc|! Bdd gdb|dgb aec|Bdg bgd|cee edc|! Bdd gdb|dgb aec|Bdd dcA|AGF G2c|! Bdd gdb|dgb aec|Bdg bgd|cee edc|! Bdd gdb|dgb aec|Bdd dcA|AGF GcB|
 
 `,
 

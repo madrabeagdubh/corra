@@ -310,6 +310,8 @@ export function createButton(scene, cfg) {
 //   pure opacity toggle -- no text swap, no reflow, no button resize.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { SoundBoard } from './soundBoard.js'
+
 export function createDomButton(cfg) {
   const { ga = '', en = '', opacity = 0, onClick = () => {} } = cfg
 

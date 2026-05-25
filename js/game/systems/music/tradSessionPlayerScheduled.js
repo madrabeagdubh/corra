@@ -60,8 +60,9 @@ const REVERB_SETTINGS = {
     air:           { wetGain: 0.15, decay: 1.2 },
 };
 
-export class TradSessionPlayer {
-    constructor() {
+
+export { TEMPO_SETTINGS };
+export class TradSessionPlayer {constructor() {
         this.audioContext       = null;
         this.engine             = null;
         this.tracks             = [];

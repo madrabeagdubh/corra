@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SoundBoard } from '../systems/soundBoard.js';
 
 /**
  * BowMechanics — perspective-aware bow and arrow system.
@@ -14,12 +15,12 @@ export default class BowMechanics {
     this.creakSound     = null
     this.creakIsPlaying = false
 
-    this.maxDrawDistance = 280
+    this.maxDrawDistance     = 280
     this.bowOriginOffsetFrac = 0.35  // fraction of spriteH to add to playerScreenY
-    this.minDistance     = 48
-    this.maxDistance     = 480
-    this.flightTime      = 400
-    this.arcHeight       = 120
+    this.minDistance         = 48
+    this.maxDistance         = 480
+    this.flightTime          = 400
+    this.arcHeight           = 120
 
     this._aimStartPointer = null
     this._aimOverlay      = null
@@ -50,10 +51,6 @@ export default class BowMechanics {
       if (x > W - 90 && y < 120)         return  // top-right UI
 
       // Only allow draw to start in the lower 60% of the screen.
-      // The player is always in this zone. Text panels and map taps
-      // that occur above the horizon won't trigger the bow.
-      // We use the PGR horizon as a natural boundary — bow tutorial
-      // horizon is at ~28% of screen height, so 40% is safely below it.
       if (y < H * 0.40) return
 
       this._activePointerId = e.pointerId
@@ -104,7 +101,6 @@ export default class BowMechanics {
   }
 
   // Allow external scenes to temporarily bypass the bow check
-  // e.g. advanced training restocks arrows and re-enables aiming
   forceEnableAiming() {
     this._activePointerId = null
     this.isAiming = false
@@ -114,8 +110,6 @@ export default class BowMechanics {
     return true  // zone check handled in _domPointerDown
   }
 
-
-
   _isUIZone(pointer) {
     const W = this.scene.scale.width
     const H = this.scene.scale.height
@@ -124,7 +118,7 @@ export default class BowMechanics {
     return false
   }
 
-  // ── Player screen position ────────────────────────────────────────────────
+  // ── Player screen position ─────────────────────────────────────────────────
 
   _playerScreenPos() {
     const pgr = this.scene.perspectiveGround
@@ -140,7 +134,7 @@ export default class BowMechanics {
     return { x: pgr.playerScreenX, y: chestY }
   }
 
-  // ── Inventory ─────────────────────────────────────────────────────────────
+  // ── Inventory ──────────────────────────────────────────────────────────────
 
   hasArrows() {
     const inv = this.player.inventory
@@ -165,7 +159,7 @@ export default class BowMechanics {
     return false
   }
 
-  // ── SVG aim overlay ───────────────────────────────────────────────────────
+  // ── SVG aim overlay ────────────────────────────────────────────────────────
 
   _createAimOverlay() {
     if (this._aimOverlay) return
@@ -233,7 +227,6 @@ export default class BowMechanics {
       const ly   = this.player.logicalY + Math.sin(fireAngle) * worldDist * t
       const proj = pgr._projectLogical(lx, ly, true)
       if (!proj) continue
-      // Interpolate from player screen pos to world projection
       const cx   = startX + (proj.screenX - startX) * t
       const cy   = startY + (proj.screenY - arc - startY) * t
       const dotR = Math.max(1, 3.5 * (1 - t * 0.6))
@@ -246,7 +239,7 @@ export default class BowMechanics {
     }
   }
 
-  // ── Aiming ────────────────────────────────────────────────────────────────
+  // ── Aiming ─────────────────────────────────────────────────────────────────
 
   _startAiming(pointer) {
     const pos = this._playerScreenPos()
@@ -261,6 +254,10 @@ export default class BowMechanics {
     this._aimStartPointer = { x: pointer.x, y: pointer.y }
     this.isAiming   = true
     this._aimOrigin = pos
+
+    // ── NOCK sound ──────────────────────────────────────────────────────────
+    const ctx = this.scene.sound?.context
+    if (ctx) SoundBoard.playWeb('NOCK', ctx)
   }
 
   _updateAimLine(pointer) {
@@ -292,7 +289,7 @@ export default class BowMechanics {
     this._renderAimSVG(pos, dragAngle, fireAngle, force, clampedDist)
   }
 
-  // ── Shooting ──────────────────────────────────────────────────────────────
+  // ── Shooting ───────────────────────────────────────────────────────────────
 
   _shootArrow(pointer) {
     if (!this.isAiming) return
@@ -315,8 +312,7 @@ export default class BowMechanics {
       this.creakSound = null; this.creakIsPlaying = false
     }
 
-    const sounds = ['arrowShoot1', 'arrowShoot2', 'arrowShoot3']
-    this.scene.sound.play(Phaser.Math.RND.pick(sounds), { volume: 0.7 })
+    SoundBoard.play('ARROW_SHOOT', this.scene)
 
     const dx    = pointer.x - pos.x
     const dy    = pointer.y - pos.y
@@ -331,7 +327,7 @@ export default class BowMechanics {
     this._cancelAiming()
   }
 
-  // ── Predict landing point ────────────────────────────────────────────────
+  // ── Predict landing point ──────────────────────────────────────────────────
 
   predictLandingPoint() {
     if (!this.isAiming) return null
@@ -342,8 +338,8 @@ export default class BowMechanics {
     const dy   = pos.y - (this._lastPointerY ?? pos.y)
     const dist = Math.sqrt(dx * dx + dy * dy)
     if (dist < 5) return null
-    const force     = Math.min(dist / this.maxDrawDistance, 1)
-    const angle     = Math.atan2(-dy, -dx)
+    const force    = Math.min(dist / this.maxDrawDistance, 1)
+    const angle    = Math.atan2(-dy, -dx)
     const worldDist = this.minDistance + force * (this.maxDistance - this.minDistance)
     return {
       x: this.player.logicalX + Math.cos(angle) * worldDist,
@@ -351,7 +347,7 @@ export default class BowMechanics {
     }
   }
 
-  // ── Arrow creation ────────────────────────────────────────────────────────
+  // ── Arrow creation ─────────────────────────────────────────────────────────
 
   _createArrow(angle, force, worldDist) {
     const arrowGfx = this.scene.add.graphics()
@@ -386,7 +382,7 @@ export default class BowMechanics {
     this.scene.time.delayedCall(flightMs + 2000, () => this._destroyArrow(arrowGfx))
   }
 
-  // ── Update ────────────────────────────────────────────────────────────────
+  // ── Update ─────────────────────────────────────────────────────────────────
 
   update(delta) {
     const pgr = this.scene.perspectiveGround
@@ -509,7 +505,7 @@ export default class BowMechanics {
     })
   }
 
-  // ── Impact ────────────────────────────────────────────────────────────────
+  // ── Impact ─────────────────────────────────────────────────────────────────
 
   _createImpactEffect(screenX, screenY, force) {
     const ring = this.scene.add.circle(screenX, screenY, 6, 0xFFFFFF, 0)
@@ -523,7 +519,7 @@ export default class BowMechanics {
     })
   }
 
-  // ── Cancel / destroy ──────────────────────────────────────────────────────
+  // ── Cancel / destroy ───────────────────────────────────────────────────────
 
   _cancelAiming() {
     this.isAiming         = false
@@ -553,19 +549,19 @@ export default class BowMechanics {
     arrow.destroy()
   }
 
-  // ── Hit detection ─────────────────────────────────────────────────────────
+  // ── Hit detection ──────────────────────────────────────────────────────────
 
   checkHit(target, radius = 48) {
     for (const arrow of this.arrows) {
       if (!arrow.getData('hasLanded')) continue
       if (arrow.getData('hitTarget'))  continue
 
-      const startLX     = arrow.getData('startLX')
-      const startLY     = arrow.getData('startLY')
-      const angle       = arrow.getData('angle')
-      const worldDist   = arrow.getData('worldDist')
-      const landX       = startLX + Math.cos(angle) * worldDist
-      const landY       = startLY + Math.sin(angle) * worldDist
+      const startLX    = arrow.getData('startLX')
+      const startLY    = arrow.getData('startLY')
+      const angle      = arrow.getData('angle')
+      const worldDist  = arrow.getData('worldDist')
+      const landX      = startLX + Math.cos(angle) * worldDist
+      const landY      = startLY + Math.sin(angle) * worldDist
       const landScreenX = arrow.getData('landScreenX')
       const landScreenY = arrow.getData('landScreenY')
 
@@ -580,7 +576,7 @@ export default class BowMechanics {
 
       if (d < radius) {
         arrow.setData('hitTarget', true)
-        this.scene.sound.play('pumpkin_break_01', { volume: 0.8 })
+        SoundBoard.play('ARROW_HIT_TARGET', this.scene)
         return { arrow, force: arrow.getData('force'), distance: d, landX, landY, landScreenX, landScreenY }
       }
     }

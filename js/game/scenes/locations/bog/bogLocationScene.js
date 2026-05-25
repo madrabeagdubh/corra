@@ -15,6 +15,7 @@ import PathFinder from '../../../systems/pathFinder.js'
 import FogRenderer from '../../../systems/fogRenderer.js'
 import { createMoonWidget }  from '../../../ui/moonWidget.js'
 import { createGameMenuHub } from '../../../ui/gameMenuHub.js'
+import { SoundBoard } from '../../../systems/soundBoard.js'
 import { EncounterDeck } from '../../../../../data/encounters/encounterDeck.js'
 import { forestDeck }    from '../../../../../data/encounters/forestDeck.js'
 import { EncounterPanel } from '../../../ui/encounterPanel.js'
@@ -203,6 +204,7 @@ get _joyY() {
       console.error(`[${this.scene.key}] Map not found at /maps/bogMaps/${key}.json`)
       return
     }
+	  window._phaserAudioContext = this.sound.context
 
     await this._loadContent()
 
@@ -351,7 +353,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
         this._menuPreview.style.opacity = '0'
       },
 
-      onSwipe: (dx) => this._moonWidget?.nudgePhase(dx),
+      onSwipe: (dx) => { this._moonWidget?.nudgePhase(dx); const _mn = performance.now(); if (!this._lastMoonSwipe || _mn - this._lastMoonSwipe > 80) { this._lastMoonSwipe = _mn; SoundBoard.playWeb("MOON_SWIPE", this) } },
     })
 
     this._moonWidget = createMoonWidget({
@@ -407,6 +409,8 @@ _setupTapToPath() {
     )
     if (!tile) return
 
+    const _dbgRow = this.perspectiveGround._perspCamRow()
+    console.log('[tap] tile:', tile.tx, tile.ty, 'canvasXY:', Math.round(canvasX), Math.round(canvasY), 'camRow:', _dbgRow.toFixed(2), 'horizPx:', this.perspectiveGround._horizonPx())
     const fromTX = Math.floor(this.player.logicalX / this.tileSize)
     const fromTY = Math.floor(this.player.logicalY / this.tileSize)
     const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
@@ -420,6 +424,8 @@ _setupTapToPath() {
   // ── Moon tap -------------------------------------------------------------
 
 _flashTargetTile(tx, ty) {
+    const _c = this.sound?.context
+    if (_c) SoundBoard.playWeb("TAP_TO_PATH", _c)
     if (!this.perspectiveGround) return
     const ts   = this.tileSize
     const lx   = tx * ts + ts / 2

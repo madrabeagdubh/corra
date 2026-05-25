@@ -31,6 +31,7 @@
 import { GameSettings } from '../settings/gameSettings.js'
 import { GameState }    from '../systems/gameState.js'
 import { createVoice, VOICES, DING_DONG_PITCHES } from '../systems/voice/voiceSynth.js'
+import { SoundBoard } from '../systems/soundBoard.js'
 
 const BADGE_FADE_MS   = 400
 const CLEAR_DELAY_MS  = 800
@@ -38,12 +39,12 @@ const CHAIN_BUFFER_MS = 60
 
 const CARD_BG_KEY = 'encounterPanelBG'
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 // VOICE REGISTRY
 // Maps encounter id (from map content files) to a voice config and mode.
 // mode: 'song'   -- pitch follows opts.pitches pool (cycling)
 // mode: 'speech' -- pitch follows a generated speech contour
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 
 const ENCOUNTER_VOICES = {
   blacksmith_singing: {
@@ -72,7 +73,7 @@ export class EncounterPanel {
     this._buildBadge()
   }
 
-  // -- Badge ----------------------------------------------------------------
+  // -- Badge -----------------------------------------------------------------
 
   _buildBadge() {
     const moonElement = this._moonWidget?.element
@@ -122,7 +123,7 @@ export class EncounterPanel {
     this._badgeEl = badge
   }
 
-  // -- Notify ---------------------------------------------------------------
+  // -- Notify ----------------------------------------------------------------
 
   notify(card, zoneObj) {
     if (this._isOpen) return
@@ -144,7 +145,7 @@ export class EncounterPanel {
     }, CLEAR_DELAY_MS)
   }
 
-  // -- Badge helpers --------------------------------------------------------
+  // -- Badge helpers ---------------------------------------------------------
 
   _showBadge(visual) {
     const badge = this._badgeEl
@@ -161,6 +162,10 @@ export class EncounterPanel {
     }
 
     requestAnimationFrame(() => { badge.style.opacity = '1' })
+
+    // ── BADGE_APPEAR sound ────────────────────────────────────────────────
+    const audioCtx = this._scene?.sound?.context
+    if (audioCtx) SoundBoard.playWeb('BADGE_APPEAR', audioCtx)
   }
 
   _hideBadge() {
@@ -185,9 +190,10 @@ export class EncounterPanel {
     return this._scene.textures.exists(CARD_BG_KEY) ? CARD_BG_KEY : null
   }
 
-  // -- Open panel -----------------------------------------------------------
+  // -- Open panel ------------------------------------------------------------
 
   _openPanel() {
+    SoundBoard.playWeb('ENCOUNTER_OPEN')
     if (!this._card || this._isOpen) return
 
     const zone = this._active
@@ -200,7 +206,7 @@ export class EncounterPanel {
     }
   }
 
-  // -- Fixed encounter ------------------------------------------------------
+  // -- Fixed encounter -------------------------------------------------------
 
   _openFixedEncounter(zone) {
     this._isOpen = true
@@ -270,14 +276,14 @@ export class EncounterPanel {
 
   _requiresMet(requires) {
     if (!requires) return true
-    if (requires.note          && !GameState.hasNote(requires.note))                       return false
+    if (requires.note          && !GameState.hasNote(requires.note))                                          return false
     if (requires.quest         && !GameState.isQuestActive(requires.quest)
-                               && !GameState.isQuestComplete(requires.quest))              return false
-    if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete))      return false
+                               && !GameState.isQuestComplete(requires.quest))                                 return false
+    if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete))                         return false
     return true
   }
 
-  // -- Random encounter -----------------------------------------------------
+  // -- Random encounter ------------------------------------------------------
 
   _openRandomEncounter() {
     this._isOpen     = true
@@ -310,6 +316,7 @@ export class EncounterPanel {
         options,
         onChoice:  (i) => {
           this._choiceMade = true
+          SoundBoard.playWeb('ENCOUNTER_CHOICE')
           this._resolveAction(card.actions[i])
         },
         onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
@@ -327,7 +334,7 @@ export class EncounterPanel {
     }
   }
 
-  // -- Chained show ---------------------------------------------------------
+  // -- Chained show ----------------------------------------------------------
 
   _chainShow(config) {
     const tp = this._scene.textPanel
@@ -349,7 +356,7 @@ export class EncounterPanel {
     }, wait + CHAIN_BUFFER_MS)
   }
 
-  // -- Resolve action (random encounters) -----------------------------------
+  // -- Resolve action (random encounters) ------------------------------------
 
   _resolveAction(action) {
     const outcome = action?.outcome
@@ -361,17 +368,17 @@ export class EncounterPanel {
 
     switch (outcome.type) {
       case 'loot': {
-        if (outcome.sound) {
-          try { this._scene.sound.play(outcome.sound) } catch(e) {}
-        }
+        // ── LOOT_COLLECT sound ─────────────────────────────────────────────
+        SoundBoard.play('LOOT_COLLECT', this._scene)
+
         if (outcome.textGa || outcome.textEn) {
           this._chainShow({
-            irish:     outcome.textGa || '',
-            english:   outcome.textEn || '',
-            type:      'encounter_card',
+            irish:    outcome.textGa || '',
+            english:  outcome.textEn || '',
+            type:     'encounter_card',
             bgKey,
             graphicKey,
-            options:   null,
+            options:  null,
             onDismiss: () => this._finalDismiss(),
           })
         } else {
@@ -386,12 +393,12 @@ export class EncounterPanel {
       default:
         if (outcome.textGa || outcome.textEn) {
           this._chainShow({
-            irish:     outcome.textGa || '',
-            english:   outcome.textEn || '',
-            type:      'encounter_card',
+            irish:    outcome.textGa || '',
+            english:  outcome.textEn || '',
+            type:     'encounter_card',
             bgKey,
             graphicKey,
-            options:   null,
+            options:  null,
             onDismiss: () => this._finalDismiss(),
           })
         } else {
@@ -401,9 +408,10 @@ export class EncounterPanel {
     }
   }
 
-  // -- Dismiss helpers ------------------------------------------------------
+  // -- Dismiss helpers -------------------------------------------------------
 
   _finalDismiss() {
+    SoundBoard.playWeb('ENCOUNTER_DISMISS')
     const obj      = this._active
     const stateKey = obj?.getData('stateKey')
 
@@ -436,7 +444,7 @@ export class EncounterPanel {
     if (this._scene?.perspectiveGround) this._scene.perspectiveGround.forceRedraw()
   }
 
-  // -- Language update ------------------------------------------------------
+  // -- Language update -------------------------------------------------------
 
   updateLanguageOpacity() {
     if (this._scene?.textPanel?.updateEnglishOpacity) {
@@ -444,7 +452,7 @@ export class EncounterPanel {
     }
   }
 
-  // -- Destroy --------------------------------------------------------------
+  // -- Destroy ---------------------------------------------------------------
 
   destroy() {
     if (this._clearTimer) clearTimeout(this._clearTimer)

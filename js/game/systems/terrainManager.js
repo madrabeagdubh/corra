@@ -88,6 +88,10 @@ export default class TerrainManager {
           if (player.inBoat) return
           const tm = player.scene.terrainManager
           tm._updateWaterSink(player)
+          // Also set currentSinkDepth immediately -- don't wait for lerp
+          const armor    = player.inventory?.getItem(2)
+          const hasArmor = !!(armor && armor.type === 'armor')
+          tm.currentSinkDepth = hasArmor ? 96 : 35
           tm._waterSinkInterval = setInterval(() => tm._updateWaterSink(player), 500)
         },
         onExit: (player) => {
@@ -189,6 +193,8 @@ export default class TerrainManager {
     // Use start of current step for terrain -- avoids mid-step tile boundary flicker
     const baseX = this.player.isMoving ? this.player.startX : this.player.logicalX
     const baseY = this.player.isMoving ? this.player.startY : this.player.logicalY
+
+
     
     const tileX = Math.floor(baseX / this.scene.tileSize);
     const tileY = Math.floor(baseY / this.scene.tileSize);

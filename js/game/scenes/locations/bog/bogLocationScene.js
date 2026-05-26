@@ -782,16 +782,13 @@ _flashTargetTile(tx, ty) {
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
       const skyUrl = this.getSkyImage()
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
-      if (!this._swallows) {
-        this._swallows = new SwallowSystem(
-          () => PerspectiveGroundRenderer.HORIZON_Y_FRAC
-        )
-        this._swallows.start()
-      } else if (!document.getElementById('swallow-canvas')) {
-        // Canvas was removed, restart
-        this._swallows.start()
-      }
-      console.log('[swallow] active:', !!this._swallows, 'canvas:', !!document.getElementById('swallow-canvas'))
+      // Always recreate swallows with current map key
+      if (this._swallows) { this._swallows.stop(); this._swallows = null }
+      this._swallows = new SwallowSystem(
+        () => PerspectiveGroundRenderer.HORIZON_Y_FRAC,
+        this.scene.key
+      )
+      this._swallows.start()
       const mtnUrl = this.getMountainImage()
       if (mtnUrl) {
         const mtnPos = this.getMountainPosition()

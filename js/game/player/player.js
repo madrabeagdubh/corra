@@ -260,8 +260,19 @@ export default class Player {
         this.isMoving     = false;
         // Footstep sound based on terrain
         const terrain = this.scene?.terrainManager?.currentTerrain?.name
-        if (terrain === 'Forest') SoundBoard.playWeb('FOOTSTEP_WOOD')
-        else SoundBoard.playWeb('FOOTSTEP_BOG')
+        const tm      = this.scene?.terrainManager
+        const armor   = this.inventory?.getItem(2)
+        const hasArmor = !!(armor && armor.type === 'armor')
+        if (terrain === 'Water') {
+          if (hasArmor) SoundBoard.playWeb('FOOTSTEP_SUBMERGED')
+          else SoundBoard.playWeb('FOOTSTEP_WADE')
+        } else if (terrain === 'Bog Shore') {
+          // silent — wading
+        } else if (terrain === 'Forest') {
+          SoundBoard.playWeb('FOOTSTEP_FOREST')
+        } else {
+          SoundBoard.playWeb('FOOTSTEP_GRASS')
+        }
         this.moveProgress = 0;
         if (force > 10) {
           this.pathQueue = [];

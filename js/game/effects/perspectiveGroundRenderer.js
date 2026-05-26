@@ -1164,10 +1164,12 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           0, 1.0 + arc * 0.04,
           0, -nsBounce
         )
-        ctx.drawImage(img, -W/2, -H, W, H)
-        ctx.restore()
-        return
-      }
+        const _sink0 = Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
+      const _cropH0 = H - _sink0
+      ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0 / H), -W/2, -H + _sink0, W, _cropH0)
+      ctx.restore()
+      return
+    }
 
       ctx.transform(
         scaleX * (this._facingLeft ? -1 : 1), lean,
@@ -1185,7 +1187,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       )
     }
 
-    ctx.drawImage(img, -W/2, -H, W, H)
+    const _sink = Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
+    const _cropH = H - _sink
+    ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
     ctx.restore()
   }
 

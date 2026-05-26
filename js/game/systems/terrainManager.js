@@ -35,18 +35,7 @@ export default class TerrainManager {
         walkable: true
       },
       
-      bogShore: {
-        ids: [], // Add your bog shore tile IDs here if you have them
-        name: 'Bog Shore',
-        speedModifier: 0.5, // Half speed
-        spriteOffsetY: -10, // Sink down 10 pixels
-        damagePerSecond: 0, // No damage on shore
-        walkable: true,
-        onEnter: (player) => {
-          console.log('Entered bog shore - sinking slightly');
-          // Text notifications disabled for now
-        }
-      },
+
       
       forest: {
         ids: [260,261,262,314,315,316,368,369,370, 263,264,265,317,318,319,371,372,373, 266,267,268,320,321,322,374,375,376],
@@ -68,6 +57,43 @@ export default class TerrainManager {
           scene.fovSystem._radius = 6 // FovSystem.FOV_RADIUS default
           if (scene.fogRenderer) scene.fogRenderer._canvas.style.display = 'none'
           console.log('[terrain] left forest — fog off')
+        },
+      },
+
+      bogShore: {
+        ids: [1472,1473,1474,1526,1528,1580,1581,1582,
+              1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,
+              731], // waterside/shore tiles
+        name: 'Bog Shore',
+        speedModifier: 0.6,
+        spriteOffsetY: -16,
+        damagePerSecond: 0,
+        walkable: true,
+        onEnter: (player) => {
+          console.log('[terrain] entered shore')
+        },
+      },
+
+      water: {
+        ids: [1625, 1679, 1634, 1688],
+        name: 'Water',
+        speedModifier: 0.3,
+        spriteOffsetY: -24,
+        damagePerSecond: 0,
+        walkable: true,
+        requiresCheck: true,
+        damagePerSecond: 1,
+        onEnter: (player) => {
+          console.log('[terrain] entered water')
+          const tm = player.scene.terrainManager
+          tm._updateWaterSink(player)
+          tm._waterSinkInterval = setInterval(() => tm._updateWaterSink(player), 500)
+        },
+        onExit: (player) => {
+          console.log('[terrain] left water')
+          const tm = player.scene.terrainManager
+          clearInterval(tm._waterSinkInterval)
+          tm._stopBubbles()
         },
       },
 
@@ -179,10 +205,19 @@ export default class TerrainManager {
         if (forestIds.has(layer1?.[tileY+dy]?.[tileX+dx] ?? 0)) nearForest = true
       }
     }
-    const tileType = nearForest ? 315 : (layer1?.[tileY]?.[tileX] || layer0[tileY][tileX])
+    // For shore/water detection, layer0 takes priority over layer1
+    const waterShoreIds = new Set([1625,1679,1634,1688,
+      1472,1473,1474,1526,1528,1580,1581,1582,
+      1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,731])
+    const l0 = layer0[tileY][tileX]
+    const l1 = layer1?.[tileY]?.[tileX] ?? 0
+    const shoreIds = new Set([1472,1473,1474,1526,1528,1580,1581,1582,
+      1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,731])
+    // Shore takes priority over deep water beneath it
+    const tileType = nearForest ? 315 : (shoreIds.has(l0) ? l0 : (waterShoreIds.has(l0) ? l0 : (l1 || l0)))
     
     // Find matching terrain definition
-    if (!this._lastTile || this._lastTile !== tileType) { this._lastTile = tileType; console.log('[terrain] tileType:', tileType, 'at', tileX, tileY) }
+    if (this._lastDbgTile !== tileType) { this._lastDbgTile = tileType; console.log('[terrain] tileType:', tileType) }
     const terrain = this.getTerrainByTileType(tileType);
     
     // Check if terrain changed
@@ -243,13 +278,12 @@ export default class TerrainManager {
    * Apply terrain effects (speed, sprite offset)
    */
   applyTerrainEffects(terrain) {
-    // Apply speed modifier
-    this.player.setTerrainSpeedModifier(terrain.speedModifier);
-    
-    // Set target sink depth (negative values = sink down)
-    this.targetSinkDepth = Math.abs(terrain.spriteOffsetY);
-    
-    console.log(`Applied terrain effects: speed=${terrain.speedModifier}x, sink=${this.targetSinkDepth}px`);
+    this.player.setTerrainSpeedModifier(terrain.speedModifier)
+    // Water sink depth is set dynamically in onEnter based on armour
+    if (terrain.name !== 'Water') {
+      this.targetSinkDepth = Math.abs(terrain.spriteOffsetY)
+    }
+    console.log(`Applied terrain effects: speed=${terrain.speedModifier}x, sink=${this.targetSinkDepth}px`)
   }
   
   /**
@@ -349,6 +383,61 @@ export default class TerrainManager {
   /**
    * Clean up
    */
+  _updateWaterSink(player) {
+    const armor    = player.inventory?.getItem(2)
+    const hasArmor = !!(armor && armor.type === 'armor')
+    this.targetSinkDepth = hasArmor ? 96 : 35
+    console.log('[water] hasArmor:', hasArmor, 'sink:', this.targetSinkDepth)
+    if (hasArmor) this._startBubbles()
+    else this._stopBubbles()
+  }
+
+  _startBubbles() {
+    if (this._bubbleInterval) return
+    const scene = this.scene
+    const pgr   = scene.perspectiveGround
+    this._bubbleInterval = setInterval(() => {
+      if (!pgr || !this.player) return
+      const p    = this.player
+      const proj = pgr._projectLogical(p.logicalX, p.logicalY)
+      if (!proj) return
+      // Spawn 2-4 bubble DOM elements at player position
+      const count = 2 + Math.floor(Math.random() * 3)
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div')
+        const size = 3 + Math.random() * 4
+        const ox   = (Math.random() - 0.5) * 20
+        el.style.cssText = [
+          'position:fixed',
+          `left:${proj.screenX + ox - size/2}px`,
+          `top:${proj.screenY - size}px`,
+          `width:${size}px`,
+          `height:${size}px`,
+          'border-radius:50%',
+          'border:1px solid rgba(150,210,255,0.8)',
+          'background:rgba(180,230,255,0.3)',
+          'pointer-events:none',
+          'z-index:11',
+          'transition:transform 0.8s ease-out, opacity 0.8s ease-out',
+        ].join(';')
+        document.body.appendChild(el)
+        // Animate upward
+        setTimeout(() => {
+          el.style.transform = `translateY(-${20 + Math.random() * 20}px)`
+          el.style.opacity = '0'
+        }, 20)
+        setTimeout(() => el.remove(), 900)
+      }
+    }, 300)
+  }
+
+  _stopBubbles() {
+    if (this._bubbleInterval) {
+      clearInterval(this._bubbleInterval)
+      this._bubbleInterval = null
+    }
+  }
+
   destroy() {
     if (this.maskGraphics) {
       this.maskGraphics.destroy();

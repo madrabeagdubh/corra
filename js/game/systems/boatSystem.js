@@ -126,11 +126,10 @@ activate() {
       pgr._boatDriftStartX = pgr._boatLastScreenX ?? pgr._boatScreenX ?? (pgr._sw / 2)
       pgr._boatDriftStartY = pgr._boatLastScreenY ?? pgr._boatScreenY ?? (pgr._sh / 2)
       pgr._boatDriftT = 0
-      // After 4 seconds, fully deactivate
-      this.scene.time.delayedCall(4000, () => {
-        pgr.setBoatActive(false)
-        pgr._boatDrifting = false
-      })
+      pgr._boatDriftSpeed = 28
+      // Deactivate player-attached rendering -- boat drifts independently
+      pgr.setBoatActive(false)
+      // Boat drifts indefinitely, no fade -- recoverable later
     }
 
     console.log('[BoatSystem] deactivated -- player disembarked')

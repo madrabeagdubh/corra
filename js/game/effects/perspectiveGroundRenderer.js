@@ -1063,6 +1063,29 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     }
   }
 
+  loadBoatImage(imgElement) {
+    const c   = document.createElement('canvas')
+    c.width   = imgElement.naturalWidth  || imgElement.width
+    c.height  = imgElement.naturalHeight || imgElement.height
+    const ctx = c.getContext('2d')
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(imgElement, 0, 0)
+    this._boatCanvas = c
+    console.log('[PGR] boat canvas ready -', c.width, 'x', c.height)
+  }
+
+  setBoatActive(active) {
+    this._boatActive  = !!active
+    this._boatScreenX = null
+    this._boatScreenY = null
+    if (active) {
+      this._boatSinkOverride = 0.55
+    } else {
+      this._boatSinkOverride = 0
+    }
+    this._playerFrameKey = null
+  }
+
   _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) {
     const inv = this.scene.player?.inventory
     if (!inv) return
@@ -1211,11 +1234,12 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           0, 1.0 + ((this._boatActive || inWater2) ? 0 : arc * 0.04),
           0, -nsBounce
         )
-        // Crop: hide legs behind boat hull
-        const sinkFrac = this._boatSinkOverride ?? 0
-        const _sink    = H * sinkFrac
-        const _cropH   = H - _sink
-        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
+        // Crop: use boat override when in boat, terrain sink otherwise
+        const _sink0ns = this._boatActive
+          ? H * (this._boatSinkOverride ?? 0)
+          : Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
+        const _cropH0ns = H - _sink0ns
+        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0ns / H), -W/2, -H + _sink0ns, W, _cropH0ns)
         ctx.restore()
         return
       }
@@ -1240,10 +1264,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
     ctx.restore()
   }
-
-// ── END OF PGR PATCH ─────────────────────────────────────────────────────
-
-
 
 }
 

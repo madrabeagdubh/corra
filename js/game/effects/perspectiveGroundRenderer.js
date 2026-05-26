@@ -79,7 +79,12 @@ static HORIZON_Y_FRAC    = 0.28
     this._playerCanvas   = null
     this._playerFrameKey = null
     this._encounterFlags = []
-
+    this._boatActive      = false
+    this._boatDrifting    = false
+    this._boatCanvas      = null
+    this._boatSinkOverride = 0
+    this._boatScreenX     = null
+    this._boatScreenY     = null
     this.tintManager = new TintManager()
 
     if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); document.removeEventListener('fullscreenchange', this._resizeHandler); document.removeEventListener('webkitfullscreenchange', this._resizeHandler); this._resizeHandler = null }
@@ -1211,5 +1216,195 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._playerCanvas = null
     console.log('[PGR v8] destroyed')
   }
+
+
+
+// ── PATCH: add these methods to PerspectiveGroundRenderer ─────────────────
+//
+// 1. Add to constructor, after the existing this._encounterFlags = [] line:
+//
+//      this._boatActive = false
+//      this._boatCanvas = null
+//
+// 2. Add this block to preload() in the SCENE (e.g. c4.js or bogLocationScene):
+//
+//      this.load.image('boat', '/assets/boat.png')
+//
+//    Then in the scene's create(), after perspectiveGround is set up:
+//
+//      this.perspectiveGround.loadBoatImage(
+//        this.textures.get('boat').getSourceImage()
+//      )
+//
+// ── METHODS TO ADD ────────────────────────────────────────────────────────
+
+  // Call once after the boat image is available from Phaser's texture cache.
+  loadBoatImage(imgElement) {
+    const c   = document.createElement('canvas')
+    c.width   = imgElement.naturalWidth  || imgElement.width
+    c.height  = imgElement.naturalHeight || imgElement.height
+    const ctx = c.getContext('2d')
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(imgElement, 0, 0)
+    this._boatCanvas = c
+    console.log('[PGR] boat canvas ready -', c.width, 'x', c.height)
+  }
+
+  setBoatActive(active) {
+    this._boatActive = !!active
+    this._boatScreenX = null
+    this._boatScreenY = null
+    if (active) {
+      this._boatSinkOverride = 0.55
+    } else {
+      this._boatSinkOverride = 0
+    }
+    this._playerFrameKey = null
+  }
+
+// ── REPLACEMENT for _drawPlayerAnimated ──────────────────────────────────
+// Replace the existing _drawPlayerAnimated with this version.
+// The only change is the boat drawing block at the top.
+
+  _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) {
+    if (!img) return
+    const t   = this._animT || 0
+    const p   = this._player
+    const ps  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
+    const hm  = (heightMult ?? 1.8) * ps
+    const W   = Math.round(scaledTileW * ps)
+    const H   = Math.round(scaledTileW * hm)
+
+    // ── BOAT: draw hull below player, crop player legs ─────────────────
+    if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
+      if (this._boatDrifting) {
+        this._boatDriftT = (this._boatDriftT ?? 0) + 0.012
+        const driftX = (this._boatDriftStartX ?? screenX) + this._boatDriftT * 28
+        const driftY = (this._boatDriftStartY ?? screenY)
+        const alpha  = Math.max(0, 1 - this._boatDriftT / 1.2)
+        const bc     = this._boatCanvas
+        const boatW  = Math.round(scaledTileW * 1.6 * ps)
+        const boatH  = Math.round(boatW * (bc.height / bc.width))
+        ctx.save()
+        ctx.globalAlpha = alpha
+        ctx.drawImage(bc, Math.round(driftX - boatW / 2), Math.round(driftY - H * 0.55), boatW, boatH)
+        ctx.restore()
+      } else {
+        if (this._boatScreenX == null) {
+          this._boatScreenX = screenX
+          this._boatScreenY = screenY
+        } else {
+          const lerpSpeed = 0.18
+          this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
+          this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
+        }
+        // Always persist last known position so drift can use it after deactivation
+        this._boatLastScreenX = this._boatScreenX
+        this._boatLastScreenY = this._boatScreenY
+        const bx    = this._boatScreenX
+        const by    = this._boatScreenY
+        const bc    = this._boatCanvas
+        const boatW = Math.round(scaledTileW * 1.6 * ps)
+        const boatH = Math.round(boatW * (bc.height / bc.width))
+        const boatTop = by - H * 0.55
+        ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop), boatW, boatH)
+      }
+    }
+
+    // ── Player bob (boat rocking when idle) ────────────────────────────
+    const boatRock = this._boatActive
+      ? Math.sin(t * 0.7) * scaledTileW * 0.025   // gentle side-to-side
+      : 0
+    const boatBob  = this._boatActive
+      ? Math.sin(t * 1.4) * scaledTileW * 0.012   // gentle up-down
+      : 0
+
+    // Track tile steps
+    const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
+    const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
+    const vx = curTileX - (this._prevTileX ?? curTileX)
+    const vy = curTileY - (this._prevTileY ?? curTileY)
+    const stepped = vx !== 0 || vy !== 0
+    this._prevTileX = curTileX
+    this._prevTileY = curTileY
+
+    if (vx < 0)      this._facingLeft = true
+    else if (vx > 0) this._facingLeft = false
+
+    if (stepped) {
+      this._moveDir = Math.abs(vx) > 0 ? 'ew' : 'ns'
+      this._nextSwaySign = vx !== 0 ? (vx > 0 ? 1 : -1) : (this._swaySign ?? 1)
+      const st = this._stepT ?? 1
+      if (st > 0.85 || st === 0) {
+        this._stepT    = 0
+        this._swaySign = this._nextSwaySign
+      }
+    }
+
+    const moving = p?.isMoving ?? false
+    if (moving) {
+      this._stepT = (this._stepT || 0) + 0.09
+      if (this._stepT >= 1.0) {
+        this._stepT    = 0
+        this._swaySign = this._nextSwaySign ?? this._swaySign ?? 1
+      }
+    }
+
+    ctx.save()
+    ctx.translate(screenX + boatRock, screenY + boatBob)
+
+    if (moving) {
+      const st     = this._stepT ?? 0
+      const arc    = Math.sin(st * Math.PI)
+      // In boat: no bounce, just a gentle row sway
+      const bounce = this._boatActive ? 0 : arc * scaledTileW * 0.18
+      const scaleY = 1.0 + (this._boatActive ? 0 : arc * 0.09)
+      const scaleX = 1.0 - (this._boatActive ? 0 : arc * 0.04)
+      const dir    = this._moveDir ?? 'ew'
+
+      let sway = 0, lean = 0
+      if (dir === 'ew') {
+        sway = this._boatActive ? 0 : (this._swaySign ?? 1) * arc * scaledTileW * 0.055
+        lean = this._boatActive ? 0 : arc * 0.05 * (this._facingLeft ? 1 : -1)
+      } else {
+        const nsBounce = this._boatActive ? 0 : arc * scaledTileW * 0.07
+        ctx.transform(
+          1.0 * (this._facingLeft ? -1 : 1), 0,
+          0, 1.0 + (this._boatActive ? 0 : arc * 0.04),
+          0, -nsBounce
+        )
+        // Crop: hide legs behind boat hull
+        const sinkFrac = this._boatSinkOverride ?? 0
+        const _sink    = H * sinkFrac
+        const _cropH   = H - _sink
+        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
+        ctx.restore()
+        return
+      }
+
+      ctx.transform(scaleX * (this._facingLeft ? -1 : 1), lean, 0, scaleY, sway, -bounce)
+    } else {
+      const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
+      const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
+      const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
+      ctx.transform(
+        breathScale * (this._facingLeft ? -1 : 1), 0,
+        0, breathScale,
+        shift, watch
+      )
+    }
+
+    // Crop: hide legs behind boat hull
+    const sinkFrac = this._boatActive ? (this._boatSinkOverride ?? 0) : 0
+    const _sink = this._boatActive ? H * sinkFrac : Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
+    const _cropH   = H - _sink
+    ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
+    ctx.restore()
+  }
+
+// ── END OF PGR PATCH ─────────────────────────────────────────────────────
+
+
+
 }
 

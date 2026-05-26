@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { createStatusBar } from '../../../ui/statusBar.js'
-
+import BoatSystem from '../../../systems/boatSystem.js'
+ 
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import WorldMenu from '../../../ui/worldMenu.js'
@@ -244,8 +245,9 @@ get _joyY() {
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
+this.walkGrid   = this._buildWalkGrid()
+    this.boatSystem = new BoatSystem(this)   // dormant until activate() called
 
-    this.walkGrid   = this._buildWalkGrid()
     this.fovSystem  = new FovSystem(this.walkGrid)
 this.pathFinder = new PathFinder(this.walkGrid, null)
     // this.fogRenderer = new FogRenderer(this.perspectiveGround)
@@ -402,12 +404,22 @@ _setupTapToPath() {
     if (!this.perspectiveGround) return
     if (this._bowAiming) return
 
-    const tile = PathFinder.screenToTile(
+
+
+
+const tile = PathFinder.screenToTile(
       canvasX, canvasY,
       this.perspectiveGround,
       this.tileSize
     )
     if (!tile) return
+
+    // In boat: reject taps on land tiles; only water + shore are valid
+    if (this.player?.inBoat && this.boatSystem) {
+      if (!this.boatSystem.isValidBoatTarget(tile.tx, tile.ty)) return
+    }
+
+
 
     const _dbgRow = this.perspectiveGround._perspCamRow()
     console.log('[tap] tile:', tile.tx, tile.ty, 'canvasXY:', Math.round(canvasX), Math.round(canvasY), 'camRow:', _dbgRow.toFixed(2), 'horizPx:', this.perspectiveGround._horizonPx())
@@ -685,9 +697,15 @@ _flashTargetTile(tx, ty) {
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
 
-  update(time, delta) {
+ 
+
+
+
+update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
+    if (this.boatSystem?.active) this.boatSystem.update(delta)
     super.update(time, delta)
+
 
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
@@ -719,7 +737,11 @@ _flashTargetTile(tx, ty) {
     if (this.fogRenderer)    { this.fogRenderer.destroy();   this.fogRenderer   = null }
     if (this.itemSheet)      { this.itemSheet.clear();       this.itemSheet     = null }
     if (this.bowMechanics)   { this.bowMechanics.destroy();  this.bowMechanics  = null }
-    if (this._statusBar?.parentNode) {
+  
+if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = null }
+
+
+  if (this._statusBar?.parentNode) {
       this._statusBar.parentNode.removeChild(this._statusBar)
       this._statusBar = null
     }

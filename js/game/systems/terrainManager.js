@@ -85,6 +85,7 @@ export default class TerrainManager {
         damagePerSecond: 1,
         onEnter: (player) => {
           console.log('[terrain] entered water')
+          if (player.inBoat) return
           const tm = player.scene.terrainManager
           tm._updateWaterSink(player)
           tm._waterSinkInterval = setInterval(() => tm._updateWaterSink(player), 500)
@@ -185,9 +186,9 @@ export default class TerrainManager {
     if (!this.player || !this.player.sprite) return;
     
     // Get current tile type based on GRID position (not visual sprite position)
-    // Use targetY when moving, otherwise use sprite Y minus any sink offset
-    const baseY = this.player.isMoving ? this.player.targetY : this.player.logicalY
-    const baseX = this.player.isMoving ? this.player.targetX : this.player.logicalX
+    // Use start of current step for terrain -- avoids mid-step tile boundary flicker
+    const baseX = this.player.isMoving ? this.player.startX : this.player.logicalX
+    const baseY = this.player.isMoving ? this.player.startY : this.player.logicalY
     
     const tileX = Math.floor(baseX / this.scene.tileSize);
     const tileY = Math.floor(baseY / this.scene.tileSize);
@@ -277,9 +278,17 @@ export default class TerrainManager {
   /**
    * Apply terrain effects (speed, sprite offset)
    */
-  applyTerrainEffects(terrain) {
-    this.player.setTerrainSpeedModifier(terrain.speedModifier)
-    // Water sink depth is set dynamically in onEnter based on armour
+
+
+
+
+
+ applyTerrainEffects(terrain) {
+    // Speed modifier: boat system manages its own speed, don't override
+    if (!this.player?.inBoat) {
+      this.player.setTerrainSpeedModifier(terrain.speedModifier)
+    }
+    // Sink depth always updates -- PGR ignores it when inBoat
     if (terrain.name !== 'Water') {
       this.targetSinkDepth = Math.abs(terrain.spriteOffsetY)
     }
@@ -289,8 +298,11 @@ export default class TerrainManager {
   /**
    * Apply continuous effects like damage over time
    */
-  applyContinuousEffects(terrain) {
-    if (!terrain.damagePerSecond || terrain.damagePerSecond <= 0) return;
+
+applyContinuousEffects(terrain) {
+  if (this.player?.inBoat) return
+  if (!terrain.damagePerSecond || terrain.damagePerSecond <= 0) return;
+
     
     // Check if we need to do armor check
     let shouldApplyDamage = true;

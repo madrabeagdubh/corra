@@ -2,8 +2,10 @@
 import { SoundBoard } from '../systems/soundBoard.js'
 
 export class SwallowSystem {
-  constructor(horizonFracFn) {
+  constructor(horizonFracFn, mapKey) {
     this._getHorizonFrac = horizonFracFn
+    this._mapKey = mapKey ?? 'a1'
+    this._mapNum = mapKey ? mapKey[1] : '1' // 1, 2, 3, 4
     this._canvas = null
     this._ctx    = null
     this._birds  = []
@@ -54,7 +56,13 @@ export class SwallowSystem {
 
   _scheduleNext() {
     if (!this._active) return
-    const delay = 5000 + Math.random() * 12000
+    const num = this._mapNum
+    // Row 4 = dense forest, no swallows
+    if (num === '4') { this._birds = []; return }
+    // Row 3 = river, frequent; rows 1/2 = open, rare
+    const minD = num === '3' ? 12000 : 45000
+    const maxD = num === '3' ? 25000 : 90000
+    const delay = minD + Math.random() * (maxD - minD)
     this._spawnTimer = setTimeout(() => {
       this._spawnFlock()
       this._scheduleNext()
@@ -62,15 +70,19 @@ export class SwallowSystem {
   }
 
   _spawnFlock() {
+    if (!this._active) return
     const W = window.innerWidth
     const H = window.innerHeight
     const horizonY = H * this._getHorizonFrac()
     const skyH = window.innerHeight * 0.9
 
     const fromLeft = Math.random() < 0.5
-    // Usually 1-2, occasionally a burst of 5-8
-    const burst = Math.random() < 0.15
-    const count = burst ? 5 + Math.floor(Math.random() * 4) : 1 + Math.floor(Math.random() * 2)
+    // Count and burst chance by map column
+    const col = this._mapNum
+    const burst = Math.random() < (col === '3' ? 0.15 : 0.05)
+    const count = col === '3'
+      ? (burst ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2))
+      : 1
 
     // Lead bird path — series of waypoints for erratic flight
     // Occasional call — not every flock
@@ -80,15 +92,19 @@ export class SwallowSystem {
     }
 
     const startX = fromLeft ? -150 : W + 150
-    const startY = skyH * 0.2 + Math.random() * skyH * 0.6
+    const num = this._mapNum
+    // Height: river birds fly low, others high
+    const yMin = num === '3' ? 0.3 : 0.02
+    const yMax = num === '3' ? 0.5 : 0.15
+    const startY = skyH * yMin + Math.random() * skyH * (yMax - yMin)
 
-    // Generate 4-6 waypoints across the screen
+    // Generate waypoints
     const waypoints = [{ x: startX, y: startY }]
-    const steps = 5 + Math.floor(Math.random() * 3)
+    const steps = num === '3' ? 3 + Math.floor(Math.random() * 2) : 7 + Math.floor(Math.random() * 4)
     for (let i = 1; i <= steps; i++) {
       const prevX = waypoints[i-1].x
       const prevY = waypoints[i-1].y
-      const dy = (Math.random() - 0.5) * skyH * 0.5
+      const dy = (Math.random() - 0.5) * skyH * (num === '3' ? 0.15 : 0.4)
       // Force last waypoint well off the opposite screen edge
       const isLast = i === steps
       const x = isLast
@@ -96,7 +112,7 @@ export class SwallowSystem {
         : prevX + (fromLeft ? W / steps * (0.8 + Math.random() * 0.4) : -W / steps * (0.8 + Math.random() * 0.4))
       waypoints.push({
         x,
-        y: Math.max(5, Math.min(window.innerHeight * 0.55, prevY + dy))
+        y: Math.max(num === '3' ? window.innerHeight * 0.25 : 2, Math.min(window.innerHeight * (num === '3' ? 0.52 : 0.18), prevY + dy))
       })
     }
 
@@ -113,7 +129,7 @@ export class SwallowSystem {
         speed: 0.035 + Math.random() * 0.015, // fast!
         delay,
         delayLeft: delay,
-        size: 1.2 + Math.random() * 0.8,
+        size: col === '3' ? 1.2 + Math.random() * 0.6 : 0.6 + Math.random() * 0.4,
         wingPhase: Math.random() * Math.PI * 2,
         bank: 0,
         prevY: 0,
@@ -138,7 +154,7 @@ export class SwallowSystem {
 
       // Advance along waypoint path
       const _sFrac = b.y / window.innerHeight
-      b.t += b.speed * (_sFrac > 0.5 ? 1 + (_sFrac - 0.5) * 4 : 1)
+      b.t += b.speed * (_sFrac > 0.4 ? 1 + (_sFrac - 0.4) * 5 : 1)
       if (b.t >= 1) {
         b.t -= 1
         b.seg++

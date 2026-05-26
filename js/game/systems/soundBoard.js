@@ -413,6 +413,134 @@ const SYNTH = {
     })
   },
 
+  FOOTSTEP_GRASS(ctx, opts = {}) {
+    // Soft earth thump — sub-bass sine, very short, barely audible
+    const now  = ctx.currentTime
+    const vol  = opts.volume ?? 0.12
+    const osc  = ctx.createOscillator()
+    const g    = ctx.createGain()
+    osc.type   = 'sine'
+    osc.frequency.setValueAtTime(70, now)
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.06)
+    g.gain.setValueAtTime(vol, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.07)
+    osc.connect(g); g.connect(ctx.destination)
+    osc.start(now); osc.stop(now + 0.08)
+  },
+
+  FOOTSTEP_FOREST(ctx, opts = {}) {
+    // Same soft thump, slightly duller — damp forest floor
+    const now  = ctx.currentTime
+    const vol  = opts.volume ?? 0.1
+    const osc  = ctx.createOscillator()
+    const g    = ctx.createGain()
+    const lpf  = ctx.createBiquadFilter()
+    lpf.type   = 'lowpass'
+    lpf.frequency.value = 120
+    osc.type   = 'sine'
+    osc.frequency.setValueAtTime(60, now)
+    osc.frequency.exponentialRampToValueAtTime(35, now + 0.07)
+    g.gain.setValueAtTime(vol, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.09)
+    osc.connect(lpf); lpf.connect(g); g.connect(ctx.destination)
+    osc.start(now); osc.stop(now + 0.1)
+  },
+
+  FOOTSTEP_SPLASH(ctx, opts = {}) {
+    // Wading splash — shore tiles
+    const now  = ctx.currentTime
+    const vol  = opts.volume ?? 0.18
+    // Splash noise
+    const buf  = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < data.length; i++) {
+      const t = i / ctx.sampleRate
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 18)
+    }
+    const src  = ctx.createBufferSource()
+    src.buffer = buf
+    const bpf  = ctx.createBiquadFilter()
+    bpf.type   = 'bandpass'
+    bpf.frequency.value = 1200
+    bpf.Q.value = 0.6
+    const g    = ctx.createGain()
+    g.gain.setValueAtTime(vol, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    // Low water thud
+    const osc  = ctx.createOscillator()
+    const og   = ctx.createGain()
+    osc.type   = 'sine'
+    osc.frequency.setValueAtTime(180, now)
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08)
+    og.gain.setValueAtTime(vol * 0.5, now)
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+    src.connect(bpf); bpf.connect(g); g.connect(ctx.destination)
+    osc.connect(og); og.connect(ctx.destination)
+    src.start(now); osc.start(now); osc.stop(now + 0.13)
+  },
+
+  FOOTSTEP_WADE(ctx, opts = {}) {
+    // Deep water wade — heavier, bubbly
+    const now  = ctx.currentTime
+    const vol  = opts.volume ?? 0.15
+    // Water displacement
+    const buf  = ctx.createBuffer(1, ctx.sampleRate * 0.18, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < data.length; i++) {
+      const t = i / ctx.sampleRate
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 12)
+    }
+    const src  = ctx.createBufferSource()
+    src.buffer = buf
+    const lpf  = ctx.createBiquadFilter()
+    lpf.type   = 'lowpass'
+    lpf.frequency.value = 600
+    const g    = ctx.createGain()
+    g.gain.setValueAtTime(vol, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18)
+    // Bubble blurp
+    const osc  = ctx.createOscillator()
+    const og   = ctx.createGain()
+    osc.type   = 'sine'
+    osc.frequency.setValueAtTime(300 + Math.random() * 200, now + 0.05)
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.15)
+    og.gain.setValueAtTime(0, now + 0.04)
+    og.gain.linearRampToValueAtTime(vol * 0.4, now + 0.07)
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.16)
+    src.connect(lpf); lpf.connect(g); g.connect(ctx.destination)
+    osc.connect(og); og.connect(ctx.destination)
+    src.start(now); osc.start(now + 0.04); osc.stop(now + 0.17)
+  },
+
+  FOOTSTEP_SUBMERGED(ctx, opts = {}) {
+    // Fully submerged — muffled thud, bubbles
+    const now  = ctx.currentTime
+    const vol  = opts.volume ?? 0.12
+    // Muffled thud
+    const osc  = ctx.createOscillator()
+    const og   = ctx.createGain()
+    osc.type   = 'sine'
+    osc.frequency.setValueAtTime(60, now)
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.1)
+    og.gain.setValueAtTime(vol, now)
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    const lpf  = ctx.createBiquadFilter()
+    lpf.type   = 'lowpass'
+    lpf.frequency.value = 200
+    osc.connect(lpf); lpf.connect(og); og.connect(ctx.destination)
+    osc.start(now); osc.stop(now + 0.13)
+    // Rising bubble
+    const osc2 = ctx.createOscillator()
+    const og2  = ctx.createGain()
+    osc2.type  = 'sine'
+    osc2.frequency.setValueAtTime(200 + Math.random() * 150, now + 0.02)
+    osc2.frequency.exponentialRampToValueAtTime(600, now + 0.12)
+    og2.gain.setValueAtTime(vol * 0.3, now + 0.02)
+    og2.gain.exponentialRampToValueAtTime(0.001, now + 0.13)
+    osc2.connect(og2); og2.connect(ctx.destination)
+    osc2.start(now + 0.02); osc2.stop(now + 0.14)
+  },
+
   FOOTSTEP_BOG(ctx, opts = {}) {
     // Soft wet thud with squelch
     const now  = ctx.currentTime

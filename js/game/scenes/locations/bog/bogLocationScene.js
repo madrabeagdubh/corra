@@ -489,6 +489,14 @@ _flashTargetTile(tx, ty) {
   if (now - (this._lastMoonTap || 0) < 700) return
   this._lastMoonTap = now
 
+  // Disembark takes priority when badge is showing
+  if (this._encounterPanel?._card?.id === 'disembark') {
+    this._encounterPanel.clearNotify()
+    this._disembarkBadgeShown = false
+    if (this.boatSystem) this._doDisembark()
+    return
+  }
+
   // Encounter panel takes priority
   if (this._encounterPanel?._card) {
     this._encounterPanel._openPanel()
@@ -503,6 +511,55 @@ _flashTargetTile(tx, ty) {
 
   // Tap does NOT open menu -- use long press for that
 } 
+
+  _doDisembark() {
+    const p   = this.player
+    const ts  = this.tileSize
+    const map = this.mapData.layers[0]
+    const tileX = Math.floor(p.logicalX / ts)
+    const tileY = Math.floor(p.logicalY / ts)
+    const water = new Set([1625,1679])
+    const shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,
+      1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
+      1958,1959,1960,2012,2013,731])
+
+    // Search expanding rings for nearest dry land tile
+    let landTile = null
+    outer: for (let r = 1; r <= 4; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue
+          const tx = tileX + dx, ty = tileY + dy
+          if (ty < 0 || ty >= this.mapData.height) continue
+          if (tx < 0 || tx >= this.mapData.width) continue
+          const gid = map[ty]?.[tx] ?? 0
+          if (!water.has(gid) && !shore.has(gid) && gid !== 0) {
+            landTile = { tx, ty }
+            break outer
+          }
+        }
+      }
+    }
+
+    if (landTile) {
+      // Trigger disembark and snap player to land tile
+      this.boatSystem._triggerDisembark(false)
+      const lx = landTile.tx * ts + ts / 2
+      const ly = landTile.ty * ts + ts / 2
+      this.time.delayedCall(50, () => {
+        if (!this.player) return
+        this.player.logicalX = lx
+        this.player.logicalY = ly
+        this.player.targetX  = lx
+        this.player.targetY  = ly
+        this.player.startX   = lx
+        this.player.startY   = ly
+      })
+    } else {
+      // No land nearby -- just disembark in place
+      this.boatSystem._triggerDisembark(false)
+    }
+  }
 
   _closeWorldMenuSilently() {
     if (!this.worldMenu) return
@@ -540,6 +597,14 @@ _flashTargetTile(tx, ty) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
     if (ty < 0 || ty >= this.mapData.height || tx < 0 || tx >= this.mapData.width) return true
+    // In boat: water and shore tiles are always passable
+    if (this.player?.inBoat) {
+      const _g = this.mapData.layers[0]?.[ty]?.[tx]
+      const _water = new Set([1625,1679])
+      const _shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,2012,2013,731])
+      if (_water.has(_g) || _shore.has(_g)) return false
+      return true
+    }
     const extra = this.getExtraUnwalkableGIDs()
     const g0 = this.mapData.layers[0]?.[ty]?.[tx]
     if (ALWAYS_UNWALKABLE.has(g0) || extra.has(g0)) return true

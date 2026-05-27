@@ -169,6 +169,37 @@ export default class BaseLocationScene extends Phaser.Scene {
         this._lastWasFar = false
       }
 
+      // Show disembark badge when boat touches dry land (not reeds)
+      if (this.player?.inBoat && this.boatSystem?.active) {
+        const _ts    = this.tileSize
+        const _tileX = Math.floor(this.player.logicalX / _ts)
+        const _tileY = Math.floor(this.player.logicalY / _ts)
+        const _gid   = this.mapData?.layers?.[0]?.[_tileY]?.[_tileX] ?? 0
+        const _water = new Set([1625,1679])
+        const _shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,
+          1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
+          1958,1959,1960,2012,2013,731])
+        const _onLand = !_water.has(_gid) && !_shore.has(_gid) && _gid !== 0
+        if (_onLand && !this.player.isMoving) {
+          if (!this._disembarkBadgeShown) {
+            this._disembarkBadgeShown = true
+            this._encounterPanel?.notify(
+              { id: 'disembark', visual: { gid: 1625, flat: true },
+                ga: 'Téigh i dtír', en: 'Go ashore' },
+              null
+            )
+          }
+        } else {
+          if (this._disembarkBadgeShown) {
+            this._disembarkBadgeShown = false
+            this._encounterPanel?.clearNotify()
+          }
+        }
+      } else if (this._disembarkBadgeShown) {
+        this._disembarkBadgeShown = false
+        this._encounterPanel?.clearNotify()
+      }
+
       this.checkExits()
     }
 

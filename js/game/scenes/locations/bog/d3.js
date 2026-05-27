@@ -17,20 +17,38 @@ export default class BogD3 extends BogLocationScene {
   }
 
   onEnter() {
-    const edge = this.entryData?.entryEdge
-    // Arrive by boat from the east (sea/estuary), or fresh start on this map
-    const shouldBeInBoat = !edge || edge === 'east'
-    if (shouldBeInBoat) {
-      this.time.delayedCall(50, () => {
-        if (!this.boatSystem) return
-        if (this.perspectiveGround && this.textures.exists('boat')) {
-          this.perspectiveGround.loadBoatImage(
-            this.textures.get('boat').getSourceImage()
-          )
+    const edge    = this.entryData?.entryEdge
+    const mapKey  = this.getMapKey()
+    const saved   = GameState.getBoatPosition(mapKey)
+    const fromEast = !edge || edge === 'east'
+
+    this.time.delayedCall(50, () => {
+      if (!this.boatSystem || !this.perspectiveGround) return
+      if (this.textures.exists('boat')) {
+        this.perspectiveGround.loadBoatImage(
+          this.textures.get('boat').getSourceImage()
+        )
+      }
+
+      if (saved) {
+        // Restore moored boat at saved position
+        const ts = this.tileSize
+        const pgr = this.perspectiveGround
+        pgr._boatWorldX  = saved.tileX * ts + ts / 2
+        pgr._boatWorldY  = saved.tileY * ts + ts / 2
+        pgr._boatDrifting = false
+        // If player is on the same tile, board it
+        const pTX = Math.floor(this.player.logicalX / ts)
+        const pTY = Math.floor(this.player.logicalY / ts)
+        if (pTX === saved.tileX && pTY === saved.tileY) {
+          this.boatSystem.activate()
         }
+        console.log(`[d3] boat restored at [${saved.tileX},${saved.tileY}]`)
+      } else if (fromEast) {
+        // Fresh arrival -- player starts in boat
         this.boatSystem.activate()
-      })
-    }
+      }
+    })
   }
 }
 

@@ -83,6 +83,21 @@ export const ITEM_DEFS = {
     allowedSlots: [],
     actions: ['drink', 'drop', 'throw'],
     color: 0xFF0000
+  },
+
+  currach: {
+    id: 'currach',
+    spriteKey: 'boat',
+    type: 'boat',
+    nameGa: 'An Curach',
+    nameEn: 'The Currach',
+    descriptionGa: 'An curach a d\'iompair mé ó Albain. Adhmad agus seithe caorach. Tá sí creathánach ach seasmhach.',
+    descriptionEn: 'The currach that carried me from Scotland. Wood and sheep hide. She trembles but holds.',
+    stackable: false,
+    quantity: 1,
+    allowedSlots: [],
+    actions: ['examine'],
+    color: 0x8B4513
   }
 };
 

@@ -668,6 +668,8 @@ static HORIZON_Y_FRAC    = 0.28
     if (_newSw !== this._sw || _newSh !== this._sh) {
       this._boatScreenX = null
       this._boatScreenY = null
+      this._hlX = null
+      this._hlY = null
     }
     this._sw = _newSw
     this._sh = _newSh
@@ -1035,18 +1037,25 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._animT = ((this._animT || 0) + 0.016) % (Math.PI * 200)
     if (this._exitMarkers?.length) this._exitPulseT = (this._exitPulseT || 0) + 0.04
 
-    // Player tile highlight -- drawn once after tile loop
+    // Player tile highlight -- always locked to current player/boat position
     if (p) {
-      const _hlLX = (this._boatActive && this._boatWorldX != null) ? this._boatWorldX : p.logicalX
-      const _hlLY = (this._boatActive && this._boatWorldY != null) ? this._boatWorldY : p.logicalY
-      const pTileCol = Math.floor(_hlLX / this.tileDisplaySize)
-      const pTileRow = Math.floor(_hlLY / this.tileDisplaySize)
-      const hxTL = this._colToScreenX(pTileCol,     pTileRow)
-      const hxTR = this._colToScreenX(pTileCol + 1, pTileRow)
-      const hxBL = this._colToScreenX(pTileCol,     pTileRow + 1)
-      const hxBR = this._colToScreenX(pTileCol + 1, pTileRow + 1)
-      const hyT  = this._rowToScreenY(pTileRow)
-      const hyB  = this._rowToScreenY(pTileRow + 1)
+      const _hlLX = (this._boatActive && this._boatScreenX != null)
+        ? this._boatWorldX ?? p.logicalX
+        : p.logicalX
+      const _hlLY = (this._boatActive && this._boatScreenY != null)
+        ? this._boatWorldY ?? p.logicalY
+        : p.logicalY
+
+      // Project current tile to screen as perspective quad
+      const ts      = this.tileDisplaySize
+      const hlTileX = Math.floor(_hlLX / ts)
+      const hlTileY = Math.floor(_hlLY / ts)
+      const hxTL = this._colToScreenX(hlTileX,     hlTileY)
+      const hxTR = this._colToScreenX(hlTileX + 1, hlTileY)
+      const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
+      const hxBR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
+      const hyT  = this._rowToScreenY(hlTileY)
+      const hyB  = this._rowToScreenY(hlTileY + 1)
       if (hyT !== null && hyB !== null) {
         this._gCtx.save()
         this._gCtx.globalAlpha = 0.28
@@ -1055,7 +1064,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         this._gCtx.moveTo(hxTL, hyT); this._gCtx.lineTo(hxTR, hyT)
         this._gCtx.lineTo(hxBR, hyB); this._gCtx.lineTo(hxBL, hyB)
         this._gCtx.closePath(); this._gCtx.fill()
-
         this._gCtx.restore()
       }
     }

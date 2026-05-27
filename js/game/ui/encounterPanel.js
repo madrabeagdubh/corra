@@ -107,6 +107,12 @@ export class EncounterPanel {
 
     badge.addEventListener('pointerdown', (e) => {
       e.stopPropagation()
+      if (this._card?.id === 'disembark') {
+        this._scene.boatSystem && this._scene._doDisembark?.()
+        this.clearNotify()
+        if (this._scene) this._scene._disembarkBadgeShown = false
+        return
+      }
       this._openPanel()
     })
 

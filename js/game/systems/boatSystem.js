@@ -21,6 +21,9 @@
 // And in scene.shutdown():
 //   if (this.boatSystem) { this.boatSystem.destroy(); this.boatSystem = null }
 
+import { GameState } from './gameState.js'
+import { createItem } from '../ui/inventory/itemDefinitions.js'
+
 // Shore GIDs from oryxCatalogue
 const SHORE_GIDS = new Set([
   1472, 1473, 1474,   // west+north, north, north+east shore
@@ -91,6 +94,12 @@ activate() {
     this._applyTerrainModifiers()
 
     this._activatedAt = Date.now()
+  // Add currach to inventory while aboard
+  const _inv = this.scene.player?.inventory
+  if (_inv) {
+    const _slot = _inv.findEmptyInventorySlot()
+    if (_slot !== -1) _inv.setItem(_slot, createItem('currach'))
+  }
   console.log('[BoatSystem] activated -- player in boat')
   }
 
@@ -120,9 +129,7 @@ activate() {
       const tileX  = Math.floor((p?.logicalX ?? 0) / ts)
       const tileY  = Math.floor((p?.logicalY ?? 0) / ts)
       const gid    = layer0[tileY]?.[tileX] ?? 0
-      const onShore = [1472,1473,1474,1526,1528,1580,1581,1582,
-        1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
-        1958,1959,1960,2012,2013].includes(gid)
+      const onShore = SHORE_GIDS.has(gid)
       pgr._boatDrifting = !onShore
       // Store world (logical pixel) coords for drift -- NOT screen coords
       // Screen coords shift with camera; world coords are stable
@@ -135,6 +142,14 @@ activate() {
       // Boat drifts indefinitely, no fade -- recoverable later
     }
 
+    // Remove currach from inventory on disembark
+    const _inv2 = this.scene.player?.inventory
+    if (_inv2) {
+      for (let i = 0; i < 25; i++) {
+        const item = _inv2.getItem(i)
+        if (item?.id === 'currach') { _inv2.setItem(i, null); break }
+      }
+    }
     console.log('[BoatSystem] deactivated -- player disembarked')
   }
 
@@ -191,11 +206,8 @@ activate() {
       const pgr = this.scene.perspectiveGround
       if (pgr?._boatWorldX != null) {
         const ts     = this.scene.tileSize
-        const boatTX = Math.round(pgr._boatWorldX / ts)
-        const boatTY = Math.round(pgr._boatWorldY / ts)
-        const pTX    = Math.floor(p.logicalX / ts)
-        const pTY    = Math.floor(p.logicalY / ts)
-        if (pTX === boatTX && pTY === boatTY && !p.isMoving) {
+        const dist = Math.hypot(p.logicalX - pgr._boatWorldX, p.logicalY - pgr._boatWorldY)
+        if (dist < ts * 0.8 && !p.isMoving) {
           this._reboard(p, pgr)
         }
       }
@@ -216,9 +228,29 @@ activate() {
     const onLand  = !onShore && !onWater
     if (this._lastGid !== gid) { this._lastGid = gid; console.log('[boat] tile gid:', gid, 'onShore:', onShore, 'onWater:', onWater, 'onLand:', onLand) }
 
-    // ── Auto-disembark on land only (shore = safe mooring) ───────────────
+    // Stop and clear if on shore or land
+    if (onShore || onLand) {
+      p.pathQueue = []
+      this._driftAccum = 0
+      // Cancel mid-step if heading onto land
+      if (onLand && p.isMoving) {
+        p.isMoving = false
+        p.logicalX = p.startX
+        p.logicalY = p.startY
+        p.targetX  = p.startX
+        p.targetY  = p.startY
+        p.moveProgress = 0
+      }
+    }
+
+    // ── Auto-disembark on shore (safe mooring) or land (boat lost) ────────
+    if (onShore && !p.isMoving && p.pathQueue.length === 0) {
+      if (Date.now() - (this._activatedAt ?? 0) < 800) return
+      this._triggerDisembark(false)
+      return
+    }
     if (onLand && !p.isMoving) {
-      if (Date.now() - (this._activatedAt ?? 0) < 500) return
+      if (Date.now() - (this._activatedAt ?? 0) < 800) return
       this._triggerDisembark(true)
       return
     }
@@ -236,8 +268,8 @@ activate() {
     }
 
     // ── East drift ────────────────────────────────────────────────────────
-    // Only when on water, not moving, and not on shore
-    if (onWater && !p.isMoving && p.pathQueue.length === 0) {
+    // Only when on open water, not moving, not on shore
+    if (onWater && !onShore && !p.isMoving && p.pathQueue.length === 0) {
       this._applyDrift(delta, ts, mapData)
     }
   }
@@ -295,6 +327,18 @@ activate() {
       // TODO: animate abandoned boat drifting east, then destroy
     } else {
       console.log('[BoatSystem] clean disembark on shore')
+    }
+
+    // Save or clear boat position in GameState
+    const _p  = this.scene.player
+    const _ts = this.scene.tileSize
+    const _mapKey = this.scene.getMapKey?.() ?? this.scene.scene.key
+    if (boatLost) {
+      GameState.clearBoatPosition()
+    } else {
+      const _tx = Math.floor((_p?.logicalX ?? 0) / _ts)
+      const _ty = Math.floor((_p?.logicalY ?? 0) / _ts)
+      GameState.setBoatPosition(_mapKey, _tx, _ty)
     }
 
     this.deactivate()

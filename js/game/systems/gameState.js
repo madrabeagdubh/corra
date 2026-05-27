@@ -38,13 +38,15 @@ function defaultState() {
     visited:          {},   // { sceneKey: true }
     notes:            [],   // arbitrary story notes/flags
     encounterLayouts: {},   // { mapKey: [{id, x, y}, ...] }
+    boatPosition:     null,  // { mapKey, tileX, tileY } | null
   }
 }
 
 export const GameState = {
   _championId: null,
   _state: null,
-
+boatPosition: null,
+	// { mapKey, tileX, tileY } or null
   // -- Initialise for a champion --------------------------------------------
 
   init(championId) {
@@ -189,6 +191,29 @@ export const GameState = {
     if (!this._state) return
     delete this._state.encounterLayouts[mapKey]
     this.save()
+  },
+
+  // -- Boat position --------------------------------------------------------
+  // Saves where the player moored their boat so it persists across map visits.
+
+  getBoatPosition(mapKey) {
+    const bp = this._state?.boatPosition
+    if (!bp || bp.mapKey !== mapKey) return null
+    return bp
+  },
+
+  setBoatPosition(mapKey, tileX, tileY) {
+    if (!this._state) return
+    this._state.boatPosition = { mapKey, tileX, tileY }
+    this.save()
+    console.log(`[GameState] boat moored at ${mapKey} [${tileX},${tileY}]`)
+  },
+
+  clearBoatPosition() {
+    if (!this._state) return
+    this._state.boatPosition = null
+    this.save()
+    console.log('[GameState] boat position cleared')
   },
 }
 

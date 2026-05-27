@@ -714,7 +714,7 @@ _flashTargetTile(tx, ty) {
 
 update(time, delta) {
     if (this.perspectiveGround) this.perspectiveGround.update()
-    if (this.boatSystem?.active) this.boatSystem.update(delta)
+    if (this.boatSystem) this.boatSystem.update(delta)
     super.update(time, delta)
 
 

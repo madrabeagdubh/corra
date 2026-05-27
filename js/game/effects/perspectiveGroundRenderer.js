@@ -665,6 +665,10 @@ static HORIZON_Y_FRAC    = 0.28
     const _canvas = this.scene.game.canvas
     const _newSw = _canvas.width, _newSh = _canvas.height
     if (_newSh !== this._sh) console.log('[PGR resize] sh:', this._sh, '->', _newSh)
+    if (_newSw !== this._sw || _newSh !== this._sh) {
+      this._boatScreenX = null
+      this._boatScreenY = null
+    }
     this._sw = _newSw
     this._sh = _newSh
     this._waterPhase = ((this._waterPhase ?? 0) + 0.018) % 256
@@ -1236,8 +1240,14 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
       if (this._boatDrifting) {
         // Advance world position eastward at drift speed
-        const driftPxPerFrame = (this._boatDriftSpeed ?? 18) / 60
-        this._boatWorldX = (this._boatWorldX ?? screenX) + driftPxPerFrame
+        const _dTS = this.tileDisplaySize
+        const _dTX = Math.floor((this._boatWorldX ?? 0) / _dTS)
+        const _dTY = Math.floor((this._boatWorldY ?? 0) / _dTS)
+        const _dGid = this.scene.mapData?.layers?.[0]?.[_dTY]?.[_dTX] ?? 0
+        const _dShore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,2012,2013,731])
+        const _dWater = new Set([1625,1679])
+        const driftPxPerFrame = (_dShore.has(_dGid) || (!_dWater.has(_dGid) && _dGid !== 0)) ? 0 : (this._boatDriftSpeed ?? 18) / 60
+        this._boatWorldX = (this._boatWorldX ?? 0) + driftPxPerFrame
 
         // Project world position to screen each frame -- camera-stable
         const driftProj = this._projectLogical(this._boatWorldX, this._boatWorldY ?? screenY, true)

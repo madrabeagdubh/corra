@@ -34,6 +34,7 @@ const SHORE_GIDS = new Set([
   1906,                // east+west shore
   1958, 1959, 1960,   // points of shore
   2012, 2013,          // points of land
+  731,                  // waterside/shore
 ])
 
 const WATER_GIDS = new Set([1625, 1679])
@@ -89,7 +90,8 @@ activate() {
     // Apply shore speed if spawning on a shore tile
     this._applyTerrainModifiers()
 
-    console.log('[BoatSystem] activated -- player in boat')
+    this._activatedAt = Date.now()
+  console.log('[BoatSystem] activated -- player in boat')
   }
 
   deactivate() {
@@ -212,9 +214,11 @@ activate() {
     const onShore = SHORE_GIDS.has(gid)
     const onWater = WATER_GIDS.has(gid)
     const onLand  = !onShore && !onWater
+    if (this._lastGid !== gid) { this._lastGid = gid; console.log('[boat] tile gid:', gid, 'onShore:', onShore, 'onWater:', onWater, 'onLand:', onLand) }
 
     // ── Auto-disembark on land only (shore = safe mooring) ───────────────
     if (onLand && !p.isMoving) {
+      if (Date.now() - (this._activatedAt ?? 0) < 500) return
       this._triggerDisembark(true)
       return
     }

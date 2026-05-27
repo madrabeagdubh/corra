@@ -122,11 +122,12 @@ activate() {
         1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
         1958,1959,1960,2012,2013].includes(gid)
       pgr._boatDrifting = !onShore
-      // Capture screen position before boatActive is cleared
-      pgr._boatDriftStartX = pgr._boatLastScreenX ?? pgr._boatScreenX ?? (pgr._sw / 2)
-      pgr._boatDriftStartY = pgr._boatLastScreenY ?? pgr._boatScreenY ?? (pgr._sh / 2)
+      // Store world (logical pixel) coords for drift -- NOT screen coords
+      // Screen coords shift with camera; world coords are stable
+      pgr._boatWorldX = (p?.logicalX ?? 0)
+      pgr._boatWorldY = (p?.logicalY ?? 0)
+      pgr._boatDriftSpeed = 18   // logical pixels per second, matches current speed
       pgr._boatDriftT = 0
-      pgr._boatDriftSpeed = 28
       // Deactivate player-attached rendering -- boat drifts independently
       pgr.setBoatActive(false)
       // Boat drifts indefinitely, no fade -- recoverable later
@@ -181,9 +182,23 @@ activate() {
   // ── Per-frame update ──────────────────────────────────────────────────────
 
   update(delta) {
-    if (!this.active) return
     const p = this.scene.player
     if (!p) return
+
+    if (!this.active) {
+      const pgr = this.scene.perspectiveGround
+      if (pgr?._boatWorldX != null) {
+        const ts     = this.scene.tileSize
+        const boatTX = Math.round(pgr._boatWorldX / ts)
+        const boatTY = Math.round(pgr._boatWorldY / ts)
+        const pTX    = Math.floor(p.logicalX / ts)
+        const pTY    = Math.floor(p.logicalY / ts)
+        if (pTX === boatTX && pTY === boatTY && !p.isMoving) {
+          this._reboard(p, pgr)
+        }
+      }
+      return
+    }
 
     const ts      = this.scene.tileSize
     const mapData = this.scene.mapData
@@ -198,15 +213,9 @@ activate() {
     const onWater = WATER_GIDS.has(gid)
     const onLand  = !onShore && !onWater
 
-    // ── Auto-disembark on shore ───────────────────────────────────────────
-    if (onShore && !p.isMoving && p.pathQueue.length === 0) {
-      this._triggerDisembark()
-      return
-    }
-
-    // ── Auto-disembark on land collision (boat hits bank carelessly) ──────
+    // ── Auto-disembark on land only (shore = safe mooring) ───────────────
     if (onLand && !p.isMoving) {
-      this._triggerDisembark(true)  // true = boat lost to current
+      this._triggerDisembark(true)
       return
     }
 
@@ -319,6 +328,26 @@ activate() {
     const layer0 = this.scene.mapData.layers[0]
     const gid    = layer0[ty]?.[tx] ?? 0
     return WATER_GIDS.has(gid) || SHORE_GIDS.has(gid)
+  }
+
+  _reboard(p, pgr) {
+    const ts = this.scene.tileSize
+    const boatTX = Math.round(pgr._boatWorldX / ts)
+    const boatTY = Math.round(pgr._boatWorldY / ts)
+    p.logicalX = boatTX * ts + ts / 2
+    p.logicalY = boatTY * ts + ts / 2
+    p.targetX  = p.logicalX
+    p.targetY  = p.logicalY
+    p.startX   = p.logicalX
+    p.startY   = p.logicalY
+    pgr._boatDrifting = false
+    pgr._boatWorldX   = null
+    pgr._boatWorldY   = null
+    if (this.scene.textures.exists('boat')) {
+      pgr.loadBoatImage(this.scene.textures.get('boat').getSourceImage())
+    }
+    this.activate()
+    console.log('[BoatSystem] reboarded')
   }
 
   destroy() {

@@ -904,9 +904,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
           // Tile highlight drawn separately after all tiles
-          this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle)
+          const _drawX = (this._boatActive && this._boatScreenX != null) ? this._boatScreenX : playerScreenX
+          const _drawY = (this._boatActive && this._boatScreenY != null) ? this._boatScreenY : playerScreenY
+          this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
           this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
-            playerScreenX, playerScreenY, scaledTileW, playerHM)
+            _drawX, _drawY, scaledTileW, playerHM)
           playerDrawn = true
         }
 
@@ -1007,9 +1009,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
-        this._drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, null)
+        const _drawX2 = (this._boatActive && this._boatScreenX != null) ? this._boatScreenX : playerScreenX
+        const _drawY2 = (this._boatActive && this._boatScreenY != null) ? this._boatScreenY : playerScreenY
+        this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
         this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
-          playerScreenX, playerScreenY, scaledTileW, playerHM2)
+          _drawX2, _drawY2, scaledTileW, playerHM2)
         playerDrawn = true
       }
 
@@ -1029,8 +1033,10 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     // Player tile highlight -- drawn once after tile loop
     if (p) {
-      const pTileCol = Math.floor(p.logicalX / this.tileDisplaySize)
-      const pTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
+      const _hlLX = (this._boatActive && this._boatWorldX != null) ? this._boatWorldX : p.logicalX
+      const _hlLY = (this._boatActive && this._boatWorldY != null) ? this._boatWorldY : p.logicalY
+      const pTileCol = Math.floor(_hlLX / this.tileDisplaySize)
+      const pTileRow = Math.floor(_hlLY / this.tileDisplaySize)
       const hxTL = this._colToScreenX(pTileCol,     pTileRow)
       const hxTR = this._colToScreenX(pTileCol + 1, pTileRow)
       const hxBL = this._colToScreenX(pTileCol,     pTileRow + 1)
@@ -1134,51 +1140,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     const W   = Math.round(scaledTileW * ps)
     const H   = Math.round(scaledTileW * hm)
 
-    // ── BOAT: draw hull below player, crop player legs ─────────────────
-    if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
-      if (this._boatDrifting) {
-        this._boatDriftT = (this._boatDriftT ?? 0) + 0.012
-        const driftX = (this._boatDriftStartX ?? screenX) + this._boatDriftT * (this._boatDriftSpeed ?? 28)
-        const driftY = (this._boatDriftStartY ?? screenY)
-        const alpha  = 1.0
-        const bc     = this._boatCanvas
-        const boatW  = Math.round(scaledTileW * 1.6 * ps)
-        const boatH  = Math.round(boatW * (bc.height / bc.width))
-        ctx.save()
-        ctx.globalAlpha = alpha
-        ctx.drawImage(bc, Math.round(driftX - boatW / 2), Math.round(driftY - H * 0.55), boatW, boatH)
-        ctx.restore()
-      } else {
-        if (this._boatScreenX == null) {
-          this._boatScreenX = screenX
-          this._boatScreenY = screenY
-        } else {
-          const lerpSpeed = 0.18
-          this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
-          this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
-        }
-        // Always persist last known position so drift can use it after deactivation
-        this._boatLastScreenX = this._boatScreenX
-        this._boatLastScreenY = this._boatScreenY
-        const bx    = this._boatScreenX
-        const by    = this._boatScreenY
-        const bc    = this._boatCanvas
-        const boatW = Math.round(scaledTileW * 1.6 * ps)
-        const boatH = Math.round(boatW * (bc.height / bc.width))
-        const boatTop = by - H * 0.55
-        ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop), boatW, boatH)
-      }
-    }
 
-    // ── Player bob (boat rocking when idle) ────────────────────────────
-    const boatRock = this._boatActive
-      ? Math.sin(t * 0.7) * scaledTileW * 0.025   // gentle side-to-side
-      : 0
-    const boatBob  = this._boatActive
-      ? Math.sin(t * 1.4) * scaledTileW * 0.012   // gentle up-down
-      : 0
-
-    // Track tile steps
+    // ── Rowing stroke cycle (currach style) ──────────────────────────
+    // Track tile steps -- used for both boat stroke and land walk
     const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
     const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
     const vx = curTileX - (this._prevTileX ?? curTileX)
@@ -1198,6 +1162,15 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         this._stepT    = 0
         this._swaySign = this._nextSwaySign
       }
+      // Advance stroke counter every 2 tiles for currach rhythm
+      if (this._boatActive && p?.isMoving) {
+        this._strokeTiles = ((this._strokeTiles ?? 0) + 1)
+        // New stroke every 2 tiles
+        if (this._strokeTiles % 2 === 0) {
+          this._strokeT  = 0
+          this._strokePhase = 'drive'
+        }
+      }
     }
 
     const moving = p?.isMoving ?? false
@@ -1207,15 +1180,121 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         this._stepT    = 0
         this._swaySign = this._nextSwaySign ?? this._swaySign ?? 1
       }
+      // Advance stroke animation
+      if (this._boatActive) {
+        this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + 0.018)
+      }
+    } else if (this._boatActive) {
+      // Recovery glide back to neutral when stopping
+      this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.012)
     }
 
+    // Currach stroke shape:
+    // 0.0-0.15  catch    -- lean forward, reach
+    // 0.15-0.6  drive    -- powerful pull back, body opens
+    // 0.6-0.8   finish   -- lean back, maximum extension
+    // 0.8-1.0   recovery -- return forward
+    const strokeT = this._strokeT ?? 0
+    let rowLean = 0, rowBob = 0, boatTilt = 0
+    if (this._boatActive) {
+      if (strokeT < 0.15) {
+        // Catch: lean forward
+        const k = strokeT / 0.15
+        rowLean = -0.07 * k
+        rowBob  = scaledTileW * 0.01 * k
+      } else if (strokeT < 0.6) {
+        // Drive: pull back
+        const k = (strokeT - 0.15) / 0.45
+        rowLean = -0.07 + 0.16 * k
+        rowBob  = scaledTileW * 0.01 - scaledTileW * 0.02 * Math.sin(k * Math.PI)
+        boatTilt = -0.04 * Math.sin(k * Math.PI)
+      } else if (strokeT < 0.8) {
+        // Finish: lean back
+        const k = (strokeT - 0.6) / 0.2
+        rowLean = 0.09 - 0.03 * k
+        rowBob  = -scaledTileW * 0.008
+      } else {
+        // Recovery
+        const k = (strokeT - 0.8) / 0.2
+        rowLean = 0.06 - 0.06 * k
+        rowBob  = -scaledTileW * 0.008 * (1 - k)
+      }
+    }
+
+    // Idle bob/roll when in boat and not moving
+    const idleBob  = (this._boatActive && !moving)
+      ? Math.sin(t * 1.1) * scaledTileW * 0.018
+      : 0
+    const idleRock = (this._boatActive && !moving)
+      ? Math.sin(t * 0.65) * 0.03
+      : 0
+
+    const totalBob  = rowBob + idleBob
+    const totalLean = rowLean + idleRock
+
+    // ── BOAT: draw hull below player, crop player legs ─────────────────
+    if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
+      if (this._boatDrifting) {
+        // Advance world position eastward at drift speed
+        const driftPxPerFrame = (this._boatDriftSpeed ?? 18) / 60
+        this._boatWorldX = (this._boatWorldX ?? screenX) + driftPxPerFrame
+
+        // Project world position to screen each frame -- camera-stable
+        const driftProj = this._projectLogical(this._boatWorldX, this._boatWorldY ?? screenY, true)
+        if (!driftProj) return   // off screen, skip draw
+
+        const driftScreenX = driftProj.screenX
+        const driftScreenY = driftProj.screenY
+        // Use drift projection scale for boat size -- stays perspective-correct
+        const driftScale   = driftProj.scale * this.tileDisplaySize
+        const bc    = this._boatCanvas
+        const boatW = Math.round(driftScale * 1.6 * ps)
+        const boatH = Math.round(boatW * (bc.height / bc.width))
+        ctx.save()
+        ctx.globalAlpha = 1.0
+        ctx.drawImage(bc, Math.round(driftScreenX - boatW / 2), Math.round(driftScreenY - boatH * 0.8), boatW, boatH)
+        ctx.restore()
+      } else {
+        if (this._boatScreenX == null) {
+          this._boatScreenX = screenX
+          this._boatScreenY = screenY
+        } else {
+          const lerpSpeed = 0.18
+          this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
+          this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
+        }
+        // Always persist last known position so drift can use it after deactivation
+        this._boatLastScreenX = this._boatScreenX
+        this._boatLastScreenY = this._boatScreenY
+        const bx    = this._boatScreenX
+        const by    = this._boatScreenY
+        const bc    = this._boatCanvas
+        const boatW = Math.round(scaledTileW * 1.6 * ps)
+        const boatH = Math.round(boatW * (bc.height / bc.width))
+        const boatTop = by - H * 0.55
+        // Apply tilt -- boat rocks opposite to player lean
+        const _boatTilt = 0   // tilt applied after stroke calc; placeholder here
+        const _idleRock = (this._boatActive && !moving) ? Math.sin((this._animT||0) * 0.65) * 0.03 : 0
+        const _tilt = _boatTilt + _idleRock
+        if (Math.abs(_tilt) > 0.001) {
+          ctx.save()
+          ctx.translate(Math.round(bx), Math.round(by - H * 0.3))
+          ctx.rotate(_tilt)
+          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - (by - H * 0.3)), boatW, boatH)
+          ctx.restore()
+        } else {
+          ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop), boatW, boatH)
+        }
+      }
+    }
+
+
     ctx.save()
-    ctx.translate(screenX + boatRock, screenY + boatBob)
+    ctx.translate(screenX, screenY + (this._boatActive ? totalBob : idleBob))
 
     if (moving) {
       const st     = this._stepT ?? 0
       const arc    = Math.sin(st * Math.PI)
-      // In boat: no bounce, just a gentle row sway
       const inWater = !this._boatActive && (p?.terrainSinkOffset ?? 0) > 5
       const bounce = (this._boatActive || inWater) ? 0 : arc * scaledTileW * 0.18
       const scaleY = 1.0 + ((this._boatActive || inWater) ? 0 : arc * 0.09)
@@ -1225,7 +1304,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       let sway = 0, lean = 0
       if (dir === 'ew') {
         sway = (this._boatActive || inWater) ? 0 : (this._swaySign ?? 1) * arc * scaledTileW * 0.055
-        lean = (this._boatActive || inWater) ? 0 : arc * 0.05 * (this._facingLeft ? 1 : -1)
+        lean = this._boatActive ? 0 : (inWater ? 0 : arc * 0.05 * (this._facingLeft ? 1 : -1))
+        // Boat: apply lean as rotation not skew
+        if (this._boatActive) ctx.rotate(totalLean * (this._facingLeft ? -1 : 1))
       } else {
         const inWater2 = !this._boatActive && (p?.terrainSinkOffset ?? 0) > 5
         const nsBounce = (this._boatActive || inWater2) ? 0 : arc * scaledTileW * 0.07

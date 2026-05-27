@@ -418,6 +418,17 @@ const tile = PathFinder.screenToTile(
     if (this.player?.inBoat && this.boatSystem) {
       if (!this.boatSystem.isValidBoatTarget(tile.tx, tile.ty)) return
     }
+    if (!this.player?.inBoat) {
+      const pgr = this.perspectiveGround
+      const ts  = this.tileSize
+      if (pgr?._boatWorldX != null) {
+        const boatTX = Math.round(pgr._boatWorldX / ts)
+        const boatTY = Math.round(pgr._boatWorldY / ts)
+        if (tile.tx === boatTX && tile.ty === boatTY) {
+          if (this.walkGrid[boatTY]) this.walkGrid[boatTY][boatTX] = true
+        }
+      }
+    }
 
 
 

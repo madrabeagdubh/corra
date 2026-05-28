@@ -24,22 +24,10 @@
 import { GameState } from './gameState.js'
 import { createItem } from '../ui/inventory/itemDefinitions.js'
 
-// Shore GIDs from oryxCatalogue
-const SHORE_GIDS = new Set([
-  1472, 1473, 1474,   // west+north, north, north+east shore
-  1526, 1528,          // west shore, east shore
-  1580, 1581, 1582,   // west+south, south, south+east shore
-  1635, 1636,          // shore west+north+east, shore north+east+south
-  1689, 1690,          // shore west+south+north, shore north+west+south
-  1742, 1743,          // shore west+north tiny, shore east+north tiny
-  1796, 1797,          // shore west+south tiny, shore south+east tiny
-  1852,                // north+south shore
-  1906,                // east+west shore
-  1958, 1959, 1960,   // points of shore
-  2012, 2013,          // points of land
-  731,                  // waterside/shore
-])
-
+// Reed GIDs -- marshy buffer between river and land.
+// GID 731 ("waterside") is the only reed tile on current river maps.
+// Boat navigates freely here; no current drift; player can wade on foot.
+const REED_GIDS  = new Set([731])
 const WATER_GIDS = new Set([1625, 1679])
 
 // Pixels per second the current pulls the boat east when fully idle
@@ -87,7 +75,12 @@ activate() {
 
     // Tell PGR to render boat under player
     if (this.scene.perspectiveGround) {
-      this.scene.perspectiveGround.setBoatActive(true)
+      const pgr = this.scene.perspectiveGround
+      // Load boat image if not already loaded (first activation or after scene restart)
+      if (!pgr._boatCanvas && this.scene.textures.exists('boat')) {
+        pgr.loadBoatImage(this.scene.textures.get('boat').getSourceImage())
+      }
+      pgr.setBoatActive(true)
     }
 
     // Apply shore speed if spawning on a shore tile
@@ -106,6 +99,7 @@ activate() {
   deactivate() {
     if (!this.active) return
     this.active = false
+    this._deactivatedAt = Date.now()
 
     const p = this.scene.player
     if (p) {
@@ -129,7 +123,7 @@ activate() {
       const tileX  = Math.floor((p?.logicalX ?? 0) / ts)
       const tileY  = Math.floor((p?.logicalY ?? 0) / ts)
       const gid    = layer0[tileY]?.[tileX] ?? 0
-      const onShore = SHORE_GIDS.has(gid)
+      const onShore = REED_GIDS.has(gid)   // reeds = safe moor, no drift
       pgr._boatDrifting = !onShore
       // Store world (logical pixel) coords for drift -- NOT screen coords
       // Screen coords shift with camera; world coords are stable
@@ -171,12 +165,9 @@ activate() {
       newGrid[y] = []
       for (let x = 0; x < mapW; x++) {
         const gid = layer0[y]?.[x] ?? 0
-        // In boat: water and shore tiles are walkable; land tiles are not
-        // Shore tiles are the disembark destination -- reachable but trigger exit
-        const isWaterOrShore = WATER_GIDS.has(gid) || SHORE_GIDS.has(gid)
-        // Preserve border/wall collisions from original grid
-        const originallyWalkable = scene.walkGrid[y]?.[x] ?? false
-        if (isWaterOrShore) {
+        // In boat: water and reed tiles are walkable; land tiles block the boat
+        const isBoatPassable = WATER_GIDS.has(gid) || REED_GIDS.has(gid)
+        if (isBoatPassable) {
           newGrid[y][x] = true
         } else {
           // Land tile: only allow if it's an exit corridor tile
@@ -205,9 +196,10 @@ activate() {
     if (!this.active) {
       const pgr = this.scene.perspectiveGround
       if (pgr?._boatWorldX != null) {
-        const ts     = this.scene.tileSize
+        const ts   = this.scene.tileSize
         const dist = Math.hypot(p.logicalX - pgr._boatWorldX, p.logicalY - pgr._boatWorldY)
-        if (dist < ts * 0.8 && !p.isMoving) {
+        const sinceDisembark = Date.now() - (this._deactivatedAt ?? 0)
+        if (dist < ts * 0.8 && !p.isMoving && sinceDisembark > 1500) {
           this._reboard(p, pgr)
         }
       }
@@ -223,41 +215,32 @@ activate() {
     const tileY = Math.floor(p.logicalY / ts)
     const gid   = layer0[tileY]?.[tileX] ?? 0
 
-    const onShore = SHORE_GIDS.has(gid)
+    const onReed  = REED_GIDS.has(gid)
     const onWater = WATER_GIDS.has(gid)
-    const onLand  = !onShore && !onWater
-    if (this._lastGid !== gid) { this._lastGid = gid; console.log('[boat] tile gid:', gid, 'onShore:', onShore, 'onWater:', onWater, 'onLand:', onLand) }
+    const onLand  = !onReed && !onWater
+    if (this._lastGid !== gid) { this._lastGid = gid; console.log('[boat] tile gid:', gid, 'onReed:', onReed, 'onWater:', onWater, 'onLand:', onLand) }
 
-    // Stop and clear if on shore or land
-    if (onShore || onLand) {
-      p.pathQueue = []
-      this._driftAccum = 0
-      // Cancel mid-step if heading onto land
-      if (onLand && p.isMoving) {
-        p.isMoving = false
-        p.logicalX = p.startX
-        p.logicalY = p.startY
-        p.targetX  = p.startX
-        p.targetY  = p.startY
-        p.moveProgress = 0
-      }
+    // Cancel mid-step if heading onto land (belt-and-suspenders guard)
+    if (onLand && p.isMoving) {
+      p.isMoving = false
+      p.logicalX = p.startX
+      p.logicalY = p.startY
+      p.targetX  = p.startX
+      p.targetY  = p.startY
+      p.moveProgress = 0
     }
 
-    // ── Auto-disembark on shore (safe mooring) or land (boat lost) ────────
-    if (onShore && !p.isMoving && p.pathQueue.length === 0) {
-      if (Date.now() - (this._activatedAt ?? 0) < 800) return
-      this._triggerDisembark(false)
-      return
-    }
+    // ── Auto-disembark on land only (reeds are safe, no auto-disembark) ──
     if (onLand && !p.isMoving) {
       if (Date.now() - (this._activatedAt ?? 0) < 800) return
-      this._triggerDisembark(true)
+      this._triggerDisembark(true)   // boat lost to current
       return
     }
 
     // ── Speed modifier ────────────────────────────────────────────────────
-    // Shore: half speed, no drift; Water: normal speed, drift when idle
-    if (onShore) {
+    // Water: full speed + drift when idle
+    // Reeds: half speed, no drift (wading feel)
+    if (onReed) {
       if (p.terrainSpeedModifier !== SHORE_SPEED_MULT) {
         p.setTerrainSpeedModifier(SHORE_SPEED_MULT)
       }
@@ -268,8 +251,8 @@ activate() {
     }
 
     // ── East drift ────────────────────────────────────────────────────────
-    // Only when on open water, not moving, not on shore
-    if (onWater && !onShore && !p.isMoving && p.pathQueue.length === 0) {
+    // Only on open water, not reeds, not moving
+    if (onWater && !p.isMoving && p.pathQueue.length === 0) {
       this._applyDrift(delta, ts, mapData)
     }
   }
@@ -303,7 +286,7 @@ activate() {
     const layer0      = mapData.layers[0]
     const targetGid   = layer0[targetTileY]?.[targetTileX] ?? 0
 
-    if (!WATER_GIDS.has(targetGid) && !SHORE_GIDS.has(targetGid)) {
+    if (!WATER_GIDS.has(targetGid) && !REED_GIDS.has(targetGid)) {
       // Hit the bank -- stop drift
       this._driftAccum = 0
       return
@@ -343,15 +326,7 @@ activate() {
 
     this.deactivate()
 
-    // Brief narrative beat
-    if (this.scene.textPanel) {
-      const text = boatLost
-        ? { ga: 'Imigh an bád leis an sruth.', en: 'The boat drifted away with the current.' }
-        : { ga: 'Chuala mé an abhainn fúm.', en: 'I felt the riverbed beneath me.' }
-      this.scene.time.delayedCall(300, () => {
-        this.scene.textPanel.show({ ...text, type: 'notification' })
-      })
-    }
+    // Disembark is a silent action -- no textPanel notification
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -363,7 +338,7 @@ activate() {
     const tileX  = Math.floor(p.logicalX / ts)
     const tileY  = Math.floor(p.logicalY / ts)
     const gid    = layer0[tileY]?.[tileX] ?? 0
-    if (SHORE_GIDS.has(gid)) p.setTerrainSpeedModifier(SHORE_SPEED_MULT)
+    if (REED_GIDS.has(gid)) p.setTerrainSpeedModifier(SHORE_SPEED_MULT)
     else p.setTerrainSpeedModifier(1.0)
   }
 
@@ -375,7 +350,7 @@ activate() {
   isValidBoatTarget(tx, ty) {
     const layer0 = this.scene.mapData.layers[0]
     const gid    = layer0[ty]?.[tx] ?? 0
-    return WATER_GIDS.has(gid) || SHORE_GIDS.has(gid)
+    return WATER_GIDS.has(gid) || REED_GIDS.has(gid)
   }
 
   _reboard(p, pgr) {

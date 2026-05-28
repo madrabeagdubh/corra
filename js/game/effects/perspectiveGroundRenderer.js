@@ -1039,12 +1039,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     // Player tile highlight -- always locked to current player/boat position
     if (p) {
-      const _hlLX = (this._boatActive && this._boatScreenX != null)
-        ? this._boatWorldX ?? p.logicalX
-        : p.logicalX
-      const _hlLY = (this._boatActive && this._boatScreenY != null)
-        ? this._boatWorldY ?? p.logicalY
-        : p.logicalY
+      // Highlight always tracks player logical position (canonical world coords)
+      const _hlLX = p.logicalX
+      const _hlLY = p.logicalY
 
       // Project current tile to screen as perspective quad
       const ts      = this.tileDisplaySize

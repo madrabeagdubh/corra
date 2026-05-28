@@ -150,6 +150,21 @@ export default class BaseLocationScene extends Phaser.Scene {
         if (this.isColliding(targetX, targetY)) {
           this.joystick.force = 0;
           if (this.player.isMoving) this.player.isMoving = false;
+          // Hard-stop: prevent startNewStep from running this frame
+          dx = 0; dy = 0;
+        }
+
+        // Extra guard for boat: even if isColliding passed, double-check
+        // that the target tile is water or reeds (731). This catches any
+        // path that slips through isColliding on non-bog scenes.
+        if (this.player?.inBoat && (dx !== 0 || dy !== 0)) {
+          const _btx = Math.floor(targetX / this.player.tileSize)
+          const _bty = Math.floor(targetY / this.player.tileSize)
+          const _bg  = this.mapData?.layers?.[0]?.[_bty]?.[_btx] ?? 0
+          if (_bg !== 1625 && _bg !== 1679 && _bg !== 731) {
+            this.joystick.force = 0;
+            dx = 0; dy = 0;
+          }
         }
       }
 
@@ -172,14 +187,23 @@ export default class BaseLocationScene extends Phaser.Scene {
       // Show disembark badge when boat touches dry land (not reeds)
       if (this.player?.inBoat && this.boatSystem?.active) {
         const _ts    = this.tileSize
-        const _tileX = Math.floor(this.player.logicalX / _ts)
-        const _tileY = Math.floor(this.player.logicalY / _ts)
+        // Use boat world position (not player logical) for tile detection
+        // so the highlight and badge stay locked to the hull, not a ghost position
+        const _pgr   = this.perspectiveGround
+        const _bx    = (_pgr?._boatWorldX != null) ? _pgr._boatWorldX : this.player.logicalX
+        const _by    = (_pgr?._boatWorldY != null) ? _pgr._boatWorldY : this.player.logicalY
+        const _tileX = Math.floor(_bx / _ts)
+        const _tileY = Math.floor(_by / _ts)
         const _gid   = this.mapData?.layers?.[0]?.[_tileY]?.[_tileX] ?? 0
-        const _water = new Set([1625,1679])
-        const _shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,
-          1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
-          1958,1959,1960,2012,2013,731])
-        const _onLand = !_water.has(_gid) && !_shore.has(_gid) && _gid !== 0
+        const _isPassable = (g) => g === 1625 || g === 1679 || g === 731 || g === 0
+        // Badge fires when boat tile or any neighbour touches land
+        const _neighbours = [
+          this.mapData?.layers?.[0]?.[_tileY-1]?.[_tileX] ?? 0,
+          this.mapData?.layers?.[0]?.[_tileY+1]?.[_tileX] ?? 0,
+          this.mapData?.layers?.[0]?.[_tileY]?.[_tileX-1] ?? 0,
+          this.mapData?.layers?.[0]?.[_tileY]?.[_tileX+1] ?? 0,
+        ]
+        const _onLand = !_isPassable(_gid) || _neighbours.some(g => !_isPassable(g))
         if (_onLand && !this.player.isMoving) {
           if (!this._disembarkBadgeShown) {
             this._disembarkBadgeShown = true
@@ -189,10 +213,13 @@ export default class BaseLocationScene extends Phaser.Scene {
               null
             )
           }
+          // Pulse cyan glow on joystick ring to draw attention to badge
+          this.joystick?.drawBadgeGlow?.(1)
         } else {
           if (this._disembarkBadgeShown) {
             this._disembarkBadgeShown = false
             this._encounterPanel?.clearNotify()
+            this.joystick?.drawBadgeGlow?.(0)
           }
         }
       } else if (this._disembarkBadgeShown) {

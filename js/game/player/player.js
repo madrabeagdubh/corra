@@ -366,6 +366,15 @@ export default class Player {
     this.targetX = this.startX + dx * this.tileSize;
     this.targetY = this.startY + dy * this.tileSize;
 
+    // Final collision guard -- catches diagonal steps and path-queue steps
+    // that bypass the pre-check in baseLocationScene.update().
+    if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
+      this.targetX = this.startX;
+      this.targetY = this.startY;
+      this.isMoving = false;
+      return;
+    }
+
     const pgr = this.scene.perspectiveGround;
     if (pgr && dy !== 0) {
       const ts = pgr.tileDisplaySize;

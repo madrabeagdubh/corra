@@ -440,6 +440,38 @@ if (this._root.style.opacity === '0') {
     ctx.stroke()
   }
 
+  // Pulsing cyan ring shown when a badge prompt is active (e.g. disembark)
+  // Call with progress=1 to show, progress=0 to hide.
+  // Animates a slow breathing pulse when shown.
+  drawBadgeGlow(progress) {
+    const ctx = this._glowCtx
+    const R   = this.radius
+    if (!ctx) return
+    ctx.clearRect(0, 0, R * 2, R * 2)
+    if (progress <= 0) {
+      this._glowCanvas.style.opacity = '0'
+      return
+    }
+    this._glowCanvas.style.opacity = '1'
+    const outerR = R * 0.98
+    const pulse  = 0.55 + 0.45 * Math.sin(Date.now() * 0.004)  // breathing 0.1-1.0
+    const grad   = ctx.createRadialGradient(R, R, outerR * 0.6, R, R, outerR)
+    grad.addColorStop(0,   'rgba(0,220,255,0)')
+    grad.addColorStop(0.5, `rgba(0,200,255,${(pulse * 0.25).toFixed(3)})`)
+    grad.addColorStop(0.85,`rgba(0,230,255,${(pulse * 0.55).toFixed(3)})`)
+    grad.addColorStop(1,   `rgba(100,245,255,${(pulse * 0.75).toFixed(3)})`)
+    ctx.beginPath()
+    ctx.arc(R, R, outerR, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+    // Bright cyan ring
+    ctx.beginPath()
+    ctx.arc(R, R, outerR * 0.97, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(0,240,255,${(pulse * 0.9).toFixed(3)})`
+    ctx.lineWidth = 2.5
+    ctx.stroke()
+  }
+
   getMoonCanvas() { return this._moonCanvas }
   getMoonRadius() { return Math.round(this.radius * 0.24) }
 

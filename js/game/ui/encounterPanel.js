@@ -110,7 +110,10 @@ export class EncounterPanel {
       if (this._card?.id === 'disembark') {
         this._scene.boatSystem && this._scene._doDisembark?.()
         this.clearNotify()
-        if (this._scene) this._scene._disembarkBadgeShown = false
+        if (this._scene) {
+          this._scene._disembarkBadgeShown = false
+          this._scene.joystick?.drawBadgeGlow?.(0)
+        }
         return
       }
       this._openPanel()

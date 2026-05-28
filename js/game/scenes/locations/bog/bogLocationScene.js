@@ -257,7 +257,9 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     this._setupTapToPath()
 
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
-    if (champion?.id) GameState.init(champion.id)
+    // Champions have no .id field -- use nameGa as unique identifier
+    const _cid = champion?.id ?? champion?.nameGa ?? champion?.spriteKey
+    if (_cid) GameState.init(_cid)
     GameState.setVisited(this.scene.key)
 
     this.applyEntryPosition()
@@ -491,9 +493,9 @@ _flashTargetTile(tx, ty) {
 
   // Disembark takes priority when badge is showing
   if (this._encounterPanel?._card?.id === 'disembark') {
+    // encounterPanel badge pointerdown already called _doDisembark -- just clear state
     this._encounterPanel.clearNotify()
     this._disembarkBadgeShown = false
-    if (this.boatSystem) this._doDisembark()
     return
   }
 
@@ -516,16 +518,20 @@ _flashTargetTile(tx, ty) {
     const p   = this.player
     const ts  = this.tileSize
     const map = this.mapData.layers[0]
-    const tileX = Math.floor(p.logicalX / ts)
-    const tileY = Math.floor(p.logicalY / ts)
-    const water = new Set([1625,1679])
-    const shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,
-      1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,
-      1958,1959,1960,2012,2013,731])
 
-    // Search expanding rings for nearest dry land tile
+    // Search from boat world position, not player logical position
+    const pgr   = this.perspectiveGround
+    const bx    = (pgr?._boatWorldX != null) ? pgr._boatWorldX : p.logicalX
+    const by    = (pgr?._boatWorldY != null) ? pgr._boatWorldY : p.logicalY
+    const tileX = Math.floor(bx / ts)
+    const tileY = Math.floor(by / ts)
+
+    // Land = anything that is not water (1625,1679) or reeds (731)
+    const isPassable = (g) => g === 1625 || g === 1679 || g === 731 || g === 0
+
+    // Search expanding rings for nearest land tile
     let landTile = null
-    outer: for (let r = 1; r <= 4; r++) {
+    outer: for (let r = 1; r <= 5; r++) {
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
           if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue
@@ -533,7 +539,7 @@ _flashTargetTile(tx, ty) {
           if (ty < 0 || ty >= this.mapData.height) continue
           if (tx < 0 || tx >= this.mapData.width) continue
           const gid = map[ty]?.[tx] ?? 0
-          if (!water.has(gid) && !shore.has(gid) && gid !== 0) {
+          if (!isPassable(gid)) {
             landTile = { tx, ty }
             break outer
           }
@@ -541,24 +547,48 @@ _flashTargetTile(tx, ty) {
       }
     }
 
-    if (landTile) {
-      // Trigger disembark and snap player to land tile
-      this.boatSystem._triggerDisembark(false)
-      const lx = landTile.tx * ts + ts / 2
-      const ly = landTile.ty * ts + ts / 2
-      this.time.delayedCall(50, () => {
-        if (!this.player) return
-        this.player.logicalX = lx
-        this.player.logicalY = ly
-        this.player.targetX  = lx
-        this.player.targetY  = ly
-        this.player.startX   = lx
-        this.player.startY   = ly
-      })
-    } else {
-      // No land nearby -- just disembark in place
-      this.boatSystem._triggerDisembark(false)
+    // Capture boat's reed position BEFORE deactivate() overwrites it with player pos
+    const boatLX = bx
+    const boatLY = by
+
+    const lx = landTile
+      ? landTile.tx * ts + ts / 2
+      : p.logicalX
+    const ly = landTile
+      ? landTile.ty * ts + ts / 2
+      : p.logicalY
+
+    // Trigger disembark (deactivate sets pgr._boatWorldX/Y from player pos)
+    this.boatSystem._triggerDisembark(false)
+
+    // Override boat world position to the reed tile where the hull actually is
+    const pgr2 = this.perspectiveGround
+    if (pgr2) {
+      pgr2._boatWorldX  = boatLX
+      pgr2._boatWorldY  = boatLY
+      pgr2._boatDrifting = true
+      pgr2._boatDriftSpeed = 0     // moored in reeds -- visible but no movement
     }
+
+    // Persist boat reed position so it survives map transitions
+    const _mapKey = this.getMapKey?.() ?? this.scene.key
+    const _btx = Math.floor(boatLX / ts)
+    const _bty = Math.floor(boatLY / ts)
+    GameState.setBoatPosition(_mapKey, _btx, _bty)
+    console.log(`[disembark] boat saved at [${_btx},${_bty}] on ${_mapKey}`)
+
+    // Snap player to land after deactivate settles
+    this.time.delayedCall(500, () => {
+      if (!this.player) return
+      this.player.logicalX = lx
+      this.player.logicalY = ly
+      this.player.targetX  = lx
+      this.player.targetY  = ly
+      this.player.startX   = lx
+      this.player.startY   = ly
+      this.player.isMoving = false
+      this.player.pathQueue = []
+    })
   }
 
   _closeWorldMenuSilently() {
@@ -597,13 +627,11 @@ _flashTargetTile(tx, ty) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
     if (ty < 0 || ty >= this.mapData.height || tx < 0 || tx >= this.mapData.width) return true
-    // In boat: water and shore tiles are always passable
+    // In boat: only water (1625,1679) and reeds (731) are passable
     if (this.player?.inBoat) {
       const _g = this.mapData.layers[0]?.[ty]?.[tx]
-      const _water = new Set([1625,1679])
-      const _shore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,2012,2013,731])
-      if (_water.has(_g) || _shore.has(_g)) return false
-      return true
+      if (_g === 1625 || _g === 1679 || _g === 731) return false
+      return true   // land blocks boat
     }
     const extra = this.getExtraUnwalkableGIDs()
     const g0 = this.mapData.layers[0]?.[ty]?.[tx]
@@ -783,6 +811,7 @@ update(time, delta) {
     super.update(time, delta)
 
 
+
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
       const ty  = Math.floor(this.player.logicalY / this.tileSize)
@@ -921,6 +950,42 @@ if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = nu
     }
   }
 
+
+
+  // ── Shared boat restore for all river maps ───────────────────────────────
+  // Call from onEnter() in any river map scene.
+  // Restores moored boat from GameState, or activates if arriving by boat.
+  _restoreBoatOnEnter(opts = {}) {
+    const { activateIfNoSave = false } = opts
+    const mapKey = this.getMapKey?.() ?? this.scene.key
+    this.time.delayedCall(500, () => {
+      // Read INSIDE the delay so GameState.init() has already run
+      const saved = GameState.getBoatPosition(mapKey)
+      console.log(`[_restoreBoatOnEnter] mapKey=${mapKey} saved=`, saved)
+      if (!this.boatSystem || !this.perspectiveGround) return
+      if (this.textures.exists('boat')) {
+        this.perspectiveGround.loadBoatImage(
+          this.textures.get('boat').getSourceImage()
+        )
+      }
+      if (saved) {
+        const ts  = this.tileSize
+        const pgr = this.perspectiveGround
+        pgr._boatWorldX   = saved.tileX * ts + ts / 2
+        pgr._boatWorldY   = saved.tileY * ts + ts / 2
+        pgr._boatDrifting = true
+        pgr._boatDriftSpeed = 0
+        const pTX = Math.floor(this.player.logicalX / ts)
+        const pTY = Math.floor(this.player.logicalY / ts)
+        if (pTX === saved.tileX && pTY === saved.tileY) {
+          this.boatSystem.activate()
+        }
+        console.log(`[${mapKey}] boat restored at [${saved.tileX},${saved.tileY}]`)
+      } else if (activateIfNoSave) {
+        this.boatSystem.activate()
+      }
+    })
+  }
 
   // ── Exits ─────────────────────────────────────────────────────────────────
   checkExits() {

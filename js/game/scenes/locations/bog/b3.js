@@ -1,3 +1,4 @@
+import { GameState } from '../../../systems/gameState.js'
 import BogLocationScene from './bogLocationScene.js'
 
 export default class BogB3 extends BogLocationScene {
@@ -10,4 +11,16 @@ export default class BogB3 extends BogLocationScene {
   getSkyImage()    { return '/assets/skies/bog_threshold_sky.png' }
   getSkyPosition() { return '42% 50%' }
   getMountainPosition() { return '42% 60%' }
+
+
+  preload() {
+    super.preload()
+    this.load.image('boat', '/assets/boat.png')
+  }
+
+  onEnter() {
+    const edge = this.entryData?.entryEdge
+    const fromEast = !edge || edge === 'east'
+    this._restoreBoatOnEnter({ activateIfNoSave: fromEast })
+  }
 }

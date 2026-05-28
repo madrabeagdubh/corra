@@ -488,6 +488,17 @@ static HORIZON_Y_FRAC    = 0.28
     return (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
   }
 
+  // Inverse of _rowToScreenY -- converts screen Y back to world row
+  _screenYToWorldRow(screenY) {
+    const horizonPx = this._horizonPx()
+    const groundH   = this._groundH()
+    const FL        = PerspectiveGroundRenderer.FOCAL_LENGTH
+    const denom     = screenY - horizonPx
+    if (denom <= 0) return null
+    const d = FL * groundH / denom - FL
+    return this._perspCamRow() - d
+  }
+
   _rowToScreenY(worldRow) {
     const d = this._perspCamRow() - worldRow
     if (d <= 0) return null
@@ -909,8 +920,8 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
           // Tile highlight drawn separately after all tiles
-          const _drawX = (this._boatActive && this._boatScreenX != null) ? this._boatScreenX : playerScreenX
-          const _drawY = (this._boatActive && this._boatScreenY != null) ? this._boatScreenY : playerScreenY
+          const _drawX = playerScreenX
+          const _drawY = playerScreenY
           this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
           this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
             _drawX, _drawY, scaledTileW, playerHM)
@@ -1014,8 +1025,8 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
-        const _drawX2 = (this._boatActive && this._boatScreenX != null) ? this._boatScreenX : playerScreenX
-        const _drawY2 = (this._boatActive && this._boatScreenY != null) ? this._boatScreenY : playerScreenY
+        const _drawX2 = playerScreenX
+        const _drawY2 = playerScreenY
         this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
         this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
           _drawX2, _drawY2, scaledTileW, playerHM2)
@@ -1038,11 +1049,20 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     // Player tile highlight -- always locked to current player/boat position
     if (p) {
-      // Highlight locked to boat world position when active, player pos when on foot
-      const _hlLX = (this._boatActive && this._boatWorldX != null)
-        ? this._boatWorldX : p.logicalX
-      const _hlLY = (this._boatActive && this._boatWorldY != null)
-        ? this._boatWorldY : p.logicalY
+      // Highlight follows lerped boat screen position when active
+      // so it stays glued to the hull rather than snapping ahead
+      let _hlLX = p.logicalX
+      let _hlLY = p.logicalY
+      if (this._boatActive && this._boatScreenX != null) {
+        // Unproject lerped screen position back to logical tile
+        const _ts   = this.tileDisplaySize
+        const _bRow = this._screenYToWorldRow(this._boatScreenY)
+        if (_bRow != null) {
+          const _bCol = (this._boatScreenX - this._sw / 2) / this._scaleAtRow(_bRow) + this._perspCamCol()
+          _hlLX = _bCol * _ts
+          _hlLY = (_bRow - 1) * _ts
+        }
+      }
 
       // Project current tile to screen as perspective quad
       const ts      = this.tileDisplaySize
@@ -1152,52 +1172,56 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     const H   = Math.round(scaledTileW * hm)
 
 
-    // ── Rowing stroke cycle (currach style) ──────────────────────────
-    // Track tile steps -- used for both boat stroke and land walk
+    // ── Stroke/facing driven by velocity when in boat, tile steps otherwise ──
+    const boatVX = this._boatActive ? (this.scene?.boatSystem?._vx ?? 0) : 0
+    const boatVY = this._boatActive ? (this.scene?.boatSystem?._vy ?? 0) : 0
+    const boatSpd = Math.hypot(boatVX, boatVY)
+
+    // Tile-step tracking for land movement
     const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
     const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
-    const vx = curTileX - (this._prevTileX ?? curTileX)
-    const vy = curTileY - (this._prevTileY ?? curTileY)
-    const stepped = vx !== 0 || vy !== 0
+    const dvx = curTileX - (this._prevTileX ?? curTileX)
+    const dvy = curTileY - (this._prevTileY ?? curTileY)
+    const stepped = dvx !== 0 || dvy !== 0
     this._prevTileX = curTileX
     this._prevTileY = curTileY
 
-    if (vx < 0)      this._facingLeft = true
-    else if (vx > 0) this._facingLeft = false
+    // Facing: velocity when in boat, tile step otherwise
+    if (this._boatActive) {
+      if (boatVX < -4)      this._facingLeft = true
+      else if (boatVX > 4)  this._facingLeft = false
+    } else {
+      if (dvx < 0)      this._facingLeft = true
+      else if (dvx > 0) this._facingLeft = false
+    }
 
-    if (stepped) {
-      this._moveDir = Math.abs(vx) > 0 ? 'ew' : 'ns'
-      this._nextSwaySign = vx !== 0 ? (vx > 0 ? 1 : -1) : (this._swaySign ?? 1)
+    if (!this._boatActive && stepped) {
+      this._moveDir = Math.abs(dvx) > 0 ? 'ew' : 'ns'
+      this._nextSwaySign = dvx !== 0 ? (dvx > 0 ? 1 : -1) : (this._swaySign ?? 1)
       const st = this._stepT ?? 1
       if (st > 0.85 || st === 0) {
         this._stepT    = 0
         this._swaySign = this._nextSwaySign
       }
-      // Advance stroke counter every 2 tiles for currach rhythm
-      if (this._boatActive && p?.isMoving) {
-        this._strokeTiles = ((this._strokeTiles ?? 0) + 1)
-        // New stroke every 2 tiles
-        if (this._strokeTiles % 2 === 0) {
-          this._strokeT  = 0
-          this._strokePhase = 'drive'
-        }
-      }
     }
 
-    const moving = p?.isMoving ?? false
-    if (moving) {
+    const moving = this._boatActive ? boatSpd > 8 : (p?.isMoving ?? false)
+
+    if (this._boatActive) {
+      // Stroke advances with speed, retreats when still
+      const strokeRate = Math.min(boatSpd / 80, 1.0) * 0.025
+      if (boatSpd > 8) {
+        this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + strokeRate)
+        if (this._strokeT >= 1.0) this._strokeT = 0  // loop stroke
+      } else {
+        this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.015)
+      }
+    } else if (moving) {
       this._stepT = (this._stepT || 0) + 0.09
       if (this._stepT >= 1.0) {
         this._stepT    = 0
         this._swaySign = this._nextSwaySign ?? this._swaySign ?? 1
       }
-      // Advance stroke animation
-      if (this._boatActive) {
-        this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + 0.018)
-      }
-    } else if (this._boatActive) {
-      // Recovery glide back to neutral when stopping
-      this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.012)
     }
 
     // Currach stroke shape:
@@ -1232,16 +1256,51 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       }
     }
 
-    // Idle bob/roll when in boat and not moving
-    const idleBob  = (this._boatActive && !moving)
-      ? Math.sin(t * 1.1) * scaledTileW * 0.018
-      : 0
-    const idleRock = (this._boatActive && !moving)
-      ? Math.sin(t * 0.65) * 0.03
+    // ── Boat instability system ──────────────────────────────────────────────
+    if (this._boatActive) {
+      // _wobblePhase drives the see-saw oscillation
+      // Frequency and amplitude both scale with speed
+      const wobbleFreq = 1.8 + boatSpd * 0.04   // faster rocking at speed
+      this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
+
+      // Target amplitude: big when moving, tiny when still
+      const targetAmp = boatSpd > 8
+        ? 0.04 + Math.min(boatSpd / 120, 0.10)   // up to ~0.14 rad at full speed
+        : 0.012                                    // gentle idle
+      // Smooth amplitude transitions
+      this._wobbleAmp = this._wobbleAmp ?? 0.012
+      this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
+    } else {
+      this._wobblePhase = 0
+      this._wobbleAmp   = 0
+    }
+
+    const wobbleRoll = this._boatActive
+      ? Math.sin(this._wobblePhase) * (this._wobbleAmp ?? 0)
       : 0
 
+    // Bob: follows wobble phase offset by 90deg (roll and bob in sync)
+    // Player bob follows boat rock -- always lifts, never sinks below hull
+    // Use abs so player rises on both sides of the roll, never drops through gunwale
+    const idleBob = this._boatActive
+      ? -Math.abs(Math.sin((this._wobblePhase ?? 0) + Math.PI * 0.5)) * scaledTileW * (this._wobbleAmp ?? 0) * 0.8
+      : 0
+
+    // Velocity-driven lean: tip into the direction of travel
+    const velTiltX  = this._boatActive ? boatVX * 0.00025 : 0
+    const velTiltY  = this._boatActive ? boatVY * 0.00018 : 0
+
+    // Acceleration tilt: boat tips back on surge
+    const prevVX    = this._prevBoatVX ?? boatVX
+    const accelX    = boatVX - prevVX
+    this._prevBoatVX = boatVX
+    const accelTilt = this._boatActive ? -accelX * 0.005 : 0
+
+    const idleRock  = wobbleRoll   // wobble IS the rock now
+    const chopAmt   = 0            // absorbed into wobble bob
+
     const totalBob  = rowBob + idleBob
-    const totalLean = rowLean + idleRock
+    const totalLean = rowLean + wobbleRoll + velTiltX + accelTilt
 
     // ── BOAT: draw hull below player, crop player legs ─────────────────
     if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
@@ -1272,34 +1331,39 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         ctx.drawImage(bc, Math.round(driftScreenX - boatW / 2), Math.round(driftScreenY - boatH * 0.8), boatW, boatH)
         ctx.restore()
       } else {
+        // Lerp boat toward player position for smooth momentum feel
         if (this._boatScreenX == null) {
           this._boatScreenX = screenX
           this._boatScreenY = screenY
         } else {
-          const lerpSpeed = 1.0
+          const lerpSpeed = 0.25
           this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
           this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
         }
         // Always persist last known position so drift can use it after deactivation
         this._boatLastScreenX = this._boatScreenX
         this._boatLastScreenY = this._boatScreenY
-        const bx    = this._boatScreenX
-        const by    = this._boatScreenY
+        const bx    = this._boatActive ? (this._boatScreenX ?? screenX) : screenX
+        const by    = this._boatActive ? (this._boatScreenY ?? screenY) : screenY
         const bc    = this._boatCanvas
         const boatW = Math.round(scaledTileW * 1.6 * ps)
         const boatH = Math.round(boatW * (bc.height / bc.width))
         // Boat drawn centred on tile bottom (same Y reference as highlight)
         // boatH * 0.6 puts the waterline at roughly 60% down the boat image
         const boatTop = by - boatH * 0.6
-        const _idleRock = (this._boatActive && !moving) ? Math.sin((this._animT||0) * 0.65) * 0.03 : 0
-        if (Math.abs(_idleRock) > 0.001) {
+        // Full tilt: idle rock + velocity lean + acceleration tip
+        const _boatRock = idleRock + velTiltX + accelTilt
+        const _boatPitch = velTiltY  // bow dips on north/south movement
+        if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001) {
           ctx.save()
-          ctx.translate(Math.round(bx), Math.round(by))
-          ctx.rotate(_idleRock)
-          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by), boatW, boatH)
+          ctx.translate(Math.round(bx), Math.round(by + totalBob))
+          ctx.rotate(_boatRock)
+          // Pitch: skew Y slightly for bow-up/bow-down feel
+          ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
+          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
           ctx.restore()
         } else {
-          ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop), boatW, boatH)
+          ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
         }
       }
     }

@@ -249,6 +249,9 @@ export default class Player {
     if (!joystick)       return;
     if (!this.isAlive()) return;
 
+    // Boat momentum is handled entirely by BoatSystem -- skip tile-step logic
+    if (this.inBoat) return;
+
     const force = joystick.force;
 
     if (this.isMoving) {

@@ -45,6 +45,10 @@ export default class BoatSystem {
 
     // Fractional pixel accumulator for sub-pixel drift
     this._driftAccum = 0
+
+    // Momentum: velocity in logical pixels per second
+    this._vx = 0
+    this._vy = 0
   }
 
   // ── Activation ────────────────────────────────────────────────────────────
@@ -100,6 +104,8 @@ activate() {
     if (!this.active) return
     this.active = false
     this._deactivatedAt = Date.now()
+    this._vx = 0
+    this._vy = 0
 
     const p = this.scene.player
     if (p) {
@@ -237,23 +243,79 @@ activate() {
       return
     }
 
-    // ── Speed modifier ────────────────────────────────────────────────────
-    // Water: full speed + drift when idle
-    // Reeds: half speed, no drift (wading feel)
-    if (onReed) {
-      if (p.terrainSpeedModifier !== SHORE_SPEED_MULT) {
-        p.setTerrainSpeedModifier(SHORE_SPEED_MULT)
+    // ── Momentum-based movement ──────────────────────────────────────────
+    const dt = delta / 1000   // seconds
+
+    // Joystick impulse
+    const joystick = this.scene.joystick
+    const force    = joystick?.force ?? 0
+    const angle    = joystick?.angle ?? 0
+
+    // Max speed: slower in reeds, full in water
+    const maxSpeed  = onReed ? 80 : 160   // logical px/s
+    const impulse   = onReed ? 320 : 600  // px/s² acceleration
+    const friction  = onReed ? 6.0 : 3.5  // multiplier per second (exponential)
+
+    if (force > 10) {
+      const rad = angle * Math.PI / 180
+      const ix  = Math.cos(rad) * impulse * dt
+      const iy  = Math.sin(rad) * impulse * dt
+      this._vx += ix
+      this._vy += iy
+      // Clamp to max speed
+      const spd = Math.hypot(this._vx, this._vy)
+      if (spd > maxSpeed) {
+        this._vx = this._vx / spd * maxSpeed
+        this._vy = this._vy / spd * maxSpeed
       }
+      p.isMoving = true
     } else {
-      if (p.terrainSpeedModifier !== 1.0) {
-        p.setTerrainSpeedModifier(1.0)
-      }
+      p.isMoving = Math.hypot(this._vx, this._vy) > 4
     }
 
-    // ── East drift ────────────────────────────────────────────────────────
-    // Only on open water, not reeds, not moving
-    if (onWater && !p.isMoving && p.pathQueue.length === 0) {
-      this._applyDrift(delta, ts, mapData)
+    // Apply friction first, then add drift so it always accumulates
+    const fric = Math.pow(friction, -dt)
+    this._vx *= fric
+    this._vy *= fric
+
+    // Dead stop below threshold -- but only for Y, not X (drift keeps X alive)
+    if (Math.abs(this._vy) < 0.5) this._vy = 0
+
+    // East drift: always present on water, bypasses friction dead-stop
+    if (onWater) {
+      this._vx += DRIFT_SPEED_PX_S * dt
+      // Let drift accumulate -- no dead-stop on X when on water
+    } else {
+      if (Math.abs(this._vx) < 0.5) this._vx = 0
+    }
+
+    // Move player
+    if (this._vx !== 0 || this._vy !== 0) {
+      const newX = p.logicalX + this._vx * dt
+      const newY = p.logicalY + this._vy * dt
+
+      // Collision check for X
+      const txNew = Math.floor(newX / ts)
+      const tyNew = Math.floor(newY / ts)
+      const gidX  = mapData.layers[0]?.[Math.floor(p.logicalY / ts)]?.[txNew] ?? 0
+      const gidY  = mapData.layers[0]?.[tyNew]?.[Math.floor(p.logicalX / ts)] ?? 0
+      const passX = gidX === 1625 || gidX === 1679 || gidX === 731
+      const passY = gidY === 1625 || gidY === 1679 || gidY === 731
+
+      if (passX) { p.logicalX = newX } else { this._vx *= -0.3 }
+      if (passY) { p.logicalY = newY } else { this._vy *= -0.3 }
+
+      // Keep logical position snapped to map bounds
+      const mapMaxX = (mapData.width  - 1) * ts
+      const mapMaxY = (mapData.height - 1) * ts
+      p.logicalX = Math.max(ts * 0.5, Math.min(mapMaxX, p.logicalX))
+      p.logicalY = Math.max(ts * 0.5, Math.min(mapMaxY, p.logicalY))
+
+      // Sync player step coords so reboard/disembark checks work
+      p.targetX = p.logicalX
+      p.targetY = p.logicalY
+      p.startX  = p.logicalX
+      p.startY  = p.logicalY
     }
   }
 

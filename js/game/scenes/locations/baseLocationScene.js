@@ -208,7 +208,7 @@ export default class BaseLocationScene extends Phaser.Scene {
           if (!this._disembarkBadgeShown) {
             this._disembarkBadgeShown = true
             this._encounterPanel?.notify(
-              { id: 'disembark', visual: { gid: 1625, flat: true },
+              { id: 'disembark', visual: { gid: 1411, flat: true },
                 ga: 'Téigh i dtír', en: 'Go ashore' },
               null
             )

@@ -780,10 +780,9 @@ static HORIZON_Y_FRAC    = 0.28
       const snapX    = Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const snapY    = Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
-      const projFoot = this._projectLogical(snapX, snapY - this.tileDisplaySize * 0.28)
       if (proj) {
         playerScreenX = proj.screenX
-        playerScreenY = projFoot ? projFoot.screenY : proj.screenY
+        playerScreenY = proj.screenY   // tile bottom -- aligns with boat and highlight
         playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
         this.playerScreenX = playerScreenX
         this.playerScreenY = playerScreenY
@@ -1039,16 +1038,19 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     // Player tile highlight -- always locked to current player/boat position
     if (p) {
-      // Highlight always tracks player logical position (canonical world coords)
-      const _hlLX = p.logicalX
-      const _hlLY = p.logicalY
+      // Highlight locked to boat world position when active, player pos when on foot
+      const _hlLX = (this._boatActive && this._boatWorldX != null)
+        ? this._boatWorldX : p.logicalX
+      const _hlLY = (this._boatActive && this._boatWorldY != null)
+        ? this._boatWorldY : p.logicalY
 
       // Project current tile to screen as perspective quad
       const ts      = this.tileDisplaySize
       const hlTileX = Math.floor(_hlLX / ts)
       const hlTileY = Math.floor(_hlLY / ts)
-      const hxTL = this._colToScreenX(hlTileX,     hlTileY)
-      const hxTR = this._colToScreenX(hlTileX + 1, hlTileY)
+      // Use hlTileY+1 (bottom row) for all X coords to match player/boat projection
+      const hxTL = this._colToScreenX(hlTileX,     hlTileY + 1)
+      const hxTR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
       const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
       const hxBR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
       const hyT  = this._rowToScreenY(hlTileY)
@@ -1094,7 +1096,7 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._boatScreenX = null
     this._boatScreenY = null
     if (active) {
-      this._boatSinkOverride = 0.55
+      this._boatSinkOverride = 0.32   // player sits higher -- waist at gunwale
     } else {
       this._boatSinkOverride = 0
     }
@@ -1274,7 +1276,7 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           this._boatScreenX = screenX
           this._boatScreenY = screenY
         } else {
-          const lerpSpeed = 0.18
+          const lerpSpeed = 1.0
           this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
           this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
         }
@@ -1286,16 +1288,15 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const bc    = this._boatCanvas
         const boatW = Math.round(scaledTileW * 1.6 * ps)
         const boatH = Math.round(boatW * (bc.height / bc.width))
-        const boatTop = by - H * 0.55
-        // Apply tilt -- boat rocks opposite to player lean
-        const _boatTilt = 0   // tilt applied after stroke calc; placeholder here
+        // Boat drawn centred on tile bottom (same Y reference as highlight)
+        // boatH * 0.6 puts the waterline at roughly 60% down the boat image
+        const boatTop = by - boatH * 0.6
         const _idleRock = (this._boatActive && !moving) ? Math.sin((this._animT||0) * 0.65) * 0.03 : 0
-        const _tilt = _boatTilt + _idleRock
-        if (Math.abs(_tilt) > 0.001) {
+        if (Math.abs(_idleRock) > 0.001) {
           ctx.save()
-          ctx.translate(Math.round(bx), Math.round(by - H * 0.3))
-          ctx.rotate(_tilt)
-          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - (by - H * 0.3)), boatW, boatH)
+          ctx.translate(Math.round(bx), Math.round(by))
+          ctx.rotate(_idleRock)
+          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by), boatW, boatH)
           ctx.restore()
         } else {
           ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop), boatW, boatH)

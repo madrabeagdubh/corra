@@ -1209,8 +1209,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     if (this._boatActive) {
       // Stroke advances with speed, retreats when still
+      // Stroke only animates when player is actively rowing (joystick force)
+      // Pure current drift keeps strokeT at 0 for smooth glide
+      const joystickActive = (this.scene?.joystick?.force ?? 0) > 10
       const strokeRate = Math.min(boatSpd / 80, 1.0) * 0.025
-      if (boatSpd > 8) {
+      if (joystickActive && boatSpd > 8) {
         this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + strokeRate)
         if (this._strokeT >= 1.0) this._strokeT = 0  // loop stroke
       } else {

@@ -168,7 +168,7 @@ export default class BaseLocationScene extends Phaser.Scene {
         }
       }
 
-      this.player.update(this.joystick);
+      this.player.update(this.player?.inBoat ? null : this.joystick);
 
       if (this.terrainManager) this.terrainManager.update();
 

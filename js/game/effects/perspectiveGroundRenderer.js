@@ -571,12 +571,13 @@ static HORIZON_Y_FRAC    = 0.28
     tCtx.filter = 'saturate(60%)'
     tCtx.drawImage(this._tilesetImg, sx, sy, sw, sh, 0, 0, sw, sh)
     tCtx.filter = 'none'
-    // Check if tile has transparency -- if so it's a scatter/overlay tile
-    // and needs a grass base so transparency shows ground not canvas bg
-    const _id = tCtx.getImageData(0, 0, sw, sh).data
+    // Only add grass base for flat scatter tiles (not billboards)
+    // Billboards (trees etc) are drawn upright and don't need a ground base
+    const _isBillboard = this._flatGids.has(gid)
+    const _id = !_isBillboard ? tCtx.getImageData(0, 0, sw, sh).data : null
     let _hasTransp = false
-    for (let _i = 3; _i < _id.length; _i += 4) { if (_id[_i] < 128) { _hasTransp = true; break } }
-    if (_hasTransp) {
+    if (_id) for (let _i = 3; _i < _id.length; _i += 4) { if (_id[_i] < 128) { _hasTransp = true; break } }
+    if (_hasTransp && !_isBillboard) {
       const _base = document.createElement('canvas')
       _base.width = sw; _base.height = sh
       const _bCtx = _base.getContext('2d')
@@ -810,8 +811,8 @@ static HORIZON_Y_FRAC    = 0.28
     let playerDrawn   = false
 
     if (p) {
-      const snapX    = Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
-      const snapY    = Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapX    = this._boatActive ? p.logicalX : Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapY    = this._boatActive ? p.logicalY : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
       if (proj) {
         playerScreenX = proj.screenX

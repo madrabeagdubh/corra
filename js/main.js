@@ -31,6 +31,7 @@ import BogD1 from './game/scenes/locations/bog/d1.js'
 import BogD2 from './game/scenes/locations/bog/d2.js'
 import BogD3 from './game/scenes/locations/bog/d3.js'
 import BogD4 from './game/scenes/locations/bog/d4.js'
+import BogD3Sea from './game/scenes/locations/bog/d3Sea.js'
 import { champions } from '../data/champions.js'
 import { initFullscreenButton } from './game/ui/fullscreenButton.js'
 initFullscreenButton()  // call at module load time, not inside _createGame()
@@ -93,7 +94,7 @@ function _createGame(selectedChampion, options) {
             BogA1, BogA2, BogA3, BogA4,
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
-            BogD1, BogD2, BogD3, BogD4,
+            BogD1, BogD2, BogD3, BogD4, BogD3Sea,
 // // //             OakWood,
 // // //             DruidTemple,
         ],

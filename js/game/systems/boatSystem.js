@@ -293,6 +293,7 @@ activate() {
 
     // Move player
     if (this._vx !== 0 || this._vy !== 0) {
+      if (Math.random() < 0.02) console.log('[boat physics] vx:', this._vx.toFixed(2), 'vy:', this._vy.toFixed(2), 'x:', p.logicalX.toFixed(1))
       const newX = p.logicalX + this._vx * dt
       const newY = p.logicalY + this._vy * dt
 
@@ -321,46 +322,68 @@ activate() {
     }
   }
 
-  _applyDrift(delta, ts, mapData) {
-    const p = this.scene.player
+  applyBoatPhysics(delta, joystick) {
+    const p       = this.scene.player
+    const ts      = this.scene.tileSize
+    const mapData = this.scene.mapData
+    const layer0  = mapData.layers[0]
+    const dt      = Math.min(delta / 1000, 0.05)  // cap at 50ms
 
-    this._driftAccum += DRIFT_SPEED_PX_S * (delta / 1000)
+    const ACCEL   = 180
+    const MAX_SPD = 120
+    const DRAG    = Math.pow(0.15, dt)  // per-second drag: velocity halves ~every 0.4s
 
-    if (this._driftAccum < 1) return   // sub-pixel, wait
+    if (!this._velX) this._velX = 0
+    if (!this._velY) this._velY = 0
 
-    const pixels = Math.floor(this._driftAccum)
-    this._driftAccum -= pixels
-
-    const newX = p.logicalX + pixels
-
-    // Clamp at east edge of map (one tile from border)
-    const mapMaxX = (mapData.width - 2) * ts + ts / 2
-    if (newX >= mapMaxX) {
-      // Stopped at east edge -- future: trigger estuary transition
-      p.logicalX = mapMaxX
-      p.targetX  = mapMaxX
-      p.startX   = mapMaxX
-      this._driftAccum = 0
-      return
+    // Joystick input
+    if (joystick && joystick.force > 10) {
+      const angle = joystick.angle * Math.PI / 180
+      this._velX += Math.cos(angle) * ACCEL * dt
+      this._velY += Math.sin(angle) * ACCEL * dt
+      const spd = Math.hypot(this._velX, this._velY)
+      if (spd > MAX_SPD) { this._velX = this._velX/spd*MAX_SPD; this._velY = this._velY/spd*MAX_SPD }
+      p.isMoving = true
+    } else {
+      p.isMoving = Math.hypot(this._velX, this._velY) > 4
     }
 
-    // Collision check: is the tile to the east walkable (water/shore)?
-    const targetTileX = Math.floor(newX / ts)
-    const targetTileY = Math.floor(p.logicalY / ts)
-    const layer0      = mapData.layers[0]
-    const targetGid   = layer0[targetTileY]?.[targetTileX] ?? 0
-
-    if (!WATER_GIDS.has(targetGid) && !REED_GIDS.has(targetGid)) {
-      // Hit the bank -- stop drift
-      this._driftAccum = 0
-      return
+    // Eastward current on open water
+    const tileX  = Math.floor(p.logicalX / ts)
+    const tileY  = Math.floor(p.logicalY / ts)
+    const gid    = layer0[tileY]?.[tileX] ?? 0
+    if (WATER_GIDS.has(gid) && !SHORE_GIDS.has(gid)) {
+      this._velX += DRIFT_SPEED_PX_S * dt
     }
 
-    // Apply drift directly to logical position (no step animation for drift)
-    p.logicalX = newX
-    p.targetX  = newX
-    p.startX   = newX
+    // Drag
+    this._velX *= DRAG
+    this._velY *= DRAG
+    if (Math.abs(this._velX) < 0.5) this._velX = 0
+    if (Math.abs(this._velY) < 0.5) this._velY = 0
+
+    // Integrate X
+    const newX  = p.logicalX + this._velX * dt
+    const txNew = Math.floor(newX / ts)
+    const gidX  = layer0[tileY]?.[txNew] ?? 0
+    if (WATER_GIDS.has(gidX) || SHORE_GIDS.has(gidX)) {
+      p.logicalX = Math.max(ts*1.5, Math.min((mapData.width-2)*ts+ts/2, newX))
+    } else { this._velX = 0 }
+
+    // Integrate Y
+    const newY   = p.logicalY + this._velY * dt
+    const txCur  = Math.floor(p.logicalX / ts)
+    const tyNew  = Math.floor(newY / ts)
+    const gidY   = layer0[tyNew]?.[txCur] ?? 0
+    if (WATER_GIDS.has(gidY) || SHORE_GIDS.has(gidY)) {
+      p.logicalY = Math.max(ts*1.5, Math.min((mapData.height-2)*ts+ts/2, newY))
+    } else { this._velY = 0 }
+
+    p.targetX = p.logicalX; p.targetY = p.logicalY
+    p.startX  = p.logicalX; p.startY  = p.logicalY
   }
+
+  _applyDrift(delta, ts, mapData) {} // legacy, unused
 
   // ── Disembark ─────────────────────────────────────────────────────────────
 

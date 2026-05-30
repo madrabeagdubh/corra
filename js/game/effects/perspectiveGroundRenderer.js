@@ -571,6 +571,28 @@ static HORIZON_Y_FRAC    = 0.28
     tCtx.filter = 'saturate(60%)'
     tCtx.drawImage(this._tilesetImg, sx, sy, sw, sh, 0, 0, sw, sh)
     tCtx.filter = 'none'
+    // Check if tile has transparency -- if so it's a scatter/overlay tile
+    // and needs a grass base so transparency shows ground not canvas bg
+    const _id = tCtx.getImageData(0, 0, sw, sh).data
+    let _hasTransp = false
+    for (let _i = 3; _i < _id.length; _i += 4) { if (_id[_i] < 128) { _hasTransp = true; break } }
+    if (_hasTransp) {
+      const _base = document.createElement('canvas')
+      _base.width = sw; _base.height = sh
+      const _bCtx = _base.getContext('2d')
+      _bCtx.imageSmoothingEnabled = false
+      // Draw grass tile (GID 839) as background
+      const _gIdx = 838  // GID 839 - 1
+      const _gCol = _gIdx % PerspectiveGroundRenderer.SHEET_COLS
+      const _gRow = Math.floor(_gIdx / PerspectiveGroundRenderer.SHEET_COLS)
+      const { MG, TW, TH } = PerspectiveGroundRenderer
+      _bCtx.filter = 'saturate(60%)'
+      _bCtx.drawImage(this._tilesetImg, MG + _gCol*TW, MG + _gRow*TH, TW, TH, 0, 0, sw, sh)
+      _bCtx.filter = 'none'
+      _bCtx.drawImage(tc, 0, 0)
+      this._tileCache.set(gid, _base)
+      return _base
+    }
     this._tileCache.set(gid, tc)
     return tc
   }

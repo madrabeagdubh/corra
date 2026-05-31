@@ -25,8 +25,6 @@ import { GameState } from './gameState.js'
 import { createItem } from '../ui/inventory/itemDefinitions.js'
 
 // Reed GIDs -- marshy buffer between river and land.
-// GID 731 ("waterside") is the only reed tile on current river maps.
-// Boat navigates freely here; no current drift; player can wade on foot.
 const REED_GIDS  = new Set([731])
 const WATER_GIDS = new Set([1625, 1679])
 
@@ -39,11 +37,10 @@ const SHORE_SPEED_MULT = 0.5
 export default class BoatSystem {
 
   constructor(scene) {
-    this.scene   = scene
-    this.active  = false
+    this.scene     = scene
+    this.active    = false
     this._boatLost = false
 
-    // Fractional pixel accumulator for sub-pixel drift
     this._driftAccum = 0
 
     // Momentum: velocity in logical pixels per second
@@ -53,52 +50,63 @@ export default class BoatSystem {
 
   // ── Activation ────────────────────────────────────────────────────────────
 
+  activate() {
+    if (this.active) return
+    this.active = true
 
-activate() {
-  if (this.active) return
-  this.active = true
+    const p = this.scene.player
+    if (!p) { console.warn('[BoatSystem] no player'); return }
 
-  const p = this.scene.player
-  if (!p) { console.warn('[BoatSystem] no player'); return }
+    p.inBoat = true
 
-  p.inBoat = true
+    // Clear any queued path steps — they're tile-based and invalid in boat
+    p.pathQueue = []
 
-  // Stop any damage timer and water effects already running
-  const tm = this.scene.terrainManager
-  if (tm?.damageTimer) {
-    tm.damageTimer.remove()
-    tm.damageTimer = null
-  }
-  if (tm?._waterSinkInterval) {
-    clearInterval(tm._waterSinkInterval)
-    tm._waterSinkInterval = null
-  }
-  tm?._stopBubbles()
+    // Cancel any in-progress tile-step tween immediately
+    // so we don't carry over a half-completed step into boat physics
+    p.isMoving    = false
+    p.moveProgress = 0
+    p.logicalX    = p.targetX ?? p.logicalX
+    p.logicalY    = p.targetY ?? p.logicalY
+    p.startX      = p.logicalX
+    p.startY      = p.logicalY
+    p.targetX     = p.logicalX
+    p.targetY     = p.logicalY
 
-  this._rebuildWalkGrid()
+    // Stop any damage timer and water effects already running
+    const tm = this.scene.terrainManager
+    if (tm?.damageTimer) {
+      tm.damageTimer.remove()
+      tm.damageTimer = null
+    }
+    if (tm?._waterSinkInterval) {
+      clearInterval(tm._waterSinkInterval)
+      tm._waterSinkInterval = null
+    }
+    tm?._stopBubbles()
+
+    this._rebuildWalkGrid()
 
     // Tell PGR to render boat under player
     if (this.scene.perspectiveGround) {
       const pgr = this.scene.perspectiveGround
-      // Load boat image if not already loaded (first activation or after scene restart)
       if (!pgr._boatCanvas && this.scene.textures.exists('boat')) {
         pgr.loadBoatImage(this.scene.textures.get('boat').getSourceImage())
       }
       pgr.setBoatActive(true)
     }
 
-    // Apply shore speed if spawning on a shore tile
     this._applyTerrainModifiers()
-
     this._activatedAt = Date.now()
-  // Add currach to inventory while aboard
-  const _inv = this.scene.player?.inventory
-  if (_inv) {
-    const _slot = _inv.findEmptyInventorySlot()
-    if (_slot !== -1) _inv.setItem(_slot, createItem('currach'))
-  }
-  // this._startRipples()  // TODO: ripple polish
-  console.log('[BoatSystem] activated -- player in boat')
+
+    // Add currach to inventory while aboard
+    const _inv = this.scene.player?.inventory
+    if (_inv) {
+      const _slot = _inv.findEmptyInventorySlot()
+      if (_slot !== -1) _inv.setItem(_slot, createItem('currach'))
+    }
+
+    console.log('[BoatSystem] activated -- player in boat')
   }
 
   deactivate() {
@@ -110,7 +118,8 @@ activate() {
 
     const p = this.scene.player
     if (p) {
-      p.inBoat = false
+      p.inBoat   = false
+      p.isMoving = false
       p.setTerrainSpeedModifier(1.0)
     }
 
@@ -120,27 +129,20 @@ activate() {
       this.scene.pathFinder?.updateGrid(this.scene.walkGrid)
     }
 
-    // Keep boat visible briefly then fade -- it drifts away with the current
     if (this.scene.perspectiveGround) {
-      const pgr = this.scene.perspectiveGround
-      // Check if disembarked on shore -- boat stays still, no drift
-      const p      = this.scene.player
+      const pgr    = this.scene.perspectiveGround
       const ts     = this.scene.tileSize
       const layer0 = this.scene.mapData.layers[0]
       const tileX  = Math.floor((p?.logicalX ?? 0) / ts)
       const tileY  = Math.floor((p?.logicalY ?? 0) / ts)
       const gid    = layer0[tileY]?.[tileX] ?? 0
-      const onShore = REED_GIDS.has(gid)   // reeds = safe moor, no drift
-      pgr._boatDrifting = !onShore
-      // Store world (logical pixel) coords for drift -- NOT screen coords
-      // Screen coords shift with camera; world coords are stable
-      pgr._boatWorldX = (p?.logicalX ?? 0)
-      pgr._boatWorldY = (p?.logicalY ?? 0)
-      pgr._boatDriftSpeed = 18   // logical pixels per second, matches current speed
-      pgr._boatDriftT = 0
-      // Deactivate player-attached rendering -- boat drifts independently
+      const onShore = REED_GIDS.has(gid)
+      pgr._boatDrifting   = !onShore
+      pgr._boatWorldX     = (p?.logicalX ?? 0)
+      pgr._boatWorldY     = (p?.logicalY ?? 0)
+      pgr._boatDriftSpeed = 18
+      pgr._boatDriftT     = 0
       pgr.setBoatActive(false)
-      // Boat drifts indefinitely, no fade -- recoverable later
     }
 
     // Remove currach from inventory on disembark
@@ -159,14 +161,12 @@ activate() {
   // ── Walk grid ─────────────────────────────────────────────────────────────
 
   _rebuildWalkGrid() {
-    const scene    = this.scene
-    const mapData  = scene.mapData
-    const ts       = scene.tileSize
-    const layer0   = mapData.layers[0]
-    const mapH     = layer0.length
-    const mapW     = layer0[0].length
+    const scene   = this.scene
+    const mapData = scene.mapData
+    const layer0  = mapData.layers[0]
+    const mapH    = layer0.length
+    const mapW    = layer0[0].length
 
-    // Save original grid so we can restore on deactivate
     scene._originalWalkGrid = scene.walkGrid.map(r => [...r])
 
     const newGrid = []
@@ -174,13 +174,10 @@ activate() {
       newGrid[y] = []
       for (let x = 0; x < mapW; x++) {
         const gid = layer0[y]?.[x] ?? 0
-        // In boat: water and reed tiles are walkable; land tiles block the boat
         const isBoatPassable = WATER_GIDS.has(gid) || REED_GIDS.has(gid)
         if (isBoatPassable) {
           newGrid[y][x] = true
         } else {
-          // Land tile: only allow if it's an exit corridor tile
-          // (so the player can walk off the map edge to transition)
           const border = mapData.border
           const onExitCorridor = border && (
             ((x === 0 || x === mapW-1) && border.openRows?.includes(y)) ||
@@ -205,8 +202,8 @@ activate() {
     if (!this.active) {
       const pgr = this.scene.perspectiveGround
       if (pgr?._boatWorldX != null) {
-        const ts   = this.scene.tileSize
-        const dist = Math.hypot(p.logicalX - pgr._boatWorldX, p.logicalY - pgr._boatWorldY)
+        const ts             = this.scene.tileSize
+        const dist           = Math.hypot(p.logicalX - pgr._boatWorldX, p.logicalY - pgr._boatWorldY)
         const sinceDisembark = Date.now() - (this._deactivatedAt ?? 0)
         if (dist < ts * 0.8 && !p.isMoving && sinceDisembark > 1500) {
           this._reboard(p, pgr)
@@ -219,7 +216,6 @@ activate() {
     const mapData = this.scene.mapData
     const layer0  = mapData.layers[0]
 
-    // Current tile under player
     const tileX = Math.floor(p.logicalX / ts)
     const tileY = Math.floor(p.logicalY / ts)
     const gid   = layer0[tileY]?.[tileX] ?? 0
@@ -227,169 +223,100 @@ activate() {
     const onReed  = REED_GIDS.has(gid)
     const onWater = WATER_GIDS.has(gid)
     const onLand  = !onReed && !onWater
-    if (this._lastGid !== gid) { this._lastGid = gid; console.log('[boat] tile gid:', gid, 'onReed:', onReed, 'onWater:', onWater, 'onLand:', onLand) }
 
-    // Cancel mid-step if heading onto land (belt-and-suspenders guard)
-    if (onLand && p.isMoving) {
-      p.isMoving = false
-      p.logicalX = p.startX
-      p.logicalY = p.startY
-      p.targetX  = p.startX
-      p.targetY  = p.startY
-      p.moveProgress = 0
+    if (this._lastGid !== gid) {
+      this._lastGid = gid
+      console.log('[boat] tile gid:', gid, 'onReed:', onReed, 'onWater:', onWater, 'onLand:', onLand)
     }
 
-    // ── Auto-disembark on land only (reeds are safe, no auto-disembark) ──
-    if (onLand && !p.isMoving) {
+    // Clear ALL tile-step state every frame — boat owns all movement.
+    // Must clear pathQueue here AND after physics so tap-to-path
+    // can never queue steps that fire when inBoat.
+    p.pathQueue    = []
+    p.moveProgress = 0
+    p.isMoving     = false  // will be re-set below from velocity
+
+    // Auto-disembark on land
+    if (onLand) {
       if (Date.now() - (this._activatedAt ?? 0) < 800) return
-      this._triggerDisembark(true)   // boat lost to current
+      this._triggerDisembark(true)
       return
     }
 
-    // ── Momentum-based movement ──────────────────────────────────────────
-    const dt = delta / 1000   // seconds
+    // ── Momentum physics ─────────────────────────────────────────────────
+    const dt = Math.min(delta / 1000, 0.05)  // cap at 50ms
 
-    // Joystick impulse
     const joystick = this.scene.joystick
     const force    = joystick?.force ?? 0
     const angle    = joystick?.angle ?? 0
 
-const maxSpeed  = onReed ? 80 : 220
-const impulse   = onReed ? 240 : 480
-const friction  = onReed ? 4.0 : 1.4
-
-
-
-
-
-
-
-
-
+    const maxSpeed = onReed ? 80  : 160   // logical px/s
+    const impulse  = onReed ? 240 : 400   // acceleration
+    const friction = onReed ? 4.0 : 2.2   // ~3s glide on water
 
     if (force > 10) {
       const rad = angle * Math.PI / 180
-      const ix  = Math.cos(rad) * impulse * dt
-      const iy  = Math.sin(rad) * impulse * dt
-      this._vx += ix
-      this._vy += iy
-      // Clamp to max speed
+      this._vx += Math.cos(rad) * impulse * dt
+      this._vy += Math.sin(rad) * impulse * dt
       const spd = Math.hypot(this._vx, this._vy)
       if (spd > maxSpeed) {
         this._vx = this._vx / spd * maxSpeed
         this._vy = this._vy / spd * maxSpeed
       }
-      p.isMoving = true
-    } else {
-      p.isMoving = Math.hypot(this._vx, this._vy) > 4
     }
 
-    // Apply friction first, then add drift so it always accumulates
+    // Apply friction (exponential decay)
     const fric = Math.pow(friction, -dt)
     this._vx *= fric
     this._vy *= fric
 
-    // Dead stop below threshold -- but only for Y, not X (drift keeps X alive)
+    // Dead-stop thresholds
     if (Math.abs(this._vy) < 1.5) this._vy = 0
 
-    // East drift: always present on water (unless suppressed by scene)
+    // East drift on open water
     if (onWater && !this._noDrift) {
       this._vx += DRIFT_SPEED_PX_S * dt
-      // Let drift accumulate -- no dead-stop on X when on water
     } else {
       if (Math.abs(this._vx) < 0.5) this._vx = 0
     }
 
-    // Move player
+    // Integrate position
     if (this._vx !== 0 || this._vy !== 0) {
       if (Math.random() < 0.02) console.log('[boat physics] vx:', this._vx.toFixed(2), 'vy:', this._vy.toFixed(2), 'x:', p.logicalX.toFixed(1))
-      const newX = p.logicalX + this._vx * dt
-      const newY = p.logicalY + this._vy * dt
 
-      // Collision check for X
+      const newX  = p.logicalX + this._vx * dt
+      const newY  = p.logicalY + this._vy * dt
       const txNew = Math.floor(newX / ts)
       const tyNew = Math.floor(newY / ts)
-      const gidX  = mapData.layers[0]?.[Math.floor(p.logicalY / ts)]?.[txNew] ?? 0
-      const gidY  = mapData.layers[0]?.[tyNew]?.[Math.floor(p.logicalX / ts)] ?? 0
-      const passX = gidX === 1625 || gidX === 1679 || gidX === 731
-      const passY = gidY === 1625 || gidY === 1679 || gidY === 731
+      const gidX  = layer0[Math.floor(p.logicalY / ts)]?.[txNew] ?? 0
+      const gidY  = layer0[tyNew]?.[Math.floor(p.logicalX / ts)] ?? 0
+      const passX = WATER_GIDS.has(gidX) || REED_GIDS.has(gidX)
+      const passY = WATER_GIDS.has(gidY) || REED_GIDS.has(gidY)
 
       if (passX) { p.logicalX = newX } else { this._vx *= -0.3 }
       if (passY) { p.logicalY = newY } else { this._vy *= -0.3 }
 
-      // Keep logical position snapped to map bounds
       const mapMaxX = (mapData.width  - 1) * ts
       const mapMaxY = (mapData.height - 1) * ts
       p.logicalX = Math.max(ts * 0.5, Math.min(mapMaxX, p.logicalX))
       p.logicalY = Math.max(ts * 0.5, Math.min(mapMaxY, p.logicalY))
 
-      // Sync player step coords so reboard/disembark checks work
-      p.targetX = p.logicalX
-      p.targetY = p.logicalY
-      p.startX  = p.logicalX
-      p.startY  = p.logicalY
-    }
-  }
+      // Keep all step coords in sync — prevents tween system picking up stale values
+      p.targetX    = p.logicalX
+      p.targetY    = p.logicalY
+      p.startX     = p.logicalX
+      p.startY     = p.logicalY
+      p.moveProgress = 0
 
-  applyBoatPhysics(delta, joystick) {
-    const p       = this.scene.player
-    const ts      = this.scene.tileSize
-    const mapData = this.scene.mapData
-    const layer0  = mapData.layers[0]
-    const dt      = Math.min(delta / 1000, 0.05)  // cap at 50ms
-
-    const ACCEL   = 180
-    const MAX_SPD = 120
-    const DRAG    = Math.pow(0.15, dt)  // per-second drag: velocity halves ~every 0.4s
-
-    if (!this._velX) this._velX = 0
-    if (!this._velY) this._velY = 0
-
-    // Joystick input
-    if (joystick && joystick.force > 10) {
-      const angle = joystick.angle * Math.PI / 180
-      this._velX += Math.cos(angle) * ACCEL * dt
-      this._velY += Math.sin(angle) * ACCEL * dt
-      const spd = Math.hypot(this._velX, this._velY)
-      if (spd > MAX_SPD) { this._velX = this._velX/spd*MAX_SPD; this._velY = this._velY/spd*MAX_SPD }
-      p.isMoving = true
+      // Drive isMoving from speed for PGR animation, not from tile steps
+      p.isMoving = Math.hypot(this._vx, this._vy) > 8
     } else {
-      p.isMoving = Math.hypot(this._velX, this._velY) > 4
+      p.isMoving = false
     }
 
-    // Eastward current on open water
-    const tileX  = Math.floor(p.logicalX / ts)
-    const tileY  = Math.floor(p.logicalY / ts)
-    const gid    = layer0[tileY]?.[tileX] ?? 0
-    if (WATER_GIDS.has(gid) && !SHORE_GIDS.has(gid)) {
-      this._velX += DRIFT_SPEED_PX_S * dt
-    }
-
-    // Drag
-    this._velX *= DRAG
-    this._velY *= DRAG
-    if (Math.abs(this._velX) < 0.5) this._velX = 0
-    if (Math.abs(this._velY) < 0.5) this._velY = 0
-
-    // Integrate X
-    const newX  = p.logicalX + this._velX * dt
-    const txNew = Math.floor(newX / ts)
-    const gidX  = layer0[tileY]?.[txNew] ?? 0
-    if (WATER_GIDS.has(gidX) || SHORE_GIDS.has(gidX)) {
-      p.logicalX = Math.max(ts*1.5, Math.min((mapData.width-2)*ts+ts/2, newX))
-    } else { this._velX = 0 }
-
-    // Integrate Y
-    const newY   = p.logicalY + this._velY * dt
-    const txCur  = Math.floor(p.logicalX / ts)
-    const tyNew  = Math.floor(newY / ts)
-    const gidY   = layer0[tyNew]?.[txCur] ?? 0
-    if (WATER_GIDS.has(gidY) || SHORE_GIDS.has(gidY)) {
-      p.logicalY = Math.max(ts*1.5, Math.min((mapData.height-2)*ts+ts/2, newY))
-    } else { this._velY = 0 }
-
-    p.targetX = p.logicalX; p.targetY = p.logicalY
-    p.startX  = p.logicalX; p.startY  = p.logicalY
+    // Final clear — ensures nothing queued during this frame survives to next
+    p.pathQueue    = []
+    p.moveProgress = 0
   }
 
   _applyDrift(delta, ts, mapData) {} // legacy, unused
@@ -400,17 +327,14 @@ const friction  = onReed ? 4.0 : 1.4
     const p = this.scene.player
 
     if (boatLost) {
-      // Player lands on bank without using shore tiles -- boat drifts away
       console.log('[BoatSystem] boat lost to current')
       this._boatLost = true
-      // TODO: animate abandoned boat drifting east, then destroy
     } else {
       console.log('[BoatSystem] clean disembark on shore')
     }
 
-    // Save or clear boat position in GameState
-    const _p  = this.scene.player
-    const _ts = this.scene.tileSize
+    const _p      = this.scene.player
+    const _ts     = this.scene.tileSize
     const _mapKey = this.scene.getMapKey?.() ?? this.scene.scene.key
     if (boatLost) {
       GameState.clearBoatPosition()
@@ -421,8 +345,6 @@ const friction  = onReed ? 4.0 : 1.4
     }
 
     this.deactivate()
-
-    // Disembark is a silent action -- no textPanel notification
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -437,11 +359,6 @@ const friction  = onReed ? 4.0 : 1.4
     if (REED_GIDS.has(gid)) p.setTerrainSpeedModifier(SHORE_SPEED_MULT)
     else p.setTerrainSpeedModifier(1.0)
   }
-
-  // ── Tap filter (called from scene._setupTapToPath) ────────────────────────
-  // Returns true if the tapped tile is a valid boat destination.
-  // Shore tiles are valid (disembark destination).
-  // Land tiles are rejected.
 
   isValidBoatTarget(tx, ty) {
     const layer0 = this.scene.mapData.layers[0]
@@ -459,6 +376,7 @@ const friction  = onReed ? 4.0 : 1.4
     p.targetY  = p.logicalY
     p.startX   = p.logicalX
     p.startY   = p.logicalY
+    p.moveProgress = 0
     pgr._boatDrifting = false
     pgr._boatWorldX   = null
     pgr._boatWorldY   = null
@@ -489,14 +407,11 @@ const friction  = onReed ? 4.0 : 1.4
     if (!p || !pgr) return
 
     const spd = Math.hypot(this._vx ?? 0, this._vy ?? 0)
-    if (spd < 8) return   // no ripples when nearly still
+    if (spd < 8) return
 
-    // Spawn behind the boat -- opposite to velocity direction
-    const normX = spd > 0 ? (this._vx ?? 0) / spd : 0
-    const normY = spd > 0 ? (this._vy ?? 0) / spd : 0
-    const ts    = this.scene.tileSize
-
-    // Offset behind boat in logical space, with slight random spread
+    const normX  = spd > 0 ? (this._vx ?? 0) / spd : 0
+    const normY  = spd > 0 ? (this._vy ?? 0) / spd : 0
+    const ts     = this.scene.tileSize
     const spread = 6
     const ox = -normX * ts * 0.4 + (Math.random() - 0.5) * spread
     const oy = -normY * ts * 0.4 + (Math.random() - 0.5) * spread
@@ -504,7 +419,6 @@ const friction  = onReed ? 4.0 : 1.4
     const proj = pgr._projectLogical(p.logicalX + ox, p.logicalY + oy, true)
     if (!proj) return
 
-    // Size scales with speed
     const size  = 4 + Math.min(spd / 20, 3) + Math.random() * 3
     const alpha = 0.5 + Math.min(spd / 120, 0.4)
 
@@ -524,7 +438,6 @@ const friction  = onReed ? 4.0 : 1.4
     ].join(';')
     document.body.appendChild(el)
 
-    // Expand outward and fade
     setTimeout(() => {
       el.style.transform = `scale(${1.8 + Math.random() * 0.8})`
       el.style.opacity = '0'

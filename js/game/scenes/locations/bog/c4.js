@@ -1,4 +1,4 @@
-import BogLocationScene from './bogLocationScene.js'
+import BogLocationScene from '../bogScene.js'
 
 export default class BogC4 extends BogLocationScene {
   constructor() { super({ key: 'c4' }) }

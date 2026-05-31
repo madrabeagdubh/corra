@@ -1,4 +1,4 @@
-import BogLocationScene from './bogLocationScene.js'
+import BogLocationScene from '../bogScene.js'
 
 export default class LakeOfShadows extends BogLocationScene {
   constructor() { super({ key: 'Lake_Of_Shadows' }) }

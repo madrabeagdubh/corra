@@ -1,4 +1,4 @@
-import BogLocationScene from './bogLocationScene.js'
+import BogLocationScene from '../bogScene.js'
 
 export default class FortressOfBlood extends BogLocationScene {
   constructor() { super({ key: 'Fortress_Of_Blood' }) }

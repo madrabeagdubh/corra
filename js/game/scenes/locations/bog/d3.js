@@ -1,7 +1,7 @@
 import { GameState } from '../../../systems/gameState.js'
-import BogLocationScene from './bogLocationScene.js'
+import RiverScene from '../riverScene.js'
 
-export default class BogD3 extends BogLocationScene {
+export default class BogD3 extends RiverScene {
   constructor() { super({ key: 'd3' }) }
   getMapKey()      { return 'd3' }
   getAmbient()     { return 0x1a2a2a }

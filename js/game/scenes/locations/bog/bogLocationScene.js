@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 import { createStatusBar } from '../../../ui/statusBar.js'
 import BoatSystem from '../../../systems/boatSystem.js'
- 
+import ElevationRenderer from '../../../systems/elevationRenderer.js'
+
 import BaseLocationScene from '../baseLocationScene.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import WorldMenu from '../../../ui/worldMenu.js'
@@ -49,13 +50,15 @@ export default class BogLocationScene extends BaseLocationScene {
   getSkyPosition()         { return '50% 50%' }
   getMountainImage()       { return '/assets/thresholdMountains.png' }
   getMountainPosition()    { return '50% 100%' }
-get _joyY() {
-  const canvasRect = this.game?.canvas?.getBoundingClientRect()
-  const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
-  if (!canvasRect || !statusRect) return this.scale.height - 80
-  const scaleY = this.scale.height / canvasRect.height
-  return (statusRect.top - canvasRect.top) * scaleY - 60
-}
+
+  get _joyY() {
+    const canvasRect = this.game?.canvas?.getBoundingClientRect()
+    const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
+    if (!canvasRect || !statusRect) return this.scale.height - 80
+    const scaleY = this.scale.height / canvasRect.height
+    return (statusRect.top - canvasRect.top) * scaleY - 60
+  }
+
   init(data) {
     this.entryData = data || {}
     this._exiting  = false
@@ -205,7 +208,7 @@ get _joyY() {
       console.error(`[${this.scene.key}] Map not found at /maps/bogMaps/${key}.json`)
       return
     }
-	  window._phaserAudioContext = this.sound.context
+    window._phaserAudioContext = this.sound.context
 
     await this._loadContent()
 
@@ -215,6 +218,28 @@ get _joyY() {
     this.usePerspective = true
     this.drawTilemap()
 
+    // ── ElevationRenderer ─────────────────────────────────────────────────
+    // Wires up 3D cliff/plateau rendering for maps with hasCliffs:true.
+    // Must be created AFTER drawTilemap() (which creates perspectiveGround)
+    // and called BEFORE perspectiveGround.update() each frame.
+    //
+    // To use on a new map, copy this block and adjust the config:
+    //   cliffGids    — layer 1 GIDs marking the cliff edge
+    //   cliffFaceGid — sprite GID for the vertical cliff face texture
+    //   elevatedGids — layer 0 GIDs that sit on the plateau
+    //   cliffSouth   — layer 0 GIDs forming the cliff toe (shore/water/void)
+    //   cliffHeight  — height in tile units (1.0 = one full tile)
+    // See js/game/systems/PGR_ARCHITECTURE.md for full documentation.
+    if (this.mapData.hasCliffs && this.perspectiveGround) {
+      this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, {
+        cliffGids:    new Set([740]),
+        cliffFaceGid: 740,
+        elevatedGids: new Set([839, 840]),
+        cliffSouth:   new Set([731, 1625, 1679]),
+        cliffHeight:  1.0,
+      })
+    }
+
     this.mapData.tiles           = this.mapData.layers[0]
     this.mapData.unwalkableTiles = []
 
@@ -223,13 +248,8 @@ get _joyY() {
     }
     if (!this.mapData.exits) this.mapData.exits = {}
 
-    // Input UI first -- creates this.joystick so base class skips its plain one
     this._createInputUI()
-
-    // Creates player, uses this.joystick if it already exists
     this.initializeLocation()
-
-    // Player UI -- needs player to exist
     this._createPlayerUI()
 
     if (this.perspectiveGround) {
@@ -245,19 +265,17 @@ get _joyY() {
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
-this.walkGrid   = this._buildWalkGrid()
-    this.boatSystem = new BoatSystem(this)   // dormant until activate() called
+    this.walkGrid   = this._buildWalkGrid()
+    this.boatSystem = new BoatSystem(this)
 
     this.fovSystem  = new FovSystem(this.walkGrid)
-this.pathFinder = new PathFinder(this.walkGrid, null)
-    // this.fogRenderer = new FogRenderer(this.perspectiveGround)
+    this.pathFinder = new PathFinder(this.walkGrid, null)
 
     this._lastFovKey = null
     this._recomputeFov()
     this._setupTapToPath()
 
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
-    // Champions have no .id field -- use nameGa as unique identifier
     const _cid = champion?.id ?? champion?.nameGa ?? champion?.spriteKey
     if (_cid) GameState.init(_cid)
     GameState.setVisited(this.scene.key)
@@ -286,7 +304,8 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     this._drawExitDebug()
   }
 
-  // ── Input UI -- no player needed -----------------------------------------
+  // ── Input UI ──────────────────────────────────────────────────────────────
+
   _createInputUI() {
     this._easca = new Easca3(this, (text) => {
       console.log('[Labhair] Player said:', text)
@@ -299,7 +318,6 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
       onLabhairtClose:  () => { this._easca?.hideKeyboard() },
     })
 
-    // Preview overlay -- completely separate from gameMenuHub
     const existingPreview = document.getElementById('menu-preview-overlay')
     if (existingPreview) existingPreview.parentNode?.removeChild(existingPreview)
 
@@ -315,9 +333,8 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     ].join('')
     document.body.appendChild(this._menuPreview)
 
-   this._statusBar = createStatusBar(document.getElementById('gameContainer'))
-//
-    // -- Calculate joyY from status bar position in canvas coords ------------
+    this._statusBar = createStatusBar(document.getElementById('gameContainer'))
+
     const canvas     = this.game.canvas
     const canvasRect = canvas.getBoundingClientRect()
     const scaleY     = this.scale.height / canvasRect.height
@@ -327,7 +344,7 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
       : this.scale.height - 42
 
     const joyX = this.scale.width / 2
-    const joyY = statusTopInCanvas - 60  // 60 = joystick radius, bottom of dpad touches status bar top
+    const joyY = statusTopInCanvas - 60
     const joyR = 60
 
     this.joystick = new Joystick(this, {
@@ -375,95 +392,83 @@ this.pathFinder = new PathFinder(this.walkGrid, null)
     })
   }
 
-
-  // ── Player UI -- needs player ---------------------------------------------
+  // ── Player UI ─────────────────────────────────────────────────────────────
 
   _createPlayerUI() {
     this.worldMenu       = new WorldMenu(this, { player: this.player, onClose: () => { if (this._menuHub?.isOpen()) this._menuHub.close(); this._lastMenuClose = Date.now() } })
     this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
 
-  // ── Tap to path ----------------------------------------------------------
-_setupTapToPath() {
-  const canvas = this.game.canvas
-  canvas.addEventListener('pointerdown', (e) => {
-    const rect    = canvas.getBoundingClientRect()
-    const scaleX  = canvas.width  / rect.width
-    const scaleY  = canvas.height / rect.height
-    const canvasX = (e.clientX - rect.left) * scaleX
-    const canvasY = (e.clientY - rect.top)  * scaleY
+  // ── Tap to path ───────────────────────────────────────────────────────────
 
-    // Circular deadzone around dpad
-    const joyX = this.scale.width / 2
-    const joyY = this._joyY
-    const joyR = 100
-    const dx   = canvasX - joyX
-    const dy   = canvasY - joyY
-    if (dx * dx + dy * dy < joyR * joyR) return
+  _setupTapToPath() {
+    const canvas = this.game.canvas
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect    = canvas.getBoundingClientRect()
+      const scaleX  = canvas.width  / rect.width
+      const scaleY  = canvas.height / rect.height
+      const canvasX = (e.clientX - rect.left) * scaleX
+      const canvasY = (e.clientY - rect.top)  * scaleY
 
-    if (this.textPanel?.isVisible) return
-    if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return
-    if (!this.perspectiveGround) return
-    if (this._bowAiming) return
+      const joyX = this.scale.width / 2
+      const joyY = this._joyY
+      const joyR = 100
+      const dx   = canvasX - joyX
+      const dy   = canvasY - joyY
+      if (dx * dx + dy * dy < joyR * joyR) return
 
+      if (this.textPanel?.isVisible) return
+      if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return
+      if (!this.perspectiveGround) return
+      if (this._bowAiming) return
 
+      const tile = PathFinder.screenToTile(
+        canvasX, canvasY,
+        this.perspectiveGround,
+        this.tileSize
+      )
+      if (!tile) return
 
-
-const tile = PathFinder.screenToTile(
-      canvasX, canvasY,
-      this.perspectiveGround,
-      this.tileSize
-    )
-    if (!tile) return
-
-    // In boat: reject taps on land tiles; only water + shore are valid
-    if (this.player?.inBoat && this.boatSystem) {
-      if (!this.boatSystem.isValidBoatTarget(tile.tx, tile.ty)) return
-    }
-    if (!this.player?.inBoat) {
-      const pgr = this.perspectiveGround
-      const ts  = this.tileSize
-      if (pgr?._boatWorldX != null) {
-        const boatTX = Math.round(pgr._boatWorldX / ts)
-        const boatTY = Math.round(pgr._boatWorldY / ts)
-        if (tile.tx === boatTX && tile.ty === boatTY) {
-          if (this.walkGrid[boatTY]) this.walkGrid[boatTY][boatTX] = true
+      if (this.player?.inBoat && this.boatSystem) {
+        if (!this.boatSystem.isValidBoatTarget(tile.tx, tile.ty)) return
+      }
+      if (!this.player?.inBoat) {
+        const pgr = this.perspectiveGround
+        const ts  = this.tileSize
+        if (pgr?._boatWorldX != null) {
+          const boatTX = Math.round(pgr._boatWorldX / ts)
+          const boatTY = Math.round(pgr._boatWorldY / ts)
+          if (tile.tx === boatTX && tile.ty === boatTY) {
+            if (this.walkGrid[boatTY]) this.walkGrid[boatTY][boatTX] = true
+          }
         }
       }
-    }
 
+      const _dbgRow = this.perspectiveGround._perspCamRow()
+      console.log('[tap] tile:', tile.tx, tile.ty, 'canvasXY:', Math.round(canvasX), Math.round(canvasY), 'camRow:', _dbgRow.toFixed(2), 'horizPx:', this.perspectiveGround._horizonPx())
+      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
+      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
+      const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
+      if (path.length > 0) {
+        this.player.setPath(path)
+        this._flashTargetTile(tile.tx, tile.ty)
+      }
+    })
+  }
 
+  // ── Moon tap ──────────────────────────────────────────────────────────────
 
-    const _dbgRow = this.perspectiveGround._perspCamRow()
-    console.log('[tap] tile:', tile.tx, tile.ty, 'canvasXY:', Math.round(canvasX), Math.round(canvasY), 'camRow:', _dbgRow.toFixed(2), 'horizPx:', this.perspectiveGround._horizonPx())
-    const fromTX = Math.floor(this.player.logicalX / this.tileSize)
-    const fromTY = Math.floor(this.player.logicalY / this.tileSize)
-    const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
-    if (path.length > 0) {
-      this.player.setPath(path)
-      this._flashTargetTile(tile.tx, tile.ty)
-    }
-  })
-}
-
-  // ── Moon tap -------------------------------------------------------------
-
-_flashTargetTile(tx, ty) {
+  _flashTargetTile(tx, ty) {
     const _c = this.sound?.context
     if (_c) SoundBoard.playWeb("TAP_TO_PATH", _c)
     if (!this.perspectiveGround) return
     const ts   = this.tileSize
-    const lx   = tx * ts + ts / 2
-    const ly   = ty * ts + ts / 2
-    const proj = this.perspectiveGround._projectLogical(lx, ly)
+    const proj = this.perspectiveGround._projectLogical(tx * ts + ts / 2, ty * ts + ts / 2)
     if (!proj) return
     if (this._tapMarker) { this._tapMarker.destroy(); this._tapMarker = null }
     const g = this.add.graphics().setScrollFactor(0).setDepth(15)
     this._tapMarker = g
-    // Snap to tile centre — project the exact tile centre
-    const snapLx  = tx * ts + ts / 2
-    const snapLy  = ty * ts + ts / 2
-    const snapProj = this.perspectiveGround._projectLogical(snapLx, snapLy)
+    const snapProj = this.perspectiveGround._projectLogical(tx * ts + ts / 2, ty * ts + ts / 2)
     if (!snapProj) { g.destroy(); return }
     const cx = snapProj.screenX
     const cy = snapProj.screenY
@@ -475,7 +480,6 @@ _flashTargetTile(tx, ty) {
         g.clear()
         scale = Math.min(1, scale + 0.05)
         alpha = Math.max(0, alpha - 0.045)
-        // Squash ellipse to match ground plane perspective
         const squash = snapProj.scale ? Math.min(0.45, snapProj.scale * 0.8) : 0.35
         g.lineStyle(2, 0xffd700, alpha)
         g.strokeEllipse(cx, cy, r * scale * 2, r * scale * squash * 2)
@@ -487,49 +491,38 @@ _flashTargetTile(tx, ty) {
   }
 
   _onMoonTap() {
-  const now = Date.now()
-  if (now - (this._lastMoonTap || 0) < 700) return
-  this._lastMoonTap = now
+    const now = Date.now()
+    if (now - (this._lastMoonTap || 0) < 700) return
+    this._lastMoonTap = now
 
-  // Disembark takes priority when badge is showing
-  if (this._encounterPanel?._card?.id === 'disembark') {
-    // encounterPanel badge pointerdown already called _doDisembark -- just clear state
-    this._encounterPanel.clearNotify()
-    this._disembarkBadgeShown = false
-    return
+    if (this._encounterPanel?._card?.id === 'disembark') {
+      this._encounterPanel.clearNotify()
+      this._disembarkBadgeShown = false
+      return
+    }
+    if (this._encounterPanel?._card) {
+      this._encounterPanel._openPanel()
+      return
+    }
+    if (this._menuHub?.isOpen()) {
+      this._menuHub.close()
+      return
+    }
   }
-
-  // Encounter panel takes priority
-  if (this._encounterPanel?._card) {
-    this._encounterPanel._openPanel()
-    return
-  }
-
-  // Close menu if open
-  if (this._menuHub?.isOpen()) {
-    this._menuHub.close()
-    return
-  }
-
-  // Tap does NOT open menu -- use long press for that
-} 
 
   _doDisembark() {
     const p   = this.player
     const ts  = this.tileSize
     const map = this.mapData.layers[0]
 
-    // Search from boat world position, not player logical position
     const pgr   = this.perspectiveGround
     const bx    = (pgr?._boatWorldX != null) ? pgr._boatWorldX : p.logicalX
     const by    = (pgr?._boatWorldY != null) ? pgr._boatWorldY : p.logicalY
     const tileX = Math.floor(bx / ts)
     const tileY = Math.floor(by / ts)
 
-    // Land = anything that is not water (1625,1679) or reeds (731)
     const isPassable = (g) => g === 1625 || g === 1679 || g === 731 || g === 0
 
-    // Search expanding rings for nearest land tile
     let landTile = null
     outer: for (let r = 1; r <= 5; r++) {
       for (let dy = -r; dy <= r; dy++) {
@@ -539,45 +532,32 @@ _flashTargetTile(tx, ty) {
           if (ty < 0 || ty >= this.mapData.height) continue
           if (tx < 0 || tx >= this.mapData.width) continue
           const gid = map[ty]?.[tx] ?? 0
-          if (!isPassable(gid)) {
-            landTile = { tx, ty }
-            break outer
-          }
+          if (!isPassable(gid)) { landTile = { tx, ty }; break outer }
         }
       }
     }
 
-    // Capture boat's reed position BEFORE deactivate() overwrites it with player pos
     const boatLX = bx
     const boatLY = by
+    const lx = landTile ? landTile.tx * ts + ts / 2 : p.logicalX
+    const ly = landTile ? landTile.ty * ts + ts / 2 : p.logicalY
 
-    const lx = landTile
-      ? landTile.tx * ts + ts / 2
-      : p.logicalX
-    const ly = landTile
-      ? landTile.ty * ts + ts / 2
-      : p.logicalY
-
-    // Trigger disembark (deactivate sets pgr._boatWorldX/Y from player pos)
     this.boatSystem._triggerDisembark(false)
 
-    // Override boat world position to the reed tile where the hull actually is
     const pgr2 = this.perspectiveGround
     if (pgr2) {
-      pgr2._boatWorldX  = boatLX
-      pgr2._boatWorldY  = boatLY
-      pgr2._boatDrifting = true
-      pgr2._boatDriftSpeed = 0     // moored in reeds -- visible but no movement
+      pgr2._boatWorldX     = boatLX
+      pgr2._boatWorldY     = boatLY
+      pgr2._boatDrifting   = true
+      pgr2._boatDriftSpeed = 0
     }
 
-    // Persist boat reed position so it survives map transitions
     const _mapKey = this.getMapKey?.() ?? this.scene.key
     const _btx = Math.floor(boatLX / ts)
     const _bty = Math.floor(boatLY / ts)
     GameState.setBoatPosition(_mapKey, _btx, _bty)
     console.log(`[disembark] boat saved at [${_btx},${_bty}] on ${_mapKey}`)
 
-    // Snap player to land after deactivate settles
     this.time.delayedCall(500, () => {
       if (!this.player) return
       this.player.logicalX = lx
@@ -597,7 +577,7 @@ _flashTargetTile(tx, ty) {
     this._lastMenuClose = Date.now()
   }
 
-  // ── Walk grid / FOV -------------------------------------------------------
+  // ── Walk grid / FOV ───────────────────────────────────────────────────────
 
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
@@ -627,21 +607,18 @@ _flashTargetTile(tx, ty) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
     if (ty < 0 || ty >= this.mapData.height || tx < 0 || tx >= this.mapData.width) return true
-    // In boat: only water (1625,1679) and reeds (731) are passable
     if (this.player?.inBoat) {
       const _g = this.mapData.layers[0]?.[ty]?.[tx]
       if (_g === 1625 || _g === 1679 || _g === 731) return false
-      return true   // land blocks boat
+      return true
     }
     const extra = this.getExtraUnwalkableGIDs()
     const g0 = this.mapData.layers[0]?.[ty]?.[tx]
     if (ALWAYS_UNWALKABLE.has(g0) || extra.has(g0)) return true
     const g1 = this.mapData.layers[1]?.[ty]?.[tx]
     if (g1 && (ALWAYS_UNWALKABLE.has(g1) || extra.has(g1))) return true
-    // Map edge collision
     const W = this.mapData.width, H = this.mapData.height
     const border = this.mapData.border
-    // Outer border: void tiles, only passable at exit corridor
     const onOuter = tx===0 || tx===W-1 || ty===0 || ty===H-1
     if (onOuter) {
       if (!border) return true
@@ -692,7 +669,6 @@ _flashTargetTile(tx, ty) {
     this.time.delayedCall(180, () => {
       cam.startFollow(this._camProxy, true, 0.1, 0.1)
     })
-    // arrivedAt timestamp in entryData handles the exit cooldown
     console.log(`[${this.scene.key}] entry via ${edge} -- tile [${entryX}, ${entryY}]`)
   }
 
@@ -801,16 +777,14 @@ _flashTargetTile(tx, ty) {
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded`)
   }
 
- 
+  // ── Update ────────────────────────────────────────────────────────────────
 
-
-
-update(time, delta) {
+  update(time, delta) {
+    // ElevationRenderer MUST run before perspectiveGround so _elev is current
+    if (this.elevationRenderer) this.elevationRenderer.update(this.mapData)
     if (this.perspectiveGround) this.perspectiveGround.update()
     if (this.boatSystem) this.boatSystem.update(delta)
     super.update(time, delta)
-
-
 
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
@@ -827,6 +801,8 @@ update(time, delta) {
     if (this.bowMechanics) this.bowMechanics.update(delta)
   }
 
+  // ── Shutdown ──────────────────────────────────────────────────────────────
+
   shutdown() {
     if (this._encounterPanel) { this._encounterPanel.destroy(); this._encounterPanel = null }
     if (this._moonWidget)     { this._moonWidget.destroy();     this._moonWidget     = null }
@@ -837,16 +813,15 @@ update(time, delta) {
       this._menuPreview.parentNode.removeChild(this._menuPreview)
       this._menuPreview = null
     }
-    if (this._swallows) { this._swallows.stop(); this._swallows = null }
-    if (this.perspectiveGround) { this.perspectiveGround.destroy(); this.perspectiveGround = null }
-    if (this.fogRenderer)    { this.fogRenderer.destroy();   this.fogRenderer   = null }
-    if (this.itemSheet)      { this.itemSheet.clear();       this.itemSheet     = null }
-    if (this.bowMechanics)   { this.bowMechanics.destroy();  this.bowMechanics  = null }
-  
-if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = null }
+    if (this._swallows)         { this._swallows.stop();              this._swallows         = null }
+    if (this.perspectiveGround) { this.perspectiveGround.destroy();   this.perspectiveGround = null }
+    if (this.elevationRenderer) { this.elevationRenderer.destroy();   this.elevationRenderer = null }
+    if (this.fogRenderer)       { this.fogRenderer.destroy();         this.fogRenderer       = null }
+    if (this.itemSheet)         { this.itemSheet.clear();             this.itemSheet         = null }
+    if (this.bowMechanics)      { this.bowMechanics.destroy();        this.bowMechanics      = null }
+    if (this.boatSystem)        { this.boatSystem.destroy();          this.boatSystem        = null }
 
-
-  if (this._statusBar?.parentNode) {
+    if (this._statusBar?.parentNode) {
       this._statusBar.parentNode.removeChild(this._statusBar)
       this._statusBar = null
     }
@@ -855,6 +830,8 @@ if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = nu
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
   }
+
+  // ── Tilemap ───────────────────────────────────────────────────────────────
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
@@ -874,8 +851,8 @@ if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = nu
     }
 
     for (let li = 0; li < this.mapData.layers.length; li++) {
-
-if (this.usePerspective && li <= 3) continue
+      // Layers 0-3 are handled by PerspectiveGroundRenderer + ElevationRenderer
+      if (this.usePerspective && li <= 3) continue
 
       if (li === 0) {
         const grassFrame = ensureFrame(732)
@@ -910,7 +887,6 @@ if (this.usePerspective && li <= 3) continue
       this.perspectiveGround = new PerspectiveGroundRenderer(this)
       const skyUrl = this.getSkyImage()
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
-      // Always recreate swallows with current map key
       if (this._swallows) { this._swallows.stop(); this._swallows = null }
       this._swallows = new SwallowSystem(
         () => PerspectiveGroundRenderer.HORIZON_Y_FRAC,
@@ -928,6 +904,7 @@ if (this.usePerspective && li <= 3) continue
       }
     }
   }
+
   _drawExitDebug() {
     if (!window._devExits) return
     if (!this.mapData?.exits) return
@@ -951,16 +928,12 @@ if (this.usePerspective && li <= 3) continue
     }
   }
 
+  // ── Shared boat restore ───────────────────────────────────────────────────
 
-
-  // ── Shared boat restore for all river maps ───────────────────────────────
-  // Call from onEnter() in any river map scene.
-  // Restores moored boat from GameState, or activates if arriving by boat.
   _restoreBoatOnEnter(opts = {}) {
     const { activateIfNoSave = false } = opts
     const mapKey = this.getMapKey?.() ?? this.scene.key
     this.time.delayedCall(500, () => {
-      // Read INSIDE the delay so GameState.init() has already run
       const saved = GameState.getBoatPosition(mapKey)
       console.log(`[_restoreBoatOnEnter] mapKey=${mapKey} saved=`, saved)
       if (!this.boatSystem || !this.perspectiveGround) return
@@ -989,13 +962,13 @@ if (this.usePerspective && li <= 3) continue
   }
 
   // ── Exits ─────────────────────────────────────────────────────────────────
+
   checkExits() {
     if (!this.mapData?.exits) return
     if (this._exiting) return
     if (this.entryData?.arrivedAt && Date.now() - this.entryData.arrivedAt < 900) return
     const tileX = Math.floor(this.player.logicalX / this.tileSize)
     const tileY = Math.floor(this.player.logicalY / this.tileSize)
-    if (tileX >= this.mapData.width - 2) console.log('[exit] tileX:', tileX, 'tileY:', tileY, 'logicalX:', this.player.logicalX, 'tileSize:', this.tileSize)
     for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
       if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
         console.log(`[${this.scene.key}] exit -> ${exitData.destination} via ${dir}`)
@@ -1013,14 +986,11 @@ if (this.usePerspective && li <= 3) continue
     const T  = this.tileSize
     const px = this.player.logicalX
     const py = this.player.logicalY
-
-    // Capture source tile BEFORE walk-off moves the player
     const sourceTileX = Math.floor(px / T)
     const sourceTileY = Math.floor(py / T)
 
     const WALK = T * 3
     const DUR  = 320
-
     let tx = px, ty = py
     if (dir === 'west')  tx = px - WALK
     if (dir === 'east')  tx = px + WALK
@@ -1056,20 +1026,13 @@ if (this.usePerspective && li <= 3) continue
   }
 
   _addExitBlooms() {
-    if (!this.mapData?.exits) return
-    if (!this.perspectiveGround) return
-
-    // Build arrow canvases and register with PGR as billboard markers
+    if (!this.mapData?.exits || !this.perspectiveGround) return
     const exitMarkers = []
     for (const [dir, exitData] of Object.entries(this.mapData.exits)) {
-      const tiles  = exitData.tiles
-      const mid    = tiles[Math.floor(tiles.length / 2)]
-      // Place marker ON the exit tile (the visible protruding tile)
-      let tx = mid[0], ty = mid[1]
-
-      exitMarkers.push({ tileX: tx, tileY: ty, dir })
+      const tiles = exitData.tiles
+      const mid   = tiles[Math.floor(tiles.length / 2)]
+      exitMarkers.push({ tileX: mid[0], tileY: mid[1], dir })
     }
-
     this.perspectiveGround.setExitMarkers(exitMarkers)
   }
 }

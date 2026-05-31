@@ -1,28 +1,32 @@
-// PerspectiveGroundRenderer.js  (v8 + elevation) -- VERSION 2b
+// PerspectiveGroundRenderer.js  (v8.2 — modular elevation)
+// Location: js/game/effects/perspectiveGroundRenderer.js
 //
-// Two-canvas architecture:
-//   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
-//   pgr-objects  z-index:2  -- layer 1 tiles as upright billboards + player
-//   pgr-light    z-index:3  -- radial gradient lighting overlay (DOM div)
+// ── Architecture ─────────────────────────────────────────────────────────────
+// This file is the CORE RENDERER only. It handles:
+//   • Two-canvas DOM setup (pgr-ground z:2, pgr-objects z:3, pgr-light z:4)
+//   • Perspective projection math (_rowToScreenY, _scaleAtRow, _colToScreenX)
+//   • Ground tile rendering (layer 0 trapezoid warping, water animation, tinting)
+//   • Layer 1 billboard rendering (trees, encounter flags, exit markers)
+//   • Layer 2/3 elevated tile rendering (reads this._elev set by ElevationRenderer)
+//   • Player and boat rendering (_drawPlayerAnimated)
 //
-// Phaser canvas sits at z-index:10 -- UI, joystick, inventory all unaffected.
+// ── Related modules ───────────────────────────────────────────────────────────
+//   js/game/systems/elevationRenderer.js  — builds this._elev, draws cliff faces
+//   js/game/systems/playerRenderer.js     — utilities for enemy/NPC rendering
+//   js/game/systems/PGR_ARCHITECTURE.md   — full integration guide
+//
+// ── Elevation ─────────────────────────────────────────────────────────────────
+// Elevation data (this._elev) is set externally by ElevationRenderer.
+// ElevationRenderer.update(mapData) must be called BEFORE pgr.update() each frame.
+// Maps without ElevationRenderer render flat — zero overhead.
+//
+// The static CLIFF_GIDS / ELEVATED_GIDS / CLIFF_HEIGHT constants below are kept
+// as readable defaults. ElevationRenderer accepts its own config object so
+// different maps can use different GIDs and heights without touching this file.
+//
+// ── Phaser canvas ─────────────────────────────────────────────────────────────
+// Phaser canvas sits at z-index:10 — UI, joystick, inventory all unaffected.
 // Player's Phaser sprite is hidden; PGR owns all player rendering.
-//
-// Encounter flags are rendered as billboards or flat tiles by the PGR.
-// Proximity detection uses logicalX/Y pixel coords in BaseLocationScene.
-// Register flags via setEncounterFlags(). Clear via clearEncounterFlag().
-//
-// ELEVATION (v8.1)
-// ────────────────
-// Per-tile visual elevation lifts ground tiles upward in perspective and
-// draws a vertical cliff face where elevated ground meets sea level.
-// Walk grid is unchanged — elevation is purely visual.
-//
-// To extend to other maps:
-//   • Add GIDs to CLIFF_GIDS that mark the south-facing cliff edge.
-//   • Add GIDs to ELEVATED_GIDS for plateau surface tiles.
-//   • Adjust CLIFF_HEIGHT (in tile-height units; 1.0 = one full tile tall).
-//   • CLIFF_FACE_GID is the sprite used to texture the vertical face.
 
 import { TintManager } from './tintManager.js'
 
@@ -698,78 +702,9 @@ export default class PerspectiveGroundRenderer {
   }
 
   // ── Elevation helpers ─────────────────────────────────────────────────────
-
-  /**
-   * Build this._elev[row][col] from layer 0.
-   *
-   * Rules:
-   *  • CLIFF_GIDS tiles          → elevation = CLIFF_HEIGHT
-   *  • Any tile NORTH of (lower row index than) a cliff tile in the same
-   *    column that is also in ELEVATED_GIDS → elevation = CLIFF_HEIGHT
-   *  • Everything else           → 0
-   *
-   * Called once per unique layer0 array reference; result is cached via
-   * this._elevMapId.
-   */
-  _buildElevationMap(layer0, layer1) {
-    const mapH = layer0.length
-    const mapW = layer0[0].length
-    const CH   = PerspectiveGroundRenderer.CLIFF_HEIGHT
-
-    // Detect cliff edges: southernmost ELEVATED_GID tile per column whose
-    // immediate southern neighbour is shore (731) or water (1625/1679).
-    // Only runs on maps with hasCliffs:true — no heuristics needed.
-    const CLIFF_SOUTH = new Set([731, 1625, 1679])
-    const firstCliffRow = new Array(mapW).fill(Infinity)
-    for (let c = 0; c < mapW; c++) {
-      for (let r = mapH - 2; r >= 0; r--) {
-        const here  = layer0[r][c]
-        const south = layer0[r + 1][c]
-        if (PerspectiveGroundRenderer.ELEVATED_GIDS.has(here) &&
-            CLIFF_SOUTH.has(south)) {
-          firstCliffRow[c] = r
-          break   // southernmost only
-        }
-      }
-    }
-
-    // Also find south plateau cliff edges: northernmost grass→shore per column
-    // (grass is SOUTH of water — elevated tiles that the player stands on,
-    //  visible as a plateau from the north/sea side)
-    const lastCliffRow = new Array(mapW).fill(-Infinity)
-    for (let c = 0; c < mapW; c++) {
-      for (let r = 1; r < mapH; r++) {
-        const here  = layer0[r][c]
-        const north = layer0[r - 1]?.[c] ?? 0
-        if (PerspectiveGroundRenderer.ELEVATED_GIDS.has(here) &&
-            CLIFF_SOUTH.has(north)) {
-          lastCliffRow[c] = r
-          break   // northernmost only
-        }
-      }
-    }
-
-    this._elev = []
-    for (let r = 0; r < mapH; r++) {
-      this._elev[r] = new Float32Array(mapW)
-      for (let c = 0; c < mapW; c++) {
-        const gid = layer0[r][c]
-        if (!PerspectiveGroundRenderer.ELEVATED_GIDS.has(gid)) continue
-
-        // North plateau: tile is at or north of the south-facing cliff edge
-        if (firstCliffRow[c] < Infinity && r <= firstCliffRow[c]) {
-          this._elev[r][c] = CH
-        }
-        // South plateau tiles are behind the camera and cannot use the north
-        // plateau elevation formula (which pushes tiles toward the horizon).
-        // They are handled visually by layer 3 back faces only.
-        // Do NOT set _elev for south plateau — leave at 0.
-      }
-    }
-    console.log('[PGR elev] elevation map built -', mapH, 'x', mapW,
-      '| N cliff cols:', firstCliffRow.filter(v => v < Infinity).length,
-      '| S cliff cols:', lastCliffRow.filter(v => v > -Infinity).length)
-  }
+  // _buildElevationMap() has been moved to ElevationRenderer.js (systems/).
+  // PGR reads this._elev which ElevationRenderer sets each frame.
+  // See js/game/systems/ElevationRenderer.js for the full implementation.
 
   /**
    * Project a tile row to screen Y, shifted upward by `elevation` tile-heights.
@@ -1048,15 +983,23 @@ export default class PerspectiveGroundRenderer {
     const layer4 = this.scene.mapData?.layers?.[4] ?? null  // south plateau grass caps
     if (!layer0) return
 
-    // ── Build elevation map lazily (once per map load) ────────────────────
-    // Only maps that explicitly declare hasCliffs:true get elevation.
-    if (!this._elev || this._elevMapId !== layer0) {
-      if (this.scene.mapData?.hasCliffs) {
-        this._buildElevationMap(layer0, layer1)
-      } else {
-        this._elev = null
+    // ── Elevation map ────────────────────────────────────────────────────────
+    // this._elev is set externally by ElevationRenderer (js/game/systems/).
+    // ElevationRenderer.update(mapData) must be called BEFORE pgr.update()
+    // each frame for elevation to work.
+    //
+    // If ElevationRenderer is not present (flat map), this._elev stays null
+    // and all elevation code paths are safely skipped.
+    //
+    // For backwards compatibility: if _elev is null and the map declares
+    // hasCliffs, log a warning so it's easy to diagnose a missing ElevationRenderer.
+    if (!this._elev && this.scene.mapData?.hasCliffs) {
+      if (!this._elevWarnedOnce) {
+        this._elevWarnedOnce = true
+        console.warn('[PGR] hasCliffs map but no ElevationRenderer found. ' +
+          'Add: this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, config) ' +
+          'and call this.elevationRenderer.update(this.mapData) before perspectiveGround.update().')
       }
-      this._elevMapId = layer0
     }
 
     const mapH   = layer0.length
@@ -1118,8 +1061,14 @@ export default class PerspectiveGroundRenderer {
     let playerDrawn   = false
 
     if (p) {
-      const snapX    = Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
-      const snapY    = Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      // Boat: use raw logicalX/Y for smooth sub-tile positioning.
+      // On foot: snap to tile centre to avoid perspective jitter mid-step.
+      const snapX = this._boatActive
+        ? p.logicalX
+        : Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapY = this._boatActive
+        ? p.logicalY
+        : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
       if (proj) {
         playerScreenX = proj.screenX
@@ -1415,18 +1364,18 @@ export default class PerspectiveGroundRenderer {
               const xBR3 = this._colToScreenX(tileCol + 1, tileRow + 1)
               // Draw to _oCtx so elevated tiles appear in front of player
               this._oCtx.globalAlpha = tileAlpha
-              // Elevated grass tile
+              // Elevated grass tile — expand 1px each side to close inter-tile seams
               this._drawTrapezoidTinted(this._oCtx, gid3,
-                {x: xTL3, y: eTop}, {x: xTR3, y: eTop},
-                {x: xBL3, y: eBot}, {x: xBR3, y: eBot},
+                {x: xTL3 - 1, y: eTop}, {x: xTR3 + 1, y: eTop},
+                {x: xBL3 - 1, y: eBot}, {x: xBR3 + 1, y: eBot},
                 tint3)
               // South edge connector: grass texture + same tint as the elevated tile
               if (yBotClamped > eBot) {
                 const cx3  = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-                const dx3  = Math.round(cx3 - scaledW3 / 2)
+                const dx3  = Math.round(cx3 - scaledW3 / 2) - 1
                 const dy3  = Math.round(eBot)
-                const dw3  = Math.round(scaledW3)
-                const dh3  = Math.round(yBotClamped - eBot)
+                const dw3  = Math.round(scaledW3) + 2
+                const dh3  = Math.round(yBotClamped - eBot) + 1
                 const img3 = this._getTileCanvas(gid3)
                 if (img3) {
                   this._oCtx.drawImage(img3, dx3, dy3, dw3, dh3)
@@ -1442,6 +1391,47 @@ export default class PerspectiveGroundRenderer {
                   }
                 }
               }
+              // Side faces: fill gap where this tile has no layer3 neighbour
+              const hasLeft3  = !!(layer3[tileRow]?.[tileCol - 1])
+              const hasRight3 = !!(layer3[tileRow]?.[tileCol + 1])
+
+              const sideColor = tint3
+                ? `hsl(${tint3.h},${Math.round(tint3.s * 0.6)}%,${Math.max(tint3.l - 15, 5)}%)`
+                : '#2a4020'
+
+              // Side gap fill: only draw the side facing toward screen center.
+              // Right side visible when tile is left of center; left side when right of center.
+              const tileCenterX = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+              const screenCenter = this._sw / 2
+
+              if (!hasRight3 && tileCenterX < screenCenter) {
+                this._oCtx.save()
+                this._oCtx.globalAlpha = tileAlpha * 0.88
+                this._oCtx.fillStyle = sideColor
+                this._oCtx.beginPath()
+                this._oCtx.moveTo(xTR3, eTop)
+                this._oCtx.lineTo(xBR3, eBot)
+                this._oCtx.lineTo(xBR3, yBotClamped)
+                this._oCtx.lineTo(xTR3, yTopClamped)
+                this._oCtx.closePath()
+                this._oCtx.fill()
+                this._oCtx.restore()
+              }
+
+              if (!hasLeft3 && tileCenterX > screenCenter) {
+                this._oCtx.save()
+                this._oCtx.globalAlpha = tileAlpha * 0.88
+                this._oCtx.fillStyle = sideColor
+                this._oCtx.beginPath()
+                this._oCtx.moveTo(xTL3, eTop)
+                this._oCtx.lineTo(xBL3, eBot)
+                this._oCtx.lineTo(xBL3, yBotClamped)
+                this._oCtx.lineTo(xTL3, yTopClamped)
+                this._oCtx.closePath()
+                this._oCtx.fill()
+                this._oCtx.restore()
+              }
+
               this._oCtx.globalAlpha = 1.0
             }
           }

@@ -78,19 +78,9 @@ export default class BaseLocationScene extends Phaser.Scene {
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
 
-
-
-
-
-
-
-  if (!this.joystick) {  
-	  this.joystick = new Joystick(this, { x: 100,     y: this.scale.height - 100, radius: 60 })            }
-
-
-
-
-
+    if (!this.joystick) {
+      this.joystick = new Joystick(this, { x: 100, y: this.scale.height - 100, radius: 60 })
+    }
 
     this.textPanel = new TextPanel(this);
 
@@ -110,7 +100,6 @@ export default class BaseLocationScene extends Phaser.Scene {
       if (!d.active) return
       const proj = pgr._projectLogical(d._logicalX, d._logicalY)
       if (proj) { d.setPosition(proj.screenX, proj.screenY) }
-      // Scale by perspective
       const ts  = this.tileSize ?? 48
       const row = d._logicalY / ts - 0.5
       const sc  = pgr._scaleAtRow(row + 1) / ts * 1.5
@@ -129,7 +118,9 @@ export default class BaseLocationScene extends Phaser.Scene {
         return;
       }
 
-      if (this.joystick.force > 10) {
+      // Tile-step movement — skipped when in boat.
+      // BoatSystem.update() handles all movement via momentum when inBoat is true.
+      if (!this.player.inBoat && this.joystick.force > 10) {
         const angle = this.joystick.angle;
         let dx = 0, dy = 0;
 
@@ -150,25 +141,15 @@ export default class BaseLocationScene extends Phaser.Scene {
         if (this.isColliding(targetX, targetY)) {
           this.joystick.force = 0;
           if (this.player.isMoving) this.player.isMoving = false;
-          // Hard-stop: prevent startNewStep from running this frame
           dx = 0; dy = 0;
-        }
-
-        // Extra guard for boat: even if isColliding passed, double-check
-        // that the target tile is water or reeds (731). This catches any
-        // path that slips through isColliding on non-bog scenes.
-        if (this.player?.inBoat && (dx !== 0 || dy !== 0)) {
-          const _btx = Math.floor(targetX / this.player.tileSize)
-          const _bty = Math.floor(targetY / this.player.tileSize)
-          const _bg  = this.mapData?.layers?.[0]?.[_bty]?.[_btx] ?? 0
-          if (_bg !== 1625 && _bg !== 1679 && _bg !== 731) {
-            this.joystick.force = 0;
-            dx = 0; dy = 0;
-          }
         }
       }
 
-      this.player.update(this.player?.inBoat ? null : this.joystick);
+      // When in boat, skip player.update() entirely — BoatSystem owns all movement.
+      // Calling player.update() even with null joystick still advances tween steps.
+      if (!this.player.inBoat) {
+        this.player.update(this.joystick);
+      }
 
       if (this.terrainManager) this.terrainManager.update();
 
@@ -187,8 +168,6 @@ export default class BaseLocationScene extends Phaser.Scene {
       // Show disembark badge when boat touches dry land (not reeds)
       if (this.player?.inBoat && this.boatSystem?.active) {
         const _ts    = this.tileSize
-        // Use boat world position (not player logical) for tile detection
-        // so the highlight and badge stay locked to the hull, not a ghost position
         const _pgr   = this.perspectiveGround
         const _bx    = (_pgr?._boatWorldX != null) ? _pgr._boatWorldX : this.player.logicalX
         const _by    = (_pgr?._boatWorldY != null) ? _pgr._boatWorldY : this.player.logicalY
@@ -196,7 +175,6 @@ export default class BaseLocationScene extends Phaser.Scene {
         const _tileY = Math.floor(_by / _ts)
         const _gid   = this.mapData?.layers?.[0]?.[_tileY]?.[_tileX] ?? 0
         const _isPassable = (g) => g === 1625 || g === 1679 || g === 731 || g === 0
-        // Badge fires when boat tile or any neighbour touches land
         const _neighbours = [
           this.mapData?.layers?.[0]?.[_tileY-1]?.[_tileX] ?? 0,
           this.mapData?.layers?.[0]?.[_tileY+1]?.[_tileX] ?? 0,
@@ -213,7 +191,6 @@ export default class BaseLocationScene extends Phaser.Scene {
               null
             )
           }
-          // Pulse cyan glow on joystick ring to draw attention to badge
           this.joystick?.drawBadgeGlow?.(1)
         } else {
           if (this._disembarkBadgeShown) {
@@ -350,10 +327,6 @@ export default class BaseLocationScene extends Phaser.Scene {
 
   // ── Proximity interactions ────────────────────────────────────────────────
 
- 
-  // -- Proximity interactions -----------------------------------------------
-  // Replacement for BaseLocationScene.checkProximityInteractions()
-
   checkProximityInteractions() {
     if (this.narrativeInProgress) return;
     if (this.textPanel.isVisible || this.textPanelCooldown) return;
@@ -361,7 +334,6 @@ export default class BaseLocationScene extends Phaser.Scene {
     const playerX = this.player.logicalX;
     const playerY = this.player.logicalY;
 
-    // -- Find nearest encounter flag or fixed encounter within range --
     let nearestFlag = null;
     let nearestDist = Infinity;
     const FLAG_RADIUS = this.tileSize * 1;
@@ -391,7 +363,6 @@ export default class BaseLocationScene extends Phaser.Scene {
             ga:      text?.ga || '',
             en:      text?.en || '',
             actions: nearestFlag.getData('actions') || [],
-            // Pass dialogues so EncounterPanel can distinguish fixed encounters
             dialogues: nearestFlag.getData('dialogues') || [],
           },
           nearestFlag
@@ -399,11 +370,10 @@ export default class BaseLocationScene extends Phaser.Scene {
       }
     }
 
-    // -- All other interactables --
     this.interactables.forEach(obj => {
       const t = obj.getData('type');
-      if (t === 'encounter_flag') return;   // handled above
-      if (t === 'fixed_encounter') return;  // handled by EncounterPanel
+      if (t === 'encounter_flag') return;
+      if (t === 'fixed_encounter') return;
 
       const objX = obj.getData('logicalX') ?? obj.x;
       const objY = obj.getData('logicalY') ?? obj.y;
@@ -484,7 +454,6 @@ export default class BaseLocationScene extends Phaser.Scene {
       const item = this.droppedItems[i]
       if (!item.active || item.justDropped) continue
 
-      // Pickup when player walks onto same tile as item
       const iTileX = Math.floor(item._logicalX / ts)
       const iTileY = Math.floor(item._logicalY / ts)
       if (pTileX !== iTileX || pTileY !== iTileY) continue
@@ -513,7 +482,6 @@ export default class BaseLocationScene extends Phaser.Scene {
   // ── Item spawning ─────────────────────────────────────────────────────────
 
   spawnItemOnMap(item, x, y) {
-    // Spawn one tile south of player, projected through PGR
     const pgr   = this.perspectiveGround
     const ts    = this.tileSize ?? 48
     const logX  = this.player.logicalX

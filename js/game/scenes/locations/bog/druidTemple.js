@@ -1,4 +1,4 @@
-import BogLocationScene from './bogLocationScene.js'
+import BogLocationScene from '../bogScene.js'
 
 export default class DruidTemple extends BogLocationScene {
   constructor() { super({ key: 'Druid_Temple' }) }

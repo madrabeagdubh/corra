@@ -10,7 +10,7 @@ export default class BogD3Sea extends BogLocationScene {
   getPlayerLight()      { return { color: 0xcce8ff, intensity: 1.8, radius: 320 } }
   getWisps()            { return [] }
   getMusicTrack()       { return null }
-  getExtraUnwalkableGIDs() { return new Set() }
+  getExtraUnwalkableGIDs() { return new Set([740, 1832]) }
   getSkyImage()         { return '/assets/skies/bog_threshold_sky.png' }
   getSkyPosition()      { return '50% 60%' }
   getMountainImage()    { return null }
@@ -26,6 +26,12 @@ export default class BogD3Sea extends BogLocationScene {
           this.textures.get('boat').getSourceImage()
         )
       }
+
+      // No current drift in the estuary -- open sea, player controls
+      if (this.boatSystem) this.boatSystem._noDrift = true
+
+      // Stop swallows -- seabirds will replace them later
+      if (this._swallows) { this._swallows.stop(); this._swallows = null }
 
       // Player always arrives by boat from the west
       if (!edge || edge === 'west') {

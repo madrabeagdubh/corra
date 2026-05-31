@@ -1,4 +1,3 @@
-
 {
   "39": { "name": "fire frame 1", "flat": false },
   "40": { "name": "fire frame 2", "flat": false },
@@ -139,39 +138,15 @@
   "411": { "name": "eerie grave", "flat": false },
   "412": { "name": "pagan grave", "flat": false },
   "414": { "name": "broken grave", "flat": false },
-  "422": {
-    "name": "top left corner of oak tree in bottom right corner",
-    "flat": false
-  },
+  "422": { "name": "top left corner of oak tree in bottom right corner", "flat": false },
   "423": { "name": "top of oak tree in bottom half of tile", "flat": false },
-  "424": {
-    "name": "top right corner of oak tree in bottom left corner",
-    "flat": false
-  },
-  "425": {
-    "name": "top left corner of bog tree in bottom right corner",
-    "flat": false
-  },
-  "426": {
-    "name": "top left and right corners of bog trees in bottom half",
-    "flat": false
-  },
-  "427": {
-    "name": "top right corner of bog tree in bottom left corner",
-    "flat": false
-  },
-  "428": {
-    "name": "top left corner of withered tree in bottom right corner",
-    "flat": false
-  },
-  "429": {
-    "name": "top left and right corners of withered trees",
-    "flat": false
-  },
-  "430": {
-    "name": "top right corner of withered tree in bottom left corner",
-    "flat": false
-  },
+  "424": { "name": "top right corner of oak tree in bottom left corner", "flat": false },
+  "425": { "name": "top left corner of bog tree in bottom right corner", "flat": false },
+  "426": { "name": "top left and right corners of bog trees in bottom half", "flat": false },
+  "427": { "name": "top right corner of bog tree in bottom left corner", "flat": false },
+  "428": { "name": "top left corner of withered tree in bottom right corner", "flat": false },
+  "429": { "name": "top left and right corners of withered trees", "flat": false },
+  "430": { "name": "top right corner of withered tree in bottom left corner", "flat": false },
   "465": { "name": "foul well", "flat": false },
   "466": { "name": "well", "flat": false },
   "467": { "name": "pile of straw", "flat": true },
@@ -181,33 +156,15 @@
   "472": { "name": "green book", "flat": true },
   "473": { "name": "huge skull", "flat": false },
   "474": { "name": "cow skull", "flat": true },
-  "476": {
-    "name": "bottom left quarter of oak tree in top right corner",
-    "flat": false
-  },
+  "476": { "name": "bottom left quarter of oak tree in top right corner", "flat": false },
   "477": { "name": "bottom half of oak trees", "flat": false },
-  "478": {
-    "name": "bottom right corner of oak tree in top left corner",
-    "flat": false
-  },
-  "479": {
-    "name": "bottom left quarter of bog tree in top right corner",
-    "flat": false
-  },
+  "478": { "name": "bottom right corner of oak tree in top left corner", "flat": false },
+  "479": { "name": "bottom left quarter of bog tree in top right corner", "flat": false },
   "480": { "name": "bottom half of bog trees", "flat": false },
-  "481": {
-    "name": "bottom right corner of bog tree in top left corner",
-    "flat": false
-  },
-  "482": {
-    "name": "top left corner of withered tree in bottom right corner",
-    "flat": false
-  },
+  "481": { "name": "bottom right corner of bog tree in top left corner", "flat": false },
+  "482": { "name": "top left corner of withered tree in bottom right corner", "flat": false },
   "483": { "name": "bottom half of withered trees", "flat": false },
-  "484": {
-    "name": "bottom right corner of withered tree in top left corner",
-    "flat": false
-  },
+  "484": { "name": "bottom right corner of withered tree in top left corner", "flat": false },
   "515": { "name": "left side table", "flat": false },
   "517": { "name": "right side table", "flat": false },
   "677": { "name": "plain green tile", "flat": true },
@@ -216,6 +173,9 @@
   "733": { "name": "grassy bog tile", "flat": true },
   "735": { "name": "meadow grass tile", "flat": true },
   "740": { "name": "south facing cliff edge", "flat": false },
+  "793": { "name": "north facing cliff edge west corner", "flat": false },
+  "794": { "name": "north facing cliff edge", "flat": false },
+  "795": { "name": "north facing cliff edge east corner", "flat": false },
   "839": { "name": "plain grass tile", "flat": true },
   "840": { "name": "full grass tile with random twigs texture", "flat": true },
   "841": { "name": "99% grass tile north dither edge", "flat": true },
@@ -350,5 +310,4 @@
   "2012": { "name": "points of land southwest and northwest", "flat": true },
   "2013": { "name": "points of land northeast and southeast", "flat": true }
 }
-
 

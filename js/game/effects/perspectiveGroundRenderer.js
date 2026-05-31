@@ -1,4 +1,4 @@
- // PerspectiveGroundRenderer.js  (v8)
+// PerspectiveGroundRenderer.js  (v8 + elevation) -- VERSION 2b
 //
 // Two-canvas architecture:
 //   pgr-ground   z-index:1  -- layer 0 ground tiles (trapezoid-warped)
@@ -11,6 +11,18 @@
 // Encounter flags are rendered as billboards or flat tiles by the PGR.
 // Proximity detection uses logicalX/Y pixel coords in BaseLocationScene.
 // Register flags via setEncounterFlags(). Clear via clearEncounterFlag().
+//
+// ELEVATION (v8.1)
+// ────────────────
+// Per-tile visual elevation lifts ground tiles upward in perspective and
+// draws a vertical cliff face where elevated ground meets sea level.
+// Walk grid is unchanged — elevation is purely visual.
+//
+// To extend to other maps:
+//   • Add GIDs to CLIFF_GIDS that mark the south-facing cliff edge.
+//   • Add GIDs to ELEVATED_GIDS for plateau surface tiles.
+//   • Adjust CLIFF_HEIGHT (in tile-height units; 1.0 = one full tile tall).
+//   • CLIFF_FACE_GID is the sprite used to texture the vertical face.
 
 import { TintManager } from './tintManager.js'
 
@@ -57,13 +69,13 @@ export default class PerspectiveGroundRenderer {
   static PLAYER_DIST_TILES    = 1.2
   static FOCAL_LENGTH         = 12.0
   static HEIGHT_MULTIPLIER    = 1.2
-  static PLAYER_SCALE         = 0.7  // default; override per-instance via setPlayerScale  // default; override per-instance via setPlayerScale
+  static PLAYER_SCALE         = 0.7  // default; override per-instance via setPlayerScale
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
   static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
-static TILES_ACROSS      = 3.8
-static HORIZON_Y_FRAC    = 0.28
+  static TILES_ACROSS   = 3.8
+  static HORIZON_Y_FRAC = 0.28
   static TW         = 24
   static TH         = 24
   static MG         = 24
@@ -72,6 +84,22 @@ static HORIZON_Y_FRAC    = 0.28
 
   // How many rows/cols beyond the map edge to render fill tiles
   static EDGE_EXTEND = 6
+
+  // ── Elevation ─────────────────────────────────────────────────────────────
+  // GIDs that mark the south-facing cliff edge.  The tile itself sits at
+  // clifftop level; the cliff face is drawn hanging below it.
+  static CLIFF_GIDS      = new Set([740])
+
+  // Sprite used to texture the vertical cliff face quad.
+  static CLIFF_FACE_GID  = 740
+
+  // How tall the cliff is, in tile-height units (1.0 = one full tile).
+  static CLIFF_HEIGHT    = 1.0
+
+  // GIDs that sit on the elevated plateau (anything not in this set and
+  // not in CLIFF_GIDS stays at elevation 0).
+  static ELEVATED_GIDS   = new Set([839, 840])
+  // Shore (731) intentionally stays at 0 — it's the toe of the cliff.
 
   constructor(scene) {
     this.scene           = scene
@@ -86,6 +114,10 @@ static HORIZON_Y_FRAC    = 0.28
     this._boatScreenX     = null
     this._boatScreenY     = null
     this.tintManager = new TintManager()
+
+    // Elevation state — built lazily in update()
+    this._elev      = null
+    this._elevMapId = null
 
     if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); document.removeEventListener('fullscreenchange', this._resizeHandler); document.removeEventListener('webkitfullscreenchange', this._resizeHandler); this._resizeHandler = null }
     ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-mountain-img','pgr-fog'].forEach(id => {
@@ -156,6 +188,11 @@ static HORIZON_Y_FRAC    = 0.28
     this._debugged    = false
 
     console.log('[PGR v8] constructed -', this._sw, 'x', this._sh)
+    // VERSION 2b: log all pgr canvases in DOM to catch stale HMR instances
+    setTimeout(() => {
+      const all = document.querySelectorAll('[id^=pgr-]')
+      console.log('[PGR v8] DOM pgr elements after construct:', [...all].map(e => e.id + '@z' + e.style.zIndex))
+    }, 500)
   }
 
   _makeCanvas(container, id, zIndex) {
@@ -204,7 +241,6 @@ static HORIZON_Y_FRAC    = 0.28
     container.appendChild(mtn)
     this._mountainImg = mtn
 
-    // Resize handler for fullscreen changes
     this._resizeHandler = () => {
       setTimeout(() => {
       const canvas = this.scene?.game?.canvas
@@ -226,7 +262,7 @@ static HORIZON_Y_FRAC    = 0.28
         this._mountainImg.style.height = newMtnH + 'px'
         this._mountainImg.style.top    = newMtnTop + 'px'
       }
-      }, 150) // wait for canvas to resize
+      }, 150)
     }
     window.addEventListener('resize', this._resizeHandler)
     document.addEventListener('fullscreenchange', this._resizeHandler)
@@ -271,7 +307,6 @@ static HORIZON_Y_FRAC    = 0.28
     const fracX = mapWidth  > 0 ? playerLogicalX / (mapWidth  * ts) : 0.5
     const fracY = mapHeight > 0 ? playerLogicalY / (mapHeight * ts) : 0.5
 
-    // Ease out at edges (smooth deceleration near 0 and 1)
     const easedX = fracX < 0.5
       ? 2 * fracX * fracX
       : 1 - Math.pow(-2 * fracX + 2, 2) / 2
@@ -280,9 +315,7 @@ static HORIZON_Y_FRAC    = 0.28
     const mtnPy = baseY
     this._mountainImg.style.objectPosition = mtnPx.toFixed(2) + '% ' + mtnPy.toFixed(2) + '%'
 
-    // Cloud subtle parallax — less than mountains
     if (this._skyImg && this._skyImg.src) {
-      // Sky drift handled by cloudDrift in update() — store parallax offset only
       this._skyParallaxX = (easedX - 0.5) * 3
     }
   }
@@ -293,8 +326,6 @@ static HORIZON_Y_FRAC    = 0.28
       c.width   = 64
       c.height  = 64
       const ctx = c.getContext('2d')
-      // Sample from bottom 40% of image to get hill/earth colours
-      // rather than the dominant sky/cloud colours
       const imgH = imgEl.naturalHeight || imgEl.height || 1
       const imgW = imgEl.naturalWidth  || imgEl.width  || 1
       const srcY = Math.floor(imgH * 0.60)
@@ -375,7 +406,6 @@ static HORIZON_Y_FRAC    = 0.28
 
   setExitMarkers(markers) {
     this._exitMarkers  = markers || []
-    // Build a set of exit edges for quick tile lookup: 'north','south','east','west'
     this._exitEdges    = new Set(markers.map(m => m.dir))
     this._exitArrowCanvases = {}
     for (const { dir } of markers) {
@@ -488,7 +518,6 @@ static HORIZON_Y_FRAC    = 0.28
     return (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
   }
 
-  // Inverse of _rowToScreenY -- converts screen Y back to world row
   _screenYToWorldRow(screenY) {
     const horizonPx = this._horizonPx()
     const groundH   = this._groundH()
@@ -571,29 +600,6 @@ static HORIZON_Y_FRAC    = 0.28
     tCtx.filter = 'saturate(60%)'
     tCtx.drawImage(this._tilesetImg, sx, sy, sw, sh, 0, 0, sw, sh)
     tCtx.filter = 'none'
-    // Only add grass base for flat scatter tiles (not billboards)
-    // Billboards (trees etc) are drawn upright and don't need a ground base
-    const _isBillboard = this._flatGids.has(gid)
-    const _id = !_isBillboard ? tCtx.getImageData(0, 0, sw, sh).data : null
-    let _hasTransp = false
-    if (_id) for (let _i = 3; _i < _id.length; _i += 4) { if (_id[_i] < 128) { _hasTransp = true; break } }
-    if (_hasTransp && !_isBillboard) {
-      const _base = document.createElement('canvas')
-      _base.width = sw; _base.height = sh
-      const _bCtx = _base.getContext('2d')
-      _bCtx.imageSmoothingEnabled = false
-      // Draw grass tile (GID 839) as background
-      const _gIdx = 838  // GID 839 - 1
-      const _gCol = _gIdx % PerspectiveGroundRenderer.SHEET_COLS
-      const _gRow = Math.floor(_gIdx / PerspectiveGroundRenderer.SHEET_COLS)
-      const { MG, TW, TH } = PerspectiveGroundRenderer
-      _bCtx.filter = 'saturate(60%)'
-      _bCtx.drawImage(this._tilesetImg, MG + _gCol*TW, MG + _gRow*TH, TW, TH, 0, 0, sw, sh)
-      _bCtx.filter = 'none'
-      _bCtx.drawImage(tc, 0, 0)
-      this._tileCache.set(gid, _base)
-      return _base
-    }
     this._tileCache.set(gid, tc)
     return tc
   }
@@ -653,7 +659,6 @@ static HORIZON_Y_FRAC    = 0.28
     const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
     const scaledW = scaledTileW
     const scaledH = scaledTileW * hm
-    // screenY is tile bottom -- draw upward so feet are grounded
     ctx.drawImage(img, Math.round(screenX - scaledW / 2), Math.round(screenY - scaledH), Math.round(scaledW), Math.round(scaledH))
   }
 
@@ -692,10 +697,285 @@ static HORIZON_Y_FRAC    = 0.28
     ].join('')
   }
 
+  // ── Elevation helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Build this._elev[row][col] from layer 0.
+   *
+   * Rules:
+   *  • CLIFF_GIDS tiles          → elevation = CLIFF_HEIGHT
+   *  • Any tile NORTH of (lower row index than) a cliff tile in the same
+   *    column that is also in ELEVATED_GIDS → elevation = CLIFF_HEIGHT
+   *  • Everything else           → 0
+   *
+   * Called once per unique layer0 array reference; result is cached via
+   * this._elevMapId.
+   */
+  _buildElevationMap(layer0, layer1) {
+    const mapH = layer0.length
+    const mapW = layer0[0].length
+    const CH   = PerspectiveGroundRenderer.CLIFF_HEIGHT
+
+    // Detect cliff edges: southernmost ELEVATED_GID tile per column whose
+    // immediate southern neighbour is shore (731) or water (1625/1679).
+    // Only runs on maps with hasCliffs:true — no heuristics needed.
+    const CLIFF_SOUTH = new Set([731, 1625, 1679])
+    const firstCliffRow = new Array(mapW).fill(Infinity)
+    for (let c = 0; c < mapW; c++) {
+      for (let r = mapH - 2; r >= 0; r--) {
+        const here  = layer0[r][c]
+        const south = layer0[r + 1][c]
+        if (PerspectiveGroundRenderer.ELEVATED_GIDS.has(here) &&
+            CLIFF_SOUTH.has(south)) {
+          firstCliffRow[c] = r
+          break   // southernmost only
+        }
+      }
+    }
+
+    // Also find south plateau cliff edges: northernmost grass→shore per column
+    // (grass is SOUTH of water — elevated tiles that the player stands on,
+    //  visible as a plateau from the north/sea side)
+    const lastCliffRow = new Array(mapW).fill(-Infinity)
+    for (let c = 0; c < mapW; c++) {
+      for (let r = 1; r < mapH; r++) {
+        const here  = layer0[r][c]
+        const north = layer0[r - 1]?.[c] ?? 0
+        if (PerspectiveGroundRenderer.ELEVATED_GIDS.has(here) &&
+            CLIFF_SOUTH.has(north)) {
+          lastCliffRow[c] = r
+          break   // northernmost only
+        }
+      }
+    }
+
+    this._elev = []
+    for (let r = 0; r < mapH; r++) {
+      this._elev[r] = new Float32Array(mapW)
+      for (let c = 0; c < mapW; c++) {
+        const gid = layer0[r][c]
+        if (!PerspectiveGroundRenderer.ELEVATED_GIDS.has(gid)) continue
+
+        // North plateau: tile is at or north of the south-facing cliff edge
+        if (firstCliffRow[c] < Infinity && r <= firstCliffRow[c]) {
+          this._elev[r][c] = CH
+        }
+        // South plateau tiles are behind the camera and cannot use the north
+        // plateau elevation formula (which pushes tiles toward the horizon).
+        // They are handled visually by layer 3 back faces only.
+        // Do NOT set _elev for south plateau — leave at 0.
+      }
+    }
+    console.log('[PGR elev] elevation map built -', mapH, 'x', mapW,
+      '| N cliff cols:', firstCliffRow.filter(v => v < Infinity).length,
+      '| S cliff cols:', lastCliffRow.filter(v => v > -Infinity).length)
+  }
+
+  /**
+   * Project a tile row to screen Y, shifted upward by `elevation` tile-heights.
+   *
+   * Works by offsetting the world row in the perspective formula.
+   * One unit of elevation = one tile height in world space = one row in
+   * perspective.  Fractional elevations give smooth intermediate heights.
+   */
+  _elevationY(worldRow, elevation) {
+    const baseY = this._rowToScreenY(worldRow)
+    if (!elevation || baseY === null) return baseY
+    // Elevation in screen pixels = elevation * tile height at this depth.
+    // Uses scaleAtRow to match _drawCliffFace exactly.
+    const pxPerTile = this._scaleAtRow(worldRow)
+    return baseY - elevation * pxPerTile
+  }
+
+  /**
+   * Draw the north-facing cliff face of a south-plateau tile.
+   * The face is visible from the north (the player's side) — it hangs
+   * downward from the north edge of the tile row.
+   * yTop = _rowToScreenY(row)     — north edge of tile (back, further away)
+   * yBot = yTop + tileH * elev   — face bottom (hangs toward camera)
+   */
+  _drawNorthCliffFace(ctx, col, row, elev, tileAlpha, yTopClamped, yBotClamped) {
+    // South plateau edge tile — draws two things using yTopClamped/yBotClamped
+    // which are already correctly computed for near tiles:
+    //
+    // 1. ELEVATED GRASS CAP — the tile's normal trapezoid shifted UP by one
+    //    tile-height. Cap occupies [yTopClamped - tileH, yTopClamped].
+    //
+    // 2. DARK BACK FACE — solid dark green filling the original tile slot
+    //    [yTopClamped, yBotClamped], representing the back of the cube.
+
+    const scaledW = this._scaleAtRow(row + 1)
+    const tileH   = scaledW * elev   // height of one cliff unit in screen px
+
+    // Cap: shift the normal tile slot upward by tileH
+    const capBot = yTopClamped          // cap bottom = normal tile top
+    const capTop = yTopClamped - tileH  // cap top = one tile above
+
+    const horizonPx = this._horizonPx()
+    if (capBot < horizonPx) return      // fully above horizon, skip
+
+    // 1. Elevated grass cap — flat trapezoid at shifted Y
+    const xTL = this._colToScreenX(col,     row)
+    const xTR = this._colToScreenX(col + 1, row)
+    const xBL = this._colToScreenX(col,     row + 1)
+    const xBR = this._colToScreenX(col + 1, row + 1)
+
+    ctx.globalAlpha = tileAlpha
+    this._drawTrapezoidTinted(ctx, 839,
+      { x: xTL, y: capTop }, { x: xTR, y: capTop },
+      { x: xBL, y: capBot }, { x: xBR, y: capBot },
+      null)
+    ctx.globalAlpha = 1.0
+
+    // 2. Dark back face — fills the original tile slot below the cap
+    const faceTop = capBot
+    const faceBot = yBotClamped
+    if (faceBot <= faceTop) return
+
+    const screenX = this._colToScreenX(col + 0.5, row + 1)
+    ctx.save()
+    ctx.globalAlpha = tileAlpha * 0.88
+    ctx.fillStyle = '#2a4020'
+    ctx.fillRect(
+      Math.round(screenX - scaledW / 2),
+      Math.round(faceTop),
+      Math.round(scaledW),
+      Math.round(faceBot - faceTop))
+    ctx.restore()
+  }
+
+  /**
+   * Draw the south-facing vertical face of an elevated ground tile.
+   * Same geometry as _drawCliffFace but uses the tile's own GID so the
+   * front face shows the ground texture (grass, stone, etc.) rather than
+   * the cliff sprite. Gives elevated tiles a cubic, solid appearance.
+   */
+  _drawElevatedFace(ctx, col, row, elev, gid, tileAlpha, yBotHint) {
+    // yBotHint: pre-computed yBotClamped from the tile loop — used as fallback
+    // when row+1 is behind the camera and _rowToScreenY returns null.
+    const yBot = this._rowToScreenY(row + 1) ?? yBotHint
+    if (yBot === null) return
+    const tileH = this._scaleAtRow(row + 1) || this._scaleAtRow(row)
+    const yTop  = yBot - tileH * elev
+    if (yTop >= yBot) return
+
+    const xBL = this._colToScreenX(col,     row + 1)
+    const xBR = this._colToScreenX(col + 1, row + 1)
+    const xTL = xBL
+    const xTR = xBR
+
+    ctx.globalAlpha = tileAlpha
+    this._drawTrapezoidTinted(ctx, gid,
+      { x: xTL, y: yTop }, { x: xTR, y: yTop },
+      { x: xBL, y: yBot }, { x: xBR, y: yBot },
+      null)
+    ctx.globalAlpha = 1.0
+  }
+
+  /**
+   * Fill the side face of a staircase cliff step — the triangular/quad gap
+   * between two adjacent cliff faces at different depths.
+   *
+   * When the cliff steps diagonally (e.g. col has cliffRow=5, col+1 has cliffRow=4),
+   * there's a visible gap between the right edge of face A and the left edge of face B.
+   * We fill it with a darkened solid colour to read as the shadowed side of the cliff.
+   *
+   * sideDir: +1 = fill gap to the RIGHT of this cliff face (neighbour is to east, further back)
+   *          -1 = fill gap to the LEFT  of this cliff face (neighbour is to west, further back)
+   */
+  _drawCliffSide(ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) {
+    // Our cliff face right/left edge
+    const edgeCol  = sideDir > 0 ? col + 1 : col   // the shared vertical edge
+    const yBotA    = this._rowToScreenY(row + 1)
+    const tileHA   = this._scaleAtRow(row + 1)
+    const yTopA    = yBotA !== null ? yBotA - tileHA * elev : null
+
+    // Neighbour cliff face same edge (other side)
+    const yBotB    = this._rowToScreenY(neighbourRow + 1)
+    const tileHB   = this._scaleAtRow(neighbourRow + 1)
+    const yTopB    = yBotB !== null ? yBotB - tileHB * elev : null
+
+    if (yTopA === null || yBotA === null || yTopB === null || yBotB === null) return
+    if (yBotA <= yTopA || yBotB <= yTopB) return
+
+    // The four corners of the side quad, all sharing the same screen X (edgeCol)
+    // but at different row depths
+    const xA = this._colToScreenX(edgeCol, row + 1)          // our face edge, closer
+    const xB = this._colToScreenX(edgeCol, neighbourRow + 1)  // neighbour edge, further
+
+    // Quad: (xB,yTopB) → (xB,yBotB) on the far side
+    //       (xA,yBotA) → (xA,yTopA) on the near side
+    ctx.save()
+    ctx.globalAlpha = tileAlpha * 0.85
+    // Dark earthy shadow colour for the side face
+    ctx.fillStyle = 'rgb(60, 42, 28)'
+    ctx.beginPath()
+    ctx.moveTo(xB, yTopB)
+    ctx.lineTo(xB, yBotB)
+    ctx.lineTo(xA, yBotA)
+    ctx.lineTo(xA, yTopA)
+    ctx.closePath()
+    ctx.fill()
+    // Subtle darker edge line for definition
+    ctx.strokeStyle = 'rgba(30,20,10,0.6)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  /**
+   * Draw the vertical cliff face for tile (col, row) at elevation `elev`.
+   *
+   * The face spans from:
+   *   TOP  → _elevationY(row,     elev)   the raised plateau edge
+   *   BOT  → _elevationY(row + 1, 0)     sea-level ground below the cliff
+   *
+   * X coordinates respect perspective: top of face is at `row` depth
+   * (narrower), bottom is at `row+1` depth (wider).
+   */
+  _drawCliffFace(ctx, col, row, elev, tileAlpha) {
+    // Draw the cliff face as a perspective-correct trapezoid.
+    //
+    // The four screen corners:
+    //   TL, TR  — top edge at elevated plateau level, at `row` depth (narrower/farther)
+    //   BL, BR  — bottom edge at sea level, at `row+1` depth (wider/closer)
+    //
+    // This matches the ground tiles perfectly: same X coords as the ground
+    // trapezoid for this cell, just with Y spanning the full cliff height.
+
+    // The cliff face is a billboard standing at the BACK edge of the water/shore
+    // tile — exactly where a tree billboard would have its feet.
+    // yBot = _rowToScreenY(row + 1) = the top (back) edge of the shore row.
+    // yTop = yBot - one full tile height in screen pixels at that depth.
+    // This matches how trees are drawn and gives a full-tile-height cliff face.
+    const yBot = this._rowToScreenY(row + 1)   // back edge of shore = cliff feet
+    if (yBot === null) return
+
+    const tileScreenH = this._scaleAtRow(row + 1)   // px per tile at shore depth
+    const yTop        = yBot - tileScreenH * elev    // cliff top = feet - height
+
+    if (yTop >= yBot) return   // degenerate
+
+    // Both edges use row+1 depth so the face is the same width as the shore tile
+    const xBL = this._colToScreenX(col,     row + 1)
+    const xBR = this._colToScreenX(col + 1, row + 1)
+    const xTL = xBL   // vertical face — same X top and bottom
+    const xTR = xBR
+
+    ctx.globalAlpha = tileAlpha
+    this._drawTrapezoidTinted(ctx,
+      PerspectiveGroundRenderer.CLIFF_FACE_GID,
+      { x: xTL, y: yTop }, { x: xTR, y: yTop },
+      { x: xBL, y: yBot }, { x: xBR, y: yBot },
+      null)
+    ctx.globalAlpha = 1.0
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   update(fov) {
     if (!this._ready) return
     if (!this._cameraReady()) return
-    // Sync dimensions with actual canvas in case of fullscreen change
     const _canvas = this.scene.game.canvas
     const _newSw = _canvas.width, _newSh = _canvas.height
     if (_newSh !== this._sh) console.log('[PGR resize] sh:', this._sh, '->', _newSh)
@@ -708,7 +988,6 @@ static HORIZON_Y_FRAC    = 0.28
     this._sw = _newSw
     this._sh = _newSh
     this._waterPhase = ((this._waterPhase ?? 0) + 0.018) % 256
-    // Cloud drift — slow sine wave back and forth
     this._cloudDrift = ((this._cloudDrift ?? 0) + 0.0004) % (Math.PI * 2)
     if (this._skyImg && this._skyImg.src) {
       const driftX = 50 + Math.sin(this._cloudDrift) * 12 + (this._skyParallaxX ?? 0)
@@ -720,7 +999,6 @@ static HORIZON_Y_FRAC    = 0.28
       const p  = this.scene.player
       const md = this.scene.mapData
       if (p && md) this.updateMountainParallax(p.logicalX, p.logicalY, md.width, md.height)
-      // Anchor mountain bottom to horizon every frame
       const _horizPx = this._horizonPx()
       if (!this._mtnLogTimer || Date.now() - this._mtnLogTimer > 2000) { this._mtnLogTimer = Date.now(); }
       const _mtnH    = Math.floor(_horizPx * 3.0)
@@ -740,7 +1018,6 @@ static HORIZON_Y_FRAC    = 0.28
     const bowAiming = this.scene.bowMechanics?.isAiming ?? false
     const now = Date.now()
     if (this._player && !this._player.isMoving && this._lastMoveTime) {
-      // Allow idle animation to run for 8s after stopping, then freeze
       if (now - this._lastMoveTime > 8000) {
         if (cam.scrollX === this._lastCamX &&
             cam.scrollY === this._lastCamY &&
@@ -757,8 +1034,6 @@ static HORIZON_Y_FRAC    = 0.28
     this._refreshPlayerCanvas()
     this.playerScreenX = null
     this.playerScreenY = null
-    this.playerScreenX = null
-    this.playerScreenY = null
 
     const sw        = this._sw
     const sh        = this._sh
@@ -768,7 +1043,21 @@ static HORIZON_Y_FRAC    = 0.28
 
     const layer0 = this.scene.mapData?.layers?.[0]
     const layer1 = this.scene.mapData?.layers?.[1] ?? null
+    const layer2 = this.scene.mapData?.layers?.[2] ?? null
+    const layer3 = this.scene.mapData?.layers?.[3] ?? null  // north-facing cliff markers
+    const layer4 = this.scene.mapData?.layers?.[4] ?? null  // south plateau grass caps
     if (!layer0) return
+
+    // ── Build elevation map lazily (once per map load) ────────────────────
+    // Only maps that explicitly declare hasCliffs:true get elevation.
+    if (!this._elev || this._elevMapId !== layer0) {
+      if (this.scene.mapData?.hasCliffs) {
+        this._buildElevationMap(layer0, layer1)
+      } else {
+        this._elev = null
+      }
+      this._elevMapId = layer0
+    }
 
     const mapH   = layer0.length
     const mapW   = layer0[0].length
@@ -780,8 +1069,18 @@ static HORIZON_Y_FRAC    = 0.28
 
     const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
 
-    this._gCtx.clearRect(0, horizonPx, sw, sh - horizonPx)
-    // Clip ground fill to map horizontal extent
+    this._gCtx.clearRect(0, 0, sw, sh)   // full clear — elevated tiles can draw above horizonPx
+    // VERSION 2b: detect stale DOM canvases from HMR
+    if (!this._domChecked) {
+      this._domChecked = true
+      const allPgr = document.querySelectorAll('[id^=pgr-ground]')
+      if (allPgr.length > 1) {
+        console.warn('[PGR v8] WARNING: ' + allPgr.length + ' pgr-ground canvases in DOM — stale HMR canvas detected!')
+        allPgr.forEach((el, i) => console.warn('  [' + i + ']', el.id, 'z:' + el.style.zIndex, el === this._groundCanvas ? '← THIS INSTANCE' : '← STALE'))
+      } else {
+        console.log('[PGR v8] DOM check OK — single pgr-ground canvas')
+      }
+    }
     const bottomRow  = Math.min(Math.floor(camRow) - 1, mapH - 1)
     const leftX      = this._colToScreenX(0,    bottomRow + 1)
     const rightX     = this._colToScreenX(mapW, bottomRow + 1)
@@ -797,9 +1096,17 @@ static HORIZON_Y_FRAC    = 0.28
     this._gCtx.fillStyle = gcR
     this._gCtx.fillRect(0, horizonPx + 160, sw, sh - horizonPx - 160)
 
-    // No background fill -- ground canvas is transparent outside map tiles
-
     this._oCtx.clearRect(0, 0, sw, sh)
+    // Hard clip both canvases: nothing may appear above the horizon
+    if (!this._debugged) console.log('[PGR v8] frame: horizonPx=' + horizonPx + ' sw=' + sw + ' sh=' + sh + ' hasCliffs=' + !!(this.scene.mapData?.hasCliffs) + ' elevActive=' + !!(this._elev))
+    this._oCtx.save()
+    this._oCtx.beginPath()
+    this._oCtx.rect(0, horizonPx, sw, sh - horizonPx)
+    this._oCtx.clip()
+    this._gCtx.save()
+    this._gCtx.beginPath()
+    this._gCtx.rect(0, horizonPx, sw, sh - horizonPx)
+    this._gCtx.clip()
 
     const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX)
     const tileRowStart = Math.max(0, Math.floor(camRow - FL * 8))
@@ -811,40 +1118,37 @@ static HORIZON_Y_FRAC    = 0.28
     let playerDrawn   = false
 
     if (p) {
-      const snapX    = this._boatActive ? p.logicalX : Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
-      const snapY    = this._boatActive ? p.logicalY : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapX    = Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
+      const snapY    = Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
       if (proj) {
         playerScreenX = proj.screenX
-        playerScreenY = proj.screenY   // tile bottom -- aligns with boat and highlight
+        playerScreenY = proj.screenY
         playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
         this.playerScreenX = playerScreenX
         this.playerScreenY = playerScreenY
-
       }
     }
 
     let groundCount = 0, objectCount = 0
+    const _deferredCliffs = []       // south-facing cliff faces drawn after all ground tiles
+    // _deferredNorthCliffs removed — south plateau drawn inline like layer 2
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
 
       const yTop = this._rowToScreenY(tileRow)
       const yBot = this._rowToScreenY(tileRow + 1)
 
+      if (yBot === null) continue
+      if (yTop !== null && yTop > sh + 100) continue
+      if (yBot < horizonPx - this.tileDisplaySize * 3) continue
 
+      const yTopClamped = (yTop === null || yTop < horizonPx - this.tileDisplaySize) ? horizonPx - this.tileDisplaySize : yTop
+      const yBotClamped = Math.min(sh + 100, yBot)
+      if (yBotClamped <= yTopClamped) continue
 
-if (yBot === null) continue
-if (yTop !== null && yTop > sh + 100) continue
-if (yBot < horizonPx - this.tileDisplaySize * 3) continue
-
-const yTopClamped = (yTop === null || yTop < horizonPx - this.tileDisplaySize) ? horizonPx - this.tileDisplaySize : yTop
-const yBotClamped = Math.min(sh + 100, yBot)
-if (yBotClamped <= yTopClamped) continue
-
-// Fade rows as they approach the horizon -- prevents pop-in flicker
-const distFromHorizon = yBotClamped - horizonPx
-const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60) : 1.0
-         // Fade rows as they approach the horizon -- prevents pop-in flicker
+      const distFromHorizon = yBotClamped - horizonPx
+      const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60) : 1.0
 
       const scaleNear = this._scaleAtRow(tileRow + 1)
       const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW
@@ -856,7 +1160,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
       for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
 
-        // Early cull -- skip tiles off screen horizontally
         const xTL = this._colToScreenX(tileCol,     tileRow)
         const xTR = this._colToScreenX(tileCol + 1, tileRow)
         if (xTR < -10 || xTL > sw + 10) continue
@@ -864,7 +1167,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const colInMap = tileCol >= 0 && tileCol < mapW
         const inMap    = rowInMap && colInMap
 
-        // Don't render outside map bounds
         if (!inMap) continue
 
         const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
@@ -878,23 +1180,46 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const tileAlpha = edgeAlpha * horizonFade
 
         const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
-        // Animate water tiles to give river flow effect
-        // Wave travels east (positive col direction)
         const _isWater = _rawGid0 === 1625 || _rawGid0 === 1679
         const gid0 = _isWater
           ? (((Math.floor(this._waterPhase + tileCol * 0.7 - tileRow * 0.3)) & 1) ? 1625 : 1679)
           : _rawGid0
 
         if (gid0) {
+          // ── Elevation ────────────────────────────────────────────────────
+          //
+          // tileElev:  this tile's own elevation.
+          // southElev: the tile one row south (will be 0 for sea/shore).
+          //
+          // If tileElev > 0, the tile's top edge is lifted upward by that
+          // many tile-heights in perspective.  If the tile immediately south
+          // is at a lower elevation, we also draw a vertical cliff face to
+          // close the gap.
+
+          const tileElev  = this._elev?.[tileRow]?.[tileCol]  ?? 0
+          const southElev = (tileRow + 1 < mapH)
+            ? (this._elev?.[tileRow + 1]?.[tileCol] ?? 0)
+            : 0
+
+          // Compute the elevated top-edge Y (may equal yTopClamped when elev=0)
+          let yTopElev = yTopClamped
+          if (tileElev > 0) {
+            const raw = this._elevationY(tileRow, tileElev)
+            yTopElev  = (raw === null || raw < horizonPx - this.tileDisplaySize)
+              ? horizonPx - this.tileDisplaySize
+              : Math.min(sh + 100, raw)
+          }
+
           const xBL = this._colToScreenX(tileCol,     tileRow + 1)
           const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
           this._gCtx.globalAlpha = tileAlpha
+
           if (PerspectiveGroundRenderer.DEBUG_RECTS) {
             const colors = ['rgba(255,0,0,0.5)','rgba(0,200,0,0.5)',
                             'rgba(0,100,255,0.5)','rgba(255,200,0,0.5)']
             this._gCtx.fillStyle = colors[tileRow % colors.length]
             this._gCtx.beginPath()
-            this._gCtx.moveTo(xTL, yTopClamped); this._gCtx.lineTo(xTR, yTopClamped)
+            this._gCtx.moveTo(xTL, yTopElev); this._gCtx.lineTo(xTR, yTopElev)
             this._gCtx.lineTo(xBR, yBotClamped); this._gCtx.lineTo(xBL, yBotClamped)
             this._gCtx.closePath(); this._gCtx.fill()
           } else {
@@ -902,9 +1227,28 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
               ? this.tintManager.getTint(gid0, tileCol, tileRow)
               : fillTint
             this._drawTrapezoidTinted(this._gCtx, gid0,
-              {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
+              {x: xTL, y: yTopElev}, {x: xTR, y: yTopElev},
               {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
               tint0)
+
+            // ── Cliff face ─────────────────────────────────────────────
+            // Draw whenever this tile is elevated and the tile immediately
+            // to the south is at a lower level (the drop-off).
+            // Only draw south-facing cliff/elevated faces for north plateau tiles.
+            // South plateau tiles (layer3 markers) face north — handled separately.
+            const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
+              && yBotClamped >= horizonPx + 30
+              && !(layer3?.[tileRow]?.[tileCol])   // not a south plateau edge tile
+            if (_hasSouthFace) {
+              const _isCliffEdge = PerspectiveGroundRenderer.CLIFF_GIDS.has(
+                this.scene.mapData?.layers?.[1]?.[tileRow]?.[tileCol] ?? 0)
+              _deferredCliffs.push({
+                col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
+                gid: gid0, yBot: yBotClamped,
+                isCliff: _isCliffEdge
+              })
+            }
+
             // Exit edge strip overlay
             if (inMap && this._exitEdges?.size) {
               const onExit = (
@@ -918,8 +1262,8 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
                 this._gCtx.globalAlpha = 0.22 + 0.10 * Math.sin((this._exitPulseT||0) * 1.5 + tileCol + tileRow)
                 this._gCtx.fillStyle = 'rgba(160,255,200,1)'
                 this._gCtx.beginPath()
-                this._gCtx.moveTo(xTL, yTopClamped)
-                this._gCtx.lineTo(xTR, yTopClamped)
+                this._gCtx.moveTo(xTL, yTopElev)
+                this._gCtx.lineTo(xTR, yTopElev)
                 this._gCtx.lineTo(xBR, yBotClamped)
                 this._gCtx.lineTo(xBL, yBotClamped)
                 this._gCtx.closePath()
@@ -938,11 +1282,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           const playerHM    = (this._playerHeightMult ?? 1.8) * (this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE)
           this.playerSpriteH = scaledTileW * playerHM
           this._lastPlayerScale = this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE
-          this._lastPlayerScale = this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE
           const aimAngle    = this.scene.bowMechanics?.isAiming
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
-          // Tile highlight drawn separately after all tiles
           const _drawX = playerScreenX
           const _drawY = playerScreenY
           this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
@@ -951,7 +1293,20 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           playerDrawn = true
         }
 
-        // Object tile -- only for in-map tiles
+        // Object tile
+        // tileElev/yTopElev may not be set if gid0 was 0 — recompute here
+        const _l1Elev   = (inMap && this._elev) ? (this._elev[tileRow]?.[tileCol] ?? 0) : 0
+        // Cliff top in screen pixels: back-edge of shore row, raised by elev tile-heights.
+        // Matches _drawCliffFace exactly so grass cap sits flush on cliff top.
+        let _l1YTop = yTopClamped, _l1YBot = yBotClamped
+        if (_l1Elev > 0) {
+          const _shoreY     = this._rowToScreenY(tileRow + 1)  // back edge of shore
+          const _tileH      = this._scaleAtRow(tileRow + 1)    // px per tile at shore depth
+          const _cliffTop   = (_shoreY !== null) ? _shoreY - _tileH * _l1Elev : null
+          const _cliffBot   = _shoreY                          // cliff feet = shore back edge
+          _l1YTop = (_cliffTop !== null) ? Math.max(horizonPx, _cliffTop) : yTopClamped
+          _l1YBot = (_cliffBot !== null) ? Math.min(sh + 100, _cliffBot) : yBotClamped
+        }
         if (inMap && layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
@@ -961,30 +1316,43 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
             if (isStamp || isBillboard) {
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
-              const screenY     = this._rowToScreenY(tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
-              if (screenY !== null &&
-                  screenY >= horizonPx &&
-                  screenY <= sh + this.tileDisplaySize * 2) {
-                this._oCtx.globalAlpha = tileAlpha
-                if (tint1) {
-                  this._drawBillboardTinted(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW,
-                    PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                    tint1, tint1.alpha)
-                } else {
-                  this._drawBillboard(this._oCtx, this._getTileCanvas(gid1),
-                    screenX, screenY, scaledTileW)
+              // Cliff face billboards: anchor at elevated bottom, stretch to elevated top
+              const isCliffFace = PerspectiveGroundRenderer.CLIFF_GIDS.has(gid1)
+              if (isCliffFace && _l1Elev > 0) {
+                // Cliff face: drawn as perspective trapezoid by _drawCliffFace.
+                // Already drawn in the layer0 pass — skip here to avoid double-draw.
+                // (Layer 1 cliff GID is only needed for collision/catalogue metadata.)
+              } else {
+                const screenY = this._rowToScreenY(tileRow + 1)
+                if (screenY !== null &&
+                    screenY >= horizonPx &&
+                    screenY <= sh + this.tileDisplaySize * 2) {
+                  this._oCtx.globalAlpha = tileAlpha
+                  const img1 = this._getTileCanvas(gid1)
+                  if (img1) {
+                    if (tint1) {
+                      this._drawBillboardTinted(this._oCtx, img1,
+                        screenX, screenY, scaledTileW,
+                        PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
+                        tint1, tint1.alpha)
+                    } else {
+                      this._drawBillboard(this._oCtx, img1,
+                        screenX, screenY, scaledTileW)
+                    }
+                  }
+                  this._oCtx.globalAlpha = 1.0
                 }
-                this._oCtx.globalAlpha = 1.0
               }
             } else {
-              const xBL = this._colToScreenX(tileCol,     tileRow + 1)
-              const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+              // Flat layer-1 tile (e.g. clifftop grass cap).
+              // Use elevation-aware Y so it sits on top of the raised ground.
+              const xBL1 = this._colToScreenX(tileCol,     tileRow + 1)
+              const xBR1 = this._colToScreenX(tileCol + 1, tileRow + 1)
               this._gCtx.globalAlpha = tileAlpha
               this._drawTrapezoidTinted(this._gCtx, gid1,
-                {x: xTL, y: yTopClamped}, {x: xTR, y: yTopClamped},
-                {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
+                {x: xTL,  y: _l1YTop}, {x: xTR,  y: _l1YTop},
+                {x: xBL1, y: _l1YBot}, {x: xBR1, y: _l1YBot},
                 tint1)
               this._gCtx.globalAlpha = 1.0
             }
@@ -1012,7 +1380,78 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           }
         }
 
-        // Encounter flags -- only for in-map tiles
+        // Layer 2 — elevated flat caps (e.g. clifftop grass)
+        if (inMap && layer2) {
+          const gid2 = layer2[tileRow]?.[tileCol]
+          if (gid2 && yBotClamped >= horizonPx + 30
+              && _l1YTop >= horizonPx && _l1YBot > _l1YTop) {   // proximity + elevation sanity
+            const tint2   = this.tintManager.getTint(gid2, tileCol, tileRow)
+            const xBL2    = this._colToScreenX(tileCol,     tileRow + 1)
+            const xBR2    = this._colToScreenX(tileCol + 1, tileRow + 1)
+            this._gCtx.globalAlpha = tileAlpha
+            this._drawTrapezoidTinted(this._gCtx, gid2,
+              {x: xTL,  y: _l1YTop}, {x: xTR,  y: _l1YTop},
+              {x: xBL2, y: _l1YBot}, {x: xBR2, y: _l1YBot},
+              tint2)
+            this._gCtx.globalAlpha = 1.0
+          }
+        }
+
+        // Layer 3 — south plateau elevated grass + south edge connector billboard.
+        // Redraws the tile shifted UP by one tile-height (eTop/eBot).
+        // Also draws a green billboard on the south edge connecting the two strata.
+        if (inMap && layer3) {
+          const gid3 = layer3[tileRow]?.[tileCol]
+          if (gid3 && yBotClamped >= horizonPx + 30) {
+            const scaledW3 = this._scaleAtRow(tileRow + 1)
+            const tileH3   = scaledW3 * PerspectiveGroundRenderer.CLIFF_HEIGHT
+            const eTop     = yTopClamped - tileH3
+            const eBot     = yBotClamped - tileH3
+            if (eBot >= horizonPx && eTop < eBot) {
+              const tint3 = this.tintManager.getTint(gid3, tileCol, tileRow)
+              const xTL3 = this._colToScreenX(tileCol,     tileRow)
+              const xTR3 = this._colToScreenX(tileCol + 1, tileRow)
+              const xBL3 = this._colToScreenX(tileCol,     tileRow + 1)
+              const xBR3 = this._colToScreenX(tileCol + 1, tileRow + 1)
+              // Draw to _oCtx so elevated tiles appear in front of player
+              this._oCtx.globalAlpha = tileAlpha
+              // Elevated grass tile
+              this._drawTrapezoidTinted(this._oCtx, gid3,
+                {x: xTL3, y: eTop}, {x: xTR3, y: eTop},
+                {x: xBL3, y: eBot}, {x: xBR3, y: eBot},
+                tint3)
+              // South edge connector: grass texture + same tint as the elevated tile
+              if (yBotClamped > eBot) {
+                const cx3  = this._colToScreenX(tileCol + 0.5, tileRow + 1)
+                const dx3  = Math.round(cx3 - scaledW3 / 2)
+                const dy3  = Math.round(eBot)
+                const dw3  = Math.round(scaledW3)
+                const dh3  = Math.round(yBotClamped - eBot)
+                const img3 = this._getTileCanvas(gid3)
+                if (img3) {
+                  this._oCtx.drawImage(img3, dx3, dy3, dw3, dh3)
+                  // Apply same tint as the grass tile above it
+                  if (tint3) {
+                    const { h, s, l, alpha } = tint3
+                    this._oCtx.save()
+                    this._oCtx.globalCompositeOperation = 'source-atop'
+                    this._oCtx.globalAlpha = (alpha ?? 0.45) + 0.2  // slightly darker — back face
+                    this._oCtx.fillStyle = `hsl(${h},${Math.round(s * 0.7)}%,${Math.max(l - 10, 5)}%)`
+                    this._oCtx.fillRect(dx3, dy3, dw3, dh3)
+                    this._oCtx.restore()
+                  }
+                }
+              }
+              this._oCtx.globalAlpha = 1.0
+            }
+          }
+        }
+
+        // Layer 4 — south plateau grass caps are handled by layer 0 ground tiles.
+        // The grass surface IS the top of the cube — no separate cap needed.
+        // Layer 4 data is reserved for future use.
+
+        // Encounter flags
         if (inMap && this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
@@ -1058,6 +1497,33 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
 
     } // tileRow
 
+    // ── Deferred cliff faces + sides — drawn after all ground tiles ──────
+    // Build a lookup of cliff positions for quick neighbour checks
+    const _cliffSet = new Map()  // key: 'col,row' -> cliffEntry
+    for (const cf of _deferredCliffs) _cliffSet.set(`${cf.col},${cf.row}`, cf)
+
+    for (const cf of _deferredCliffs) {
+      if (cf.isCliff) {
+        // Cliff edge tile: draw cliff face sprite
+        this._drawCliffFace(this._gCtx, cf.col, cf.row, cf.elev, cf.alpha)
+      } else {
+        // Elevated ground tile facing south: draw its own texture as a vertical face
+        this._drawElevatedFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha, cf.yBot)
+      }
+
+      // Side gap fill for staircase steps (applies to both cliff and elevated)
+      const eastNeighbour = _cliffSet.get(`${cf.col + 1},${cf.row - 1}`)
+      if (eastNeighbour) {
+        this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
+          eastNeighbour.row, +1, cf.alpha)
+      }
+      const westNeighbour = _cliffSet.get(`${cf.col - 1},${cf.row - 1}`)
+      if (westNeighbour) {
+        this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
+          westNeighbour.row, -1, cf.alpha)
+      }
+    }
+
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
@@ -1070,14 +1536,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._animT = ((this._animT || 0) + 0.016) % (Math.PI * 200)
     if (this._exitMarkers?.length) this._exitPulseT = (this._exitPulseT || 0) + 0.04
 
-    // Player tile highlight -- always locked to current player/boat position
+    // Player tile highlight
     if (p) {
-      // Highlight follows lerped boat screen position when active
-      // so it stays glued to the hull rather than snapping ahead
       let _hlLX = p.logicalX
       let _hlLY = p.logicalY
       if (this._boatActive && this._boatScreenX != null) {
-        // Unproject lerped screen position back to logical tile
         const _ts   = this.tileDisplaySize
         const _bRow = this._screenYToWorldRow(this._boatScreenY)
         if (_bRow != null) {
@@ -1087,11 +1550,9 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         }
       }
 
-      // Project current tile to screen as perspective quad
       const ts      = this.tileDisplaySize
       const hlTileX = Math.floor(_hlLX / ts)
       const hlTileY = Math.floor(_hlLY / ts)
-      // Use hlTileY+1 (bottom row) for all X coords to match player/boat projection
       const hxTL = this._colToScreenX(hlTileX,     hlTileY + 1)
       const hxTR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
       const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
@@ -1110,6 +1571,8 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       }
     }
 
+    this._oCtx.restore()  // release horizon clip
+    this._gCtx.restore()  // release horizon clip
     this._updateLight(playerScreenX, playerScreenY)
 
     if (!this._debugged) {
@@ -1139,7 +1602,7 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._boatScreenX = null
     this._boatScreenY = null
     if (active) {
-      this._boatSinkOverride = 0.32   // player sits higher -- waist at gunwale
+      this._boatSinkOverride = 0.32
     } else {
       this._boatSinkOverride = 0
     }
@@ -1184,7 +1647,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     }
   }
 
-
   _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) {
     if (!img) return
     const t   = this._animT || 0
@@ -1194,13 +1656,10 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     const W   = Math.round(scaledTileW * ps)
     const H   = Math.round(scaledTileW * hm)
 
-
-    // ── Stroke/facing driven by velocity when in boat, tile steps otherwise ──
     const boatVX = this._boatActive ? (this.scene?.boatSystem?._vx ?? 0) : 0
     const boatVY = this._boatActive ? (this.scene?.boatSystem?._vy ?? 0) : 0
     const boatSpd = Math.hypot(boatVX, boatVY)
 
-    // Tile-step tracking for land movement
     const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
     const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
     const dvx = curTileX - (this._prevTileX ?? curTileX)
@@ -1209,7 +1668,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     this._prevTileX = curTileX
     this._prevTileY = curTileY
 
-    // Facing: velocity when in boat, tile step otherwise
     if (this._boatActive) {
       if (boatVX < -4)      this._facingLeft = true
       else if (boatVX > 4)  this._facingLeft = false
@@ -1231,14 +1689,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
     const moving = this._boatActive ? boatSpd > 8 : (p?.isMoving ?? false)
 
     if (this._boatActive) {
-      // Stroke advances with speed, retreats when still
-      // Stroke only animates when player is actively rowing (joystick force)
-      // Pure current drift keeps strokeT at 0 for smooth glide
       const joystickActive = (this.scene?.joystick?.force ?? 0) > 10
       const strokeRate = Math.min(boatSpd / 80, 1.0) * 0.025
       if (joystickActive && boatSpd > 8) {
         this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + strokeRate)
-        if (this._strokeT >= 1.0) this._strokeT = 0  // loop stroke
+        if (this._strokeT >= 1.0) this._strokeT = 0
       } else {
         this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.015)
       }
@@ -1250,50 +1705,35 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       }
     }
 
-    // Currach stroke shape:
-    // 0.0-0.15  catch    -- lean forward, reach
-    // 0.15-0.6  drive    -- powerful pull back, body opens
-    // 0.6-0.8   finish   -- lean back, maximum extension
-    // 0.8-1.0   recovery -- return forward
     const strokeT = this._strokeT ?? 0
     let rowLean = 0, rowBob = 0, boatTilt = 0
     if (this._boatActive) {
       if (strokeT < 0.15) {
-        // Catch: lean forward
         const k = strokeT / 0.15
         rowLean = -0.07 * k
         rowBob  = scaledTileW * 0.01 * k
       } else if (strokeT < 0.6) {
-        // Drive: pull back
         const k = (strokeT - 0.15) / 0.45
         rowLean = -0.07 + 0.16 * k
         rowBob  = scaledTileW * 0.01 - scaledTileW * 0.02 * Math.sin(k * Math.PI)
         boatTilt = -0.04 * Math.sin(k * Math.PI)
       } else if (strokeT < 0.8) {
-        // Finish: lean back
         const k = (strokeT - 0.6) / 0.2
         rowLean = 0.09 - 0.03 * k
         rowBob  = -scaledTileW * 0.008
       } else {
-        // Recovery
         const k = (strokeT - 0.8) / 0.2
         rowLean = 0.06 - 0.06 * k
         rowBob  = -scaledTileW * 0.008 * (1 - k)
       }
     }
 
-    // ── Boat instability system ──────────────────────────────────────────────
     if (this._boatActive) {
-      // _wobblePhase drives the see-saw oscillation
-      // Frequency and amplitude both scale with speed
-      const wobbleFreq = 1.8 + boatSpd * 0.04   // faster rocking at speed
+      const wobbleFreq = 1.8 + boatSpd * 0.04
       this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
-
-      // Target amplitude: big when moving, tiny when still
       const targetAmp = boatSpd > 8
-        ? 0.04 + Math.min(boatSpd / 120, 0.10)   // up to ~0.14 rad at full speed
-        : 0.012                                    // gentle idle
-      // Smooth amplitude transitions
+        ? 0.04 + Math.min(boatSpd / 120, 0.10)
+        : 0.012
       this._wobbleAmp = this._wobbleAmp ?? 0.012
       this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
     } else {
@@ -1305,33 +1745,23 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       ? Math.sin(this._wobblePhase) * (this._wobbleAmp ?? 0)
       : 0
 
-    // Bob: follows wobble phase offset by 90deg (roll and bob in sync)
-    // Player bob follows boat rock -- always lifts, never sinks below hull
-    // Use abs so player rises on both sides of the roll, never drops through gunwale
     const idleBob = this._boatActive
       ? -Math.abs(Math.sin((this._wobblePhase ?? 0) + Math.PI * 0.5)) * scaledTileW * (this._wobbleAmp ?? 0) * 0.8
       : 0
 
-    // Velocity-driven lean: tip into the direction of travel
     const velTiltX  = this._boatActive ? boatVX * 0.00025 : 0
     const velTiltY  = this._boatActive ? boatVY * 0.00018 : 0
 
-    // Acceleration tilt: boat tips back on surge
     const prevVX    = this._prevBoatVX ?? boatVX
     const accelX    = boatVX - prevVX
     this._prevBoatVX = boatVX
     const accelTilt = this._boatActive ? -accelX * 0.005 : 0
 
-    const idleRock  = wobbleRoll   // wobble IS the rock now
-    const chopAmt   = 0            // absorbed into wobble bob
-
     const totalBob  = rowBob + idleBob
     const totalLean = rowLean + wobbleRoll + velTiltX + accelTilt
 
-    // ── BOAT: draw hull below player, crop player legs ─────────────────
     if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
       if (this._boatDrifting) {
-        // Advance world position eastward at drift speed
         const _dTS = this.tileDisplaySize
         const _dTX = Math.floor((this._boatWorldX ?? 0) / _dTS)
         const _dTY = Math.floor((this._boatWorldY ?? 0) / _dTS)
@@ -1341,13 +1771,11 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const driftPxPerFrame = (_dShore.has(_dGid) || (!_dWater.has(_dGid) && _dGid !== 0)) ? 0 : (this._boatDriftSpeed ?? 18) / 60
         this._boatWorldX = (this._boatWorldX ?? 0) + driftPxPerFrame
 
-        // Project world position to screen each frame -- camera-stable
         const driftProj = this._projectLogical(this._boatWorldX, this._boatWorldY ?? screenY, true)
-        if (!driftProj) return   // off screen, skip draw
+        if (!driftProj) return
 
         const driftScreenX = driftProj.screenX
         const driftScreenY = driftProj.screenY
-        // Use drift projection scale for boat size -- stays perspective-correct
         const driftScale   = driftProj.scale * this.tileDisplaySize
         const bc    = this._boatCanvas
         const boatW = Math.round(driftScale * 1.6 * ps)
@@ -1357,7 +1785,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         ctx.drawImage(bc, Math.round(driftScreenX - boatW / 2), Math.round(driftScreenY - boatH * 0.8), boatW, boatH)
         ctx.restore()
       } else {
-        // Lerp boat toward player position for smooth momentum feel
         if (this._boatScreenX == null) {
           this._boatScreenX = screenX
           this._boatScreenY = screenY
@@ -1366,7 +1793,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
           this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
         }
-        // Always persist last known position so drift can use it after deactivation
         this._boatLastScreenX = this._boatScreenX
         this._boatLastScreenY = this._boatScreenY
         const bx    = this._boatActive ? (this._boatScreenX ?? screenX) : screenX
@@ -1374,17 +1800,13 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         const bc    = this._boatCanvas
         const boatW = Math.round(scaledTileW * 1.6 * ps)
         const boatH = Math.round(boatW * (bc.height / bc.width))
-        // Boat drawn centred on tile bottom (same Y reference as highlight)
-        // boatH * 0.6 puts the waterline at roughly 60% down the boat image
         const boatTop = by - boatH * 0.6
-        // Full tilt: idle rock + velocity lean + acceleration tip
-        const _boatRock = idleRock + velTiltX + accelTilt
-        const _boatPitch = velTiltY  // bow dips on north/south movement
+        const _boatRock = wobbleRoll + velTiltX + accelTilt
+        const _boatPitch = velTiltY
         if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001) {
           ctx.save()
           ctx.translate(Math.round(bx), Math.round(by + totalBob))
           ctx.rotate(_boatRock)
-          // Pitch: skew Y slightly for bow-up/bow-down feel
           ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
           ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
           ctx.restore()
@@ -1393,7 +1815,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
         }
       }
     }
-
 
     ctx.save()
     ctx.translate(screenX, screenY + (this._boatActive ? totalBob : idleBob))
@@ -1411,7 +1832,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       if (dir === 'ew') {
         sway = (this._boatActive || inWater) ? 0 : (this._swaySign ?? 1) * arc * scaledTileW * 0.055
         lean = this._boatActive ? 0 : (inWater ? 0 : arc * 0.05 * (this._facingLeft ? 1 : -1))
-        // Boat: apply lean as rotation not skew
         if (this._boatActive) ctx.rotate(totalLean * (this._facingLeft ? -1 : 1))
       } else {
         const inWater2 = !this._boatActive && (p?.terrainSinkOffset ?? 0) > 5
@@ -1421,7 +1841,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
           0, 1.0 + ((this._boatActive || inWater2) ? 0 : arc * 0.04),
           0, -nsBounce
         )
-        // Crop: use boat override when in boat, terrain sink otherwise
         const _sink0ns = this._boatActive
           ? H * (this._boatSinkOverride ?? 0)
           : Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
@@ -1443,7 +1862,6 @@ const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60)
       )
     }
 
-    // Crop: hide legs behind boat hull
     const sinkFrac = this._boatActive ? (this._boatSinkOverride ?? 0) : 0
     const _sinkRaw = (p?.terrainSinkOffset ?? 0)
     const _sink = this._boatActive ? H * sinkFrac : Math.min(H * 1.1, _sinkRaw * scaledTileW / 48)

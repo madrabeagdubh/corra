@@ -874,7 +874,8 @@ if (this.boatSystem)     { this.boatSystem.destroy();    this.boatSystem    = nu
     }
 
     for (let li = 0; li < this.mapData.layers.length; li++) {
-      if (this.usePerspective && (li === 0 || li === 1)) continue
+
+if (this.usePerspective && li <= 3) continue
 
       if (li === 0) {
         const grassFrame = ensureFrame(732)

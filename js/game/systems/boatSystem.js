@@ -152,6 +152,7 @@ activate() {
       }
     }
     this._stopRipples()
+    this._noDrift = false
     console.log('[BoatSystem] deactivated -- player disembarked')
   }
 
@@ -253,10 +254,18 @@ activate() {
     const force    = joystick?.force ?? 0
     const angle    = joystick?.angle ?? 0
 
-    // Max speed: slower in reeds, full in water
-    const maxSpeed  = onReed ? 80 : 160   // logical px/s
-    const impulse   = onReed ? 320 : 600  // px/s² acceleration
-    const friction  = onReed ? 6.0 : 3.5  // multiplier per second (exponential)
+const maxSpeed  = onReed ? 80 : 220
+const impulse   = onReed ? 240 : 480
+const friction  = onReed ? 4.0 : 1.4
+
+
+
+
+
+
+
+
+
 
     if (force > 10) {
       const rad = angle * Math.PI / 180
@@ -281,10 +290,10 @@ activate() {
     this._vy *= fric
 
     // Dead stop below threshold -- but only for Y, not X (drift keeps X alive)
-    if (Math.abs(this._vy) < 0.5) this._vy = 0
+    if (Math.abs(this._vy) < 1.5) this._vy = 0
 
-    // East drift: always present on water, bypasses friction dead-stop
-    if (onWater) {
+    // East drift: always present on water (unless suppressed by scene)
+    if (onWater && !this._noDrift) {
       this._vx += DRIFT_SPEED_PX_S * dt
       // Let drift accumulate -- no dead-stop on X when on water
     } else {

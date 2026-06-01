@@ -737,7 +737,7 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
 
                 initReturnCrossing(this.champion, currentOpacity, () => {
                     if (window.startGame) {
-                        window.startGame(this.champion, { startScene: 'd3' });
+                        window.startGame(this.champion, { startScene: 'd3_sea' });
                     } else {
                         console.error('[BowTutorial] window.startGame not found!');
                         this.scene.start('d3');

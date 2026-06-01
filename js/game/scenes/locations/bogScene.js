@@ -45,7 +45,8 @@ export default class BogScene extends PerspectiveScene {
     const mapKey = this.getMapKey()
 
     try {
-      const module  = await import(`/data/bog/${jsKey}.js`)
+
+	    const module = await import(/* @vite-ignore */ `/data/bog/${jsKey}.js`)
       const content = module[jsKey + 'Content'] || {}
 
       this.mapData.objects        = content.objects        || []

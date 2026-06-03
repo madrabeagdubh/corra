@@ -166,7 +166,9 @@ export default class BaseLocationScene extends Phaser.Scene {
       }
 
       // Show disembark badge when boat touches dry land (not reeds)
-      if (this.player?.inBoat && this.boatSystem?.active) {
+      
+if (!this._noDisembarkUI && this.player?.inBoat && this.boatSystem?.active) {
+	
         const _ts    = this.tileSize
         const _pgr   = this.perspectiveGround
         const _bx    = (_pgr?._boatWorldX != null) ? _pgr._boatWorldX : this.player.logicalX

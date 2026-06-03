@@ -250,7 +250,9 @@ export default class BoatSystem {
     const force    = joystick?.force ?? 0
     const angle    = joystick?.angle ?? 0
 
-    const maxSpeed = onReed ? 80  : 160   // logical px/s
+    const baseMaxSpeed = onReed ? 80 : 160
+        const eastCap = (this._vx > 0 && this._eastSpeedCap != null) ? this._eastSpeedCap : baseMaxSpeed
+        const maxSpeed = Math.min(baseMaxSpeed, eastCap)   // logical px/s
     const impulse  = onReed ? 240 : 400   // acceleration
     const friction = onReed ? 4.0 : 2.2   // ~3s glide on water
 
@@ -265,6 +267,9 @@ export default class BoatSystem {
       }
     }
 
+    // Hard east cap
+    const _eCap = this._eastSpeedCap
+
     // Apply friction (exponential decay)
     const fric = Math.pow(friction, -dt)
     this._vx *= fric
@@ -274,8 +279,18 @@ export default class BoatSystem {
     if (Math.abs(this._vy) < 1.5) this._vy = 0
 
     // East drift on open water
-    if (onWater && !this._noDrift) {
-      this._vx += DRIFT_SPEED_PX_S * dt
+
+
+
+
+if (onWater && !this._noDrift) {
+  const driftSpeed = this.scene._currentDriftOverride ?? DRIFT_SPEED_PX_S
+  this._vx += driftSpeed * dt
+
+
+
+
+
     } else {
       if (Math.abs(this._vx) < 0.5) this._vx = 0
     }

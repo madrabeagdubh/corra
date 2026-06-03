@@ -730,6 +730,9 @@ function initSwipe(scrollContainer, champCount) {
         clearTimeout(debounceTimer);
         clearTimeout(snapRestoreTimer);
 
+        // Guard: don't interfere with the swipe nudge animation
+        if (swipeNudgePanning) return;
+
         // While scrolling: no snap, free momentum
         scrollContainer.style.scrollSnapType = 'none';
 

@@ -52,6 +52,12 @@ const ENCOUNTER_VOICES = {
     mode:     'song',
     pitches:  DING_DONG_PITCHES,
   },
+
+  seanbean_na_mara: {
+    voiceDef: VOICES.cailin,
+    mode:     'speech',
+  },
+
   // Future entries:
   // skull_north: { voiceDef: VOICES.banshee,    mode: 'speech' },
   // skull_south: { voiceDef: VOICES.oldWarrior, mode: 'speech' },

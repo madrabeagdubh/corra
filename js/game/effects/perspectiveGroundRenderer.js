@@ -1719,14 +1719,27 @@ export default class PerspectiveGroundRenderer {
     }
 
     if (this._boatActive) {
-      const wobbleFreq = 1.8 + boatSpd * 0.04
-      this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
-      const targetAmp = boatSpd > 8
-        ? 0.04 + Math.min(boatSpd / 120, 0.10)
-        : 0.012
-      this._wobbleAmp = this._wobbleAmp ?? 0.012
-      this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-    } else {
+  const waveRenderer = this.scene._waveRenderer
+  if (waveRenderer) {
+    // Sync boat rock to wave phase passing under player
+    this._wobblePhase = waveRenderer.wavePhaseAtPlayer
+    const waveTargetAmp = waveRenderer.waveAmpAtPlayer / (scaledTileW || 1) * 0.10
+    const boatTargetAmp = boatSpd > 8
+      ? 0.04 + Math.min(boatSpd / 120, 0.10)
+      : 0.012
+    const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
+    this._wobbleAmp = this._wobbleAmp ?? 0.012
+    this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
+  } else {
+    const wobbleFreq = 1.8 + boatSpd * 0.04
+    this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
+    const targetAmp = boatSpd > 8
+      ? 0.04 + Math.min(boatSpd / 120, 0.10)
+      : 0.012
+    this._wobbleAmp = this._wobbleAmp ?? 0.012
+    this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
+  }
+}else {
       this._wobblePhase = 0
       this._wobbleAmp   = 0
     }

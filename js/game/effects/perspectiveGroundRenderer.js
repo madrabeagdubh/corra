@@ -1235,7 +1235,8 @@ export default class PerspectiveGroundRenderer {
             ? this.scene.bowMechanics._currentAimAngle ?? null
             : null
           const _drawX = playerScreenX
-          const _drawY = playerScreenY
+          const _waveOff = this._boatActive ? (this._waveRideOffset ?? 0) : 0
+          const _drawY = playerScreenY - _waveOff
           this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
           this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
             _drawX, _drawY, scaledTileW, playerHM)
@@ -1478,7 +1479,8 @@ export default class PerspectiveGroundRenderer {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)
         const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
         const _drawX2 = playerScreenX
-        const _drawY2 = playerScreenY
+        const _waveOff2 = this._boatActive ? (this._waveRideOffset ?? 0) : 0
+        const _drawY2 = playerScreenY - _waveOff2
         this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
         this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
           _drawX2, _drawY2, scaledTileW, playerHM2)
@@ -1730,7 +1732,13 @@ export default class PerspectiveGroundRenderer {
     const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
     this._wobbleAmp = this._wobbleAmp ?? 0.012
     this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-  } else {
+          // Vertical ride — boat rises on crests, dips in troughs
+        const rideT   = waveRenderer.waveRideT ?? 0
+        const rideAmp = waveRenderer.waveRideAmp ?? 0
+        this._waveRideOffset = this._waveRideOffset ?? 0
+        this._waveRideOffset += (rideT * rideAmp * 0.85 - this._waveRideOffset) * 0.06
+      } else {
+        this._waveRideOffset = 0
     const wobbleFreq = 1.8 + boatSpd * 0.04
     this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
     const targetAmp = boatSpd > 8

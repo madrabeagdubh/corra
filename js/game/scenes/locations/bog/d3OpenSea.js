@@ -5,11 +5,12 @@ import RiverScene   from '../riverScene.js'
 import WaveRenderer from '../../../effects/waveRenderer.js'
 
 const INTENSITY_START_COL  = 8
+const INTENSITY_FULL_COL   = 63
 const DRIFT_UNLOCK_COL     = 10
-const MANANNAN_TRIGGER_COL = 45
-const POINT_OF_NO_RETURN   = 65
 const SPEED_CAP_START_COL  = 8
-const INTENSITY_FULL_COL   = 63   // cap hits zero at tile 63
+const MANANNAN_TRIGGER_COL = 45   // must be past here AND struggling to summon him
+const POINT_OF_NO_RETURN   = 65
+
 const MANANNAN_WARNING = {
   ga: 'Filleadh. Ní leatsa an fharraige seo.',
   en: 'Turn back. This sea is not yours.',
@@ -30,7 +31,7 @@ export default class D3OpenSea extends RiverScene {
   getWisps()               { return [] }
   getMusicTrack()          { return null }
   getExtraUnwalkableGIDs() { return new Set() }
-  getSkyImage()            { return '/assets/skies/open_sea_sky.png' }
+  getSkyImage()            { return '/assets/skies/bog_threshold_sky.png' }
   getSkyPosition()         { return '50% 40%' }
   getMountainImage()       { return null }
   getMountainPosition()    { return '50% 100%' }
@@ -66,6 +67,7 @@ export default class D3OpenSea extends RiverScene {
     this._gameOverPending = false
     this._driftUnlocked   = false
     this._stormCamT       = 0
+    this._struggleTimer   = 0
 
     this._fadeDiv = document.createElement('div')
     this._fadeDiv.style.cssText = [
@@ -111,26 +113,16 @@ export default class D3OpenSea extends RiverScene {
     const raw       = (tileX - INTENSITY_START_COL) /
                       (INTENSITY_FULL_COL - INTENSITY_START_COL)
     const intensity = Math.max(0, Math.min(1, raw))
-
-
-if (!this._logThrottle2) this._logThrottle2 = 0
-this._logThrottle2++
-if (this._logThrottle2 % 120 === 0) {
-  console.log('[OpenSea] eastSpeedCap:', this.boatSystem?._eastSpeedCap?.toFixed(1),
-    'tileX:', tileX, 'intensity:', intensity.toFixed(2), 'tileSize:', this.tileSize)
-}
-
     const eastProgress = Math.max(0, Math.min(1, tileX / mapW))
 
     this._waveRenderer?.setIntensity(intensity)
     this._waveRenderer?.setEastProgress(eastProgress)
     this._waveRenderer?.update(delta)
 
-    // Drift: locked until DRIFT_UNLOCK_COL
+    // Drift — locked until DRIFT_UNLOCK_COL
     if (!this._driftUnlocked && tileX >= DRIFT_UNLOCK_COL) {
       this._driftUnlocked = true
       this.boatSystem._noDrift = false
-      console.log('[OpenSea] drift unlocked at tileX:', tileX)
     }
     if (this._driftUnlocked) {
       this._currentDriftOverride = -8 - intensity * 30
@@ -139,14 +131,14 @@ if (this._logThrottle2 % 120 === 0) {
       this.boatSystem._noDrift   = true
     }
 
-    // Speed cap — gradual from col 10 to near standstill at full intensity
+    // Speed cap — boat slows to standstill at tile 63
     if (this.boatSystem) {
       if (tileX >= SPEED_CAP_START_COL) {
         const capProgress = Math.max(0, Math.min(1,
           (tileX - SPEED_CAP_START_COL) /
           (INTENSITY_FULL_COL - SPEED_CAP_START_COL)
         ))
-this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress))       
+        this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress))
       } else {
         this.boatSystem._eastSpeedCap = null
       }
@@ -155,23 +147,54 @@ this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress
     // Storm camera
     this._applyStormCamera(delta, intensity)
 
-    // Manannan warning — spawn him drifting in
-    if (!this._manannánWarned && tileX >= MANANNAN_TRIGGER_COL) {
-      this._manannánWarned = true
-      this._triggerManannánWarning()
+    // ── Manannan struggle timer ───────────────────────────────────────────
+    // Manannan rises after 10 seconds of the player actively pushing east
+    // at the wall (past MANANNAN_TRIGGER_COL, speed nearly zero)
+    if (!this._manannánWarned) {
+      const joyAngle = this.joystick?.angle ?? 0
+      const atWall    = tileX >= MANANNAN_TRIGGER_COL
+      const pushing   = (this.joystick?.force ?? 0) > 10 &&
+                        joyAngle > -60 && joyAngle < 60
+      const slowSpeed = Math.abs(this.boatSystem?._vx ?? 0) < 20
+
+      if (atWall && pushing && slowSpeed) {
+        this._struggleTimer += delta
+        if (this._struggleTimer > 10000) {
+          this._manannánWarned = true
+          this._triggerManannánWarning()
+        }
+      } else if (!atWall || !pushing) {
+        // Reset timer if they stop pushing or retreat
+        this._struggleTimer = 0
+      }
     }
 
-    // Point of no return
+    // Point of no return — if player somehow gets past
     if (!this._gameOverPending && tileX >= POINT_OF_NO_RETURN) {
       this._gameOverPending = true
       this._triggerManannánFinal()
     }
- 
+  }
 
-
-
-
- }
+  _applyStormTint(intensity) {
+    if (intensity < 0.05) return
+    const pgr = this.perspectiveGround
+    if (!pgr?._gCtx) return
+    const horizonPx = pgr._horizonPx?.() ?? 0
+    const sw = pgr._sw, sh = pgr._sh
+    if (!sw || !sh) return
+    const t = intensity
+    const r = Math.round(20 + t * 10)
+    const g = Math.round(30 + t * 15)
+    const b = Math.round(45 - t * 15)
+    const ctx = pgr._gCtx
+    ctx.save()
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.globalAlpha = t * 0.38
+    ctx.fillStyle = `rgb(${r},${g},${b})`
+    ctx.fillRect(0, horizonPx, sw, sh - horizonPx)
+    ctx.restore()
+  }
 
   _applyStormCamera(delta, intensity) {
     const cam = this.cameras?.main
@@ -191,7 +214,6 @@ this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress
     const sh   = this.scale.height
     const zoom = cam.zoom || 1
 
-    // Rise and fall with wave phase passing under player
     const wavePhase = this._waveRenderer?.wavePhaseAtPlayer ?? 0
     const waveRise  = Math.sin(wavePhase) * 6 * amp
     const sway      = Math.sin(t * 0.55) * 2.5 * amp
@@ -205,11 +227,11 @@ this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress
       this.boatSystem._vx = 0
       this.boatSystem._vy = 0
     }
-    // Spawn Manannan drifting in from east of player
     this._waveRenderer?.spawnManannan()
     this._waveRenderer?.triggerHorseSequence()
 
-    this.time.delayedCall(2000, () => {
+    // Give Manannan time to drift into view before text fires
+    this.time.delayedCall(3000, () => {
       this.textPanel?.show({
         ga:      MANANNAN_WARNING.ga,
         en:      MANANNAN_WARNING.en,
@@ -243,9 +265,36 @@ this.boatSystem._eastSpeedCap = Math.max(0, 160 * (1 - capProgress * capProgress
     this.time.delayedCall(4400, () => {
       if (this._fadeDiv) this._fadeDiv.style.opacity = '0'
       this.time.delayedCall(600, () => {
+        this._cleanupEffects()
         this.scene.start('d3_sea')
       })
     })
+  }
+
+  _cleanupEffects() {
+    this.cameras?.main?.setRotation(0)
+    this._waveRenderer?.destroy()
+    this._waveRenderer = null
+    if (this._fadeDiv) {
+      this._fadeDiv.parentNode?.removeChild(this._fadeDiv)
+      this._fadeDiv = null
+    }
+  }
+
+  checkExits() {
+    if (!this.mapData?.exits) return
+    const tileX = Math.floor(this.player.logicalX / this.tileSize)
+    const tileY = Math.floor(this.player.logicalY / this.tileSize)
+    for (const [, exitData] of Object.entries(this.mapData.exits)) {
+      if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
+        this._cleanupEffects()
+        this.scene.start(exitData.destination, {
+          entryEdge:  exitData.entryPoint,
+          sourceTile: { x: tileX, y: tileY }
+        })
+        return
+      }
+    }
   }
 
   shutdown() {

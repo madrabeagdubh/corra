@@ -88,9 +88,11 @@ export default class WaveRenderer {
 
     for (let i = 0; i < WaveRenderer.HORSE_COUNT; i++) {
       const frac    = i / Math.max(1, WaveRenderer.HORSE_COUNT - 1)
-      const tileX   = mapW * (0.42 + frac * 0.48) + Math.random() * 6
-      const rowFrac = frac * frac
-      const tileY   = 4 + rowFrac * (mapH - 10) + (Math.random() - 0.5) * 2
+      // Spread horses more evenly — use golden ratio to avoid clumping
+      const goldenFrac = ((i * 0.618033) % 1.0)
+      const tileX   = mapW * (0.30 + goldenFrac * 0.62) + (Math.random() - 0.5) * 4
+      // Rows spread linearly not squared — more uniform vertical distribution
+      const tileY   = 3 + frac * (mapH - 8) + (Math.random() - 0.5) * 3
 
       horses.push({
         worldX:      tileX * ts,
@@ -200,11 +202,16 @@ export default class WaveRenderer {
       h.worldX    -= driftSpeed * dt
 
       const curSin    = Math.sin(h.risePhase)
-      h.prevSin       = curSin   // store for next frame
+      const curCos    = Math.cos(h.risePhase)  // positive = rising, negative = falling
+      h.prevSin       = curSin
       const submerged = curSin <= 0.02
 
-      // Detect dive moment: crossing from positive to near-zero while falling
-      const diving = prevSin > 0.15 && curSin <= 0.05
+      // Fire burst on emergence — horse breaking surface going up
+      const wasUnder  = prevSin <= 0.08
+      const nowRising = curSin > 0.08 && curCos > 0
+      const diving    = wasUnder && nowRising && !h._diveFired
+      if (diving) h._diveFired = true
+      if (curSin < 0.02) h._diveFired = false  // reset when fully submerged
       if (diving && i < activeCount) {
         this._spawnDiveBurst(h)
         console.log('[spray] dive burst fired, spray len:', this._spray.length, 'localI:', this._localIntensity(h.worldX).toFixed(2))
@@ -213,8 +220,10 @@ export default class WaveRenderer {
       // Recycle only when submerged
       if (h.worldX < -4 * ts && submerged) {
         const playerX = this.scene.player?.logicalX ?? mapW * ts * 0.5
-        h.worldX    = playerX + ts * (8 + Math.random() * 28)
-        h.worldY    = (4 + Math.random() * (mapW * 0.4)) * ts
+        // Spread recycle positions evenly across visible east band
+        const _gfrac = Math.random()
+        h.worldX    = playerX + ts * (6 + _gfrac * 32)
+        h.worldY    = (3 + Math.random() * (mapH - 8)) * ts
         h.risePhase = Math.random() * Math.PI * 2
       }
     }
@@ -276,10 +285,10 @@ export default class WaveRenderer {
       if (this.intensity > 0.25) this._spawnFountain()
     }
 
-    const bottomInterval = Math.max(200, 1500 - this.intensity * 1200)
+    const bottomInterval = Math.max(600, 2500 - this.intensity * 1800)
     if (this._t * 1000 - this._lastBottomSpray > bottomInterval) {
       this._lastBottomSpray = this._t * 1000
-      if (this.intensity > 0.15) this._spawnBottomSpray()
+      if (this.intensity > 0.15) { this._spawnBottomSpray(); console.log('[bottom] fired, spray len:', this._spray.length, 'intensity:', this.intensity.toFixed(2)) }
     }
 
     const ctx = this._ctx
@@ -575,6 +584,7 @@ export default class WaveRenderer {
   _spawnDiveBurst(h) {
     const pgr     = this.pgr
     const ts      = pgr.tileDisplaySize
+    console.log('[diveburst] called, worldX:', h.worldX?.toFixed(0), 'localI:', this._localIntensity(h.worldX).toFixed(2))
     const tileX   = h.worldX / ts
     const tileY   = h.worldY / ts
     const screenY = pgr._rowToScreenY(tileY + 1)
@@ -590,23 +600,53 @@ export default class WaveRenderer {
     const sw = this.pgr._sw || 400
     const sh = this.pgr._sh || 700
 
-    const count    = Math.floor(12 + localI * 30)
-    const speed    = scaledW * 0.004 * (0.8 + localI * 1.2)   // px/ms
+    // EPIC plume — supernatural creatures diving face-first
+    // Three layers: core column, wide scatter, fine mist
+    const baseCount = Math.floor(10 + localI * 25)
+    const sh2 = this.pgr._sh || 700
+    const baseSpeed = sh2 * 0.6 * (0.5 + localI * 1.2)  // px/s — screen-relative
 
-    for (let i = 0; i < count; i++) {
-      const spread = (Math.random() - 0.5) * 1.6
-      const angle  = -Math.PI / 2 + spread - 0.2
-      const spd    = speed * (0.5 + Math.random() * 0.8)
+    for (let i = 0; i < baseCount; i++) {
+      const layer = Math.random()
+      let spread, spd, r, grav, maxLife
+
+      if (layer < 0.25) {
+        // Core column — shoots straight up very fast
+        spread  = (Math.random() - 0.5) * 0.5
+        spd     = baseSpeed * (1.2 + Math.random() * 0.8)
+        r       = Math.max(3, scaledW * (0.06 + Math.random() * 0.08))
+        grav    = 400
+        maxLife = 1200 + Math.random() * 600
+      } else if (layer < 0.65) {
+        // Wide scatter — fans out dramatically
+        spread  = (Math.random() - 0.5) * 2.4
+        spd     = baseSpeed * (0.6 + Math.random() * 1.0)
+        r       = Math.max(2, scaledW * (0.03 + Math.random() * 0.06))
+        grav    = 600
+        maxLife = 800 + Math.random() * 800 * localI
+      } else {
+        // Fine mist — drifts and rains down slowly
+        spread  = (Math.random() - 0.5) * 3.0
+        spd     = baseSpeed * (0.2 + Math.random() * 0.5)
+        r       = Math.max(1, scaledW * (0.01 + Math.random() * 0.03))
+        grav    = 250
+        maxLife = 1500 + Math.random() * 1000 * localI
+      }
+
+      // Bias westward (negative x) — horses travel west
+      const westBias = -0.6 - localI * 0.4
+      const angle = -Math.PI / 2 + spread + westBias
       this._spray.push({
-        x:      screenX + (Math.random() - 0.5) * scaledW * 1.2,
-        y:      screenY,
-        vx:     Math.cos(angle) * spd,
-        vy:     Math.sin(angle) * spd,
-        life:   0,
-        maxLife: 800 + Math.random() * 1000 * localI,
-        r:      Math.max(1.5, scaledW * (0.03 + Math.random() * 0.06)),
-        bright: 215 + Math.floor(Math.random() * 40),
-        floor:  screenY,   // falls back to waterline
+        x:       screenX + (Math.random() - 0.5) * scaledW * 2.5,
+        y:       screenY - scaledW * 0.2,
+        vx:      Math.cos(angle) * spd,
+        vy:      Math.sin(angle) * spd,
+        life:    0,
+        maxLife,
+        r,
+        bright:  210 + Math.floor(Math.random() * 45),
+        floor:   screenY + scaledW * 2,  // can rain well below waterline
+        gravity: grav,
       })
     }
     if (this._spray.length > 500) this._spray.splice(0, 60)
@@ -659,37 +699,59 @@ export default class WaveRenderer {
     const sh = this.pgr._sh
     if (!isFinite(sw) || !isFinite(sh) || sw < 10 || sh < 10) return
 
-    const localI   = this.intensity
-    const count    = Math.floor(6 + localI * 20)
-    const clusterX = sw * (0.05 + Math.random() * 0.90)
-    // Speed in px/ms — needs to reach ~30% up screen in ~400ms
-    const speed    = sh * 0.0012 * (0.8 + localI * 1.0)
+    const localI = this.intensity
+    if (localI < 0.1) return
 
-    for (let i = 0; i < count; i++) {
-      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9
-      const spd   = speed * (0.6 + Math.random() * 0.8)
-      this._spray.push({
-        x: clusterX + (Math.random() - 0.5) * sw * 0.05,
-        y: sh + 5,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
-        life: 0, maxLife: 500 + Math.random() * 600 * localI,
-        r: Math.max(2, sw * (0.003 + Math.random() * 0.005)),
-        bright: 210 + Math.floor(Math.random() * 45),
-        floor: null,   // fades by life only — no floor clip
-      })
+    // Randomise: sometimes one big cluster, sometimes scattered smaller ones
+    const roll = Math.random()
+    const numClusters = roll < 0.4 ? 1 : roll < 0.7 ? 2 : 3
+
+    for (let c = 0; c < numClusters; c++) {
+      const clusterX = sw * (0.05 + Math.random() * 0.88)
+      // Varied count per cluster
+      const count    = Math.floor(3 + localI * (8 + Math.random() * 12))
+      // Speed varies — some clusters are violent, some gentle
+      const speedMult = 0.4 + Math.random() * 0.8
+      const speed     = sh * 0.9 * speedMult * (0.6 + localI * 0.8)  // px/s
+      // Angle bias — mostly upward but lean left or right randomly
+      const angleBias = (Math.random() - 0.5) * 0.8
+
+      for (let i = 0; i < count; i++) {
+        const spread = (Math.random() - 0.5) * 1.2
+        const angle  = -Math.PI / 2 + angleBias + spread
+        const spd    = speed * (0.5 + Math.random() * 0.8)
+        // Vary particle size — mix of large foam chunks and fine mist
+        const sizeFrac = Math.random()
+        const r = sizeFrac < 0.2
+          ? Math.max(4, sw * (0.008 + Math.random() * 0.008))   // large chunk
+          : Math.max(1.5, sw * (0.002 + Math.random() * 0.004)) // fine mist
+        this._spray.push({
+          x:       clusterX + (Math.random() - 0.5) * sw * 0.04,
+          y:       sh + 5 + Math.random() * 10,
+          vx:      Math.cos(angle) * spd,
+          vy:      Math.sin(angle) * spd,
+          life:    0,
+          maxLife: 1500 + Math.random() * 1500 * localI,
+          r,
+          bright:  205 + Math.floor(Math.random() * 50),
+          floor:   null,
+          gravity: 400 + Math.random() * 300,
+        })
+      }
     }
     if (this._spray.length > 500) this._spray.splice(0, 60)
   }
 
   _updateSpray(dt) {
-    // dt in ms. gravity in px/ms^2 — same scale as returnCrossing (0.0000018 * dt^2 equiv)
-    const gravity = 0.0000018 * dt
+    // dt in ms (~16ms/frame). vx/vy in px/ms. gravity accumulates vy.
+    // gravity = 0.0014 px/ms per ms = ~1400px/s^2 (strong, visible arc)
+    const dts = dt / 1000  // convert ms to seconds
     for (let i = this._spray.length - 1; i >= 0; i--) {
       const s = this._spray[i]
-      s.x    += s.vx * dt
-      s.y    += s.vy * dt
-      s.vy   += gravity * dt   // accumulate velocity
+      const grav = s.gravity ?? 700
+      s.x    += s.vx * dts
+      s.y    += s.vy * dts
+      s.vy   += grav * dts   // accumulate downward velocity
       s.life += dt
       if (s.life >= s.maxLife || (s.floor !== null && s.floor !== undefined && s.y > s.floor + 4)) {
         this._spray.splice(i, 1)

@@ -3,6 +3,7 @@
 
 import RiverScene   from '../riverScene.js'
 import WaveRenderer from '../../../effects/waveRenderer.js'
+import { StormAudio } from '../../../systems/music/stormAudio.js'
 
 const INTENSITY_START_COL  = 8
 const INTENSITY_FULL_COL   = 63
@@ -68,6 +69,10 @@ export default class D3OpenSea extends RiverScene {
     this._driftUnlocked   = false
     this._stormCamT       = 0
     this._struggleTimer   = 0
+
+    // Storm audio
+    this._stormAudio = new StormAudio()
+    this._stormAudio.start()
 
     this._fadeDiv = document.createElement('div')
     this._fadeDiv.style.cssText = [
@@ -144,6 +149,9 @@ export default class D3OpenSea extends RiverScene {
       }
     }
 
+    // Storm audio
+    this._stormAudio?.setIntensity(intensity)
+
     // Storm camera
     this._applyStormCamera(delta, intensity)
 
@@ -176,25 +184,224 @@ export default class D3OpenSea extends RiverScene {
     }
   }
 
+  // ── Storm audio ─────────────────────────────────────────────────────────
+
+  _initStormAudio() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (!AC) return
+      this._stormAC     = new AC()
+      this._stormMaster = this._stormAC.createGain()
+      this._stormMaster.gain.value = 0
+      this._stormMaster.connect(this._stormAC.destination)
+
+      // ── Wind layer — continuous filtered noise ──
+      const windBuf = this._makeNoiseBuf(4.0)
+      this._windNoise = this._stormAC.createBufferSource()
+      this._windNoise.buffer = windBuf
+      this._windNoise.loop   = true
+
+      // Bandpass for wind character
+      const windBp = this._stormAC.createBiquadFilter()
+      windBp.type            = 'bandpass'
+      windBp.frequency.value = 600
+      windBp.Q.value         = 0.4
+
+      // Highpass to remove rumble
+      const windHp = this._stormAC.createBiquadFilter()
+      windHp.type            = 'highpass'
+      windHp.frequency.value = 300
+
+      this._windGain = this._stormAC.createGain()
+      this._windGain.gain.value = 0
+
+      this._windNoise.connect(windBp)
+      windBp.connect(windHp)
+      windHp.connect(this._windGain)
+      this._windGain.connect(this._stormMaster)
+      this._windNoise.start()
+
+      // ── Spray layer — high freq hiss ──
+      const sprayBuf = this._makeNoiseBuf(3.0)
+      this._sprayNoise = this._stormAC.createBufferSource()
+      this._sprayNoise.buffer = sprayBuf
+      this._sprayNoise.loop   = true
+
+      const sprayHp = this._stormAC.createBiquadFilter()
+      sprayHp.type            = 'highpass'
+      sprayHp.frequency.value = 3000
+
+      this._sprayGain = this._stormAC.createGain()
+      this._sprayGain.gain.value = 0
+
+      this._sprayNoise.connect(sprayHp)
+      sprayHp.connect(this._sprayGain)
+      this._sprayGain.connect(this._stormMaster)
+      this._sprayNoise.start()
+
+      console.log('[StormAudio] initialised')
+    } catch(e) {
+      console.warn('[StormAudio] failed to init:', e)
+    }
+  }
+
+  _makeNoiseBuf(duration) {
+    const ac      = this._stormAC
+    const samples = Math.ceil(ac.sampleRate * duration)
+    const buf     = ac.createBuffer(1, samples, ac.sampleRate)
+    const data    = buf.getChannelData(0)
+    for (let i = 0; i < samples; i++) data[i] = Math.random() * 2 - 1
+    return buf
+  }
+
+  _updateStormAudio(intensity, delta) {
+    if (!this._stormAC || !this._stormMaster) return
+
+    // Resume if suspended (browser autoplay policy)
+    if (this._stormAC.state === 'suspended') {
+      this._stormAC.resume()
+    }
+
+    const now    = this._stormAC.currentTime
+    const smooth = 0.95   // lerp factor per frame
+
+    // Master volume ramps in with intensity
+    const targetMaster = 0.3 + intensity * 0.55
+    const curMaster    = this._stormMaster.gain.value
+    this._stormMaster.gain.setValueAtTime(
+      curMaster + (targetMaster - curMaster) * (1 - smooth), now)
+
+    // Wind volume and pitch rise with intensity
+    if (this._windGain) {
+      const targetWind = intensity * intensity * 0.7
+      const curWind    = this._windGain.gain.value
+      this._windGain.gain.setValueAtTime(
+        curWind + (targetWind - curWind) * 0.04, now)
+    }
+
+    // Spray hiss scales with intensity
+    if (this._sprayGain) {
+      const targetSpray = Math.max(0, intensity - 0.3) * 0.5
+      const curSpray    = this._sprayGain.gain.value
+      this._sprayGain.gain.setValueAtTime(
+        curSpray + (targetSpray - curSpray) * 0.03, now)
+    }
+
+    // Periodic wave crashes
+    const crashInterval = Math.max(1800, 5000 - intensity * 3500)
+    const elapsed       = this._t * 1000
+    if (elapsed - this._lastWaveCrash > crashInterval && intensity > 0.15) {
+      this._lastWaveCrash = elapsed
+      this._playWaveCrash(intensity)
+    }
+
+    // Occasional wind gusts
+    if (!this._nextGust) this._nextGust = elapsed + 3000 + Math.random() * 4000
+    if (elapsed > this._nextGust && intensity > 0.1) {
+      this._nextGust = elapsed + 4000 + Math.random() * 6000
+      this._playWindGust(intensity)
+    }
+  }
+
+  _playWaveCrash(intensity) {
+    if (!this._stormAC) return
+    const ac  = this._stormAC
+    const now = ac.currentTime
+    const dur = 1.2 + intensity * 0.8
+
+    const buf = this._makeNoiseBuf(dur)
+    const src = ac.createBufferSource()
+    src.buffer = buf
+
+    // Shape: low rumble + mid crash + high spray
+    const lp = ac.createBiquadFilter()
+    lp.type = 'lowpass'; lp.frequency.value = 400
+
+    const bp = ac.createBiquadFilter()
+    bp.type = 'bandpass'; bp.frequency.value = 800; bp.Q.value = 1.2
+
+    const g = ac.createGain()
+    g.gain.setValueAtTime(0, now)
+    g.gain.linearRampToValueAtTime(0.4 + intensity * 0.4, now + 0.08)
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur)
+
+    src.connect(bp); bp.connect(g)
+    g.connect(this._stormMaster)
+    src.start(now); src.stop(now + dur)
+
+    // Add low rumble
+    const src2 = ac.createBufferSource()
+    src2.buffer = this._makeNoiseBuf(dur * 0.6)
+    const g2 = ac.createGain()
+    g2.gain.setValueAtTime(0, now)
+    g2.gain.linearRampToValueAtTime(0.25 + intensity * 0.3, now + 0.15)
+    g2.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.6)
+    src2.connect(lp); lp.connect(g2); g2.connect(this._stormMaster)
+    src2.start(now); src2.stop(now + dur * 0.6)
+  }
+
+  _playWindGust(intensity) {
+    if (!this._stormAC) return
+    const ac  = this._stormAC
+    const now = ac.currentTime
+    const dur = 1.5 + Math.random() * 2.0
+
+    const buf = this._makeNoiseBuf(dur)
+    const src = ac.createBufferSource()
+    src.buffer = buf
+
+    const hp = ac.createBiquadFilter()
+    hp.type = 'highpass'; hp.frequency.value = 500 + intensity * 400
+
+    const g = ac.createGain()
+    g.gain.setValueAtTime(0, now)
+    g.gain.linearRampToValueAtTime(0.15 + intensity * 0.25, now + dur * 0.3)
+    g.gain.linearRampToValueAtTime(0.05, now + dur * 0.7)
+    g.gain.linearRampToValueAtTime(0, now + dur)
+
+    src.connect(hp); hp.connect(g); g.connect(this._stormMaster)
+    src.start(now); src.stop(now + dur)
+  }
+
+  _stopStormAudio() {
+    if (!this._stormAC) return
+    try {
+      if (this._windNoise)  { this._windNoise.stop();  this._windNoise  = null }
+      if (this._sprayNoise) { this._sprayNoise.stop(); this._sprayNoise = null }
+      if (this._stormMaster) {
+        this._stormMaster.gain.setValueAtTime(0, this._stormAC.currentTime)
+      }
+      setTimeout(() => {
+        try { this._stormAC?.close() } catch(e) {}
+        this._stormAC = null
+      }, 500)
+    } catch(e) {}
+    console.log('[StormAudio] stopped')
+  }
+
   _applyStormTint(intensity) {
-    if (intensity < 0.05) return
+    if (intensity < 0.02) return
     const pgr = this.perspectiveGround
     if (!pgr?._gCtx) return
     const horizonPx = pgr._horizonPx?.() ?? 0
     const sw = pgr._sw, sh = pgr._sh
     if (!sw || !sh) return
-    const t = intensity
-    const r = Math.round(20 + t * 10)
-    const g = Math.round(30 + t * 15)
-    const b = Math.round(45 - t * 15)
+    const t   = intensity
     const ctx = pgr._gCtx
     ctx.save()
-    ctx.globalCompositeOperation = 'source-atop'
-    ctx.globalAlpha = t * 0.38
+    // 'multiply' darkens existing tile pixels — works regardless of alpha
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.6 + t * 0.3
+    // Cold grey-green — desaturates blue tiles toward stormy ocean
+    const r = Math.round(60  - t * 20)
+    const g = Math.round(75  - t * 15)
+    const b = Math.round(90  - t * 10)
     ctx.fillStyle = `rgb(${r},${g},${b})`
     ctx.fillRect(0, horizonPx, sw, sh - horizonPx)
     ctx.restore()
   }
+
+
 
   _applyStormCamera(delta, intensity) {
     const cam = this.cameras?.main
@@ -275,6 +482,8 @@ export default class D3OpenSea extends RiverScene {
     this.cameras?.main?.setRotation(0)
     this._waveRenderer?.destroy()
     this._waveRenderer = null
+    this._stormAudio?.stop()
+    this._stormAudio = null
     if (this._fadeDiv) {
       this._fadeDiv.parentNode?.removeChild(this._fadeDiv)
       this._fadeDiv = null

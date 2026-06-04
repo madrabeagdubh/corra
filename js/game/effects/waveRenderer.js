@@ -1,17 +1,14 @@
 // WaveRenderer.js
 // Location: js/game/effects/waveRenderer.js
 //
-// Horses gallop west through the waves, rising and plunging on their own
-// sine cycle — independent of player progress. Intensity controls how many
-// are active and how vigorous the gallop.
-//
-// Manannan rises from the waterline upward (bottom-anchored clip).
-// He drifts in from east of screen, not fixed at map edge.
+// Composite wave system for d3_open_sea.
+// Horses use asymmetric dolphin-leap easing with rotation.
+// Dive burst spray fires at the moment of re-entry.
 
 export default class WaveRenderer {
 
   static WAVE_COUNT      = 6
-  static HORSE_COUNT     = 6
+  static HORSE_COUNT     = 22
   static MANANNAN_START  = 0.84
 
   constructor(scene, pgr) {
@@ -23,11 +20,13 @@ export default class WaveRenderer {
 
     this.wavePhaseAtPlayer = 0
     this.waveAmpAtPlayer   = 0
-    this._manannánSurfaceT = 0
+    this.waveRideT         = 0
+    this.waveRideAmp       = 0
 
-    // Manannan world position — drifts in from east with current
-    this._manannánWorldX = null   // set when triggered
-    this._manannánWorldY = null
+    this._manannánSurfaceT = 0
+    this._manannánWorldX   = null
+    this._manannánWorldY   = null
+    this._manannánFixed    = false
 
     this._waves = []
     for (let i = 0; i < WaveRenderer.WAVE_COUNT; i++) {
@@ -43,6 +42,9 @@ export default class WaveRenderer {
 
     this._horses = this._buildHorses()
     this._foam   = []
+    this._spray  = []
+    this._lastFountain    = 0
+    this._lastBottomSpray = 0
 
     this._horseImgs = []
     for (let i = 1; i <= 4; i++) {
@@ -63,11 +65,11 @@ export default class WaveRenderer {
     this._canvas.height = pgr._sh
     this._canvas.style.cssText = [
       'position:absolute', 'top:0', 'left:0',
-      'z-index:2', 'pointer-events:none',
+      'z-index:3', 'pointer-events:none',
       'image-rendering:pixelated',
     ].join(';')
-    const objectsCanvas = document.getElementById('pgr-objects')
-    if (objectsCanvas) container.insertBefore(this._canvas, objectsCanvas)
+    const lightCanvas = document.getElementById('pgr-light')
+    if (lightCanvas) container.insertBefore(this._canvas, lightCanvas)
     else container.appendChild(this._canvas)
 
     this._ctx = this._canvas.getContext('2d')
@@ -77,56 +79,86 @@ export default class WaveRenderer {
   }
 
   // ── Horse factory ─────────────────────────────────────────────────────────
-  // Each horse has its own rise/plunge cycle via risePhase.
-  // surfaceT = 0.5 + 0.5 * sin(risePhase) — continuously cycling.
-  // Horses are spread across rows for perspective variety.
 
   _buildHorses() {
     const ts   = this.pgr.tileDisplaySize
     const mapW = this.scene.mapData?.layers?.[0]?.[0]?.length ?? 72
+    const mapH = this.scene.mapData?.layers?.[0]?.length ?? 36
     const horses = []
 
     for (let i = 0; i < WaveRenderer.HORSE_COUNT; i++) {
-      const frac  = i / Math.max(1, WaveRenderer.HORSE_COUNT - 1)
-      // Spread starting X across east half, staggered
-      const tileX = mapW * (0.40 + frac * 0.45) + Math.random() * 5
-      // Spread rows across mid-band
-      const tileY = 7 + frac * 20 + (Math.random() - 0.5) * 2
+      const frac    = i / Math.max(1, WaveRenderer.HORSE_COUNT - 1)
+      const tileX   = mapW * (0.42 + frac * 0.48) + Math.random() * 6
+      const rowFrac = frac * frac
+      const tileY   = 4 + rowFrac * (mapH - 10) + (Math.random() - 0.5) * 2
 
       horses.push({
         worldX:      tileX * ts,
         worldY:      tileY * ts,
-
-        // Rise/plunge cycle — each horse on its own phase
         risePhase:   Math.random() * Math.PI * 2,
-        riseFreq:    0.55 + Math.random() * 0.35,   // cycles per second
-        riseAmp:     0.55 + Math.random() * 0.35,   // 0=never surfaces, 1=fully up
-
-        // Gallop speed multiplier — varies per horse
-        gallopMult:  0.85 + Math.random() * 0.35,
-
-        heightMult:  1.3 + Math.random() * 0.5,
+        prevSin:     0,             // for detecting dive moment
+        riseFreq:    0.7 + Math.random() * 0.5,
+        gallopMult:  0.9 + Math.random() * 0.4,
+        heightMult:  1.1 + Math.random() * 0.4,
         spriteIndex: i % 4,
       })
     }
     return horses
   }
 
+  _localIntensity(worldX) {
+    const tileX = worldX / this.pgr.tileDisplaySize
+    return Math.max(0, Math.min(1, tileX / 55))
+  }
+
   setIntensity(v)    { this.intensity    = Math.max(0, Math.min(1, v)) }
   setEastProgress(v) { this.eastProgress = Math.max(0, Math.min(1, v)) }
 
-  // ── Sequence triggers ─────────────────────────────────────────────────────
-
   triggerHorseSequence() {
-    console.log('[WaveRenderer] horse sequence triggered')
-    // Boost all horses to full rise immediately
-    for (const h of this._horses) {
-      h.risePhase = Math.PI * 0.5   // sin(π/2) = 1 → fully surfaced
-    }
+    for (const h of this._horses) h.risePhase = Math.PI * 0.5
   }
 
-  triggerHorseSurround() {
-    console.log('[WaveRenderer] horse surround triggered')
+  triggerHorseSurround() {}
+
+  spawnManannan() {
+    const ts   = this.pgr.tileDisplaySize
+    const mapH = this.scene.mapData?.layers?.[0]?.length ?? 36
+    const p    = this.scene.player
+    if (!p) return
+    const mapW2      = this.scene.mapData?.width ?? 72
+    const playerTileX = Math.floor(p.logicalX / ts)
+    const manTileX   = Math.min(mapW2 - 2, playerTileX + 4)
+    this._manannánWorldX   = manTileX * ts
+    this._manannánWorldY   = Math.floor(p.logicalY / ts) * ts
+    this._manannánSurfaceT = 0
+    this._manannánFixed    = false
+    console.log('[WaveRenderer] Manannan spawned at tileX:', manTileX)
+  }
+
+  // ── Dolphin leap curve ────────────────────────────────────────────────────
+  // Asymmetric: slow graceful rise, faster nose-first dive.
+  // Returns surfaceT (0=submerged, 1=peak) and velT (-1=diving fast, +1=rising)
+
+  _dolphinCurve(risePhase) {
+    const s = Math.sin(risePhase)
+    const c = Math.cos(risePhase)   // velocity proxy
+
+    // Only positive half emerges
+    if (s <= 0) return { surfaceT: 0, velT: c }
+
+    // Asymmetric easing:
+    // Rising (c > 0): ease-out — starts fast, slows at peak
+    // Falling (c < 0): ease-in — slow at peak, accelerates into dive
+    let surfaceT
+    if (c >= 0) {
+      // Rising: power < 1 = ease-out (fast start)
+      surfaceT = Math.pow(s, 0.7)
+    } else {
+      // Falling: power > 1 = ease-in (slow at top, fast into water)
+      surfaceT = Math.pow(s, 0.5)
+    }
+
+    return { surfaceT, velT: c }
   }
 
   // ── Main update ───────────────────────────────────────────────────────────
@@ -151,70 +183,83 @@ export default class WaveRenderer {
     const ts   = this.pgr.tileDisplaySize
     const mapW = this.scene.mapData?.layers?.[0]?.[0]?.length ?? 72
 
-    // How many horses are active scales with intensity
-    // Below 0.2 intensity: no horses. At 1.0: all active.
-    const activeCount = Math.floor(
-      Math.max(0, (this.intensity - 0.15) / 0.85) * WaveRenderer.HORSE_COUNT
+    const activeCount = Math.min(
+      WaveRenderer.HORSE_COUNT,
+      Math.floor(Math.max(0, this.intensity + 0.15) * WaveRenderer.HORSE_COUNT)
     )
 
     for (let i = 0; i < this._horses.length; i++) {
       const h = this._horses[i]
-
-      if (i >= activeCount) {
-        // Inactive — drift west but don't render (surfaceT will be 0)
-        h.worldX -= driftSpeed * dt * h.gallopMult
-        if (h.worldX < -4 * ts) {
-          h.worldX = mapW * ts * (0.80 + Math.random() * 0.18)
-        }
-        continue
+      const prevSin = h.prevSin ?? Math.sin(h.risePhase)
+      if (!this._horseLogged && i === 0) {
+        this._horseLogged = true
+        console.log('[horse] i:0 prevSin:', prevSin.toFixed(3), 'activeCount:', activeCount, 'horses:', this._horses.length)
       }
 
-      // Active — advance rise phase and drift
-      h.risePhase += h.riseFreq * dt * (1 + this.intensity * 0.8)
-      // Gallop: drift faster than pure current — they're charging
-      h.worldX -= (driftSpeed + 20 + this.intensity * 40) * dt * h.gallopMult
+      h.risePhase += h.riseFreq * dt * (1 + this.intensity * 0.6)
+      h.worldX    -= driftSpeed * dt
 
-      if (h.worldX < -4 * ts) {
-        h.worldX    = mapW * ts * (0.75 + Math.random() * 0.20)
+      const curSin    = Math.sin(h.risePhase)
+      h.prevSin       = curSin   // store for next frame
+      const submerged = curSin <= 0.02
+
+      // Detect dive moment: crossing from positive to near-zero while falling
+      const diving = prevSin > 0.15 && curSin <= 0.05
+      if (diving && i < activeCount) {
+        this._spawnDiveBurst(h)
+        console.log('[spray] dive burst fired, spray len:', this._spray.length, 'localI:', this._localIntensity(h.worldX).toFixed(2))
+      }
+
+      // Recycle only when submerged
+      if (h.worldX < -4 * ts && submerged) {
+        const playerX = this.scene.player?.logicalX ?? mapW * ts * 0.5
+        h.worldX    = playerX + ts * (8 + Math.random() * 28)
+        h.worldY    = (4 + Math.random() * (mapW * 0.4)) * ts
         h.risePhase = Math.random() * Math.PI * 2
-      }
-
-      // surfaceT: 0=submerged, 1=fully up. Clamp to [0,1].
-      const raw      = 0.5 + 0.5 * Math.sin(h.risePhase)
-      const surfaceT = Math.max(0, Math.min(1, raw * h.riseAmp / 0.5))
-
-      // Foam when surfacing
-      if (surfaceT > 0.3 && Math.random() < this.intensity * 0.25) {
-        const tileY   = h.worldY / ts
-        const scaledW = this.pgr._scaleAtRow(tileY + 1)
-        if (scaledW && isFinite(scaledW)) {
-          this._spawnFoamAt(
-            h.worldX, h.worldY, surfaceT,
-            scaledW * h.heightMult * (0.6 + this.intensity * 0.5)
-          )
-        }
       }
     }
 
-    // Manannan — drifts in with current once triggered
+    // Manannan
     if (this._manannánWorldX !== null) {
-      this._manannánWorldX -= driftSpeed * dt * 0.7  // drifts slower than horses
-      const manTarget = this.eastProgress >= WaveRenderer.MANANNAN_START
-        ? Math.min(1, (this.eastProgress - WaveRenderer.MANANNAN_START) / 0.08)
-        : 0
-      this._manannánSurfaceT += (manTarget - this._manannánSurfaceT) * 0.025
+      if (!this._manannánFixed) {
+        this._manannánSurfaceT = Math.min(1,
+          this._manannánSurfaceT + dt * 0.18)
+        if (this._manannánSurfaceT >= 1) {
+          this._manannánFixed = true
+        }
+      }
+      const p = this.scene.player
+      if (p && !this._manannánFixed) {
+        const mapW3       = this.scene.mapData?.width ?? 72
+        const playerTileX = Math.floor(p.logicalX / ts)
+        const manTileX2   = Math.min(mapW3 - 2, playerTileX + 4)
+        this._manannánWorldX = manTileX2 * ts
+        this._manannánWorldY = Math.floor(p.logicalY / ts) * ts
+      }
     }
 
     // Boat sync
     const p = this.scene.player
     if (p) {
-      const col     = p.logicalX / ts
-      const w0      = this._waves[0]
-      this.wavePhaseAtPlayer = w0.phase - col / w0.wavelength * Math.PI * 2
+      const col  = p.logicalX / ts
+      const w0   = this._waves[0]
+      this.wavePhaseAtPlayer = w0.phase + col / w0.wavelength * Math.PI * 2
       const scaledW = this.pgr._scaleAtRow(p.logicalY / ts + 1)
       if (scaledW && isFinite(scaledW)) {
-        const eff = 0.15 + this.intensity * 0.85
-        this.waveAmpAtPlayer = w0.amplitude * eff * scaledW * 0.85
+        const eff2 = 0.45 + this.intensity * 0.55
+        let waveSum = 0, wAmpSum = 0
+        for (const w of this._waves) {
+          waveSum  += Math.sin(w.phase + col / w.wavelength * Math.PI * 2) * w.amplitude
+          wAmpSum  += w.amplitude
+        }
+        const norm      = wAmpSum > 0 ? waveSum / wAmpSum : 0
+        const sharpened = Math.sign(norm) * Math.pow(Math.abs(norm), 0.6)
+        this.waveRideT   = sharpened
+        const _pRow      = p.logicalY / ts
+        const _scaledW2  = this.pgr._scaleAtRow(_pRow + 1) ?? ts
+        const _eff2      = 0.45 + this.intensity * 0.55
+        this.waveRideAmp = ts * _eff2 * 0.55 * (_scaledW2 / ts) * (1 + this.intensity * 0.6)
+        this.waveAmpAtPlayer = w0.amplitude * eff2 * scaledW * 0.85
       }
     }
 
@@ -223,38 +268,33 @@ export default class WaveRenderer {
       this._horseImgs.forEach((img, i) =>
         console.log(`[WaveRenderer] horse${i+1}.png complete:`,
           img.complete, 'w:', img.naturalWidth))
-      console.log('[WaveRenderer] manannan.png complete:',
-        this._manannánImg.complete, 'w:', this._manannánImg.naturalWidth)
+    }
+
+    const fountainInterval = Math.max(150, 1200 - this.intensity * 1000)
+    if (this._t * 1000 - this._lastFountain > fountainInterval) {
+      this._lastFountain = this._t * 1000
+      if (this.intensity > 0.25) this._spawnFountain()
+    }
+
+    const bottomInterval = Math.max(200, 1500 - this.intensity * 1200)
+    if (this._t * 1000 - this._lastBottomSpray > bottomInterval) {
+      this._lastBottomSpray = this._t * 1000
+      if (this.intensity > 0.15) this._spawnBottomSpray()
     }
 
     const ctx = this._ctx
     ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
-
     this._drawWaves(ctx)
     this._drawHorses(ctx)
     this._drawManannan(ctx)
     this._updateFoam(dt)
     this._drawFoam(ctx)
-  }
-
-  // Called by scene when player reaches Manannan trigger column
-  spawnManannan() {
-    const ts   = this.pgr.tileDisplaySize
-    const mapW = this.scene.mapData?.layers?.[0]?.[0]?.length ?? 72
-    const mapH = this.scene.mapData?.layers?.[0]?.length ?? 36
-    // Spawn just off the right edge of the visible area — drifts in naturally
-    const cam     = this.scene.cameras?.main
-    const zoom    = cam?.zoom || 1
-    const sw      = this.scene.scale?.width ?? 400
-    const visibleCols = sw / (zoom * ts)
-    const playerTileX = this.scene.player
-      ? Math.floor(this.scene.player.logicalX / ts)
-      : mapW * 0.85
-    // Spawn ~12 tiles east of player — will drift into view
-    this._manannánWorldX = (playerTileX + 12) * ts
-    this._manannánWorldY = Math.floor(mapH / 2) * ts
-    console.log('[WaveRenderer] Manannan spawned at tileX:',
-      playerTileX + 12)
+    if (this._spray.length > 0 && !this._sprayDrawLogged) {
+      this._sprayDrawLogged = true
+      console.log('[spray] drawing', this._spray.length, 'particles, first:', JSON.stringify(this._spray[0]))
+    }
+    this._updateSpray(delta)  // spray uses ms, not seconds
+    this._drawSpray(ctx)
   }
 
   // ── Wave crests ───────────────────────────────────────────────────────────
@@ -265,168 +305,245 @@ export default class WaveRenderer {
     const mapW      = this.scene.mapData?.layers?.[0]?.[0]?.length ?? 72
     const ts        = pgr.tileDisplaySize
     const horizonPx = pgr._horizonPx()
-    const eff       = 0.15 + this.intensity * 0.85
+    const eff       = 0.45 + this.intensity * 0.55
 
-    for (const w of this._waves) {
-      const amp = w.amplitude * eff * ts * 0.90
-      if (amp < 0.5) continue
+    const baseStep = 3.2
+    const rowStep  = baseStep + this.intensity * 2.0
 
-      for (let tileRow = 2; tileRow < mapH - 2; tileRow += w.wavelength * 0.5) {
-        const row     = tileRow + w.rowOffset
-        const screenY = pgr._rowToScreenY(row + 1)
-        if (screenY === null || !isFinite(screenY)) continue
-        if (screenY < horizonPx + 4) continue
-        if (screenY > pgr._sh + 20)  continue
+    const maxAmp = ts * eff * 0.55
 
-        const scaledW = pgr._scaleAtRow(row + 1)
-        if (!scaledW || !isFinite(scaledW)) continue
-
-        const crestH = amp * (scaledW / ts) * (1 + this.intensity * 1.2)
-        if (!isFinite(crestH) || crestH < 0.5) continue
-
-        const pts = []
-        for (let c = -2; c <= mapW + 4; c++) {
-          const screenX = pgr._colToScreenX(c + 0.5, row)
-          if (!isFinite(screenX)) continue
-          const sineVal = Math.sin(w.phase - c / w.wavelength * Math.PI * 2)
-          const sharp   = Math.sign(sineVal) *
-                          Math.pow(Math.abs(sineVal), 0.6 - this.intensity * 0.3)
-          const cy = screenY - crestH * 0.5 - crestH * 0.5 * sharp
-          if (isFinite(cy)) pts.push({ x: screenX, y: cy })
-        }
-        if (pts.length < 2) continue
-
-        ctx.save()
-        ctx.globalAlpha = w.alpha * (0.5 + eff * 0.5)
-
-        ctx.beginPath()
-        pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
-        ctx.strokeStyle = `rgba(225,240,255,${(w.alpha * (0.4 + eff * 0.6)).toFixed(2)})`
-        ctx.lineWidth   = Math.max(1.5, crestH * 0.45)
-        ctx.stroke()
-
-        const gradY0 = screenY - crestH
-        const gradY1 = screenY + crestH * 0.4
-        if (isFinite(gradY0) && isFinite(gradY1) && gradY0 !== gradY1) {
-          ctx.beginPath()
-          pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
-          for (let i = pts.length - 1; i >= 0; i--) {
-            ctx.lineTo(pts[i].x, pts[i].y + crestH * 0.65)
-          }
-          ctx.closePath()
-          try {
-            const grad = ctx.createLinearGradient(0, gradY0, 0, gradY1)
-            grad.addColorStop(0,   `rgba(200,225,255,${(eff * 0.40).toFixed(2)})`)
-            grad.addColorStop(0.4, `rgba(155,200,240,${(eff * 0.20).toFixed(2)})`)
-            grad.addColorStop(1,   'rgba(90,150,210,0)')
-            ctx.fillStyle = grad
-            ctx.fill()
-          } catch(e) {}
-        }
-        ctx.restore()
-      }
-    }
-  }
-
-  // ── White Horses ──────────────────────────────────────────────────────────
-
-  _drawHorses(ctx) {
-    const pgr       = this.pgr
-    const ts        = pgr.tileDisplaySize
-    const horizonPx = pgr._horizonPx()
-    const activeCount = Math.floor(
-      Math.max(0, (this.intensity - 0.15) / 0.85) * WaveRenderer.HORSE_COUNT
-    )
-
-    for (let i = 0; i < activeCount; i++) {
-      const h = this._horses[i]
-
-      // Compute surfaceT from rise cycle
-      const raw      = 0.5 + 0.5 * Math.sin(h.risePhase)
-      const surfaceT = Math.max(0, Math.min(1, raw * h.riseAmp / 0.5))
-      if (surfaceT < 0.02) continue
-
-      const tileX = h.worldX / ts
-      const tileY = h.worldY / ts
-      if (!isFinite(tileX) || !isFinite(tileY)) continue
-
-      const screenY = pgr._rowToScreenY(tileY + 1)
+    for (let tileRow = 2; tileRow < mapH - 2; tileRow += rowStep) {
+      const screenY = pgr._rowToScreenY(tileRow + 1)
       if (screenY === null || !isFinite(screenY)) continue
-      if (screenY < horizonPx + 4) continue
+      if (screenY < horizonPx + 4 || screenY > pgr._sh + 20) continue
 
-      const scaledW = pgr._scaleAtRow(tileY + 1)
+      const scaledW = pgr._scaleAtRow(tileRow + 1)
       if (!scaledW || !isFinite(scaledW)) continue
 
-      const fullH   = scaledW * h.heightMult * (0.7 + this.intensity * 0.5)
-      if (!isFinite(fullH) || fullH < 1) continue
+      const depthScale = scaledW / ts
+      const crestH     = maxAmp * depthScale * (1 + this.intensity * 0.6)
+      if (crestH < 0.8) continue
 
-      // Bottom-anchored: horse rises from waterline upward
-      const visibleH = fullH * surfaceT
-      const centerX  = pgr._colToScreenX(tileX + 0.5, tileY)
-      if (!isFinite(centerX)) continue
+      const rowPhaseOffset = (tileRow * 0.618) % (Math.PI * 2)
 
-      // Bob: small vertical oscillation at the waterline
-      const bob = Math.sin(h.risePhase * 2.1) * scaledW * 0.03
+      const pts = []
+      for (let c = -2; c <= mapW + 4; c++) {
+        const screenX = pgr._colToScreenX(c + 0.5, tileRow)
+        if (!isFinite(screenX)) continue
+        let sum = 0, weightSum = 0
+        for (const w of this._waves) {
+          const contribution = Math.sin(w.phase + c / w.wavelength * Math.PI * 2
+            + rowPhaseOffset * (w.speed * 8))
+          sum       += contribution * w.amplitude
+          weightSum += w.amplitude
+        }
+        const normalised = weightSum > 0 ? sum / weightSum : 0
+        const sharpPow   = Math.max(0.5, 0.7 - this.intensity * 0.2)
+        const sharp      = Math.sign(normalised) * Math.pow(Math.abs(normalised), sharpPow)
+        const cy = screenY - crestH * 0.5 * (1 + sharp)
+        if (isFinite(cy)) pts.push({ x: screenX, y: cy })
+      }
+      if (pts.length < 2) continue
+
+      const distFromHorizon = screenY - horizonPx
+      const horizonFade = distFromHorizon < 40 ? Math.max(0, distFromHorizon / 40) : 1.0
+      const baseAlpha   = eff * horizonFade
 
       ctx.save()
-      ctx.globalAlpha = 1.0
 
-      const img = this._horseImgs[h.spriteIndex]
-      if (img?.complete && img.naturalWidth > 0) {
-        const spriteW = scaledW * 2.6
-        const spriteH = spriteW * (img.naturalHeight / img.naturalWidth)
-        const sx      = centerX - spriteW * 0.5
-
-        // Clip from bottom upward — waterline is at screenY + bob
-        const waterline = screenY + bob
-        const clipTop   = waterline - visibleH
+      // Shadow trough
+      const shadowH = crestH * (0.45 + this.intensity * 0.35)
+      if (shadowH > 1) {
         ctx.beginPath()
-        ctx.rect(sx - 4, clipTop, spriteW + 8, visibleH + 2)
-        ctx.clip()
+        pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
+        for (let i = pts.length - 1; i >= 0; i--) {
+          ctx.lineTo(pts[i].x, pts[i].y - shadowH)
+        }
+        ctx.closePath()
+        try {
+          const sg = ctx.createLinearGradient(0, screenY - crestH - shadowH, 0, screenY - crestH * 0.3)
+          sg.addColorStop(0,   'rgba(6,14,32,0)')
+          sg.addColorStop(0.4, `rgba(8,18,42,${(baseAlpha * 0.28).toFixed(2)})`)
+          sg.addColorStop(1,   `rgba(12,24,52,${(baseAlpha * 0.45).toFixed(2)})`)
+          ctx.fillStyle = sg
+          ctx.fill()
+        } catch(e) {}
+      }
 
-        // Sprite bottom anchored at waterline
-        ctx.drawImage(img, sx, waterline - spriteH, spriteW, spriteH)
+      // Crest highlight — brightness varies along length
+      ctx.globalAlpha = baseAlpha
+      for (let pi = 0; pi < pts.length - 1; pi++) {
+        const pt0 = pts[pi], pt1 = pts[pi + 1]
+        if (!pt0 || !pt1) continue
+        const heightFrac = Math.max(0, (screenY - pt0.y) / crestH)
+        const brightness = 0.4 + heightFrac * 0.6
+        const lw = Math.max(0.8, crestH * 0.30 * (0.5 + heightFrac * 0.8))
+        ctx.beginPath()
+        ctx.moveTo(pt0.x, pt0.y)
+        ctx.lineTo(pt1.x, pt1.y)
+        ctx.strokeStyle = `rgba(228,242,255,${(baseAlpha * brightness).toFixed(2)})`
+        ctx.lineWidth   = lw
+        ctx.stroke()
+      }
 
-        // Foam at waterline
-        if (surfaceT < 0.95 && isFinite(waterline) && isFinite(scaledW)) {
+      // Belly — semi-transparent, storm colour
+      const stormT = this.intensity
+      const waterR = Math.round(45 + stormT * 15)
+      const waterG = Math.round(65 + stormT * 10)
+      const waterB = Math.round(105 - stormT * 25)
+      const crestR = Math.round(160 - stormT * 40)
+      const crestG = Math.round(195 - stormT * 30)
+      const crestB = Math.round(230 - stormT * 20)
+
+      const bellyH = crestH * 0.75
+      const gradY0 = screenY - crestH * 0.85
+      const gradY1 = gradY0 + bellyH
+      if (isFinite(gradY0) && isFinite(gradY1) && Math.abs(gradY1 - gradY0) > 1) {
+        ctx.beginPath()
+        pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
+        for (let i = pts.length - 1; i >= 0; i--) {
+          ctx.lineTo(pts[i].x, pts[i].y + bellyH)
+        }
+        ctx.closePath()
+        try {
+          const lg = ctx.createLinearGradient(0, gradY0, 0, gradY1)
+          lg.addColorStop(0,    `rgba(${crestR},${crestG},${crestB},${(baseAlpha * 0.82).toFixed(2)})`)
+          lg.addColorStop(0.25, `rgba(${crestR-20},${crestG-20},${crestB-10},${(baseAlpha * 0.72).toFixed(2)})`)
+          lg.addColorStop(0.6,  `rgba(${waterR+20},${waterG+20},${waterB+10},${(baseAlpha * 0.55).toFixed(2)})`)
+          lg.addColorStop(1,    `rgba(${waterR},${waterG},${waterB},${(baseAlpha * 0.35).toFixed(2)})`)
+          ctx.fillStyle = lg
+          ctx.fill()
+        } catch(e) {}
+
+        // Water tile texture overlay
+        const waterTile = this.pgr._getTileCanvas?.(1625)
+        if (waterTile) {
           try {
-            const foamGrad = ctx.createLinearGradient(
-              0, waterline - scaledW * 0.3, 0, waterline)
-            foamGrad.addColorStop(0, 'rgba(210,232,255,0.0)')
-            foamGrad.addColorStop(1, 'rgba(200,225,255,0.65)')
-            ctx.fillStyle = foamGrad
-            ctx.fillRect(sx - 4, waterline - scaledW * 0.28,
-              spriteW + 8, scaledW * 0.28)
+            ctx.save()
+            ctx.beginPath()
+            pts.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
+            for (let i = pts.length - 1; i >= 0; i--) {
+              ctx.lineTo(pts[i].x, pts[i].y + bellyH)
+            }
+            ctx.closePath()
+            ctx.clip()
+            const tileW  = waterTile.width * (scaledW / ts) * 1.5
+            const tileH2 = waterTile.height * (scaledW / ts) * 1.5
+            const startX = pts[0]?.x ?? 0
+            ctx.globalAlpha = baseAlpha * 0.12
+            ctx.globalCompositeOperation = 'overlay'
+            for (let tx = startX - tileW; tx < (pts[pts.length-1]?.x ?? pgr._sw) + tileW; tx += tileW) {
+              ctx.drawImage(waterTile, tx, gradY0, tileW, tileH2)
+            }
+            ctx.restore()
           } catch(e) {}
         }
-      } else {
-        this._drawHorseProcedural(ctx, centerX, screenY + bob,
-          scaledW, fullH, surfaceT)
       }
 
       ctx.restore()
     }
   }
 
-  _drawHorseProcedural(ctx, centerX, waterline, scaledW, fullH, surfaceT) {
-    if (!isFinite(centerX) || !isFinite(waterline) || !isFinite(fullH)) return
-    const visibleH = fullH * surfaceT
-    const clipTop  = waterline - visibleH
-    const crestW   = scaledW * 2.2
-    const left     = centerX - crestW * 0.5
-    const right    = centerX + crestW * 0.5
-    const headX    = centerX - crestW * 0.15
-    const top      = waterline - fullH   // full sprite top (may be clipped)
+  // ── White Horses ──────────────────────────────────────────────────────────
+  // Asymmetric dolphin leap with rotation.
+  // Leans back on rise, rotates nose-first into dive.
+  // Rotation is capped so neck cutoff stays below waterline clip.
+
+  _drawHorses(ctx) {
+    const pgr       = this.pgr
+    const ts        = pgr.tileDisplaySize
+    const horizonPx = pgr._horizonPx()
+    const activeCount = Math.min(
+      WaveRenderer.HORSE_COUNT,
+      Math.floor(Math.max(0, this.intensity + 0.15) * WaveRenderer.HORSE_COUNT)
+    )
+
+    for (let i = 0; i < activeCount; i++) {
+      const h = this._horses[i]
+      if (!h) continue
+
+      const tileX = h.worldX / ts
+      const tileY = h.worldY / ts
+      if (!isFinite(tileX) || !isFinite(tileY)) continue
+
+      const screenY = pgr._rowToScreenY(tileY + 1)
+      if (screenY === null || !isFinite(screenY) || screenY < horizonPx + 4) continue
+
+      const scaledW = pgr._scaleAtRow(tileY + 1)
+      if (!scaledW || !isFinite(scaledW)) continue
+
+      const fullH = scaledW * h.heightMult * (0.7 + this.intensity * 0.5)
+      if (!isFinite(fullH) || fullH < 1) continue
+
+      const centerX  = pgr._colToScreenX(tileX + 0.5, tileY)
+      if (!isFinite(centerX)) continue
+
+      const localI = this._localIntensity(h.worldX)
+
+      // Dolphin curve: asymmetric rise/fall
+      const { surfaceT, velT } = this._dolphinCurve(h.risePhase)
+
+      const bobAmp   = scaledW * (0.05 + localI * 1.8)
+      // cappedBob: only upward, capped at 85% so bottom never clears waterline
+      const cappedBob = Math.min(fullH * 0.85, surfaceT * bobAmp * localI)
+
+      if (cappedBob < 0.5) continue
+
+      // Rotation: lean back on rise (negative), nose-down on dive (positive)
+      // velT > 0 = rising, velT < 0 = falling/diving
+      // Cap rotation so the neck bottom stays well below screenY
+      const maxRotation = 0.22   // radians — enough to read as lean without exposing cutoff
+      const rotation    = velT * surfaceT * maxRotation
+
+      const spriteW = scaledW * 2.6
+      const sx      = centerX - spriteW * 0.5
+      const sy      = screenY - cappedBob
+
+      if (!isFinite(sy)) continue
+
+      ctx.save()
+      ctx.globalAlpha = 1.0
+
+      // Waterline clip — full width
+      ctx.beginPath()
+      ctx.rect(-9999, horizonPx, 99999, screenY - horizonPx)
+      ctx.clip()
+
+      const img = this._horseImgs[h.spriteIndex]
+      if (img?.complete && img.naturalWidth > 0) {
+        // Rotate around the base centre (neck entry point = bottom of sprite)
+        const pivotX = centerX
+        const pivotY = screenY   // pivot at waterline
+        ctx.translate(pivotX, pivotY)
+        ctx.rotate(rotation)
+        ctx.translate(-pivotX, -pivotY)
+        ctx.drawImage(img, sx, sy, spriteW, fullH)
+      } else {
+        this._drawHorseProcedural(ctx, centerX, screenY, scaledW, fullH, cappedBob, rotation)
+      }
+
+      ctx.restore()
+    }
+  }
+
+  _drawHorseProcedural(ctx, centerX, screenY, scaledW, fullH, cappedBob, rotation) {
+    if (!isFinite(centerX) || !isFinite(screenY)) return
+    const crestW = scaledW * 2.2
+    const left   = centerX - crestW * 0.5
+    const right  = centerX + crestW * 0.5
+    const headX  = centerX - crestW * 0.15
+    const top    = screenY - cappedBob - fullH * 0.5
+    const bottom = screenY - cappedBob + fullH * 0.5
+
+    ctx.translate(centerX, screenY)
+    ctx.rotate(rotation)
+    ctx.translate(-centerX, -screenY)
 
     ctx.beginPath()
-    ctx.rect(left - 20, clipTop, crestW + 40, visibleH + 4)
-    ctx.clip()
-
-    ctx.beginPath()
-    ctx.moveTo(left,  waterline)
-    ctx.lineTo(left,  top + fullH * 0.55)
+    ctx.moveTo(left, bottom)
+    ctx.lineTo(left, top + fullH * 0.55)
     ctx.bezierCurveTo(
-      left  + crestW * 0.12, top + fullH * 0.18,
+      left + crestW * 0.12, top + fullH * 0.18,
       headX - crestW * 0.22, top + fullH * 0.05,
       headX, top
     )
@@ -435,38 +552,172 @@ export default class WaveRenderer {
       right - crestW * 0.12, top + fullH * 0.45,
       right, top + fullH * 0.55
     )
-    ctx.lineTo(right, waterline)
+    ctx.lineTo(right, bottom)
     ctx.closePath()
 
     try {
-      const bodyGrad = ctx.createLinearGradient(0, top, 0, waterline)
-      bodyGrad.addColorStop(0,    'rgba(248,252,255,0.96)')
-      bodyGrad.addColorStop(0.35, 'rgba(215,235,255,0.85)')
-      bodyGrad.addColorStop(0.7,  'rgba(160,205,245,0.55)')
-      bodyGrad.addColorStop(1,    'rgba(100,160,220,0.0)')
-      ctx.fillStyle = bodyGrad
-      ctx.fill()
+      const g = ctx.createLinearGradient(0, top, 0, bottom)
+      g.addColorStop(0,    'rgba(248,252,255,0.96)')
+      g.addColorStop(0.35, 'rgba(215,235,255,0.85)')
+      g.addColorStop(0.7,  'rgba(160,205,245,0.55)')
+      g.addColorStop(1,    'rgba(100,160,220,0.0)')
+      ctx.fillStyle = g; ctx.fill()
     } catch(e) { ctx.fillStyle = 'rgba(220,235,255,0.7)'; ctx.fill() }
-
     ctx.strokeStyle = 'rgba(240,250,255,0.70)'
     ctx.lineWidth   = Math.max(1, scaledW * 0.035)
     ctx.stroke()
+  }
 
-    for (let m = 0; m < 4; m++) {
-      const mx  = headX + scaledW * (0.2 + m * 0.38)
-      const my  = top   + scaledW * (0.06 + m * 0.09)
-      const mLen = scaledW * (0.5 - m * 0.08)
-      if (!isFinite(mx) || !isFinite(my) || !isFinite(mLen)) continue
-      ctx.beginPath()
-      ctx.moveTo(mx, my)
-      ctx.lineTo(mx + mLen, my + mLen * 0.14)
-      ctx.strokeStyle = `rgba(228,242,255,${((1 - m / 4) * 0.55).toFixed(2)})`
-      ctx.lineWidth   = Math.max(0.5, (4 - m) * 0.35)
-      ctx.stroke()
+  // ── Spray system ────────────────────────────────────────────────────────
+  // All positions in screen pixels. Velocities in px/ms. Gravity in px/ms^2.
+  // Matches returnCrossing.js splash approach.
+
+  _spawnDiveBurst(h) {
+    const pgr     = this.pgr
+    const ts      = pgr.tileDisplaySize
+    const tileX   = h.worldX / ts
+    const tileY   = h.worldY / ts
+    const screenY = pgr._rowToScreenY(tileY + 1)
+    if (!screenY || !isFinite(screenY)) return
+    const scaledW = pgr._scaleAtRow(tileY + 1)
+    if (!scaledW || !isFinite(scaledW)) return
+    const screenX = pgr._colToScreenX(tileX + 0.5, tileY)
+    if (!isFinite(screenX)) return
+
+    const localI = this._localIntensity(h.worldX)
+    if (localI < 0.05) return
+
+    const sw = this.pgr._sw || 400
+    const sh = this.pgr._sh || 700
+
+    const count    = Math.floor(12 + localI * 30)
+    const speed    = scaledW * 0.004 * (0.8 + localI * 1.2)   // px/ms
+
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 1.6
+      const angle  = -Math.PI / 2 + spread - 0.2
+      const spd    = speed * (0.5 + Math.random() * 0.8)
+      this._spray.push({
+        x:      screenX + (Math.random() - 0.5) * scaledW * 1.2,
+        y:      screenY,
+        vx:     Math.cos(angle) * spd,
+        vy:     Math.sin(angle) * spd,
+        life:   0,
+        maxLife: 800 + Math.random() * 1000 * localI,
+        r:      Math.max(1.5, scaledW * (0.03 + Math.random() * 0.06)),
+        bright: 215 + Math.floor(Math.random() * 40),
+        floor:  screenY,   // falls back to waterline
+      })
+    }
+    if (this._spray.length > 500) this._spray.splice(0, 60)
+  }
+
+  _spawnFountain() {
+    const pgr = this.pgr
+    const ts  = pgr.tileDisplaySize
+    const activeCount = Math.min(WaveRenderer.HORSE_COUNT,
+      Math.floor(Math.max(0, this.intensity + 0.15) * WaveRenderer.HORSE_COUNT))
+    if (activeCount === 0) return
+    const idx = Math.floor(Math.random() * activeCount)
+    const h   = this._horses[idx]
+    if (!h || h.worldX === undefined) return
+
+    const tileX   = h.worldX / ts
+    const tileY   = h.worldY / ts
+    const screenY = pgr._rowToScreenY(tileY + 1)
+    if (!screenY || !isFinite(screenY)) return
+    const scaledW = pgr._scaleAtRow(tileY + 1)
+    if (!scaledW || !isFinite(scaledW)) return
+    const screenX = pgr._colToScreenX(tileX + 0.5, tileY)
+    if (!isFinite(screenX)) return
+
+    const localI = this._localIntensity(h.worldX)
+    if (localI < 0.08) return
+
+    const count = Math.floor(4 + localI * 18)
+    const speed = scaledW * 0.003 * (0.6 + localI * 1.0)
+
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2
+      const spd   = speed * (0.4 + Math.random() * 0.8)
+      this._spray.push({
+        x: screenX + (Math.random() - 0.5) * scaledW,
+        y: screenY,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: 0, maxLife: 400 + Math.random() * 600 * localI,
+        r: Math.max(1, scaledW * (0.02 + Math.random() * 0.05)),
+        bright: 215 + Math.floor(Math.random() * 40),
+        floor: screenY,
+      })
+    }
+    if (this._spray.length > 500) this._spray.splice(0, 60)
+  }
+
+  _spawnBottomSpray() {
+    const sw = this.pgr._sw
+    const sh = this.pgr._sh
+    if (!isFinite(sw) || !isFinite(sh) || sw < 10 || sh < 10) return
+
+    const localI   = this.intensity
+    const count    = Math.floor(6 + localI * 20)
+    const clusterX = sw * (0.05 + Math.random() * 0.90)
+    // Speed in px/ms — needs to reach ~30% up screen in ~400ms
+    const speed    = sh * 0.0012 * (0.8 + localI * 1.0)
+
+    for (let i = 0; i < count; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9
+      const spd   = speed * (0.6 + Math.random() * 0.8)
+      this._spray.push({
+        x: clusterX + (Math.random() - 0.5) * sw * 0.05,
+        y: sh + 5,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: 0, maxLife: 500 + Math.random() * 600 * localI,
+        r: Math.max(2, sw * (0.003 + Math.random() * 0.005)),
+        bright: 210 + Math.floor(Math.random() * 45),
+        floor: null,   // fades by life only — no floor clip
+      })
+    }
+    if (this._spray.length > 500) this._spray.splice(0, 60)
+  }
+
+  _updateSpray(dt) {
+    // dt in ms. gravity in px/ms^2 — same scale as returnCrossing (0.0000018 * dt^2 equiv)
+    const gravity = 0.0000018 * dt
+    for (let i = this._spray.length - 1; i >= 0; i--) {
+      const s = this._spray[i]
+      s.x    += s.vx * dt
+      s.y    += s.vy * dt
+      s.vy   += gravity * dt   // accumulate velocity
+      s.life += dt
+      if (s.life >= s.maxLife || (s.floor !== null && s.floor !== undefined && s.y > s.floor + 4)) {
+        this._spray.splice(i, 1)
+      }
     }
   }
 
-  // ── Manannan Mac Lir ──────────────────────────────────────────────────────
+  _drawSpray(ctx) {
+    const sw = this._canvas?.width  || 400
+    const sh = this._canvas?.height || 700
+    for (const s of this._spray) {
+      if (!isFinite(s.x) || !isFinite(s.y) || !isFinite(s.r)) continue
+      if (s.x < -20 || s.x > sw + 20 || s.y < -sh * 0.5 || s.y > sh + 20) continue
+      const lifeT = s.life / s.maxLife
+      const alpha = lifeT < 0.12 ? lifeT / 0.12 : 1 - Math.pow(lifeT, 1.6)
+      if (alpha < 0.01) continue
+      ctx.save()
+      ctx.globalAlpha = alpha * 0.80
+      ctx.beginPath()
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+      const bright = s.bright ?? 225
+      ctx.fillStyle = `rgb(${bright},${bright},${Math.min(255, bright + 12)})`
+      ctx.fill()
+      ctx.restore()
+    }
+  }
+
+  // ── Manannan Mac Lir  // ── Manannan Mac Lir ──────────────────────────────────────────────────────
 
   _drawManannan(ctx) {
     if (this._manannánSurfaceT < 0.01 || this._manannánWorldX === null) return
@@ -483,49 +734,45 @@ export default class WaveRenderer {
     const scaledW = pgr._scaleAtRow(tileY + 1)
     if (!scaledW || !isFinite(scaledW)) return
 
-    const fullH    = scaledW * 3.5
-    const visibleH = fullH * this._manannánSurfaceT
-    const bob      = Math.sin(this._t * 1.1) * scaledW * 0.05
-    const waterline = screenY + bob
-    const clipTop   = waterline - visibleH
+    const fullH     = scaledW * 3.8
     const centerX   = pgr._colToScreenX(tileX + 0.5, tileY)
-    if (!isFinite(centerX) || !isFinite(waterline)) return
+    if (!isFinite(centerX)) return
+
+    const cappedBob = Math.min(fullH * 0.9, this._manannánSurfaceT * fullH * 0.9)
+    const spriteW   = scaledW * 3.5
+    const sx        = centerX - spriteW * 0.5
+    const sy        = screenY - cappedBob
+
+    if (!isFinite(sy)) return
 
     ctx.save()
-    ctx.globalAlpha = 1.0
+    ctx.globalAlpha = this._manannánSurfaceT
+
+    ctx.beginPath()
+    ctx.rect(sx - 10, horizonPx, spriteW + 20, screenY - horizonPx)
+    ctx.clip()
 
     const img = this._manannánImg
     if (img?.complete && img.naturalWidth > 0) {
-      const spriteW = scaledW * 3.2
       const spriteH = spriteW * (img.naturalHeight / img.naturalWidth)
-      const sx      = centerX - spriteW * 0.5
-
-      // Bottom-anchored — rises from waterline upward
-      ctx.beginPath()
-      ctx.rect(sx - 8, clipTop, spriteW + 16, visibleH + 4)
-      ctx.clip()
-      ctx.drawImage(img, sx, waterline - spriteH, spriteW, spriteH)
+      ctx.drawImage(img, sx, sy, spriteW, spriteH)
     } else {
-      this._drawManannánGoldenWave(ctx, centerX, waterline,
-        scaledW, fullH, this._manannánSurfaceT)
+      this._drawManannánGoldenWave(ctx, centerX, screenY, scaledW, fullH,
+        this._manannánSurfaceT, cappedBob)
     }
 
-    // Golden glow
-    if (this._manannánSurfaceT > 0.25 && isFinite(clipTop)) {
-      const glowY = clipTop + visibleH * 0.4
+    if (this._manannánSurfaceT > 0.3) {
+      const glowY = sy + fullH * 0.3
       if (isFinite(glowY)) {
         try {
-          const glow = ctx.createRadialGradient(
-            centerX, glowY, 0, centerX, glowY, scaledW * 3.2)
-          glow.addColorStop(0,
-            `rgba(255,215,70,${(this._manannánSurfaceT * 0.32).toFixed(2)})`)
-          glow.addColorStop(0.5,
-            `rgba(220,155,25,${(this._manannánSurfaceT * 0.14).toFixed(2)})`)
-          glow.addColorStop(1, 'rgba(180,100,0,0)')
-          ctx.globalAlpha = this._manannánSurfaceT * 0.85
+          const glow = ctx.createRadialGradient(centerX, glowY, 0, centerX, glowY, scaledW * 3.5)
+          glow.addColorStop(0,   `rgba(255,215,70,${(this._manannánSurfaceT * 0.38).toFixed(2)})`)
+          glow.addColorStop(0.5, `rgba(220,155,25,${(this._manannánSurfaceT * 0.16).toFixed(2)})`)
+          glow.addColorStop(1,   'rgba(180,100,0,0)')
+          ctx.globalAlpha = this._manannánSurfaceT * 0.9
           ctx.fillStyle   = glow
           ctx.beginPath()
-          ctx.arc(centerX, glowY, scaledW * 3.2, 0, Math.PI * 2)
+          ctx.arc(centerX, glowY, scaledW * 3.5, 0, Math.PI * 2)
           ctx.fill()
         } catch(e) {}
       }
@@ -533,48 +780,30 @@ export default class WaveRenderer {
     ctx.restore()
   }
 
-  _drawManannánGoldenWave(ctx, centerX, waterline, scaledW, fullH, surfaceT) {
-    if (!isFinite(centerX) || !isFinite(waterline) || !isFinite(fullH)) return
-    const visibleH = fullH * surfaceT
-    const clipTop  = waterline - visibleH
-    const top      = waterline - fullH
-    const crestW   = scaledW * 3.5
-    const left     = centerX - crestW * 0.5
-    const right    = centerX + crestW * 0.5
+  _drawManannánGoldenWave(ctx, centerX, screenY, scaledW, fullH, surfaceT, cappedBob) {
+    if (!isFinite(centerX) || !isFinite(screenY)) return
+    const crestW = scaledW * 3.5
+    const left   = centerX - crestW * 0.5
+    const right  = centerX + crestW * 0.5
+    const top    = screenY - cappedBob - fullH * 0.5
+    const bottom = screenY - cappedBob + fullH * 0.5
 
     ctx.beginPath()
-    ctx.rect(left - 20, clipTop, crestW + 40, visibleH + 4)
-    ctx.clip()
-
-    ctx.beginPath()
-    ctx.moveTo(left, waterline)
-    ctx.bezierCurveTo(
-      left  + crestW * 0.15, top + fullH * 0.3,
-      centerX - crestW * 0.15, top,
-      centerX, top
-    )
-    ctx.bezierCurveTo(
-      centerX + crestW * 0.15, top,
-      right - crestW * 0.15, top + fullH * 0.3,
-      right, waterline
-    )
+    ctx.moveTo(left, bottom)
+    ctx.bezierCurveTo(left + crestW * 0.15, top + fullH * 0.3, centerX - crestW * 0.15, top, centerX, top)
+    ctx.bezierCurveTo(centerX + crestW * 0.15, top, right - crestW * 0.15, top + fullH * 0.3, right, bottom)
     ctx.closePath()
-
     try {
-      const goldGrad = ctx.createLinearGradient(0, top, 0, waterline)
-      goldGrad.addColorStop(0,    'rgba(255,225,80,0.96)')
-      goldGrad.addColorStop(0.3,  'rgba(240,180,45,0.82)')
-      goldGrad.addColorStop(0.65, 'rgba(200,135,25,0.48)')
-      goldGrad.addColorStop(1,    'rgba(160,95,0,0.0)')
-      ctx.fillStyle = goldGrad
-      ctx.fill()
+      const g = ctx.createLinearGradient(0, top, 0, bottom)
+      g.addColorStop(0,    'rgba(255,225,80,0.96)')
+      g.addColorStop(0.3,  'rgba(240,180,45,0.82)')
+      g.addColorStop(0.65, 'rgba(200,135,25,0.48)')
+      g.addColorStop(1,    'rgba(160,95,0,0.0)')
+      ctx.fillStyle = g; ctx.fill()
     } catch(e) { ctx.fillStyle = 'rgba(220,170,40,0.8)'; ctx.fill() }
-
     ctx.strokeStyle = 'rgba(255,242,160,0.82)'
     ctx.lineWidth   = Math.max(2, scaledW * 0.05)
     ctx.stroke()
-
-    // Crown
     for (let c = 0; c < 3; c++) {
       const cx = centerX + (c - 1) * scaledW * 0.42
       const cy = top - (c === 1 ? scaledW * 0.18 : scaledW * 0.06)
@@ -586,38 +815,16 @@ export default class WaveRenderer {
     }
   }
 
-  // ── Foam ──────────────────────────────────────────────────────────────────
+  // ── Fountains ─────────────────────────────────────────────────────────────
 
-  _spawnFoamAt(worldX, worldY, surfaceT, fullH) {
-    const pgr     = this.pgr
-    const ts      = pgr.tileDisplaySize
-    const tileY   = worldY / ts
-    const tileX   = worldX / ts
-    const screenY = pgr._rowToScreenY(tileY + 1)
-    if (!screenY || !isFinite(screenY)) return
-    const scaledW = pgr._scaleAtRow(tileY + 1)
-    if (!scaledW || !isFinite(scaledW)) return
-    const screenX = pgr._colToScreenX(tileX + 0.5, tileY)
-    if (!isFinite(screenX)) return
 
-    this._foam.push({
-      x:     screenX + (Math.random() - 0.5) * scaledW * 1.6,
-      y:     screenY - fullH * surfaceT * Math.random(),
-      vx:    scaledW * (0.22 + Math.random() * 0.50),
-      vy:   -scaledW * (0.04 + Math.random() * 0.10),
-      life:  1.0,
-      decay: 0.018 + Math.random() * 0.028,
-      r:     Math.max(1, scaledW * (0.03 + Math.random() * 0.05)),
-    })
-    if (this._foam.length > 220) this._foam.splice(0, 30)
-  }
 
   _updateFoam(dt) {
     for (let i = this._foam.length - 1; i >= 0; i--) {
       const f = this._foam[i]
       f.x    += f.vx * dt * 60
       f.y    += f.vy * dt * 60
-      f.vy   += 0.18 * dt * 60
+      f.vy   += 0.12 * dt * 60
       f.life -= f.decay
       if (f.life <= 0) this._foam.splice(i, 1)
     }
@@ -627,7 +834,7 @@ export default class WaveRenderer {
     for (const f of this._foam) {
       if (!isFinite(f.x) || !isFinite(f.y) || !isFinite(f.r)) continue
       ctx.save()
-      ctx.globalAlpha = f.life * 0.65 * this.intensity
+      ctx.globalAlpha = f.life * 0.55 * this.intensity
       ctx.beginPath()
       ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2)
       ctx.fillStyle = 'rgba(235,245,255,1)'
@@ -635,8 +842,6 @@ export default class WaveRenderer {
       ctx.restore()
     }
   }
-
-  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   destroy() {
     this._canvas?.parentNode?.removeChild(this._canvas)

@@ -88,7 +88,7 @@ export class SwallowSystem {
     // Occasional call — not every flock
     if (Math.random() < 0.5) {
       const delay = 200 + Math.random() * 600
-      setTimeout(() => SoundBoard.playWeb('SWALLOW_CALL'), delay)
+      setTimeout(() => { if (this._active) SoundBoard.playWeb('SWALLOW_CALL') }, delay)
     }
 
     const startX = fromLeft ? -150 : W + 150

@@ -98,7 +98,7 @@ export default class WaveRenderer {
         worldX:      tileX * ts,
         worldY:      tileY * ts,
         risePhase:   Math.random() * Math.PI * 2,
-        prevSin:     0,             // for detecting dive moment
+        prevSin:     0,
         riseFreq:    0.7 + Math.random() * 0.5,
         gallopMult:  0.9 + Math.random() * 0.4,
         heightMult:  1.1 + Math.random() * 0.4,
@@ -184,6 +184,7 @@ export default class WaveRenderer {
     const driftSpeed = Math.abs(this.scene._currentDriftOverride ?? 18)
     const ts   = this.pgr.tileDisplaySize
     const mapW = this.scene.mapData?.layers?.[0]?.[0]?.length ?? 72
+    const mapH = this.scene.mapData?.layers?.[0]?.length ?? 36
 
     const activeCount = Math.min(
       WaveRenderer.HORSE_COUNT,
@@ -274,8 +275,8 @@ export default class WaveRenderer {
 
     if (!this._horseImgsLogged) {
       this._horseImgsLogged = true
-      this._horseImgs.forEach((img, i) =>
-        console.log(`[WaveRenderer] horse${i+1}.png complete:`,
+      this._horseImgs.forEach((img, idx) =>
+        console.log(`[WaveRenderer] horse${idx+1}.png complete:`,
           img.complete, 'w:', img.naturalWidth))
     }
 
@@ -484,48 +485,39 @@ export default class WaveRenderer {
       const fullH = scaledW * h.heightMult * (0.7 + this.intensity * 0.5)
       if (!isFinite(fullH) || fullH < 1) continue
 
-      const centerX  = pgr._colToScreenX(tileX + 0.5, tileY)
+      const centerX = pgr._colToScreenX(tileX + 0.5, tileY)
       if (!isFinite(centerX)) continue
 
       const localI = this._localIntensity(h.worldX)
 
-      // Dolphin curve: asymmetric rise/fall
+      // Dolphin curve — asymmetric rise/fall
       const { surfaceT, velT } = this._dolphinCurve(h.risePhase)
-
-      const bobAmp   = scaledW * (0.05 + localI * 1.8)
-      // cappedBob: only upward, capped at 85% so bottom never clears waterline
+      const bobAmp    = scaledW * (0.05 + localI * 1.8)
       const cappedBob = Math.min(fullH * 0.85, surfaceT * bobAmp * localI)
-
       if (cappedBob < 0.5) continue
 
-      // Rotation: lean back on rise (negative), nose-down on dive (positive)
-      // velT > 0 = rising, velT < 0 = falling/diving
-      // Cap rotation so the neck bottom stays well below screenY
-      const maxRotation = 0.22   // radians — enough to read as lean without exposing cutoff
+      // Lean: back on rise, nose-forward on dive
+      const maxRotation = 0.22
       const rotation    = velT * surfaceT * maxRotation
 
       const spriteW = scaledW * 2.6
       const sx      = centerX - spriteW * 0.5
       const sy      = screenY - cappedBob
-
       if (!isFinite(sy)) continue
 
       ctx.save()
       ctx.globalAlpha = 1.0
 
-      // Waterline clip — full width
+      // Waterline clip
       ctx.beginPath()
       ctx.rect(-9999, horizonPx, 99999, screenY - horizonPx)
       ctx.clip()
 
       const img = this._horseImgs[h.spriteIndex]
       if (img?.complete && img.naturalWidth > 0) {
-        // Rotate around the base centre (neck entry point = bottom of sprite)
-        const pivotX = centerX
-        const pivotY = screenY   // pivot at waterline
-        ctx.translate(pivotX, pivotY)
+        ctx.translate(centerX, screenY)
         ctx.rotate(rotation)
-        ctx.translate(-pivotX, -pivotY)
+        ctx.translate(-centerX, -screenY)
         ctx.drawImage(img, sx, sy, spriteW, fullH)
       } else {
         this._drawHorseProcedural(ctx, centerX, screenY, scaledW, fullH, cappedBob, rotation)

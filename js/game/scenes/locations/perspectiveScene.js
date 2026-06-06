@@ -598,8 +598,12 @@ export default class PerspectiveScene extends BaseLocationScene {
       const skyUrl = this.getSkyImage()
       if (skyUrl) this.perspectiveGround.setSkyImage(skyUrl, this.getSkyPosition())
       if (this._swallows) { this._swallows.stop(); this._swallows = null }
-      this._swallows = new SwallowSystem(() => PerspectiveGroundRenderer.HORIZON_Y_FRAC, this.scene.key)
-      this._swallows.start()
+      document.getElementById('swallow-canvas')?.remove()
+      console.log('[swallows] usesSwallows:', this.usesSwallows?.(), this.scene.key)
+      if (this.usesSwallows?.() !== false) {
+        this._swallows = new SwallowSystem(() => PerspectiveGroundRenderer.HORIZON_Y_FRAC, this.scene.key)
+        this._swallows.start()
+      }
       const mtnUrl = this.getMountainImage()
       if (mtnUrl) {
         const mtnPos = this.getMountainPosition()

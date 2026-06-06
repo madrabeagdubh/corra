@@ -1587,6 +1587,10 @@ export default class PerspectiveGroundRenderer {
       }
     }
 
+    // Hook for scene-specific overlays that need the horizon clip
+    this.scene?.onPGRDrawComplete?.(this._oCtx)
+    // Hook for scene-specific overlays that need the horizon clip
+    this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()  // release horizon clip
     this._gCtx.restore()  // release horizon clip
     this._updateLight(playerScreenX, playerScreenY)

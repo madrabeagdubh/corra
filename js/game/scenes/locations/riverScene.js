@@ -52,6 +52,7 @@ preload() {
   }
 
   update(time, delta) {
+    this._tickBoatPath()
     // Boat physics before PGR so position is current when renderer reads it
     if (this.boatSystem) this.boatSystem.update(delta)
     super.update(time, delta)
@@ -72,6 +73,16 @@ preload() {
 
     if (this.player?.inBoat && this.boatSystem) {
       if (!this.boatSystem.isValidBoatTarget(tile.tx, tile.ty)) return false
+      // Boat tap-to-navigate
+      const fromTX = Math.floor(this.player.logicalX / this.tileSize)
+      const fromTY = Math.floor(this.player.logicalY / this.tileSize)
+      const path   = this.pathFinder.findPath(fromTX, fromTY, tile.tx, tile.ty)
+
+      if (path.length > 0) {
+        this._setBoatPath(path)
+        this._flashTargetTile(tile.tx, tile.ty)
+      }
+      return false
     }
 
     // Allow reboarding: make boat's current tile walkable
@@ -87,6 +98,62 @@ preload() {
       }
     }
     return true
+  }
+
+  _setBoatPath(steps) {
+    this._boatPath      = steps
+    this._boatPathIndex = 0
+    if (this.boatSystem) {
+      this.boatSystem._pathTargetX = null
+      this.boatSystem._pathTargetY = null
+    }
+  }
+
+  _clearBoatPath() {
+    this._boatPath      = null
+    this._boatPathIndex = 0
+    if (this.boatSystem) {
+      this.boatSystem._pathTargetX = null
+      this.boatSystem._pathTargetY = null
+      this.boatSystem._pathForce   = 0
+    }
+  }
+
+  _tickBoatPath() {
+    if (!this._boatPath?.length || !this.boatSystem || !this.player) return
+
+    const ts = this.tileSize
+    const px = this.player.logicalX
+    const py = this.player.logicalY
+
+    // Check if we have a current target and whether we've reached it
+    const tx = this.boatSystem._pathTargetX
+    const ty = this.boatSystem._pathTargetY
+    if (tx != null && ty != null) {
+      const dx   = tx - px
+      const dy   = ty - py
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist > ts * 0.5) {
+        // Still en route — keep steering
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI
+        const isLast = this._boatPathIndex >= this._boatPath.length
+        this.boatSystem._pathAngle = angle
+        this.boatSystem._pathForce = isLast ? Math.min(100, dist * 1.5) : 100
+        return
+      }
+    }
+
+    // Reached waypoint or no target yet — advance
+    if (this._boatPathIndex >= this._boatPath.length) {
+      this._clearBoatPath()
+      return
+    }
+
+    const step   = this._boatPath[this._boatPathIndex++]
+    const fromTX = Math.floor(px / ts)
+    const fromTY = Math.floor(py / ts)
+    this.boatSystem._pathTargetX = (fromTX + step.dx) * ts + ts * 0.5
+    this.boatSystem._pathTargetY = (fromTY + step.dy) * ts + ts * 0.5
   }
 
   _screenToTile(canvasX, canvasY) {

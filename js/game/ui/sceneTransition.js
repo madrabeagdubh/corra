@@ -56,6 +56,7 @@ function _getOverlay() {
 }
 
 export function transitionOut(duration = 400) {
+  console.log('[transitionOut] called from:', new Error().stack.split('\n')[2])
   SoundBoard.playWeb('SCENE_TRANSITION')
   return new Promise(resolve => {
     const overlay = _getOverlay()

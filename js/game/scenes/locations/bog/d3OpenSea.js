@@ -135,6 +135,15 @@ export default class D3OpenSea extends RiverScene {
 
     if (!this.player || this._gameOverPending) return
 
+    // Clamp player to south boundary — rows 0-35 only
+    const _southLimit = 35 * this.tileSize
+    if (this.player.logicalY > _southLimit) {
+      this.player.logicalY = _southLimit
+      if (this.boatSystem) { this.boatSystem._vy = 0 }
+    }
+
+
+
     const tileX = Math.floor(this.player.logicalX / this.tileSize)
     const mapW  = this.mapData?.width ?? 72
 
@@ -190,6 +199,12 @@ export default class D3OpenSea extends RiverScene {
     this._stormOverlay?.update(delta)
 
     // Storm camera handled by StormOverlay
+    // Hard south camera clamp — applied every frame regardless of storm state
+    const _clampCam = this.cameras?.main
+    if (_clampCam && this.player) {
+      const _maxSY = 36 * this.tileSize - this.scale.height / (_clampCam.zoom || 1)
+      if (_clampCam.scrollY > _maxSY) _clampCam.scrollY = _maxSY
+    }
 
     // ── Manannan struggle timer ───────────────────────────────────────────
     // Manannan rises after 10 seconds of the player actively pushing east
@@ -652,6 +667,9 @@ export default class D3OpenSea extends RiverScene {
 
     if (intensity < 0.02) {
       cam.setRotation(0)
+      // Still clamp south even without storm effect
+      const _maxSY0 = 36 * this.tileSize - sh / zoom
+      if (cam.scrollY > _maxSY0) cam.scrollY = _maxSY0
       return
     }
 
@@ -669,7 +687,10 @@ export default class D3OpenSea extends RiverScene {
     const sway      = Math.sin(t * 0.55) * 2.5 * amp
 
     cam.scrollX = this.player.logicalX - sw / 2 / zoom + sway
-    cam.scrollY = this.player.logicalY - sh / 2 / zoom + waveRise
+    const rawScrollY = this.player.logicalY - sh / 2 / zoom + waveRise
+    // Clamp so camera never shows past row 36 (extra rows are visual buffer only)
+    const _maxScrollY = 36 * this.tileSize - sh / zoom
+    cam.scrollY = Math.min(rawScrollY, _maxScrollY)
   }
 
   _triggerManannánWarning() {
@@ -743,10 +764,15 @@ export default class D3OpenSea extends RiverScene {
     const tileY = Math.floor(this.player.logicalY / this.tileSize)
     for (const [, exitData] of Object.entries(this.mapData.exits)) {
       if (exitData.tiles.some(([ex, ey]) => ex === tileX && ey === tileY)) {
+        if (this._exiting) return
+        this._exiting = true
         this._cleanupEffects()
-        this.scene.start(exitData.destination, {
-          entryEdge:  exitData.entryPoint,
-          sourceTile: { x: tileX, y: tileY }
+        import('../../../ui/sceneTransition.js').then(m => m.transitionOut(180))
+        this.time.delayedCall(200, () => {
+          this.scene.start(exitData.destination, {
+            entryEdge:  exitData.entryPoint,
+            sourceTile: { x: tileX, y: tileY }
+          })
         })
         return
       }

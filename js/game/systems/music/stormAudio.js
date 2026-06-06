@@ -32,8 +32,6 @@ export class StormAudio {
       this.master.gain.value = 0.85
       this.master.connect(this.ac.destination)
 
-      this._buildOcean()
-      this._buildWindBed()
 
       this._running      = true
       this._nextWindGust = this.ac.currentTime + 0.3
@@ -68,53 +66,6 @@ export class StormAudio {
   // Each layer has a harmonic relationship to the others.
   // The complexity comes from them being slightly out of phase.
 
-  _buildOcean() {
-    const ac = this.ac
-
-    // Harmonically related frequencies — like overtones of a very low fundamental
-    // 40Hz fundamental (below hearing but felt), then 80, 120, 200, 360
-    // These are 1st, 2nd, 3rd, 5th, 9th harmonics — not a perfect chord,
-    // which is why the ocean sounds complex and restless rather than musical
-    const defs = [
-      { freq: 80,  Q: 2.5, period: 18.0, amp: 0.55 },  // fundamental roar
-      { freq: 140, Q: 3.0, period: 13.5, amp: 0.45 },  // second harmonic
-      { freq: 220, Q: 2.8, period: 11.0, amp: 0.38 },  // third — the "body"
-      { freq: 380, Q: 2.2, period: 16.5, amp: 0.30 },  // fifth — adds tension
-      { freq: 650, Q: 1.8, period: 9.5,  amp: 0.22 },  // upper — the shimmer
-    ]
-
-    for (const def of defs) {
-      const buf = this._makeNoiseBuf(def.period * 2.2)
-      const src = ac.createBufferSource()
-      src.buffer = buf
-      src.loop   = true
-      // Slightly different playback rates so texture is never static
-      src.playbackRate.value = 0.93 + Math.random() * 0.14
-
-      const bp = ac.createBiquadFilter()
-      bp.type  = 'bandpass'
-      bp.frequency.value = def.freq
-      bp.Q.value = def.Q
-
-      const g = ac.createGain()
-      g.gain.value = 0
-
-      src.connect(bp)
-      bp.connect(g)
-      g.connect(this.master)
-      src.start(0, Math.random() * def.period)
-
-      this._oceanLayers.push({
-        gain:     g,
-        filter:   bp,
-        phase:    Math.random() * Math.PI * 2,
-        rate:     (Math.PI * 2) / def.period,
-        amp:      def.amp,
-        baseFreq: def.freq,
-        minIntens: def.freq > 300 ? 0.3 : 0.0,
-      })
-    }
-  }
 
   _buildWindBed() {
     const ac  = this.ac
@@ -139,7 +90,47 @@ export class StormAudio {
   // Multiple voices, each with a distinct "word" — a shape to its sweep.
   // The wind says something different each time.
 
-  _scheduleWindGust(when) {
+  // ── Storm roar — furious, arrives with rain ─────────────────────────────────
+  _scheduleStormRoar(when) {
+    if (!this.ac || this.intensity < 0.25) return
+    const ac = this.ac
+    const t  = this.intensity
+    const voices = t < 0.5 ? 1 : 2
+
+    for (let v = 0; v < voices; v++) {
+      const dur  = 2.0 + Math.random() * 4.0 + t * 3.0
+      const buf  = this._makeNoiseBuf(dur)
+      const src  = ac.createBufferSource()
+      src.buffer = buf
+
+      const bp   = ac.createBiquadFilter()
+      bp.type    = 'bandpass'
+      bp.Q.value = 3 + Math.random() * 4
+
+      const f0     = 300 + Math.random() * 400
+      const offset = v * 0.4 + Math.random() * 0.6
+      bp.frequency.setValueAtTime(f0, when + offset)
+      const steps = 4 + Math.floor(Math.random() * 4)
+      for (let s = 1; s <= steps; s++) {
+        bp.frequency.exponentialRampToValueAtTime(
+          200 + Math.random() * 800,
+          when + offset + dur * s / steps)
+      }
+
+      const vol = (0.25 + t * 0.50) * (0.6 + Math.random() * 0.5)
+      const g   = ac.createGain()
+      g.gain.setValueAtTime(0, when + offset)
+      g.gain.linearRampToValueAtTime(vol, when + offset + dur * 0.1)
+      g.gain.setValueAtTime(vol * 0.9, when + offset + dur * 0.8)
+      g.gain.linearRampToValueAtTime(0, when + offset + dur)
+
+      src.connect(bp); bp.connect(g); g.connect(this.master)
+      src.start(when + offset)
+      src.stop(when + offset + dur + 0.1)
+    }
+  }
+
+    _scheduleWindGust(when) {
     if (!this.ac) return
     const ac = this.ac
     const t  = this.intensity
@@ -236,62 +227,208 @@ export class StormAudio {
     const ac   = this.ac
     const size = 0.5 + Math.random() * 0.5
 
-    // Notify lightning system — flash should coincide with crack
+    // Notify lightning
     if (this.onThunder) {
       const delayMs = (when - ac.currentTime) * 1000
       setTimeout(() => this.onThunder(size), Math.max(0, delayMs))
     }
 
-    // ── Sub-bass rumble — long rolling away ──
+    // Pick a thunder personality
+    const roll = Math.random()
+    if (roll < 0.25)      this._thunderCrackAndRoll(when, size, ac)
+    else if (roll < 0.50) this._thunderDeepRumble(when, size, ac)
+    else if (roll < 0.70) this._thunderStutter(when, size, ac)
+    else if (roll < 0.85) this._thunderDistant(when, size, ac)
+    else                  this._thunderMajestic(when, size, ac)
+  }
+
+  // ── Sharp crack followed by classic rolling boom ──
+  _thunderCrackAndRoll(when, size, ac) {
+    // Crack — pure impulse. Only fires 1 in 4 times.
+    if (Math.random() < 0.25) {
+      const buf = this._makeNoiseBuf(0.04)
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      const g = ac.createGain()
+      g.gain.setValueAtTime(1.0, when)
+      g.gain.exponentialRampToValueAtTime(0.001, when + 0.04)
+      src.connect(g); g.connect(this.master)
+      src.start(when); src.stop(when + 0.05)
+    }
+    // Body — mid crack
     {
-      const dur = 5.0 + Math.random() * 7.0
+      const buf = this._makeNoiseBuf(0.3)
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      const bp = ac.createBiquadFilter()
+      bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 0.4
+      const g = ac.createGain()
+      g.gain.setValueAtTime(0.7 + size * 0.2, when + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.001, when + 0.3)
+      src.connect(bp); bp.connect(g); g.connect(this.master)
+      src.start(when + 0.01); src.stop(when + 0.35)
+    }
+    // Deep roll
+    const dur = 5 + Math.random() * 5
+    {
       const buf = this._makeNoiseBuf(dur)
       const src = ac.createBufferSource()
       src.buffer = buf
       const lp = ac.createBiquadFilter()
-      lp.type = 'lowpass'; lp.frequency.value = 55 + Math.random() * 35
+      lp.type = 'lowpass'; lp.frequency.value = 55 + Math.random() * 30
       const g = ac.createGain()
-      g.gain.setValueAtTime(0, when)
-      g.gain.linearRampToValueAtTime(0.55 + size * 0.35, when + 0.05)
-      g.gain.setValueAtTime(0.45 + size * 0.28, when + 0.8)
+      g.gain.setValueAtTime(0, when + 0.02)
+      g.gain.linearRampToValueAtTime(0.75 + size * 0.25, when + 0.1)
+      g.gain.exponentialRampToValueAtTime(0.06, when + 1.5)
       g.gain.exponentialRampToValueAtTime(0.001, when + dur)
       src.connect(lp); lp.connect(g); g.connect(this.master)
       src.start(when); src.stop(when + dur)
     }
+    // Mid rumble layer
+    {
+      const buf = this._makeNoiseBuf(dur * 0.7)
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      const bp = ac.createBiquadFilter()
+      bp.type = 'bandpass'; bp.frequency.value = 100 + Math.random() * 60; bp.Q.value = 0.7
+      const g = ac.createGain()
+      g.gain.setValueAtTime(0, when + 0.05)
+      g.gain.linearRampToValueAtTime(0.35 + size * 0.2, when + 0.2)
+      g.gain.exponentialRampToValueAtTime(0.001, when + dur * 0.7)
+      src.connect(bp); bp.connect(g); g.connect(this.master)
+      src.start(when); src.stop(when + dur * 0.7)
+    }
+  }
 
-    // ── Mid crack — not always, but when present it's sharp ──
-    if (Math.random() < 0.6) {
-      const buf = this._makeNoiseBuf(0.18)
+  // ── Long mysterious deep rumble — distant, no crack ──
+  _thunderDeepRumble(when, size, ac) {
+    const dur = 8 + Math.random() * 8
+    // Very deep, almost subsonic
+    for (let layer = 0; layer < 3; layer++) {
+      const freq = 30 + layer * 25 + Math.random() * 20
+      const buf  = this._makeNoiseBuf(dur)
+      const src  = ac.createBufferSource()
+      src.buffer = buf
+      src.playbackRate.value = 0.8 + Math.random() * 0.4
+      const lp = ac.createBiquadFilter()
+      lp.type = 'lowpass'; lp.frequency.value = freq
+      const startDelay = layer * (0.3 + Math.random() * 0.5)
+      const g = ac.createGain()
+      g.gain.setValueAtTime(0, when + startDelay)
+      g.gain.linearRampToValueAtTime(
+        (0.4 + size * 0.3) / (layer + 1),
+        when + startDelay + 0.5 + layer * 0.3)
+      g.gain.exponentialRampToValueAtTime(0.001, when + dur - layer)
+      src.connect(lp); lp.connect(g); g.connect(this.master)
+      src.start(when + startDelay); src.stop(when + dur)
+    }
+  }
+
+  // ── Stutter — ka KA kakakaaaa — multiple rapid strikes ──
+  _thunderStutter(when, size, ac) {
+    // Initial big crack
+    this._thunderCrackAndRoll(when, size * 0.7, ac)
+    // Rapid secondary strikes
+    const numStrikes = 2 + Math.floor(Math.random() * 4)
+    let t = when + 0.3 + Math.random() * 0.2
+    for (let i = 0; i < numStrikes; i++) {
+      const strikeSize = size * (0.3 + Math.random() * 0.5) * (1 - i * 0.15)
+      const buf = this._makeNoiseBuf(0.12)
       const src = ac.createBufferSource()
       src.buffer = buf
       const bp = ac.createBiquadFilter()
       bp.type = 'bandpass'
-      bp.frequency.value = 250 + Math.random() * 300
-      bp.Q.value = 0.9
+      bp.frequency.value = 200 + Math.random() * 400
+      bp.Q.value = 0.5
       const g = ac.createGain()
-      g.gain.setValueAtTime(0.7 + size * 0.3, when)
-      g.gain.exponentialRampToValueAtTime(0.001, when + 0.18)
+      g.gain.setValueAtTime(0.5 * strikeSize, t)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
       src.connect(bp); bp.connect(g); g.connect(this.master)
-      src.start(when); src.stop(when + 0.2)
+      src.start(t); src.stop(t + 0.15)
+      t += 0.08 + Math.random() * 0.18
     }
+    // Final long fade
+    const fadeDur = 4 + Math.random() * 4
+    const buf = this._makeNoiseBuf(fadeDur)
+    const src = ac.createBufferSource()
+    src.buffer = buf
+    const lp = ac.createBiquadFilter()
+    lp.type = 'lowpass'; lp.frequency.value = 70
+    const g = ac.createGain()
+    g.gain.setValueAtTime(0.3 * size, t)
+    g.gain.exponentialRampToValueAtTime(0.001, t + fadeDur)
+    src.connect(lp); lp.connect(g); g.connect(this.master)
+    src.start(t); src.stop(t + fadeDur)
+  }
 
-    // ── Second roll — distant echo ──
-    if (Math.random() < 0.45) {
-      const delay = 1.5 + Math.random() * 3.0
-      const dur   = 3.0 + Math.random() * 4.0
-      const buf   = this._makeNoiseBuf(dur)
-      const src   = ac.createBufferSource()
-      src.buffer  = buf
-      const lp    = ac.createBiquadFilter()
-      lp.type = 'lowpass'; lp.frequency.value = 45
+  // ── Distant — just a low far-away rumble, no crack ──
+  _thunderDistant(when, size, ac) {
+    const dur = 6 + Math.random() * 6
+    const delay = 0.5 + Math.random() * 1.0  // arrives late
+    const buf = this._makeNoiseBuf(dur)
+    const src = ac.createBufferSource()
+    src.buffer = buf
+    const lp = ac.createBiquadFilter()
+    lp.type = 'lowpass'; lp.frequency.value = 45 + Math.random() * 25
+    const g = ac.createGain()
+    g.gain.setValueAtTime(0, when + delay)
+    g.gain.linearRampToValueAtTime(0.25 + size * 0.15, when + delay + 1.0)
+    g.gain.exponentialRampToValueAtTime(0.001, when + delay + dur)
+    src.connect(lp); lp.connect(g); g.connect(this.master)
+    src.start(when + delay); src.stop(when + delay + dur)
+  }
+
+  // ── Majestic — massive crack, enormous boom, long slow roll ──
+  _thunderMajestic(when, size, ac) {
+    // Giant crack — 1 in 4
+    if (Math.random() < 0.25) {
+      const buf = this._makeNoiseBuf(0.06)
+      const src = ac.createBufferSource()
+      src.buffer = buf
       const g = ac.createGain()
-      g.gain.setValueAtTime(0, when + delay)
-      g.gain.linearRampToValueAtTime(0.22 + size * 0.18, when + delay + 0.15)
-      g.gain.exponentialRampToValueAtTime(0.001, when + delay + dur)
+      g.gain.setValueAtTime(1.0, when)
+      g.gain.exponentialRampToValueAtTime(0.001, when + 0.06)
+      src.connect(g); g.connect(this.master)
+      src.start(when); src.stop(when + 0.07)
+    }
+    // Enormous sub boom
+    const dur = 10 + Math.random() * 6
+    {
+      const buf = this._makeNoiseBuf(dur)
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      const lp = ac.createBiquadFilter()
+      lp.type = 'lowpass'; lp.frequency.value = 40 + Math.random() * 20
+      const g = ac.createGain()
+      g.gain.setValueAtTime(0, when + 0.01)
+      g.gain.linearRampToValueAtTime(0.9 + size * 0.1, when + 0.06)
+      g.gain.exponentialRampToValueAtTime(0.1, when + 2.0)
+      g.gain.exponentialRampToValueAtTime(0.001, when + dur)
       src.connect(lp); lp.connect(g); g.connect(this.master)
-      src.start(when + delay); src.stop(when + delay + dur)
+      src.start(when); src.stop(when + dur)
+    }
+    // Rolling mid with LFO wobble
+    {
+      const buf = this._makeNoiseBuf(dur * 0.8)
+      const src = ac.createBufferSource()
+      src.buffer = buf
+      const bp = ac.createBiquadFilter()
+      bp.type = 'bandpass'; bp.frequency.value = 90; bp.Q.value = 0.8
+      const lfo = ac.createOscillator()
+      lfo.frequency.value = 0.4 + Math.random() * 0.3
+      const lfoG = ac.createGain(); lfoG.gain.value = 40
+      lfo.connect(lfoG); lfoG.connect(bp.frequency)
+      const g = ac.createGain()
+      g.gain.setValueAtTime(0, when + 0.08)
+      g.gain.linearRampToValueAtTime(0.5 + size * 0.2, when + 0.3)
+      g.gain.exponentialRampToValueAtTime(0.001, when + dur * 0.8)
+      src.connect(bp); bp.connect(g); g.connect(this.master)
+      lfo.start(when); lfo.stop(when + dur * 0.8)
+      src.start(when + 0.08); src.stop(when + dur * 0.8)
     }
   }
+
+
 
   // ── Main tick ─────────────────────────────────────────────────────────────
 
@@ -322,9 +459,15 @@ export class StormAudio {
         layer.baseFreq * freqLfo, now, 2.0)
     }
 
-    // ── Wind bed ──
-    if (this._windGain) {
-      this._windGain.gain.setTargetAtTime(0.02 + t * 0.08, now, 0.3)
+
+
+    // ── Storm roar — arrives with rain ──
+    if (!this._nextStormRoar) this._nextStormRoar = now + 2
+    if (now >= this._nextStormRoar && t > 0.25) {
+      this._scheduleStormRoar(now + 0.05)
+      const minR = Math.max(1.0, 4.0 - t * 3.0)
+      const maxR = Math.max(2.5, 8.0 - t * 5.0)
+      this._nextStormRoar = now + minR + Math.random() * (maxR - minR)
     }
 
     // ── Wind gusts ──

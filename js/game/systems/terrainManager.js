@@ -330,6 +330,7 @@ applyContinuousEffects(terrain) {
         delay: 1000,
         callback: () => {
           if (this.player.isAlive()) {
+                if (!this.scene?.sys?.isActive()) return
             this.player.takeDamage(terrain.damagePerSecond, terrain.name);
           }
         },

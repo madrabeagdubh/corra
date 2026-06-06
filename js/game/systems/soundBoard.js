@@ -602,25 +602,29 @@ const SYNTH = {
   },
 
   SCENE_TRANSITION(ctx, opts = {}) {
-    // Harp shimmer fade
+    // Low resonant threshold tone — ambiguous, modal, slightly eerie
     const now    = ctx.currentTime
-    const vol    = opts.volume ?? 0.15
+    const vol    = opts.volume ?? 0.14
     const master = ctx.createGain()
     master.gain.setValueAtTime(vol, now)
-    master.gain.exponentialRampToValueAtTime(0.001, now + 2.0)
+    master.gain.exponentialRampToValueAtTime(0.001, now + 2.2)
     master.connect(ctx.destination)
-    const scale = [392, 494, 587, 740, 880, 1047, 1175, 1397]
-    scale.forEach((freq, i) => {
-      const t   = now + i * 0.06 + Math.random() * 0.02
+
+    // Low fundamental
+    ;[
+      { freq: 110, type: 'sine',     t: 0.00, vol: 1.0, dur: 2.0 },
+      { freq: 165, type: 'triangle', t: 0.08, vol: 0.6, dur: 1.8 },
+      { freq: 440, type: 'sine',     t: 0.15, vol: 0.3, dur: 1.5 },
+    ].forEach(({ freq, type, t, vol: v, dur }) => {
       const osc = ctx.createOscillator()
       const g   = ctx.createGain()
-      osc.type  = 'triangle'
+      osc.type  = type
       osc.frequency.value = freq
-      g.gain.setValueAtTime(0, t)
-      g.gain.linearRampToValueAtTime(0.8, t + 0.02)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 1.5)
+      g.gain.setValueAtTime(0, now + t)
+      g.gain.linearRampToValueAtTime(v, now + t + 0.04)
+      g.gain.exponentialRampToValueAtTime(0.001, now + t + dur)
       osc.connect(g); g.connect(master)
-      osc.start(t); osc.stop(t + 1.6)
+      osc.start(now + t); osc.stop(now + t + dur + 0.1)
     })
   },
 
@@ -660,6 +664,7 @@ const SYNTH = {
   },
 
   SWALLOW_CALL(ctx, opts = {}) {
+    if (window._noSwallowSounds) return
     const now    = ctx.currentTime
     const vol    = opts.volume ?? 0.12
     const master = ctx.createGain()

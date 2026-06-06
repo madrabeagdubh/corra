@@ -1038,6 +1038,11 @@ export default class PerspectiveGroundRenderer {
     this._gCtx.fillRect(0, horizonPx, sw, 160)
     this._gCtx.fillStyle = gcR
     this._gCtx.fillRect(0, horizonPx + 160, sw, sh - horizonPx - 160)
+    // Fill any gap at bottom with water colour — prevents black edge on sea maps
+    if (this.scene?.getMapKey?.()?.includes('sea') || this.scene?.getMapKey?.()?.includes('d3')) {
+      this._gCtx.fillStyle = '#2a3f5a'
+      this._gCtx.fillRect(0, sh - 40, sw, 40)
+    }
 
     this._oCtx.clearRect(0, 0, sw, sh)
     // Hard clip both canvases: nothing may appear above the horizon

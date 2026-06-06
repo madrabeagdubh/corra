@@ -224,6 +224,7 @@ export default class PerspectiveScene extends BaseLocationScene {
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
+    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight)
 
     this._lastFovKey = null
     this._recomputeFov()
@@ -303,6 +304,19 @@ export default class PerspectiveScene extends BaseLocationScene {
     }
     this.fovSystem  = null
     this.pathFinder = null
+    // Stop damage timer before scene destroys WebGL resources
+    if (this.terrainManager?.damageTimer) {
+      this.terrainManager.damageTimer.remove()
+      this.terrainManager.damageTimer = null
+    }
+    // Clear boat path
+    this._clearBoatPath?.()
+    if (this.boatSystem) {
+      this.boatSystem._pathForce = 0
+      this.boatSystem._pathAngle = 0
+      this.boatSystem._pathTargetX = null
+      this.boatSystem._pathTargetY = null
+    }
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
   }
@@ -650,6 +664,11 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   checkExits() {
     if (!this.mapData?.exits || this._exiting) return
+    // Stop damage timer early — prevents glTexture error on fast transitions
+    if (this.terrainManager?.damageTimer) {
+      this.terrainManager.damageTimer.remove()
+      this.terrainManager.damageTimer = null
+    }
     if (this.entryData?.arrivedAt && Date.now() - this.entryData.arrivedAt < 900) return
     const tileX = Math.floor(this.player.logicalX / this.tileSize)
     const tileY = Math.floor(this.player.logicalY / this.tileSize)

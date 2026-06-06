@@ -1237,9 +1237,19 @@ export default class PerspectiveGroundRenderer {
           const _drawX = playerScreenX
           const _waveOff = this._boatActive ? (this._waveRideOffset ?? 0) : 0
           const _drawY = playerScreenY - _waveOff
+          // Capsize flip — only in d3OpenSea
+          const _capsizeAngle = (this._boatActive && this.scene?._capsized)
+            ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
           this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
+          if (_capsizeAngle > 0.01) {
+            this._oCtx.save()
+            this._oCtx.translate(_drawX, _drawY)
+            this._oCtx.rotate(_capsizeAngle)
+            this._oCtx.translate(-_drawX, -_drawY)
+          }
           this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
             _drawX, _drawY, scaledTileW, playerHM)
+          if (_capsizeAngle > 0.01) this._oCtx.restore()
           playerDrawn = true
         }
 
@@ -1482,8 +1492,17 @@ export default class PerspectiveGroundRenderer {
         const _waveOff2 = this._boatActive ? (this._waveRideOffset ?? 0) : 0
         const _drawY2 = playerScreenY - _waveOff2
         this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
+        const _ca2 = (this._boatActive && this.scene?._capsized)
+          ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
+        if (_ca2 > 0.01) {
+          this._oCtx.save()
+          this._oCtx.translate(_drawX2, _drawY2)
+          this._oCtx.rotate(_ca2)
+          this._oCtx.translate(-_drawX2, -_drawY2)
+        }
         this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
           _drawX2, _drawY2, scaledTileW, playerHM2)
+        if (_ca2 > 0.01) this._oCtx.restore()
         playerDrawn = true
       }
 
@@ -1814,11 +1833,13 @@ export default class PerspectiveGroundRenderer {
         const boatTop = by - boatH * 0.6
         const _boatRock = wobbleRoll + velTiltX + accelTilt
         const _boatPitch = velTiltY
-        if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001) {
+        if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001 || this._facingLeft !== undefined) {
           ctx.save()
           ctx.translate(Math.round(bx), Math.round(by + totalBob))
           ctx.rotate(_boatRock)
           ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
+          // Flip boat to face direction of travel
+          if (!this._facingLeft) ctx.scale(-1, 1)
           ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
           ctx.restore()
         } else {
@@ -1827,6 +1848,8 @@ export default class PerspectiveGroundRenderer {
       }
     }
 
+    // Player faces opposite direction to boat when rowing
+    const _playerFacing = this._boatActive ? !this._facingLeft : this._facingLeft
     ctx.save()
     ctx.translate(screenX, screenY + (this._boatActive ? totalBob : idleBob))
 
@@ -1861,13 +1884,13 @@ export default class PerspectiveGroundRenderer {
         return
       }
 
-      ctx.transform(scaleX * (this._facingLeft ? -1 : 1), lean, 0, scaleY, sway, -bounce)
+      ctx.transform(scaleX * (_playerFacing ?? this._facingLeft ? -1 : 1), lean, 0, scaleY, sway, -bounce)
     } else {
       const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
       const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
       const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
       ctx.transform(
-        breathScale * (this._facingLeft ? -1 : 1), 0,
+        breathScale * ((_playerFacing ?? this._facingLeft) ? -1 : 1), 0,
         0, breathScale,
         shift, watch
       )

@@ -4,6 +4,7 @@ export default class BogD3Sea extends RiverScene {
 
   constructor() { super({ key: 'd3_sea' }) }
 
+  usesSwallows()         { return false }
   getMapKey()              { return 'd3_sea' }
   getAmbient()             { return 0x223344 }
   getPlayerLight()         { return { color: 0xcce8ff, intensity: 1.8, radius: 320 } }
@@ -60,6 +61,7 @@ export default class BogD3Sea extends RiverScene {
       }
       this.boatSystem._noDrift = true
       if (this._swallows) { this._swallows.stop(); this._swallows = null }
+      document.getElementById('swallow-canvas')?.remove()
       this.boatSystem.activate()
 
       const champion = this.registry.get('selectedChampion')
@@ -76,4 +78,11 @@ export default class BogD3Sea extends RiverScene {
       }
     })
   }
+  shutdown() {
+    if (this._swallows) { this._swallows.stop(); this._swallows = null }
+    // Also remove any lingering swallow canvas directly
+    document.getElementById('swallow-canvas')?.remove()
+    super.shutdown?.()
+  }
+
 }

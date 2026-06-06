@@ -294,6 +294,12 @@ export default class WaveRenderer {
 
     const ctx = this._ctx
     ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
+    // Clip entire wave canvas to below horizon + safety margin
+    const _horizonPx = (this.pgr._horizonPx?.() ?? 0) + 4
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, _horizonPx, this._canvas.width, this._canvas.height - _horizonPx)
+    ctx.clip()
     this._drawWaves(ctx)
     this._drawHorses(ctx)
     this._drawManannan(ctx)

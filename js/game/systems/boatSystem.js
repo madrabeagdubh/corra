@@ -247,8 +247,15 @@ export default class BoatSystem {
     const dt = Math.min(delta / 1000, 0.05)  // cap at 50ms
 
     const joystick = this.scene.joystick
-    const force    = joystick?.force ?? 0
-    const angle    = joystick?.angle ?? 0
+    // Use path steering if active, otherwise real joystick
+    const _joyForce  = joystick?.force ?? 0
+    // Joystick overrides path navigation
+    if (_joyForce > 15 && (this._pathForce ?? 0) > 0) {
+      this.scene._clearBoatPath?.()
+    }
+    const _pathForce = this._pathForce ?? 0
+    const force    = _pathForce > 0 ? _pathForce : _joyForce
+    const angle    = _pathForce > 0 ? (this._pathAngle ?? 0) : (joystick?.angle ?? 0)
 
     const baseMaxSpeed = onReed ? 80 : 160
         const eastCap = (this._vx > 0 && this._eastSpeedCap != null) ? this._eastSpeedCap : baseMaxSpeed

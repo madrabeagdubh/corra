@@ -43,7 +43,6 @@ export default class BogD3Sea extends RiverScene {
 
   update(time, delta) {
     super.update(time, delta)
-    this._updateEstuaryWaves(delta)
     // Update estuary waves
     if (this._estWaves?.length) this._updateEstuaryWaves(delta)
 
@@ -93,11 +92,7 @@ export default class BogD3Sea extends RiverScene {
       }
     })
   }
-  onPGRDrawComplete(oCtx) { }
 
-  onPGRDrawComplete(oCtx) {
-    this._updateEstuaryWaves(0)
-  }
 
   _initEstuaryWaves() {
     // Always remove stale canvas first
@@ -115,7 +110,7 @@ export default class BogD3Sea extends RiverScene {
     this._estWaveCanvas.height = pgr._sh
     this._estWaveCanvas.style.cssText = [
       'position:absolute','top:0','left:0',
-      'z-index:3','pointer-events:none',
+      'z-index:2','pointer-events:none',  // below objects layer so terrain draws over waves
       'image-rendering:pixelated',
     ].join(';')
     const lightCanvas = document.getElementById('pgr-light')
@@ -160,30 +155,34 @@ export default class BogD3Sea extends RiverScene {
     const pgr = this.perspectiveGround
     if (!pgr) return
 
-    // Advance wave phases
-    for (const w of this._estWaves) {
-      w.phase += w.speed
-    }
+    for (const w of this._estWaves) w.phase += w.speed
 
     const ctx = this._estWaveCtx
-    // Always sync to actual window size — pgr._sw may lag after fullscreen
-    const sw = pgr._sw || window.innerWidth
-    const sh = pgr._sh || window.innerHeight
-    const cw = Math.round(sw), ch = Math.round(sh)
+    const sw  = pgr._sw || window.innerWidth
+    const sh  = pgr._sh || window.innerHeight
+    const cw  = Math.round(sw), ch = Math.round(sh)
     if (this._estWaveCanvas.width !== cw || this._estWaveCanvas.height !== ch) {
-      this._estWaveCanvas.width  = cw
-      this._estWaveCanvas.height = ch
+      this._estWaveCanvas.width = cw; this._estWaveCanvas.height = ch
     }
+
+    if ((this._estWaveHideFrames ?? 0) > 0) {
+      this._estWaveHideFrames--
+      ctx.clearRect(0, 0, sw, sh)
+      if (this._estWaveHideFrames === 0) this._estWaveCanvas.style.opacity = '1'
+      return
+    }
+
     ctx.clearRect(0, 0, sw, sh)
+
     const mapH      = this.mapData?.layers?.[0]?.length ?? 36
     const mapW      = this.mapData?.layers?.[0]?.[0]?.length ?? 36
     const ts        = this.tileSize
     const horizonPx = pgr._horizonPx?.() ?? sh * 0.28
-    const eff       = 0.35   // fixed calm intensity for estuary
+    const eff       = 0.35
     const rowStep   = 3.5
     const maxAmp    = ts * eff * 0.55
+    const layer0    = this.mapData?.layers?.[0]
 
-    // Clip to below horizon
     ctx.save()
     ctx.beginPath()
     ctx.rect(0, horizonPx + 4, sw, sh - horizonPx - 4)
@@ -201,75 +200,61 @@ export default class BogD3Sea extends RiverScene {
       if (crestH < 0.5) continue
 
       const rowPhaseOffset = (tileRow * 0.618) % (Math.PI * 2)
-      const pts = []
-      for (let c = -2; c <= mapW + 4; c++) {
+      const rowData = layer0?.[Math.round(tileRow)]
+
+      // Build wave point segments — break on non-water tiles
+      const segments = []
+      let seg = []
+      for (let c = 0; c <= mapW; c++) {
+        const gid     = rowData?.[c] ?? 0
+        const isWater = gid === 1625 || gid === 1679
         const screenX = pgr._colToScreenX?.(c + 0.5, tileRow)
-        if (!isFinite(screenX)) continue
-        let sum = 0, weightSum = 0
-        for (const w of this._estWaves) {
-          sum       += Math.sin(w.phase + c / w.wavelength * Math.PI * 2
-            + rowPhaseOffset * (w.speed * 8)) * w.amplitude
-          weightSum += w.amplitude
+        if (!isFinite(screenX) || !isWater) {
+          if (seg.length >= 2) segments.push(seg)
+          seg = []; continue
         }
-        const norm  = weightSum > 0 ? sum / weightSum : 0
+        let sum = 0, wsum = 0
+        for (const w of this._estWaves) {
+          sum  += Math.sin(w.phase + c / w.wavelength * Math.PI * 2 + rowPhaseOffset * w.speed * 8) * w.amplitude
+          wsum += w.amplitude
+        }
+        const norm  = wsum > 0 ? sum / wsum : 0
         const sharp = Math.sign(norm) * Math.pow(Math.abs(norm), 0.6)
         const cy    = screenY - crestH * 0.5 * (1 + sharp)
-        if (isFinite(cy)) pts.push({ x: screenX, y: cy })
+        if (isFinite(cy)) seg.push({ x: screenX, y: cy })
       }
+      if (seg.length >= 2) segments.push(seg)
       if (segments.length === 0) continue
-
-      // Find water tile extent for this row — clip waves to water only
-      const _allPts = segments.flat()
-      let rowMinX = _allPts[0]?.x ?? 0, rowMaxX = _allPts[_allPts.length - 1]?.x ?? sw
-      // Check which columns have water tiles
-      const layer0 = this.mapData?.layers?.[0]
-      if (layer0?.[Math.round(tileRow)]) {
-        const row = layer0[Math.round(tileRow)]
-        let firstWater = -1, lastWater = -1
-        for (let c = 0; c < row.length; c++) {
-          if (row[c] === 1625 || row[c] === 1679) {
-            if (firstWater < 0) firstWater = c
-            lastWater = c
-          }
-        }
-        if (firstWater >= 0) {
-          rowMinX = pgr._colToScreenX?.(firstWater, tileRow) ?? rowMinX
-          rowMaxX = pgr._colToScreenX?.(lastWater + 1, tileRow) ?? rowMaxX
-        }
-      }
 
       const horizonFade = Math.max(0, Math.min(1, (screenY - horizonPx) / 40))
       const baseAlpha   = eff * horizonFade
 
       ctx.save()
-      // Clip to water tile extent for this row
-      ctx.beginPath()
-      ctx.rect(rowMinX, horizonPx, rowMaxX - rowMinX, sh - horizonPx)
-      ctx.clip()
 
       // Shadow trough
       const shadowH = crestH * 0.45
       if (shadowH > 1) {
-        for (const seg of segments) {
-          if (seg.length < 2) continue
+        for (const s of segments) {
+          if (s.length < 2) continue
           ctx.beginPath()
-          seg.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
-          for (let i = seg.length - 1; i >= 0; i--) ctx.lineTo(seg[i].x, seg[i].y - shadowH)
-        ctx.closePath()
-        try {
-          const sg = ctx.createLinearGradient(0, screenY - crestH - shadowH, 0, screenY - crestH * 0.3)
-          sg.addColorStop(0,   'rgba(6,14,32,0)')
-          sg.addColorStop(0.4, `rgba(8,18,42,${(baseAlpha * 0.28).toFixed(2)})`)
-          sg.addColorStop(1,   `rgba(12,24,52,${(baseAlpha * 0.45).toFixed(2)})`)
-          ctx.fillStyle = sg; ctx.fill()
-        } catch(e) {}
+          s.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
+          for (let i = s.length - 1; i >= 0; i--) ctx.lineTo(s[i].x, s[i].y - shadowH)
+          ctx.closePath()
+          try {
+            const sg = ctx.createLinearGradient(0, screenY - crestH - shadowH, 0, screenY - crestH * 0.3)
+            sg.addColorStop(0,   'rgba(6,14,32,0)')
+            sg.addColorStop(0.4, `rgba(8,18,42,${(baseAlpha * 0.28).toFixed(2)})`)
+            sg.addColorStop(1,   `rgba(12,24,52,${(baseAlpha * 0.45).toFixed(2)})`)
+            ctx.fillStyle = sg; ctx.fill()
+          } catch(e) {}
+        }
       }
 
-      // Crest highlight — draw each water segment
+      // Crest highlight
       ctx.globalAlpha = baseAlpha
-      for (const seg of segments) {
-        for (let pi = 0; pi < seg.length - 1; pi++) {
-          const pt0 = seg[pi], pt1 = seg[pi + 1]
+      for (const s of segments) {
+        for (let pi = 0; pi < s.length - 1; pi++) {
+          const pt0 = s[pi], pt1 = s[pi + 1]
           if (!pt0 || !pt1) continue
           const hf = Math.max(0, (screenY - pt0.y) / crestH)
           const lw = Math.max(0.6, crestH * 0.28 * (0.5 + hf * 0.8))
@@ -279,32 +264,33 @@ export default class BogD3Sea extends RiverScene {
         }
       }
 
-      // Belly gradient — draw each water segment
+      // Belly gradient
       const bellyH = crestH * 0.75
       const gradY0 = screenY - crestH * 0.85
       const gradY1 = gradY0 + bellyH
       if (isFinite(gradY0) && isFinite(gradY1) && Math.abs(gradY1 - gradY0) > 1) {
-        for (const seg of segments) {
-          if (seg.length < 2) continue
+        for (const s of segments) {
+          if (s.length < 2) continue
           ctx.beginPath()
-          seg.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
-          for (let i = seg.length - 1; i >= 0; i--) ctx.lineTo(seg[i].x, seg[i].y + bellyH)
+          s.forEach((pt, i) => i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y))
+          for (let i = s.length - 1; i >= 0; i--) ctx.lineTo(s[i].x, s[i].y + bellyH)
           ctx.closePath()
-        try {
-          const lg = ctx.createLinearGradient(0, gradY0, 0, gradY1)
-          lg.addColorStop(0,    `rgba(160,195,230,${(baseAlpha * 0.82).toFixed(2)})`)
-          lg.addColorStop(0.25, `rgba(140,175,215,${(baseAlpha * 0.65).toFixed(2)})`)
-          lg.addColorStop(0.6,  `rgba(65,95,130,${(baseAlpha * 0.45).toFixed(2)})`)
-          lg.addColorStop(1,    `rgba(45,70,110,${(baseAlpha * 0.28).toFixed(2)})`)
-          ctx.fillStyle = lg; ctx.fill()
-        } catch(e) {}
+          try {
+            const lg = ctx.createLinearGradient(0, gradY0, 0, gradY1)
+            lg.addColorStop(0,    `rgba(160,195,230,${(baseAlpha * 0.82).toFixed(2)})`)
+            lg.addColorStop(0.25, `rgba(140,175,215,${(baseAlpha * 0.65).toFixed(2)})`)
+            lg.addColorStop(0.6,  `rgba(65,95,130,${(baseAlpha * 0.45).toFixed(2)})`)
+            lg.addColorStop(1,    `rgba(45,70,110,${(baseAlpha * 0.28).toFixed(2)})`)
+            ctx.fillStyle = lg; ctx.fill()
+          } catch(e) {}
+        }
       }
 
-      }
       ctx.restore()
     }
-    ctx.restore()  // release outer horizon clip
+    ctx.restore()
   }
+
 
 
   _buildRipples(sw, sh, pgr) {

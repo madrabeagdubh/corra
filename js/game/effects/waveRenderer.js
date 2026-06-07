@@ -74,6 +74,16 @@ export default class WaveRenderer {
 
     this._ctx = this._canvas.getContext('2d')
     this._ctx.imageSmoothingEnabled = false
+
+    // Hide waves briefly after resize — prevents sky bleed during fullscreen transition
+    this._hideFrames = 0
+    this._resizeFn = () => {
+      if (this._canvas) this._canvas.style.opacity = '0'
+      this._hideFrames = 20
+    }
+    window.addEventListener('resize', this._resizeFn)
+    document.addEventListener('fullscreenchange', this._resizeFn)
+    document.addEventListener('webkitfullscreenchange', this._resizeFn)
     console.log('[WaveRenderer] constructed, mapW:',
       scene.mapData?.layers?.[0]?.[0]?.length ?? 'unknown')
   }
@@ -293,6 +303,13 @@ export default class WaveRenderer {
     }
 
     const ctx = this._ctx
+    // Handle post-resize hide frames
+    if (this._hideFrames > 0) {
+      this._hideFrames--
+      ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
+      if (this._hideFrames === 0) this._canvas.style.opacity = '1'
+      return
+    }
     ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
     // Clip entire wave canvas to below horizon + safety margin
     const _horizonPx = (this.pgr._horizonPx?.() ?? 0) + 4
@@ -361,11 +378,20 @@ export default class WaveRenderer {
       }
       if (pts.length < 2) continue
 
+      const _leftX  = pgr._colToScreenX(0, tileRow)
+      const _rightX = pgr._colToScreenX(mapW, tileRow)
+
       const distFromHorizon = screenY - horizonPx
       const horizonFade = distFromHorizon < 40 ? Math.max(0, distFromHorizon / 40) : 1.0
       const baseAlpha   = eff * horizonFade
 
       ctx.save()
+      // Clip to tile column bounds for this row
+      if (isFinite(_leftX) && isFinite(_rightX)) {
+        ctx.beginPath()
+        ctx.rect(_leftX, horizonPx, _rightX - _leftX, this._canvas.height - horizonPx)
+        ctx.clip()
+      }
 
       // Shadow trough
       const shadowH = crestH * (0.45 + this.intensity * 0.35)
@@ -904,6 +930,12 @@ export default class WaveRenderer {
   }
 
   destroy() {
+    if (this._resizeFn) {
+      window.removeEventListener('resize', this._resizeFn)
+      document.removeEventListener('fullscreenchange', this._resizeFn)
+      document.removeEventListener('webkitfullscreenchange', this._resizeFn)
+      this._resizeFn = null
+    }
     this._canvas?.parentNode?.removeChild(this._canvas)
     this._canvas = null
     this._ctx    = null

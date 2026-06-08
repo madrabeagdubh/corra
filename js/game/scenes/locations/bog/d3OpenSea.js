@@ -28,11 +28,6 @@ const MANANNAN_FINAL = {
   en: 'I waited for you. Now, come with me.',
 }
 
-// ── Manannan speech — 22 bilingual couplets ──────────────────────────────────
-// ga = Irish (displayed first, vivid), en = English (below, moon-phase opacity)
-// color / colorEn override speakerColor() in ScrollingTextPlayer
-// speaker: 'manannan' drives colour via speakerColor() / speakerColorEn()
-// in gameTypography.js — add entries there for the full colour effect.
 const MANANNAN_LINES = [
   { ga: 'A leanbh baoth faoi mhóid bheith saor',                              en: 'O reckless child of defiant vow',                                       speaker: 'manannan' },
   { ga: 'cén gealtachas atá ort?',                                             en: 'what madness drives thee so?',                                          speaker: 'manannan' },
@@ -106,10 +101,11 @@ export default class D3OpenSea extends RiverScene {
     this._capsized             = false
     this._capsizeTimer         = 0
 
-    this._manannanBadgeEl      = null
-    this._manannanScroll       = null
-    this._preManannanZoom      = null
-    this._preManannanScrollY   = null
+    this._manannanBadgeEl             = null
+    this._manannanScroll              = null
+    this._preManannanZoom             = null
+    this._preManannanScrollY          = null
+    this._manannanReleasedAndRetreated = GameState.hasNote('met_manannan')
 
     // Storm audio
     this._stormAudio = new StormAudio()
@@ -121,16 +117,7 @@ export default class D3OpenSea extends RiverScene {
     // Distant rain — second curtain, independent canvas
     this._distantRain = new DistantRainLayer()
 
-    // Storm atmosphere — two-part approach, no flat screen darkening:
-    //
-    // 1. CSS filter on the Phaser canvas: desaturates and cools as the storm
-    //    builds. Reads as weather draining colour from the world, not a screen
-    //    shutting off. Cleared on cleanup so it never bleeds into other scenes.
-    //
-    // 2. Vignette div: radial gradient, transparent in the centre, dark only
-    //    at the edges. The player's boat stays fully readable; the periphery
-    //    closes in like tunnel vision in a squall.
-    this._stormCanvas = this.game.canvas   // direct Phaser reference, no DOM query
+    this._stormCanvas = this.game.canvas
 
     this._vignetteDiv = document.createElement('div')
     this._vignetteDiv.style.cssText = [
@@ -141,7 +128,6 @@ export default class D3OpenSea extends RiverScene {
     ].join(';')
     document.body.appendChild(this._vignetteDiv)
 
-    // Wire thunder → lightning sync
     this._stormAudio.onThunder = (size) => {
       this._stormOverlay?.triggerLightning(size)
     }
@@ -203,61 +189,45 @@ export default class D3OpenSea extends RiverScene {
     this._waveRenderer?.setEastProgress(eastProgress)
     this._waveRenderer?.update(delta)
 
-    // ── Intensified weather — distant rain + darkness ─────────────────────
-    // Distant rain: starts col 20, full by col 55
     const rainProgress = Math.max(0, Math.min(1, (tileX - 20) / 35))
     this._distantRain?.setIntensity(rainProgress)
     this._distantRain?.update(delta)
 
-    // Storm atmosphere — canvas filter + edge vignette.
-    // Both scale from col 30, quadratic so the final stretch before
-    // Manannan is genuinely bleak without ever looking like a dim screen.
     const darkProgress = Math.max(0, Math.min(1, (tileX - 30) / 30))
-    const t            = darkProgress * darkProgress   // quadratic ease
+    const t            = darkProgress * darkProgress
 
-    // 1. Canvas filter: desaturate toward grey-blue, slight brightness drop.
-    //    At full storm: saturate(30%) brightness(70%) hue-rotate(195deg)
-    //    gives a cold, colourless squall without turning anything black.
     if (this._stormCanvas) {
-      const sat  = Math.round(100 - t * 70)       // 100% → 30%
-      const bri  = Math.round(100 - t * 30)       // 100% → 70%
-      const hue  = Math.round(t * 195)            // 0deg → 195deg (cold blue shift)
+      const sat  = Math.round(100 - t * 70)
+      const bri  = Math.round(100 - t * 30)
+      const hue  = Math.round(t * 195)
       this._stormCanvas.style.filter = t < 0.01
         ? ''
         : `saturate(${sat}%) brightness(${bri}%) hue-rotate(${hue}deg)`
     }
 
-    // 2. Vignette: edge darkness grows inward. At full storm the gradient
-    //    reaches ~60% inward from the edges; centre stays clear.
     if (this._vignetteDiv) {
-      // Wide ellipse (120% horizontal) so darkness only encroaches top and bottom,
-      // leaving the left/right sides of the screen unframed.
       const edgeAlpha = (t * 0.82).toFixed(3)
-      const clearZone = 35   // centre clear zone — fixed, doesn't shrink
-      const fadeStop  = Math.round(55 + t * 15)   // gradient reaches further down/up
+      const clearZone = 35
+      const fadeStop  = Math.round(55 + t * 15)
       this._vignetteDiv.style.background =
         `radial-gradient(120% ${fadeStop}% at 50% 50%, transparent ${clearZone}%, rgba(4,8,20,${edgeAlpha}) 100%)`
     }
 
-    // ── Horse collision — suppressed during scroll and after warning ───────
     if (!this._capsized && !this._gameOverPending &&
         !this._manannanWarned && !this._manannanScrollActive) {
       this._checkHorseCollision(tileX)
     }
 
-    // ── Manannan proximity — fallback trigger if badge not pressed ─────────
     if (this._manannanWarned && !this._manannanScrollActive && this._manannanBadgeEl) {
       this._checkManannanProximity()
     }
 
-    // Capsize tick
     if (this._capsized) {
       this._capsizeTimer += delta
       this._tickCapsize(delta)
       return
     }
 
-    // Drift
     if (!this._driftUnlocked && tileX >= DRIFT_UNLOCK_COL) {
       this._driftUnlocked = true
       this.boatSystem._noDrift = false
@@ -272,7 +242,6 @@ export default class D3OpenSea extends RiverScene {
       this.boatSystem._noDrift   = true
     }
 
-    // Speed cap
     if (this.boatSystem && !this._manannanScrollActive) {
       if (tileX >= SPEED_CAP_START_COL) {
         const capProgress = Math.max(0, Math.min(1,
@@ -285,62 +254,62 @@ export default class D3OpenSea extends RiverScene {
       }
     }
 
-    // Storm audio + overlay
     this._stormAudio?.setIntensity(intensity)
     this._stormOverlay?.setIntensity(intensity)
     this._stormOverlay?.update(delta)
 
-    // Hard south camera clamp
     const _clampCam = this.cameras?.main
     if (_clampCam && this.player) {
       const _maxSY = 36 * this.tileSize - this.scale.height / (_clampCam.zoom || 1)
       if (_clampCam.scrollY > _maxSY) _clampCam.scrollY = _maxSY
     }
 
-    // ── Manannan trigger ──────────────────────────────────────────────────
-    if (!this._manannanWarned && !this._manannanScrollActive) {
-      const joyAngle = this.joystick?.angle ?? 0
-      const atWall    = tileX >= MANANNAN_TRIGGER_COL
+    const pastTrigger = tileX >= MANANNAN_TRIGGER_COL
+    const safeTileX   = MANANNAN_TRIGGER_COL - 8
+
+    if (GameState.hasNote('met_manannan')) {
+      if (!this._manannanReleasedAndRetreated && tileX <= safeTileX) {
+        this._manannanReleasedAndRetreated = true
+        console.log('[Manannan] player retreated to safe zone — second approach armed')
+      }
+
+      if (this._manannanReleasedAndRetreated &&
+          pastTrigger &&
+          !this._gameOverPending &&
+          !this._devourStarted) {
+        this._manannanWarned  = true
+        this._gameOverPending = true
+        this._triggerManannanDevour()
+      }
+    } else if (!this._manannanWarned && !this._manannanScrollActive) {
+      const joyAngle  = this.joystick?.angle ?? 0
       const pushing   = (this.joystick?.force ?? 0) > 10 &&
                         joyAngle > -60 && joyAngle < 60
       const slowSpeed = Math.abs(this.boatSystem?._vx ?? 0) < 20
 
-      // Returning player: no 10-second wait — immediate devour
-      // Fires as soon as they push past the trigger col again
-      if (atWall && GameState.hasNote('met_manannan') && !this._gameOverPending) {
-        this._manannanWarned   = true
-        this._gameOverPending  = true
-        this._triggerManannanDevour()
-      } else if (atWall && pushing && slowSpeed) {
+      if (pastTrigger && pushing && slowSpeed) {
         this._struggleTimer += delta
         if (this._struggleTimer > 10000) {
           this._manannanWarned = true
           this._triggerManannanWarning()
         }
-      } else if (!atWall || !pushing) {
+      } else if (!pastTrigger || !pushing) {
         this._struggleTimer = 0
       }
     }
 
-    // Point of no return
     if (!this._gameOverPending && tileX >= POINT_OF_NO_RETURN) {
       this._gameOverPending = true
       this._triggerManannanFinal()
     }
   }
 
-  // ── Manannan proximity check ──────────────────────────────────────────────
-  // Auto-fires the scroll if the player rows close enough without tapping.
-  // Checks several likely property names on WaveRenderer defensively.
-
   _checkManannanProximity() {
     if (!this.player || !this._waveRenderer) return
 
-    // WaveRenderer stores position as _manannánWorldX/Y (with fada — WaveRenderer convention)
     const mx = this._waveRenderer._manannánWorldX ?? null
 
     if (mx === null) {
-      // Manannan not yet spawned — fallback to tile column proximity
       const tileX = Math.floor(this.player.logicalX / this.tileSize)
       if (tileX >= MANANNAN_TRIGGER_COL + 4) {
         console.log('[Manannan] proximity fallback — auto-opening scroll')
@@ -360,8 +329,6 @@ export default class D3OpenSea extends RiverScene {
       this._openManannanScroll()
     }
   }
-
-  // ── Storm audio ──────────────────────────────────────────────────────────
 
   _initStormAudio() {
     try {
@@ -544,8 +511,6 @@ export default class D3OpenSea extends RiverScene {
     console.log('[StormAudio] stopped')
   }
 
-  // ── Horse collision ──────────────────────────────────────────────────────
-
   _checkHorseCollision(tileX) {
     if (!this._waveRenderer || !this.player) return
     const ts      = this.tileSize
@@ -725,10 +690,6 @@ export default class D3OpenSea extends RiverScene {
     }, 6000)
   }
 
-  // ── Fast blackout — used by devour sequence ─────────────────────────────
-  // Camera lunge has already done the drama. This just cuts to black fast
-  // and reloads — same end state as _beginCapsize but in ~2s not 6s.
-
   _beginCapsizeFade() {
     const veil = document.createElement('div')
     veil.style.cssText = [
@@ -739,7 +700,6 @@ export default class D3OpenSea extends RiverScene {
     ].join(';')
     document.body.appendChild(veil)
 
-    // Immediate cut to black over 0.6s
     requestAnimationFrame(() => {
       veil.style.transition = 'opacity 0.6s ease-in'
       requestAnimationFrame(() => { veil.style.opacity = '1' })
@@ -804,9 +764,6 @@ export default class D3OpenSea extends RiverScene {
   // ── Manannan sequence ────────────────────────────────────────────────────
 
   _triggerManannanWarning() {
-    // Note: returning players are now handled directly in update() via
-    // the struggle timer block — they never reach this method.
-
     if (this.boatSystem) {
       this.boatSystem._vx = 0
       this.boatSystem._vy = 0
@@ -814,13 +771,10 @@ export default class D3OpenSea extends RiverScene {
     this._waveRenderer?.spawnManannan()
     this._waveRenderer?.triggerHorseSequence()
 
-    // Badge appears after Manannan has drifted into view
     this.time.delayedCall(3000, () => {
       this._showManannanBadge()
     })
   }
-
-  // ── Badge ─────────────────────────────────────────────────────────────────
 
   _showManannanBadge() {
     const hubEl     = document.getElementById('dpad-moon-hub')
@@ -887,9 +841,6 @@ export default class D3OpenSea extends RiverScene {
     }, 400)
   }
 
-  // ── Camera pullback ───────────────────────────────────────────────────────
-  // Zooms out so both the player's boat and Manannan ahead are in frame.
-
   _pullCameraBack(onComplete) {
     const cam = this.cameras?.main
     if (!cam) { onComplete?.(); return }
@@ -897,7 +848,6 @@ export default class D3OpenSea extends RiverScene {
     this._preManannanZoom    = cam.zoom ?? 1
     this._preManannanScrollY = cam.scrollY
 
-    // Zoom to 75% of current zoom — reveals roughly 33% more scene height
     const targetZoom = this._preManannanZoom * 0.75
 
     this.tweens?.add({
@@ -924,15 +874,12 @@ export default class D3OpenSea extends RiverScene {
     this._preManannanScrollY = null
   }
 
-  // ── Scroll sequence ───────────────────────────────────────────────────────
-
   _openManannanScroll() {
     if (this._manannanScrollActive) return
     this._manannanScrollActive = true
 
     this._hideManannanBadge()
 
-    // Hard-freeze the boat
     if (this.boatSystem) {
       this.boatSystem._vx           = 0
       this.boatSystem._vy           = 0
@@ -941,7 +888,6 @@ export default class D3OpenSea extends RiverScene {
     }
     this._currentDriftOverride = 0
 
-    // Pull camera back first, then launch text once camera settles
     this._pullCameraBack(() => this._launchScroll())
   }
 
@@ -975,11 +921,8 @@ export default class D3OpenSea extends RiverScene {
     this._manannanScroll       = null
     this._manannanScrollActive = false
 
-    // Restore camera zoom
     this._restoreCamera()
 
-    // Restore westward drift — horse collision stays suppressed
-    // (_manannanWarned remains true) so the player drifts home safely
     if (this.boatSystem) {
       this.boatSystem._noDrift      = false
       this.boatSystem._eastSpeedCap = null
@@ -997,10 +940,7 @@ export default class D3OpenSea extends RiverScene {
     console.log('[Manannan] boat released — westward drift restored')
   }
 
-
   // ── Devoured (returning player) ───────────────────────────────────────────
-  // Manannan lunges forward and swallows the boat whole.
-  // No text, no warning — just a fast zoom-in, a violent shake, then black.
 
   _triggerManannanDevour() {
     if (this._devourStarted) return
@@ -1016,103 +956,160 @@ export default class D3OpenSea extends RiverScene {
     if (this.joystick) this.joystick.force = 0
     this._currentDriftOverride = 0
 
-    const p  = this.player
-    const wr = this._waveRenderer
-    if (!p || !wr) { this._beginCapsizeFade(); return }
+    const p = this.player
+    if (!p) { this._beginCapsizeFade(); return }
 
-    // Place Manannan off the east edge of the wave canvas so he charges
-    // in from off-screen. We use tile coordinates so _colToScreenX and
-    // _rowToScreenY can project him correctly — staying within the map grid.
-    const ts   = this.tileSize
-    const mapW = this.mapData?.width ?? 72
+    // ── Hide player and boat immediately ─────────────────────────────────
+    // The boat and player sprite are rendered by perspectiveGround onto its
+    // own canvas — hiding only game.canvas leaves them visible.
+    // We hide everything that could show them:
+    //   1. perspectiveGround canvas (boat + player sprite)
+    //   2. game.canvas (Phaser layer, player sprite if rendered there too)
+    //   3. Set a flag so perspectiveGround skips drawing the boat this frame
+    if (this.game?.canvas)       this.game.canvas.style.opacity = '0'
+    if (this.perspectiveGround) {
+      // Hide the PerspectiveGround canvas element directly
+      const pgCanvas = this.perspectiveGround.canvas
+                    ?? this.perspectiveGround._canvas
+                    ?? this.perspectiveGround.element
+      if (pgCanvas?.style) pgCanvas.style.opacity = '0'
 
-    // Player's current tile row — use same row so depth/scale matches
-    const playerTileY = Math.floor(p.logicalY / ts)
-    const playerTileX = Math.floor(p.logicalX / ts)
+      // Flag checked by PerspectiveGround.render() / drawBoat() if present
+      this.perspectiveGround._hideBoat   = true
+      this.perspectiveGround._hidePlayer = true
+    }
 
-    // Start Manannan at the map's eastern edge (or 8 tiles east of player,
-    // whichever is closer to the edge) — guaranteed to be off the right of screen
-    const startTileX = Math.min(mapW - 1, playerTileX + 10)
-    const startX     = startTileX * ts
-    const startY     = playerTileY * ts
+    // ── Screen-space approach ────────────────────────────────────────────
+    const pgr         = this.perspectiveGround
+    const playerTileY = Math.floor(p.logicalY / this.tileSize)
 
-    // Inject position directly into WaveRenderer
-    wr._manannánWorldX   = startX
-    wr._manannánWorldY   = startY
-    wr._manannánSurfaceT = 1.0   // fully surfaced immediately — no slow rise
-    wr._manannánFixed    = true  // don't let WaveRenderer move him
-    wr.setDevourMode?.(true)     // switch to open-mouth image
+    const playerScreenY = pgr?._rowToScreenY?.(playerTileY + 1) ?? (this.scale.height * 0.6)
+    const scaledW       = pgr?._scaleAtRow?.(playerTileY + 1)   ?? 48
+    const horizonPx     = pgr?._horizonPx?.() ?? 180
 
-    // Phase 1 — charge: animate _manannánWorldX from startX to player each frame
-    // Duration: 700ms. Ease-in so he accelerates like something lunging.
-    const CHARGE_MS   = 700
+    const cam           = this.cameras?.main
+    const zoom          = cam?.zoom ?? 1
+    const playerScreenX = cam
+      ? (p.logicalX - cam.scrollX) * zoom
+      : this.scale.width / 2
+
+    // Overlay canvas for the charge animation — sits above everything
+    const oc = document.createElement('canvas')
+    oc.width  = this.scale.width
+    oc.height = this.scale.height
+    oc.style.cssText = [
+      'position:fixed', 'inset:0',
+      'width:100%', 'height:100%',
+      'pointer-events:none',
+      'z-index:9950',
+    ].join(';')
+    document.body.appendChild(oc)
+    this._devourCanvas = oc
+    const ctx = oc.getContext('2d')
+
+    const spriteW       = scaledW * 3.5
+    const startScreenX  = this.scale.width + spriteW * 0.5
+    const targetScreenX = playerScreenX
+    const drawY         = playerScreenY - scaledW * 2.5
+
+    const wr  = this._waveRenderer
+    const img = wr?._manannánDevourImg ?? wr?._manannánImg ?? null
+
+    const CHARGE_MS   = 1800
     const chargeStart = performance.now()
 
     const charge = () => {
-      if (!this._devourStarted) return   // cleaned up
-      const elapsed  = performance.now() - chargeStart
-      const rawT     = Math.min(elapsed / CHARGE_MS, 1)
-      // Ease-in cubic: slow start, fast finish — predator accelerating
-      const t        = rawT * rawT * rawT
+      if (!this._devourStarted) return
+      const elapsed = performance.now() - chargeStart
+      const rawT    = Math.min(elapsed / CHARGE_MS, 1)
+      const t       = rawT * rawT * rawT
 
-      wr._manannánWorldX = startX + (p.logicalX - startX) * t
-      wr._manannánWorldY = startY
+      const cx = startScreenX + (targetScreenX - startScreenX) * t
+
+      ctx.clearRect(0, 0, oc.width, oc.height)
+
+      if (img?.complete && img.naturalWidth > 0) {
+        const aspect = img.naturalHeight / img.naturalWidth
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, horizonPx, oc.width, oc.height - horizonPx)
+        ctx.clip()
+        ctx.globalAlpha = 1
+        ctx.drawImage(img, cx - spriteW * 0.5, drawY, spriteW, spriteW * aspect)
+        ctx.restore()
+      } else {
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, horizonPx, oc.width, oc.height - horizonPx)
+        ctx.clip()
+        ctx.beginPath()
+        ctx.arc(cx, playerScreenY - scaledW, spriteW * 0.4, 0, Math.PI * 2)
+        const grd = ctx.createRadialGradient(cx, playerScreenY - scaledW, 0, cx, playerScreenY - scaledW, spriteW * 0.4)
+        grd.addColorStop(0, 'rgba(255,220,60,0.95)')
+        grd.addColorStop(1, 'rgba(180,100,0,0)')
+        ctx.fillStyle = grd
+        ctx.fill()
+        ctx.restore()
+      }
 
       if (rawT < 1) {
         requestAnimationFrame(charge)
       } else {
-        // Arrived at player
-        wr._manannánWorldX = p.logicalX
         this._playUlp()
         this._flashWhite()
-        // Hide boat/player immediately
-        if (this.perspectiveGround) {
-          this.perspectiveGround._boatHidden  = true
-          this.perspectiveGround._playerHidden = true
+        if (wr) {
+          wr._manannánWorldX   = null
+          wr._manannánSurfaceT = 0
         }
-        // Phase 2 — swim off west and sink after brief pause
-        setTimeout(() => this._manannanSwimOff(startX, startY), 120)
+        setTimeout(() => this._manannanSwimOff(ctx, oc, startScreenX, targetScreenX, playerScreenY, scaledW, horizonPx, img, spriteW), 120)
       }
     }
     requestAnimationFrame(charge)
   }
 
-  // Manannan swims west and sinks below the waves after devouring the player.
-  _manannanSwimOff(startX, startY) {
-    const wr = this._waveRenderer
-    if (!wr) { this._beginCapsizeFade(); return }
+  _manannanSwimOff(ctx, oc, startScreenX, playerScreenX, playerScreenY, scaledW, horizonPx, img, spriteW) {
+    if (!this._devourStarted) return
 
-    const p          = this.player
-    const SWIM_MS    = 900
-    const swimStart  = performance.now()
-    // He exits west — opposite of where he came from
-    const exitX      = (p?.logicalX ?? startX) - startX   // mirror distance west
+    const SWIM_MS     = 1400
+    const swimStart   = performance.now()
+    const exitScreenX = playerScreenX - (startScreenX - playerScreenX)
 
     const swim = () => {
       if (!this._devourStarted) return
       const elapsed = performance.now() - swimStart
       const rawT    = Math.min(elapsed / SWIM_MS, 1)
-      // Ease-out: fast start, decelerates as he disappears
       const t       = 1 - Math.pow(1 - rawT, 2)
 
-      const targetX = (p?.logicalX ?? 0) + exitX * t
-      wr._manannánWorldX   = targetX
-      // Sink: surfaceT drops from 1 → 0 over the swim
-      wr._manannánSurfaceT = 1 - t
+      const cx    = playerScreenX + (exitScreenX - playerScreenX) * t
+      const sinkY = playerScreenY - scaledW * 2.5 * (1 - t)
+      const alpha = 1 - t
+
+      ctx.clearRect(0, 0, oc.width, oc.height)
+
+      if (img?.complete && img.naturalWidth > 0 && alpha > 0.02) {
+        const aspect = img.naturalHeight / img.naturalWidth
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, horizonPx, oc.width, oc.height - horizonPx)
+        ctx.clip()
+        ctx.globalAlpha = alpha
+        ctx.drawImage(img, cx - spriteW * 0.5, sinkY, spriteW, spriteW * aspect)
+        ctx.restore()
+      }
 
       if (rawT < 1) {
         requestAnimationFrame(swim)
       } else {
-        wr._manannánSurfaceT = 0
-        wr._manannánWorldX   = null
-        wr.setDevourMode?.(false)
+        // Game canvas and perspectiveGround stay hidden — _beginCapsizeFade
+        // cuts to black and reloads immediately after.
+        if (oc.parentNode) oc.parentNode.removeChild(oc)
+        this._devourCanvas = null
         this._beginCapsizeFade()
       }
     }
     requestAnimationFrame(swim)
   }
 
-  // Flash white on gulp — cartoon impact frame
   _flashWhite() {
     const flash = document.createElement('div')
     flash.style.cssText = [
@@ -1127,7 +1124,6 @@ export default class D3OpenSea extends RiverScene {
     }, 60)
   }
 
-  // "Ulp!" — brief comic gulp sound
   _playUlp() {
     try {
       const AC = window.AudioContext || window.webkitAudioContext
@@ -1135,13 +1131,11 @@ export default class D3OpenSea extends RiverScene {
       const ac  = new AC()
       const now = ac.currentTime
 
-      // Low resonant gulp: pitch drops fast like something being swallowed
       const osc = ac.createOscillator()
       osc.type  = 'sine'
       osc.frequency.setValueAtTime(320, now)
       osc.frequency.exponentialRampToValueAtTime(55, now + 0.22)
 
-      // Narrow bandpass for gullet character
       const bp = ac.createBiquadFilter()
       bp.type  = 'bandpass'
       bp.frequency.value = 180
@@ -1155,7 +1149,6 @@ export default class D3OpenSea extends RiverScene {
       osc.connect(bp); bp.connect(g); g.connect(ac.destination)
       osc.start(now); osc.stop(now + 0.32)
 
-      // Add a wet splash undertone
       const nBuf = ac.createBuffer(1, Math.ceil(ac.sampleRate * 0.18), ac.sampleRate)
       const nd   = nBuf.getChannelData(0)
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1
@@ -1224,6 +1217,10 @@ export default class D3OpenSea extends RiverScene {
     if (this._vignetteDiv) {
       this._vignetteDiv.parentNode?.removeChild(this._vignetteDiv)
       this._vignetteDiv = null
+    }
+    if (this._devourCanvas) {
+      this._devourCanvas.parentNode?.removeChild(this._devourCanvas)
+      this._devourCanvas = null
     }
     this._waveRenderer?.destroy()
     this._waveRenderer = null

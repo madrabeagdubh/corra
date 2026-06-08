@@ -20,6 +20,11 @@ export default class BaseLocationScene extends Phaser.Scene {
   // ── Preload ───────────────────────────────────────────────────────────────
 
   preload() {
+
+  if (!this.textures.exists('heart')) {
+    this.load.image('heart', 'assets/icons/heart.png');
+  } 
+
     this.load.image('championSheet_armored',   'assets/champions/champions-with-kit.png');
     this.load.image('championSheet_unarmored', 'assets/champions/champions-no-kit.png');
     this.load.json('championAtlas', 'assets/champions/champions0.json');
@@ -68,8 +73,26 @@ export default class BaseLocationScene extends Phaser.Scene {
 
     this.player = new Player(this, playerX, playerY, champion);
 
-    this.hpDisplay = new HPDisplay(this, { x: 20, y: 50 });
-    this.hpDisplay.updateDisplay(this.player.currentHP, this.player.maxHP);
+    
+
+
+const initHP = () => {
+  this.hpDisplay = new HPDisplay(this, { x: 20, y: 50 });
+  this.hpDisplay.updateDisplay(this.player.currentHP, this.player.maxHP);
+};
+
+if (this.textures.exists('heart')) {
+  initHP();
+} else {
+  this.load.image('heart', '/assets/icons/heart.png');
+  this.load.once('complete', initHP);
+  this.load.start();
+}
+
+
+
+
+
 
     this.terrainManager = new TerrainManager(this, this.player);
 

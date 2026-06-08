@@ -21,7 +21,18 @@ export default class BowTutorial extends Phaser.Scene {
         super({ key: 'BowTutorial' });
     }
 
-    preload() {
+
+
+
+
+preload() {
+  this.load.on('loaderror', (file) => {
+    console.error('[preload] Failed to load:', file.key, file.url);
+  });
+  this.load.image('heart', '/assets/icons/heart.png');
+  // ...
+
+
         this.load.audio('metalSwoosh1', '/assets/sounds/metalSwoosh1.wav');
         this.load.audio('metalSwoosh2', '/assets/sounds/metalSwoosh2.wav');
         this.load.audio('metalSwoosh4', '/assets/sounds/metalSwoosh4.wav');

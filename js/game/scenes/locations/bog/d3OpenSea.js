@@ -1057,6 +1057,34 @@ export default class D3OpenSea extends RiverScene {
       } else {
         this._playUlp()
         this._flashWhite()
+
+        // Stop BoatSystem from pushing player.logicalX/Y back each frame —
+        // it runs in RiverScene.update() before PGR and would immediately
+        // overwrite any position we set here.
+        if (this.boatSystem) {
+          this.boatSystem._vx           = 0
+          this.boatSystem._vy           = 0
+          this.boatSystem._noDrift      = true
+          this.boatSystem._eastSpeedCap = 0
+          // No-op remaining updates so velocity can't restore the position
+          this.boatSystem.update = () => {}
+        }
+
+        // Move player far off any renderable row so PGR draws neither
+        // the player sprite nor the boat (both keyed off logicalX/Y).
+        if (p) {
+          p.logicalX = -999999
+          p.logicalY = -999999
+          p.targetX  = -999999
+          p.targetY  = -999999
+        }
+
+        // Clear the boat canvas PGR holds so it can't draw it independently.
+        if (this.perspectiveGround) {
+          this.perspectiveGround._boatActive = false
+          this.perspectiveGround._boatCanvas = null
+        }
+
         if (wr) {
           wr._manannánWorldX   = null
           wr._manannánSurfaceT = 0

@@ -853,10 +853,10 @@ setDevourMode(active) {
 
     ctx.save()
     ctx.globalAlpha = this._manannánSurfaceT
+ctx.beginPath()
 
-    ctx.beginPath()
-    ctx.rect(sx - 10, horizonPx, spriteW + 20, screenY - horizonPx)
-    ctx.clip()
+	  ctx.rect(0, horizonPx, this._canvas.width, screenY - horizonPx)
+ctx.clip()
 const img = this._manannánDevourMode ? this._manannánDevourImg : this._manannánImg
  
     if (img?.complete && img.naturalWidth > 0) {

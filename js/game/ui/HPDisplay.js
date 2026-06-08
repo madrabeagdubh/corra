@@ -8,27 +8,27 @@ export default class HPDisplay {
     this.container.setDepth(2000);
     this.container.setAlpha(0); // Start invisible
 
-    // Heart Emoji Text
-    this.heart = scene.add.text(0, 0, '❤️', { fontSize: '24px' });
-    this.heart.setOrigin(0.5);
-
+console.log('[HPDisplay] heart texture exists:', scene.textures.exists('heart'));
+this.heart = scene.add.image(0, 0, 'heart');
+this.heart.setOrigin(0.5);
+this.heart.setDisplaySize(12, 12);
     // HP Number Text
-    this.hpText = scene.add.text(25, 0, '100', {
-      fontSize: '20px',
+    this.hpText = scene.add.text(0, 0, '100', {
+      fontSize: '14px',
       fontFamily: 'Arial',
       fontWeight: 'bold',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 3
     });
-    this.hpText.setOrigin(0, 0.5);
+    this.hpText.setOrigin(0.5, 0.5);
 
     this.container.add([this.heart, this.hpText]);
 
     // Setup Heart Pulse Animation (infinite loop)
     scene.tweens.add({
       targets: this.heart,
-      scale: 1.2,
+      scale: 0.4,
       duration: 400,
       yoyo: true,
       repeat: -1,

@@ -306,6 +306,7 @@ export default class TerrainManager {
    */
 
 applyContinuousEffects(terrain) {
+  if (!this.scene.sys.settings?.key) return
   if (this.player?.inBoat) return
   if (!terrain.damagePerSecond || terrain.damagePerSecond <= 0) return;
 
@@ -314,30 +315,37 @@ applyContinuousEffects(terrain) {
     let shouldApplyDamage = true;
     
     if (terrain.requiresCheck) {
-      const armor = this.player.inventory.getItem(2);
+      const armor = this.player.inventory.getItem(2); console.log('[damage check] armor slot 2:', armor?.type)
       const isWearingArmor = !!(armor && armor.type === 'armor');
       
       // Only take damage if wearing armor in deep bog
       shouldApplyDamage = isWearingArmor;
     }
     
-    // Start damage timer if not already running
     if (shouldApplyDamage && !this.damageTimer) {
-      console.log(`Starting damage timer: ${terrain.damagePerSecond} HP/sec`);
-      
-      // Apply damage every second
-      this.damageTimer = this.scene.time.addEvent({
-        delay: 1000,
-        callback: () => {
-          if (this.player.isAlive()) {
-                if (!this.scene?.sys?.isActive()) return
-            this.player.takeDamage(terrain.damagePerSecond, terrain.name);
-          }
-        },
-        loop: true
-      });
-    } else if (!shouldApplyDamage && this.damageTimer) {
-      // Stop damage if conditions no longer met (e.g., removed armor)
+  console.log(`Starting damage timer: ${terrain.damagePerSecond} HP/sec`);
+  
+
+
+this.damageTimer = this.scene.time.addEvent({
+  delay: 1000,
+  callback: () => {
+    console.log('[damage tick]')   // ← add this line
+    if (this.player.isAlive()) {
+      if (!this.scene?.sys?.isActive()) return
+      this.player.takeDamage(terrain.damagePerSecond, terrain.name);
+    }
+  },
+  loop: true
+});
+  console.log('[damage] timer assigned:', !!this.damageTimer);
+	  
+console.log('[damage] scene:', this.scene.sys.settings?.key, 'time:', !!this.scene.time, 'active:', this.scene.sys.isActive());
+
+
+} else if (!shouldApplyDamage && this.damageTimer) {
+
+     // Stop damage if conditions no longer met (e.g., removed armor)
       this.damageTimer.remove();
       this.damageTimer = null;
       console.log('Stopped damage timer - conditions no longer met');
@@ -350,6 +358,7 @@ applyContinuousEffects(terrain) {
   updateSpriteOffset() {
     if (!this.player.sprite || !this.maskGraphics) return;
     
+	  console.log('[damage] scene active:', this.scene.sys.isActive(), 'scene key:', this.scene.sys.key)
     // Smoothly interpolate current sink depth to target
     if (Math.abs(this.currentSinkDepth - this.targetSinkDepth) > 0.5) {
       this.currentSinkDepth = Phaser.Math.Linear(
@@ -370,6 +379,7 @@ applyContinuousEffects(terrain) {
    * Force reset terrain (useful when changing scenes)
    */
   reset() {
+    console.log("[terrain] reset() called:", new Error().stack.split("\n")[2])
     if (this.damageTimer) {
       this.damageTimer.remove();
       this.damageTimer = null;

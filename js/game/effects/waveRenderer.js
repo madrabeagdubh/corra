@@ -5,6 +5,12 @@
 // Horses use asymmetric dolphin-leap easing with rotation.
 // Dive burst spray fires at the moment of re-entry.
 
+
+
+
+
+
+
 export default class WaveRenderer {
 
   static WAVE_COUNT      = 6
@@ -54,6 +60,10 @@ export default class WaveRenderer {
     }
     this._manannánImg = new Image()
     this._manannánImg.src = '/assets/manannan.png'
+this._manannánDevourImg = new Image()
+this._manannánDevourImg.src = '/assets/manannan.png'  // swap for manannan_open.png later
+this._manannánDevourMode = false
+
 
     const container = scene.game.canvas.parentNode
     const stale = document.getElementById('pgr-waves')
@@ -329,6 +339,16 @@ export default class WaveRenderer {
     this._updateSpray(delta)  // spray uses ms, not seconds
     this._drawSpray(ctx)
   }
+
+
+
+
+setDevourMode(active) {
+  this._manannánDevourMode = !!active
+}
+
+
+
 
   // ── Wave crests ───────────────────────────────────────────────────────────
 
@@ -837,8 +857,8 @@ export default class WaveRenderer {
     ctx.beginPath()
     ctx.rect(sx - 10, horizonPx, spriteW + 20, screenY - horizonPx)
     ctx.clip()
-
-    const img = this._manannánImg
+const img = this._manannánDevourMode ? this._manannánDevourImg : this._manannánImg
+ 
     if (img?.complete && img.naturalWidth > 0) {
       const spriteH = spriteW * (img.naturalHeight / img.naturalWidth)
       ctx.drawImage(img, sx, sy, spriteW, spriteH)

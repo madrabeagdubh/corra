@@ -159,6 +159,10 @@ export function speakerColor(speaker) {
     skull_north:    COLORS.skull,
     skull_south:    COLORS.skull,
     villain:        COLORS.villain,
+
+manannan: '#a8d8ff',   // cold luminous ice-blue — moonlight on deep water
+
+
   }
   return map[speaker?.toLowerCase?.()] || COLORS.npc
 }
@@ -173,6 +177,12 @@ export function speakerColorEn(speaker) {
     skull:          '#9a8878',
     skull_north:    '#9a8878',
     skull_south:    '#9a8878',
+
+
+manannan: '#6a8fa8',   // dim tide-grey — secondary to the Irish
+
+
+
   }
   return map[speaker?.toLowerCase?.()] || COLORS.english
 }

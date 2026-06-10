@@ -2,6 +2,8 @@
 
 import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
+import { VoiceSynth, championVoice, championTuneKey } from './game/systems/voice/voiceSynth.js';
+import { allTunes } from './game/systems/music/allTunes.js';
 
 function ensureFontsLoaded(callback) {
     if (document.fonts && document.fonts.ready) {
@@ -180,7 +182,6 @@ export async function showCharacterModal(champion) {
                 /* ── Modal shell ── */
                 #characterModal {
                     position:fixed !important;
-                    /* sits just below a potential system status bar */
                     top:0 !important;
                     left:0 !important;right:0 !important;bottom:0 !important;
                     width:100vw !important;height:100vh !important;
@@ -196,11 +197,9 @@ export async function showCharacterModal(champion) {
                 }
 
                 /* ── Scrollable bio zone ── */
-                /* Takes all remaining space between top-bar and stats-bar.
-                   Long bios scroll here; stats are never pushed down. */
                 #charModalBioZone {
                     flex:1 1 0;
-                    min-height:0;        /* critical — lets flex child shrink below content size */
+                    min-height:0;
                     overflow-y:auto;
                     overflow-x:hidden;
                     padding:0 6vw 1rem;
@@ -213,25 +212,20 @@ export async function showCharacterModal(champion) {
                     background:rgba(212,175,55,0.3);border-radius:2px;
                 }
 
-                /* ── Stats bar — fixed at bottom of modal above moon ── */
-                /* flex:0 0 auto means it never grows or shrinks.
-                   It sits between the bio zone and the moon spacer footer,
-                   so no matter how long the bio is, stats stay put. */
+                /* ── Stats bar ── */
                 #charModalStatsBar {
                     flex:0 0 auto;
                     display:flex;
-                    flex-wrap:nowrap;      /* single row — caller should omit stats that don't fit */
+                    flex-wrap:nowrap;
                     justify-content:center;
                     align-items:center;
                     gap:0.5rem;
                     padding:0.75rem 6vw;
                     border-top:1px solid rgba(212,175,55,0.18);
-                    background:rgba(0,6,15,0.6);   /* subtle backdrop so it reads over bio text */
+                    background:rgba(0,6,15,0.6);
                 }
 
                 /* ── Moon spacer footer ── */
-                /* Height matches the moon widget clearance so stats never
-                   sit behind the moon widget itself. */
                 #charModalMoonSpacer {
                     flex:0 0 auto;
                 }
@@ -274,7 +268,7 @@ export async function showCharacterModal(champion) {
 
         const englishOpacity = GameSettings.englishOpacity ?? 0.15;
 
-        // Calculate moon clearance — matches _moonClearance() in heroSelect
+        // Calculate moon clearance
         const minDim   = Math.min(window.innerWidth, window.innerHeight);
         const moonR    = Math.max(24, Math.round(minDim * 0.055));
         const moonD    = moonR * 2;
@@ -285,7 +279,7 @@ export async function showCharacterModal(champion) {
         const modal = document.createElement('div');
         modal.id = 'characterModal';
 
-        // ── 1. Top bar (fixed height) ──────────────────────────────────────
+        // ── 1. Top bar ─────────────────────────────────────────────────────
         const topBar = document.createElement('header');
         topBar.style.cssText = `
             flex:0 0 auto;
@@ -321,7 +315,7 @@ export async function showCharacterModal(champion) {
         topBar.appendChild(rule1);
         modal.appendChild(topBar);
 
-        // ── 2. Bio zone (scrolls, takes remaining space) ───────────────────
+        // ── 2. Bio zone ────────────────────────────────────────────────────
         const bioZone = document.createElement('div');
         bioZone.id = 'charModalBioZone';
 
@@ -347,12 +341,10 @@ export async function showCharacterModal(champion) {
         bioZone.appendChild(bioEnElement);
         modal.appendChild(bioZone);
 
-        // ── 3. Stats bar (fixed height, never pushed by bio) ──────────────
+        // ── 3. Stats bar ───────────────────────────────────────────────────
         const statsBar = document.createElement('div');
         statsBar.id = 'charModalStatsBar';
 
-        // Stats to show — caller can adjust; we do not wrap to a second line.
-        // Chips are nowrap so they clip rather than overflow into the moon.
         const statsOrder = ['attack', 'defense', 'health', 'speed', 'luck'];
         statsOrder.forEach(stat => {
             const val = champion.stats?.[stat];
@@ -382,9 +374,7 @@ export async function showCharacterModal(champion) {
 
         modal.appendChild(statsBar);
 
-        // ── 4. Moon spacer footer ─────────────────────────────────────────
-        // Keeps stats above the moon widget. Height = top edge of moon wrapper
-        // from screen bottom (same calculation as _moonClearance in heroSelect).
+        // ── 4. Moon spacer footer ──────────────────────────────────────────
         const footer = document.createElement('footer');
         footer.id = 'charModalMoonSpacer';
         footer.style.height = `${moonSpacerH}px`;
@@ -392,8 +382,82 @@ export async function showCharacterModal(champion) {
 
         document.body.appendChild(modal);
 
-        // ── Close logic ───────────────────────────────────────────────────
+        // ── Voice synthesis + music ducking ────────────────────────────────
+        //
+        // On modal open:  music ducks to 12%, voice speaks bio after 800ms
+        // On voice end:   music unducks
+        // On modal close: voice stops, music fully restored
+        //
+        // All audio shares heroSelect's existing AudioContext.
+
+        const mp       = heroSelect.getMusicPlayer?.();
+        const audioCtx = mp?.audioContext ?? null;
+
+        // ── Duck the music ─────────────────────────────────────────────────
+        const _preDuckGains = []
+        if (mp?.tracks && audioCtx) {
+            const t0 = audioCtx.currentTime
+            mp.tracks.forEach((tr, i) => {
+                if (!tr?.gain) return
+                const current = tr.gain.gain.value
+                _preDuckGains[i] = current
+                tr.gain.gain.setValueAtTime(current, t0)
+                tr.gain.gain.linearRampToValueAtTime(current * 0.12, t0 + 1.2)
+            })
+        }
+
+        const _unduckMusic = () => {
+            if (!mp?.tracks || !audioCtx) return
+            const t0 = audioCtx.currentTime
+            mp.tracks.forEach((tr, i) => {
+                if (!tr?.gain) return
+                const target = _preDuckGains[i] ?? 0.5
+                tr.gain.gain.setValueAtTime(tr.gain.gain.value, t0)
+                tr.gain.gain.linearRampToValueAtTime(target, t0 + 1.8)
+            })
+        }
+
+        // ── Voice ──────────────────────────────────────────────────────────
+        let voiceSynth = null;
+        try {
+            const voice   = championVoice(champion);
+            const tuneKey = championTuneKey(champion, allTunes);
+            voiceSynth = new VoiceSynth({
+                audioContext: audioCtx ?? undefined,
+                volume: 0.78,
+            });
+            console.log(`[characterModal] voice=${voice} tuneKey=${tuneKey} champion=${champion.nameEn}`);
+
+            const irishBio = champion.charBioGa || '';
+            if (irishBio) {
+                setTimeout(() => {
+                    if (!voiceSynth) return
+                    voiceSynth.speak(irishBio, {
+                        voice,
+                        tuneKey,
+                        onDone: () => { _unduckMusic() },
+                    });
+                }, 800);
+            }
+        } catch(e) {
+            console.warn('[characterModal] VoiceSynth failed:', e);
+            voiceSynth = null;
+        }
+
+        // ── Close logic ────────────────────────────────────────────────────
         const closeModal = async () => {
+            // Stop voice
+            if (voiceSynth) {
+                try { voiceSynth.fadeOut(400) } catch(e) {}
+                setTimeout(() => {
+                    try { voiceSynth.destroy() } catch(e) {}
+                    voiceSynth = null
+                }, 500)
+            }
+
+            // Restore music to pre-duck volume
+            _unduckMusic()
+
             if (musicPlayer?.tracks) {
                 const pianoIndex = musicPlayer.tracks.findIndex(t => t?.name === 'Piano');
                 if (pianoIndex >= 0 && musicPlayer.tracks[pianoIndex].active) {
@@ -404,8 +468,6 @@ export async function showCharacterModal(champion) {
             }
 
             window.removeEventListener('englishOpacityChange', onOpacityChange);
-
-            // Restore heroSelect moon tap handler via the exported module-scope function
             heroSelect.restoreHeroSelectTap?.();
 
             modal.style.animation  = 'none';
@@ -423,7 +485,7 @@ export async function showCharacterModal(champion) {
             });
         }
 
-        // ── Live opacity updates ──────────────────────────────────────────
+        // ── Live opacity updates ───────────────────────────────────────────
         const onOpacityChange = (e) => {
             const op = e.detail.opacity;
             nameEn.style.opacity       = String(op);
@@ -433,7 +495,7 @@ export async function showCharacterModal(champion) {
         };
         window.addEventListener('englishOpacityChange', onOpacityChange);
 
-        // ── Typewriter: Irish bio ─────────────────────────────────────────
+        // ── Typewriter: Irish bio ──────────────────────────────────────────
         const irishBio   = champion.charBioGa || '';
         const englishBio = champion.charBioEn || '';
         let charIndex = 0;

@@ -4,7 +4,7 @@
 // The return journey: Skye → Éire. Top-centre to bottom-left.
 // Choppy day, light swell, wind from the north-east.
 import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
-import { FONTS, COLORS, SPACING, TYPE } from '../systems/gameTypography.js';
+import { FONTS, COLORS, SPACING, TYPE, createDomButton } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
 
@@ -111,6 +111,78 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             GameSettings.setEnglishOpacity(phase);
             // ScrollingTextPlayer reads GameSettings.englishOpacity each frame
         },
+    })
+	;
+
+	// ── Skip menu ─────────────────────────────────────────────────────────────
+    const skipBackdrop = document.createElement('div');
+    skipBackdrop.style.cssText = [
+        'position:fixed;inset:0;z-index:1000001;',
+        'background:rgba(2,4,8,0.7);opacity:0;',
+        'pointer-events:none;transition:opacity 0.25s ease;display:none;',
+    ].join('');
+    document.body.appendChild(skipBackdrop);
+
+    let skipMenuOpen = false;
+
+    function openSkipMenu() {
+        if (skipMenuOpen || sceneDone) return;
+        skipMenuOpen = true;
+        skipBackdrop.style.display = 'block';
+        requestAnimationFrame(() => { skipBackdrop.style.opacity = '0.7'; });
+        skipBackdrop.style.pointerEvents = 'all';
+
+        const card = document.createElement('div');
+        card.style.cssText = [
+            'position:fixed;top:50%;left:50%;',
+            'transform:translate(-50%,-50%);',
+            'background:rgba(2,4,8,0.96);',
+            'border:1px solid rgba(212,175,55,0.35);',
+            'border-radius:18px;padding:2rem 1.5rem 1.5rem;',
+            'width:min(340px,85vw);',
+            'display:flex;flex-direction:column;gap:1rem;align-items:center;',
+            'z-index:1000002;',
+            'box-shadow:0 8px 40px rgba(0,0,0,0.8);',
+            'opacity:0;transition:opacity 0.25s ease;',
+        ].join('');
+        document.body.appendChild(card);
+        requestAnimationFrame(() => { card.style.opacity = '1'; });
+
+        const skipBtn = createDomButton({
+            ga: 'Scip', en: 'Skip', opacity: moonPhase,
+            onClick: () => {
+                card.remove();
+                skipBackdrop.remove();
+                beginExit();
+            },
+        });
+        skipBtn.el.style.width = '100%';
+        card.appendChild(skipBtn.el);
+
+        const closeMenu = () => {
+            skipMenuOpen = false;
+            card.style.opacity = '0';
+            skipBackdrop.style.opacity = '0';
+            setTimeout(() => {
+                card.remove();
+                skipBackdrop.style.display = 'none';
+                skipBackdrop.style.pointerEvents = 'none';
+            }, 280);
+            moonWidget.setTapHandler(null);
+        };
+
+        moonWidget.setTapHandler(closeMenu);
+        skipBackdrop.addEventListener('pointerdown', closeMenu, { once: true });
+    }
+
+    moonWidget.setLongPressHandler(() => { openSkipMenu(); });
+    moonWidget.setLongPressProgressHandler((p) => {
+        if (p > 0.12) {
+            skipBackdrop.style.display = 'block';
+            skipBackdrop.style.opacity = String(Math.min((p - 0.12) * 0.8, 0.4));
+        } else {
+            skipBackdrop.style.opacity = '0';
+        }
     });
 
     // ── Canvas ────────────────────────────────────────────────────────────────

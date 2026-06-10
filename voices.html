@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ga">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corra — Glór B2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#080a0d; --deep:#0f1318; --stone:#1a2230;
+  --veil:#263040; --mist:#526070; --linen:#c0b89a;
+  --gold:#c08828; --ember:#8a3318; --pale:#ddd6c4;
+  --moss:#2a5038; --teal:#1a4048;
+}
+body{background:var(--ink);color:var(--linen);font-family:Georgia,serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding-bottom:80px}
+
+header{width:100%;max-width:800px;padding:40px 24px 0;text-align:center}
+.brand{font-family:Cinzel,serif;font-size:.68rem;letter-spacing:.3em;text-transform:uppercase;color:var(--mist);margin-bottom:8px}
+h1{font-family:Cinzel,serif;font-size:1.65rem;font-weight:400;color:var(--pale);letter-spacing:.06em;margin-bottom:4px}
+.tagline{font-size:.78rem;color:var(--mist);font-style:italic;margin-bottom:0}
+
+/* ── Main layout ── */
+.main{display:grid;grid-template-columns:220px 1fr;gap:0;width:100%;max-width:800px;margin-top:28px;border:1px solid var(--veil);border-radius:6px;overflow:hidden}
+
+/* ── Roster ── */
+.roster{background:var(--deep);border-right:1px solid var(--veil);padding:16px 12px}
+.panel-title{font-family:Cinzel,serif;font-size:.60rem;letter-spacing:.22em;text-transform:uppercase;color:var(--mist);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--veil)}
+.char-card{border:1px solid var(--veil);border-radius:4px;padding:10px 11px;margin-bottom:8px;cursor:pointer;transition:border-color .2s,background .2s;background:var(--stone)}
+.char-card:hover{border-color:var(--mist);background:var(--veil)}
+.char-card.active{border-color:var(--gold);background:var(--veil)}
+.char-name{font-family:Cinzel,serif;font-size:.80rem;color:var(--pale);margin-bottom:2px}
+.char-tune{font-size:.68rem;color:var(--mist);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.char-meta{font-size:.64rem;color:var(--gold);opacity:.8}
+.vtag{display:inline-block;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;padding:1px 4px;margin-top:3px}
+.vtag.ronnie{background:rgba(138,51,24,.3);color:#c07050;border:1px solid rgba(138,51,24,.4)}
+.vtag.peig  {background:rgba(82,96,112,.2);color:var(--mist);border:1px solid rgba(82,96,112,.35)}
+
+/* ── Right panel ── */
+.right{background:var(--deep);display:flex;flex-direction:column}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--veil)}
+.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--mist);font-family:Cinzel,serif;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:10px 16px 8px;cursor:pointer;transition:color .18s,border-color .18s;margin-bottom:-1px}
+.tab:hover{color:var(--linen)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* Tab panels */
+.tab-panel{display:none;padding:18px 20px 20px;flex-direction:column;gap:14px}
+.tab-panel.active{display:flex}
+
+/* ── Dialogue panel ── */
+.line-select{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px}
+.lbtn{background:var(--stone);border:1px solid var(--veil);border-radius:3px;color:var(--mist);font-size:.70rem;padding:4px 10px;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.lbtn:hover{background:var(--veil);color:var(--linen)}
+.lbtn.active{background:var(--veil);border-color:var(--gold);color:var(--pale)}
+
+.line-stage{background:var(--stone);border:1px solid var(--veil);border-radius:4px;padding:14px 16px;min-height:64px}
+.line-ga{font-size:.98rem;line-height:1.55;color:var(--pale);margin-bottom:3px}
+.line-en{font-size:.72rem;color:var(--mist);font-style:italic}
+.line-empty{font-size:.74rem;color:var(--veil);font-style:italic}
+
+/* Emotion badge */
+.emotion-row{display:flex;align-items:center;gap:8px;margin-top:2px}
+.emotion-badge{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;padding:2px 7px;font-family:Cinzel,serif}
+.emotion-badge.sorrowful  {background:rgba(26,64,72,.5);color:#6aacb8;border:1px solid rgba(26,64,72,.8)}
+.emotion-badge.defiant    {background:rgba(138,51,24,.3);color:#c07050;border:1px solid rgba(138,51,24,.4)}
+.emotion-badge.prophetic  {background:rgba(80,56,100,.4);color:#a088c0;border:1px solid rgba(80,56,100,.6)}
+.emotion-badge.questioning{background:rgba(42,80,56,.4);color:#70b888;border:1px solid rgba(42,80,56,.6)}
+.emotion-badge.incantatory{background:rgba(100,80,20,.3);color:#c8a840;border:1px solid rgba(100,80,20,.5)}
+.stress-hint{font-size:.65rem;color:var(--mist);font-style:italic}
+
+/* Contour */
+.contour-wrap{position:relative}
+.contour-label{font-family:Cinzel,serif;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mist);margin-bottom:5px}
+.contour-box{height:48px;background:var(--stone);border-radius:3px;border:1px solid var(--veil);position:relative;overflow:hidden}
+.contour-box canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+.contour-cursor{position:absolute;width:6px;height:6px;background:var(--gold);border-radius:50%;bottom:6px;left:0;box-shadow:0 0 7px rgba(200,136,40,.7);transition:left .08s linear,bottom .07s ease}
+
+.btn-row{display:flex;gap:8px;align-items:center}
+.play-btn{background:var(--ember);border:1px solid #a04520;border-radius:3px;color:var(--pale);font-family:Cinzel,serif;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;padding:8px 20px;cursor:pointer;transition:background .15s}
+.play-btn:hover{background:#a04520}
+.play-btn.stopped{background:var(--stone);border-color:var(--veil);color:var(--mist)}
+.status{font-size:.70rem;color:var(--mist);font-style:italic;flex:1;text-align:right}
+
+/* ── Interjections panel ── */
+.interj-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.interj-card{background:var(--stone);border:1px solid var(--veil);border-radius:4px;padding:10px 12px;cursor:pointer;transition:background .15s,border-color .15s;user-select:none}
+.interj-card:hover{background:var(--veil);border-color:var(--gold)}
+.interj-card:active{background:var(--veil);transform:scale(.98)}
+.interj-label{font-family:Cinzel,serif;font-size:.72rem;color:var(--pale);margin-bottom:2px}
+.interj-phonetic{font-size:.68rem;color:var(--gold);margin-bottom:2px}
+.interj-desc{font-size:.64rem;color:var(--mist);font-style:italic}
+.interj-note{font-family:Cinzel,serif;font-size:.58rem;color:var(--mist);text-align:right;margin-top:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Corra — Tionscadal</div>
+  <h1>Glór B2</h1>
+  <p class="tagline">Auto-derived emotion · word-stress rhythm · tune-rooted interjections</p>
+</header>
+
+<div class="main">
+  <div class="roster">
+    <div class="panel-title">Champions</div>
+    <div id="roster"></div>
+  </div>
+
+  <div class="right">
+    <div class="tabs">
+      <button class="tab active" data-tab="dialogue">Dialogue</button>
+      <button class="tab" data-tab="interj">Interjections</button>
+    </div>
+
+    <!-- Dialogue -->
+    <div class="tab-panel active" id="tab-dialogue">
+      <div>
+        <div class="line-select" id="line-btns"></div>
+        <div class="line-stage" id="line-stage"><div class="line-empty">Select a champion</div></div>
+        <div class="emotion-row">
+          <span class="emotion-badge" id="emotion-badge">—</span>
+          <span class="stress-hint" id="stress-hint"></span>
+        </div>
+      </div>
+      <div class="contour-wrap">
+        <div class="contour-label">Pitch contour</div>
+        <div class="contour-box" id="contour-box">
+          <canvas id="contour-canvas"></canvas>
+          <div class="contour-cursor" id="contour-cursor"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="play-btn stopped" id="play-btn">▶ Speak</button>
+        <span class="status" id="play-status">—</span>
+      </div>
+    </div>
+
+    <!-- Interjections -->
+    <div class="tab-panel" id="tab-interj">
+      <div class="interj-grid" id="interj-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict'
+
+// ═══════════════════════════════════════════════════════════════════
+// CHARACTER DATA
+// ═══════════════════════════════════════════════════════════════════
+const CHARS = [
+  { name:'Corra',  voice:'peig',   tuneKey:'Dmix', rhythm:'waltz',
+    lines:[
+      {ga:"Fágaim cladach Éireann roimh éirí na gréinne", en:"I leave the shore of Ireland before the dawn"},
+      {ga:"Ionúin an ciúnas, ionúin an dorchadas, ionúin an cuspóir i mo chroí", en:"Beloved the silence, beloved the dark, beloved the purpose in my heart"},
+      {ga:"Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?", en:"Where among the high-placed ones, o faithful wolf, dwells hope?"},
+      {ga:"...go h-Oileán an Cheo.", en:"...to the Isle of Mist."},
+    ]},
+  { name:'Conall', voice:'ronnie', tuneKey:'Edor', rhythm:'reel',
+    lines:[
+      {ga:"Tríd oíche fada gan codladh, a bhanríon,", en:"Through long and sleepless nights, o queen,"},
+      {ga:"Feicim cúirt ár mbith-naimhde, agus gach suíochán lán.", en:"I see the court of Tethra, and every seat is full."},
+      {ga:"Fan. Fan. Ná caoin go fóill.", en:"Hold. Hold. Let not thy voice rise further."},
+      {ga:"Tá seacht réalta ina bhfinnéithe ar an tuar dorcha seo:", en:"Seven stars stand witness to this dark foretelling:"},
+    ]},
+  { name:'Bríd',   voice:'peig',   tuneKey:'Emin', rhythm:'slipjig',
+    lines:[
+      {ga:"Draoi faiteach! An ndéanfainn umhlú go talamh, meas tú?", en:"Frightened druid! Think ye I shall bend my neck?"},
+      {ga:"Nó an amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?", en:"Or that I should let the Red Branch fall at the feet of foes?"},
+      {ga:"Ní dhéanaim tarcaisne don Chraobh Rua, ná dá ceannaireacht.", en:"I cast no scorn upon the branch, nor the chief who wields it."},
+    ]},
+  { name:'Fionn',  voice:'ronnie', tuneKey:'Dmaj', rhythm:'polka',
+    lines:[
+      {ga:"Feicim Taoisigh Fomhóraigh cogairsithe, dúr agus ullamh.", en:"I see Fomorian chieftains arrayed for battle, grim and ready."},
+      {ga:"...ach eiríonn an Torc faoin réalt dearg.", en:"But the Boar does rise beneath the red star."},
+      {ga:"An bhfuil na spéartha balbh?", en:"Shall not heaven hear my need?"},
+    ]},
+]
+
+// ═══════════════════════════════════════════════════════════════════
+// KEY / SCALE SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+const ROOT_ABOVE_C = {C:0,D:2,E:4,F:5,G:7,A:9,B:11,Cb:-1,Db:1,Eb:3,Gb:6,Ab:8,Bb:10,'C#':1,'D#':3,'F#':6,'G#':8}
+const MODE_IVALS = {
+  major:[0,2,4,5,7,9,11], ionian:[0,2,4,5,7,9,11],
+  dorian:[0,2,3,5,7,9,10], mixolydian:[0,2,4,5,7,9,10],
+  minor:[0,2,3,5,7,8,10],  aeolian:[0,2,3,5,7,8,10],
+  phrygian:[0,1,3,5,7,8,10]
+}
+const MODE_DARK = {major:.10,ionian:.10,mixolydian:.25,dorian:.55,minor:.72,aeolian:.72,phrygian:.88}
+
+function parseKey(k){
+  const rm=k.trim().match(/^([A-G][b#]?)/)
+  if(!rm)return{rac:2,ivals:[0,2,4,5,7,9,11],dark:.1,root:'D',mode:'major'}
+  const rs=rm[1],rest=k.slice(rs.length).toLowerCase()
+    .replace(/^maj/,'major').replace(/^min$|^m$/,'minor')
+    .replace(/^mix/,'mixolydian').replace(/^dor/,'dorian')
+    .replace(/^phr/,'phrygian').replace(/^aeo/,'aeolian')
+  const mode=Object.keys(MODE_IVALS).find(m=>rest.startsWith(m))||'major'
+  return{rac:ROOT_ABOVE_C[rs]??2,ivals:MODE_IVALS[mode],dark:MODE_DARK[mode]??.4,root:rs,mode}
+}
+
+const A4=440
+const st2hz=st=>A4*Math.pow(2,(st-9)/12)
+function rootHz(rac,voiceType){
+  const oct=voiceType==='ronnie'?5:4
+  return st2hz(rac+(oct-4)*12)
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AUTOMATIC EMOTION DERIVATION
+// No manual tagging needed — derived from text features + tune darkness
+// ═══════════════════════════════════════════════════════════════════
+function deriveEmotion(gaText, speaker, tuneDark){
+  const t=gaText.toLowerCase().trim()
+  let sorrow=tuneDark*.6, defiant=0, prophetic=0, question=false, incantatory=false
+
+  // Speaker role priors
+  if(speaker==='druid'){ prophetic+=.5; sorrow+=.2 }
+  if(speaker==='queen'){ defiant+=.55 }
+  if(speaker==='hero') { sorrow+=.15 }
+
+  // Terminal punctuation
+  if(t.endsWith('?'))   question=true
+  if(t.endsWith('!'))   defiant+=.45
+  if(/\.\.\.$/.test(t)){ sorrow+=.2; prophetic+=.15 }
+
+  // Repeated opening word → incantatory
+  const fw=t.match(/^\w+/)?.[0]
+  if(fw&&(t.match(new RegExp('\\b'+fw+'\\b','g'))||[]).length>=2) incantatory=true
+
+  // Negatives → resigned, less defiant
+  if(/\b(ní|níl|chan|nár|nach)\b/.test(t)){ sorrow+=.2; defiant-=.15 }
+
+  // Vocative particle → softer, more intimate
+  if(/\ba [a-záéíóú]/.test(t)){ sorrow+=.1; defiant-=.1 }
+
+  // Dark/night lexicon
+  if(/\b(dorcha|báis|oíche|uaigneas|brón|tuirse|fuar|ciúin|ceo|bás)\b/.test(t)) sorrow+=.3
+
+  // Battle/strength lexicon
+  if(/\b(cath|neart|claíomh|buaigh|laoch|arm|cogaí?r|cathair)\b/.test(t)) defiant+=.25
+
+  // Oracular / seeing → prophetic
+  if(/\b(feicim|chím|léim|tuar|réalt|spéir)\b/.test(t)) prophetic+=.3
+
+  // Short emphatic lines (≤4 words)
+  const wc=(t.match(/\S+/g)||[]).length
+  if(wc<=4&&t.endsWith('.')){ sorrow+=.1 }
+
+  if(incantatory)  return 'incantatory'
+  if(question)     return 'questioning'
+  if(defiant>sorrow&&defiant>prophetic) return 'defiant'
+  if(prophetic>sorrow)                  return 'prophetic'
+  return 'sorrowful'
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IRISH SYLLABLE + WORD STRESS
+// Splits text into words, then syllables per word.
+// First syllable of each word = stressed (longer, slightly louder).
+// Returns array of {hz, dur, stressed} objects.
+// ═══════════════════════════════════════════════════════════════════
+function irishWordSyllables(text){
+  // Strip punctuation for processing, keep words
+  const words=text.replace(/[.,!?;:'"()]/g,'').trim().split(/\s+/).filter(Boolean)
+  const result=[]
+  for(const word of words){
+    const sylCount=Math.max(1,(word.match(/[aeiouáéíóúAEIOUÁÉÍÓÚ]+/g)||[]).length)
+    for(let s=0;s<sylCount;s++){
+      result.push({ stressed: s===0 })  // first syllable stressed
+    }
+  }
+  return result.length>0 ? result : [{stressed:true}]
+}
+
+// Build note sequence with word-stress rhythm
+// stressed syllables: 1.5× duration, pitch slightly higher
+// final syllable: always falls ~2st regardless of emotion
+function buildNotes(gaText, emotion, rHz, tuneDark){
+  const sylInfo = irishWordSyllables(gaText)
+  const n = sylInfo.length
+  if(n===0) return []
+
+  // Base duration — total target ~2.2s for short lines, more for long
+  const totalTarget = Math.max(1.6, Math.min(3.5, n * 0.28))
+  // Stressed syllables are 1.5× unstressed
+  // If there are S stressed and U unstressed: S×1.5x + U×x = totalTarget
+  const stressedCount = sylInfo.filter(s=>s.stressed).length
+  const unstressedCount = n - stressedCount
+  const baseDur = totalTarget / (stressedCount*1.5 + unstressedCount)
+  const stressDur = baseDur * 1.5
+
+  const notes = []
+  for(let i=0;i<n;i++){
+    const t    = i/(n-1||1)
+    const info = sylInfo[i]
+    const dur  = info.stressed ? stressDur : baseDur
+    const isFinal = i===n-1
+
+    // Pitch contour by emotion
+    let st
+    if(isFinal){
+      // Final syllable always descends — universal Irish phrase cadence
+      const prevSt = notes.length>0 ? 12*Math.log2(notes[notes.length-1].hz/rHz) : 0
+      st = prevSt - (1.5 + Math.random()*.8)
+    } else if(emotion==='sorrowful'){
+      st = 1.2 - t*3.2 + (Math.random()-.5)*.7
+      if(info.stressed) st+=.4
+    } else if(emotion==='defiant'){
+      const arc=t<.6?t/.6:1-(t-.6)/.4
+      st = -1 + arc*5.5 + (Math.random()-.5)*.6
+      if(info.stressed) st+=.5
+    } else if(emotion==='prophetic'){
+      const drop=t>.72?(t-.72)/.28:0
+      st = .8 - drop*4.5 + (Math.random()-.5)*.4
+      if(info.stressed) st+=.3
+    } else if(emotion==='questioning'){
+      st = -1.2 + t*4.0 + (Math.random()-.5)*.6
+      if(info.stressed) st+=.4
+    } else if(emotion==='incantatory'){
+      // Steady pulse — very little movement, slight swell each phrase
+      const swell=Math.sin(t*Math.PI)*.8
+      st = swell + (Math.random()-.5)*.3
+      if(info.stressed) st+=.2
+    } else {
+      st = (Math.random()-.5)*2
+    }
+
+    notes.push({ hz: rHz*Math.pow(2,st/12), dur, stressed: info.stressed })
+  }
+  return notes
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INTERJECTION DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════
+const INTERJECTIONS = [
+  {
+    label:'Hmm?', phonetic:'[hm↗]',
+    desc:'Thinking, uncertain — slight upward inflection',
+    build:(rHz,v)=>{
+      // Single sustained note, rises ~1.5st, trails into breath
+      const dur=0.55, n=4
+      return Array.from({length:n},(_,i)=>({
+        hz:rHz*Math.pow(2,(i/(n-1))*.15/12*10),  // very gentle rise
+        dur:dur/n, type:'hum'
+      }))
+    }
+  },
+  {
+    label:'Ó!', phonetic:'[oː!]',
+    desc:'Surprise — fast rise, held, cut',
+    build:(rHz,v)=>[
+      {hz:rHz*Math.pow(2,-2/12), dur:.06, type:'vowel'},
+      {hz:rHz*Math.pow(2,4/12),  dur:.12, type:'vowel'},
+      {hz:rHz*Math.pow(2,5/12),  dur:.18, type:'vowel'},
+      {hz:rHz*Math.pow(2,3/12),  dur:.08, type:'vowel'},
+    ]
+  },
+  {
+    label:'Ha ha ha', phonetic:'[ha ha ha]',
+    desc:'Laughter — short bursts, slight downward drift',
+    build:(rHz,v,rhythm)=>{
+      const pace = rhythm==='reel'||rhythm==='polka' ? .14 : .22
+      return [0,1,2,3].flatMap(i=>[
+        {hz:rHz*Math.pow(2,(.5-i*.15)/12*12), dur:pace*.6, type:'vowel'},
+        {hz:rHz*.5, dur:pace*.4, type:'gap'},  // silence between ha's
+      ])
+    }
+  },
+  {
+    label:'Ó ó...', phonetic:'[oː oː↘]',
+    desc:'Distress — two notes, second falls, trails off',
+    build:(rHz,v)=>[
+      {hz:rHz*Math.pow(2,2/12),  dur:.22, type:'vowel'},
+      {hz:rHz*Math.pow(2,-1/12), dur:.12, type:'gap'},
+      {hz:rHz*Math.pow(2,-3/12), dur:.28, type:'vowel'},
+      {hz:rHz*Math.pow(2,-8/12), dur:.20, type:'vowel'},
+    ]
+  },
+  {
+    label:'Mhm', phonetic:'[m̩m̩↗]',
+    desc:'Affirmation — closed-mouth hum, slight rise',
+    build:(rHz,v)=>{
+      const n=6
+      return Array.from({length:n},(_,i)=>({
+        hz:rHz*Math.pow(2,(i/(n-1)*1.5)/12),
+        dur:.55/n, type:'hum'
+      }))
+    }
+  },
+  {
+    label:'Éist!', phonetic:"['eːʃt!]",
+    desc:'"Silence!" — sharp percussive, commanding',
+    build:(rHz,v)=>[
+      {hz:rHz*Math.pow(2,3/12),  dur:.08, type:'vowel'},
+      {hz:rHz*Math.pow(2,5/12),  dur:.18, type:'vowel'},
+      {hz:rHz*Math.pow(2,1/12),  dur:.12, type:'vowel'},
+    ]
+  },
+  {
+    label:'Á...', phonetic:'[aː↘]',
+    desc:'Resignation — open vowel, slow fall, breath tail',
+    build:(rHz,v)=>{
+      const n=8
+      return Array.from({length:n},(_,i)=>({
+        hz:rHz*Math.pow(2,(1-i/(n-1)*3.5)/12),
+        dur:.9/n, type:'vowel'
+      }))
+    }
+  },
+  {
+    label:'Ha!', phonetic:'[ha!]',
+    desc:'"Exactly!" — single sharp burst, bright',
+    build:(rHz,v)=>[
+      {hz:rHz*Math.pow(2,4/12), dur:.08, type:'vowel'},
+      {hz:rHz*Math.pow(2,6/12), dur:.15, type:'vowel'},
+      {hz:rHz*Math.pow(2,2/12), dur:.07, type:'vowel'},
+    ]
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════
+// SYNTHESIS ENGINE
+// ═══════════════════════════════════════════════════════════════════
+const SYLL={
+  strong:[{label:'daɪ',v:.62},{label:'da',v:.35},{label:'dɪ',v:.55},{label:'deɪ',v:.65},{label:'jeɪ',v:.65},{label:'dəm',v:.15}],
+  weak:  [{label:'dəl',v:.15},{label:'di',v:.90},{label:'i',v:1.0},{label:'də',v:.15},{label:'dæl',v:.45},{label:'du',v:.05}],
+  long:  [{label:'da',v:.35},{label:'deɪ',v:.65},{label:'dɪ',v:.55}],
+  term:  [{label:'jaʊ',v:.40},{label:'doʊ',v:.10},{label:'daʊ',v:.30}],
+  open:  [{label:'da',v:.35},{label:'daɪ',v:.62},{label:'dəl',v:.15}],
+}
+const ffq=v=>({f1:300+(1-v)*400,f2:900+v*2300})
+
+class SS{
+  constructor(){this.i={s:0,w:0,l:0,o:0,t:0};this.p=0;this.wk=false;this.pl=8+~~(Math.random()*4)}
+  next(u,t){
+    const op=this.p===0;this.p++;if(this.p>=this.pl){this.p=0;this.wk=false;this.pl=8+~~(Math.random()*4)}
+    if(t){this.wk=false;return SYLL.term[(this.i.t++)%SYLL.term.length]}
+    if(op){this.wk=true;return SYLL.open[(this.i.o++)%SYLL.open.length]}
+    if(u>2){this.wk=false;return SYLL.long[(this.i.l++)%SYLL.long.length]}
+    if(this.wk){this.wk=false;if(Math.random()<.1)this.i.w++;return SYLL.weak[(this.i.w++)%SYLL.weak.length]}
+    this.wk=true;if(Math.random()<.1)this.i.s++;return SYLL.strong[(this.i.s++)%SYLL.strong.length]
+  }
+  reset(){this.p=0;this.wk=false;this.pl=8+~~(Math.random()*4)}
+}
+
+const VC={
+  ronnie:{os:-1.3,fs:.48,mix:{t:.12,s:.38,r:.50},br:0,   cv:1.00,ck:.08,vf:.78,on:45,cl:55,wv:.72,ns:0  },
+  peig:  {os:0,   fs:1.02,mix:{t:.44,s:.30,r:.26},br:.022,cv:.32,ck:.14,vf:.80,on:40,cl:52,wv:.70,ns:.70},
+}
+
+let AC=null,MG=null
+function initAC(){
+  if(AC)return
+  AC=new(window.AudioContext||window.webkitAudioContext)()
+  MG=AC.createGain();MG.gain.value=0;MG.connect(AC.destination)
+}
+function readyGain(vol){
+  vol=vol||.65
+  MG.gain.cancelScheduledValues(AC.currentTime)
+  MG.gain.setValueAtTime(MG.gain.value,AC.currentTime)
+  MG.gain.linearRampToValueAtTime(vol,AC.currentTime+.1)
+}
+function muteGain(){
+  MG.gain.cancelScheduledValues(AC.currentTime)
+  MG.gain.setValueAtTime(MG.gain.value,AC.currentTime)
+  MG.gain.linearRampToValueAtTime(0,AC.currentTime+.45)
+}
+
+function mkNoise(d){
+  const s=Math.ceil(AC.sampleRate*Math.min(d,2)),b=AC.createBuffer(1,s,AC.sampleRate),dt=b.getChannelData(0)
+  for(let i=0;i<s;i++)dt[i]=Math.random()*2-1;return b
+}
+
+function makeEngine(){
+  const E={nodes:[],ss:new SS(),nt:0,ph:0,spu:.25,lid:null,run:false}
+  E.stop=function(){
+    E.run=false;if(E.lid){clearTimeout(E.lid);E.lid=null}
+    const tc=[...E.nodes];E.nodes=[]
+    setTimeout(()=>tc.forEach(n=>{try{n.disconnect()}catch(e){}try{if(n.stop)n.stop()}catch(e){}}),600)
+  }
+
+  E.schedSyl=function(bHz,when,dur,fHz,v,stressBoost){
+    if(!AC||!MG||dur<.03)return
+    const hz=bHz*Math.pow(2,v.os||0),fhs=fHz?fHz*Math.pow(2,v.os||0):0
+    const u=dur/E.spu,iT=u>=3,sy=E.ss.next(u,iT)
+    const{f1:fb,f2:f2b}=ffq(sy.v);const f1=fb*v.fs,f2=f2b*v.fs
+    const volBoost=stressBoost?1.25:1.0
+    const cd=.012,vf=v.vf*(sy.v<.3?.88:1),vd=dur*vf
+    const on=Math.min(v.on/1000,vd*.20),cl=Math.min(v.cl/1000,vd*.32),rd=.012
+    const st=Math.max(.015,vd-cd-on-cl-rd)
+    const t0=when,t1=t0+cd,t2=t1+on,t3=t2+st,t4=t3+cl,t5=t4+rd
+
+    // consonant
+    const iw=sy.v<=.25,th=(iw?v.cv*.55:v.cv)*volBoost,ck=(iw?v.ck*1.15:v.ck)*volBoost
+    const b1=mkNoise(cd+.004),s1=AC.createBufferSource();s1.buffer=b1
+    const p1=AC.createBiquadFilter();p1.type='bandpass';p1.frequency.value=Math.min(650,hz*1.1);p1.Q.value=7
+    const g1=AC.createGain();g1.gain.setValueAtTime(0,t0);g1.gain.linearRampToValueAtTime(th,t0+.002);g1.gain.exponentialRampToValueAtTime(.001,t0+cd)
+    s1.connect(p1);p1.connect(g1);g1.connect(MG);s1.start(t0);s1.stop(t0+cd+.004);E.nodes.push(s1,p1,g1)
+    const b2=mkNoise(.007),s2=AC.createBufferSource();s2.buffer=b2
+    const p2=AC.createBiquadFilter();p2.type='bandpass';p2.frequency.value=Math.min(3800,f2*1.5);p2.Q.value=9
+    const g2=AC.createGain();g2.gain.setValueAtTime(ck,t0+.001);g2.gain.exponentialRampToValueAtTime(.001,t0+.008)
+    s2.connect(p2);p2.connect(g2);g2.connect(MG);s2.start(t0+.001);s2.stop(t0+.01);E.nodes.push(s2,p2,g2)
+
+    // oscillators
+    const mx=v.mix,o1=AC.createOscillator();o1.type='triangle';const o2=AC.createOscillator();o2.type='sawtooth'
+    let pf=hz;if(fhs>0){const sd=Math.abs(12*Math.log2(hz/fhs));pf=sd<=4?fhs:hz*Math.pow(2,(Math.random()>.5?.4:-.4)/12)}
+    const pc=hz*Math.pow(2,-.08/12)
+    ;[o1,o2].forEach(o=>{o.frequency.setValueAtTime(pf,t1);o.frequency.exponentialRampToValueAtTime(hz,t2);o.frequency.setValueAtTime(hz,t3);o.frequency.linearRampToValueAtTime(pc,t4)})
+    const go1=AC.createGain();go1.gain.value=mx.t*volBoost;const go2=AC.createGain();go2.gain.value=mx.s*volBoost
+    o1.connect(go1);o2.connect(go2);const om=AC.createGain();om.gain.value=1;go1.connect(om);go2.connect(om)
+
+    if(mx.r>.05){
+      const rd2=t5-t1+.02
+      const fb2=mkNoise(rd2),fs=AC.createBufferSource();fs.buffer=fb2
+      const fbp=AC.createBiquadFilter();fbp.type='lowpass';fbp.frequency.value=14
+      const fsc=AC.createGain();fsc.gain.value=mx.r*.55
+      fs.connect(fbp);fbp.connect(fsc);fsc.connect(om.gain);fs.start(t1);fs.stop(t5+.02);E.nodes.push(fs,fbp,fsc)
+      const rb=mkNoise(rd2),rs=AC.createBufferSource();rs.buffer=rb
+      const rbp=AC.createBiquadFilter();rbp.type='bandpass';rbp.frequency.value=Math.min(160,hz*.55);rbp.Q.value=.6
+      const rg=AC.createGain();rg.gain.setValueAtTime(0,t1);rg.gain.linearRampToValueAtTime(mx.r*.75,t2);rg.gain.setValueAtTime(mx.r*.75,t3);rg.gain.linearRampToValueAtTime(0,t5)
+      rs.connect(rbp);rbp.connect(rg);rg.connect(MG);rs.start(t1);rs.stop(t5+.02);E.nodes.push(rs,rbp,rg)
+    }
+    if(sy.v>.4&&st>.025&&v.br>.005){
+      const bl=Math.min(st*.6,.04),bb=mkNoise(bl+.005),bs=AC.createBufferSource();bs.buffer=bb
+      const bh=AC.createBiquadFilter();bh.type='highpass';bh.frequency.value=hz*4
+      const bg=AC.createGain();bg.gain.setValueAtTime(v.br,t2);bg.gain.linearRampToValueAtTime(0,t2+bl)
+      bs.connect(bh);bh.connect(bg);bg.connect(MG);bs.start(t2);bs.stop(t2+bl+.005);E.nodes.push(bs,bh,bg)
+    }
+    const fp=sy.v<.25?f1*(.85+v.wv*1.4):f2*(.85+sy.v*.18),fc=f1*.52
+    const fl1=AC.createBiquadFilter();fl1.type='bandpass';fl1.Q.value=6
+    fl1.frequency.setValueAtTime(f1*.6,t1);fl1.frequency.linearRampToValueAtTime(f1,t2);fl1.frequency.setValueAtTime(f1,t3);fl1.frequency.exponentialRampToValueAtTime(f1*.55,t5)
+    const fl2=AC.createBiquadFilter();fl2.type='bandpass';fl2.Q.value=4.5
+    fl2.frequency.setValueAtTime(f2*.22,t1);fl2.frequency.exponentialRampToValueAtTime(fp,t2);fl2.frequency.setValueAtTime(fp,t3);fl2.frequency.exponentialRampToValueAtTime(fc,t5)
+    const lp=AC.createBiquadFilter();lp.type='lowpass';lp.Q.value=.4;lp.frequency.value=3600
+    const gf1=AC.createGain();gf1.gain.value=.55;const gf2=AC.createGain();gf2.gain.value=1
+    let ng=null,ng2=null
+    if(v.ns>.05){
+      const nf1=AC.createBiquadFilter();nf1.type='bandpass';nf1.frequency.value=1050;nf1.Q.value=2.5
+      ng=AC.createGain();ng.gain.setValueAtTime(0,t1);ng.gain.linearRampToValueAtTime(v.ns*.9,t2);ng.gain.setValueAtTime(v.ns*.9,t3);ng.gain.linearRampToValueAtTime(0,t5)
+      om.connect(nf1);nf1.connect(ng)
+      const nf2=AC.createBiquadFilter();nf2.type='bandpass';nf2.frequency.value=2500;nf2.Q.value=3
+      ng2=AC.createGain();ng2.gain.value=v.ns*.25;om.connect(nf2);nf2.connect(ng2)
+      gf1.gain.value=.55*(1-v.ns*.45);gf2.gain.value=1*(1-v.ns*.35);E.nodes.push(nf1,ng,nf2,ng2)
+    }
+    om.connect(fl1);om.connect(fl2);fl1.connect(gf1);fl2.connect(gf2);gf1.connect(lp);gf2.connect(lp)
+    const env=AC.createGain()
+    env.gain.setValueAtTime(0,t1);env.gain.linearRampToValueAtTime(1,t2);env.gain.setValueAtTime(1,t3);env.gain.linearRampToValueAtTime(.55,t4);env.gain.linearRampToValueAtTime(0,t5)
+    lp.connect(env);if(ng)ng.connect(env);if(ng2)ng2.connect(env);env.connect(MG)
+    o1.start(t1);o1.stop(t5+.008);o2.start(t1);o2.stop(t5+.008);E.nodes.push(o1,o2,go1,go2,om,fl1,fl2,gf1,gf2,lp,env)
+  }
+
+  // Play a dialogue note sequence (with stress info)
+  E.playDialogue=function(notes,v,onDone){
+    E.stop();E.ss.reset();E.nt=AC.currentTime+.06;E.ph=0
+    E.spu=notes[0]?.dur||.25;E.run=true
+    const tick=idx=>{
+      if(!E.run)return
+      if(idx>=notes.length){E.run=false;if(onDone)onDone();return}
+      const h=AC.currentTime+.6;let i=idx
+      while(E.nt<h&&i<notes.length){
+        const n=notes[i]
+        if(n.type==='gap'){E.nt+=n.dur;i++;continue}  // silence gap (laughter)
+        E.schedSyl(n.hz,E.nt,n.dur,E.ph,v,n.stressed)
+        E.ph=n.hz;E.nt+=n.dur;i++
+      }
+      E.lid=setTimeout(()=>tick(i),40)
+    }
+    tick(0)
+  }
+  return E
+}
+
+const DENG = makeEngine()  // dialogue engine
+const IENG = makeEngine()  // interjection engine
+
+// ═══════════════════════════════════════════════════════════════════
+// CONTOUR VISUALISER
+// ═══════════════════════════════════════════════════════════════════
+function drawContour(notes,activeIdx){
+  const canvas=document.getElementById('contour-canvas')
+  const box=document.getElementById('contour-box')
+  canvas.width=box.offsetWidth;canvas.height=box.offsetHeight
+  const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height
+  ctx.clearRect(0,0,w,h)
+  const valid=notes.filter(n=>n.hz&&n.hz>0)
+  if(valid.length<2)return
+  const hzs=valid.map(n=>n.hz),mn=Math.min(...hzs),mx=Math.max(...hzs),rng=mx-mn||1
+  const ypct=hz=>1-(hz-mn)/rng
+  // Faint trail
+  ctx.beginPath()
+  notes.forEach((n,i)=>{if(!n.hz)return;const x=(i/(notes.length-1))*(w-2)+1,y=7+ypct(n.hz)*(h-14);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)})
+  ctx.strokeStyle='rgba(92,96,112,.28)';ctx.lineWidth=1.5;ctx.stroke()
+  // Active gold
+  if(activeIdx>0){
+    ctx.beginPath()
+    let started=false
+    for(let i=0;i<=Math.min(activeIdx,notes.length-1);i++){
+      const n=notes[i];if(!n.hz)continue
+      const x=(i/(notes.length-1))*(w-2)+1,y=7+ypct(n.hz)*(h-14)
+      started?ctx.lineTo(x,y):ctx.moveTo(x,y);started=true
+    }
+    ctx.strokeStyle='rgba(192,136,40,.75)';ctx.lineWidth=2.2;ctx.stroke()
+  }
+  // Stress markers
+  notes.forEach((n,i)=>{
+    if(!n.stressed||!n.hz)return
+    const x=(i/(notes.length-1))*(w-2)+1,y=7+ypct(n.hz)*(h-14)
+    ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2)
+    ctx.fillStyle=i<=activeIdx?'rgba(192,136,40,.9)':'rgba(92,96,112,.5)';ctx.fill()
+  })
+}
+
+function animateCursor(notes){
+  const box=document.getElementById('contour-box')
+  const hzs=notes.filter(n=>n.hz).map(n=>n.hz)
+  const mn=Math.min(...hzs),mx=Math.max(...hzs),rng=mx-mn||1
+  let t=0
+  notes.forEach((n,i)=>{
+    setTimeout(()=>{
+      if(!DENG.run&&i>0)return
+      const cur=document.getElementById('contour-cursor')
+      const w=box.offsetWidth,h=box.offsetHeight
+      if(n.hz){
+        cur.style.left=(i/(notes.length-1||1))*(w-10)+'px'
+        const yPct=1-(n.hz-mn)/rng
+        cur.style.bottom=(h-7-yPct*(h-14)-3)+'px'
+      }
+      drawContour(notes,i)
+    }, t)
+    t+=n.dur*1000
+  })
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE & PLAYBACK
+// ═══════════════════════════════════════════════════════════════════
+let activeChar=0, activeLine=0, currentNotes=[]
+
+function getCharAnalysis(ci){
+  const c=CHARS[ci]
+  const ki=parseKey(c.tuneKey)
+  const rHz=rootHz(ki.rac,c.voice)
+  return{ki,rHz,v:VC[c.voice]}
+}
+
+function selectChar(idx){
+  activeChar=idx;activeLine=0
+  document.querySelectorAll('.char-card').forEach((c,i)=>c.classList.toggle('active',i===idx))
+  buildLineSelector(idx)
+  updateStage()
+  buildInterjGrid(idx)
+}
+
+function buildLineSelector(ci){
+  const row=document.getElementById('line-btns');row.innerHTML=''
+  CHARS[ci].lines.forEach((ln,i)=>{
+    const btn=document.createElement('button');btn.className='lbtn'+(i===0?' active':'')
+    btn.textContent='Line '+(i+1);btn.title=ln.ga
+    btn.addEventListener('click',()=>{
+      activeLine=i
+      row.querySelectorAll('.lbtn').forEach((b,j)=>b.classList.toggle('active',j===i))
+      updateStage()
+    })
+    row.appendChild(btn)
+  })
+}
+
+function updateStage(){
+  const c=CHARS[activeChar],ln=c.lines[activeLine]
+  const{ki,rHz}=getCharAnalysis(activeChar)
+  const emotion=deriveEmotion(ln.ga,'auto',ki.dark)  // no speaker tag needed
+  document.getElementById('line-stage').innerHTML=`<div class="line-ga">${ln.ga}</div><div class="line-en">${ln.en}</div>`
+
+  const badge=document.getElementById('emotion-badge')
+  badge.textContent=emotion;badge.className='emotion-badge '+emotion
+
+  // Show word-stress pattern hint
+  const sylInfo=irishWordSyllables(ln.ga)
+  const pattern=sylInfo.map(s=>s.stressed?'◉':'○').join(' ')
+  document.getElementById('stress-hint').textContent='Stress: '+pattern
+
+  // Build notes for contour preview
+  currentNotes=buildNotes(ln.ga,emotion,rHz,ki.dark)
+  drawContour(currentNotes,-1)
+  document.getElementById('play-status').textContent=
+    ki.root+' '+ki.mode+' · '+emotion+' · '+currentNotes.length+' syllables'
+}
+
+function playCurrentLine(){
+  initAC();if(AC.state==='suspended')AC.resume()
+  const{ki,rHz,v}=getCharAnalysis(activeChar)
+  const c=CHARS[activeChar],ln=c.lines[activeLine]
+  const emotion=deriveEmotion(ln.ga,'auto',ki.dark)
+  const notes=buildNotes(ln.ga,emotion,rHz,ki.dark)
+  currentNotes=notes
+
+  readyGain()
+  animateCursor(notes)
+
+  const btn=document.getElementById('play-btn')
+  btn.classList.remove('stopped');btn.textContent='■ Stop'
+
+  DENG.playDialogue(notes,v,()=>{
+    btn.classList.add('stopped');btn.textContent='▶ Speak'
+    document.getElementById('play-status').textContent='✓ done'
+  })
+}
+
+// ── Interjections ────────────────────────────────────────────────
+function buildInterjGrid(ci){
+  const grid=document.getElementById('interj-grid');grid.innerHTML=''
+  const{ki,rHz,v}=getCharAnalysis(ci)
+  const c=CHARS[ci]
+
+  INTERJECTIONS.forEach(interj=>{
+    const card=document.createElement('div');card.className='interj-card'
+    // Show what root note this character uses
+    const noteHz=(rHz*Math.pow(2,(v.os||0))).toFixed(0)
+    card.innerHTML=`
+      <div class="interj-label">${interj.label}</div>
+      <div class="interj-phonetic">${interj.phonetic}</div>
+      <div class="interj-desc">${interj.desc}</div>
+      <div class="interj-note">root: ${noteHz}Hz</div>`
+    card.addEventListener('click',()=>{
+      initAC();if(AC.state==='suspended')AC.resume()
+      IENG.stop()
+      const notes=interj.build(rHz,v,c.rhythm)
+      readyGain(.6)
+      IENG.playDialogue(notes,v,null)
+    })
+    grid.appendChild(card)
+  })
+}
+
+// ── Build roster ─────────────────────────────────────────────────
+function buildRoster(){
+  const el=document.getElementById('roster')
+  CHARS.forEach((c,i)=>{
+    const ki=parseKey(c.tuneKey)
+    const card=document.createElement('div');card.className='char-card'+(i===0?' active':'')
+    card.innerHTML=`
+      <div class="char-name">${c.name}</div>
+      <div class="char-tune">${c.tuneKey} · ${c.rhythm}</div>
+      <div class="char-meta">${ki.root} ${ki.mode} · dark=${ki.dark}</div>
+      <span class="vtag ${c.voice}">${c.voice==='ronnie'?'Ronnie':'Peig'}</span>`
+    card.addEventListener('click',()=>selectChar(i))
+    el.appendChild(card)
+  })
+}
+
+// ── Tab switching ────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
+    tab.classList.add('active')
+    document.getElementById('tab-'+tab.dataset.tab).classList.add('active')
+  })
+})
+
+// ── Play button ──────────────────────────────────────────────────
+document.getElementById('play-btn').addEventListener('click',()=>{
+  if(DENG.run){
+    DENG.stop();muteGain()
+    const btn=document.getElementById('play-btn')
+    btn.classList.add('stopped');btn.textContent='▶ Speak'
+  } else {
+    playCurrentLine()
+  }
+})
+
+buildRoster()
+selectChar(0)
+</script>
+</body>
+</html>
+ 

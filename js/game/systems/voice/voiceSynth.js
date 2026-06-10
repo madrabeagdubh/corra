@@ -1,639 +1,859 @@
-// voiceSynth.js — Prosodic hum synthesiser
-// A warm triangle-wave tone that follows the pitch contour and rhythm
-// of the text. Like speech heard through a wall, or what humans sound
-// like to a dog. No phonemes, no formants — just the shape of meaning.
-// Place at: js/game/systems/voice/voiceSynth.js
+/**
+ * voiceSynth.js
+ * Port a beul speech synthesis for Corra.
+ *
+ * Usage:
+ *   import { VoiceSynth } from './voiceSynth.js'
+ *
+ *   const synth = new VoiceSynth({ audioContext, masterGain })
+ *   synth.speak(gaText, { voice: 'ronnie', tuneKey: 'Edor' })
+ *   synth.speak(gaText, { voice: 'peig',   tuneKey: 'Dmix', onDone: () => {} })
+ *   synth.interject('hmm',  { voice: 'ronnie', tuneKey: 'Edor' })
+ *   synth.interject('laugh',{ voice: 'peig',   tuneKey: 'Dmix' })
+ *   synth.stop()
+ *
+ * No emotion tag required. Emotion is derived automatically from the
+ * Irish text using lexical and grammatical features plus the tune's
+ * modal darkness. Voice is 'ronnie' (male) or 'peig' (female).
+ * tuneKey is an ABC K: field string, e.g. 'Edor', 'Dmix', 'Gmaj', 'Bmin'.
+ */
 
-// ── Backward-compat stubs ──────────────────────────────────────────────────
-const _NS = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 }
-const _abc = (l, oct) => { const u=l.toUpperCase(); const sh=(u==='F'||u==='C')?1:0; return 440*Math.pow(2,((oct-4)*12+(_NS[u]??0)-9+sh)/12) }
-const _p1 = ['d','d','A','A','B','G','G','G'].map(l=>_abc(l,l===l.toUpperCase()?4:5))
-const _p2 = ['A','A','A','A','c','c','d','d'].map(l=>_abc(l,l===l.toUpperCase()?4:5))
-const _p3 = ['d','d','A','A','B','G','A','F'].map(l=>_abc(l,l===l.toUpperCase()?4:5))
-const _p4 = ['G','G','F','F','G','G','A','A'].map(l=>_abc(l,l===l.toUpperCase()?4:5))
-export const DING_DONG_PITCHES = [..._p1,..._p2,..._p3,..._p4,..._p1,..._p2,..._p3,..._p4]
-export const speechContour = () => []
-export const irishProsodyContour = () => []
-export function irishSyllables(text) { return [] }
-export function listVoices() {}
+// ─────────────────────────────────────────────────────────────────────────────
+// KEY / MODE SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Punctuation-aware word tokeniser ──────────────────────────────────────
-// Returns [ { word, stressed, pause } ] — one entry per word.
-// pause is the silence that follows the word (in seconds).
-
-const PAUSE = {
-  word:     0.10,
-  comma:    0.32,
-  sentence: 0.62,
-  line:     0.75,
+const ROOT_ABOVE_C = {
+    C:0, D:2, E:4, F:5, G:7, A:9, B:11,
+    Cb:-1, Db:1, Eb:3, Fb:4, Gb:6, Ab:8, Bb:10,
+    'C#':1, 'D#':3, 'E#':5, 'F#':6, 'G#':8, 'A#':10, 'B#':12,
 }
 
-// ── Vowel character table ─────────────────────────────────────────────────
-// Each vowel maps to:
-//   filterPeak  — lowpass cutoff at vowel open (Hz)
-//   pitchNudge  — semitone offset (high front vowels sit higher)
-// Diphthongs checked first (longest match wins).
-const VOWEL_CHAR = [
-  { v: 'aoi', filterPeak: 2800, pitchNudge:  0.4 },
-  { v: 'ao',  filterPeak: 1600, pitchNudge: -0.2 },
-  { v: 'ia',  filterPeak: 2400, pitchNudge:  0.3 },
-  { v: 'ua',  filterPeak: 1200, pitchNudge: -0.4 },
-  { v: 'ai',  filterPeak: 2200, pitchNudge:  0.2 },
-  { v: 'ei',  filterPeak: 2600, pitchNudge:  0.5 },
-  { v: 'oi',  filterPeak: 1800, pitchNudge:  0.1 },
-  { v: 'ui',  filterPeak: 2500, pitchNudge:  0.4 },
-  { v: 'í',   filterPeak: 3200, pitchNudge:  0.8 },
-  { v: 'i',   filterPeak: 2900, pitchNudge:  0.6 },
-  { v: 'é',   filterPeak: 2400, pitchNudge:  0.5 },
-  { v: 'e',   filterPeak: 2100, pitchNudge:  0.3 },
-  { v: 'á',   filterPeak: 2200, pitchNudge:  0.1 },
-  { v: 'a',   filterPeak: 2000, pitchNudge:  0.0 },
-  { v: 'ó',   filterPeak: 1300, pitchNudge: -0.3 },
-  { v: 'o',   filterPeak: 1500, pitchNudge: -0.2 },
-  { v: 'ú',   filterPeak:  950, pitchNudge: -0.6 },
-  { v: 'u',   filterPeak: 1100, pitchNudge: -0.4 },
-]
-const DEFAULT_VOWEL_CHAR = { filterPeak: 1800, pitchNudge: 0 }
-
-function getVowelChar(word) {
-  if (!word) return DEFAULT_VOWEL_CHAR
-  const w = word.toLowerCase()
-  for (const entry of VOWEL_CHAR) {
-    if (w.includes(entry.v)) return entry
-  }
-  return DEFAULT_VOWEL_CHAR
+const MODE_INTERVALS = {
+    major:      [0,2,4,5,7,9,11],
+    ionian:     [0,2,4,5,7,9,11],
+    dorian:     [0,2,3,5,7,9,10],
+    phrygian:   [0,1,3,5,7,8,10],
+    lydian:     [0,2,4,6,7,9,11],
+    mixolydian: [0,2,4,5,7,9,10],
+    minor:      [0,2,3,5,7,8,10],
+    aeolian:    [0,2,3,5,7,8,10],
+    locrian:    [0,1,3,5,6,8,10],
 }
 
-function tokeniseWords(text) {
-  const tokens = []
-  const lines  = text.split(/\n/)
-
-  for (let li = 0; li < lines.length; li++) {
-    const line = lines[li].trim()
-    if (!line) continue
-
-    const wordRe = /([a-záéíóúàèìòùâêîôûäëïöü'''-]+)([,;:!?.]*)/gi
-    let m, lineTokens = []
-    while ((m = wordRe.exec(line)) !== null) {
-      const word  = m[1]
-      const punct = m[2]
-      let pause = PAUSE.word
-      if (/[.!?]/.test(punct))      pause = PAUSE.sentence
-      else if (/[,;:]/.test(punct)) pause = PAUSE.comma
-      lineTokens.push({ word, pause, vowelChar: getVowelChar(word) })
-    }
-
-    // Mark first word of each phrase (after sentence pause) as phrase-start
-    lineTokens.forEach((t, i) => { t.phraseStart = i === 0 })
-    tokens.push(...lineTokens)
-
-    if (li < lines.length - 1) {
-      // Extend last word's pause to line-break duration
-      if (tokens.length) tokens[tokens.length - 1].pause = PAUSE.line
-    }
-  }
-
-  // Remove trailing pause
-  if (tokens.length) tokens[tokens.length - 1].pause = 0
-  return tokens
+const MODE_DARKNESS = {
+    major:.10, ionian:.10, lydian:.05,
+    mixolydian:.25, dorian:.55,
+    minor:.72, aeolian:.72, phrygian:.88, locrian:.95,
 }
 
-// ── Prosody: pitch per word ────────────────────────────────────────────────
-// Generates a Hz value for each word token based on:
-//   - phrase-level arc (statement falls, question rises at end)
-//   - word stress (first word of phrase = highest)
-//   - small natural variance
-
-// Filler sounds injected between phrases — em, eh, a, mhaise etc.
-// Breaks up sing-song regularity; feels like actual thinking.
-// Fillers are longer than normal words and rendered distinctly low and flat.
-const FILLERS = ['em', 'ehhh', 'aaa', 'mmm', 'ehh', 'aaa', 'emm', 'mmm']
-let _fillerIdx = 0
-
-function maybeInjectFiller(tokens) {
-  const out = []
-  for (let i = 0; i < tokens.length; i++) {
-    out.push(tokens[i])
-    // After a sentence or line pause, ~50% chance of a filler
-    if (tokens[i].pause >= PAUSE.sentence && Math.random() < 0.50) {
-      const filler = FILLERS[_fillerIdx++ % FILLERS.length]
-      out.push({
-        word:        filler,
-        // Fillers get a noticeable pre-pause before the next phrase starts
-        pause:       PAUSE.comma,
-        phraseStart: false,
-        isFiller:    true,
-        // Force duration: longer than a normal short word
-        forceDur:    0.45,
-      })
+function parseKey(k) {
+    if (!k) return { rac:2, dark:.1, root:'D', mode:'major' }
+    const s  = String(k).trim()
+    const rm = s.match(/^([A-G][b#]?)/)
+    if (!rm) return parseKey('D')
+    const rootStr = rm[1]
+    const rest = s.slice(rootStr.length).toLowerCase()
+        .replace(/^maj/, 'major').replace(/^min$|^m$/, 'minor')
+        .replace(/^mix/, 'mixolydian').replace(/^dor/, 'dorian')
+        .replace(/^phr/, 'phrygian').replace(/^lyd/, 'lydian')
+        .replace(/^aeo/, 'aeolian').replace(/^ion/, 'ionian')
+    const mode = Object.keys(MODE_INTERVALS).find(m => rest.startsWith(m)) || 'major'
+    return {
+        rac:  ROOT_ABOVE_C[rootStr] ?? 2,
+        dark: MODE_DARKNESS[mode]   ?? .4,
+        root: rootStr,
+        mode,
     }
-  }
-  return out
 }
 
-function prosodyPitches(tokens, fundamental, style) {
-  const n = tokens.length
+const A4 = 440
+const st2hz = st => A4 * Math.pow(2, (st - 9) / 12)
 
-  // Track position within each phrase; assign arc direction at phrase start
-  let phrasePos = 0
-  let arcDir    = Math.random() < 0.5 ? 1 : -1
-  const stressLevels = tokens.map((t) => {
-    if (phrasePos === 0) {
-      arcDir = Math.random() < 0.5 ? 1 : -1
-      t._arcDir = arcDir
-    } else {
-      t._arcDir = arcDir
-    }
-    const s = phrasePos
-    if (t.pause >= PAUSE.sentence || t.pause >= PAUSE.comma) phrasePos = 0
-    else phrasePos++
-    return s
-  })
-
-  return tokens.map((t, i) => {
-    const progress = i / Math.max(1, n - 1)
-    const isLast   = i === n - 1
-    const pos      = stressLevels[i]
-
-    let st = 0
-
-    // Filler words: noticeably lower than speech, slow wobble, no lilt
-    // Should sound like a genuine thinking-pause, clearly distinct from words
-    if (t.isFiller) {
-      st = -4.5 + (Math.random() - 0.5) * 0.6
-      return fundamental * Math.pow(2, st / 12)
-    }
-
-    if (style === 'statement') {
-      // Arc direction randomised per phrase-start — sometimes rises, sometimes falls.
-      // Stored on the token so all words in a phrase share the same direction.
-      const dir = t._arcDir ?? 1   // +1 = rise, -1 = fall
-      const phraseArc = dir * pos * 1.4
-      const lilt      = Math.sin(pos * Math.PI * 0.8) * 1.8
-      st = dir * -2.5 + phraseArc + lilt
-      st += Math.sin(progress * Math.PI) * 2.0
-      if (isLast) st -= 2.5
-    } else if (style === 'question') {
-      // Start low-mid, gentle rise, big lift on final word
-      const lilt = Math.sin(pos * Math.PI * 0.8) * 1.5
-      st = -1.5 + pos * 0.8 + lilt
-      if (isLast) st += 5.5
-    } else if (style === 'exclamation') {
-      // Burst of energy early, settles quickly
-      st = 4.0 * Math.pow(1 - progress, 0.7)
-      st += Math.sin(pos * Math.PI) * 1.5
-    }
-
-    // Phrase-start: comes in slightly low — builds from there
-    if (t.phraseStart) st -= 1.0
-
-    // Natural drift — enough to feel human, not so much it's random
-    st += (Math.random() - 0.5) * 1.2
-
-    // Clamp: ±7 semitones — expressive but not absurd
-    st = Math.max(-7, Math.min(7, st))
-
-    return fundamental * Math.pow(2, st / 12)
-  })
+function rootHzForVoice(rac, voiceId) {
+    // Ronnie has octaveShift -1.3 applied inside synthesis, so pre-shift
+    // we place him at octave 5 so he lands around 200-380Hz after shift.
+    // Peig has no shift, so octave 4 gives female speaking range 262-494Hz.
+    const oct = voiceId === 'ronnie' ? 5 : 4
+    return st2hz(rac + (oct - 4) * 12)
 }
 
-// ── Voice presets ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTOMATIC EMOTION DERIVATION
+// No manual tag needed — derived from Irish text + tune modal darkness.
+// Returns one of: 'sorrowful' | 'defiant' | 'prophetic' | 'questioning' |
+//                 'incantatory'
+// ─────────────────────────────────────────────────────────────────────────────
 
-export const VOICES = {
+function deriveEmotion(gaText, tuneDark) {
+    const t = gaText.toLowerCase().trim()
+    let sorrow    = tuneDark * 0.6
+    let defiant   = 0
+    let prophetic = 0
 
-  // Warm, lilting — Munster-flavoured NPC voice
-  cailin: {
-    name:        'Cailin',
-    fundamental: 220,       // A3
-    waveform:    'triangle',
-    filterFreq:  1100,      // slightly brighter — more presence
-    filterQ:     0.9,
-    msPerChar:   72,        // slower — more time on each word
-    minDur:      0.18,
-    maxDur:      0.70,
-    attack:      0.035,
-    release:     0.090,     // longer release — words melt into each other
-    volume:      0.38,
-    variance:    1.8,       // wide variance — musical, expressive
-  },
+    // Terminal punctuation — checked before other features
+    if (t.endsWith('!'))         defiant   += 0.55
+    if (/\.\.\.$/.test(t))     { sorrow    += 0.25; prophetic += 0.15 }
 
-  // Lower, slower — gravitas
-  seanBhean: {
-    name:        'Seanbhean na Mara',
-    fundamental: 155,
-    waveform:    'triangle',
-    filterFreq:  700,
-    filterQ:     1.0,
-    msPerChar:   72,
-    minDur:      0.18,
-    maxDur:      0.70,
-    attack:      0.045,
-    release:     0.080,
-    volume:      0.34,
-    variance:    0.4,
-  },
+    // Negatives → resigned, away from defiance
+    if (/\b(ní|níl|chan|nár|nach)\b/.test(t)) { sorrow += 0.20; defiant -= 0.15 }
 
-  // Deep — blacksmith
-  blacksmith: {
-    name:        'Blacksmith',
-    fundamental: 105,
-    waveform:    'triangle',
-    filterFreq:  550,
-    filterQ:     1.2,
-    msPerChar:   80,
-    minDur:      0.20,
-    maxDur:      0.80,
-    attack:      0.050,
-    release:     0.090,
-    volume:      0.38,
-    variance:    0.35,
-  },
+    // Vocative particle → softer, intimate, slightly sorrowful
+    if (/\ba [a-záéíóú]/.test(t))             { sorrow += 0.12; defiant -= 0.10 }
 
-  // Higher, lighter — young hero
-  youngHero: {
-    name:        'Young Hero',
-    fundamental: 260,
-    waveform:    'triangle',
-    filterFreq:  1100,
-    filterQ:     0.7,
-    msPerChar:   50,
-    minDur:      0.10,
-    maxDur:      0.45,
-    attack:      0.022,
-    release:     0.045,
-    volume:      0.34,
-    variance:    0.6,
-  },
+    // Dark / night / cold lexicon
+    if (/\b(dorcha|báis|oíche|uaigneas|brón|tuirse|fuar|ciúin|ceo|bás|uaigneach)\b/.test(t))
+        sorrow += 0.30
 
-  // Volatile, forceful — angry chieftain
-  // Fast and clipped, lurching pitch, hard onset, aggressive projection
-  chieftain: {
-    name:        'Angry Chieftain',
-    fundamental: 130,
-    filterFreq:  2800,
-    filterQ:     1.4,
-    msPerChar:   42,
-    minDur:      0.09,
-    maxDur:      0.38,
-    attack:      0.010,
-    release:     0.030,
-    volume:      0.50,
-    variance:    2.8,
-    vibratoRate:  6.8,
-    vibratoDepth: 0.028,
-    breathMult:   2.2,
-  },
+    // Motion / journey / sea — melancholic but purposeful
+    if (/\b(fágaim|turas|bád|uisce|cladach|farraige|snámh)\b/.test(t))
+        sorrow += 0.15
 
-  // Measured, deep, unhurried — wise old druid
-  // Words chosen carefully, long silences, resonant chest tone
-  druid: {
-    name:        'Wise Druid',
-    fundamental: 95,
-    filterFreq:  1400,
-    filterQ:     0.6,
-    msPerChar:   95,
-    minDur:      0.28,
-    maxDur:      0.90,
-    attack:      0.065,
-    release:     0.140,
-    volume:      0.42,
-    variance:    0.5,
-    vibratoRate:  3.8,
-    vibratoDepth: 0.008,
-    breathMult:   0.3,
-  },
+    // Beloved / cherished — tender, sorrowful
+    if (/\b(ionúin|ansa|grá|cara)\b/.test(t))
+        sorrow += 0.20
 
-  // Ancient, vast, inhuman — tree monster
-  // Sub-bass, lurching pitch, creaking onset, slow swaying vibrato
-  treeMonster: {
-    name:        'Tree Monster',
-    fundamental: 58,
-    filterFreq:  600,
-    filterQ:     2.2,
-    msPerChar:   140,
-    minDur:      0.40,
-    maxDur:      1.40,
-    attack:      0.120,
-    release:     0.220,
-    volume:      0.48,
-    variance:    4.5,
-    vibratoRate:  1.4,
-    vibratoDepth: 0.055,
-    breathMult:   3.5,
-  },
+    // Battle / strength → assertive
+    if (/\b(cath|neart|claíomh|buaigh|laoch|arm|cogaí?r|cathair|lann)\b/.test(t))
+        defiant += 0.25
+
+    // Oracular / seeing / stars → prophetic
+    if (/\b(feicim|chím|léim|tuar|réalt|spéir|réaltaí|léamh)\b/.test(t))
+        prophetic += 0.35
+
+    // Repeated opening word → incantatory
+    const fw = t.match(/^\w+/)?.[0]
+    if (fw && (t.match(new RegExp('\\b' + fw + '\\b', 'g')) || []).length >= 2)
+        return 'incantatory'
+
+    // Question mark → questioning contour regardless of other weights
+    if (t.endsWith('?')) return 'questioning'
+
+    // Resolve by dominant weight
+    if (defiant   > sorrow && defiant   > prophetic) return 'defiant'
+    if (prophetic > sorrow)                           return 'prophetic'
+    return 'sorrowful'
 }
 
-// ── Voice factory ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// IRISH WORD-STRESS SYLLABLE BUILDER
+// Splits on word boundaries. First syllable of each word is stressed.
+// Returns [{stressed: bool}] — one entry per syllable.
+// ─────────────────────────────────────────────────────────────────────────────
 
-export function createVoice(config) {
-  let audioContext = null
-  let masterGain   = null
-  let osc          = null   // single persistent oscillator
-  let filter       = null
-  let envGain      = null
-  let graphBuilt   = false
-  let cancelFns    = []
+function irishSyllables(text) {
+    const words = text
+        .replace(/[.,!?;:'"()…]/g, '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+    const result = []
+    for (const word of words) {
+        const sylCount = Math.max(1,
+            (word.match(/[aeiouáéíóúAEIOUÁÉÍÓÚ]+/g) || []).length)
+        for (let s = 0; s < sylCount; s++) {
+            result.push({ stressed: s === 0 })
+        }
+    }
+    return result.length > 0 ? result : [{ stressed: true }]
+}
 
-  function ensureAudioContext() {
-    if (audioContext) return true
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext
-      if (!AC) return false
-      audioContext = new AC()
-      return true
-    } catch(e) { return false }
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// PUNCTUATION PAUSE INJECTION
+// Scans the text for punctuation marks and inserts gap notes at the
+// appropriate positions in the note sequence. Weights:
+//   comma      →  0.25 × note dur
+//   semicolon  →  0.35 × note dur
+//   full stop  →  0.55 × note dur
+//   ellipsis   →  0.85 × note dur  (also pitch drift)
+//   exclaim    →  0.40 × note dur  (after peak)
+//   newline    →  0.60 × note dur  (treated as full stop)
+// These multipliers are applied to the stressed note duration (~0.40s),
+// giving audible but not excessive pauses. Multiply by PAUSE_SCALE (=3)
+// as requested to make them very noticeable.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Graph nodes
-  let osc2         = null   // detuned second oscillator — vocal fold thickness
-  let oscSaw       = null   // low-level sawtooth — adds harmonic edge/presence
-  let vibratoLfo   = null
-  let vibratoGain  = null
-  let filterLo     = null   // lower resonance peak — chest/body
-  let filterHi     = null   // upper resonance peak — head/presence
-  let noiseSource  = null   // breath noise — rebuilt per word onset
-  let breathGain   = null
+const PAUSE_SCALE = 3.0  // exaggerate pauses × 3
 
-  function buildGraph() {
-    if (graphBuilt) return
+function buildPauseMap(text) {
+    // Returns array of {afterWord: N, pauseDurMultiplier: M}
+    // afterWord is 0-indexed word position in the cleaned word array.
+    const pauses = []
+    // Split text into tokens keeping punctuation
+    const tokens = text.split(/(\s+)/)
+    let wordIdx = -1
+    for (const tok of tokens) {
+        if (/\S/.test(tok)) wordIdx++
+        // Check for punctuation embedded in or following a word token
+        if (/[,،]/.test(tok))          pauses.push({ afterWord: wordIdx, mult: 0.25 * PAUSE_SCALE })
+        if (/[;]/.test(tok))            pauses.push({ afterWord: wordIdx, mult: 0.35 * PAUSE_SCALE })
+        if (/[.!？。](?!\.)/.test(tok)) pauses.push({ afterWord: wordIdx, mult: 0.55 * PAUSE_SCALE })
+        if (/!/.test(tok))              pauses.push({ afterWord: wordIdx, mult: 0.40 * PAUSE_SCALE })
+        if (/\.{2,}|…/.test(tok))       pauses.push({ afterWord: wordIdx, mult: 0.85 * PAUSE_SCALE })
+    }
+    return pauses
+}
 
-    const fund = config.fundamental ?? 220
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTE SEQUENCE BUILDER
+// Combines: word-stress timing, emotional pitch contour, punctuation pauses,
+// mandatory final cadence.
+// Returns [{hz, dur, stressed, type}]
+//   type: 'syl' | 'gap'
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // ── Oscillator bank ───────────────────────────────────────────────────
-    // Primary: triangle — warm, soft harmonics
-    osc = audioContext.createOscillator()
-    osc.type = 'triangle'
-    osc.frequency.value = fund
+function buildNotesWithRoot(gaText, tuneKey, voiceId) {
+    const ki      = parseKey(tuneKey)
+    const emotion = deriveEmotion(gaText, ki.dark)
+    const rHz     = rootHzForVoice(ki.rac, voiceId)
 
-    // Second: triangle, 7 cents sharp — vocal fold chorus thickness
-    osc2 = audioContext.createOscillator()
-    osc2.type = 'triangle'
-    osc2.frequency.value = fund
-    osc2.detune.value = 7
+    const sylInfo  = irishSyllables(gaText)
+    const n        = sylInfo.length
+    if (n === 0) return []
 
-    // Third: sawtooth at low level — adds harmonic richness and edge
-    // Real voices have a sawtooth-like glottal pulse; this hints at that
-    oscSaw = audioContext.createOscillator()
-    oscSaw.type = 'sawtooth'
-    oscSaw.frequency.value = fund
+    // Duration: target total ~2.0-3.2s, stressed syllables 1.5× unstressed
+   
+const targetTotal  = Math.max(1.6, n * 0.29)
+	const stressCount  = sylInfo.filter(s => s.stressed).length
+    const unstressCount = n - stressCount
+    const baseDur  = targetTotal / (stressCount * 1.5 + unstressCount)
+    const stressDur = baseDur * 1.5
 
-    const g1   = audioContext.createGain(); g1.gain.value   = 0.55
-    const g2   = audioContext.createGain(); g2.gain.value   = 0.35
-    const gSaw = audioContext.createGain(); gSaw.gain.value = 0.12  // subtle edge
+    // Build pause map — keyed to word index
+    // We need to map syllables back to words to know after which syllable
+    // to insert a pause.
+    const words    = gaText.replace(/[.,!?;:'"()…]/g,'').trim().split(/\s+/).filter(Boolean)
+    const pauseMap = buildPauseMap(gaText)
+    // Build a lookup: syllable index → pause multiplier (or 0)
+    // First, figure out which syllable corresponds to the last syllable of each word
+    const sylWordBoundaries = []  // sylWordBoundaries[i] = word index for syllable i
+    let sylIdx = 0
+    for (let wi = 0; wi < words.length; wi++) {
+        const sc = Math.max(1, (words[wi].match(/[aeiouáéíóúAEIOUÁÉÍÓÚ]+/g)||[]).length)
+        for (let s = 0; s < sc; s++) {
+            sylWordBoundaries[sylIdx++] = wi
+        }
+    }
+    // For each syllable, what pause (if any) follows it?
+    // A pause follows the LAST syllable of the word that has a pause mark.
+    const pauseAfterSyl = new Array(n).fill(0)
+    for (const p of pauseMap) {
+        // Find last syllable of word p.afterWord
+        let lastSyl = -1
+        for (let i = 0; i < n; i++) {
+            if (sylWordBoundaries[i] === p.afterWord) lastSyl = i
+        }
+        if (lastSyl >= 0) {
+            // Take the maximum pause if multiple marks follow same word
+            pauseAfterSyl[lastSyl] = Math.max(pauseAfterSyl[lastSyl], p.mult)
+        }
+    }
 
-    osc.connect(g1)
-    osc2.connect(g2)
-    oscSaw.connect(gSaw)
+    const notes = []
+    for (let i = 0; i < n; i++) {
+        const t      = i / (n - 1 || 1)
+        const info   = sylInfo[i]
+        const dur    = info.stressed ? stressDur : baseDur
+        const isFinal = i === n - 1
 
-    // ── Vibrato LFO ───────────────────────────────────────────────────────
-    // Starts at zero, kicks in mid-word via scheduleWord.
-    // Slightly irregular rate via a second LFO modulating the vibrato rate.
-    vibratoLfo  = audioContext.createOscillator()
-    vibratoLfo.type = 'sine'
-    vibratoLfo.frequency.value = config.vibratoRate ?? 4.6
+        let st  // semitone offset from root
+        if (isFinal) {
+            // Mandatory cadence — always falls regardless of emotion
+            const prevSt = notes.length > 0
+                ? 12 * Math.log2(notes[notes.length - 1].hz / rHz)
+                : 0
+            st = prevSt - (1.8 + Math.random() * 0.8)
+        } else {
+            switch (emotion) {
+                case 'sorrowful':
+                    st = 1.2 - t * 3.2 + (Math.random() - .5) * .7
+                    if (info.stressed) st += .4
+                    break
+                case 'defiant': {
+                    const arc = t < .6 ? t / .6 : 1 - (t - .6) / .4
+                    st = -1 + arc * 5.5 + (Math.random() - .5) * .6
+                    if (info.stressed) st += .5
+                    break
+                }
+                case 'prophetic': {
+                    const drop = t > .72 ? (t - .72) / .28 : 0
+                    st = .8 - drop * 4.5 + (Math.random() - .5) * .4
+                    if (info.stressed) st += .3
+                    break
+                }
+                case 'questioning':
+                    st = -1.2 + t * 4.0 + (Math.random() - .5) * .6
+                    if (info.stressed) st += .4
+                    break
+                case 'incantatory': {
+                    const swell = Math.sin(t * Math.PI) * .8
+                    st = swell + (Math.random() - .5) * .3
+                    if (info.stressed) st += .2
+                    break
+                }
+                default:
+                    st = (Math.random() - .5) * 2
+            }
+        }
 
-    // Slow LFO on vibrato rate — makes it feel unsteady, human
-    const vibratoRateLfo  = audioContext.createOscillator()
-    vibratoRateLfo.type   = 'sine'
-    vibratoRateLfo.frequency.value = 0.3   // very slow — subtle
-    const vibratoRateGain = audioContext.createGain()
-    vibratoRateGain.gain.value = 0.4       // ±0.4Hz wobble on vibrato rate
-    vibratoRateLfo.connect(vibratoRateGain)
-    vibratoRateGain.connect(vibratoLfo.frequency)
+        notes.push({
+            hz:      rHz * Math.pow(2, st / 12),
+            dur,
+            stressed: info.stressed,
+            type:    'syl',
+        })
 
-    vibratoGain = audioContext.createGain()
-    vibratoGain.gain.value = 0   // starts silent, ramped per word
-    // store depth for scheduleWord
-    vibratoGain._depth = config.vibratoDepth ?? 0.018
-    vibratoLfo.connect(vibratoGain)
-    vibratoGain.connect(osc.frequency)
-    vibratoGain.connect(osc2.frequency)
-    vibratoGain.connect(oscSaw.frequency)
+        // Insert pause after this syllable if punctuation demands it
+        if (pauseAfterSyl[i] > 0) {
+            notes.push({
+                hz:   0,
+                dur:  baseDur * pauseAfterSyl[i],
+                stressed: false,
+                type: 'gap',
+            })
+        }
+    }
+    return notes
+}
 
-    // ── Two resonant bandpass filters in parallel ─────────────────────────
-    // filterLo: body/chest resonance — stays relatively fixed
-    // filterHi: head/presence resonance — sweeps with vowel
-    // Together they create a sense of resonant space without full formant synthesis
-    filterLo = audioContext.createBiquadFilter()
-    filterLo.type = 'bandpass'
-    filterLo.frequency.value = 380   // chest resonance
-    filterLo.Q.value = 2.5
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERJECTION BUILDERS
+// Returns a note sequence for a short expressive sound.
+// All pitches relative to rootHz (will be shifted by voice octaveShift).
+// ─────────────────────────────────────────────────────────────────────────────
 
-    filterHi = audioContext.createBiquadFilter()
-    filterHi.type = 'bandpass'
-    filterHi.frequency.value = 1800  // presence — swept per vowel
-    filterHi.Q.value = 1.8
+const INTERJECTIONS = {
+    hmm: (rHz) => {
+        const n = 5
+        return Array.from({ length: n }, (_, i) => ({
+            hz:  rHz * Math.pow(2, (i / (n-1)) * 1.5 / 12),
+            dur: 0.55 / n, stressed: i === 0, type: 'syl',
+        }))
+    },
+    oh: (rHz) => [
+        { hz: rHz * Math.pow(2, -2/12), dur: .06, stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2,  4/12), dur: .14, stressed: false, type: 'syl' },
+        { hz: rHz * Math.pow(2,  5/12), dur: .20, stressed: false, type: 'syl' },
+        { hz: rHz * Math.pow(2,  2/12), dur: .10, stressed: false, type: 'syl' },
+    ],
+    laugh: (rHz, rhythm) => {
+        const pace = ['reel','polka','jig'].includes(rhythm) ? .13 : .21
+        return [0,1,2,3].flatMap(i => [
+            { hz: rHz * Math.pow(2, (.5 - i * .14) / 12 * 12), dur: pace * .65, stressed: i===0, type: 'syl' },
+            { hz: 0, dur: pace * .35, stressed: false, type: 'gap' },
+        ])
+    },
+    distress: (rHz) => [
+        { hz: rHz * Math.pow(2, 2/12),  dur: .22, stressed: true,  type: 'syl' },
+        { hz: 0,                         dur: .10, stressed: false, type: 'gap' },
+        { hz: rHz * Math.pow(2, -3/12), dur: .28, stressed: false, type: 'syl' },
+        { hz: rHz * Math.pow(2, -8/12), dur: .22, stressed: false, type: 'syl' },
+    ],
+    mhm: (rHz) => {
+        const n = 6
+        return Array.from({ length: n }, (_, i) => ({
+            hz:  rHz * Math.pow(2, (i / (n-1)) * 1.8 / 12),
+            dur: 0.5 / n, stressed: i === 0, type: 'syl',
+        }))
+    },
+    eist: (rHz) => [
+        // "Éist!" — silence — sharp commanding burst
+        { hz: rHz * Math.pow(2, 3/12),  dur: .08, stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2, 5/12),  dur: .20, stressed: false, type: 'syl' },
+        { hz: rHz * Math.pow(2, 1/12),  dur: .12, stressed: false, type: 'syl' },
+    ],
+    sigh: (rHz) => {
+        const n = 8
+        return Array.from({ length: n }, (_, i) => ({
+            hz:  rHz * Math.pow(2, (1.2 - i / (n-1) * 4.0) / 12),
+            dur: 1.0 / n, stressed: i === 0, type: 'syl',
+        }))
+    },
+}
 
-    // Lowpass after both bandpass — smooths the combined signal
-    filter = audioContext.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = config.filterFreq ?? 3200
-    filter.Q.value = 0.7
+// ─────────────────────────────────────────────────────────────────────────────
+// VOICE PRESETS
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // Mix oscillators into both filters
-    const oscMix = audioContext.createGain()
-    oscMix.gain.value = 1.0
-    g1.connect(oscMix); g2.connect(oscMix); gSaw.connect(oscMix)
+const VOICES = {
+    ronnie: {
+        os:  -1.3,   // octave shift — tunes down ~1.3 octaves into bass register
+        fs:   0.48,  // formant scale — very dark resonating cavity
+        mix:  { t: 0.12, s: 0.38, r: 0.50 },  // tri/saw/rough oscillator blend
+        br:   0.0,   // breathiness
+        cv:   1.00,  // consonant thud volume
+        ck:   0.08,  // tongue-tip click volume
+        vf:   0.78,  // voiced fraction (rest is gap)
+        on:   45,    // onset ms — slow pitch finding
+        cl:   55,    // close ms
+        wv:   0.72,  // weak vowel scale
+        ns:   0.0,   // nasality
+    },
+    peig: {
+        os:   0.0,
+        fs:   1.02,
+        mix:  { t: 0.44, s: 0.30, r: 0.26 },
+        br:   0.022,
+        cv:   0.32,
+        ck:   0.14,
+        vf:   0.80,
+        on:   40,
+        cl:   52,
+        wv:   0.70,
+        ns:   0.70,
+    },
+}
 
-    const loGain = audioContext.createGain(); loGain.gain.value = 0.6
-    const hiGain = audioContext.createGain(); hiGain.gain.value = 1.0
+// ─────────────────────────────────────────────────────────────────────────────
+// SYLLABLE STREAM (port a beul vocable picker)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    oscMix.connect(filterLo); filterLo.connect(loGain)
-    oscMix.connect(filterHi); filterHi.connect(hiGain)
+const SYLL = {
+    strong: [
+        {v:.62},{v:.35},{v:.55},{v:.65},{v:.65},{v:.15},{v:.35},{v:.35},
+    ],
+    weak: [
+        {v:.15},{v:.90},{v:1.0},{v:.15},{v:.45},{v:.05},{v:.15},
+    ],
+    long:  [{v:.35},{v:.65},{v:.55},{v:.35}],
+    term:  [{v:.40},{v:.10},{v:.30}],
+    open:  [{v:.35},{v:.62},{v:.15},{v:.65}],
+}
 
-    // Amplitude envelope
-    envGain = audioContext.createGain()
-    envGain.gain.value = 0
+class SyllableStream {
+    constructor() {
+        this._i   = { s:0, w:0, l:0, o:0, t:0 }
+        this._pos = 0
+        this._wk  = false
+        this._len = 8 + Math.floor(Math.random() * 4)
+    }
+    next(units, isTerminal) {
+        const op = this._pos === 0
+        this._pos++
+        if (this._pos >= this._len) {
+            this._pos = 0; this._wk = false
+            this._len = 8 + Math.floor(Math.random() * 4)
+        }
+        if (isTerminal) { this._wk = false; return SYLL.term[(this._i.t++) % SYLL.term.length] }
+        if (op)         { this._wk = true;  return SYLL.open[(this._i.o++) % SYLL.open.length] }
+        if (units > 2)  { this._wk = false; return SYLL.long[(this._i.l++) % SYLL.long.length] }
+        if (this._wk)   {
+            this._wk = false
+            if (Math.random() < .10) this._i.w++
+            return SYLL.weak[(this._i.w++) % SYLL.weak.length]
+        }
+        this._wk = true
+        if (Math.random() < .10) this._i.s++
+        return SYLL.strong[(this._i.s++) % SYLL.strong.length]
+    }
+    reset() {
+        this._pos = 0; this._wk = false
+        this._len = 8 + Math.floor(Math.random() * 4)
+    }
+}
 
-    loGain.connect(filter)
-    hiGain.connect(filter)
-    filter.connect(envGain)
+// ─────────────────────────────────────────────────────────────────────────────
+// CORE SYNTHESIS — schedules one syllable into the AudioContext
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // ── Breath noise channel ──────────────────────────────────────────────
-    // Persistent noise node — gated by breathGain per word onset
-    const bufLen = audioContext.sampleRate * 2
-    const noiseBuf = audioContext.createBuffer(1, bufLen, audioContext.sampleRate)
-    const nd = noiseBuf.getChannelData(0)
-    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1
-    noiseSource = audioContext.createBufferSource()
-    noiseSource.buffer = noiseBuf
-    noiseSource.loop = true
+const ffq = v => ({ f1: 300 + (1-v)*400, f2: 900 + v*2300 })
 
-    const noiseFilt = audioContext.createBiquadFilter()
-    noiseFilt.type = 'bandpass'
-    noiseFilt.frequency.value = 2400   // breath sits in upper-mid
-    noiseFilt.Q.value = 0.8
+function schedSyl(ac, dest, bHz, when, dur, fromHz, v, ss, spu, stressBoost) {
+    if (!ac || !dest || dur < .03) return
 
-    breathGain = audioContext.createGain()
-    breathGain.gain.value = 0
+    const hz  = bHz  * Math.pow(2, v.os || 0)
+    const fhs = fromHz ? fromHz * Math.pow(2, v.os || 0) : 0
+    const u   = dur / spu
+    const iT  = u >= 3
+    const sy  = ss.next(u, iT)
+    const { f1: fb, f2: f2b } = ffq(sy.v)
+    const f1  = fb  * v.fs
+    const f2  = f2b * v.fs
+    const vb  = stressBoost ? 1.25 : 1.0
 
-    noiseSource.connect(noiseFilt)
-    noiseFilt.connect(breathGain)
+    const cd = .012
+    const vf = v.vf * (sy.v < .3 ? .88 : 1.0)
+    const vd = dur * vf
+    const on = Math.min(v.on / 1000, vd * .20)
+    const cl = Math.min(v.cl / 1000, vd * .32)
+    const rd = .012
+    const st = Math.max(.015, vd - cd - on - cl - rd)
+    const t0=when, t1=t0+cd, t2=t1+on, t3=t2+st, t4=t3+cl, t5=t4+rd
 
-    // Master volume
-    masterGain = audioContext.createGain()
-    masterGain.gain.value = config.volume ?? 0.36
+    const mkNoise = d => {
+        const s = Math.ceil(ac.sampleRate * Math.min(d, 2.0))
+        const b = ac.createBuffer(1, s, ac.sampleRate)
+        const dt = b.getChannelData(0)
+        for (let i = 0; i < s; i++) dt[i] = Math.random() * 2 - 1
+        return b
+    }
 
-    envGain.connect(masterGain)
-    breathGain.connect(masterGain)
-    masterGain.connect(audioContext.destination)
+    // Consonant tap — two layers: body thud + tongue-tip click
+    const iw = sy.v <= .25
+    const th = (iw ? v.cv * .55 : v.cv) * vb
+    const ck = (iw ? v.ck * 1.15 : v.ck) * vb
 
-    osc.start(); osc2.start(); oscSaw.start()
-    vibratoLfo.start(); vibratoRateLfo.start()
-    noiseSource.start()
-    graphBuilt = true
-  }
+    const nb1 = mkNoise(cd+.004), ns1 = ac.createBufferSource(); ns1.buffer = nb1
+    const bp1 = ac.createBiquadFilter()
+    bp1.type = 'bandpass'; bp1.frequency.value = Math.min(650, hz*1.1); bp1.Q.value = 7
+    const g1 = ac.createGain()
+    g1.gain.setValueAtTime(0, t0)
+    g1.gain.linearRampToValueAtTime(th, t0+.002)
+    g1.gain.exponentialRampToValueAtTime(.001, t0+cd)
+    ns1.connect(bp1); bp1.connect(g1); g1.connect(dest)
+    ns1.start(t0); ns1.stop(t0+cd+.004)
 
-  function teardown() {
-    [osc, osc2, oscSaw, vibratoLfo, noiseSource].forEach(n => {
-      if (n) { try { n.stop() } catch(e) {} }
+    const nb2 = mkNoise(.007), ns2 = ac.createBufferSource(); ns2.buffer = nb2
+    const bp2 = ac.createBiquadFilter()
+    bp2.type = 'bandpass'; bp2.frequency.value = Math.min(3800, f2*1.5); bp2.Q.value = 9
+    const g2 = ac.createGain()
+    g2.gain.setValueAtTime(ck, t0+.001)
+    g2.gain.exponentialRampToValueAtTime(.001, t0+.008)
+    ns2.connect(bp2); bp2.connect(g2); g2.connect(dest)
+    ns2.start(t0+.001); ns2.stop(t0+.010)
+
+    // Oscillators
+    const mx = v.mix
+    const o1 = ac.createOscillator(); o1.type = 'triangle'
+    const o2 = ac.createOscillator(); o2.type = 'sawtooth'
+    let pf = hz
+    if (fhs > 0) {
+        const sd = Math.abs(12 * Math.log2(hz / fhs))
+        pf = sd <= 4 ? fhs : hz * Math.pow(2, (Math.random() > .5 ? .4 : -.4) / 12)
+    }
+    const pc = hz * Math.pow(2, -.08/12)
+    ;[o1, o2].forEach(o => {
+        o.frequency.setValueAtTime(pf, t1)
+        o.frequency.exponentialRampToValueAtTime(hz, t2)
+        o.frequency.setValueAtTime(hz, t3)
+        o.frequency.linearRampToValueAtTime(pc, t4)
     })
-    osc = null; osc2 = null; oscSaw = null
-    vibratoLfo = null; vibratoGain = null
-    filterLo = null; filterHi = null; filter = null
-    envGain = null; breathGain = null; noiseSource = null
-    masterGain = null; graphBuilt = false
-  }
+    const go1 = ac.createGain(); go1.gain.value = mx.t * vb
+    const go2 = ac.createGain(); go2.gain.value = mx.s * vb
+    o1.connect(go1); o2.connect(go2)
+    const om = ac.createGain(); om.gain.value = 1.0
+    go1.connect(om); go2.connect(om)
 
-  // Schedule one word: pitch arc, dual resonant filter sweep, breath onset, vibrato, dynamics
-  function scheduleWord(pitchHz, tStart, duration, isPhraseFinal, isFiller, vowelChar) {
-    if (!audioContext || !osc) return
+    // Roughness — amplitude-modulated noise (Ronnie's gravel)
+    if (mx.r > .05) {
+        const rd2 = t5 - t1 + .02
+        const fb2 = mkNoise(rd2), fs = ac.createBufferSource(); fs.buffer = fb2
+        const fbp = ac.createBiquadFilter(); fbp.type = 'lowpass'; fbp.frequency.value = 14
+        const fsc = ac.createGain(); fsc.gain.value = mx.r * .55
+        fs.connect(fbp); fbp.connect(fsc); fsc.connect(om.gain)
+        fs.start(t1); fs.stop(t5+.02)
 
-    const attack  = config.attack  ?? 0.030
-    const release = config.release ?? 0.060
-    const vol     = config.volume  ?? 0.36
-
-    // Micro timing nudge — ±20ms, human imprecision
-    const nudge = (Math.random() - 0.5) * 0.04
-    const t     = audioContext.currentTime + tStart + nudge
-
-    // Vowel pitch nudge — front vowels sit higher in the voice
-    const pitchNudgeSt = isFiller ? 0 : (vowelChar?.pitchNudge ?? 0)
-    pitchHz = pitchHz * Math.pow(2, pitchNudgeSt / 12)
-
-    // ── Micro pitch arc ───────────────────────────────────────────────────
-    const arcDepth  = isFiller ? 0.2 : 1.4
-    const pitchLow  = pitchHz * Math.pow(2, -arcDepth / 12)
-    const pitchHigh = pitchHz * Math.pow(2,  arcDepth * 0.55 / 12)
-    const pitchTail = pitchHz * Math.pow(2, -arcDepth * 0.35 / 12)
-    const peakTime  = t + duration * 0.36
-    const tailTime  = t + duration * 0.72
-
-    ;[osc, osc2, oscSaw].forEach(o => {
-      if (!o) return
-      o.frequency.setValueAtTime(pitchLow, t)
-      o.frequency.linearRampToValueAtTime(pitchHigh, peakTime)
-      o.frequency.linearRampToValueAtTime(pitchTail, tailTime)
-      o.frequency.linearRampToValueAtTime(pitchLow, t + duration)
-    })
-
-    // ── Dual resonant filter sweep ────────────────────────────────────────
-    // filterLo (chest): gentle sweep anchored low — body of the voice
-    // filterHi (presence): sweeps to vowel-specific peak — the timbral colour
-    const vowelPeak = isFiller ? 900 : (vowelChar?.filterPeak ?? 1800)
-
-    filterLo.frequency.setValueAtTime(320, t)
-    filterLo.frequency.linearRampToValueAtTime(460, peakTime)
-    filterLo.frequency.linearRampToValueAtTime(380, tailTime)
-    filterLo.frequency.linearRampToValueAtTime(320, t + duration)
-
-    filterHi.frequency.setValueAtTime(600, t)
-    filterHi.frequency.linearRampToValueAtTime(vowelPeak, peakTime)
-    filterHi.frequency.linearRampToValueAtTime(1200, tailTime)
-    filterHi.frequency.linearRampToValueAtTime(600, t + duration)
-
-    // ── Vibrato — kicks in after attack, depth tied to intensity ──────────
-    const vibDepth = pitchHz * (isFiller ? 0.004 : (vibratoGain?._depth ?? 0.018))
-    const vibDelay = t + attack + 0.04
-    vibratoGain.gain.setValueAtTime(0, t)
-    vibratoGain.gain.linearRampToValueAtTime(0, vibDelay)
-    vibratoGain.gain.linearRampToValueAtTime(vibDepth, vibDelay + 0.06)
-    vibratoGain.gain.linearRampToValueAtTime(0, t + duration)
-
-    // ── Breath noise onset ────────────────────────────────────────────────
-    // Short burst at word start — throat initiating sound.
-    // More breath on phrase starts for theatrical projection.
-    const breathMult = config.breathMult ?? 1.0
-    const breathAmt = isFiller      ? 0.018 * breathMult
-                    : isPhraseFinal ? 0.035 * breathMult
-                    : 0.065 * breathMult
-    if (breathGain) {
-      breathGain.gain.setValueAtTime(0, t)
-      breathGain.gain.linearRampToValueAtTime(breathAmt, t + 0.018)
-      breathGain.gain.linearRampToValueAtTime(0, t + 0.055)
+        const rb = mkNoise(rd2), rs = ac.createBufferSource(); rs.buffer = rb
+        const rbp = ac.createBiquadFilter(); rbp.type = 'bandpass'
+        rbp.frequency.value = Math.min(160, hz * .55); rbp.Q.value = .6
+        const rg = ac.createGain()
+        rg.gain.setValueAtTime(0, t1)
+        rg.gain.linearRampToValueAtTime(mx.r * .75, t2)
+        rg.gain.setValueAtTime(mx.r * .75, t3)
+        rg.gain.linearRampToValueAtTime(0, t5)
+        rs.connect(rbp); rbp.connect(rg); rg.connect(dest)
+        rs.start(t1); rs.stop(t5+.02)
     }
 
-    // ── Volume envelope — theatrical dynamic range ────────────────────────
-    // Fillers: murmured, withdrawn
-    // Phrase-final: trail off gently
-    // Normal words: full voice
-    const peakVol = isFiller      ? vol * 0.40
-                  : isPhraseFinal ? vol * 0.72
-                  : vol
-    envGain.gain.setValueAtTime(0, t)
-    envGain.gain.linearRampToValueAtTime(Math.min(1, peakVol), t + attack)
-    envGain.gain.setValueAtTime(Math.min(1, peakVol), t + duration - release)
-    envGain.gain.linearRampToValueAtTime(0, t + duration)
-  }
-
-
-  function stop() {
-    for (const fn of cancelFns) { try { fn() } catch(e) {} }
-    cancelFns = []
-    if (envGain && audioContext) {
-      envGain.gain.cancelScheduledValues(audioContext.currentTime)
-      envGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.02)
+    // Breath
+    if (sy.v > .4 && st > .025 && v.br > .005) {
+        const bl  = Math.min(st * .6, .04)
+        const bb  = mkNoise(bl + .005), bs = ac.createBufferSource(); bs.buffer = bb
+        const bh  = ac.createBiquadFilter(); bh.type = 'highpass'; bh.frequency.value = hz * 4
+        const bg  = ac.createGain()
+        bg.gain.setValueAtTime(v.br, t2)
+        bg.gain.linearRampToValueAtTime(0, t2 + bl)
+        bs.connect(bh); bh.connect(bg); bg.connect(dest)
+        bs.start(t2); bs.stop(t2 + bl + .005)
     }
-  }
 
-  function speak(text, opts = {}) {
-    stop()
-    if (!ensureAudioContext()) return
-    if (audioContext.state === 'suspended') audioContext.resume()
-    buildGraph()
+    // Formant filters
+    const fp = sy.v < .25
+        ? f1 * (.85 + v.wv * 1.4)
+        : f2 * (.85 + sy.v * .18)
+    const fc = f1 * .52
 
-    const trimmed = text.trim()
-    const style   = opts.style
-      ?? (trimmed.endsWith('?') ? 'question'
-        : trimmed.endsWith('!') ? 'exclamation'
-        : 'statement')
+    const fl1 = ac.createBiquadFilter(); fl1.type = 'bandpass'; fl1.Q.value = 6.0
+    fl1.frequency.setValueAtTime(f1 * .6, t1)
+    fl1.frequency.linearRampToValueAtTime(f1, t2)
+    fl1.frequency.setValueAtTime(f1, t3)
+    fl1.frequency.exponentialRampToValueAtTime(f1 * .55, t5)
 
-    const rawTokens = tokeniseWords(text)
-    const tokens    = maybeInjectFiller(rawTokens)
-    const pitches   = prosodyPitches(tokens, config.fundamental ?? 220, style)
+    const fl2 = ac.createBiquadFilter(); fl2.type = 'bandpass'; fl2.Q.value = 4.5
+    fl2.frequency.setValueAtTime(f2 * .22, t1)
+    fl2.frequency.exponentialRampToValueAtTime(fp, t2)
+    fl2.frequency.setValueAtTime(fp, t3)
+    fl2.frequency.exponentialRampToValueAtTime(fc, t5)
 
-    const msPerChar = config.msPerChar ?? 58
-    const minDur    = config.minDur    ?? 0.13
-    const maxDur    = config.maxDur    ?? 0.55
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .4; lp.frequency.value = 3600
+    const gf1 = ac.createGain(); gf1.gain.value = .55
+    const gf2 = ac.createGain(); gf2.gain.value = 1.0
 
-    let cursor = 0.02
+    // Nasality (Peig)
+    let ng = null, ng2 = null
+    if (v.ns > .05) {
+        const nf1 = ac.createBiquadFilter(); nf1.type = 'bandpass'
+        nf1.frequency.value = 1050; nf1.Q.value = 2.5
+        ng = ac.createGain()
+        ng.gain.setValueAtTime(0, t1)
+        ng.gain.linearRampToValueAtTime(v.ns * .9, t2)
+        ng.gain.setValueAtTime(v.ns * .9, t3)
+        ng.gain.linearRampToValueAtTime(0, t5)
+        om.connect(nf1); nf1.connect(ng)
 
-    tokens.forEach((token, i) => {
-      // Word duration: use forceDur for fillers, otherwise scale by char count
-      const isPhraseFinal = token.pause >= PAUSE.sentence
-      const durScale      = isPhraseFinal ? 1.25 : 1.0
-      const dur = token.forceDur
-        ? token.forceDur
-        : Math.min(maxDur,
-            Math.max(minDur, token.word.length * msPerChar / 1000 * durScale))
+        const nf2 = ac.createBiquadFilter(); nf2.type = 'bandpass'
+        nf2.frequency.value = 2500; nf2.Q.value = 3.0
+        ng2 = ac.createGain(); ng2.gain.value = v.ns * .25
+        om.connect(nf2); nf2.connect(ng2)
 
-      scheduleWord(pitches[i], cursor, dur, isPhraseFinal, !!token.isFiller, token.vowelChar)
-      cursor += dur + token.pause
-    })
-
-    if (opts.onDone) {
-      const id = setTimeout(opts.onDone, cursor * 1000 + 80)
-      cancelFns.push(() => clearTimeout(id))
+        gf1.gain.value = .55 * (1 - v.ns * .45)
+        gf2.gain.value = 1.0 * (1 - v.ns * .35)
     }
-  }
 
-  function destroy() {
-    stop()
-    teardown()
-    try { if (audioContext) audioContext.close() } catch(e) {}
-    audioContext = null
-  }
+    om.connect(fl1); om.connect(fl2)
+    fl1.connect(gf1); fl2.connect(gf2)
+    gf1.connect(lp); gf2.connect(lp)
 
-  return { speak, stop, destroy, config }
+    const env = ac.createGain()
+    env.gain.setValueAtTime(0, t1)
+    env.gain.linearRampToValueAtTime(1.0, t2)
+    env.gain.setValueAtTime(1.0, t3)
+    env.gain.linearRampToValueAtTime(.55, t4)
+    env.gain.linearRampToValueAtTime(0, t5)
+
+    lp.connect(env)
+    if (ng)  ng.connect(env)
+    if (ng2) ng2.connect(env)
+    env.connect(dest)
+
+    o1.start(t1); o1.stop(t5 + .008)
+    o2.start(t1); o2.stop(t5 + .008)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER — sequences notes against the AudioContext clock
+// ─────────────────────────────────────────────────────────────────────────────
+
+class Player {
+    constructor(ac, dest) {
+        this._ac   = ac
+        this._dest = dest
+        this._ss   = new SyllableStream()
+        this._nt   = 0     // next note time
+        this._ph   = 0     // previous Hz (for portamento)
+        this._spu  = .25   // seconds per unit (set from first note dur)
+        this._lid  = null
+        this._run  = false
+    }
+
+    stop() {
+        this._run = false
+        if (this._lid) { clearTimeout(this._lid); this._lid = null }
+    }
+
+    play(notes, voiceId, onDone) {
+        this.stop()
+        this._ss.reset()
+        const v    = VOICES[voiceId] || VOICES.peig
+        this._nt   = this._ac.currentTime + 0.06
+        this._ph   = 0
+        this._spu  = notes.find(n => n.type === 'syl')?.dur || .25
+        this._run  = true
+
+        const tick = idx => {
+            if (!this._run) return
+            if (idx >= notes.length) {
+                this._run = false
+                if (onDone) onDone()
+                return
+            }
+            const horizon = this._ac.currentTime + 0.65
+            let i = idx
+            while (this._nt < horizon && i < notes.length) {
+                const n = notes[i]
+                if (n.type === 'gap') {
+                    // Silent gap — just advance time
+                    this._nt += n.dur
+                } else {
+                    schedSyl(
+                        this._ac, this._dest,
+                        n.hz, this._nt, n.dur,
+                        this._ph, v, this._ss, this._spu,
+                        n.stressed
+                    )
+                    this._ph = n.hz
+                    this._nt += n.dur
+                }
+                i++
+            }
+            this._lid = setTimeout(() => tick(i), 40)
+        }
+        tick(0)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VoiceSynth — public class
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class VoiceSynth {
+    /**
+     * @param {object} opts
+     * @param {AudioContext}  opts.audioContext  — existing AC to share
+     * @param {AudioNode}     [opts.masterGain]  — node to connect output to
+     *                                             (defaults to AC.destination)
+     * @param {number}        [opts.volume]      — output gain, default 0.72
+     */
+    constructor({ audioContext, masterGain, volume = 0.72 } = {}) {
+        // Create our own AC if none provided (standalone use / testing)
+        if (audioContext) {
+            this._ac  = audioContext
+            this._own = false
+        } else {
+            this._ac  = new (window.AudioContext || window.webkitAudioContext)()
+            this._own = true
+        }
+
+        this._out = this._ac.createGain()
+        this._out.gain.value = volume
+        this._out.connect(masterGain || this._ac.destination)
+
+        this._player = new Player(this._ac, this._out)
+    }
+
+    /**
+     * Speak a line of Irish text.
+     * @param {string} gaText   — Irish language text
+     * @param {object} opts
+     * @param {string} opts.voice    — 'ronnie' | 'peig'
+     * @param {string} opts.tuneKey  — ABC K: field, e.g. 'Edor', 'Dmix', 'Gmaj'
+     * @param {Function} [opts.onDone] — called when speech ends
+     */
+    speak(gaText, { voice = 'peig', tuneKey = 'D', onDone } = {}) {
+        if (this._ac.state === 'suspended') this._ac.resume()
+        const voiceId = VOICES[voice] ? voice : 'peig'
+        const notes   = buildNotesWithRoot(gaText, tuneKey, voiceId)
+        this._out.gain.cancelScheduledValues(this._ac.currentTime)
+        this._out.gain.setValueAtTime(this._out.gain.value, this._ac.currentTime)
+        this._out.gain.linearRampToValueAtTime(0.72, this._ac.currentTime + 0.08)
+        this._player.play(notes, voiceId, onDone)
+    }
+
+    /**
+     * Play a short non-lexical interjection.
+     * @param {string} type  — 'hmm' | 'oh' | 'laugh' | 'distress' | 'mhm' | 'eist' | 'sigh'
+     * @param {object} opts
+     * @param {string} opts.voice    — 'ronnie' | 'peig'
+     * @param {string} opts.tuneKey  — for root pitch
+     * @param {string} [opts.rhythm] — 'reel'|'jig'|'waltz' etc. affects laugh pace
+     */
+    interject(type, { voice = 'peig', tuneKey = 'D', rhythm = 'reel' } = {}) {
+        if (this._ac.state === 'suspended') this._ac.resume()
+        const voiceId = VOICES[voice] ? voice : 'peig'
+        const ki      = parseKey(tuneKey)
+        const rHz     = rootHzForVoice(ki.rac, voiceId)
+        const builder = INTERJECTIONS[type] || INTERJECTIONS.hmm
+        const notes   = builder(rHz, rhythm)
+        this._player.play(notes, voiceId, null)
+    }
+
+    /**
+     * Stop all speech immediately.
+     */
+    stop() {
+        this._player.stop()
+    }
+
+    /**
+     * Fade out and stop.
+     * @param {number} [ms=500]
+     */
+    fadeOut(ms = 500) {
+        const t = this._ac.currentTime
+        this._out.gain.cancelScheduledValues(t)
+        this._out.gain.setValueAtTime(this._out.gain.value, t)
+        this._out.gain.linearRampToValueAtTime(0, t + ms / 1000)
+        setTimeout(() => this.stop(), ms + 100)
+    }
+
+    /**
+     * Derive what emotion the synth would assign to a line,
+     * without playing it. Useful for debugging.
+     * @param {string} gaText
+     * @param {string} tuneKey
+     * @returns {string}
+     */
+    debugEmotion(gaText, tuneKey = 'D') {
+        return deriveEmotion(gaText, parseKey(tuneKey).dark)
+    }
+
+    destroy() {
+        this.stop()
+        if (this._own) {
+            try { this._ac.close() } catch(e) {}
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convenience: derive voice from champion gender
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns 'ronnie' or 'peig' from a champion object.
+ * Checks champion.gender, champion.sex, champion.pronouns in that order.
+ */
+/**
+ * Returns 'ronnie' (male) or 'peig' (female) from a champion object.
+ * Reads champion.pronouns.en.subject or .ga.subject.
+ * Defaults to 'ronnie' if pronouns are absent or unrecognised.
+ */
+export function championVoice(champion) {
+    const subject = (
+        champion?.pronouns?.en?.subject ||
+        champion?.pronouns?.ga?.subject ||
+        ''
+    ).toLowerCase().trim()
+    // Irish: sí = she.  English: she/her.  Everything else → male.
+    if (/^she$|^sí$/.test(subject)) return 'peig'
+    return 'ronnie'
+}
+
+/**
+ * Returns the ABC K: field string from a champion object.
+ * Tries champion.tuneKey (fast path, if pre-computed at hero select time).
+ * Otherwise derives from champion.themeTuneTitle via allTunes lookup.
+ * Falls back to 'D' (D major) if nothing found.
+ *
+ * Title normalisation: "Swallowtail, The" → "swallowtailThe"
+ * Matches the camelCase key format used in allTunes.js.
+ */
+export function championTuneKey(champion, allTunes) {
+    // Fast path — pre-computed key stored on champion
+    if (champion?.tuneKey) return champion.tuneKey
+
+    if (!allTunes || !champion?.themeTuneTitle) return 'D'
+
+    // Normalise title to camelCase allTunes key
+    const words = champion.themeTuneTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')   // strip punctuation inc. commas
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+    const key = words
+        .map((w, i) => i === 0 ? w : w[0].toUpperCase() + w.slice(1))
+        .join('')
+
+    const abc = allTunes[key]
+    if (!abc) {
+        console.warn(`[VoiceSynth] tune not found for "${champion.themeTuneTitle}" (key: "${key}")`)
+        return 'D'
+    }
+
+    const m = abc.match(/^K:\s*(.+)$/m)
+    if (m) return m[1].trim()
+
+    console.warn(`[VoiceSynth] no K: field in tune "${key}"`)
+    return 'D'
 }
 

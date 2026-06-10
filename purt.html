@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Port a Beul — Mouth Music Test Player</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Georgia', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: normal;
+    color: #e6edf3;
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    color: #6e7681;
+    margin-bottom: 32px;
+    font-style: italic;
+  }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 24px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 20px;
+  }
+
+  .card h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #6e7681;
+    margin-bottom: 16px;
+  }
+
+  /* Tune selector */
+  select {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236e7681' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+
+  select:focus { outline: none; border-color: #58a6ff; }
+
+  .tune-meta {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #6e7681;
+    min-height: 18px;
+  }
+
+  /* Transport */
+  .transport {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 0;
+  }
+
+  button {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    padding: 10px 24px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  button:hover { background: #30363d; border-color: #58a6ff; }
+
+  button.primary {
+    background: #238636;
+    border-color: #2ea043;
+    color: #fff;
+    flex: 1;
+  }
+
+  button.primary:hover { background: #2ea043; }
+  button.primary.playing { background: #6e2c2c; border-color: #a03030; }
+  button.primary.playing:hover { background: #a03030; }
+
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Intensity slider */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .slider-label {
+    font-size: 0.82rem;
+    color: #8b949e;
+    white-space: nowrap;
+    width: 110px;
+  }
+
+  input[type=range] {
+    flex: 1;
+    accent-color: #58a6ff;
+    cursor: pointer;
+    height: 4px;
+  }
+
+  .slider-value {
+    font-size: 0.82rem;
+    color: #58a6ff;
+    width: 36px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Note visualiser */
+  #noteDisplay {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 36px;
+    align-items: flex-end;
+  }
+
+  .note-pill {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    color: #8b949e;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .note-pill.active {
+    background: #1f4b3e;
+    border-color: #2ea043;
+    color: #56d364;
+  }
+
+  /* Debug log */
+  #log {
+    width: 100%;
+    max-width: 560px;
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 0.75rem;
+    color: #6e7681;
+    height: 120px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  #log .ok  { color: #56d364; }
+  #log .err { color: #f85149; }
+  #log .inf { color: #58a6ff; }
+
+  .syllable-current {
+    font-size: 1.8rem;
+    color: #58a6ff;
+    letter-spacing: 0.05em;
+    min-height: 2.4rem;
+    font-style: italic;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  .voice-btn {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    padding: 10px 8px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.5;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .voice-btn:hover { background: #30363d; border-color: #58a6ff; }
+  .voice-btn.active {
+    background: #1a3a5c;
+    border-color: #58a6ff;
+    color: #e6edf3;
+  }
+</style>
+</head>
+<body>
+
+<h1>Port a Beul</h1>
+<p class="subtitle">Mouth music synthesiser — Irish lilting (did-il dee dai) — Corra project</p>
+
+<!-- Tune selection -->
+<div class="card">
+  <h2>Tune</h2>
+  <select id="tuneSelect"></select>
+  <div class="tune-meta" id="tuneMeta">—</div>
+</div>
+
+<!-- Voice -->
+<div class="card">
+  <h2>Voice</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="voiceBtns">
+    <button class="voice-btn active" data-voice="ronnie">Ronnie<br><span style="font-size:0.72rem;color:#6e7681">deep male · gravelly</span></button>
+    <button class="voice-btn" data-voice="sean">Seán<br><span style="font-size:0.72rem;color:#6e7681">young male · pure</span></button>
+    <button class="voice-btn" data-voice="maire">Máire<br><span style="font-size:0.72rem;color:#6e7681">female · Sinéad-clear</span></button>
+    <button class="voice-btn" data-voice="peig">Peig<br><span style="font-size:0.72rem;color:#6e7681">female · nasal · Kerry</span></button>
+  </div>
+</div>
+
+<!-- Transport -->
+<div class="card">
+  <h2>Playback</h2>
+  <div class="transport">
+    <button class="primary" id="playBtn">▶ Sing</button>
+    <button id="reloadBtn" title="Reload tune (re-parse ABC)">↺ Reload</button>
+  </div>
+  <div class="syllable-current" id="sylDisplay"></div>
+</div>
+
+<!-- Storm intensity -->
+<div class="card">
+  <h2>Storm Intensity</h2>
+  <div class="slider-row">
+    <span class="slider-label">Calm → Chaos</span>
+    <input type="range" id="intensitySlider" min="0" max="100" value="0">
+    <span class="slider-value" id="intensityVal">0%</span>
+  </div>
+  <div style="margin-top:10px;" class="slider-row">
+    <span class="slider-label">Tempo (bpm)</span>
+    <input type="range" id="tempoSlider" min="40" max="200" value="100">
+    <span class="slider-value" id="tempoVal">100</span>
+  </div>
+</div>
+
+<!-- Parsed notes visualiser -->
+<div class="card">
+  <h2>Parsed Notes <span id="noteCount" style="color:#6e7681;font-weight:normal;"></span></h2>
+  <div id="noteDisplay"></div>
+</div>
+
+<!-- Log -->
+<div id="log"></div>
+
+<!-- abcjs from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.3/dist/abcjs-basic-min.js"></script>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// INLINE TUNE LIBRARY
+// A representative sample of champion tunes — enough to test all rhythm types.
+// Add more from allTunes.js as needed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TUNES = {
+  // REELS
+  drowsyMaggie: {
+    title: 'Drowsy Maggie (reel)',
+    abc: `X:1\nT:Drowsy Maggie\nR:reel\nM:4/4\nL:1/8\nK:Edor\n|:E2BE dEBE|E2BE AFDF|E2BE dEBE|BABc dAFD:|\nd2fd c2ec|defg afge|d2fd c2ec|BABc dAFA|\nd2fd c2ec|defg afge|afge fdec|BABc dAFD|`
+  },
+  silverSpearThe: {
+    title: 'Silver Spear (reel)',
+    abc: `X:6\nT:Silver Spear, The\nR:reel\nM:4/4\nL:1/8\nK:Dmaj\nA|:FA (3AAA BAFA|dfed BddA|FA (3AAA BAFA|dfed (3BdB AG|\nFA (3AAA BAFA|dfed Bdef|gage fgfe|1 dfed (3BdB AG:|2 dfed BdAd||\n|:fa (3aaa bfaf|gfed Bdde|fa (3aaa bfaf|gfed (3BdB A2|\nfa (3aaa bfaf|gfed Bdef|~g3 e ~f3 e|1 dfed BdAd:|2 dfed B2 AG||`
+  },
+  // JIGS
+  keshThe: {
+    title: 'Kesh, The (jig)',
+    abc: `X:2\nT:Kesh, The\nR:jig\nM:6/8\nL:1/8\nK:Gmaj\n|:G3 GAB|A3 ABd|edd gdd|edB dBA|\nGAG GAB|ABA ABd|edd gdd|BAF G3:|\n|:B2B d2d|ege dBA|B2B dBG|ABA AGA|BAB d^cd|ege dBd|gfg aga|bgg g3:|`
+  },
+  butterflyThe: {
+    title: 'Butterfly, The (slip jig)',
+    abc: `X:4\nT:Butterfly, The\nC:Tommy Potts\nR:slip jig\nM:9/8\nL:1/8\nK:Emin\n|:B2E G2E F3|B2E G2E FED|B2E G2E F3|B2d d2B AFD:|\n|:B2d e2f g3|B2d g2e dBA|B2d e2f g2a|b2a g2e dBA:|\n|:B3 B2A G2A|B3 BAB dBA|B3 B2A G2A|B2d g2e dBA:|`
+  },
+  // HORNPIPE
+  boysOfBluehillThe: {
+    title: 'Boys of Bluehill (hornpipe)',
+    abc: `X:30\nT:Boys Of Bluehill, The\nR:hornpipe\nM:4/4\nL:1/8\nK:Dmaj\n|:FA|BA FA D2 FA|BA (3Bcd e2 de|fa gf eg fe|df ed B2 dB|\nBA FA D2 FA|BA (3Bcd e2 de|fa gf eg fe|d2 f2 d2:|\n|:fg|af df a2 g2|ef ga b2 ag|fa gf eg fe|df ed B2 dB|\nBA FA D2 FA|BA (3Bcd e2 de|fa gf eg fe|d2 f2 d2:|`
+  },
+  // POLKA
+  johnsRyan: {
+    title: "John Ryan's (polka)",
+    abc: `X:40\nT:John Ryan's\nR:polka\nM:2/4\nL:1/8\nK:Dmaj\n|: dd B/c/d/B/ | AF ED | dd B/c/d/B/ | AF E2 |\ndd B/c/d/B/ | AF Ad | fd ec | d2 d2 :|\n|: fd de/f/ | gf ed | fd de/f/ | gf a2 |\nfd de/f/ | gf ed | fd ec | d2 d2 :|`
+  },
+  // WALTZ
+  sBheagSMhor: {
+    title: 'Sí Bheag Sí Mhór (waltz)',
+    abc: `X:23\nT:Sí Bheag Sí Mhór\nC:Turlough O'Carolan\nR:waltz\nM:3/4\nL:1/8\nK:Dmaj\nde|:f3e d2|d2 de d2|B4 A2|F4 A2|BA Bc d2|e4 de|f2 f2 e2|\nd4 f2|B4 e2|A4 d2|F4 E2|D4 e2|B4 e2|A4 dc|d6|d4 de:|\n|:f2 fe d2|ed ef a2|b4 a2|f4 ed|e4 a2|f4 e2|d4 B2|A4 BA|\nF4 E2|D4 f2|B4 e2|A4 a2|ba gf ed|e4 dc|d6|1 d4 de:|2 d6||`
+  },
+  // MARCH
+  brianBorusMarch: {
+    title: "Brian Boru's March",
+    abc: `X:184\nT:Brian Boru's March\nR:jig\nM:6/8\nL:1/8\nK:Amin\ned|:c3/2B/A Aed|cBA Adc|B3/2A/G Gdc|BAG Ged|\nc3/2B/A Aed|cBA A3|Acd e2 d|1 cBA Aed:|2 cBA A2 G||\n|:Acd e2 d|e2 d e3/2c/A|GAB d2 B|d2 B d3/2B/G|Acd e2 d|\ne2 d e3/2c/A|A3/2c/d e2 d|1 c3/2B/A A2 G:|2 c3/2B/A A2 B||`
+  },
+  // SLOWER / ATMOSPHERIC
+  darkIslandThe: {
+    title: 'Dark Island (waltz)',
+    abc: `X:246\nT:Dark Island, The\nC:Iain MacLachlan\nR:waltz\nM:3/4\nL:1/8\nK:Gmaj\nEG|:A4 A2|G4 G2|E3 D C2|D4 GA|\n[1 B3 A G2|B d3 G2|B3 A G2|A4 E2:|\n[2 B3 D dB|A3 D BA|G6|G4 Bc||\nd2 B2 d2|B3 A G2|E3 C E2|D4 GA|\nB3 A G2|B d3 GA|B3 A G2|A4 E2|\nA4 A2|G4 G2|E3 D C2|D4 GA|\nB3 D dB|A3 D BA|G6|G6||`
+  },
+  inisheer: {
+    title: 'Inisheer (waltz)',
+    abc: `X:34\nT:Inisheer\nC:Tommy Walsh\nR:waltz\nM:3/4\nL:1/8\nK:Dmix\n|:B3A Bd|B3A Bd|E3B AB|D3B AG|\nB3A Bd|B3A Bd|G3B A/G/F|1 G3E DG:|2 G3A Bd||\ne3f ed|B3A Bd|ef ed B/c/d|\ne3A Bd|e3f ed|B3A Bd|G3B A/G/F|\nG3A Bd|e3f ed|B3A Bd|gf ed B/c/d|\ne3A Bd|e3f ed|B3A Bd|D3B A/G/F|G6||`
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYNTHESIS ENGINE (self-contained, no imports)
+// Mirrors stormSinger.js exactly — easy to diff/update
+// ─────────────────────────────────────────────────────────────────────────────
+
+const A4_HZ = 440
+const A4_SEMITONE = 9
+
+function semitoneToHz(st) {
+  return A4_HZ * Math.pow(2, (st - A4_SEMITONE) / 12)
+}
+
+// ── Irish lilting syllable vocabulary ─────────────────────────────────────────
+//
+// Based on Mullins (2014) transcription of Seamus Fay's "Humours of
+// Ballyloughlin" — the most rigorous empirical study of Irish lilting.
+//
+// KEY FINDINGS FROM THE DATA:
+//   Consonants: [d] 546×, [l] 296×, [j] 71×, [m] 25×, [p] 24×, [t] 12×
+//   Vowels:     [ə] 297×, [i] 141×, [æ] 88×, [ɪ] 63×, [a] 48×, [eɪ] 66×
+//
+// The single most common vocable is [dəl] (151×) — schwa+l, NOT "dee".
+// The most common strong-beat vocables: [daɪ] 29×, [da] 24×, [dɪ] 53×
+// The most common weak-beat vocables:   [dəl] 151×, [di] 74×, [i] 60×, [də] 53×
+// Terminators (agogic accent, end of section): [jaʊ], [doʊ], [daʊ]
+// The archetypal group: [dɪ-dəl-i-dəl]
+//
+// Formant brightness v: 0=dark/back "ə/a/u", 0.5=mid "æ/ɪ/eɪ", 1.0=bright "i/iː"
+// Note: the dominant vowel [ə] is DARK (v≈0.15) — this is the surprise.
+// The "dee" sound exists but is much less common than we assumed.
+
+const SYLLABLES = {
+
+  // STRONG — land on the beat. [d] + a beat vowel.
+  // Mullins: [daɪ] most common downbeat (97% strong), [da] 96% strong,
+  // [dɪ] 60% strong, [deɪ] 27% strong, [dəm] 23% strong, [jeɪ] 20%
+  strong: [
+    { label: 'daɪ',  v: 0.62 },  // [daɪ] — "die" — 97% downbeat, 29 occ
+    { label: 'da',   v: 0.35 },  // [da]  — "dah" — 96% downbeat, 24 occ
+    { label: 'dɪ',   v: 0.55 },  // [dɪ]  — "dih" — 60% strong,  53 occ
+    { label: 'deɪ',  v: 0.65 },  // [deɪ] — "day" — 27% strong,  15 occ
+    { label: 'jeɪ',  v: 0.65 },  // [jeɪ] — "yay" — 20% strong,  44 occ
+    { label: 'dəm',  v: 0.15 },  // [dəm] — "dum" — 23% strong,  22 occ
+    { label: 'dal',  v: 0.35 },  // [dal] — "dal" — 45% strong,  11 occ
+    { label: 'ləl',  v: 0.35 },  // [ləl] — "lul" — 36% strong,  11 occ
+  ],
+
+  // WEAK — between beats, the "off" of the diddly pair.
+  // Mullins: [dəl] 96% weak (151 occ!), [di] 100% weak (74 occ),
+  // [i] 100% weak (60 occ), [də] 91% weak (53 occ), [dæl] 86% weak (88 occ)
+  weak: [
+    { label: 'dəl',  v: 0.15 },  // [dəl]  — "dul" — the workhorse, 151 occ
+    { label: 'di',   v: 0.90 },  // [di]   — "dee" — 100% weak,     74 occ
+    { label: 'i',    v: 1.00 },  // [i]    — bare "ee" — 100% weak, 60 occ
+    { label: 'də',   v: 0.15 },  // [də]   — "duh" — 91% weak,      53 occ
+    { label: 'dæl',  v: 0.45 },  // [dæl]  — "dal" — 86% weak,      88 occ
+    { label: 'du',   v: 0.05 },  // [du]   — "doo" — 100% weak,      16 occ
+    { label: 'tə',   v: 0.15 },  // [tə]   — "tuh" — 100% weak,      11 occ
+  ],
+
+  // LONG — held notes (agogic accent within phrase). [da], [doʊ], [deɪ]
+  long: [
+    { label: 'da',   v: 0.35 },
+    { label: 'deɪ',  v: 0.65 },
+    { label: 'dɪ',   v: 0.55 },
+    { label: 'dal',  v: 0.35 },
+  ],
+
+  // TERMINATOR — end of melodic section (dotted quarter agogic accent).
+  // Mullins: [jaʊ] 9×, [doʊ] 3×, [daʊ] 2×. Diphthongs ONLY here.
+  // These never appear elsewhere — reserved for cadence points.
+  terminator: [
+    { label: 'jaʊ',  v: 0.40 },  // the most common ender
+    { label: 'doʊ',  v: 0.10 },
+    { label: 'daʊ',  v: 0.30 },
+  ],
+
+  // OPENER — first vocable of a phrase.
+  // Often [da], [dəl da], or compound starts like [daɪ], [da ha]
+  opener: [
+    { label: 'da',   v: 0.35 },
+    { label: 'daɪ',  v: 0.62 },
+    { label: 'dəl',  v: 0.15 },
+    { label: 'deɪ',  v: 0.65 },
+  ],
+}
+
+// Formant frequencies based on actual IPA vowels from the data.
+// [ə] (schwa): F1≈500, F2≈1500 — neutral, mid, the Mullins dominant vowel
+// [i] (ee):    F1≈300, F2≈2800 — high front bright
+// [æ] (bat):   F1≈700, F2≈1800 — open front
+// [a] (father):F1≈800, F2≈1200 — open back
+// [eɪ] (day):  F1≈400, F2≈2200 — mid front
+// We map v→F2 to capture this spectrum.
+function formantFreqs(v) {
+  // Widened range for more distinct vowel shapes.
+  // F1: 300Hz (bright closed "ee") → 700Hz (wide open "ah")
+  // F2: 900Hz (dark closed schwa) → 3200Hz (bright open "ee")
+  // This makes [daɪ] vs [dəl] sound genuinely different, not just slightly different.
+  const f1 = 300 + (1 - v) * 400
+  const f2 = 900 + v * 2300
+  return { f1, f2 }
+}
+
+// ── Syllable stream ────────────────────────────────────────────────────────────
+//
+// Models the actual pattern of Irish lilting:
+//   - Notes come in PAIRS: a stressed note followed by an unstressed flick.
+//     The "diddly" unit. This is the engine of the rhythm.
+//   - Every other note (or every third in jig time) is a flick.
+//   - Phrases start with an opener.
+//   - Long notes get a long syllable.
+//
+// The pair model: we track whether the current note is the "strong" or
+// "weak" half of a diddly unit. Strong gets a short/long syllable,
+// weak gets a flick. We reset the pair at phrase boundaries and after
+// long notes (which don't have a paired flick — they stand alone).
+
+// ── Syllable stream ────────────────────────────────────────────────────────────
+//
+// Models the strong/weak alternation from Mullins's data.
+// Strong beats get beat-landing vocables ([daɪ], [da], [dɪ], [jeɪ]…)
+// Weak positions get off-beat vocables ([dəl], [di], [i], [də], [dæl]…)
+//
+// The pair model: strong → weak → strong → weak…
+// Phrase openings always start strong with an opener vocable.
+// Long notes (held) get a long vocable and reset the pair.
+// Notes we detect as phrase-terminal get a terminator vocable.
+
+class SyllableStream {
+  constructor() {
+    this._idx = { strong:0, weak:0, long:0, opener:0, terminator:0 }
+    this._phrasePos = 0
+    this._isWeak    = false
+    this._phraseLen = 8 + Math.floor(Math.random() * 4)  // 8–11 notes per phrase
+  }
+
+  next(durationUnits, isTerminal) {
+    const isOpener = this._phrasePos === 0
+    this._phrasePos++
+
+    // Phrase boundary — irregular length for naturalness
+    if (this._phrasePos >= this._phraseLen) {
+      this._phrasePos = 0
+      this._isWeak    = false
+      this._phraseLen = 8 + Math.floor(Math.random() * 4)
+    }
+
+    // Terminal vocable — end of melodic section (long note at cadence)
+    // Mullins: [jaʊ], [doʊ], [daʊ] exclusively here
+    if (isTerminal) {
+      this._isWeak = false
+      const pool = SYLLABLES.terminator
+      const s = pool[this._idx.terminator % pool.length]
+      this._idx.terminator++
+      return s
+    }
+
+    // Opener
+    if (isOpener) {
+      this._isWeak = true  // next note is the paired weak
+      const pool = SYLLABLES.opener
+      const s = pool[this._idx.opener % pool.length]
+      this._idx.opener++
+      return s
+    }
+
+    // Long note — stands alone, no paired weak after it
+    if (durationUnits > 2) {
+      this._isWeak = false
+      const pool = SYLLABLES.long
+      const s = pool[this._idx.long % pool.length]
+      this._idx.long++
+      return s
+    }
+
+    // Weak position — the "dəl/di/i" off-beat syllables
+    if (this._isWeak) {
+      this._isWeak = false
+      const pool = SYLLABLES.weak
+      if (Math.random() < 0.10) this._idx.weak++
+      const s = pool[this._idx.weak % pool.length]
+      this._idx.weak++
+      return s
+    }
+
+    // Strong position — the beat-landing syllable
+    this._isWeak = true
+    const pool = SYLLABLES.strong
+    if (Math.random() < 0.10) this._idx.strong++
+    const s = pool[this._idx.strong % pool.length]
+    this._idx.strong++
+    return s
+  }
+
+  reset() {
+    this._phrasePos = 0
+    this._isWeak    = false
+    this._phraseLen = 8 + Math.floor(Math.random() * 4)
+  }
+}
+
+function parseTuneNotes(abcString) {
+  const notes = []
+  try {
+    const parsed = ABCJS.parseOnly(abcString)
+    if (!parsed || !parsed[0]) return notes
+    const tune = parsed[0]
+    const PITCH_TO_ST = [0, 2, 4, 5, 7, 9, 11]
+
+    for (const line of (tune.lines || [])) {
+      for (const staff of (line.staff || [])) {
+        for (const voice of (staff.voices || [])) {
+          for (const item of voice) {
+            if (item.el_type !== 'note') continue
+            if (item.rest) continue
+            if (!item.pitches || item.pitches.length === 0) continue
+
+            const pitch = item.pitches[0]
+            const pitchIdx = pitch.pitch
+            if (pitchIdx === undefined || pitchIdx === null) continue
+
+            const baseSt = PITCH_TO_ST[((pitchIdx % 7) + 7) % 7]
+            const octave  = Math.floor(pitchIdx / 7)
+            let st = baseSt + octave * 12
+
+            if (pitch.accidental === 'sharp')       st += 1
+            else if (pitch.accidental === 'flat')   st -= 1
+            else if (pitch.accidental === 'dsharp') st += 2
+            else if (pitch.accidental === 'dflat')  st -= 2
+
+            const hz = semitoneToHz(st)
+            if (hz < 60 || hz > 2200) continue
+
+            const dur = item.duration || 0.5
+            notes.push({ hz, duration: dur })
+          }
+        }
+      }
+    }
+  } catch(e) {
+    log('err', 'ABC parse error: ' + e.message)
+  }
+  return notes
+}
+
+// TEMPO_SETTINGS matches TradSessionPlayer exactly — ms per measure
+const TEMPO_SETTINGS_MS = {
+  reel:1300, jig:1550, slipjig:1650, hornpipe:1500, polka:1100,
+  waltz:2000, march:1400, slide:1000, barndance:1200
+}
+
+// Parse M: header to get how many L:1/8 units fit in one measure.
+// abcjs gives duration as a fraction of a whole note, so:
+//   whole note = 8 eighth notes
+//   duration 0.125 = 1 eighth note = 1 L:1/8 unit
+//   duration 0.25  = 2 eighth notes = 2 L:1/8 units
+// unitsPerMeasure = numerator * (8 / denominator)
+// e.g. 4/4 → 4*(8/4) = 8,  6/8 → 6*(8/8) = 6,  9/8 → 9,  3/4 → 6,  2/4 → 4,  12/8 → 12
+function meterToUnitsPerMeasure(meterStr) {
+  const m = (meterStr || '4/4').trim().match(/(\d+)\/(\d+)/)
+  if (!m) return 8
+  return parseInt(m[1]) * (8 / parseInt(m[2]))
+}
+
+// Returns seconds per L:1/8 unit, accounting for meter and user tempo multiplier.
+// abcjs note.duration * SEC_PER_UNIT = actual note duration in seconds.
+function secPerUnit(rhythmType, meterStr) {
+  const tempoMs = TEMPO_SETTINGS_MS[rhythmType] || 1300
+  const units   = meterToUnitsPerMeasure(meterStr)
+  return (tempoMs / 1000) / units / tempoMult
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOICE PRESETS
+//
+// oscMix: { tri, saw, rough }
+//   tri   = triangle oscillator — warm, odd harmonics, pure tone
+//   saw   = sawtooth — full harmonic series, bright/reedy
+//   rough = roughness amount — see synthesis section for how this works
+//
+// nasality: 0–1
+//   Adds a nasal pole around 1000-1100Hz. Reduces F1/F2 gains.
+//   Characteristic of Munster Irish speakers (Peig).
+//
+// octaveShift: -1 to +1
+//   Transposes the note frequency before synthesis.
+//   Ronnie: -1 (tunes sound an octave lower)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VOICES = {
+
+  // ── Ronnie — after Ronnie Drew ────────────────────────────────────────
+  // Bass-baritone, gravel quarry. Pushed well past caricature territory.
+  // octaveShift -1.3 puts the tune between one and two octaves down —
+  // into true bass range, around C2-G2 for a typical reel.
+  ronnie: {
+    label:          'Ronnie (deep male)',
+    octaveShift:    -1.3,
+    formantScale:   0.48,        // extremely dark — pipe organ territory
+    oscMix:         { tri: 0.12, saw: 0.38, rough: 0.50 },
+    breathiness:    0.0,
+    consonantVol:   1.00,        // maximum thud
+    clickVol:       0.08,        // almost no click — all thud
+    voicedFrac:     0.78,
+    onsetMs:        45,          // very slow — hauling the note up from the deep
+    closeMs:        55,
+    weakVowelScale: 0.72,        // weak syllables stay open — gravel fills everything
+    nasality:       0.0,
+  },
+
+  // ── Seán — pure young male tenor ──────────────────────────────────────
+  sean: {
+    label:          'Seán (young male)',
+    octaveShift:    0,
+    formantScale:   0.90,
+    oscMix:         { tri: 0.82, saw: 0.16, rough: 0.02 },
+    breathiness:    0.006,
+    consonantVol:   0.52,
+    clickVol:       0.72,        // snappy click — young and eager
+    voicedFrac:     0.62,
+    onsetMs:        13,
+    closeMs:        22,
+    weakVowelScale: 0.28,        // tight — very crisp weak syllables
+    nasality:       0.0,
+  },
+
+  // ── Máire — after Sinéad O'Connor ─────────────────────────────────────
+  // Pushed further: even more triangle-pure, even higher formants,
+  // even faster and more precise. The [daɪ] should ring like a bell.
+  maire: {
+    label:          'Máire (pure female)',
+    octaveShift:    0,
+    formantScale:   1.22,        // very high and forward
+    oscMix:         { tri: 0.92, saw: 0.07, rough: 0.01 },
+    breathiness:    0.004,
+    consonantVol:   0.40,
+    clickVol:       0.65,
+    voicedFrac:     0.64,
+    onsetMs:        10,          // sharpest snap of all four
+    closeMs:        18,
+    weakVowelScale: 0.22,        // weakest vowels of all — very crisp
+    nasality:       0.0,
+  },
+
+  // ── Peig — after Peig Sayers ──────────────────────────────────────────
+  // Pushed further: more nasality, slower, more deliberate.
+  // The nasality should dominate — everything filtered through the nose.
+  peig: {
+    label:          'Peig (nasal female)',
+    octaveShift:    0,
+    formantScale:   1.02,
+    oscMix:         { tri: 0.44, saw: 0.30, rough: 0.26 },
+    breathiness:    0.022,
+    consonantVol:   0.32,        // very gentle — barely there
+    clickVol:       0.14,        // almost no click at all
+    voicedFrac:     0.80,        // long and slow
+    onsetMs:        40,
+    closeMs:        52,
+    weakVowelScale: 0.70,        // weak syllables very open — nasal hum
+    nasality:       0.70,        // strong — the defining quality
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER STATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+let ac         = null
+let masterGain = null
+let nodes      = []
+let running    = false
+let loopId     = null
+let notes      = []
+let syllables  = new SyllableStream()
+let cursor     = 0
+let nextNoteT  = 0
+let spu        = 0.1625
+let intensity  = 0
+let tempoMult  = 1.0
+let prevHz     = 0
+let voice      = VOICES.ronnie  // active voice preset
+
+// Large lookahead so the scheduler always has notes queued ahead of playback.
+// With fast tunes (~0.16s/note) and 40ms ticks we need at least 0.5s ahead.
+const SCHEDULE_AHEAD = 0.6
+
+function ensureAC() {
+  if (ac) return
+  ac = new (window.AudioContext || window.webkitAudioContext)()
+  masterGain = ac.createGain()
+  masterGain.gain.value = 0.7
+  masterGain.connect(ac.destination)
+  log('ok', 'AudioContext created (' + ac.sampleRate + ' Hz)')
+}
+
+function startSinging(tuneKey) {
+  stopSinging()
+  ensureAC()
+  if (ac.state === 'suspended') ac.resume()
+
+  const tune = TUNES[tuneKey]
+  if (!tune) { log('err', 'Tune not found: ' + tuneKey); return }
+
+  const rhythmMatch = tune.abc.match(/^R:\s*(.+)$/m)
+  const rhythmType  = rhythmMatch ? rhythmMatch[1].trim().toLowerCase().replace(/\s+/g,'') : 'reel'
+  const meterMatch  = tune.abc.match(/^M:\s*(.+)$/m)
+  const meterStr    = meterMatch ? meterMatch[1].trim() : '4/4'
+
+  spu = secPerUnit(rhythmType, meterStr)
+
+  notes = parseTuneNotes(tune.abc)
+  if (notes.length === 0) {
+    log('err', 'No notes parsed — check ABC. See console for details.')
+    try {
+      const p = ABCJS.parseOnly(tune.abc)
+      console.log('[PortaBeul] raw parse:', JSON.stringify(p[0]?.lines?.[0]?.staff?.[0]?.voices?.[0]?.slice(0,5), null, 2))
+    } catch(e) {}
+    return
+  }
+
+  const noteDurExample = (notes[0].duration * spu).toFixed(3)
+  log('ok', notes.length + ' notes · ' + rhythmType + ' (' + meterStr + ') · ' + spu.toFixed(4) + 's/unit · first note=' + noteDurExample + 's')
+  renderNotes(notes)
+
+  syllables = new SyllableStream()
+  cursor    = 0
+  prevHz    = 0
+  // Start scheduling from now — lookahead window will fill the buffer immediately
+  nextNoteT = ac.currentTime + 0.05
+  running   = true
+
+  // Fade in
+  masterGain.gain.cancelScheduledValues(ac.currentTime)
+  masterGain.gain.setValueAtTime(0, ac.currentTime)
+  masterGain.gain.linearRampToValueAtTime(0.7, ac.currentTime + 0.8)
+
+  scheduleTick()
+  log('inf', 'Singing started')
+}
+
+function stopSinging() {
+  running = false
+  if (loopId) { clearTimeout(loopId); loopId = null }
+  if (masterGain && ac) {
+    masterGain.gain.cancelScheduledValues(ac.currentTime)
+    masterGain.gain.setValueAtTime(masterGain.gain.value, ac.currentTime)
+    masterGain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.8)
+  }
+  // Teardown scheduled nodes after fade
+  const toClean = [...nodes]
+  nodes = []
+  setTimeout(() => {
+    for (const n of toClean) {
+      try { n.disconnect() } catch(e) {}
+      try { if (n.stop) n.stop() } catch(e) {}
+    }
+  }, 1200)
+  document.getElementById('sylDisplay').textContent = ''
+  log('inf', 'Singing stopped')
+}
+
+function scheduleTick() {
+  if (!running) return
+  const now     = ac.currentTime
+  const horizon = now + SCHEDULE_AHEAD
+
+  while (nextNoteT < horizon) {
+    const note = notes[cursor]
+    if (!note) {
+      cursor = 0
+      syllables.reset()
+      continue
+    }
+    // note.duration is a fraction of a whole note (abcjs convention).
+    // Multiply by 8 to get L:1/8 units, then by spu to get seconds.
+    const durSec = note.duration * 8 * spu
+    scheduleSyllable(note.hz, nextNoteT, durSec, cursor, prevHz)
+    prevHz = note.hz
+    nextNoteT += durSec
+    cursor++
+  }
+
+  loopId = setTimeout(scheduleTick, 40)
+}
+
+function scheduleSyllable(baseHz, when, durSec, noteIdx, fromHz) {
+  if (!ac || !masterGain) return
+  if (durSec < 0.03) return
+
+  // Apply voice octave shift — Ronnie sings an octave lower
+  const hz = baseHz * Math.pow(2, voice.octaveShift || 0)
+  const fromHzShifted = fromHz ? fromHz * Math.pow(2, voice.octaveShift || 0) : 0
+
+  // ── Syllable selection ────────────────────────────────────────────────
+  const durationUnits = durSec / spu
+  const isTerminal    = durationUnits >= 3
+  const syl = syllables.next(durationUnits, isTerminal)
+
+  // ── Formants scaled by voice ──────────────────────────────────────────
+  const { f1: f1base, f2: f2base } = formantFreqs(syl.v)
+  const f1 = f1base * voice.formantScale
+  const f2 = f2base * voice.formantScale
+
+  // ── Timing landmarks ──────────────────────────────────────────────────
+  const consonantDur = 0.012
+  const voicedFrac   = voice.voicedFrac * (syl.v < 0.3 ? 0.88 : 1.0)
+  const voicedDur    = durSec * voicedFrac
+
+  const onsetDur  = Math.min(voice.onsetMs / 1000, voicedDur * 0.20)
+  const closeDur  = Math.min(voice.closeMs / 1000, voicedDur * 0.32)
+  const releaseDur = 0.012
+  const steadyDur = Math.max(0.015,
+    voicedDur - consonantDur - onsetDur - closeDur - releaseDur)
+
+  const t0 = when
+  const t1 = t0 + consonantDur
+  const t2 = t1 + onsetDur
+  const t3 = t2 + steadyDur
+  const t4 = t3 + closeDur
+  const t5 = t4 + releaseDur
+  // t5 < when + durSec — the gap after is silence
+
+  // ── UI update ─────────────────────────────────────────────────────────
+  const displayAt = Math.max(0, (when - ac.currentTime) * 1000)
+  setTimeout(() => {
+    if (!running) return
+    document.getElementById('sylDisplay').textContent = syl.label
+    const pills = document.querySelectorAll('.note-pill')
+    pills.forEach((p, i) => p.classList.toggle('active', i === noteIdx % pills.length))
+  }, displayAt)
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 1. CONSONANT TAP
+  // ══════════════════════════════════════════════════════════════════════
+  {
+    const isWeak   = syl.v <= 0.25
+    const thudVol  = isWeak ? voice.consonantVol * 0.55 : voice.consonantVol
+    const clickVol = isWeak ? voice.clickVol * 1.15     : voice.clickVol
+
+    const buf1 = makeNoiseBuf(consonantDur + 0.004)
+    const src1 = ac.createBufferSource(); src1.buffer = buf1
+    const bp1  = ac.createBiquadFilter()
+    bp1.type   = 'bandpass'
+    bp1.frequency.value = Math.min(650, hz * 1.1)
+    bp1.Q.value = 7.0
+    const g1 = ac.createGain()
+    g1.gain.setValueAtTime(0, t0)
+    g1.gain.linearRampToValueAtTime(thudVol, t0 + 0.002)
+    g1.gain.exponentialRampToValueAtTime(0.001, t0 + consonantDur)
+    src1.connect(bp1); bp1.connect(g1); g1.connect(masterGain)
+    src1.start(t0); src1.stop(t0 + consonantDur + 0.004)
+    nodes.push(src1, bp1, g1)
+
+    const buf2 = makeNoiseBuf(0.007)
+    const src2 = ac.createBufferSource(); src2.buffer = buf2
+    const bp2  = ac.createBiquadFilter()
+    bp2.type   = 'bandpass'
+    bp2.frequency.value = Math.min(3800, f2 * 1.5)
+    bp2.Q.value = 9.0
+    const g2 = ac.createGain()
+    g2.gain.setValueAtTime(clickVol, t0 + 0.001)
+    g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.008)
+    src2.connect(bp2); bp2.connect(g2); g2.connect(masterGain)
+    src2.start(t0 + 0.001); src2.stop(t0 + 0.010)
+    nodes.push(src2, bp2, g2)
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 2. OSCILLATOR BANK — voice.oscMix controls the blend
+  //    tri:   triangle — warm, pure (Sinéad-style)
+  //    saw:   sawtooth — bright, harsh harmonics
+  //    rough: noise mixed into oscillator amplitude — Ronnie's gravel
+  //           achieved by amplitude-modulating the saw with bandpass noise,
+  //           creating irregular harmonic variations that sound like a
+  //           rough/damaged voice
+  // ══════════════════════════════════════════════════════════════════════
+  const mix = voice.oscMix
+
+  const osc1 = ac.createOscillator(); osc1.type = 'triangle'
+  const osc2 = ac.createOscillator(); osc2.type = 'sawtooth'
+
+  // ── Pitch envelope ────────────────────────────────────────────────────
+  let pitchFrom = hz
+  if (fromHzShifted && fromHzShifted > 0) {
+    const semitonesDiff = Math.abs(12 * Math.log2(hz / fromHzShifted))
+    pitchFrom = semitonesDiff <= 4 ? fromHzShifted
+      : hz * Math.pow(2, (Math.random() > 0.5 ? 0.4 : -0.4) / 12)
+  }
+  const pitchClose = hz * Math.pow(2, -0.08 / 12)
+
+  ;[osc1, osc2].forEach(o => {
+    o.frequency.setValueAtTime(pitchFrom, t1)
+    o.frequency.exponentialRampToValueAtTime(hz, t2)
+    o.frequency.setValueAtTime(hz, t3)
+    o.frequency.linearRampToValueAtTime(pitchClose, t4)
+  })
+
+  const gO1 = ac.createGain(); gO1.gain.value = mix.tri
+  const gO2 = ac.createGain(); gO2.gain.value = mix.saw
+  osc1.connect(gO1); osc2.connect(gO2)
+  const oscMix = ac.createGain(); oscMix.gain.value = 1.0
+  gO1.connect(oscMix); gO2.connect(oscMix)
+
+  // ── Roughness — irregular glottal pulse modulation ───────────────────
+  // Real vocal roughness is the glottal pulse being irregular — the vocal
+  // folds don't close cleanly on every cycle. This makes the oscillator
+  // *amplitude* shudder unpredictably, not just add noise on top.
+  //
+  // We model this by driving the oscillator mix gain with a noise source:
+  //   noise → bandpass (very low Hz, sub-harmonic range) → add DC offset
+  //   → multiply the oscMix gain
+  //
+  // The key: this must modulate the signal multiplicatively (AM), not add
+  // additively. We achieve this with a gain node whose .gain AudioParam
+  // is driven by the noise — so the oscillator is literally being
+  // amplitude-modulated by an irregular signal.
+  //
+  // Two noise bands for Ronnie:
+  //   - Very slow irregular flutter (1-8 Hz) — breath pressure variation
+  //   - Sub-harmonic rattle (~60-120 Hz for Ronnie) — the actual gravel
+  //     created by irregular glottal closures
+  if (mix.rough > 0.05) {
+    const roughDur = t5 - t1 + 0.02
+
+    // ── Flutter: irregular amplitude wavering ─────────────────────────
+    // Drives oscMix.gain as an AudioParam — the oscillator shudders.
+    // Depth scaled aggressively so Ronnie's voice is genuinely unstable.
+    const flutBuf = makeNoiseBuf(roughDur)
+    const flutSrc = ac.createBufferSource(); flutSrc.buffer = flutBuf
+    const flutBp  = ac.createBiquadFilter()
+    flutBp.type   = 'lowpass'
+    flutBp.frequency.value = 14
+    const flutScale = ac.createGain()
+    flutScale.gain.value = mix.rough * 0.55  // was 0.35 — more dramatic
+    flutSrc.connect(flutBp); flutBp.connect(flutScale)
+    flutScale.connect(oscMix.gain)
+    flutSrc.start(t1); flutSrc.stop(t5 + 0.02)
+    nodes.push(flutSrc, flutBp, flutScale)
+
+    // ── Sub-harmonic rattle: irregular glottal closures ───────────────
+    // Wider bandpass, higher gain — the actual gravel.
+    const rattleBuf = makeNoiseBuf(roughDur)
+    const rattleSrc = ac.createBufferSource(); rattleSrc.buffer = rattleBuf
+    const rattleBp  = ac.createBiquadFilter()
+    rattleBp.type   = 'bandpass'
+    rattleBp.frequency.value = Math.min(160, hz * 0.55)
+    rattleBp.Q.value = 0.6   // wide and irregular
+    const rattleG = ac.createGain()
+    rattleG.gain.setValueAtTime(0, t1)
+    rattleG.gain.linearRampToValueAtTime(mix.rough * 0.75, t2)  // was 0.55
+    rattleG.gain.setValueAtTime(mix.rough * 0.75, t3)
+    rattleG.gain.linearRampToValueAtTime(0, t5)
+    rattleSrc.connect(rattleBp); rattleBp.connect(rattleG)
+    rattleG.connect(masterGain)
+    rattleSrc.start(t1); rattleSrc.stop(t5 + 0.02)
+    nodes.push(rattleSrc, rattleBp, rattleG)
+  }
+
+  // ── Breath ────────────────────────────────────────────────────────────
+  if (syl.v > 0.4 && steadyDur > 0.025 && voice.breathiness > 0.005) {
+    const bLen = Math.min(steadyDur * 0.6, 0.04)
+    const bBuf = makeNoiseBuf(bLen + 0.005)
+    const bSrc = ac.createBufferSource(); bSrc.buffer = bBuf
+    const bHp  = ac.createBiquadFilter()
+    bHp.type   = 'highpass'; bHp.frequency.value = hz * 4.0
+    const bG   = ac.createGain()
+    bG.gain.setValueAtTime(voice.breathiness, t2)
+    bG.gain.linearRampToValueAtTime(0, t2 + bLen)
+    bSrc.connect(bHp); bHp.connect(bG); bG.connect(masterGain)
+    bSrc.start(t2); bSrc.stop(t2 + bLen + 0.005)
+    nodes.push(bSrc, bHp, bG)
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 3. FORMANT FILTERS
+  // ══════════════════════════════════════════════════════════════════════
+  const f2peak  = syl.v < 0.25
+    ? f1 * (0.85 + voice.weakVowelScale * 1.4)  // weak: barely opens (Máire=0.22) to open (Peig=0.70)
+    : f2 * (0.85 + syl.v * 0.18)                // strong: overshoots slightly — more dramatic opening
+  const f2close = f1 * 0.52   // closes harder — mouth really shuts
+
+  const filt1 = ac.createBiquadFilter()
+  filt1.type  = 'bandpass'; filt1.Q.value = 6.0   // was 4.0 — sharper peak
+  filt1.frequency.setValueAtTime(f1 * 0.6, t1)    // starts more closed
+  filt1.frequency.linearRampToValueAtTime(f1, t2)
+  filt1.frequency.setValueAtTime(f1, t3)
+  filt1.frequency.exponentialRampToValueAtTime(f1 * 0.55, t5)  // closes further
+
+  const filt2 = ac.createBiquadFilter()
+  filt2.type  = 'bandpass'; filt2.Q.value = 4.5   // was 3.0
+  filt2.frequency.setValueAtTime(f2 * 0.22, t1)   // starts very closed
+  filt2.frequency.exponentialRampToValueAtTime(f2peak, t2)
+  filt2.frequency.setValueAtTime(f2peak, t3)
+  filt2.frequency.exponentialRampToValueAtTime(f2close, t5)
+
+  const lp = ac.createBiquadFilter()
+  lp.type  = 'lowpass'; lp.Q.value = 0.4
+  lp.frequency.value = 3600
+
+  const gF1 = ac.createGain(); gF1.gain.value = 0.55
+  const gF2 = ac.createGain(); gF2.gain.value = 1.00
+
+  // ── Nasality — Peig's Kerry quality ──────────────────────────────────
+  // Real nasal resonance is a broad peak around 1000-1100Hz (the nasal
+  // cavity's primary resonance) plus a damping of the main formants.
+  // Q of 2.5 rather than 5.5 — the nose is not a sharply tuned resonator.
+  // We also add a second softer peak at ~2500Hz (nasal turbulence).
+  let nasFilt = null, nasG = null, nasG2ref = null
+  if (voice.nasality > 0.05) {
+    nasFilt = ac.createBiquadFilter()
+    nasFilt.type = 'bandpass'
+    nasFilt.frequency.value = 1050
+    nasFilt.Q.value = 2.5
+    nasG = ac.createGain()
+    nasG.gain.setValueAtTime(0, t1)
+    nasG.gain.linearRampToValueAtTime(voice.nasality * 0.9, t2)
+    nasG.gain.setValueAtTime(voice.nasality * 0.9, t3)
+    nasG.gain.linearRampToValueAtTime(0, t5)
+    oscMix.connect(nasFilt); nasFilt.connect(nasG)
+
+    const nasFilt2 = ac.createBiquadFilter()
+    nasFilt2.type = 'bandpass'
+    nasFilt2.frequency.value = 2500
+    nasFilt2.Q.value = 3.0
+    nasG2ref = ac.createGain()
+    nasG2ref.gain.value = voice.nasality * 0.25
+    oscMix.connect(nasFilt2); nasFilt2.connect(nasG2ref)
+
+    gF1.gain.value = 0.55 * (1 - voice.nasality * 0.45)
+    gF2.gain.value = 1.00 * (1 - voice.nasality * 0.35)
+    nodes.push(nasFilt, nasG, nasFilt2, nasG2ref)
+  }
+
+  oscMix.connect(filt1); oscMix.connect(filt2)
+  filt1.connect(gF1); filt2.connect(gF2)
+  gF1.connect(lp); gF2.connect(lp)
+
+  // ══════════════════════════════════════════════════════════════════════
+  // 4. AMPLITUDE ENVELOPE
+  // ══════════════════════════════════════════════════════════════════════
+  const env = ac.createGain()
+  env.gain.setValueAtTime(0, t1)
+  env.gain.linearRampToValueAtTime(1.0, t2)
+  env.gain.setValueAtTime(1.0, t3)
+  env.gain.linearRampToValueAtTime(0.55, t4)
+  env.gain.linearRampToValueAtTime(0, t5)
+
+  lp.connect(env)
+  if (nasG)    nasG.connect(env)
+  if (nasG2ref) nasG2ref.connect(env)
+  env.connect(masterGain)
+
+  osc1.start(t1); osc1.stop(t5 + 0.008)
+  osc2.start(t1); osc2.stop(t5 + 0.008)
+
+  nodes.push(osc1, osc2, gO1, gO2, oscMix, filt1, filt2, gF1, gF2, lp, env)
+}
+
+function makeNoiseBuf(duration) {
+  const samples = Math.ceil(ac.sampleRate * Math.min(duration, 2.0))
+  const buf     = ac.createBuffer(1, samples, ac.sampleRate)
+  const data    = buf.getChannelData(0)
+  for (let i = 0; i < samples; i++) data[i] = Math.random() * 2 - 1
+  return buf
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+function log(type, msg) {
+  const el  = document.getElementById('log')
+  const div = document.createElement('div')
+  div.className = type
+  div.textContent = '› ' + msg
+  el.appendChild(div)
+  el.scrollTop = el.scrollHeight
+  // Keep log tidy
+  while (el.children.length > 80) el.removeChild(el.firstChild)
+}
+
+function renderNotes(noteList) {
+  const el = document.getElementById('noteDisplay')
+  el.innerHTML = ''
+  document.getElementById('noteCount').textContent = '(' + noteList.length + ' notes)'
+
+  // Show first 64 notes max — enough to see the tune shape
+  const show = noteList.slice(0, 64)
+  show.forEach((n, i) => {
+    const pill = document.createElement('div')
+    pill.className = 'note-pill'
+    // Show note name approximation from Hz
+    pill.textContent = hzToNoteName(n.hz) + (n.duration !== 0.5 ? ' ×' + n.duration : '')
+    pill.title = n.hz.toFixed(1) + ' Hz, dur=' + n.duration
+    el.appendChild(pill)
+  })
+  if (noteList.length > 64) {
+    const more = document.createElement('div')
+    more.className = 'note-pill'
+    more.style.color = '#6e7681'
+    more.textContent = '+' + (noteList.length - 64) + ' more'
+    el.appendChild(more)
+  }
+}
+
+function hzToNoteName(hz) {
+  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+  const semitones = Math.round(12 * Math.log2(hz / 440)) + 69
+  const note = noteNames[((semitones % 12) + 12) % 12]
+  const octave = Math.floor(semitones / 12) - 1
+  return note + octave
+}
+
+// Populate tune selector
+function buildSelect() {
+  const sel = document.getElementById('tuneSelect')
+  for (const [key, tune] of Object.entries(TUNES)) {
+    const opt = document.createElement('option')
+    opt.value = key
+    opt.textContent = tune.title
+    sel.appendChild(opt)
+  }
+  updateMeta()
+}
+
+function updateMeta() {
+  const key  = document.getElementById('tuneSelect').value
+  const tune = TUNES[key]
+  if (!tune) return
+  const rhythmMatch = tune.abc.match(/^R:\s*(.+)$/m)
+  const rtype = rhythmMatch ? rhythmMatch[1].trim() : '?'
+  const keyMatch = tune.abc.match(/^K:\s*(.+)$/m)
+  const keyStr = keyMatch ? keyMatch[1].trim() : '?'
+  document.getElementById('tuneMeta').textContent = rtype + ' · Key: ' + keyStr
+
+  // Pre-parse and show notes without playing
+  ensureAC()
+  const n = parseTuneNotes(tune.abc)
+  renderNotes(n)
+  if (n.length === 0) {
+    log('err', 'No notes found in "' + tune.title + '" — ABC may need checking')
+  } else {
+    log('inf', 'Selected: ' + tune.title + ' — ' + n.length + ' notes')
+  }
+}
+
+// Wire controls
+document.getElementById('tuneSelect').addEventListener('change', () => {
+  if (running) stopSinging()
+  updateMeta()
+  updatePlayBtn()
+})
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  if (running) {
+    stopSinging()
+    updatePlayBtn()
+  } else {
+    const key = document.getElementById('tuneSelect').value
+    startSinging(key)
+    updatePlayBtn()
+  }
+})
+
+document.getElementById('reloadBtn').addEventListener('click', () => {
+  const key = document.getElementById('tuneSelect').value
+  if (running) {
+    stopSinging()
+    setTimeout(() => {
+      startSinging(key)
+      updatePlayBtn()
+    }, 900)
+  } else {
+    updateMeta()
+  }
+})
+
+function updatePlayBtn() {
+  const btn = document.getElementById('playBtn')
+  if (running) {
+    btn.textContent = '■ Stop'
+    btn.classList.add('playing')
+  } else {
+    btn.textContent = '▶ Sing'
+    btn.classList.remove('playing')
+  }
+}
+
+document.getElementById('intensitySlider').addEventListener('input', function() {
+  intensity = this.value / 100
+  document.getElementById('intensityVal').textContent = this.value + '%'
+})
+
+document.getElementById('tempoSlider').addEventListener('input', function() {
+  const bpm = parseInt(this.value)
+  document.getElementById('tempoVal').textContent = bpm
+  tempoMult = bpm / 100
+  // If playing, recalculate spu live — takes effect on next scheduled note
+  if (running) {
+    const key = document.getElementById('tuneSelect').value
+    const tune = TUNES[key]
+    if (tune) {
+      const rhythmMatch = tune.abc.match(/^R:\s*(.+)$/m)
+      const rtype       = rhythmMatch ? rhythmMatch[1].trim().toLowerCase().replace(/\s+/g,'') : 'reel'
+      const meterMatch  = tune.abc.match(/^M:\s*(.+)$/m)
+      const meterStr    = meterMatch ? meterMatch[1].trim() : '4/4'
+      spu = secPerUnit(rtype, meterStr)
+    }
+  }
+})
+
+// Voice buttons
+document.querySelectorAll('.voice-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.voice
+    if (!VOICES[key]) return
+    voice = VOICES[key]
+    // Update active state
+    document.querySelectorAll('.voice-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    log('inf', 'Voice: ' + voice.label)
+    // If playing, restart so the new voice takes effect immediately
+    if (running) {
+      const tuneKey = document.getElementById('tuneSelect').value
+      stopSinging()
+      setTimeout(() => { startSinging(tuneKey); updatePlayBtn() }, 900)
+    }
+  })
+})
+
+// Init
+buildSelect()
+log('inf', 'Port a beul test player ready — four voices available')
+log('inf', 'Select a tune, pick a voice, and press Sing.')
+</script>
+</body>
+</html>
+

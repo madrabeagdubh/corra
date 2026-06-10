@@ -1,46 +1,21 @@
-~/lit ᐅ cx coire.txt 200 310 "formorians"
-Of ancient lands, where shadows dwell,
-And whispers of the past do swell,
-There rise the tales of Formorian might,
-Eldritch beings, shrouded in night.
+We walk the ruin,
+cheerful in the morning light saying
+Look, there is nothing there.
+There never was.
 
-From darkened seas they once did come,
-With eyes like embers, fierce and glum,
-Their forms, a terror to behold,
-Giants of strength, of ancient mold.
+It is a small matter, being Irish.
+No more than praise the stone for falling downward.
+But to be Gaelic, that is another labour entirely.
+It is a thing chosen. A road taken when other roads lay open.
 
-In battles fierce, their fury cast,
-Against the Tuatha, spells were massed,
-Yet still they stood with iron will,
-Formorians strong, unbent, and still.
+And for every Gael that breathes this island’s air, ten wait in other lands.
+Ten who have heard one phrase of the old tongue and felt quiet in a way they could not explain.
 
-Balor of the Evil Eye,
-With single glance could mortals fry,
-A chieftain feared in every land,
-His dread command, a ruthless hand.
+There are those who say this way is finished,
+these customs are the smoke of what was burned.
+Let them say it.
 
-But 'neath their harsh and cruel guise,
-In secret hearts, a longing lies,
-For lands to call their own, to till,
-For peace amidst the tempest's thrill.
+It is only a surly person that would not enquire.
+To the one who feels the pull of it,
+Joy to you, and from you, to all who come after.
 
-Yet in the annals of the brave,
-Their stories echo, like the wave,
-Of warriors bold and battles grand,
-Of Formorians and their storied band.
-
-So heed, ye sons of Erin's soil,
-The tales of those who once did toil,
-For in their legends, lessons gleam,
-In courage found, and daring dream.
-
-In times of yore, when shadows throng,
-The Formorians' name resounds in song,
-A testament to ancient might,
-In Ireland's shadowed, storied night.
-~/lit ᐅ ls
-coire.txt      pbotg.txt    tain.txt
-dánta0.txt     scraps0.txt  tdohPoems.txt
-dánta1.txt     scraps1.txt  temp
-knocklong.txt  scraps2.txt  vbwi.txt
-ogafm.txt      scraps3.txt

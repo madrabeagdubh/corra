@@ -22,46 +22,18 @@
  *   persist  -- close panel, leave flag on map
  *   dismiss  -- show outcome text (if any), mark collected, clear flag
  *
- * Voice synthesis:
- *   Fixed encounters can have a voice assigned via ENCOUNTER_VOICES below.
- *   Voice instances are created lazily and destroyed with the panel.
- *   Add entries to ENCOUNTER_VOICES to assign voices to encounter ids.
+ * Voice synthesis: stripped — to be reconnected via voiceSynth.js later.
  */
 
 import { GameSettings } from '../settings/gameSettings.js'
 import { GameState }    from '../systems/gameState.js'
-import { createVoice, VOICES, DING_DONG_PITCHES } from '../systems/voice/voiceSynth.js'
-import { SoundBoard } from '../systems/soundBoard.js'
+import { SoundBoard }   from '../systems/soundBoard.js'
 
 const BADGE_FADE_MS   = 400
 const CLEAR_DELAY_MS  = 800
 const CHAIN_BUFFER_MS = 60
 
 const CARD_BG_KEY = 'encounterPanelBG'
-
-// ────────────────────────────────────────────────────────────────────────────
-// VOICE REGISTRY
-// Maps encounter id (from map content files) to a voice config and mode.
-// mode: 'song'   -- pitch follows opts.pitches pool (cycling)
-// mode: 'speech' -- pitch follows a generated speech contour
-// ────────────────────────────────────────────────────────────────────────────
-
-const ENCOUNTER_VOICES = {
-  blacksmith_singing: {
-    voiceDef: VOICES.blacksmith,
-    mode:     'song',
-    pitches:  DING_DONG_PITCHES,
-  },
-
-  seanbean_na_mara: {
-    voiceDef: VOICES.cailin,
-    mode:     'speech',
-  },
-
-  // Future entries:
-  // skull_north: { voiceDef: VOICES.banshee,    mode: 'speech' },
-  // skull_south: { voiceDef: VOICES.oldWarrior, mode: 'speech' },
-}
 
 export class EncounterPanel {
 
@@ -74,7 +46,6 @@ export class EncounterPanel {
     this._choiceMade = false
     this._clearTimer = null
     this._chainTimer = null
-    this._voices     = {}   // encounter id -> createVoice() instance, lazily created
 
     this._buildBadge()
   }
@@ -178,7 +149,6 @@ export class EncounterPanel {
 
     requestAnimationFrame(() => { badge.style.opacity = '1' })
 
-    // ── BADGE_APPEAR sound ────────────────────────────────────────────────
     const audioCtx = this._scene?.sound?.context
     if (audioCtx) SoundBoard.playWeb('BADGE_APPEAR', audioCtx)
   }
@@ -249,30 +219,6 @@ export class EncounterPanel {
     const bgKey      = this._resolveBgKey()
     const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
 
-    // -- Voice ---------------------------------------------------------------
-    const encId     = zone.getData('id')
-    const voiceSpec = ENCOUNTER_VOICES[encId]
-
-    if (voiceSpec) {
-      if (!this._voices[encId]) {
-        this._voices[encId] = createVoice(voiceSpec.voiceDef)
-        console.log(`[EncounterPanel] Voice created for encounter "${encId}"`)
-      }
-      const voice = this._voices[encId]
-      const text  = chosen.ga || chosen.irish || ''
-
-      let style = 'statement'
-      if (text.trimEnd().endsWith('?')) style = 'question'
-      if (text.trimEnd().endsWith('!')) style = 'exclamation'
-
-      voice.speak(text, {
-        mode:    voiceSpec.mode ?? 'speech',
-        pitches: voiceSpec.pitches,
-        style,
-      })
-    }
-    // -- End voice -----------------------------------------------------------
-
     this._scene.textPanel.show({
       irish:    chosen.ga || chosen.irish   || '',
       english:  chosen.en || chosen.english || '',
@@ -281,7 +227,6 @@ export class EncounterPanel {
       graphicKey,
       options:  null,
       onDismiss: () => {
-        if (voiceSpec) this._voices[encId]?.stop()
         const nextIdx = (chosenIdx + 1) % total
         GameState.setNPCProgress(stateKey, nextIdx)
         this._onPanelClosed()
@@ -291,10 +236,10 @@ export class EncounterPanel {
 
   _requiresMet(requires) {
     if (!requires) return true
-    if (requires.note          && !GameState.hasNote(requires.note))                                          return false
+    if (requires.note          && !GameState.hasNote(requires.note))                  return false
     if (requires.quest         && !GameState.isQuestActive(requires.quest)
-                               && !GameState.isQuestComplete(requires.quest))                                 return false
-    if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete))                         return false
+                               && !GameState.isQuestComplete(requires.quest))         return false
+    if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete)) return false
     return true
   }
 
@@ -383,9 +328,7 @@ export class EncounterPanel {
 
     switch (outcome.type) {
       case 'loot': {
-        // ── LOOT_COLLECT sound ─────────────────────────────────────────────
         SoundBoard.play('LOOT_COLLECT', this._scene)
-
         if (outcome.textGa || outcome.textEn) {
           this._chainShow({
             irish:    outcome.textGa || '',
@@ -473,12 +416,6 @@ export class EncounterPanel {
     if (this._clearTimer) clearTimeout(this._clearTimer)
     if (this._chainTimer) clearTimeout(this._chainTimer)
     if (this._badgeEl?.parentNode) this._badgeEl.parentNode.removeChild(this._badgeEl)
-
-    for (const voice of Object.values(this._voices)) {
-      try { voice.destroy() } catch(e) {}
-    }
-    this._voices = {}
-
     this._scene = null
   }
 }

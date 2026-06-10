@@ -298,6 +298,7 @@ if (container) container.style.background = '#b5956a';
         this.itemSheet     = new ItemSheetHelper(this);
         this.creatureSheet = new CreatureSheetHelper(this);
         this.bowMechanics  = new BowMechanics(this, this.player)
+        this.bowMechanics.disabled = true
         this.bowMechanics.maxDistance = 1800
         this.bowMechanics.bowOriginOffsetFrac = -0.3;
         this.textPanel     = new TextPanel(this);
@@ -516,15 +517,20 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         const lines = exposition.map(e => ({
             ga:      e.irish,
             en:      e.english,
-            speaker: 'queen',
+            speaker: 'mentor',
         }));
 
-        this.time.delayedCall(1500, () => { if (!this.target) this.createTarget(); });
-
-        this._showStoryLines(lines, () => {
+       
+this._showStoryLines(lines, null);
+        this.time.delayedCall(8000, () => {
             this.narrativeInProgress = false;
-            if (!this.target) this.time.delayedCall(300, () => { this.createTarget(); });
+            this.bowMechanics.disabled = false;
+            this.time.delayedCall(400, () => {
+                if (!this.target) this.createTarget();
+            });
         });
+
+
     }
 
     getRandomDialogue(pool, usedArray) {
@@ -608,7 +614,8 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         const poll = setInterval(() => {
             if (!stp || !stp._lineEls) { clearInterval(poll); return; }
             const last = stp._lineEls[stp._lineEls.length - 1];
-            if (!last) return;
+            console.log('[poll] lines:', stp._lineEls?.length, 'running:', stp._running)
+		if (!last) return;
             if (stp._screenY(last) + (last.wrapper.offsetHeight || 60) < 0) {
                 clearInterval(poll);
                 stp._running = false;
@@ -880,6 +887,7 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
         target._scaledW       = scaledW;
         target._moveAxis      = pos.axis;
         target._hitRadius     = renderedHalfW;
+        target._hitOffsetY    = -(renderedHalfW);
         target.setData('hit', false);
         this.target = target;
         const depthFactor = 1 - Math.max(0, Math.min(1, (targetRow - 2) / 16));
@@ -1002,7 +1010,10 @@ img.onerror = () => console.warn('[BowTutorial] mountain bg failed:', img.src);
 
         if (this.target && !this.hitLocked) {
             const radius = this.target._hitRadius ?? 45;
-            const hit = this.bowMechanics?.checkHit(this.target, radius);
+            const hitTarget = this.target._hitOffsetY
+              ? { ...this.target, x: this.target.x, y: this.target.y + (this.target._hitOffsetY ?? 0), logicalX: null }
+              : this.target;
+            const hit = this.bowMechanics?.checkHit(hitTarget, radius);
             if (hit) this.onTargetHit(hit);
         }
 

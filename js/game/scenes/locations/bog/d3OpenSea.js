@@ -79,7 +79,20 @@ export default class D3OpenSea extends RiverScene {
   }
 
   async create(data) {
+    // Remove any lingering canvases from the previous scene (BogD3Sea)
+    // before PGR initialises — Phaser can overlap scene lifecycles during
+    // transitions so shutdown() of the outgoing scene may not have run yet.
+    document.getElementById('estuary-waves')?.remove()
+    document.getElementById('swallow-canvas')?.remove()
+
     await super.create(data)
+
+    // Clear any solid CSS background left on the canvas by the previous scene.
+    // Only the style property — do NOT touch Phaser's render clear colour
+    // or PGR will have nothing to draw onto.
+    if (this.game?.canvas) {
+      this.game.canvas.style.background = 'transparent'
+    }
 
     if (this.boatSystem) {
       this.boatSystem._triggerDisembark = () => {}
@@ -107,9 +120,11 @@ export default class D3OpenSea extends RiverScene {
     this._preManannanScrollY          = null
     this._manannanReleasedAndRetreated = GameState.hasNote('met_manannan')
 
-    // Storm audio
+    // Storm audio — deferred until first user gesture to avoid
+    // AudioContext suspension on normal (non-direct) page loads.
+    // The context is created and started on the first joystick input.
     this._stormAudio = new StormAudio()
-    this._stormAudio.start()
+    this._stormAudioStarted = false
 
     // Storm overlay — rain, lightning, vignette, sky
     this._stormOverlay = new StormOverlay(this)
@@ -119,6 +134,11 @@ export default class D3OpenSea extends RiverScene {
 
     this._stormCanvas = this.game.canvas
 
+    // Append storm overlays inside gameContainer, not document.body.
+    // returnCrossing.js sets gameContainer to z-index:999999 on exit,
+    // which puts it above any div appended to body at a lower z-index.
+    const _overlayParent = document.getElementById('gameContainer') ?? document.body
+
     this._vignetteDiv = document.createElement('div')
     this._vignetteDiv.style.cssText = [
       'position:fixed', 'inset:0',
@@ -126,7 +146,7 @@ export default class D3OpenSea extends RiverScene {
       'pointer-events:none',
       'z-index:9900',
     ].join(';')
-    document.body.appendChild(this._vignetteDiv)
+    _overlayParent.appendChild(this._vignetteDiv)
 
     this._stormAudio.onThunder = (size) => {
       this._stormOverlay?.triggerLightning(size)
@@ -142,7 +162,7 @@ export default class D3OpenSea extends RiverScene {
       'z-index:99',
       'transition:opacity 4s ease-in',
     ].join(';')
-    document.body.appendChild(this._fadeDiv)
+    _overlayParent.appendChild(this._fadeDiv)
   }
 
   onEnter() {
@@ -167,6 +187,13 @@ export default class D3OpenSea extends RiverScene {
       this._disembarkBadgeShown = false
       this._encounterPanel?.clearNotify()
       this.joystick?.drawBadgeGlow?.(0)
+    }
+
+    // Start storm audio on first user interaction — guarantees AudioContext
+    // is created after a gesture, avoiding Chrome's autoplay suspension.
+    if (!this._stormAudioStarted && (this.joystick?.force ?? 0) > 0) {
+      this._stormAudioStarted = true
+      this._stormAudio.start()
     }
 
     if (!this.player || this._gameOverPending) return
@@ -771,8 +798,17 @@ export default class D3OpenSea extends RiverScene {
     this._waveRenderer?.spawnManannan()
     this._waveRenderer?.triggerHorseSequence()
 
+    // Show badge as a visual flourish, but also auto-open the scroll
+    // after a longer delay — guarantees the sequence fires regardless
+    // of whether the badge is tappable (e.g. on slow first loads where
+    // encounterPanel may not be fully ready).
     this.time.delayedCall(3000, () => {
       this._showManannanBadge()
+    })
+    this.time.delayedCall(5000, () => {
+      if (!this._manannanScrollActive) {
+        this._openManannanScroll()
+      }
     })
   }
 

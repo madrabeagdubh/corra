@@ -3,6 +3,7 @@ import './heroSelect.js'
 import BowTutorial from './game/scenes/locations/bowTutorial.js'
 import WorldScene from './game/scenes/worldScene.js'
 import BogA1 from './game/scenes/locations/bog/a1.js'
+import BogB0 from './game/scenes/locations/bog/b0.js'
 import D3OpenSea from './game/scenes/locations/bog/d3OpenSea.js'
 import BogA2 from './game/scenes/locations/bog/a2.js'
 import BogA3 from './game/scenes/locations/bog/a3.js'
@@ -68,6 +69,7 @@ function _createGame(selectedChampion, options) {
         scene: [
             WorldScene,
             BowTutorial,
+		BogB0,
             BogA1, BogA2, BogA3, BogA4,
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,

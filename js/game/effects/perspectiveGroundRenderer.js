@@ -1,4 +1,4 @@
-// PerspectiveGroundRenderer.js  (v8.2 — modular elevation)
+// PerspectiveGroundRenderer.js  (v8.3 — modular elevation + building billboards)
 // Location: js/game/effects/perspectiveGroundRenderer.js
 //
 // ── Architecture ─────────────────────────────────────────────────────────────
@@ -8,6 +8,7 @@
 //   • Ground tile rendering (layer 0 trapezoid warping, water animation, tinting)
 //   • Layer 1 billboard rendering (trees, encounter flags, exit markers)
 //   • Layer 2/3 elevated tile rendering (reads this._elev set by ElevationRenderer)
+//   • Building image billboards (set via setBuildings, drawn per anchor row)
 //   • Player and boat rendering (_drawPlayerAnimated)
 //
 // ── Related modules ───────────────────────────────────────────────────────────
@@ -23,6 +24,14 @@
 // The static CLIFF_GIDS / ELEVATED_GIDS / CLIFF_HEIGHT constants below are kept
 // as readable defaults. ElevationRenderer accepts its own config object so
 // different maps can use different GIDs and heights without touching this file.
+//
+// ── Buildings ─────────────────────────────────────────────────────────────────
+// Scene calls pgr.setBuildings(mapData.buildings || []) after mapData is set.
+// Each entry: { key, src, x, y, fw, fh, door, overscale? }
+//   src is relative to public/. Sprite is anchored at the footprint's base row
+//   (y + fh - 1) so painter's-algorithm row ordering occludes correctly against
+//   the player. overscale (default 1.2) widens the sprite beyond its footprint
+//   so roofs overhang the collision box.
 //
 // ── Phaser canvas ─────────────────────────────────────────────────────────────
 // Phaser canvas sits at z-index:10 — UI, joystick, inventory all unaffected.
@@ -111,6 +120,7 @@ export default class PerspectiveGroundRenderer {
     this._playerCanvas   = null
     this._playerFrameKey = null
     this._encounterFlags = []
+    this._buildings      = []
     this._boatActive      = false
     this._boatDrifting    = false
     this._boatCanvas      = null
@@ -445,6 +455,36 @@ export default class PerspectiveGroundRenderer {
     this._encounterFlags = this._encounterFlags.filter(
       f => !(f.tileX === tileX && f.tileY === tileY)
     )
+  }
+
+  setBuildings(list) {
+    this._buildings = []
+    for (const b of (list || [])) {
+      const entry = {
+        ...b,
+        anchorRow:    b.y + b.fh - 1,           // last footprint row
+        centerColInt: Math.floor(b.x + b.fw / 2),
+        canvas:       null,
+      }
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const c   = document.createElement('canvas')
+        c.width   = img.width
+        c.height  = img.height
+        const ctx = c.getContext('2d')
+        ctx.imageSmoothingEnabled = false
+        ctx.filter = 'saturate(70%)'   // harmonize with desaturated tileset
+        ctx.drawImage(img, 0, 0)
+        ctx.filter = 'none'
+        entry.canvas   = c
+        this._lastCamX = null          // force redraw once loaded
+      }
+      img.onerror = e => console.error('[PGR] building image failed:', b.src, e)
+      img.src = '/' + b.src.replace(/^\//, '')
+      this._buildings.push(entry)
+    }
+    console.log('[PGR] buildings registered:', this._buildings.length)
   }
 
   _loadCatalogue() {
@@ -1489,6 +1529,28 @@ export default class PerspectiveGroundRenderer {
         }
 
       } // tileCol
+
+      // Buildings — image billboards anchored at footprint base row.
+      // Drawn in row order so painter's algorithm handles player occlusion:
+      // player south of building draws later (in front), north draws earlier (behind).
+      if (this._buildings?.length) {
+        for (const b of this._buildings) {
+          if (b.anchorRow !== tileRow || !b.canvas) continue
+          if (fov && fov.isHidden(b.centerColInt, b.anchorRow)) continue
+          const yBase = this._rowToScreenY(tileRow + 1)
+          if (yBase === null || yBase < horizonPx) continue
+          const scaledTileW = this._scaleAtRow(tileRow + 1)
+          const drawW = b.fw * scaledTileW * (b.overscale ?? 1.2)
+          const drawH = drawW * (b.canvas.height / b.canvas.width)
+          const screenX = this._colToScreenX(b.x + b.fw / 2, tileRow + 1)
+          if (screenX + drawW / 2 < 0 || screenX - drawW / 2 > sw) continue
+          this._oCtx.globalAlpha = 1.0
+          this._oCtx.drawImage(b.canvas,
+            Math.round(screenX - drawW / 2),
+            Math.round(yBase - drawH),
+            Math.round(drawW), Math.round(drawH))
+        }
+      }
 
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
         const scaledTileW = this._scaleAtRow(playerTileRow + 1)

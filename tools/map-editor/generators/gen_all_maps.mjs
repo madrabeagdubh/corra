@@ -1,6 +1,7 @@
 /**
  * gen_all_maps.mjs
- * Generates all 16 bog grid maps and writes them to public/maps/bogMaps/
+ * Generates all 17 grid maps (4×4 bog grid + b0 village) and writes them
+ * to public/maps/bogMaps/
  *
  * Usage (from ~/Corra):
  *   node tools/map-editor/generators/gen_all_maps.mjs
@@ -99,7 +100,8 @@ function buildGrassBase(water) {
   return Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>{
     if(water&&water[y][x]) return (x+y)%2===0?WATER[0]:WATER[1]
     if(water){
-      for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++)
+      // Narrow shallow/reed margin: only tiles directly adjacent to water
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++)
         if(getG(water,x+dx,y+dy,false)) return WATERSIDE
     }
     return (x+y)%2===0?GRASS[0]:GRASS[1]
@@ -109,6 +111,13 @@ function buildGrassBase(water) {
 function scatterDetail(overlay, forest, water, rng) {
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(overlay[y][x]||( forest&&forest[y][x])||(water&&water[y][x])) continue
+    // Never place flowers/bushes in or beside water (incl. shallow margin)
+    if(water){
+      let nearWater=false
+      for(let dy=-1;dy<=1&&!nearWater;dy++) for(let dx=-1;dx<=1;dx++)
+        if(getG(water,x+dx,y+dy,false)){nearWater=true;break}
+      if(nearWater) continue
+    }
     const r=rng()
     if(r<0.04) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
     else if(r<0.07) overlay[y][x]=FLOWERS[Math.floor(rng()*FLOWERS.length)]
@@ -145,6 +154,40 @@ function makeExitEntry(exits_def) {
   return {exits,entries}
 }
 
+// River-map variant: east/west exits are centred on the river where it meets
+// the map edge and span the FULL river width (edge half-width 4 = 9 tiles)
+// plus the 3-tile north-bank path, so both the boat and walkers pass through.
+// North/south exits keep the standard 5-tile MID band.
+const RIVER_EDGE_HALF = 4   // matches buildRiver's hw+1 at map edges
+const BANK_ROWS       = 3   // north-bank walking path cleared by clearRiverExits
+
+function makeRiverExitEntry(exits_def, riverYs) {
+  const exits={}, entries={}
+  const HALF=2
+  for(const [dir,dest] of Object.entries(exits_def)){
+    if(dir==='east'||dir==='west'){
+      const cy = dir==='west' ? riverYs.west : riverYs.east
+      const x  = dir==='west' ? 0 : W-2
+      const tiles=[]
+      for(let o=-RIVER_EDGE_HALF-BANK_ROWS;o<=RIVER_EDGE_HALF;o++){
+        const y=cy+o
+        if(y>=1&&y<H-1) tiles.push([x,y])
+      }
+      exits[dir]={tiles, destination:dest, entryPoint: dir==='west'?'east':'west'}
+      entries[dir]={x: dir==='west'?4:W-4, y:cy, yFromSource:true}
+    } else if(dir==='north'){
+      exits[dir]={tiles:[[MID-HALF,1],[MID-1,1],[MID,1],[MID+1,1],[MID+HALF,1]],
+                  destination:dest, entryPoint:'south'}
+      entries[dir]={x:MID, y:4, yFromSource:false}
+    } else {
+      exits[dir]={tiles:[[MID-HALF,H-2],[MID-1,H-2],[MID,H-2],[MID+1,H-2],[MID+HALF,H-2]],
+                  destination:dest, entryPoint:'north'}
+      entries[dir]={x:MID, y:H-4, yFromSource:false}
+    }
+  }
+  return {exits,entries}
+}
+
 // ── River stream helper ───────────────────────────────────────────────────────
 // Builds a water boolean grid with a river flowing west→east.
 // entryY: y tile where river enters from the west edge
@@ -152,7 +195,7 @@ function makeExitEntry(exits_def) {
 function buildRiver(rng, entryY, exitYHint) {
   const water=make2D(W,H,false)
   const noise2D=(x,y)=>Math.sin(x*127.1+y*311.7)
-  const hw=2  // half-width of river
+  const hw=3  // half-width of river (wider — mostly open blue water)
   // Generate a curved path from west to east
   const centres=[]
   for(let x=0;x<W;x++){
@@ -240,11 +283,39 @@ function clearOverlayCorridor(overlay, dir) {
   }
 }
 
-// ── Village placeholder ───────────────────────────────────────────────────────
+// ── Village (b0) ──────────────────────────────────────────────────────────────
 function genVillage(name, exits_def, rng) {
   const base=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>(x+y)%2===0?GRASS[0]:GRASS[1]))
   const overlay=make2D(W,H,0)
-  // Light scatter
+  for(let y=2;y<H-2;y++) for(let x=2;x<W-2;x++){
+    if(rng()<0.04) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
+    else if(rng()<0.03) overlay[y][x]=FLOWERS[Math.floor(rng()*FLOWERS.length)]
+  }
+  // Buildings: anchor = top-left tile of footprint (x,y), fw/fh = footprint
+  // in tiles (collision). door = tile in front of the doorway, reserved as
+  // the interior-transition hook for phase 2. src is relative to public/.
+  const buildings=[
+    {key:'forge',  src:'buildings/loghouse_r0.png',       x:8,  y:12, fw:5, fh:3, door:[10,15]},
+    {key:'bothan', src:'buildings/cottage_thatch_r2.png', x:22, y:11, fw:4, fh:3, door:[24,14]},
+    {key:'cabin1', src:'buildings/cabin_porch_r0.png',    x:9,  y:21, fw:4, fh:3, door:[11,24]},
+    {key:'shed',   src:'buildings/shed_r1.png',           x:24, y:22, fw:3, fh:2, door:[25,24]},
+  ]
+  // Clear overlay under footprints + 1-tile apron so bushes don't clip walls
+  for(const b of buildings)
+    for(let y=b.y-1;y<=b.y+b.fh;y++) for(let x=b.x-1;x<=b.x+b.fw;x++)
+      if(inB(x,y)) overlay[y][x]=0
+  const {exits,entries}=makeExitEntry(exits_def)
+  for(const dir of Object.keys(exits_def)) clearOverlayCorridor(overlay,dir)
+  const map=buildMap(name,base,overlay,exits,entries,{x:MID,y:H-6})
+  map.buildings=buildings
+  return map
+}
+
+// ── Fields approach (b1) ──────────────────────────────────────────────────────
+function genFields(name, exits_def, rng) {
+  const base=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>(x+y)%2===0?GRASS[0]:GRASS[1]))
+  const overlay=make2D(W,H,0)
+  // Placeholder: open grass with light scatter — cultivated field strips to come
   for(let y=2;y<H-2;y++) for(let x=2;x<W-2;x++){
     if(rng()<0.05) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
   }
@@ -299,21 +370,46 @@ function genRiver(name, exits_def, rng, opts={}) {
   // Light forest on banks
   const forestCfg={density:0.35,passes:2,birth:5,survive:3}
   const forest=forestCA(forestCfg,water,rng)
-  // Clear corridors at exits
+  // Never let trees grow in or beside water (incl. the shallow margin)
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    if(!forest[y][x]) continue
+    let nearWater=false
+    for(let dy=-1;dy<=1&&!nearWater;dy++) for(let dx=-1;dx<=1;dx++)
+      if(getG(water,x+dx,y+dy,false)){nearWater=true;break}
+    if(nearWater) forest[y][x]=false
+  }
+  // Clear corridors at exits — east/west follow the river, north/south at MID
   const DEPTH=7,HALF=2
-  for(const dir of Object.keys(exits_def)) clearCorridor(forest,dir,MID,MID,DEPTH,HALF)
+  const corridorY = dir => dir==='west' ? westY : dir==='east' ? eastY : MID
+  for(const dir of Object.keys(exits_def))
+    clearCorridor(forest,dir,corridorY(dir),MID,DEPTH,RIVER_EDGE_HALF+BANK_ROWS)
   for(let x=0;x<W;x++){forest[0][x]=true;forest[H-1][x]=true}
   for(let y=0;y<H;y++){forest[y][0]=true;forest[y][W-1]=true}
   for(const dir of Object.keys(exits_def)){
-    for(let o=-HALF;o<=HALF;o++){
-      if(dir==='west'&&inB(0,MID+o))   forest[MID+o][0]=false
-      if(dir==='east'&&inB(W-1,MID+o)) forest[MID+o][W-1]=false
-      if(dir==='north'&&inB(MID+o,0))  forest[0][MID+o]=false
-      if(dir==='south'&&inB(MID+o,H-1))forest[H-1][MID+o]=false
+    if(dir==='west'||dir==='east'){
+      const cy=corridorY(dir)
+      for(let o=-RIVER_EDGE_HALF-BANK_ROWS;o<=RIVER_EDGE_HALF;o++){
+        if(dir==='west'&&inB(0,cy+o))   forest[cy+o][0]=false
+        if(dir==='east'&&inB(W-1,cy+o)) forest[cy+o][W-1]=false
+      }
+    } else {
+      for(let o=-HALF;o<=HALF;o++){
+        if(dir==='north'&&inB(MID+o,0))  forest[0][MID+o]=false
+        if(dir==='south'&&inB(MID+o,H-1))forest[H-1][MID+o]=false
+      }
     }
   }
   const waterOverlay=buildWaterOverlay(water)
   clearRiverExits(forest,waterOverlay,water)
+  // Perimeter enforcement can re-add forest beside the river mouth on rows
+  // opened by the opposite bank's exit band — strip near-water forest again
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    if(!forest[y][x]) continue
+    let nearWater2=false
+    for(let dy=-1;dy<=1&&!nearWater2;dy++) for(let dx=-1;dx<=1;dx++)
+      if(getG(water,x+dx,y+dy,false)){nearWater2=true;break}
+    if(nearWater2) forest[y][x]=false
+  }
   const base=buildGrassBase(water)
   const treeLayer=buildTreeLayer(forest,false)
   // Merge: water overlay on top of trees for water, trees elsewhere
@@ -322,7 +418,7 @@ function genRiver(name, exits_def, rng, opts={}) {
     overlay[y][x]=waterOverlay[y][x]||treeLayer[y][x]
   }
   scatterDetail(overlay,forest,water,rng)
-  const {exits,entries}=makeExitEntry(exits_def)
+  const {exits,entries}=makeRiverExitEntry(exits_def,{west:westY,east:eastY})
   // Spawn on north bank near east (arrival side)
   const spawnX = exits_def.east ? W-5 : (exits_def.west ? 4 : MID)
   const spawnY = Math.max(2, (exits_def.east||exits_def.west ? entries[Object.keys(exits_def)[0]]?.y??MID : MID) - 3)
@@ -399,13 +495,13 @@ function writeMap(map) {
   console.log(`  ✓ ${map.name}.json`)
 }
 
-// ── Generate all 16 ───────────────────────────────────────────────────────────
-console.log('\nGenerating Corra bog grid 4×4...\n')
+// ── Generate all 17 ───────────────────────────────────────────────────────────
+console.log('\nGenerating Corra grid (4×4 bog + b0 village)...\n')
 
 // River row generated east→west so we can chain stream Y values
 // d3 first, then c3 uses d3's westY as its eastY, etc.
 console.log('Row 3 — river maps (chained east→west):')
-const d3rng=seededRng('d3'), d3=genRiver('d3',{west:'c3',north:'d2',south:'d4'},d3rng,{riverEntryY:MID})
+const d3rng=seededRng('d3'), d3=genRiver('d3',{west:'c3',north:'d2',south:'d4',east:'d3Sea'},d3rng,{riverEntryY:MID})
 writeMap(d3)
 const c3rng=seededRng('c3'), c3=genRiver('c3',{west:'b3',east:'d3',north:'c2',south:'c4'},c3rng,{riverEntryY:d3.streamEdges?.west??MID, riverExitYHint:d3.streamEdges?.west??MID})
 writeMap(c3)
@@ -414,9 +510,12 @@ writeMap(b3)
 const a3rng=seededRng('a3'), a3=genRiver('a3',{north:'a2',east:'b3',south:'a4'},a3rng,{riverEntryY:b3.streamEdges?.west??MID, riverExitYHint:b3.streamEdges?.west??MID})
 writeMap(a3)
 
-console.log('\nRow 1 — forest/village:')
+console.log('\nRow 0 — village:')
+writeMap(genVillage('b0',{south:'b1'},seededRng('b0')))
+
+console.log('\nRow 1 — fields/forest:')
 writeMap(genForestMaze('a1',{east:'b1',south:'a2'},seededRng('a1'),{density:0.52}))
-writeMap(genVillage('b1',{west:'a1',east:'c1',south:'b2'},seededRng('b1')))
+writeMap(genFields('b1',{west:'a1',east:'c1',south:'b2',north:'b0'},seededRng('b1')))
 writeMap(genForestMaze('c1',{west:'b1',east:'d1',south:'c2'},seededRng('c1')))
 writeMap(genForestMaze('d1',{west:'c1',south:'d2'},seededRng('d1')))
 
@@ -432,5 +531,5 @@ writeMap(genForestMaze('b4',{north:'b3',west:'a4',east:'c4'},seededRng('b4'),{de
 writeMap(genForestMaze('c4',{north:'c3',west:'b4',east:'d4'},seededRng('c4'),{density:0.56,dark:true}))
 writeMap(genForestMaze('d4',{north:'d3',west:'c4'},seededRng('d4'),{density:0.58,dark:true}))
 
-console.log('\nDone. 16 maps written to public/maps/bogMaps/')
+console.log('\nDone. 17 maps written to public/maps/bogMaps/')
 console.log('Enable exit debug: window._devExits = true in browser console')

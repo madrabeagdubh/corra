@@ -197,7 +197,9 @@ export default class PerspectiveScene extends BaseLocationScene {
     if (this.mapData.hasCliffs && this.perspectiveGround && elevConfig) {
       this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, elevConfig)
     }
-
+if (this.perspectiveGround) {
+      this.perspectiveGround.setBuildings(this.mapData.buildings || [])
+    }
     this.mapData.tiles           = this.mapData.layers[0]
     this.mapData.unwalkableTiles = []
 

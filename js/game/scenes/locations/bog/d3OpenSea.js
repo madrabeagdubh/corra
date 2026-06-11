@@ -16,11 +16,7 @@ const SPEED_CAP_START_COL  = 8
 const MANANNAN_TRIGGER_COL = 45
 const POINT_OF_NO_RETURN   = 65
 
-// How close (logical px) the player must row to Manannan's spawn
-// to auto-trigger the scroll without pressing the badge
 const MANANNAN_COLLISION_RADIUS = 160
-
-// Scroll speed for the Manannan sequence (px/sec)
 const MANANNAN_SCROLL_SPEED = 48
 
 const MANANNAN_FINAL = {
@@ -79,17 +75,15 @@ export default class D3OpenSea extends RiverScene {
   }
 
   async create(data) {
-    // Remove any lingering canvases from the previous scene (BogD3Sea)
-    // before PGR initialises — Phaser can overlap scene lifecycles during
-    // transitions so shutdown() of the outgoing scene may not have run yet.
+    // FIX 1: Remove lingering canvases from BogD3Sea before PGR initialises.
+    // Phaser can overlap scene lifecycles so shutdown() of the outgoing scene
+    // may not have run yet when create() begins.
     document.getElementById('estuary-waves')?.remove()
     document.getElementById('swallow-canvas')?.remove()
 
     await super.create(data)
 
-    // Clear any solid CSS background left on the canvas by the previous scene.
-    // Only the style property — do NOT touch Phaser's render clear colour
-    // or PGR will have nothing to draw onto.
+    // Clear any solid CSS background left by the previous scene.
     if (this.game?.canvas) {
       this.game.canvas.style.background = 'transparent'
     }
@@ -120,9 +114,8 @@ export default class D3OpenSea extends RiverScene {
     this._preManannanScrollY          = null
     this._manannanReleasedAndRetreated = GameState.hasNote('met_manannan')
 
-    // Storm audio — deferred until first user gesture to avoid
+    // FIX 2: Defer StormAudio.start() until first user gesture to avoid
     // AudioContext suspension on normal (non-direct) page loads.
-    // The context is created and started on the first joystick input.
     this._stormAudio = new StormAudio()
     this._stormAudioStarted = false
 
@@ -132,21 +125,30 @@ export default class D3OpenSea extends RiverScene {
     // Distant rain — second curtain, independent canvas
     this._distantRain = new DistantRainLayer()
 
+    // Both StormOverlay and DistantRainLayer append their canvases to
+    // document.body. On a normal load gameContainer sits at z-index:999999
+    // (set by returnCrossing.js) so those canvases are hidden behind it.
+    // Move them into gameContainer so they share its stacking context.
+    const _gc = document.getElementById('gameContainer')
+    if (_gc) {
+      const _stormCanvas = document.getElementById('storm-overlay')
+      const _rainCanvas  = this._distantRain._canvas
+      if (_stormCanvas && _stormCanvas.parentNode !== _gc) _gc.appendChild(_stormCanvas)
+      if (_rainCanvas  && _rainCanvas.parentNode  !== _gc) _gc.appendChild(_rainCanvas)
+    }
+
     this._stormCanvas = this.game.canvas
 
-    // Append storm overlays inside gameContainer, not document.body.
-    // returnCrossing.js sets gameContainer to z-index:999999 on exit,
-    // which puts it above any div appended to body at a lower z-index.
-    const _overlayParent = document.getElementById('gameContainer') ?? document.body
-
+    // FIX 3: Vignette appended to document.body at z-index:1000000 so it
+    // sits above gameContainer (which returnCrossing.js sets to z-index:999999).
     this._vignetteDiv = document.createElement('div')
     this._vignetteDiv.style.cssText = [
       'position:fixed', 'inset:0',
       'background:radial-gradient(120% 70% at 50% 50%, transparent 35%, rgba(4,8,20,0) 100%)',
       'pointer-events:none',
-      'z-index:9900',
+      'z-index:9950',
     ].join(';')
-    _overlayParent.appendChild(this._vignetteDiv)
+    document.body.appendChild(this._vignetteDiv)
 
     this._stormAudio.onThunder = (size) => {
       this._stormOverlay?.triggerLightning(size)
@@ -159,10 +161,10 @@ export default class D3OpenSea extends RiverScene {
       'background:black',
       'opacity:0',
       'pointer-events:none',
-      'z-index:99',
+      'z-index:9950',
       'transition:opacity 4s ease-in',
     ].join(';')
-    _overlayParent.appendChild(this._fadeDiv)
+    document.body.appendChild(this._fadeDiv)
   }
 
   onEnter() {
@@ -189,8 +191,8 @@ export default class D3OpenSea extends RiverScene {
       this.joystick?.drawBadgeGlow?.(0)
     }
 
-    // Start storm audio on first user interaction — guarantees AudioContext
-    // is created after a gesture, avoiding Chrome's autoplay suspension.
+    // FIX 2 cont: Start storm audio on first joystick input — guaranteed
+    // to be after a user gesture so AudioContext won't be suspended.
     if (!this._stormAudioStarted && (this.joystick?.force ?? 0) > 0) {
       this._stormAudioStarted = true
       this._stormAudio.start()
@@ -223,11 +225,14 @@ export default class D3OpenSea extends RiverScene {
     const darkProgress = Math.max(0, Math.min(1, (tileX - 30) / 30))
     const t            = darkProgress * darkProgress
 
-    if (this._stormCanvas) {
-      const sat  = Math.round(100 - t * 70)
-      const bri  = Math.round(100 - t * 30)
-      const hue  = Math.round(t * 195)
-      this._stormCanvas.style.filter = t < 0.01
+    // FIX 4: Apply storm filter to pgr-ground (the visible canvas) rather
+    // than the Phaser canvas which is mostly transparent.
+    const sat  = Math.round(100 - t * 70)
+    const bri  = Math.round(100 - t * 30)
+    const hue  = Math.round(t * 195)
+    const _filterTarget = document.getElementById('pgr-ground') ?? this._stormCanvas
+    if (_filterTarget) {
+      _filterTarget.style.filter = t < 0.01
         ? ''
         : `saturate(${sat}%) brightness(${bri}%) hue-rotate(${hue}deg)`
     }
@@ -692,7 +697,8 @@ export default class D3OpenSea extends RiverScene {
       'opacity:0',
       'pointer-events:none',
     ].join(';')
-    document.body.appendChild(veil)
+    const _cp = document.getElementById('gameContainer') ?? document.body
+    _cp.appendChild(veil)
 
     const cam = this.cameras?.main
     if (cam && this.player) {
@@ -725,7 +731,8 @@ export default class D3OpenSea extends RiverScene {
       'opacity:0',
       'pointer-events:none',
     ].join(';')
-    document.body.appendChild(veil)
+    const _cfp = document.getElementById('gameContainer') ?? document.body
+    _cfp.appendChild(veil)
 
     requestAnimationFrame(() => {
       veil.style.transition = 'opacity 0.6s ease-in'
@@ -798,10 +805,8 @@ export default class D3OpenSea extends RiverScene {
     this._waveRenderer?.spawnManannan()
     this._waveRenderer?.triggerHorseSequence()
 
-    // Show badge as a visual flourish, but also auto-open the scroll
-    // after a longer delay — guarantees the sequence fires regardless
-    // of whether the badge is tappable (e.g. on slow first loads where
-    // encounterPanel may not be fully ready).
+    // FIX 5: Badge is a visual flourish; scroll also auto-opens after 5s
+    // as a fallback in case the badge isn't tappable on slow first loads.
     this.time.delayedCall(3000, () => {
       this._showManannanBadge()
     })
@@ -936,11 +941,15 @@ export default class D3OpenSea extends RiverScene {
     const getMoonPhase = () =>
       this._encounterPanel?._moonWidget?.getPhase?.() ?? 0.5
 
+    // Use gameContainer as the scroll container so it shares the same
+    // stacking context as the vignette and other overlays.
+    const _scrollContainer = document.getElementById('gameContainer') ?? document.body
+
     this._manannanScroll = new ScrollingTextPlayer({
       lines:             MANANNAN_LINES,
       getMoonPhase,
       onComplete:        () => this._onManannanScrollComplete(),
-      container:         document.body,
+      container:         _scrollContainer,
       bottomClearancePx: clearancePx,
       scrollSpeed:       MANANNAN_SCROLL_SPEED,
     })
@@ -982,7 +991,6 @@ export default class D3OpenSea extends RiverScene {
     if (this._devourStarted) return
     this._devourStarted = true
 
-    // Freeze everything
     if (this.boatSystem) {
       this.boatSystem._vx           = 0
       this.boatSystem._vy           = 0
@@ -995,27 +1003,16 @@ export default class D3OpenSea extends RiverScene {
     const p = this.player
     if (!p) { this._beginCapsizeFade(); return }
 
-    // ── Hide player and boat immediately ─────────────────────────────────
-    // The boat and player sprite are rendered by perspectiveGround onto its
-    // own canvas — hiding only game.canvas leaves them visible.
-    // We hide everything that could show them:
-    //   1. perspectiveGround canvas (boat + player sprite)
-    //   2. game.canvas (Phaser layer, player sprite if rendered there too)
-    //   3. Set a flag so perspectiveGround skips drawing the boat this frame
     if (this.game?.canvas)       this.game.canvas.style.opacity = '0'
     if (this.perspectiveGround) {
-      // Hide the PerspectiveGround canvas element directly
       const pgCanvas = this.perspectiveGround.canvas
                     ?? this.perspectiveGround._canvas
                     ?? this.perspectiveGround.element
       if (pgCanvas?.style) pgCanvas.style.opacity = '0'
-
-      // Flag checked by PerspectiveGround.render() / drawBoat() if present
       this.perspectiveGround._hideBoat   = true
       this.perspectiveGround._hidePlayer = true
     }
 
-    // ── Screen-space approach ────────────────────────────────────────────
     const pgr         = this.perspectiveGround
     const playerTileY = Math.floor(p.logicalY / this.tileSize)
 
@@ -1029,7 +1026,6 @@ export default class D3OpenSea extends RiverScene {
       ? (p.logicalX - cam.scrollX) * zoom
       : this.scale.width / 2
 
-    // Overlay canvas for the charge animation — sits above everything
     const oc = document.createElement('canvas')
     oc.width  = this.scale.width
     oc.height = this.scale.height
@@ -1039,7 +1035,9 @@ export default class D3OpenSea extends RiverScene {
       'pointer-events:none',
       'z-index:9950',
     ].join(';')
-    document.body.appendChild(oc)
+    // Append inside gameContainer so it's not hidden behind it
+    const _devourParent = document.getElementById('gameContainer') ?? document.body
+    _devourParent.appendChild(oc)
     this._devourCanvas = oc
     const ctx = oc.getContext('2d')
 
@@ -1094,20 +1092,14 @@ export default class D3OpenSea extends RiverScene {
         this._playUlp()
         this._flashWhite()
 
-        // Stop BoatSystem from pushing player.logicalX/Y back each frame —
-        // it runs in RiverScene.update() before PGR and would immediately
-        // overwrite any position we set here.
         if (this.boatSystem) {
           this.boatSystem._vx           = 0
           this.boatSystem._vy           = 0
           this.boatSystem._noDrift      = true
           this.boatSystem._eastSpeedCap = 0
-          // No-op remaining updates so velocity can't restore the position
           this.boatSystem.update = () => {}
         }
 
-        // Move player far off any renderable row so PGR draws neither
-        // the player sprite nor the boat (both keyed off logicalX/Y).
         if (p) {
           p.logicalX = -999999
           p.logicalY = -999999
@@ -1115,7 +1107,6 @@ export default class D3OpenSea extends RiverScene {
           p.targetY  = -999999
         }
 
-        // Clear the boat canvas PGR holds so it can't draw it independently.
         if (this.perspectiveGround) {
           this.perspectiveGround._boatActive = false
           this.perspectiveGround._boatCanvas = null
@@ -1164,8 +1155,6 @@ export default class D3OpenSea extends RiverScene {
       if (rawT < 1) {
         requestAnimationFrame(swim)
       } else {
-        // Game canvas and perspectiveGround stay hidden — _beginCapsizeFade
-        // cuts to black and reloads immediately after.
         if (oc.parentNode) oc.parentNode.removeChild(oc)
         this._devourCanvas = null
         this._beginCapsizeFade()
@@ -1180,7 +1169,8 @@ export default class D3OpenSea extends RiverScene {
       'position:fixed', 'inset:0', 'z-index:999999',
       'background:white', 'opacity:0.9', 'pointer-events:none',
     ].join(';')
-    document.body.appendChild(flash)
+    const _fp = document.getElementById('gameContainer') ?? document.body
+    _fp.appendChild(flash)
     setTimeout(() => {
       flash.style.transition = 'opacity 0.35s ease-out'
       flash.style.opacity = '0'
@@ -1274,6 +1264,10 @@ export default class D3OpenSea extends RiverScene {
     }
     this._distantRain?.destroy()
     this._distantRain = null
+    // FIX 6: Clear filter from pgr-ground (where it's now applied) as well
+    // as the Phaser canvas, so it doesn't bleed into the next scene.
+    const _pgrGround = document.getElementById('pgr-ground')
+    if (_pgrGround) _pgrGround.style.filter = ''
     if (this._stormCanvas) {
       this._stormCanvas.style.filter = ''
       this._stormCanvas = null

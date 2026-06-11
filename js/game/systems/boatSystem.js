@@ -226,7 +226,6 @@ export default class BoatSystem {
 
     if (this._lastGid !== gid) {
       this._lastGid = gid
-      console.log('[boat] tile gid:', gid, 'onReed:', onReed, 'onWater:', onWater, 'onLand:', onLand)
     }
 
     // Clear ALL tile-step state every frame — boat owns all movement.
@@ -304,7 +303,6 @@ if (onWater && !this._noDrift) {
 
     // Integrate position
     if (this._vx !== 0 || this._vy !== 0) {
-      if (Math.random() < 0.02) console.log('[boat physics] vx:', this._vx.toFixed(2), 'vy:', this._vy.toFixed(2), 'x:', p.logicalX.toFixed(1))
 
       const newX  = p.logicalX + this._vx * dt
       const newY  = p.logicalY + this._vy * dt

@@ -42,6 +42,16 @@ const BOG_FLAT = 733  // flat bog ground tile
 const BOG_POOL = [83,84,99,100]  // dark bog pool tiles
 const STONE_CIRCLE = [154,155,208,209]
 
+// ── Building GIDs (custom — above Oryx range, mapped to /assets/buildings/*.png)
+// Register these in the scene via pgr.registerCustomTile(GID, url) before use.
+// thatch1.png = standard roof surface, thatch2.png = ridge (taller peak)
+// wall1/2/3.png = wall face variants (bothán daub, forge stone, cabin timber etc.)
+const BLDG_THATCH1 = 3001   // /assets/buildings/thatch1.png — eave/roof surface
+const BLDG_THATCH2 = 3002   // /assets/buildings/thatch2.png — ridge (cliffHeight 2.1)
+const BLDG_WALL1   = 3011   // /assets/buildings/wall1.png   — daub/wattle (bothán, cabin)
+const BLDG_WALL2   = 3012   // /assets/buildings/wall2.png   — stone (forge)
+const BLDG_WALL3   = 3013   // /assets/buildings/wall3.png   — timber (shed)
+
 // ── Forest CA ─────────────────────────────────────────────────────────────────
 function forestCA(cfg, water, rng) {
   let g = make2D(W,H,false)
@@ -284,30 +294,75 @@ function clearOverlayCorridor(overlay, dir) {
 }
 
 // ── Village (b0) ──────────────────────────────────────────────────────────────
+// Helper: for a given row offset within a footprint, return the building GID.
+//   dy=0 is the northernmost (back) row; dy=fh-1 is the south (wall face) row.
+//   The center roof row(s) get BLDG_THATCH2 (taller) to form a ridge peak.
+function bldgGid(dy, fh, wallGid) {
+  if (dy === fh - 1) return wallGid          // south face — wall texture
+  const roofRows    = fh - 1                 // number of rows that are roof
+  const ridgeCenter = (roofRows - 1) / 2     // fractional center of roof depth
+  const distFromCenter = Math.abs(dy - ridgeCenter)
+  return distFromCenter < 1.0 ? BLDG_THATCH2 : BLDG_THATCH1
+}
+
 function genVillage(name, exits_def, rng) {
   const base=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>(x+y)%2===0?GRASS[0]:GRASS[1]))
   const overlay=make2D(W,H,0)
-  for(let y=2;y<H-2;y++) for(let x=2;x<W-2;x++){
-    if(rng()<0.04) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
-    else if(rng()<0.03) overlay[y][x]=FLOWERS[Math.floor(rng()*FLOWERS.length)]
-  }
-  // Buildings: anchor = top-left tile of footprint (x,y), fw/fh = footprint
-  // in tiles (collision). door = tile in front of the doorway, reserved as
-  // the interior-transition hook for phase 2. src is relative to public/.
-  const buildings=[
-    {key:'forge',  src:'buildings/loghouse_r0.png',       x:8,  y:12, fw:5, fh:3, door:[10,15]},
-    {key:'bothan', src:'buildings/cottage_thatch_r2.png', x:22, y:11, fw:4, fh:3, door:[24,14]},
-    {key:'cabin1', src:'buildings/cabin_porch_r0.png',    x:9,  y:21, fw:4, fh:3, door:[11,24]},
-    {key:'shed',   src:'buildings/shed_r1.png',           x:24, y:22, fw:3, fh:2, door:[25,24]},
+
+  // Buildings: {x, y, fw, fh, wallGid}
+  // Layer 0 south row → wallGid (front face), other rows → thatch (roof + ridge)
+  // ElevationRenderer reads gidHeights from elevationConfig to give ridge tiles
+  // more height, producing a stepped peaked-roof profile.
+  const footprints=[
+    {x:4,  y:8,  fw:8, fh:5, wallGid:BLDG_WALL2},  // forge   — NW (stone)
+    {x:23, y:8,  fw:6, fh:4, wallGid:BLDG_WALL1},  // bothán  — NE (wattle/daub)
+    {x:5,  y:19, fw:6, fh:4, wallGid:BLDG_WALL1},  // cabin   — SW (wattle/daub)
+    {x:24, y:20, fw:4, fh:3, wallGid:BLDG_WALL3},  // shed    — SE (timber)
   ]
-  // Clear overlay under footprints + 1-tile apron so bushes don't clip walls
-  for(const b of buildings)
-    for(let y=b.y-1;y<=b.y+b.fh;y++) for(let x=b.x-1;x<=b.x+b.fw;x++)
-      if(inB(x,y)) overlay[y][x]=0
+  for(const f of footprints){
+    for(let dy=0;dy<f.fh;dy++) for(let gx=f.x;gx<f.x+f.fw;gx++){
+      const gy=f.y+dy
+      if(!inB(gx,gy)) continue
+      base[gy][gx]    = bldgGid(dy, f.fh, f.wallGid)
+      overlay[gy][gx] = 0
+    }
+  }
+
+  // Scatter only on clear grass, avoiding footprints + 1-tile apron
+  for(let gy=2;gy<H-2;gy++) for(let gx=2;gx<W-2;gx++){
+    const near=footprints.some(f=>gx>=f.x-1&&gx<=f.x+f.fw&&gy>=f.y-1&&gy<=f.y+f.fh)
+    if(!near && !([BLDG_THATCH1,BLDG_THATCH2,BLDG_WALL1,BLDG_WALL2,BLDG_WALL3].includes(base[gy][gx]))){
+      if(rng()<0.04) overlay[gy][gx]=BUSHES[Math.floor(rng()*BUSHES.length)]
+      else if(rng()<0.03) overlay[gy][gx]=FLOWERS[Math.floor(rng()*FLOWERS.length)]
+    }
+  }
+
   const {exits,entries}=makeExitEntry(exits_def)
   for(const dir of Object.keys(exits_def)) clearOverlayCorridor(overlay,dir)
   const map=buildMap(name,base,overlay,exits,entries,{x:MID,y:H-6})
-  map.buildings=buildings
+  map.hasCliffs=true
+  // Stored as arrays (JSON-safe); scene converts to Sets and passes to ElevationRenderer
+  map.elevationConfig={
+    cliffFaceGid: BLDG_WALL1,   // fallback face gid (not used for side faces in new system)
+    elevatedGids: [BLDG_THATCH1, BLDG_THATCH2, BLDG_WALL1, BLDG_WALL2, BLDG_WALL3],
+    cliffSouth:   [GRASS[0], GRASS[1]],
+    cliffHeight:  1.5,           // default (eave/wall height)
+    gidHeights: {                // per-GID overrides — ridge is 40% taller
+      [BLDG_THATCH1]: 1.5,
+      [BLDG_THATCH2]: 2.1,      // ridge peak
+      [BLDG_WALL1]:   1.5,
+      [BLDG_WALL2]:   1.5,
+      [BLDG_WALL3]:   1.5,
+    },
+    // Custom tile asset paths — loaded by scene via pgr.registerCustomTile()
+    customTiles: {
+      [BLDG_THATCH1]: '/assets/buildings/thatch1.png',
+      [BLDG_THATCH2]: '/assets/buildings/thatch2.png',
+      [BLDG_WALL1]:   '/assets/buildings/wall1.png',
+      [BLDG_WALL2]:   '/assets/buildings/wall2.png',
+      [BLDG_WALL3]:   '/assets/buildings/wall3.png',
+    },
+  }
   return map
 }
 

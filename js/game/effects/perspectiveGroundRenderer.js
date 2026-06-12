@@ -487,6 +487,192 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR] buildings registered:', this._buildings.length)
   }
 
+  /**
+   * Register a custom tile image for a GID outside the Oryx tileset range.
+   * Call once per custom GID (e.g. building wall/thatch tiles) after PGR is
+   * constructed. The tile becomes available for elevation rendering as soon
+   * as the image loads; a null placeholder is placed immediately so the tile
+   * is silently skipped until then rather than trying to slice from the sheet.
+   *
+   * Example:
+   *   pgr.registerCustomTile(3001, '/assets/buildings/thatch1.png')
+   *   pgr.registerCustomTile(3011, '/assets/buildings/wall1.png')
+   */
+  registerCustomTile(gid, url) {
+    this._tileCache.set(gid, null)  // placeholder — tile silently skipped until loaded
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const c   = document.createElement('canvas')
+      c.width   = img.width
+      c.height  = img.height
+      const ctx = c.getContext('2d')
+      ctx.imageSmoothingEnabled = false
+      ctx.filter = 'saturate(60%)'   // harmonize with desaturated Oryx tileset
+      ctx.drawImage(img, 0, 0)
+      ctx.filter = 'none'
+      this._tileCache.set(gid, c)
+      this._lastCamX = null           // force redraw once loaded
+      console.log(`[PGR] custom tile ${gid} ready — ${img.width}x${img.height} from ${url}`)
+    }
+    img.onerror = e => console.error(`[PGR] custom tile ${gid} failed: ${url}`, e)
+    img.src = url
+  }
+
+  /**
+   * Draw one building. Modes (b.mode, default 'box'):
+   *
+   * 'box'       Image is split at the eaves (b.roofSplit = top fraction that
+   *             is roof, default 0.45). The wall band is a vertical plane
+   *             rigidly pinned at the footprint's front depth — zero slide,
+   *             like the player sprite. The roof band is a receding plane
+   *             from the wall top to the footprint's back row at wall height.
+   *             Approximates a 3D box; best compromise for standing buildings.
+   *
+   * 'decal'     The whole image is laid flat on the ground plane, drawn as
+   *             strips each at its own row depth — exactly how ground tiles
+   *             render. Mathematically cannot slide. Building reads as
+   *             painted onto the terrain (AoE-style).
+   *
+   * 'billboard' Plain vertical plane at the front depth, no warp. Rigid;
+   *             roof parallax will drift over far ground rows.
+   *
+   * All modes get the palette tint (object zone, b.tintGid override).
+   */
+  _drawBuilding(ctx, b, horizonPx, sw) {
+    const frontRow   = b.anchorRow + 1
+    const yBase      = this._rowToScreenY(frontRow)
+    if (yBase === null || yBase < horizonPx) return
+    const os         = b.overscale ?? 1.2
+    const cxTile     = b.x + b.fw / 2
+    const scaleFront = this._scaleAtRow(frontRow)
+    if (!(scaleFront > 0)) return
+    const wFront     = b.fw * scaleFront * os
+    const cxFront    = this._colToScreenX(cxTile, frontRow)
+    if (cxFront + wFront < -sw || cxFront - wFront > sw * 2) return
+
+    const mode = b.mode ?? 'box'
+    let boundary = null
+    ctx.globalAlpha = 1.0
+
+    if (mode === 'decal') {
+      boundary = this._drawBuildingDecal(ctx, b, cxTile, frontRow, os, horizonPx)
+    } else if (mode === 'billboard') {
+      const hB = wFront * (b.canvas.height / b.canvas.width)
+      ctx.drawImage(b.canvas,
+        Math.round(cxFront - wFront / 2), Math.round(yBase - hB),
+        Math.round(wFront), Math.round(hB))
+      boundary = [
+        { x: cxFront - wFront / 2, y: yBase - hB },
+        { x: cxFront + wFront / 2, y: yBase - hB },
+        { x: cxFront + wFront / 2, y: yBase },
+        { x: cxFront - wFront / 2, y: yBase },
+      ]
+    } else {
+      boundary = this._drawBuildingBox(ctx, b, cxTile, cxFront, wFront, yBase, scaleFront)
+    }
+
+    if (boundary && boundary.length) {
+      const bTint = this.tintManager.getTint(b.tintGid ?? 197, b.x, b.y)
+      if (bTint) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'source-atop'
+        ctx.globalAlpha = (bTint.alpha ?? 0.45) * 0.8
+        ctx.fillStyle = `hsl(${bTint.h},${bTint.s}%,${bTint.l}%)`
+        ctx.beginPath()
+        ctx.moveTo(boundary[0].x, boundary[0].y)
+        for (let i = 1; i < boundary.length; i++) ctx.lineTo(boundary[i].x, boundary[i].y)
+        ctx.closePath()
+        ctx.fill()
+        ctx.restore()
+      }
+    }
+  }
+
+  _drawBuildingBox(ctx, b, cxTile, cxFront, wFront, yBase, scaleFront) {
+    const img   = b.canvas
+    const iw    = img.width, ih = img.height
+    const split = Math.min(0.85, Math.max(0.05, b.roofSplit ?? 0.45))
+    const wallSrcY    = ih * split          // image y where roof ends / walls begin
+    const wallSrcH    = ih - wallSrcY
+    const wallScreenH = wFront * (wallSrcH / iw)
+    const yWallTop    = yBase - wallScreenH
+
+    // Back edge of the roof: footprint's north row, raised by the wall height
+    // (vertical world height scales with depth, like any standing sprite).
+    const backRow = b.y
+    let yBack     = this._rowToScreenY(backRow)
+    let scaleBack = this._scaleAtRow(backRow)
+    if (yBack === null || !(scaleBack > 0)) { yBack = yWallTop; scaleBack = scaleFront }
+    const hTiles    = wallScreenH / scaleFront
+    const wBack     = b.fw * scaleBack * (b.overscale ?? 1.2)
+    const cxBack    = this._colToScreenX(cxTile, backRow)
+    const yRoofBack = yBack - hTiles * scaleBack
+
+    // 1. Walls — rigid vertical plane at the front depth (simple crop draw)
+    ctx.drawImage(img, 0, wallSrcY, iw, wallSrcH,
+      Math.round(cxFront - wFront / 2), Math.round(yWallTop),
+      Math.round(wFront), Math.round(wallScreenH))
+
+    // 2. Roof — receding plane, wall top -> back row at wall height
+    const TL = { x: cxBack  - wBack  / 2, y: yRoofBack }
+    const TR = { x: cxBack  + wBack  / 2, y: yRoofBack }
+    const BL = { x: cxFront - wFront / 2, y: yWallTop }
+    const BR = { x: cxFront + wFront / 2, y: yWallTop }
+    this._drawAffineTriangle(ctx, img,
+      { u: 0, v: 0 }, { u: iw, v: 0 }, { u: iw, v: wallSrcY }, TL, TR, BR)
+    this._drawAffineTriangle(ctx, img,
+      { u: 0, v: 0 }, { u: iw, v: wallSrcY }, { u: 0, v: wallSrcY }, TL, BR, BL)
+
+    // Boundary polygon: base -> wall top right -> roof back -> wall top left
+    return [
+      { x: cxFront - wFront / 2, y: yBase },
+      { x: cxFront + wFront / 2, y: yBase },
+      BR, TR, TL, BL,
+    ]
+  }
+
+  _drawBuildingDecal(ctx, b, cxTile, frontRow, os, horizonPx) {
+    const img        = b.canvas
+    const iw         = img.width, ih = img.height
+    const widthTiles = b.fw * os
+    const depthTiles = widthTiles * (ih / iw)   // lay flat, preserving aspect
+    const STRIPS     = 10
+    let prev = null
+    for (let i = 0; i <= STRIPS; i++) {
+      const f   = i / STRIPS                    // 0 = image top (far), 1 = bottom (near)
+      const row = frontRow - depthTiles * (1 - f)
+      const y   = this._rowToScreenY(row)
+      const s   = this._scaleAtRow(row)
+      const cx  = this._colToScreenX(cxTile, row)
+      const cur = (y === null || !(s > 0)) ? null
+        : { y, cx, w: widthTiles * s, v: ih * f }
+      if (prev && cur && cur.y > horizonPx - 4) {
+        const TL = { x: prev.cx - prev.w / 2, y: prev.y }
+        const TR = { x: prev.cx + prev.w / 2, y: prev.y }
+        const BL = { x: cur.cx  - cur.w  / 2, y: cur.y }
+        const BR = { x: cur.cx  + cur.w  / 2, y: cur.y }
+        this._drawAffineTriangle(ctx, img,
+          { u: 0, v: prev.v }, { u: iw, v: prev.v }, { u: iw, v: cur.v }, TL, TR, BR)
+        this._drawAffineTriangle(ctx, img,
+          { u: 0, v: prev.v }, { u: iw, v: cur.v }, { u: 0, v: cur.v }, TL, BR, BL)
+      }
+      prev = cur
+    }
+    const backRowD = frontRow - depthTiles
+    const yF = this._rowToScreenY(frontRow), sF = this._scaleAtRow(frontRow)
+    const yK = this._rowToScreenY(backRowD), sK = this._scaleAtRow(backRowD)
+    if (yF === null || yK === null) return null
+    const cxF = this._colToScreenX(cxTile, frontRow)
+    const cxK = this._colToScreenX(cxTile, backRowD)
+    return [
+      { x: cxK - widthTiles * sK / 2, y: yK },
+      { x: cxK + widthTiles * sK / 2, y: yK },
+      { x: cxF + widthTiles * sF / 2, y: yF },
+      { x: cxF - widthTiles * sF / 2, y: yF },
+    ]
+  }
+
   _loadCatalogue() {
     try {
       const catalogue = this.scene.cache.json.get('oryxCatalogue')
@@ -845,6 +1031,50 @@ export default class PerspectiveGroundRenderer {
       { x: xBL, y: yBot }, { x: xBR, y: yBot },
       null)
     ctx.globalAlpha = 1.0
+  }
+
+  /**
+   * Draw an east or west side face of an elevated tile.
+   * edgeCol = col+1 for the east face, col for the west face.
+   * The quad spans the full depth of the tile (row → row+1) and the full
+   * cliff height, giving a solid perspective-correct side wall.
+   */
+  _drawElevatedSideFace(ctx, edgeCol, row, elev, gid, tileAlpha) {
+    const yFront = this._rowToScreenY(row + 1)
+    if (yFront === null) return
+    const sFront = this._scaleAtRow(row + 1)
+    if (!(sFront > 0)) return
+
+    const yBack  = this._rowToScreenY(row)
+    const sBack  = this._scaleAtRow(row)
+
+    const xFront = this._colToScreenX(edgeCol, row + 1)
+    const xBack  = this._colToScreenX(edgeCol, row)
+
+    const yFrontTop = yFront - elev * sFront
+    const yBackTop  = yBack  !== null ? yBack  - elev * sBack : yFrontTop
+
+    // Derive side colour from the tile's tint, darkened for shadow
+    const tint = this.tintManager.getTint(gid, edgeCol, row)
+    const sideColor = tint
+      ? `hsl(${tint.h},${Math.round(tint.s * 0.55)}%,${Math.max(tint.l - 18, 4)}%)`
+      : 'rgb(52, 38, 28)'
+
+    ctx.save()
+    ctx.globalAlpha = tileAlpha * 0.85
+    ctx.fillStyle = sideColor
+    ctx.beginPath()
+    ctx.moveTo(xBack,  yBackTop)
+    ctx.lineTo(xFront, yFrontTop)
+    ctx.lineTo(xFront, yFront)
+    if (yBack !== null) ctx.lineTo(xBack, yBack)
+    ctx.closePath()
+    ctx.fill()
+    // Subtle edge line
+    ctx.strokeStyle = 'rgba(20,14,8,0.45)'
+    ctx.lineWidth = 0.8
+    ctx.stroke()
+    ctx.restore()
   }
 
   /**
@@ -1243,6 +1473,28 @@ export default class PerspectiveGroundRenderer {
               })
             }
 
+            // East face: elevated tile whose east neighbour is lower
+            const _eastElev = (tileCol + 1 < mapW)
+              ? (this._elev?.[tileRow]?.[tileCol + 1] ?? 0) : 0
+            if (inMap && tileElev > 0 && _eastElev < tileElev
+                && yBotClamped >= horizonPx + 30) {
+              _deferredCliffs.push({
+                col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
+                gid: gid0, yBot: yBotClamped, isCliff: false, faceDir: 'east'
+              })
+            }
+
+            // West face: elevated tile whose west neighbour is lower
+            const _westElev = (tileCol - 1 >= 0)
+              ? (this._elev?.[tileRow]?.[tileCol - 1] ?? 0) : 0
+            if (inMap && tileElev > 0 && _westElev < tileElev
+                && yBotClamped >= horizonPx + 30) {
+              _deferredCliffs.push({
+                col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
+                gid: gid0, yBot: yBotClamped, isCliff: false, faceDir: 'west'
+              })
+            }
+
             // Exit edge strip overlay
             if (inMap && this._exitEdges?.size) {
               const onExit = (
@@ -1530,25 +1782,14 @@ export default class PerspectiveGroundRenderer {
 
       } // tileCol
 
-      // Buildings — image billboards anchored at footprint base row.
-      // Drawn in row order so painter's algorithm handles player occlusion:
-      // player south of building draws later (in front), north draws earlier (behind).
+      // Buildings — drawn per anchor row for painter's-algorithm occlusion.
+      // Rendering mode per building (b.mode): 'box' | 'decal' | 'billboard'.
+      // See _drawBuilding for the geometry of each.
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
           if (fov && fov.isHidden(b.centerColInt, b.anchorRow)) continue
-          const yBase = this._rowToScreenY(tileRow + 1)
-          if (yBase === null || yBase < horizonPx) continue
-          const scaledTileW = this._scaleAtRow(tileRow + 1)
-          const drawW = b.fw * scaledTileW * (b.overscale ?? 1.2)
-          const drawH = drawW * (b.canvas.height / b.canvas.width)
-          const screenX = this._colToScreenX(b.x + b.fw / 2, tileRow + 1)
-          if (screenX + drawW / 2 < 0 || screenX - drawW / 2 > sw) continue
-          this._oCtx.globalAlpha = 1.0
-          this._oCtx.drawImage(b.canvas,
-            Math.round(screenX - drawW / 2),
-            Math.round(yBase - drawH),
-            Math.round(drawW), Math.round(drawH))
+          this._drawBuilding(this._oCtx, b, horizonPx, sw)
         }
       }
 
@@ -1581,7 +1822,11 @@ export default class PerspectiveGroundRenderer {
     for (const cf of _deferredCliffs) _cliffSet.set(`${cf.col},${cf.row}`, cf)
 
     for (const cf of _deferredCliffs) {
-      if (cf.isCliff) {
+      if (cf.faceDir === 'east') {
+        this._drawElevatedSideFace(this._gCtx, cf.col + 1, cf.row, cf.elev, cf.gid, cf.alpha)
+      } else if (cf.faceDir === 'west') {
+        this._drawElevatedSideFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha)
+      } else if (cf.isCliff) {
         // Cliff edge tile: draw cliff face sprite
         this._drawCliffFace(this._gCtx, cf.col, cf.row, cf.elev, cf.alpha)
       } else {
@@ -1589,16 +1834,18 @@ export default class PerspectiveGroundRenderer {
         this._drawElevatedFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha, cf.yBot)
       }
 
-      // Side gap fill for staircase steps (applies to both cliff and elevated)
-      const eastNeighbour = _cliffSet.get(`${cf.col + 1},${cf.row - 1}`)
-      if (eastNeighbour) {
-        this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
-          eastNeighbour.row, +1, cf.alpha)
-      }
-      const westNeighbour = _cliffSet.get(`${cf.col - 1},${cf.row - 1}`)
-      if (westNeighbour) {
-        this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
-          westNeighbour.row, -1, cf.alpha)
+      // Side gap fill for staircase steps — south faces only
+      if (!cf.faceDir) {
+        const eastNeighbour = _cliffSet.get(`${cf.col + 1},${cf.row - 1}`)
+        if (eastNeighbour) {
+          this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
+            eastNeighbour.row, +1, cf.alpha)
+        }
+        const westNeighbour = _cliffSet.get(`${cf.col - 1},${cf.row - 1}`)
+        if (westNeighbour) {
+          this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
+            westNeighbour.row, -1, cf.alpha)
+        }
       }
     }
 

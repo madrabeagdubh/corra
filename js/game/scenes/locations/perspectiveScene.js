@@ -116,8 +116,16 @@ export default class PerspectiveScene extends BaseLocationScene {
    *     sideColor:    '#1a1a2e',
    *   }
    */
-  getElevationConfig() { return null }
-
+getElevationConfig() {
+  const cfg = this.mapData?.elevationConfig
+  if (!cfg) return null
+  return {
+    cliffFaceGid: cfg.cliffFaceGid ?? 740,
+    elevatedGids: new Set(cfg.elevatedGids ?? [839, 840]),
+    cliffSouth:   new Set(cfg.cliffSouth   ?? [731, 1625, 1679]),
+    cliffHeight:  cfg.cliffHeight  ?? 1.0,
+  }
+}
   /**
    * Override in subclasses to load map-specific objects, NPCs, encounters.
    * Called during create() before initializeLocation().

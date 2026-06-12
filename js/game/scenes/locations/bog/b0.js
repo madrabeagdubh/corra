@@ -1,4 +1,4 @@
-import BogLocationScene from '../bogScene.js'      
+import BogLocationScene from '../bogScene.js'
 
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
@@ -14,15 +14,21 @@ export default class BogB0 extends BogLocationScene {
   getElevationConfig() {
     const cfg = this.mapData?.elevationConfig
     if (!cfg) return null
+    // Register custom building tile images with PGR
+    if (cfg.customTiles && this.perspectiveGround) {
+      for (const [gid, url] of Object.entries(cfg.customTiles))
+        this.perspectiveGround.registerCustomTile(Number(gid), url)
+    }
     return {
-      cliffFaceGid: cfg.cliffFaceGid ?? 740,
-      elevatedGids: new Set(cfg.elevatedGids ?? [839, 840]),
-      cliffSouth:   new Set(cfg.cliffSouth   ?? [731, 1625, 1679]),
-      cliffHeight:  cfg.cliffHeight ?? 1.0,
+      cliffFaceGid: cfg.cliffFaceGid,
+      elevatedGids: new Set(cfg.elevatedGids),
+      cliffSouth:   new Set(cfg.cliffSouth),
+      cliffHeight:  cfg.cliffHeight,
+      gidHeights:   cfg.gidHeights,
     }
   }
 
   getExtraUnwalkableGIDs() {
-    return new Set([156, 733])  // BLDG_WALL, BLDG_ROOF — swap when final GIDs chosen
+    return new Set([3001, 3002, 3011, 3012, 3013])
   }
 }

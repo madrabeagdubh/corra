@@ -21,23 +21,39 @@
 // ElevationRenderer.update(mapData) must be called BEFORE pgr.update() each frame.
 // Maps without ElevationRenderer render flat — zero overhead.
 //
-// The static CLIFF_GIDS / ELEVATED_GIDS / CLIFF_HEIGHT constants below are kept
-// as readable defaults. ElevationRenderer accepts its own config object so
-// different maps can use different GIDs and heights without touching this file.
-//
 // ── Buildings ─────────────────────────────────────────────────────────────────
 // Scene calls pgr.setBuildings(mapData.buildings || []) after mapData is set.
 // Each entry: { key, src, x, y, fw, fh, door, overscale? }
-//   src is relative to public/. Sprite is anchored at the footprint's base row
-//   (y + fh - 1) so painter's-algorithm row ordering occludes correctly against
-//   the player. overscale (default 1.2) widens the sprite beyond its footprint
-//   so roofs overhang the collision box.
 //
 // ── Phaser canvas ─────────────────────────────────────────────────────────────
 // Phaser canvas sits at z-index:10 — UI, joystick, inventory all unaffected.
 // Player's Phaser sprite is hidden; PGR owns all player rendering.
 
 import { TintManager } from './tintManager.js'
+
+// Fast deterministic hash for tile position — used to pick tint variant index
+function _tmHashPGR(tx, ty) {
+  let h = (tx * 374761393 + ty * 1103515245) | 0
+  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
+  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
+  return (h ^ (h >>> 16)) >>> 0
+}
+
+// Ground GIDs that receive height+slope shading — mirrors TintManager's ground Set.
+// Kept here to avoid importing TintManager internals into the hot render loop.
+const GID_CATEGORIES_GROUND = new Set([
+  732, 733, 735, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848,
+  849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861,
+  862, 863, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903,
+  904, 905, 906, 907, 908, 909, 910,
+  1379, 1380, 1381, 1382, 1383, 1384, 1385, 1386, 1387, 1388,
+  1389, 1390, 1391, 1392, 1393, 1394, 1395, 1396, 1397, 1398,
+  1399, 1400, 1401, 1402, 1403, 1433, 1434, 1435, 1436, 1437,
+  1438, 1439, 1440, 1441, 1442, 1443, 1444, 1445, 1446, 1447,
+  1448, 1449, 1450,
+  1254, 1255, 1256, 1257, 1258, 1259,
+  1308, 1309, 1310, 1311, 1312, 1313,
+])
 
 function _tileHash(tx, ty) {
   let h = (tx * 374761393 + ty * 1103515245) | 0
@@ -75,14 +91,14 @@ const WITHERED_STAMP_GIDS = new Set([
 
 export default class PerspectiveGroundRenderer {
 
-  static DEBUG_RECTS = false
+  static DEBUG_RECTS   = false
+  static _tintIdSeq   = 0    // incremented to give each img canvas a unique ID for bake cache
 
-  // Preset: "subtle 3d outdoor" -- good for bog/forest maps
   static CAMERA_ROW_OFFSET    = 14.0
   static PLAYER_DIST_TILES    = 1.2
   static FOCAL_LENGTH         = 12.0
   static HEIGHT_MULTIPLIER    = 1.2
-  static PLAYER_SCALE         = 0.7  // default; override per-instance via setPlayerScale
+  static PLAYER_SCALE         = 0.7
 
   static LIGHT_RADIUS   = 0.45
   static LIGHT_DARKNESS = 0
@@ -95,24 +111,12 @@ export default class PerspectiveGroundRenderer {
   static SHEET_COLS = 54
   static TILESET_URL = '/assets/oryx/oryx_16bit_fantasy_world_trans.png'
 
-  // How many rows/cols beyond the map edge to render fill tiles
   static EDGE_EXTEND = 6
 
-  // ── Elevation ─────────────────────────────────────────────────────────────
-  // GIDs that mark the south-facing cliff edge.  The tile itself sits at
-  // clifftop level; the cliff face is drawn hanging below it.
   static CLIFF_GIDS      = new Set([740])
-
-  // Sprite used to texture the vertical cliff face quad.
   static CLIFF_FACE_GID  = 740
-
-  // How tall the cliff is, in tile-height units (1.0 = one full tile).
   static CLIFF_HEIGHT    = 1.0
-
-  // GIDs that sit on the elevated plateau (anything not in this set and
-  // not in CLIFF_GIDS stays at elevation 0).
   static ELEVATED_GIDS   = new Set([839, 840])
-  // Shore (731) intentionally stays at 0 — it's the toe of the cliff.
 
   constructor(scene) {
     this.scene           = scene
@@ -129,9 +133,13 @@ export default class PerspectiveGroundRenderer {
     this._boatScreenY     = null
     this.tintManager = new TintManager()
 
-    // Elevation state — built lazily in update()
     this._elev      = null
     this._elevMapId = null
+
+    // Height map state
+    this._heightMapSrc = null
+    this._hmW          = 0
+    this._hmH          = 0
 
     if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); document.removeEventListener('fullscreenchange', this._resizeHandler); document.removeEventListener('webkitfullscreenchange', this._resizeHandler); this._resizeHandler = null }
     ;['pgr-ground','pgr-objects','pgr-light','pgr-sky','pgr-sky-img','pgr-mountain-img','pgr-fog'].forEach(id => {
@@ -202,7 +210,6 @@ export default class PerspectiveGroundRenderer {
     this._debugged    = false
 
     console.log('[PGR v8] constructed -', this._sw, 'x', this._sh)
-    // VERSION 2b: log all pgr canvases in DOM to catch stale HMR instances
     setTimeout(() => {
       const all = document.querySelectorAll('[id^=pgr-]')
       console.log('[PGR v8] DOM pgr elements after construct:', [...all].map(e => e.id + '@z' + e.style.zIndex))
@@ -400,6 +407,75 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR v8] player registered')
   }
 
+  /**
+   * Pre-bake tinted canvases for all billboard GIDs found in the map's
+   * layer 1. Call once after map data is set (e.g. from the scene after
+   * setPlayer). Spreads the canvas creation over a requestIdleCallback
+   * so it doesn't spike the first frame.
+   */
+  prewarmBillboardTints(mapData) {
+    if (!mapData?.layers?.[1]) return
+    this._bakedTintCache = new Map()
+    const layer1  = mapData.layers[1]
+    const mapH    = layer1.length
+    const mapW    = layer1[0]?.length ?? 0
+
+    // Collect unique billboard GIDs
+    const gids = new Set()
+    for (let y = 0; y < mapH; y++) {
+      for (let x = 0; x < mapW; x++) {
+        const g = layer1[y][x]
+        if (g && (OAK_STAMP_GIDS.has(g) || BOG_STAMP_GIDS.has(g) ||
+                  WITHERED_STAMP_GIDS.has(g) || this._flatGids.has(g))) {
+          gids.add(g)
+        }
+      }
+    }
+
+    if (gids.size === 0) return
+
+    // Bake ~8 tint variants per GID using a spread of tile positions
+    // that cover the hash range. Done via idle callback to avoid frame spike.
+    // 8 sample positions spread across the tile hash range — each produces
+    // a visibly different tint. Stored as variant index 0-7 in the cache.
+    const samplePositions = [
+      [3,3],[7,5],[11,9],[15,13],[19,7],[23,17],[27,11],[31,21]
+    ]
+    const gidArr = [...gids]
+    let gi = 0
+
+    const bakeNext = () => {
+      if (gi >= gidArr.length) {
+        console.log(`[PGR] billboard tint prewarm done — ${this._bakedTintCache.size} variants for ${gidArr.length} GIDs`)
+        return
+      }
+      const gid = gidArr[gi++]
+      const img = this._getTileCanvas(gid)
+      if (img) {
+        samplePositions.forEach(([tx, ty], vi) => {
+          const tint = this.tintManager.getTint(gid, tx, ty)
+          if (tint) this._getBakedTintCanvas(img, tint, tint.alpha, vi)
+        })
+      }
+      // Yield between GIDs to avoid blocking
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(bakeNext, { timeout: 500 })
+      } else {
+        setTimeout(bakeNext, 0)
+      }
+    }
+
+    // Wait for tileset to be ready before baking
+    if (this._ready) {
+      bakeNext()
+    } else {
+      const orig = this._tilesetImg
+      const check = setInterval(() => {
+        if (this._ready) { clearInterval(check); bakeNext() }
+      }, 50)
+    }
+  }
+
   setPlayerScale(mult, scale) {
     this._playerHeightMult = mult ?? 1.8
     if (scale != null) this._playerScale = scale
@@ -462,7 +538,7 @@ export default class PerspectiveGroundRenderer {
     for (const b of (list || [])) {
       const entry = {
         ...b,
-        anchorRow:    b.y + b.fh - 1,           // last footprint row
+        anchorRow:    b.y + b.fh - 1,
         centerColInt: Math.floor(b.x + b.fw / 2),
         canvas:       null,
       }
@@ -474,11 +550,11 @@ export default class PerspectiveGroundRenderer {
         c.height  = img.height
         const ctx = c.getContext('2d')
         ctx.imageSmoothingEnabled = false
-        ctx.filter = 'saturate(70%)'   // harmonize with desaturated tileset
+        ctx.filter = 'saturate(70%)'
         ctx.drawImage(img, 0, 0)
         ctx.filter = 'none'
         entry.canvas   = c
-        this._lastCamX = null          // force redraw once loaded
+        this._lastCamX = null
       }
       img.onerror = e => console.error('[PGR] building image failed:', b.src, e)
       img.src = '/' + b.src.replace(/^\//, '')
@@ -487,19 +563,8 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR] buildings registered:', this._buildings.length)
   }
 
-  /**
-   * Register a custom tile image for a GID outside the Oryx tileset range.
-   * Call once per custom GID (e.g. building wall/thatch tiles) after PGR is
-   * constructed. The tile becomes available for elevation rendering as soon
-   * as the image loads; a null placeholder is placed immediately so the tile
-   * is silently skipped until then rather than trying to slice from the sheet.
-   *
-   * Example:
-   *   pgr.registerCustomTile(3001, '/assets/buildings/thatch1.png')
-   *   pgr.registerCustomTile(3011, '/assets/buildings/wall1.png')
-   */
   registerCustomTile(gid, url) {
-    this._tileCache.set(gid, null)  // placeholder — tile silently skipped until loaded
+    this._tileCache.set(gid, null)
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
@@ -508,37 +573,17 @@ export default class PerspectiveGroundRenderer {
       c.height  = img.height
       const ctx = c.getContext('2d')
       ctx.imageSmoothingEnabled = false
-      ctx.filter = 'saturate(60%)'   // harmonize with desaturated Oryx tileset
+      ctx.filter = 'saturate(60%)'
       ctx.drawImage(img, 0, 0)
       ctx.filter = 'none'
       this._tileCache.set(gid, c)
-      this._lastCamX = null           // force redraw once loaded
+      this._lastCamX = null
       console.log(`[PGR] custom tile ${gid} ready — ${img.width}x${img.height} from ${url}`)
     }
     img.onerror = e => console.error(`[PGR] custom tile ${gid} failed: ${url}`, e)
     img.src = url
   }
 
-  /**
-   * Draw one building. Modes (b.mode, default 'box'):
-   *
-   * 'box'       Image is split at the eaves (b.roofSplit = top fraction that
-   *             is roof, default 0.45). The wall band is a vertical plane
-   *             rigidly pinned at the footprint's front depth — zero slide,
-   *             like the player sprite. The roof band is a receding plane
-   *             from the wall top to the footprint's back row at wall height.
-   *             Approximates a 3D box; best compromise for standing buildings.
-   *
-   * 'decal'     The whole image is laid flat on the ground plane, drawn as
-   *             strips each at its own row depth — exactly how ground tiles
-   *             render. Mathematically cannot slide. Building reads as
-   *             painted onto the terrain (AoE-style).
-   *
-   * 'billboard' Plain vertical plane at the front depth, no warp. Rigid;
-   *             roof parallax will drift over far ground rows.
-   *
-   * All modes get the palette tint (object zone, b.tintGid override).
-   */
   _drawBuilding(ctx, b, horizonPx, sw) {
     const frontRow   = b.anchorRow + 1
     const yBase      = this._rowToScreenY(frontRow)
@@ -593,13 +638,11 @@ export default class PerspectiveGroundRenderer {
     const img   = b.canvas
     const iw    = img.width, ih = img.height
     const split = Math.min(0.85, Math.max(0.05, b.roofSplit ?? 0.45))
-    const wallSrcY    = ih * split          // image y where roof ends / walls begin
+    const wallSrcY    = ih * split
     const wallSrcH    = ih - wallSrcY
     const wallScreenH = wFront * (wallSrcH / iw)
     const yWallTop    = yBase - wallScreenH
 
-    // Back edge of the roof: footprint's north row, raised by the wall height
-    // (vertical world height scales with depth, like any standing sprite).
     const backRow = b.y
     let yBack     = this._rowToScreenY(backRow)
     let scaleBack = this._scaleAtRow(backRow)
@@ -609,12 +652,10 @@ export default class PerspectiveGroundRenderer {
     const cxBack    = this._colToScreenX(cxTile, backRow)
     const yRoofBack = yBack - hTiles * scaleBack
 
-    // 1. Walls — rigid vertical plane at the front depth (simple crop draw)
     ctx.drawImage(img, 0, wallSrcY, iw, wallSrcH,
       Math.round(cxFront - wFront / 2), Math.round(yWallTop),
       Math.round(wFront), Math.round(wallScreenH))
 
-    // 2. Roof — receding plane, wall top -> back row at wall height
     const TL = { x: cxBack  - wBack  / 2, y: yRoofBack }
     const TR = { x: cxBack  + wBack  / 2, y: yRoofBack }
     const BL = { x: cxFront - wFront / 2, y: yWallTop }
@@ -624,7 +665,6 @@ export default class PerspectiveGroundRenderer {
     this._drawAffineTriangle(ctx, img,
       { u: 0, v: 0 }, { u: iw, v: wallSrcY }, { u: 0, v: wallSrcY }, TL, BR, BL)
 
-    // Boundary polygon: base -> wall top right -> roof back -> wall top left
     return [
       { x: cxFront - wFront / 2, y: yBase },
       { x: cxFront + wFront / 2, y: yBase },
@@ -636,11 +676,11 @@ export default class PerspectiveGroundRenderer {
     const img        = b.canvas
     const iw         = img.width, ih = img.height
     const widthTiles = b.fw * os
-    const depthTiles = widthTiles * (ih / iw)   // lay flat, preserving aspect
+    const depthTiles = widthTiles * (ih / iw)
     const STRIPS     = 10
     let prev = null
     for (let i = 0; i <= STRIPS; i++) {
-      const f   = i / STRIPS                    // 0 = image top (far), 1 = bottom (near)
+      const f   = i / STRIPS
       const row = frontRow - depthTiles * (1 - f)
       const y   = this._rowToScreenY(row)
       const s   = this._scaleAtRow(row)
@@ -777,6 +817,36 @@ export default class PerspectiveGroundRenderer {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
 
+  // ── Height map helpers ────────────────────────────────────────────────────
+
+  /**
+   * Height (in tile-heights) at vertex (col, row).
+   * Vertex (c, r) is the TOP-LEFT corner of tile (c, r) and is shared by
+   * the four tiles that meet at that corner — so adjacent tiles share values
+   * and there are never seams.
+   * Returns 0 when no height map is loaded or vertex is out of bounds.
+   */
+  _vertexH(col, row) {
+    const hm = this._heightMapSrc
+    if (!hm) return 0
+    if (col < 0 || row < 0 || col >= this._hmW || row >= this._hmH) return 0
+    return hm[row][col] ?? 0
+  }
+
+  /**
+   * Average height at the centre of tile (col, row) — mean of four corners.
+   * Used to lift billboards (trees, player, flags) so they sit on terrain.
+   */
+  _tileHeightAt(col, row) {
+    if (!this._heightMapSrc) return 0
+    return (this._vertexH(col,   row  )
+          + this._vertexH(col+1, row  )
+          + this._vertexH(col,   row+1)
+          + this._vertexH(col+1, row+1)) * 0.25
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   perspectiveProject(worldTileX, worldTileY) {
     const screenY = this._rowToScreenY(worldTileY + 1)
     if (screenY === null || screenY < this._horizonPx() || screenY > this._sh + this.tileDisplaySize) return null
@@ -892,21 +962,46 @@ export default class PerspectiveGroundRenderer {
     ctx.drawImage(img, Math.round(screenX - scaledW / 2), Math.round(screenY - scaledH), Math.round(scaledW), Math.round(scaledH))
   }
 
-  _drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha) {
+  _drawBillboardTinted(ctx, img, screenX, screenY, scaledTileW, heightMult, tintHSL, tintAlpha, tileCol = 0, tileRow = 0) {
     const hm      = heightMult ?? PerspectiveGroundRenderer.HEIGHT_MULTIPLIER
     const scaledW = scaledTileW
     const scaledH = scaledTileW * hm
     const dx      = screenX - scaledW / 2
     const dy      = screenY - scaledH
-    ctx.save()
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.drawImage(img, dx, dy, scaledW, scaledH)
+    // Pick one of 8 pre-baked variants by tile position — stable per tile,
+    // varies across the map so neighbouring trees look different.
+    const _vi    = _tmHashPGR(tileCol, tileRow) & 7
+    const tinted = this._getBakedTintCanvas(img, tintHSL, tintAlpha ?? 0.38, _vi)
+    ctx.drawImage(tinted ?? img, dx, dy, scaledW, scaledH)
+  }
+
+  /**
+   * Return a pre-baked tinted copy of img at variantIndex (0-7).
+   * source-atop on an isolated canvas correctly clips tint to opaque
+   * pixels only — no bleed into transparent areas.
+   * Created once per (img × variant), then cached forever.
+   */
+  _getBakedTintCanvas(img, tintHSL, alpha, variantIndex = 0) {
+    if (!this._bakedTintCache) this._bakedTintCache = new Map()
+    const id  = img.__tintId ?? (img.__tintId = ++PerspectiveGroundRenderer._tintIdSeq)
+    const key = `${id}_${variantIndex}`
+    if (this._bakedTintCache.has(key)) return this._bakedTintCache.get(key)
+
     const { h, s, l } = tintHSL
-    ctx.globalCompositeOperation = 'source-atop'
-    ctx.globalAlpha = tintAlpha ?? 0.38
-    ctx.fillStyle   = `hsl(${h},${s}%,${l}%)`
-    ctx.fillRect(dx, dy, scaledW, scaledH)
-    ctx.restore()
+    const w = img.width, he = img.height
+    const tc   = document.createElement('canvas')
+    tc.width   = w; tc.height = he
+    const tCtx = tc.getContext('2d')
+    tCtx.imageSmoothingEnabled = false
+    // Draw sprite — source-atop then clips tint to its opaque pixels only.
+    // This canvas is isolated so there is nothing underneath to bleed into.
+    tCtx.drawImage(img, 0, 0)
+    tCtx.globalCompositeOperation = 'source-atop'
+    tCtx.globalAlpha = alpha
+    tCtx.fillStyle   = `hsl(${h},${s}%,${l}%)`
+    tCtx.fillRect(0, 0, w, he)
+    this._bakedTintCache.set(key, tc)
+    return tc
   }
 
   _updateLight(playerScreenX, playerScreenY) {
@@ -927,55 +1022,23 @@ export default class PerspectiveGroundRenderer {
     ].join('')
   }
 
-  // ── Elevation helpers ─────────────────────────────────────────────────────
-  // _buildElevationMap() has been moved to ElevationRenderer.js (systems/).
-  // PGR reads this._elev which ElevationRenderer sets each frame.
-  // See js/game/systems/ElevationRenderer.js for the full implementation.
-
-  /**
-   * Project a tile row to screen Y, shifted upward by `elevation` tile-heights.
-   *
-   * Works by offsetting the world row in the perspective formula.
-   * One unit of elevation = one tile height in world space = one row in
-   * perspective.  Fractional elevations give smooth intermediate heights.
-   */
   _elevationY(worldRow, elevation) {
     const baseY = this._rowToScreenY(worldRow)
     if (!elevation || baseY === null) return baseY
-    // Elevation in screen pixels = elevation * tile height at this depth.
-    // Uses scaleAtRow to match _drawCliffFace exactly.
     const pxPerTile = this._scaleAtRow(worldRow)
     return baseY - elevation * pxPerTile
   }
 
-  /**
-   * Draw the north-facing cliff face of a south-plateau tile.
-   * The face is visible from the north (the player's side) — it hangs
-   * downward from the north edge of the tile row.
-   * yTop = _rowToScreenY(row)     — north edge of tile (back, further away)
-   * yBot = yTop + tileH * elev   — face bottom (hangs toward camera)
-   */
   _drawNorthCliffFace(ctx, col, row, elev, tileAlpha, yTopClamped, yBotClamped) {
-    // South plateau edge tile — draws two things using yTopClamped/yBotClamped
-    // which are already correctly computed for near tiles:
-    //
-    // 1. ELEVATED GRASS CAP — the tile's normal trapezoid shifted UP by one
-    //    tile-height. Cap occupies [yTopClamped - tileH, yTopClamped].
-    //
-    // 2. DARK BACK FACE — solid dark green filling the original tile slot
-    //    [yTopClamped, yBotClamped], representing the back of the cube.
-
     const scaledW = this._scaleAtRow(row + 1)
-    const tileH   = scaledW * elev   // height of one cliff unit in screen px
+    const tileH   = scaledW * elev
 
-    // Cap: shift the normal tile slot upward by tileH
-    const capBot = yTopClamped          // cap bottom = normal tile top
-    const capTop = yTopClamped - tileH  // cap top = one tile above
+    const capBot = yTopClamped
+    const capTop = yTopClamped - tileH
 
     const horizonPx = this._horizonPx()
-    if (capBot < horizonPx) return      // fully above horizon, skip
+    if (capBot < horizonPx) return
 
-    // 1. Elevated grass cap — flat trapezoid at shifted Y
     const xTL = this._colToScreenX(col,     row)
     const xTR = this._colToScreenX(col + 1, row)
     const xBL = this._colToScreenX(col,     row + 1)
@@ -988,7 +1051,6 @@ export default class PerspectiveGroundRenderer {
       null)
     ctx.globalAlpha = 1.0
 
-    // 2. Dark back face — fills the original tile slot below the cap
     const faceTop = capBot
     const faceBot = yBotClamped
     if (faceBot <= faceTop) return
@@ -1005,15 +1067,7 @@ export default class PerspectiveGroundRenderer {
     ctx.restore()
   }
 
-  /**
-   * Draw the south-facing vertical face of an elevated ground tile.
-   * Same geometry as _drawCliffFace but uses the tile's own GID so the
-   * front face shows the ground texture (grass, stone, etc.) rather than
-   * the cliff sprite. Gives elevated tiles a cubic, solid appearance.
-   */
   _drawElevatedFace(ctx, col, row, elev, gid, tileAlpha, yBotHint) {
-    // yBotHint: pre-computed yBotClamped from the tile loop — used as fallback
-    // when row+1 is behind the camera and _rowToScreenY returns null.
     const yBot = this._rowToScreenY(row + 1) ?? yBotHint
     if (yBot === null) return
     const tileH = this._scaleAtRow(row + 1) || this._scaleAtRow(row)
@@ -1033,12 +1087,6 @@ export default class PerspectiveGroundRenderer {
     ctx.globalAlpha = 1.0
   }
 
-  /**
-   * Draw an east or west side face of an elevated tile.
-   * edgeCol = col+1 for the east face, col for the west face.
-   * The quad spans the full depth of the tile (row → row+1) and the full
-   * cliff height, giving a solid perspective-correct side wall.
-   */
   _drawElevatedSideFace(ctx, edgeCol, row, elev, gid, tileAlpha) {
     const yFront = this._rowToScreenY(row + 1)
     if (yFront === null) return
@@ -1054,7 +1102,6 @@ export default class PerspectiveGroundRenderer {
     const yFrontTop = yFront - elev * sFront
     const yBackTop  = yBack  !== null ? yBack  - elev * sBack : yFrontTop
 
-    // Derive side colour from the tile's tint, darkened for shadow
     const tint = this.tintManager.getTint(gid, edgeCol, row)
     const sideColor = tint
       ? `hsl(${tint.h},${Math.round(tint.s * 0.55)}%,${Math.max(tint.l - 18, 4)}%)`
@@ -1070,32 +1117,18 @@ export default class PerspectiveGroundRenderer {
     if (yBack !== null) ctx.lineTo(xBack, yBack)
     ctx.closePath()
     ctx.fill()
-    // Subtle edge line
     ctx.strokeStyle = 'rgba(20,14,8,0.45)'
     ctx.lineWidth = 0.8
     ctx.stroke()
     ctx.restore()
   }
 
-  /**
-   * Fill the side face of a staircase cliff step — the triangular/quad gap
-   * between two adjacent cliff faces at different depths.
-   *
-   * When the cliff steps diagonally (e.g. col has cliffRow=5, col+1 has cliffRow=4),
-   * there's a visible gap between the right edge of face A and the left edge of face B.
-   * We fill it with a darkened solid colour to read as the shadowed side of the cliff.
-   *
-   * sideDir: +1 = fill gap to the RIGHT of this cliff face (neighbour is to east, further back)
-   *          -1 = fill gap to the LEFT  of this cliff face (neighbour is to west, further back)
-   */
   _drawCliffSide(ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) {
-    // Our cliff face right/left edge
-    const edgeCol  = sideDir > 0 ? col + 1 : col   // the shared vertical edge
+    const edgeCol  = sideDir > 0 ? col + 1 : col
     const yBotA    = this._rowToScreenY(row + 1)
     const tileHA   = this._scaleAtRow(row + 1)
     const yTopA    = yBotA !== null ? yBotA - tileHA * elev : null
 
-    // Neighbour cliff face same edge (other side)
     const yBotB    = this._rowToScreenY(neighbourRow + 1)
     const tileHB   = this._scaleAtRow(neighbourRow + 1)
     const yTopB    = yBotB !== null ? yBotB - tileHB * elev : null
@@ -1103,16 +1136,11 @@ export default class PerspectiveGroundRenderer {
     if (yTopA === null || yBotA === null || yTopB === null || yBotB === null) return
     if (yBotA <= yTopA || yBotB <= yTopB) return
 
-    // The four corners of the side quad, all sharing the same screen X (edgeCol)
-    // but at different row depths
-    const xA = this._colToScreenX(edgeCol, row + 1)          // our face edge, closer
-    const xB = this._colToScreenX(edgeCol, neighbourRow + 1)  // neighbour edge, further
+    const xA = this._colToScreenX(edgeCol, row + 1)
+    const xB = this._colToScreenX(edgeCol, neighbourRow + 1)
 
-    // Quad: (xB,yTopB) → (xB,yBotB) on the far side
-    //       (xA,yBotA) → (xA,yTopA) on the near side
     ctx.save()
     ctx.globalAlpha = tileAlpha * 0.85
-    // Dark earthy shadow colour for the side face
     ctx.fillStyle = 'rgb(60, 42, 28)'
     ctx.beginPath()
     ctx.moveTo(xB, yTopB)
@@ -1121,50 +1149,24 @@ export default class PerspectiveGroundRenderer {
     ctx.lineTo(xA, yTopA)
     ctx.closePath()
     ctx.fill()
-    // Subtle darker edge line for definition
     ctx.strokeStyle = 'rgba(30,20,10,0.6)'
     ctx.lineWidth = 1
     ctx.stroke()
     ctx.restore()
   }
 
-  /**
-   * Draw the vertical cliff face for tile (col, row) at elevation `elev`.
-   *
-   * The face spans from:
-   *   TOP  → _elevationY(row,     elev)   the raised plateau edge
-   *   BOT  → _elevationY(row + 1, 0)     sea-level ground below the cliff
-   *
-   * X coordinates respect perspective: top of face is at `row` depth
-   * (narrower), bottom is at `row+1` depth (wider).
-   */
   _drawCliffFace(ctx, col, row, elev, tileAlpha) {
-    // Draw the cliff face as a perspective-correct trapezoid.
-    //
-    // The four screen corners:
-    //   TL, TR  — top edge at elevated plateau level, at `row` depth (narrower/farther)
-    //   BL, BR  — bottom edge at sea level, at `row+1` depth (wider/closer)
-    //
-    // This matches the ground tiles perfectly: same X coords as the ground
-    // trapezoid for this cell, just with Y spanning the full cliff height.
-
-    // The cliff face is a billboard standing at the BACK edge of the water/shore
-    // tile — exactly where a tree billboard would have its feet.
-    // yBot = _rowToScreenY(row + 1) = the top (back) edge of the shore row.
-    // yTop = yBot - one full tile height in screen pixels at that depth.
-    // This matches how trees are drawn and gives a full-tile-height cliff face.
-    const yBot = this._rowToScreenY(row + 1)   // back edge of shore = cliff feet
+    const yBot = this._rowToScreenY(row + 1)
     if (yBot === null) return
 
-    const tileScreenH = this._scaleAtRow(row + 1)   // px per tile at shore depth
-    const yTop        = yBot - tileScreenH * elev    // cliff top = feet - height
+    const tileScreenH = this._scaleAtRow(row + 1)
+    const yTop        = yBot - tileScreenH * elev
 
-    if (yTop >= yBot) return   // degenerate
+    if (yTop >= yBot) return
 
-    // Both edges use row+1 depth so the face is the same width as the shore tile
     const xBL = this._colToScreenX(col,     row + 1)
     const xBR = this._colToScreenX(col + 1, row + 1)
-    const xTL = xBL   // vertical face — same X top and bottom
+    const xTL = xBL
     const xTR = xBR
 
     ctx.globalAlpha = tileAlpha
@@ -1249,20 +1251,18 @@ export default class PerspectiveGroundRenderer {
     const layer0 = this.scene.mapData?.layers?.[0]
     const layer1 = this.scene.mapData?.layers?.[1] ?? null
     const layer2 = this.scene.mapData?.layers?.[2] ?? null
-    const layer3 = this.scene.mapData?.layers?.[3] ?? null  // north-facing cliff markers
-    const layer4 = this.scene.mapData?.layers?.[4] ?? null  // south plateau grass caps
+    const layer3 = this.scene.mapData?.layers?.[3] ?? null
+    const layer4 = this.scene.mapData?.layers?.[4] ?? null
     if (!layer0) return
 
+    // ── Height map cache ─────────────────────────────────────────────────────
+    if (this.scene.mapData?.heightMap !== this._heightMapSrc) {
+      this._heightMapSrc = this.scene.mapData?.heightMap ?? null
+      this._hmW = (this.scene.mapData?.width  ?? 0) + 1
+      this._hmH = (this.scene.mapData?.height ?? 0) + 1
+    }
+
     // ── Elevation map ────────────────────────────────────────────────────────
-    // this._elev is set externally by ElevationRenderer (js/game/systems/).
-    // ElevationRenderer.update(mapData) must be called BEFORE pgr.update()
-    // each frame for elevation to work.
-    //
-    // If ElevationRenderer is not present (flat map), this._elev stays null
-    // and all elevation code paths are safely skipped.
-    //
-    // For backwards compatibility: if _elev is null and the map declares
-    // hasCliffs, log a warning so it's easy to diagnose a missing ElevationRenderer.
     if (!this._elev && this.scene.mapData?.hasCliffs) {
       if (!this._elevWarnedOnce) {
         this._elevWarnedOnce = true
@@ -1282,8 +1282,7 @@ export default class PerspectiveGroundRenderer {
 
     const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
 
-    this._gCtx.clearRect(0, 0, sw, sh)   // full clear — elevated tiles can draw above horizonPx
-    // VERSION 2b: detect stale DOM canvases from HMR
+    this._gCtx.clearRect(0, 0, sw, sh)
     if (!this._domChecked) {
       this._domChecked = true
       const allPgr = document.querySelectorAll('[id^=pgr-ground]')
@@ -1308,14 +1307,12 @@ export default class PerspectiveGroundRenderer {
     this._gCtx.fillRect(0, horizonPx, sw, 160)
     this._gCtx.fillStyle = gcR
     this._gCtx.fillRect(0, horizonPx + 160, sw, sh - horizonPx - 160)
-    // Fill any gap at bottom with water colour — prevents black edge on sea maps
     if (this.scene?.getMapKey?.()?.includes('sea') || this.scene?.getMapKey?.()?.includes('d3')) {
       this._gCtx.fillStyle = '#2a3f5a'
       this._gCtx.fillRect(0, sh - 40, sw, 40)
     }
 
     this._oCtx.clearRect(0, 0, sw, sh)
-    // Hard clip both canvases: nothing may appear above the horizon
     if (!this._debugged) console.log('[PGR v8] frame: horizonPx=' + horizonPx + ' sw=' + sw + ' sh=' + sh + ' hasCliffs=' + !!(this.scene.mapData?.hasCliffs) + ' elevActive=' + !!(this._elev))
     this._oCtx.save()
     this._oCtx.beginPath()
@@ -1336,8 +1333,6 @@ export default class PerspectiveGroundRenderer {
     let playerDrawn   = false
 
     if (p) {
-      // Boat: use raw logicalX/Y for smooth sub-tile positioning.
-      // On foot: snap to tile centre to avoid perspective jitter mid-step.
       const snapX = this._boatActive
         ? p.logicalX
         : Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
@@ -1346,17 +1341,28 @@ export default class PerspectiveGroundRenderer {
         : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
       if (proj) {
+        // Use target tile for terrain lift so the lift is stable during a step
+        // and matches where the player is heading, not the mid-lerp logicalY.
+        const _ptCol     = Math.floor((p.targetX ?? p.logicalX) / this.tileDisplaySize)
+        const _ptRow     = Math.floor((p.targetY ?? p.logicalY) / this.tileDisplaySize)
+        const _ptGid     = this.scene.mapData?.layers?.[0]?.[_ptRow]?.[_ptCol] ?? 0
+        const _ptIsWater = _ptGid === 1625 || _ptGid === 1679 || _ptGid === 731
+        const _pHt       = _ptIsWater ? 0
+          : (this._vertexH(_ptCol, _ptRow + 1) + this._vertexH(_ptCol + 1, _ptRow + 1)) * 0.5
+        // playerScreenY stays at the LOGICAL projected Y so painter-order
+        // (tileRow === playerTileRow) and the highlight square stay correct.
+        // Terrain lift is stored separately and applied only at draw time.
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY
-        playerTileRow = Math.floor(p.logicalY / this.tileDisplaySize)
+        this._playerTerrainLift = _pHt * this._scaleAtRow(_ptRow + 1)
+        playerTileRow = _ptRow
         this.playerScreenX = playerScreenX
-        this.playerScreenY = playerScreenY
+        this.playerScreenY = playerScreenY - this._playerTerrainLift
       }
     }
 
     let groundCount = 0, objectCount = 0
-    const _deferredCliffs = []       // south-facing cliff faces drawn after all ground tiles
-    // _deferredNorthCliffs removed — south plateau drawn inline like layer 2
+    const _deferredCliffs = []
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
 
@@ -1410,22 +1416,11 @@ export default class PerspectiveGroundRenderer {
           : _rawGid0
 
         if (gid0) {
-          // ── Elevation ────────────────────────────────────────────────────
-          //
-          // tileElev:  this tile's own elevation.
-          // southElev: the tile one row south (will be 0 for sea/shore).
-          //
-          // If tileElev > 0, the tile's top edge is lifted upward by that
-          // many tile-heights in perspective.  If the tile immediately south
-          // is at a lower elevation, we also draw a vertical cliff face to
-          // close the gap.
-
           const tileElev  = this._elev?.[tileRow]?.[tileCol]  ?? 0
           const southElev = (tileRow + 1 < mapH)
             ? (this._elev?.[tileRow + 1]?.[tileCol] ?? 0)
             : 0
 
-          // Compute the elevated top-edge Y (may equal yTopClamped when elev=0)
           let yTopElev = yTopClamped
           if (tileElev > 0) {
             const raw = this._elevationY(tileRow, tileElev)
@@ -1447,22 +1442,48 @@ export default class PerspectiveGroundRenderer {
             this._gCtx.lineTo(xBR, yBotClamped); this._gCtx.lineTo(xBL, yBotClamped)
             this._gCtx.closePath(); this._gCtx.fill()
           } else {
-            const tint0 = inMap
-              ? this.tintManager.getTint(gid0, tileCol, tileRow)
-              : fillTint
+            // Ground tiles: use height+slope shading when height map is active.
+            // Vertex heights are already computed below for corner Y offsets —
+            // read them here so getGroundTint gets the same values.
+            let tint0
+            if (!inMap) {
+              tint0 = fillTint
+            } else if (this._heightMapSrc && GID_CATEGORIES_GROUND.has(gid0)) {
+              const _h00 = this._vertexH(tileCol,     tileRow    )
+              const _h10 = this._vertexH(tileCol + 1, tileRow    )
+              const _h01 = this._vertexH(tileCol,     tileRow + 1)
+              const _h11 = this._vertexH(tileCol + 1, tileRow + 1)
+              tint0 = this.tintManager.getGroundTint(gid0, tileCol, tileRow, _h00, _h10, _h01, _h11)
+            } else {
+              tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
+            }
+
+            // ── Per-vertex height offsets ──────────────────────────────────
+            // Each corner is lifted independently using its shared vertex height.
+            // Top corners use back-edge scale (tileRow), bottom use front-edge (tileRow+1).
+            // Layered on top of any existing tileElev offset.
+            const _sTop = this._scaleAtRow(tileRow)
+            const _sBot = this._scaleAtRow(tileRow + 1)
+            const _elevDeltaTop = tileElev > 0 ? (yTopElev - yTopClamped) : 0
+
+            // Clamp vertex heights: negative values (valley bias) only depress
+            // water tiles — ground tiles must never be pulled below flat baseline.
+            const _isGroundWater = _rawGid0 === 1625 || _rawGid0 === 1679 || _rawGid0 === 731
+            const _vClamp = _isGroundWater ? (v => v) : (v => Math.max(0, v))
+            const _yTL = yTopClamped + _elevDeltaTop - _vClamp(this._vertexH(tileCol,     tileRow    )) * _sTop
+            const _yTR = yTopClamped + _elevDeltaTop - _vClamp(this._vertexH(tileCol + 1, tileRow    )) * _sTop
+            const _yBL = yBotClamped                 - _vClamp(this._vertexH(tileCol,     tileRow + 1)) * _sBot
+            const _yBR = yBotClamped                 - _vClamp(this._vertexH(tileCol + 1, tileRow + 1)) * _sBot
+
             this._drawTrapezoidTinted(this._gCtx, gid0,
-              {x: xTL, y: yTopElev}, {x: xTR, y: yTopElev},
-              {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped},
+              {x: xTL, y: _yTL}, {x: xTR, y: _yTR},
+              {x: xBL, y: _yBL}, {x: xBR, y: _yBR},
               tint0)
 
-            // ── Cliff face ─────────────────────────────────────────────
-            // Draw whenever this tile is elevated and the tile immediately
-            // to the south is at a lower level (the drop-off).
-            // Only draw south-facing cliff/elevated faces for north plateau tiles.
-            // South plateau tiles (layer3 markers) face north — handled separately.
+            // ── Cliff face ─────────────────────────────────────────────────
             const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
               && yBotClamped >= horizonPx + 30
-              && !(layer3?.[tileRow]?.[tileCol])   // not a south plateau edge tile
+              && !(layer3?.[tileRow]?.[tileCol])
             if (_hasSouthFace) {
               const _isCliffEdge = PerspectiveGroundRenderer.CLIFF_GIDS.has(
                 this.scene.mapData?.layers?.[1]?.[tileRow]?.[tileCol] ?? 0)
@@ -1473,7 +1494,6 @@ export default class PerspectiveGroundRenderer {
               })
             }
 
-            // East face: elevated tile whose east neighbour is lower
             const _eastElev = (tileCol + 1 < mapW)
               ? (this._elev?.[tileRow]?.[tileCol + 1] ?? 0) : 0
             if (inMap && tileElev > 0 && _eastElev < tileElev
@@ -1484,7 +1504,6 @@ export default class PerspectiveGroundRenderer {
               })
             }
 
-            // West face: elevated tile whose west neighbour is lower
             const _westElev = (tileCol - 1 >= 0)
               ? (this._elev?.[tileRow]?.[tileCol - 1] ?? 0) : 0
             if (inMap && tileElev > 0 && _westElev < tileElev
@@ -1508,10 +1527,10 @@ export default class PerspectiveGroundRenderer {
                 this._gCtx.globalAlpha = 0.22 + 0.10 * Math.sin((this._exitPulseT||0) * 1.5 + tileCol + tileRow)
                 this._gCtx.fillStyle = 'rgba(160,255,200,1)'
                 this._gCtx.beginPath()
-                this._gCtx.moveTo(xTL, yTopElev)
-                this._gCtx.lineTo(xTR, yTopElev)
-                this._gCtx.lineTo(xBR, yBotClamped)
-                this._gCtx.lineTo(xBL, yBotClamped)
+                this._gCtx.moveTo(xTL, _yTL)
+                this._gCtx.lineTo(xTR, _yTR)
+                this._gCtx.lineTo(xBR, _yBR)
+                this._gCtx.lineTo(xBL, _yBL)
                 this._gCtx.closePath()
                 this._gCtx.fill()
                 this._gCtx.restore()
@@ -1533,8 +1552,7 @@ export default class PerspectiveGroundRenderer {
             : null
           const _drawX = playerScreenX
           const _waveOff = this._boatActive ? (this._waveRideOffset ?? 0) : 0
-          const _drawY = playerScreenY - _waveOff
-          // Capsize flip — only in d3OpenSea
+          const _drawY = playerScreenY - (this._playerTerrainLift ?? 0) - _waveOff
           const _capsizeAngle = (this._boatActive && this.scene?._capsized)
             ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
           this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
@@ -1550,66 +1568,80 @@ export default class PerspectiveGroundRenderer {
           playerDrawn = true
         }
 
-        // Object tile
-        // tileElev/yTopElev may not be set if gid0 was 0 — recompute here
+        // Object tile — elevation-aware Y for layer 1
         const _l1Elev   = (inMap && this._elev) ? (this._elev[tileRow]?.[tileCol] ?? 0) : 0
-        // Cliff top in screen pixels: back-edge of shore row, raised by elev tile-heights.
-        // Matches _drawCliffFace exactly so grass cap sits flush on cliff top.
         let _l1YTop = yTopClamped, _l1YBot = yBotClamped
         if (_l1Elev > 0) {
-          const _shoreY     = this._rowToScreenY(tileRow + 1)  // back edge of shore
-          const _tileH      = this._scaleAtRow(tileRow + 1)    // px per tile at shore depth
+          const _shoreY     = this._rowToScreenY(tileRow + 1)
+          const _tileH      = this._scaleAtRow(tileRow + 1)
           const _cliffTop   = (_shoreY !== null) ? _shoreY - _tileH * _l1Elev : null
-          const _cliffBot   = _shoreY                          // cliff feet = shore back edge
+          const _cliffBot   = _shoreY
           _l1YTop = (_cliffTop !== null) ? Math.max(horizonPx, _cliffTop) : yTopClamped
           _l1YBot = (_cliffBot !== null) ? Math.min(sh + 100, _cliffBot) : yBotClamped
         }
         if (inMap && layer1) {
           const gid1 = layer1[tileRow]?.[tileCol]
           if (gid1) {
-            const tint1       = this.tintManager.getTint(gid1, tileCol, tileRow)
             const isStamp     = OAK_STAMP_GIDS.has(gid1) || BOG_STAMP_GIDS.has(gid1) || WITHERED_STAMP_GIDS.has(gid1)
             const isBillboard = this._flatGids.has(gid1)
 
             if (isStamp || isBillboard) {
               const screenX     = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const scaledTileW = this._scaleAtRow(tileRow + 1)
-              // Cliff face billboards: anchor at elevated bottom, stretch to elevated top
               const isCliffFace = PerspectiveGroundRenderer.CLIFF_GIDS.has(gid1)
               if (isCliffFace && _l1Elev > 0) {
-                // Cliff face: drawn as perspective trapezoid by _drawCliffFace.
-                // Already drawn in the layer0 pass — skip here to avoid double-draw.
-                // (Layer 1 cliff GID is only needed for collision/catalogue metadata.)
+                // already drawn by cliff system
               } else {
-                const screenY = this._rowToScreenY(tileRow + 1)
+                // Billboard Y lifted by terrain height at this tile.
+                // Clamp to zero on water/shore — negative valley heights must not sink trees.
+                const _rawBillY = this._rowToScreenY(tileRow + 1)
+                const _bhScale  = this._scaleAtRow(tileRow + 1)
+                const _bGid0    = layer0[tileRow]?.[tileCol] ?? 0
+                const _bIsWater = _bGid0 === 1625 || _bGid0 === 1679 || _bGid0 === 731
+                const _bHt      = _bIsWater ? 0 : this._tileHeightAt(tileCol, tileRow)
+                const screenY   = _rawBillY !== null
+                  ? _rawBillY - _bHt * _bhScale
+                  : null
                 if (screenY !== null &&
                     screenY >= horizonPx &&
                     screenY <= sh + this.tileDisplaySize * 2) {
                   this._oCtx.globalAlpha = tileAlpha
                   const img1 = this._getTileCanvas(gid1)
                   if (img1) {
-                    if (tint1) {
+                    const _tint1 = this.tintManager.getTint(gid1, tileCol, tileRow)
+                    if (_tint1) {
                       this._drawBillboardTinted(this._oCtx, img1,
                         screenX, screenY, scaledTileW,
                         PerspectiveGroundRenderer.HEIGHT_MULTIPLIER,
-                        tint1, tint1.alpha)
+                        _tint1, _tint1.alpha, tileCol, tileRow)
                     } else {
-                      this._drawBillboard(this._oCtx, img1,
-                        screenX, screenY, scaledTileW)
+                      this._drawBillboard(this._oCtx, img1, screenX, screenY, scaledTileW)
                     }
                   }
                   this._oCtx.globalAlpha = 1.0
                 }
               }
             } else {
-              // Flat layer-1 tile (e.g. clifftop grass cap).
-              // Use elevation-aware Y so it sits on top of the raised ground.
+              // Flat layer-1 tile — use same per-vertex Y as layer-0 so
+              // shore/edge tiles stay glued to the terrain they overlay.
               const xBL1 = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR1 = this._colToScreenX(tileCol + 1, tileRow + 1)
+              const _l1sTop = this._scaleAtRow(tileRow)
+              const _l1sBot = this._scaleAtRow(tileRow + 1)
+              const _l1elevDelta = _l1Elev > 0 ? (_l1YTop - yTopClamped) : 0
+              const _l1GidIsWater = (layer0[tileRow]?.[tileCol] ?? 0) === 1625
+                || (layer0[tileRow]?.[tileCol] ?? 0) === 1679
+                || (layer0[tileRow]?.[tileCol] ?? 0) === 731
+              const _l1vClamp = _l1GidIsWater ? (v => v) : (v => Math.max(0, v))
+              const _l1TL = yTopClamped + _l1elevDelta - _l1vClamp(this._vertexH(tileCol,     tileRow    )) * _l1sTop
+              const _l1TR = yTopClamped + _l1elevDelta - _l1vClamp(this._vertexH(tileCol + 1, tileRow    )) * _l1sTop
+              const _l1BL = yBotClamped               - _l1vClamp(this._vertexH(tileCol,     tileRow + 1)) * _l1sBot
+              const _l1BR = yBotClamped               - _l1vClamp(this._vertexH(tileCol + 1, tileRow + 1)) * _l1sBot
+              const tint1 = this.tintManager.getTint(gid1, tileCol, tileRow)
               this._gCtx.globalAlpha = tileAlpha
               this._drawTrapezoidTinted(this._gCtx, gid1,
-                {x: xTL,  y: _l1YTop}, {x: xTR,  y: _l1YTop},
-                {x: xBL1, y: _l1YBot}, {x: xBR1, y: _l1YBot},
+                {x: xTL,  y: _l1TL}, {x: xTR,  y: _l1TR},
+                {x: xBL1, y: _l1BL}, {x: xBR1, y: _l1BR},
                 tint1)
               this._gCtx.globalAlpha = 1.0
             }
@@ -1637,11 +1669,11 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Layer 2 — elevated flat caps (e.g. clifftop grass)
+        // Layer 2 — elevated flat caps
         if (inMap && layer2) {
           const gid2 = layer2[tileRow]?.[tileCol]
           if (gid2 && yBotClamped >= horizonPx + 30
-              && _l1YTop >= horizonPx && _l1YBot > _l1YTop) {   // proximity + elevation sanity
+              && _l1YTop >= horizonPx && _l1YBot > _l1YTop) {
             const tint2   = this.tintManager.getTint(gid2, tileCol, tileRow)
             const xBL2    = this._colToScreenX(tileCol,     tileRow + 1)
             const xBR2    = this._colToScreenX(tileCol + 1, tileRow + 1)
@@ -1654,9 +1686,7 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Layer 3 — south plateau elevated grass + south edge connector billboard.
-        // Redraws the tile shifted UP by one tile-height (eTop/eBot).
-        // Also draws a green billboard on the south edge connecting the two strata.
+        // Layer 3 — south plateau elevated grass + connector
         if (inMap && layer3) {
           const gid3 = layer3[tileRow]?.[tileCol]
           if (gid3 && yBotClamped >= horizonPx + 30) {
@@ -1670,14 +1700,11 @@ export default class PerspectiveGroundRenderer {
               const xTR3 = this._colToScreenX(tileCol + 1, tileRow)
               const xBL3 = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR3 = this._colToScreenX(tileCol + 1, tileRow + 1)
-              // Draw to _oCtx so elevated tiles appear in front of player
               this._oCtx.globalAlpha = tileAlpha
-              // Elevated grass tile — expand 1px each side to close inter-tile seams
               this._drawTrapezoidTinted(this._oCtx, gid3,
                 {x: xTL3 - 1, y: eTop}, {x: xTR3 + 1, y: eTop},
                 {x: xBL3 - 1, y: eBot}, {x: xBR3 + 1, y: eBot},
                 tint3)
-              // South edge connector: grass texture + same tint as the elevated tile
               if (yBotClamped > eBot) {
                 const cx3  = this._colToScreenX(tileCol + 0.5, tileRow + 1)
                 const dx3  = Math.round(cx3 - scaledW3 / 2) - 1
@@ -1687,19 +1714,17 @@ export default class PerspectiveGroundRenderer {
                 const img3 = this._getTileCanvas(gid3)
                 if (img3) {
                   this._oCtx.drawImage(img3, dx3, dy3, dw3, dh3)
-                  // Apply same tint as the grass tile above it
                   if (tint3) {
                     const { h, s, l, alpha } = tint3
                     this._oCtx.save()
                     this._oCtx.globalCompositeOperation = 'source-atop'
-                    this._oCtx.globalAlpha = (alpha ?? 0.45) + 0.2  // slightly darker — back face
+                    this._oCtx.globalAlpha = (alpha ?? 0.45) + 0.2
                     this._oCtx.fillStyle = `hsl(${h},${Math.round(s * 0.7)}%,${Math.max(l - 10, 5)}%)`
                     this._oCtx.fillRect(dx3, dy3, dw3, dh3)
                     this._oCtx.restore()
                   }
                 }
               }
-              // Side faces: fill gap where this tile has no layer3 neighbour
               const hasLeft3  = !!(layer3[tileRow]?.[tileCol - 1])
               const hasRight3 = !!(layer3[tileRow]?.[tileCol + 1])
 
@@ -1707,8 +1732,6 @@ export default class PerspectiveGroundRenderer {
                 ? `hsl(${tint3.h},${Math.round(tint3.s * 0.6)}%,${Math.max(tint3.l - 15, 5)}%)`
                 : '#2a4020'
 
-              // Side gap fill: only draw the side facing toward screen center.
-              // Right side visible when tile is left of center; left side when right of center.
               const tileCenterX = this._colToScreenX(tileCol + 0.5, tileRow + 1)
               const screenCenter = this._sw / 2
 
@@ -1745,10 +1768,6 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Layer 4 — south plateau grass caps are handled by layer 0 ground tiles.
-        // The grass surface IS the top of the cube — no separate cap needed.
-        // Layer 4 data is reserved for future use.
-
         // Encounter flags
         if (inMap && this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
@@ -1782,9 +1801,7 @@ export default class PerspectiveGroundRenderer {
 
       } // tileCol
 
-      // Buildings — drawn per anchor row for painter's-algorithm occlusion.
-      // Rendering mode per building (b.mode): 'box' | 'decal' | 'billboard'.
-      // See _drawBuilding for the geometry of each.
+      // Buildings
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
@@ -1798,7 +1815,7 @@ export default class PerspectiveGroundRenderer {
         const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
         const _drawX2 = playerScreenX
         const _waveOff2 = this._boatActive ? (this._waveRideOffset ?? 0) : 0
-        const _drawY2 = playerScreenY - _waveOff2
+        const _drawY2 = playerScreenY - (this._playerTerrainLift ?? 0) - _waveOff2
         this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
         const _ca2 = (this._boatActive && this.scene?._capsized)
           ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
@@ -1816,9 +1833,8 @@ export default class PerspectiveGroundRenderer {
 
     } // tileRow
 
-    // ── Deferred cliff faces + sides — drawn after all ground tiles ──────
-    // Build a lookup of cliff positions for quick neighbour checks
-    const _cliffSet = new Map()  // key: 'col,row' -> cliffEntry
+    // ── Deferred cliff faces + sides ─────────────────────────────────────────
+    const _cliffSet = new Map()
     for (const cf of _deferredCliffs) _cliffSet.set(`${cf.col},${cf.row}`, cf)
 
     for (const cf of _deferredCliffs) {
@@ -1827,14 +1843,11 @@ export default class PerspectiveGroundRenderer {
       } else if (cf.faceDir === 'west') {
         this._drawElevatedSideFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha)
       } else if (cf.isCliff) {
-        // Cliff edge tile: draw cliff face sprite
         this._drawCliffFace(this._gCtx, cf.col, cf.row, cf.elev, cf.alpha)
       } else {
-        // Elevated ground tile facing south: draw its own texture as a vertical face
         this._drawElevatedFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha, cf.yBot)
       }
 
-      // Side gap fill for staircase steps — south faces only
       if (!cf.faceDir) {
         const eastNeighbour = _cliffSet.get(`${cf.col + 1},${cf.row - 1}`)
         if (eastNeighbour) {
@@ -1875,33 +1888,40 @@ export default class PerspectiveGroundRenderer {
         }
       }
 
+      // Highlight — same four per-vertex Y as the ground tile it sits on,
+      // so it warps with the terrain and stays flush underfoot on hills.
       const ts      = this.tileDisplaySize
       const hlTileX = Math.floor(_hlLX / ts)
       const hlTileY = Math.floor(_hlLY / ts)
-      const hxTL = this._colToScreenX(hlTileX,     hlTileY + 1)
-      const hxTR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
-      const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
-      const hxBR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
-      const hyT  = this._rowToScreenY(hlTileY)
-      const hyB  = this._rowToScreenY(hlTileY + 1)
-      if (hyT !== null && hyB !== null) {
+      const _hlBaseT = this._rowToScreenY(hlTileY)
+      const _hlBaseB = this._rowToScreenY(hlTileY + 1)
+      if (_hlBaseT !== null && _hlBaseB !== null) {
+        const _hlSTop = this._scaleAtRow(hlTileY)
+        const _hlSBot = this._scaleAtRow(hlTileY + 1)
+        // Four screen corners matching the ground tile exactly
+        const hxTL = this._colToScreenX(hlTileX,     hlTileY)
+        const hxTR = this._colToScreenX(hlTileX + 1, hlTileY)
+        const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
+        const hxBR = this._colToScreenX(hlTileX + 1, hlTileY + 1)
+        const _hlYTL = _hlBaseT - this._vertexH(hlTileX,     hlTileY    ) * _hlSTop
+        const _hlYTR = _hlBaseT - this._vertexH(hlTileX + 1, hlTileY    ) * _hlSTop
+        const _hlYBL = _hlBaseB - this._vertexH(hlTileX,     hlTileY + 1) * _hlSBot
+        const _hlYBR = _hlBaseB - this._vertexH(hlTileX + 1, hlTileY + 1) * _hlSBot
         this._gCtx.save()
         this._gCtx.globalAlpha = 0.28
         this._gCtx.fillStyle = 'rgba(255,255,180,1)'
         this._gCtx.beginPath()
-        this._gCtx.moveTo(hxTL, hyT); this._gCtx.lineTo(hxTR, hyT)
-        this._gCtx.lineTo(hxBR, hyB); this._gCtx.lineTo(hxBL, hyB)
+        this._gCtx.moveTo(hxTL, _hlYTL); this._gCtx.lineTo(hxTR, _hlYTR)
+        this._gCtx.lineTo(hxBR, _hlYBR); this._gCtx.lineTo(hxBL, _hlYBL)
         this._gCtx.closePath(); this._gCtx.fill()
         this._gCtx.restore()
       }
     }
 
-    // Hook for scene-specific overlays that need the horizon clip
     this.scene?.onPGRDrawComplete?.(this._oCtx)
-    // Hook for scene-specific overlays that need the horizon clip
     this.scene?.onPGRDrawComplete?.(this._oCtx)
-    this._oCtx.restore()  // release horizon clip
-    this._gCtx.restore()  // release horizon clip
+    this._oCtx.restore()
+    this._gCtx.restore()
     this._updateLight(playerScreenX, playerScreenY)
 
     if (!this._debugged) {
@@ -2060,7 +2080,6 @@ export default class PerspectiveGroundRenderer {
     if (this._boatActive) {
   const waveRenderer = this.scene._waveRenderer
   if (waveRenderer) {
-    // Sync boat rock to wave phase passing under player
     this._wobblePhase = waveRenderer.wavePhaseAtPlayer
     const waveTargetAmp = waveRenderer.waveAmpAtPlayer / (scaledTileW || 1) * 0.10
     const boatTargetAmp = boatSpd > 8
@@ -2069,7 +2088,6 @@ export default class PerspectiveGroundRenderer {
     const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
     this._wobbleAmp = this._wobbleAmp ?? 0.012
     this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-          // Vertical ride — boat rises on crests, dips in troughs
         const rideT   = waveRenderer.waveRideT ?? 0
         const rideAmp = waveRenderer.waveRideAmp ?? 0
         this._waveRideOffset = this._waveRideOffset ?? 0
@@ -2084,7 +2102,7 @@ export default class PerspectiveGroundRenderer {
     this._wobbleAmp = this._wobbleAmp ?? 0.012
     this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
   }
-}else {
+} else {
       this._wobblePhase = 0
       this._wobbleAmp   = 0
     }
@@ -2156,7 +2174,6 @@ export default class PerspectiveGroundRenderer {
           ctx.translate(Math.round(bx), Math.round(by + totalBob))
           ctx.rotate(_boatRock)
           ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
-          // Flip boat to face direction of travel
           if (!this._facingLeft) ctx.scale(-1, 1)
           ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
           ctx.restore()
@@ -2166,7 +2183,6 @@ export default class PerspectiveGroundRenderer {
       }
     }
 
-    // Player faces opposite direction to boat when rowing
     const _playerFacing = this._boatActive ? !this._facingLeft : this._facingLeft
     ctx.save()
     ctx.translate(screenX, screenY + (this._boatActive ? totalBob : idleBob))

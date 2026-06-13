@@ -37,9 +37,6 @@ export default class Player {
     this.terrainSpeedModifier = 1.0;
     this.terrainSinkOffset    = 0;
 
-    // ── Logical position ──────────────────────────────────────────────────
-    // Canonical world-pixel coords for all game logic.
-    // sprite.x/y are owned by PerspectiveGroundRenderer — never read back.
     this.logicalX = x;
     this.logicalY = y;
 
@@ -49,13 +46,8 @@ export default class Player {
     this.startY  = y;
     this.moveProgress = 0;
 
-    // ── Path queue (tap-to-pathfind) ──────────────────────────────────────
-    // Array of {dx, dy} steps produced by PathFinder.
-    // Consumed one step at a time when the player is not moving.
-    // Cleared immediately when joystick input is detected.
     this.pathQueue = [];
 
-    // Screen-space interpolation state (north/south movement)
     this._screenStartY    = null;
     this._screenTargetY   = null;
     this._stepPerspCamRow = null;
@@ -64,8 +56,6 @@ export default class Player {
 
     this.initializeInventory();
   }
-
-  // ── HP ────────────────────────────────────────────────────────────────────
 
   initializeHP() {
     this.maxHP     = this.stats.health;
@@ -127,18 +117,14 @@ export default class Player {
 
   isAlive() { return this.currentHP > 0; }
 
-  // ── Inventory ─────────────────────────────────────────────────────────────
-
   initializeInventory() {
     this.inventory = new Inventory({ rows: 5, cols: 5 });
-    // Place items directly in equipment slots (0=rightHand, 1=leftHand, 2=armor)
-    // and inventory slots (5+). Using setItem so they're treated as equipped.
-    this.inventory.setItem(0, null);                          // rightHand empty (bow in inventory)
-    this.inventory.setItem(1, null);                          // leftHand empty
-    this.inventory.setItem(2, createItem('leather_armor'));  // armor equipped
+    this.inventory.setItem(0, null);
+    this.inventory.setItem(1, null);
+    this.inventory.setItem(2, createItem('leather_armor'));
     this.inventory.setItem(3, null);
     this.inventory.setItem(4, null);
-    this.inventory.setItem(5, createItem('simple_bow'));      // bow in inventory (unequipped)
+    this.inventory.setItem(5, createItem('simple_bow'));
     this.inventory.setItem(6, createItem('healing_potion'));
     this.inventory.setItem(7, createItem('arrows', 30));
     this.updateStatsFromEquipment();
@@ -171,8 +157,6 @@ export default class Player {
     console.log(`HP: ${this.currentHP}/${this.maxHP}, Speed: ${this.stats.speed}, Step: ${this.stepDuration}ms`);
   }
 
-  // ── Sprite ────────────────────────────────────────────────────────────────
-
   createSprite(x, y) {
     try {
       console.log('=== createSprite: starting ===');
@@ -203,7 +187,7 @@ export default class Player {
       this.baseDisplaySize = this.tileSize;
       this.sprite.setDisplaySize(this.baseDisplaySize, this.baseDisplaySize);
       this.sprite.setDepth(100);
-      this.sprite.setVisible(false);  // PGR owns all player rendering
+      this.sprite.setVisible(false);
       this.currentFrameName = frameName;
 
       this.bowOverlay = this.scene.add.image(x, y, 'item_simple_bow')
@@ -237,19 +221,10 @@ export default class Player {
     if (slot === 'weapon' && this.bowOverlay) this.bowOverlay.setVisible(false);
   }
 
-  // ── Update ────────────────────────────────────────────────────────────────
-  //
-  // Priority order:
-  //   1. Mid-step: finish the current step
-  //   2. Joystick active: cancel path queue, start new joystick step
-  //   3. Path queue has steps: consume next queued step
-  //   (Nothing happens if all three are idle)
-
   update(joystick) {
     if (!joystick)       return;
     if (!this.isAlive()) return;
 
-    // Boat momentum is handled entirely by BoatSystem -- skip tile-step logic
     if (this.inBoat) return;
 
     const force = joystick.force;
@@ -261,7 +236,6 @@ export default class Player {
         this.logicalX     = this.targetX;
         this.logicalY     = this.targetY;
         this.isMoving     = false;
-        // Footstep sound based on terrain
         const terrain = this.scene?.terrainManager?.currentTerrain?.name
         const tm      = this.scene?.terrainManager
         const armor   = this.inventory?.getItem(2)
@@ -270,7 +244,6 @@ export default class Player {
           if (hasArmor) SoundBoard.playWeb('FOOTSTEP_SUBMERGED')
           else SoundBoard.playWeb('FOOTSTEP_WADE')
         } else if (terrain === 'Bog Shore') {
-          // silent — wading
         } else if (terrain === 'Forest') {
           SoundBoard.playWeb('FOOTSTEP_FOREST')
         } else {
@@ -284,13 +257,16 @@ export default class Player {
           this._consumePathStep();
         }
       } else {
-        // X always linear
         this.logicalX = this.startX + (this.targetX - this.startX) * this.moveProgress;
 
-        // Y: screen-space lerp for north/south, linear otherwise
+        // When a height map is active, PGR handles the visual lift per-frame,
+        // so screen-space lerp is not needed and would corrupt logicalY.
+        // Use linear interpolation in all cases when terrain is present.
+        const _pgr = this.scene.perspectiveGround;
         if (this.moveDirection.y !== 0 &&
             this._screenStartY  !== null &&
-            this._screenTargetY !== null) {
+            this._screenTargetY !== null &&
+            !_pgr?._heightMapSrc) {
           const screenY = this._screenStartY +
             (this._screenTargetY - this._screenStartY) * this.moveProgress;
           this.logicalY = this._screenYToWorldY(screenY);
@@ -299,15 +275,12 @@ export default class Player {
         }
       }
     } else if (force > 10) {
-      // Joystick input cancels pathfinding
       this.pathQueue = [];
       this.startNewStep(joystick);
     } else if (this.pathQueue.length > 0) {
       this._consumePathStep();
     }
   }
-
-  // ── Path queue ────────────────────────────────────────────────────────────
 
   setPath(steps) {
     this.pathQueue = steps ?? [];
@@ -326,8 +299,6 @@ export default class Player {
     };
     this.startNewStep(fakeJoystick);
   }
-
-  // ── Perspective movement helpers ──────────────────────────────────────────
 
   _screenYToWorldY(screenY) {
     const pgr = this.scene.perspectiveGround;
@@ -369,8 +340,6 @@ export default class Player {
     this.targetX = this.startX + dx * this.tileSize;
     this.targetY = this.startY + dy * this.tileSize;
 
-    // Final collision guard -- catches diagonal steps and path-queue steps
-    // that bypass the pre-check in baseLocationScene.update().
     if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetX = this.startX;
       this.targetY = this.startY;
@@ -379,7 +348,10 @@ export default class Player {
     }
 
     const pgr = this.scene.perspectiveGround;
-    if (pgr && dy !== 0) {
+    if (pgr && dy !== 0 && !pgr._heightMapSrc) {
+      // Screen-space lerp for smooth perspective movement — only used when
+      // no height map is active. With terrain, linear logicalY interpolation
+      // is used instead (PGR applies the visual lift each frame).
       const ts = pgr.tileDisplaySize;
       this._stepPerspCamRow = pgr._perspCamRow();
       this._stepHorizonPx   = pgr._horizonPx();

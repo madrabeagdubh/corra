@@ -4,11 +4,9 @@
 // Palette is extracted automatically from the sky/backdrop image
 // via setPaletteFromRGB(), or can be set manually via setMood().
 //
-// Usage:
-//   import { TintManager } from './tintManager.js'
-//   const tm = new TintManager()
-//   tm.setPaletteFromRGB({ sky, mid, ground })  // from image extraction
-//   const tint = tm.getTint(gid, tileCol, tileRow)
+// Also provides getGroundTint() — height + slope shading for ground tiles.
+// Light direction: northwest (top-left). Medium strength.
+// Highlights: warmer, lighter. Shadows: cooler/bluer, darker.
 
 // -- RGB to HSL conversion ------------------------------------------------
 
@@ -101,20 +99,24 @@ for (const [cat, gids] of Object.entries(GID_CATEGORIES)) {
   for (const gid of gids) GID_TO_CATEGORY.set(gid, cat)
 }
 
+// -- Northwest light direction (normalised) --------------------------------
+// In tile space: light comes from top-left, so the gradient runs
+// northwest (bright) → southeast (dark).
+// slopeX = dH/dX (positive = rising east),  positive dot = facing NW = bright
+// slopeY = dH/dY (positive = rising south),  positive dot = facing NW = bright
+// NW light vector: (-1, -1, 0) normalised in XY → each component = -1/√2
+const LIGHT_X = -0.707   // NW x component
+const LIGHT_Y = -0.707   // NW y component
+
 // -------------------------------------------------------------------------
 
 export class TintManager {
 
   constructor() {
-    // Default palette -- overridden by setPaletteFromRGB
     this._palette = this._buildDefaultPalette()
     console.log('[TintManager] constructed')
   }
 
-  // Called with averaged RGB from three zones of the backdrop image.
-  // sky    -- top third of image (sky colour, cool tones)
-  // mid    -- middle third (mountain/horizon tones)
-  // ground -- bottom third (land/vegetation tones)
   setPaletteFromRGB({ sky, mid, ground }) {
     const skyHSL    = rgbToHsl(sky.r,    sky.g,    sky.b)
     const midHSL    = rgbToHsl(mid.r,    mid.g,    mid.b)
@@ -123,17 +125,10 @@ export class TintManager {
     console.log('[TintManager] palette from image:',
       'sky:', skyHSL, 'mid:', midHSL, 'ground:', groundHSL)
 
-    // Map image zones to tile categories:
-    // ground tiles  -> ground zone of painting
-    // vegetation    -> mid zone (where painted land/trees are)
-    // water         -> sky zone (cool, distant)
-    // rock          -> mid zone, desaturated and darkened
-    // warm/object   -> ground zone, warmed slightly
-
     this._palette = {
       ground: {
-        h: groundHSL.h,
-        s: Math.min(groundHSL.s + 10, 60),
+        h: Math.max(100, Math.min(140, groundHSL.h + 18)),  // push toward Irish green
+        s: Math.min(groundHSL.s + 6,  52),
         l: Math.max(groundHSL.l - 5, 15),
         lVar: 10,
         alpha: 0.65,
@@ -178,20 +173,19 @@ export class TintManager {
     console.log('[TintManager] palette set from image extraction')
   }
 
-  // Manual mood override -- useful when no backdrop image is set
   setMood(mood) {
     const moods = {
       bog_threshold: {
-        ground:     { h: 95,  s: 30, l: 26, lVar: 10, alpha: 0.65 },
-        vegetation: { h: 88,  s: 35, l: 33, lVar: 14, alpha: 0.62 },
+        ground:     { h: 120, s: 26, l: 26, lVar: 8,  alpha: 0.60 },
+        vegetation: { h: 112, s: 30, l: 32, lVar: 12, alpha: 0.58 },
         water:      { h: 185, s: 25, l: 28, lVar: 8,  alpha: 0.60 },
         rock:       { h: 268, s: 14, l: 40, lVar: 12, alpha: 0.55 },
         warm:       { h: 30,  s: 28, l: 32, lVar: 8,  alpha: 0.50 },
         object:     { h: 35,  s: 22, l: 38, lVar: 6,  alpha: 0.45 },
       },
       oak_wood: {
-        ground:     { h: 100, s: 32, l: 28, lVar: 10, alpha: 0.62 },
-        vegetation: { h: 95,  s: 38, l: 35, lVar: 14, alpha: 0.60 },
+        ground:     { h: 115, s: 26, l: 28, lVar: 8,  alpha: 0.58 },
+        vegetation: { h: 108, s: 32, l: 34, lVar: 12, alpha: 0.56 },
         water:      { h: 180, s: 22, l: 30, lVar: 8,  alpha: 0.58 },
         rock:       { h: 240, s: 10, l: 42, lVar: 12, alpha: 0.52 },
         warm:       { h: 35,  s: 25, l: 35, lVar: 8,  alpha: 0.48 },
@@ -202,15 +196,12 @@ export class TintManager {
     console.log('[TintManager] mood set to:', mood)
   }
 
-  // Override a single palette zone directly
   setPaletteZone(category, values) {
     if (!this._palette[category]) return
     Object.assign(this._palette[category], values)
     console.log('[TintManager] zone override:', category, values)
   }
 
-  // Returns { h, s, l, alpha } for a given GID and tile position,
-  // or null if the tile has no category mapping.
   getTint(gid, tx, ty) {
     const category = GID_TO_CATEGORY.get(gid)
     if (!category) return null
@@ -220,6 +211,18 @@ export class TintManager {
 
     const t = _tmHash(tx, ty)
 
+    // Vegetation gets wider variation so individual trees read as distinct.
+    // Other categories keep tighter variation.
+    if (category === 'vegetation') {
+      // Second hash for independent s variation
+      const t2 = _tmHash(tx * 3 + 7, ty * 5 + 13)
+      return {
+        h:     zone.h + (t  - 0.5) * 30,   // ±15° hue — yellow-green to blue-green
+        s:     zone.s + (t2 - 0.5) * 24,   // ±12 sat — lush to muted
+        l:     zone.l + (t  - 0.5) * 22,   // ±11 lightness — bright to dark
+        alpha: zone.alpha + (t2 - 0.5) * 0.10,
+      }
+    }
     return {
       h:     zone.h + (t - 0.5) * 14,
       s:     zone.s + t * 8,
@@ -228,10 +231,60 @@ export class TintManager {
     }
   }
 
+  /**
+   * Height + slope shading for ground tiles.
+   *
+   * Call instead of getTint() for layer-0 ground GIDs when a height map
+   * is active. Returns the same { h, s, l, alpha } shape.
+   *
+   * @param {number} gid      - tile GID (used for base palette lookup)
+   * @param {number} tx       - tile column (for per-tile hash variation)
+   * @param {number} ty       - tile row
+   * @param {number} h00      - vertex height top-left     (col,   row)
+   * @param {number} h10      - vertex height top-right    (col+1, row)
+   * @param {number} h01      - vertex height bottom-left  (col,   row+1)
+   * @param {number} h11      - vertex height bottom-right (col+1, row+1)
+   */
+  getGroundTint(gid, tx, ty, h00, h10, h01, h11) {
+    // Base palette tint (same per-tile hash variation as getTint)
+    const base = this.getTint(gid, tx, ty)
+    if (!base) return null
+
+    // ── Height shading ─────────────────────────────────────────────────
+    // Average height of this tile: 0 = flat, HEIGHT_AMP = peak.
+    // Rescale to [-1, 1] relative to a mid-point of HEIGHT_AMP * 0.4
+    // so moderately hilly maps still show contrast.
+    const avgH    = (h00 + h10 + h01 + h11) * 0.25
+    const heightT = Math.max(-1, Math.min(1, avgH / 0.4))
+    // +heightT → lighter, warmer (hilltop in sun)
+    // -heightT → darker, cooler (valley in shadow)
+    const heightL = heightT * 9    // ±9 lightness — hilltops brighter, valleys darker
+    // Hilltops: shift toward yellow-green (hue down toward 105°)
+    // Valleys:  shift toward blue-purple  (hue up toward 210°)
+    const heightH = heightT * -12  // positive height → hue down (warmer green); negative → hue up (blue)
+
+    // ── Slope / normal shading ─────────────────────────────────────────
+    const slopeX  = ((h10 + h11) - (h00 + h01)) * 0.5
+    const slopeY  = ((h01 + h11) - (h00 + h10)) * 0.5
+    const dot     = slopeX * LIGHT_X + slopeY * LIGHT_Y
+    const slopeT  = Math.max(-1, Math.min(1, dot * 4))
+    const slopeL  = slopeT * 8
+    // NW-lit slopes: shift toward bright yellow-green (hue −8°)
+    // SE-shadow slopes: shift toward blue-purple (hue +18°)
+    const slopeH  = slopeT > 0 ? slopeT * -8 : slopeT * -18
+
+    return {
+      h:     base.h + heightH + slopeH,
+      s:     base.s + Math.abs(slopeT) * 3 + Math.max(0, -heightT) * 4,
+      l:     Math.max(10, Math.min(68, base.l + heightL + slopeL)),
+      alpha: base.alpha + 0.06,
+    }
+  }
+
   _buildDefaultPalette() {
     return {
-      ground:     { h: 92,  s: 28, l: 26, lVar: 10, alpha: 0.62 },
-      vegetation: { h: 88,  s: 32, l: 32, lVar: 14, alpha: 0.60 },
+      ground:     { h: 118, s: 28, l: 28, lVar: 8,  alpha: 0.58 },
+      vegetation: { h: 112, s: 32, l: 32, lVar: 12, alpha: 0.56 },
       water:      { h: 185, s: 20, l: 28, lVar: 8,  alpha: 0.58 },
       rock:       { h: 260, s: 10, l: 42, lVar: 12, alpha: 0.52 },
       warm:       { h: 30,  s: 24, l: 34, lVar: 8,  alpha: 0.48 },

@@ -78,8 +78,6 @@ const ALWAYS_UNWALKABLE = new Set([
 export default class PerspectiveScene extends BaseLocationScene {
 
   // ── Override hooks ────────────────────────────────────────────────────────
-  // Subclasses implement these to configure the scene without touching lifecycle.
-
   getMapKey()              { return 'unnamed_map' }
   getMapPath()             { return `/maps/bogMaps/${this.getMapKey()}.json?v=${Date.now()}` }
   getAmbient()             { return 0x334422 }
@@ -93,43 +91,17 @@ export default class PerspectiveScene extends BaseLocationScene {
   getMountainPosition()    { return '50% 100%' }
   onEnter()                {}
 
-  /**
-   * Return an ElevationRenderer config object to enable 3D cliffs, or null
-   * for a flat map.
-   *
-   * Example for a cliff map:
-   *   return {
-   *     cliffGids:    new Set([740]),
-   *     cliffFaceGid: 740,
-   *     elevatedGids: new Set([839, 840]),
-   *     cliffSouth:   new Set([731, 1625, 1679]),
-   *     cliffHeight:  1.0,
-   *   }
-   *
-   * Example for a dungeon:
-   *   return {
-   *     cliffGids:    new Set([512]),
-   *     cliffFaceGid: 512,
-   *     elevatedGids: new Set([500, 501]),
-   *     cliffSouth:   new Set([0, 600]),
-   *     cliffHeight:  1.5,
-   *     sideColor:    '#1a1a2e',
-   *   }
-   */
-getElevationConfig() {
-  const cfg = this.mapData?.elevationConfig
-  if (!cfg) return null
-  return {
-    cliffFaceGid: cfg.cliffFaceGid ?? 740,
-    elevatedGids: new Set(cfg.elevatedGids ?? [839, 840]),
-    cliffSouth:   new Set(cfg.cliffSouth   ?? [731, 1625, 1679]),
-    cliffHeight:  cfg.cliffHeight  ?? 1.0,
+  getElevationConfig() {
+    const cfg = this.mapData?.elevationConfig
+    if (!cfg) return null
+    return {
+      cliffFaceGid: cfg.cliffFaceGid ?? 740,
+      elevatedGids: new Set(cfg.elevatedGids ?? [839, 840]),
+      cliffSouth:   new Set(cfg.cliffSouth   ?? [731, 1625, 1679]),
+      cliffHeight:  cfg.cliffHeight  ?? 1.0,
+    }
   }
-}
-  /**
-   * Override in subclasses to load map-specific objects, NPCs, encounters.
-   * Called during create() before initializeLocation().
-   */
+
   async _loadContent() {}
 
   // ── Joystick Y position ───────────────────────────────────────────────────
@@ -175,7 +147,6 @@ getElevationConfig() {
     this.load.json('oryxCatalogue', '/assets/oryx/oryxCatalogue.json')
     this.load.image('oryxItems',    '/assets/oryx/oryx_16bit_fantasy_items_trans.png')
 
-    // Load map JSON — subclasses can override getMapPath()
     const key = this.getMapKey()
     this._mapCacheKey = 'perspMap_' + key
     this.load.json(this._mapCacheKey, this.getMapPath())
@@ -189,7 +160,6 @@ getElevationConfig() {
     }
     window._phaserAudioContext = this.sound.context
 
-    // Let subclass load content (objects, NPCs, encounters) before scene init
     await this._loadContent()
 
     this.lights.enable()
@@ -198,14 +168,11 @@ getElevationConfig() {
     this.usePerspective = true
     this.drawTilemap()
 
-    // ── ElevationRenderer ─────────────────────────────────────────────────
-    // Only activated if the map declares hasCliffs:true AND getElevationConfig()
-    // returns a config object. Both conditions must be true.
     const elevConfig = this.getElevationConfig()
     if (this.mapData.hasCliffs && this.perspectiveGround && elevConfig) {
       this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, elevConfig)
     }
-if (this.perspectiveGround) {
+    if (this.perspectiveGround) {
       this.perspectiveGround.setBuildings(this.mapData.buildings || [])
     }
     this.mapData.tiles           = this.mapData.layers[0]
@@ -220,7 +187,10 @@ if (this.perspectiveGround) {
     this.initializeLocation()
     this._createPlayerUI()
 
-    if (this.perspectiveGround) this.perspectiveGround.setPlayer(this.player)
+    if (this.perspectiveGround) {
+      this.perspectiveGround.setPlayer(this.player)
+      this.perspectiveGround.prewarmBillboardTints(this.mapData)
+    }
 
     if (this._pendingFlags?.length && this.perspectiveGround) {
       this.perspectiveGround.setEncounterFlags(this._pendingFlags)
@@ -234,7 +204,10 @@ if (this.perspectiveGround) {
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
-    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight)
+    // Extend south bound by one screen height so the camera can follow the
+    // player to the last map row without Phaser stopping it half a screen early.
+    // The update() clamp below prevents it going further than the map edge.
+    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight + this.scale.height)
 
     this._lastFovKey = null
     this._recomputeFov()
@@ -290,6 +263,37 @@ if (this.perspectiveGround) {
     if (this.fogRenderer  && this.fovSystem) this.fogRenderer.update(this.fovSystem)
     if (this.playerLight  && this.player)    this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
     if (this.bowMechanics)                   this.bowMechanics.update(delta)
+
+    // ── South camera clamp ────────────────────────────────────────────────
+    // Pin the bottom edge of the last map row to the bottom of the screen.
+    // PGR computes the exact scrollY using the perspective formula so the
+    // south tile edge lands precisely at screen bottom — no gap, no overshoot.
+    if (this.cameras?.main && this.perspectiveGround && this.mapData) {
+      const _cam   = this.cameras.main
+      const _zoom  = _cam.zoom || 1
+      const _pgr   = this.perspectiveGround
+      const _mapH  = this.mapData.height  // tile rows
+      const _ts    = this.tileSize
+      const _sh    = this.scale.height
+      const _FL    = _pgr.constructor.FOCAL_LENGTH
+      const _groundH = _pgr._groundH?.() ?? (_sh * (1 - _pgr.constructor.HORIZON_Y_FRAC))
+      const _horizPx = _pgr._horizonPx?.() ?? (_sh * _pgr.constructor.HORIZON_Y_FRAC)
+      const _camOff  = _pgr._cameraRowOffset ?? _pgr.constructor.CAMERA_ROW_OFFSET
+
+      // Solve: _rowToScreenY(mapH) == sh
+      // sh = horizonPx + groundH * FL / (FL + d)  where d = camRow - mapH
+      // => d = FL * groundH / (sh - horizonPx) - FL
+      // => camRow = mapH + d
+      // => scrollY = (camRow - camOffset) * tileSize - sh / (2 * zoom)
+      const _denom = _sh - _horizPx
+      if (_denom > 0) {
+        const _d      = _FL * _groundH / _denom - _FL
+        const _camRow = _mapH + _d
+        const _maxSY  = (_camRow - _camOff) * _ts - _sh / (2 * _zoom)
+        if (_cam.scrollY > _maxSY) _cam.scrollY = _maxSY
+      }
+      if (_cam.scrollY < 0) _cam.scrollY = 0
+    }
   }
 
   shutdown() {
@@ -314,12 +318,10 @@ if (this.perspectiveGround) {
     }
     this.fovSystem  = null
     this.pathFinder = null
-    // Stop damage timer before scene destroys WebGL resources
     if (this.terrainManager?.damageTimer) {
       this.terrainManager.damageTimer.remove()
       this.terrainManager.damageTimer = null
     }
-    // Clear boat path
     this._clearBoatPath?.()
     if (this.boatSystem) {
       this.boatSystem._pathForce = 0
@@ -432,10 +434,6 @@ if (this.perspectiveGround) {
     this._encounterPanel = new EncounterPanel(this, this._moonWidget)
   }
 
-  /**
-   * Override in subclasses to handle the joystick centre tap.
-   * Default: open encounter panel or close menu.
-   */
   _onJoystickTap() {
     const now = Date.now()
     if (now - (this._lastJoyTap || 0) < 700) return
@@ -466,7 +464,6 @@ if (this.perspectiveGround) {
       const canvasX = (e.clientX - rect.left) * scaleX
       const canvasY = (e.clientY - rect.top)  * scaleY
 
-      // Deadzone around joystick
       const joyX = this.scale.width / 2, joyY = this._joyY, joyR = 100
       if ((canvasX-joyX)**2 + (canvasY-joyY)**2 < joyR*joyR) return
 
@@ -475,7 +472,6 @@ if (this.perspectiveGround) {
       if (!this.perspectiveGround)                          return
       if (this._bowAiming)                                  return
 
-      // Allow subclasses to intercept taps (e.g. boat validation in RiverScene)
       if (this._onTapBeforePath?.(canvasX, canvasY) === false) return
 
       const tile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
@@ -491,7 +487,6 @@ if (this.perspectiveGround) {
     })
   }
 
-  /** Override in subclasses to intercept taps. Return false to cancel pathfinding. */
   _onTapBeforePath(canvasX, canvasY) { return true }
 
   _flashTargetTile(tx, ty) {
@@ -674,7 +669,6 @@ if (this.perspectiveGround) {
 
   checkExits() {
     if (!this.mapData?.exits || this._exiting) return
-    // Stop damage timer early — prevents glTexture error on fast transitions
     if (this.terrainManager?.damageTimer) {
       this.terrainManager.damageTimer.remove()
       this.terrainManager.damageTimer = null

@@ -1312,6 +1312,17 @@ export default class PerspectiveGroundRenderer {
       this._gCtx.fillRect(0, sh - 40, sw, 40)
     }
 
+    // South-edge fill: cover any gap between the last rendered tile row and
+    // the screen bottom with the map's southernmost tile colour.
+    // Compute where the last map row projects to screen Y and fill below it.
+    const _lastRowScreenY = this._rowToScreenY(mapH)
+    if (_lastRowScreenY !== null && _lastRowScreenY < sh) {
+      // Use fill tint colour derived from the south edge tile
+      this._gCtx.fillStyle = gcR
+      this._gCtx.fillRect(0, Math.max(horizonPx, Math.floor(_lastRowScreenY)), sw,
+        sh - Math.max(horizonPx, Math.floor(_lastRowScreenY)))
+    }
+
     this._oCtx.clearRect(0, 0, sw, sh)
     if (!this._debugged) console.log('[PGR v8] frame: horizonPx=' + horizonPx + ' sw=' + sw + ' sh=' + sh + ' hasCliffs=' + !!(this.scene.mapData?.hasCliffs) + ' elevActive=' + !!(this._elev))
     this._oCtx.save()
@@ -1323,7 +1334,7 @@ export default class PerspectiveGroundRenderer {
     this._gCtx.rect(0, horizonPx, sw, sh - horizonPx)
     this._gCtx.clip()
 
-    const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX)
+    const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX * 3)
     const tileRowStart = Math.max(0, Math.floor(camRow - FL * 8))
 
     const p = this._player

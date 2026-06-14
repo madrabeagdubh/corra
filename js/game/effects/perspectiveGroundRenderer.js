@@ -826,6 +826,27 @@ export default class PerspectiveGroundRenderer {
    * and there are never seams.
    * Returns 0 when no height map is loaded or vertex is out of bounds.
    */
+  _drawBankSide(ctx, xTop, xBot, yTop, yBot, alpha) {
+    if (yBot - yTop < 2) return
+    ctx.save()
+    ctx.globalAlpha = alpha * 0.50
+    try {
+      const _g = ctx.createLinearGradient(0, yTop, 0, yBot)
+      _g.addColorStop(0,    'rgba(42, 30, 14, 0.92)')
+      _g.addColorStop(0.4,  'rgba(60, 44, 20, 0.75)')
+      _g.addColorStop(1,    'rgba(48, 34, 16, 0.30)')
+      ctx.fillStyle = _g
+    } catch(e) { ctx.fillStyle = 'rgba(50, 35, 15, 0.55)' }
+    ctx.beginPath()
+    ctx.moveTo(xTop, yTop)
+    ctx.lineTo(xBot, yTop)
+    ctx.lineTo(xBot, yBot)
+    ctx.lineTo(xTop, yBot)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+
   _vertexH(col, row) {
     const hm = this._heightMapSrc
     if (!hm) return 0
@@ -1374,6 +1395,7 @@ export default class PerspectiveGroundRenderer {
 
     let groundCount = 0, objectCount = 0
     const _deferredCliffs = []
+    const _deferredBanks  = []       // riverbank earth faces
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
 
@@ -1477,14 +1499,46 @@ export default class PerspectiveGroundRenderer {
             const _sBot = this._scaleAtRow(tileRow + 1)
             const _elevDeltaTop = tileElev > 0 ? (yTopElev - yTopClamped) : 0
 
-            // Clamp vertex heights: negative values (valley bias) only depress
-            // water tiles — ground tiles must never be pulled below flat baseline.
+            // Water and shore tiles are always flat — zero height on all corners.
+            // This prevents river hills and keeps water at the terrain baseline.
             const _isGroundWater = _rawGid0 === 1625 || _rawGid0 === 1679 || _rawGid0 === 731
-            const _vClamp = _isGroundWater ? (v => v) : (v => Math.max(0, v))
-            const _yTL = yTopClamped + _elevDeltaTop - _vClamp(this._vertexH(tileCol,     tileRow    )) * _sTop
-            const _yTR = yTopClamped + _elevDeltaTop - _vClamp(this._vertexH(tileCol + 1, tileRow    )) * _sTop
-            const _yBL = yBotClamped                 - _vClamp(this._vertexH(tileCol,     tileRow + 1)) * _sBot
-            const _yBR = yBotClamped                 - _vClamp(this._vertexH(tileCol + 1, tileRow + 1)) * _sBot
+            const _yTL = _isGroundWater ? yTopClamped + _elevDeltaTop : yTopClamped + _elevDeltaTop - this._vertexH(tileCol,     tileRow    ) * _sTop
+            const _yTR = _isGroundWater ? yTopClamped + _elevDeltaTop : yTopClamped + _elevDeltaTop - this._vertexH(tileCol + 1, tileRow    ) * _sTop
+            const _yBL = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol,     tileRow + 1) * _sBot
+            const _yBR = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol + 1, tileRow + 1) * _sBot
+
+            // ── South bank north face (inline, before tile) ───────────────
+            // If water is immediately to the north (tileRow-1), the raised
+            // terrain has a visible drop from its top edge down to water level.
+            // Draw it here so the tile surface paints over any lower overlap.
+            if (!_isGroundWater && inMap) {
+              const _northGid = layer0[tileRow - 1]?.[tileCol] ?? 0
+              const _northIsWater = _northGid === 1625 || _northGid === 1679 || _northGid === 731
+              if (_northIsWater) {
+                // Water row Y is yTopClamped (the back edge of this tile = front of water tile)
+                // Tile top corners are _yTL/_yTR — they're lifted above yTopClamped by terrain
+                const _nbGap = Math.max(_yTL, _yTR) - yTopClamped
+                if (_nbGap > 3) {
+                  this._gCtx.save()
+                  this._gCtx.globalAlpha = tileAlpha * 0.75
+                  try {
+                    const _nbg = this._gCtx.createLinearGradient(0, yTopClamped, 0, Math.max(_yTL, _yTR))
+                    _nbg.addColorStop(0,   'rgba(38, 28, 12, 0.85)')
+                    _nbg.addColorStop(0.5, 'rgba(58, 42, 18, 0.80)')
+                    _nbg.addColorStop(1,   'rgba(68, 50, 22, 0.70)')
+                    this._gCtx.fillStyle = _nbg
+                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.75)' }
+                  this._gCtx.beginPath()
+                  this._gCtx.moveTo(xTL, yTopClamped)
+                  this._gCtx.lineTo(xTR, yTopClamped)
+                  this._gCtx.lineTo(xTR, _yTR)
+                  this._gCtx.lineTo(xTL, _yTL)
+                  this._gCtx.closePath()
+                  this._gCtx.fill()
+                  this._gCtx.restore()
+                }
+              }
+            }
 
             this._drawTrapezoidTinted(this._gCtx, gid0,
               {x: xTL, y: _yTL}, {x: xTR, y: _yTR},
@@ -1495,6 +1549,74 @@ export default class PerspectiveGroundRenderer {
             const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
               && yBotClamped >= horizonPx + 30
               && !(layer3?.[tileRow]?.[tileCol])
+
+            // Riverbank: ground tile bordering water to south — collect for earth face
+            const _southGid = inMap ? (layer0[tileRow + 1]?.[tileCol] ?? 0) : 0
+            const _southIsWater = _southGid === 1625 || _southGid === 1679 || _southGid === 731
+            if (inMap && _southIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+              const _bxBL = this._colToScreenX(tileCol,     tileRow + 1)
+              const _bxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+              const _bYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
+              // Only draw bank if ground bottom edge is meaningfully above water row
+              const _bankGap = _bYWater - Math.min(_yBL, _yBR)
+              if (_bankGap > 4) {
+                _deferredBanks.push({
+                  col: tileCol, row: tileRow,
+                  yBL: _yBL, yBR: _yBR,
+                  yWater: _bYWater,
+                  xBL: _bxBL, xBR: _bxBR,
+                  alpha: tileAlpha, side: false,
+                })
+              }
+            }
+
+            // East side face: water to east at same row (north bank) → deferred
+            const _eastGid  = inMap ? (layer0[tileRow    ]?.[tileCol + 1] ?? 0) : 0
+            const _eastIsWater  = _eastGid  === 1625 || _eastGid  === 1679 || _eastGid  === 731
+            if (inMap && _eastIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+              const _eX0 = this._colToScreenX(tileCol + 1, tileRow + 1)
+              const _eYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
+              if (_eYWater - _yBR > 4) {
+                _deferredBanks.push({ side: true,
+                  xSL: _eX0, xSR: _eX0, ySL: _yBR, ySR: _yBR,
+                  yWater: _eYWater, alpha: tileAlpha })
+              }
+            }
+            // East side face: water at row above (south bank) → draw inline before tile surface
+            const _eastGidN = inMap ? (layer0[tileRow - 1]?.[tileCol + 1] ?? 0) : 0
+            const _eastNIsWater = _eastGidN === 1625 || _eastGidN === 1679 || _eastGidN === 731
+            if (inMap && _eastNIsWater && !_eastIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+              // South bank east face: draw only the gap BELOW the tile bottom edge.
+              // Tile surface will paint over anything above yBotClamped naturally.
+              const _eX0 = this._colToScreenX(tileCol + 1, tileRow + 1)
+              const _eYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
+              if (_eYWater - _yBR > 4) {
+                this._drawBankSide(this._gCtx, _eX0, _eX0, _yBR, _eYWater, tileAlpha)
+              }
+            }
+
+            // West side face: water to west at same row (north bank) → deferred
+            const _westGid  = inMap ? (layer0[tileRow    ]?.[tileCol - 1] ?? 0) : 0
+            const _westIsWater  = _westGid  === 1625 || _westGid  === 1679 || _westGid  === 731
+            if (inMap && _westIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+              const _wX0 = this._colToScreenX(tileCol, tileRow + 1)
+              const _wYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
+              if (_wYWater - _yBL > 4) {
+                _deferredBanks.push({ side: true,
+                  xSL: _wX0, xSR: _wX0, ySL: _yBL, ySR: _yBL,
+                  yWater: _wYWater, alpha: tileAlpha })
+              }
+            }
+            // West side face: water at row above (south bank) → draw inline before tile surface
+            const _westGidN = inMap ? (layer0[tileRow - 1]?.[tileCol - 1] ?? 0) : 0
+            const _westNIsWater = _westGidN === 1625 || _westGidN === 1679 || _westGidN === 731
+            if (inMap && _westNIsWater && !_westIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+              const _wX0 = this._colToScreenX(tileCol, tileRow + 1)
+              const _wYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
+              if (_wYWater - _yBL > 4) {
+                this._drawBankSide(this._gCtx, _wX0, _wX0, _yBL, _wYWater, tileAlpha)
+              }
+            }
             if (_hasSouthFace) {
               const _isCliffEdge = PerspectiveGroundRenderer.CLIFF_GIDS.has(
                 this.scene.mapData?.layers?.[1]?.[tileRow]?.[tileCol] ?? 0)
@@ -1643,11 +1765,11 @@ export default class PerspectiveGroundRenderer {
               const _l1GidIsWater = (layer0[tileRow]?.[tileCol] ?? 0) === 1625
                 || (layer0[tileRow]?.[tileCol] ?? 0) === 1679
                 || (layer0[tileRow]?.[tileCol] ?? 0) === 731
-              const _l1vClamp = _l1GidIsWater ? (v => v) : (v => Math.max(0, v))
-              const _l1TL = yTopClamped + _l1elevDelta - _l1vClamp(this._vertexH(tileCol,     tileRow    )) * _l1sTop
-              const _l1TR = yTopClamped + _l1elevDelta - _l1vClamp(this._vertexH(tileCol + 1, tileRow    )) * _l1sTop
-              const _l1BL = yBotClamped               - _l1vClamp(this._vertexH(tileCol,     tileRow + 1)) * _l1sBot
-              const _l1BR = yBotClamped               - _l1vClamp(this._vertexH(tileCol + 1, tileRow + 1)) * _l1sBot
+              // Water/shore layer-1 tiles always flat — no terrain warping on water
+              const _l1TL = _l1GidIsWater ? yTopClamped + _l1elevDelta : yTopClamped + _l1elevDelta - this._vertexH(tileCol,     tileRow    ) * _l1sTop
+              const _l1TR = _l1GidIsWater ? yTopClamped + _l1elevDelta : yTopClamped + _l1elevDelta - this._vertexH(tileCol + 1, tileRow    ) * _l1sTop
+              const _l1BL = _l1GidIsWater ? yBotClamped                : yBotClamped                - this._vertexH(tileCol,     tileRow + 1) * _l1sBot
+              const _l1BR = _l1GidIsWater ? yBotClamped                : yBotClamped                - this._vertexH(tileCol + 1, tileRow + 1) * _l1sBot
               const tint1 = this.tintManager.getTint(gid1, tileCol, tileRow)
               this._gCtx.globalAlpha = tileAlpha
               this._drawTrapezoidTinted(this._gCtx, gid1,
@@ -1870,6 +1992,68 @@ export default class PerspectiveGroundRenderer {
           this._drawCliffSide(this._gCtx, cf.col, cf.row, cf.elev,
             westNeighbour.row, -1, cf.alpha)
         }
+      }
+    }
+
+    // ── Riverbank earth faces ────────────────────────────────────────────────
+    // Drawn at low opacity so water tiles render dominant over the bank face.
+    // The bank acts as a depth hint — visible at the turf edge, ghosted below.
+    for (const bk of _deferredBanks) {
+      const { yBL, yBR, yWater, xBL, xBR, xSL, xSR, ySL, ySR, alpha, side } = bk
+      if (side) {
+        // East/west side face of a land tile protruding beside water
+        const yBot = yWater
+        if (yBot <= Math.min(ySL, ySR) + 1) continue
+        this._gCtx.save()
+        this._gCtx.globalAlpha = alpha * 0.40
+        try {
+          const _sg = this._gCtx.createLinearGradient(0, Math.min(ySL, ySR), 0, yBot)
+          _sg.addColorStop(0,   'rgba(45, 32, 14, 0.90)')
+          _sg.addColorStop(0.5, 'rgba(62, 44, 20, 0.75)')
+          _sg.addColorStop(1,   'rgba(48, 34, 16, 0.40)')
+          this._gCtx.fillStyle = _sg
+        } catch(e) { this._gCtx.fillStyle = 'rgba(50, 35, 15, 0.55)' }
+        this._gCtx.beginPath()
+        this._gCtx.moveTo(xSL, ySL)
+        this._gCtx.lineTo(xSR, ySR)
+        this._gCtx.lineTo(xSR, yBot)
+        this._gCtx.lineTo(xSL, yBot)
+        this._gCtx.closePath()
+        this._gCtx.fill()
+        this._gCtx.restore()
+      } else {
+        // South-facing bank face
+        const yBot = yWater
+        if (yBot <= yBL + 1 && yBot <= yBR + 1) continue
+        this._gCtx.save()
+        // Ghost alpha — water will overdraw the lower portion naturally
+        this._gCtx.globalAlpha = alpha * 0.60
+        const yTop = Math.min(yBL, yBR)
+        try {
+          const _bg = this._gCtx.createLinearGradient(0, yTop, 0, yBot)
+          _bg.addColorStop(0,    'rgba(42, 30, 14, 0.95)')  // dark turf edge
+          _bg.addColorStop(0.25, 'rgba(58, 42, 18, 0.80)')  // upper soil
+          _bg.addColorStop(0.60, 'rgba(65, 48, 22, 0.55)')  // mid — water starts to show
+          _bg.addColorStop(1,    'rgba(50, 36, 16, 0.20)')  // near-transparent at waterline
+          this._gCtx.fillStyle = _bg
+        } catch(e) {
+          this._gCtx.fillStyle = 'rgba(52, 36, 16, 0.60)'
+        }
+        this._gCtx.beginPath()
+        this._gCtx.moveTo(xBL, yBL)
+        this._gCtx.lineTo(xBR, yBR)
+        this._gCtx.lineTo(xBR, yBot)
+        this._gCtx.lineTo(xBL, yBot)
+        this._gCtx.closePath()
+        this._gCtx.fill()
+        // Turf-edge stroke — full opacity, just at the very top
+        this._gCtx.globalAlpha = alpha * 0.70
+        this._gCtx.strokeStyle = 'rgba(30, 22, 8, 0.85)'
+        this._gCtx.lineWidth = 1.5
+        this._gCtx.beginPath()
+        this._gCtx.moveTo(xBL, yBL); this._gCtx.lineTo(xBR, yBR)
+        this._gCtx.stroke()
+        this._gCtx.restore()
       }
     }
 
@@ -2233,7 +2417,8 @@ export default class PerspectiveGroundRenderer {
     } else {
       const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
       const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
-      const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
+
+	          const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
       ctx.transform(
         breathScale * ((_playerFacing ?? this._facingLeft) ? -1 : 1), 0,
         0, breathScale,

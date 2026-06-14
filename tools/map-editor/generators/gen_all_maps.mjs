@@ -42,7 +42,7 @@ const GRID_COLS  = 4
 const GRID_ROWS  = 4
 const VW         = GRID_COLS * W + 1   // 145
 const VH         = GRID_ROWS * H + 1   // 145
-const HEIGHT_AMP = 3.8
+const HEIGHT_AMP = 0.8
 
 function buildSharedHeightMap() {
   // Deterministic corner hash — no RNG object needed

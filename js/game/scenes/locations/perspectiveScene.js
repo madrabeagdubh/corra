@@ -169,7 +169,11 @@ export default class PerspectiveScene extends BaseLocationScene {
     this.drawTilemap()
 
     const elevConfig = this.getElevationConfig()
-    if (this.mapData.hasCliffs && this.perspectiveGround && elevConfig) {
+    // If the map ships an explicit per-tile elevationGrid (e.g. generated river
+    // banks), PGR loads it directly — do NOT also spin up an ElevationRenderer,
+    // which would overwrite _elev via GID matching and re-introduce stray faces.
+    if (this.mapData.hasCliffs && this.perspectiveGround && elevConfig
+        && !this.mapData.elevationGrid) {
       this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, elevConfig)
     }
     if (this.perspectiveGround) {

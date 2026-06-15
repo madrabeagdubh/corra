@@ -42,7 +42,7 @@ const GRID_COLS  = 4
 const GRID_ROWS  = 4
 const VW         = GRID_COLS * W + 1   // 145
 const VH         = GRID_ROWS * H + 1   // 145
-const HEIGHT_AMP = 0.8
+const HEIGHT_AMP = 3
 
 function buildSharedHeightMap() {
   // Deterministic corner hash — no RNG object needed
@@ -528,10 +528,13 @@ function genRiver(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
   const {exits,entries}=makeRiverExitEntry(exits_def,{west:westY,east:eastY})
   const spawnX = exits_def.east ? W-5 : (exits_def.west ? 4 : MID)
   const spawnY = Math.max(2, (exits_def.east||exits_def.west ? entries[Object.keys(exits_def)[0]]?.y??MID : MID) - 3)
-  return {
-    ...buildMap(name,base,overlay,exits,entries,{x:spawnX,y:spawnY},gridX,gridY),
-    streamEdges:{west:westY, east:eastY}
-  }
+
+return {
+    ...buildMap(name, base, overlay, exits, entries, {x:spawnX, y:spawnY}, gridX, gridY),
+    streamEdges: { west:westY, east:eastY },
+    hasCliffs: true,                            }
+
+
 }
 
 // ── Map assembler ─────────────────────────────────────────────────────────────

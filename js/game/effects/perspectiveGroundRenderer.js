@@ -31,7 +31,6 @@
 
 import { TintManager } from './tintManager.js'
 
-// Fast deterministic hash for tile position — used to pick tint variant index
 function _tmHashPGR(tx, ty) {
   let h = (tx * 374761393 + ty * 1103515245) | 0
   h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
@@ -39,8 +38,6 @@ function _tmHashPGR(tx, ty) {
   return (h ^ (h >>> 16)) >>> 0
 }
 
-// Ground GIDs that receive height+slope shading — mirrors TintManager's ground Set.
-// Kept here to avoid importing TintManager internals into the hot render loop.
 const GID_CATEGORIES_GROUND = new Set([
   732, 733, 735, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848,
   849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861,
@@ -87,12 +84,10 @@ const WITHERED_STAMP_GIDS = new Set([
   ...WITHERED_TOP_GIDS, ...WITHERED_MID_GIDS, ...WITHERED_BOT_GIDS
 ])
 
-// -------------------------------------------------------------------------
-
 export default class PerspectiveGroundRenderer {
 
   static DEBUG_RECTS   = false
-  static _tintIdSeq   = 0    // incremented to give each img canvas a unique ID for bake cache
+  static _tintIdSeq   = 0
 
   static CAMERA_ROW_OFFSET    = 14.0
   static PLAYER_DIST_TILES    = 1.2
@@ -136,7 +131,6 @@ export default class PerspectiveGroundRenderer {
     this._elev      = null
     this._elevMapId = null
 
-    // Height map state
     this._heightMapSrc = null
     this._hmW          = 0
     this._hmH          = 0
@@ -407,12 +401,6 @@ export default class PerspectiveGroundRenderer {
     console.log('[PGR v8] player registered')
   }
 
-  /**
-   * Pre-bake tinted canvases for all billboard GIDs found in the map's
-   * layer 1. Call once after map data is set (e.g. from the scene after
-   * setPlayer). Spreads the canvas creation over a requestIdleCallback
-   * so it doesn't spike the first frame.
-   */
   prewarmBillboardTints(mapData) {
     if (!mapData?.layers?.[1]) return
     this._bakedTintCache = new Map()
@@ -420,7 +408,6 @@ export default class PerspectiveGroundRenderer {
     const mapH    = layer1.length
     const mapW    = layer1[0]?.length ?? 0
 
-    // Collect unique billboard GIDs
     const gids = new Set()
     for (let y = 0; y < mapH; y++) {
       for (let x = 0; x < mapW; x++) {
@@ -434,10 +421,6 @@ export default class PerspectiveGroundRenderer {
 
     if (gids.size === 0) return
 
-    // Bake ~8 tint variants per GID using a spread of tile positions
-    // that cover the hash range. Done via idle callback to avoid frame spike.
-    // 8 sample positions spread across the tile hash range — each produces
-    // a visibly different tint. Stored as variant index 0-7 in the cache.
     const samplePositions = [
       [3,3],[7,5],[11,9],[15,13],[19,7],[23,17],[27,11],[31,21]
     ]
@@ -457,7 +440,6 @@ export default class PerspectiveGroundRenderer {
           if (tint) this._getBakedTintCanvas(img, tint, tint.alpha, vi)
         })
       }
-      // Yield between GIDs to avoid blocking
       if (typeof requestIdleCallback !== 'undefined') {
         requestIdleCallback(bakeNext, { timeout: 500 })
       } else {
@@ -465,7 +447,6 @@ export default class PerspectiveGroundRenderer {
       }
     }
 
-    // Wait for tileset to be ready before baking
     if (this._ready) {
       bakeNext()
     } else {
@@ -817,15 +798,6 @@ export default class PerspectiveGroundRenderer {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
 
-  // ── Height map helpers ────────────────────────────────────────────────────
-
-  /**
-   * Height (in tile-heights) at vertex (col, row).
-   * Vertex (c, r) is the TOP-LEFT corner of tile (c, r) and is shared by
-   * the four tiles that meet at that corner — so adjacent tiles share values
-   * and there are never seams.
-   * Returns 0 when no height map is loaded or vertex is out of bounds.
-   */
   _drawBankSide(ctx, xTop, xBot, yTop, yBot, alpha) {
     if (yBot - yTop < 2) return
     ctx.save()
@@ -854,10 +826,6 @@ export default class PerspectiveGroundRenderer {
     return hm[row][col] ?? 0
   }
 
-  /**
-   * Average height at the centre of tile (col, row) — mean of four corners.
-   * Used to lift billboards (trees, player, flags) so they sit on terrain.
-   */
   _tileHeightAt(col, row) {
     if (!this._heightMapSrc) return 0
     return (this._vertexH(col,   row  )
@@ -865,8 +833,6 @@ export default class PerspectiveGroundRenderer {
           + this._vertexH(col,   row+1)
           + this._vertexH(col+1, row+1)) * 0.25
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   perspectiveProject(worldTileX, worldTileY) {
     const screenY = this._rowToScreenY(worldTileY + 1)
@@ -989,19 +955,11 @@ export default class PerspectiveGroundRenderer {
     const scaledH = scaledTileW * hm
     const dx      = screenX - scaledW / 2
     const dy      = screenY - scaledH
-    // Pick one of 8 pre-baked variants by tile position — stable per tile,
-    // varies across the map so neighbouring trees look different.
     const _vi    = _tmHashPGR(tileCol, tileRow) & 7
     const tinted = this._getBakedTintCanvas(img, tintHSL, tintAlpha ?? 0.38, _vi)
     ctx.drawImage(tinted ?? img, dx, dy, scaledW, scaledH)
   }
 
-  /**
-   * Return a pre-baked tinted copy of img at variantIndex (0-7).
-   * source-atop on an isolated canvas correctly clips tint to opaque
-   * pixels only — no bleed into transparent areas.
-   * Created once per (img × variant), then cached forever.
-   */
   _getBakedTintCanvas(img, tintHSL, alpha, variantIndex = 0) {
     if (!this._bakedTintCache) this._bakedTintCache = new Map()
     const id  = img.__tintId ?? (img.__tintId = ++PerspectiveGroundRenderer._tintIdSeq)
@@ -1014,8 +972,6 @@ export default class PerspectiveGroundRenderer {
     tc.width   = w; tc.height = he
     const tCtx = tc.getContext('2d')
     tCtx.imageSmoothingEnabled = false
-    // Draw sprite — source-atop then clips tint to its opaque pixels only.
-    // This canvas is isolated so there is nothing underneath to bleed into.
     tCtx.drawImage(img, 0, 0)
     tCtx.globalCompositeOperation = 'source-atop'
     tCtx.globalAlpha = alpha
@@ -1199,8 +1155,6 @@ export default class PerspectiveGroundRenderer {
     ctx.globalAlpha = 1.0
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-
   update(fov) {
     if (!this._ready) return
     if (!this._cameraReady()) return
@@ -1276,14 +1230,12 @@ export default class PerspectiveGroundRenderer {
     const layer4 = this.scene.mapData?.layers?.[4] ?? null
     if (!layer0) return
 
-    // ── Height map cache ─────────────────────────────────────────────────────
     if (this.scene.mapData?.heightMap !== this._heightMapSrc) {
       this._heightMapSrc = this.scene.mapData?.heightMap ?? null
       this._hmW = (this.scene.mapData?.width  ?? 0) + 1
       this._hmH = (this.scene.mapData?.height ?? 0) + 1
     }
 
-    // ── Elevation map ────────────────────────────────────────────────────────
     if (!this._elev && this.scene.mapData?.hasCliffs) {
       if (!this._elevWarnedOnce) {
         this._elevWarnedOnce = true
@@ -1333,12 +1285,8 @@ export default class PerspectiveGroundRenderer {
       this._gCtx.fillRect(0, sh - 40, sw, 40)
     }
 
-    // South-edge fill: cover any gap between the last rendered tile row and
-    // the screen bottom with the map's southernmost tile colour.
-    // Compute where the last map row projects to screen Y and fill below it.
     const _lastRowScreenY = this._rowToScreenY(mapH)
     if (_lastRowScreenY !== null && _lastRowScreenY < sh) {
-      // Use fill tint colour derived from the south edge tile
       this._gCtx.fillStyle = gcR
       this._gCtx.fillRect(0, Math.max(horizonPx, Math.floor(_lastRowScreenY)), sw,
         sh - Math.max(horizonPx, Math.floor(_lastRowScreenY)))
@@ -1373,17 +1321,12 @@ export default class PerspectiveGroundRenderer {
         : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
       const proj     = this._projectLogical(snapX, snapY)
       if (proj) {
-        // Use target tile for terrain lift so the lift is stable during a step
-        // and matches where the player is heading, not the mid-lerp logicalY.
         const _ptCol     = Math.floor((p.targetX ?? p.logicalX) / this.tileDisplaySize)
         const _ptRow     = Math.floor((p.targetY ?? p.logicalY) / this.tileDisplaySize)
         const _ptGid     = this.scene.mapData?.layers?.[0]?.[_ptRow]?.[_ptCol] ?? 0
         const _ptIsWater = _ptGid === 1625 || _ptGid === 1679 || _ptGid === 731
         const _pHt       = _ptIsWater ? 0
           : (this._vertexH(_ptCol, _ptRow + 1) + this._vertexH(_ptCol + 1, _ptRow + 1)) * 0.5
-        // playerScreenY stays at the LOGICAL projected Y so painter-order
-        // (tileRow === playerTileRow) and the highlight square stay correct.
-        // Terrain lift is stored separately and applied only at draw time.
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY
         this._playerTerrainLift = _pHt * this._scaleAtRow(_ptRow + 1)
@@ -1395,7 +1338,6 @@ export default class PerspectiveGroundRenderer {
 
     let groundCount = 0, objectCount = 0
     const _deferredCliffs = []
-    const _deferredBanks  = []       // riverbank earth faces
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
 
@@ -1475,9 +1417,6 @@ export default class PerspectiveGroundRenderer {
             this._gCtx.lineTo(xBR, yBotClamped); this._gCtx.lineTo(xBL, yBotClamped)
             this._gCtx.closePath(); this._gCtx.fill()
           } else {
-            // Ground tiles: use height+slope shading when height map is active.
-            // Vertex heights are already computed below for corner Y offsets —
-            // read them here so getGroundTint gets the same values.
             let tint0
             if (!inMap) {
               tint0 = fillTint
@@ -1491,32 +1430,21 @@ export default class PerspectiveGroundRenderer {
               tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
             }
 
-            // ── Per-vertex height offsets ──────────────────────────────────
-            // Each corner is lifted independently using its shared vertex height.
-            // Top corners use back-edge scale (tileRow), bottom use front-edge (tileRow+1).
-            // Layered on top of any existing tileElev offset.
             const _sTop = this._scaleAtRow(tileRow)
             const _sBot = this._scaleAtRow(tileRow + 1)
             const _elevDeltaTop = tileElev > 0 ? (yTopElev - yTopClamped) : 0
 
-            // Water and shore tiles are always flat — zero height on all corners.
-            // This prevents river hills and keeps water at the terrain baseline.
             const _isGroundWater = _rawGid0 === 1625 || _rawGid0 === 1679 || _rawGid0 === 731
             const _yTL = _isGroundWater ? yTopClamped + _elevDeltaTop : yTopClamped + _elevDeltaTop - this._vertexH(tileCol,     tileRow    ) * _sTop
             const _yTR = _isGroundWater ? yTopClamped + _elevDeltaTop : yTopClamped + _elevDeltaTop - this._vertexH(tileCol + 1, tileRow    ) * _sTop
             const _yBL = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol,     tileRow + 1) * _sBot
             const _yBR = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol + 1, tileRow + 1) * _sBot
 
-            // ── South bank north face (inline, before tile) ───────────────
-            // If water is immediately to the north (tileRow-1), the raised
-            // terrain has a visible drop from its top edge down to water level.
-            // Draw it here so the tile surface paints over any lower overlap.
+            // North face: raised terrain with water immediately to north
             if (!_isGroundWater && inMap) {
               const _northGid = layer0[tileRow - 1]?.[tileCol] ?? 0
               const _northIsWater = _northGid === 1625 || _northGid === 1679 || _northGid === 731
               if (_northIsWater) {
-                // Water row Y is yTopClamped (the back edge of this tile = front of water tile)
-                // Tile top corners are _yTL/_yTR — they're lifted above yTopClamped by terrain
                 const _nbGap = Math.max(_yTL, _yTR) - yTopClamped
                 if (_nbGap > 3) {
                   this._gCtx.save()
@@ -1545,49 +1473,175 @@ export default class PerspectiveGroundRenderer {
               {x: xBL, y: _yBL}, {x: xBR, y: _yBR},
               tint0)
 
-            // ── Cliff face ─────────────────────────────────────────────────
             const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
               && yBotClamped >= horizonPx + 30
               && !(layer3?.[tileRow]?.[tileCol])
 
-            // Riverbank: ground tile bordering water to south — collect for earth face
+            // South bank: ground tile with water to south
             const _southGid = inMap ? (layer0[tileRow + 1]?.[tileCol] ?? 0) : 0
             const _southIsWater = _southGid === 1625 || _southGid === 1679 || _southGid === 731
             if (inMap && _southIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
               const _bxBL = this._colToScreenX(tileCol,     tileRow + 1)
               const _bxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
-              const _bYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
-              // Only draw bank if ground bottom edge is meaningfully above water row
+              // yWater = front edge of the water tile. Draw inline (not deferred) so
+              // grass tiles on the south bank naturally overdraw it in row order.
+              const _bYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
               const _bankGap = _bYWater - Math.min(_yBL, _yBR)
               if (_bankGap > 4) {
-                _deferredBanks.push({
-                  col: tileCol, row: tileRow,
-                  yBL: _yBL, yBR: _yBR,
-                  yWater: _bYWater,
-                  xBL: _bxBL, xBR: _bxBR,
-                  alpha: tileAlpha, side: false,
-                })
+                // Inline draw — same gradient as before but drawn now so later rows cover it
+                this._gCtx.save()
+                this._gCtx.globalAlpha = tileAlpha * 0.60
+                const _byTop = Math.min(_yBL, _yBR)
+                try {
+                  const _bg = this._gCtx.createLinearGradient(0, _byTop, 0, _bYWater)
+                  _bg.addColorStop(0,    'rgba(42, 30, 14, 0.95)')
+                  _bg.addColorStop(0.25, 'rgba(58, 42, 18, 0.80)')
+                  _bg.addColorStop(0.60, 'rgba(65, 48, 22, 0.55)')
+                  _bg.addColorStop(1,    'rgba(50, 36, 16, 0.20)')
+                  this._gCtx.fillStyle = _bg
+                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 36, 16, 0.60)' }
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_bxBL, _yBL)
+                this._gCtx.lineTo(_bxBR, _yBR)
+                this._gCtx.lineTo(_bxBR, _bYWater)
+                this._gCtx.lineTo(_bxBL, _bYWater)
+                this._gCtx.closePath()
+                this._gCtx.fill()
+                this._gCtx.globalAlpha = tileAlpha * 0.70
+                this._gCtx.strokeStyle = 'rgba(30, 22, 8, 0.85)'
+                this._gCtx.lineWidth = 1.5
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_bxBL, _yBL); this._gCtx.lineTo(_bxBR, _yBR)
+                this._gCtx.stroke()
+                this._gCtx.restore()
+              }
+
+              // East corner cap: south-bank tile whose east neighbour is water — drawn inline
+              const _eastOfThis = layer0[tileRow]?.[tileCol + 1] ?? 0
+              const _eastCornerIsWater = _eastOfThis === 1625 || _eastOfThis === 1679 || _eastOfThis === 731
+              if (_eastCornerIsWater) {
+                const _eXFront = this._colToScreenX(tileCol + 1, tileRow + 1)
+                const _eXBack  = this._colToScreenX(tileCol + 1, tileRow)
+                const _eYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
+                const _eYTop   = Math.min(_yBR, _yTR)
+                if (_eYWater - _eYTop > 4) {
+                  const _eLtR = _eXBack <= _eXFront
+                  const _exL  = _eLtR ? _eXBack  : _eXFront
+                  const _exR  = _eLtR ? _eXFront : _eXBack
+                  const _eyL  = _eLtR ? _yTR     : _yBR
+                  const _eyR  = _eLtR ? _yBR     : _yTR
+                  this._gCtx.save()
+                  this._gCtx.globalAlpha = tileAlpha * 0.82
+                  try {
+                    const _sg = this._gCtx.createLinearGradient(0, _eYTop, 0, _eYWater)
+                    _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
+                    _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
+                    _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
+                    this._gCtx.fillStyle = _sg
+                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
+                  this._gCtx.beginPath()
+                  this._gCtx.moveTo(_exL, _eyL)
+                  this._gCtx.lineTo(_exR, _eyR)
+                  this._gCtx.lineTo(_exR, _eYWater)
+                  this._gCtx.lineTo(_exL, _eYWater)
+                  this._gCtx.closePath()
+                  this._gCtx.fill()
+                  this._gCtx.globalAlpha = tileAlpha * 0.90
+                  this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
+                  this._gCtx.lineWidth = 1.5
+                  this._gCtx.beginPath()
+                  this._gCtx.moveTo(_exL, _eyL); this._gCtx.lineTo(_exR, _eyR)
+                  this._gCtx.stroke()
+                  this._gCtx.restore()
+                }
+              }
+
+              // West corner cap: south-bank tile whose west neighbour is water — drawn inline
+              const _westOfThis = layer0[tileRow]?.[tileCol - 1] ?? 0
+              const _westCornerIsWater = _westOfThis === 1625 || _westOfThis === 1679 || _westOfThis === 731
+              if (_westCornerIsWater) {
+                const _wXFront = this._colToScreenX(tileCol, tileRow + 1)
+                const _wXBack  = this._colToScreenX(tileCol, tileRow)
+                const _wYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
+                const _wYTop   = Math.min(_yBL, _yTL)
+                if (_wYWater - _wYTop > 4) {
+                  const _wLtR = _wXBack <= _wXFront
+                  const _wxL  = _wLtR ? _wXBack  : _wXFront
+                  const _wxR  = _wLtR ? _wXFront : _wXBack
+                  const _wyL  = _wLtR ? _yTL     : _yBL
+                  const _wyR  = _wLtR ? _yBL     : _yTL
+                  this._gCtx.save()
+                  this._gCtx.globalAlpha = tileAlpha * 0.82
+                  try {
+                    const _sg = this._gCtx.createLinearGradient(0, _wYTop, 0, _wYWater)
+                    _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
+                    _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
+                    _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
+                    this._gCtx.fillStyle = _sg
+                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
+                  this._gCtx.beginPath()
+                  this._gCtx.moveTo(_wxL, _wyL)
+                  this._gCtx.lineTo(_wxR, _wyR)
+                  this._gCtx.lineTo(_wxR, _wYWater)
+                  this._gCtx.lineTo(_wxL, _wYWater)
+                  this._gCtx.closePath()
+                  this._gCtx.fill()
+                  this._gCtx.globalAlpha = tileAlpha * 0.90
+                  this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
+                  this._gCtx.lineWidth = 1.5
+                  this._gCtx.beginPath()
+                  this._gCtx.moveTo(_wxL, _wyL); this._gCtx.lineTo(_wxR, _wyR)
+                  this._gCtx.stroke()
+                  this._gCtx.restore()
+                }
               }
             }
 
-            // East side face: water to east at same row (north bank) → deferred
+            // East side face: water to east at same row (north bank) → inline
+            // Guard: skip on corner tiles where _southIsWater — corner cap already handles those
             const _eastGid  = inMap ? (layer0[tileRow    ]?.[tileCol + 1] ?? 0) : 0
             const _eastIsWater  = _eastGid  === 1625 || _eastGid  === 1679 || _eastGid  === 731
-            if (inMap && _eastIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
-              const _eX0 = this._colToScreenX(tileCol + 1, tileRow + 1)
-              const _eYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
-              if (_eYWater - _yBR > 4) {
-                _deferredBanks.push({ side: true,
-                  xSL: _eX0, xSR: _eX0, ySL: _yBR, ySR: _yBR,
-                  yWater: _eYWater, alpha: tileAlpha })
+            if (inMap && _eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
+              const _eXFront = this._colToScreenX(tileCol + 1, tileRow + 1)
+              const _eXBack  = this._colToScreenX(tileCol + 1, tileRow)
+              const _eYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
+              const _eYTop   = Math.min(_yBR, _yTR)
+              if (_eYWater - _eYTop > 4) {
+                const _eLtR = _eXBack <= _eXFront
+                this._gCtx.save()
+                this._gCtx.globalAlpha = tileAlpha * 0.82
+                try {
+                  const _sg = this._gCtx.createLinearGradient(0, _eYTop, 0, _eYWater)
+                  _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
+                  _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
+                  _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
+                  this._gCtx.fillStyle = _sg
+                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
+                const _exL = _eLtR ? _eXBack : _eXFront
+                const _exR = _eLtR ? _eXFront : _eXBack
+                const _eyL = _eLtR ? _yTR : _yBR
+                const _eyR = _eLtR ? _yBR : _yTR
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_exL, _eyL)
+                this._gCtx.lineTo(_exR, _eyR)
+                this._gCtx.lineTo(_exR, _eYWater)
+                this._gCtx.lineTo(_exL, _eYWater)
+                this._gCtx.closePath()
+                this._gCtx.fill()
+                this._gCtx.globalAlpha = tileAlpha * 0.90
+                this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
+                this._gCtx.lineWidth = 1.5
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_exL, _eyL); this._gCtx.lineTo(_exR, _eyR)
+                this._gCtx.stroke()
+                this._gCtx.restore()
               }
             }
-            // East side face: water at row above (south bank) → draw inline before tile surface
+            // East side face: water at row above (south bank) → inline
+            // Only fire for pure north-bank diagonal: tile must NOT itself border south water
             const _eastGidN = inMap ? (layer0[tileRow - 1]?.[tileCol + 1] ?? 0) : 0
             const _eastNIsWater = _eastGidN === 1625 || _eastGidN === 1679 || _eastGidN === 731
-            if (inMap && _eastNIsWater && !_eastIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
-              // South bank east face: draw only the gap BELOW the tile bottom edge.
-              // Tile surface will paint over anything above yBotClamped naturally.
+            if (inMap && _eastNIsWater && !_eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
               const _eX0 = this._colToScreenX(tileCol + 1, tileRow + 1)
               const _eYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
               if (_eYWater - _yBR > 4) {
@@ -1595,28 +1649,58 @@ export default class PerspectiveGroundRenderer {
               }
             }
 
-            // West side face: water to west at same row (north bank) → deferred
+            // West side face: water to west at same row (north bank) → inline
+            // Guard: skip on corner tiles where _southIsWater — corner cap already handles those
             const _westGid  = inMap ? (layer0[tileRow    ]?.[tileCol - 1] ?? 0) : 0
             const _westIsWater  = _westGid  === 1625 || _westGid  === 1679 || _westGid  === 731
-            if (inMap && _westIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
-              const _wX0 = this._colToScreenX(tileCol, tileRow + 1)
-              const _wYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
-              if (_wYWater - _yBL > 4) {
-                _deferredBanks.push({ side: true,
-                  xSL: _wX0, xSR: _wX0, ySL: _yBL, ySR: _yBL,
-                  yWater: _wYWater, alpha: tileAlpha })
+            if (inMap && _westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
+              const _wXFront = this._colToScreenX(tileCol, tileRow + 1)
+              const _wXBack  = this._colToScreenX(tileCol, tileRow)
+              const _wYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
+              const _wYTop   = Math.min(_yBL, _yTL)
+              if (_wYWater - _wYTop > 4) {
+                const _wLtR = _wXBack <= _wXFront
+                this._gCtx.save()
+                this._gCtx.globalAlpha = tileAlpha * 0.82
+                try {
+                  const _sg = this._gCtx.createLinearGradient(0, _wYTop, 0, _wYWater)
+                  _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
+                  _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
+                  _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
+                  this._gCtx.fillStyle = _sg
+                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
+                const _wxL = _wLtR ? _wXBack : _wXFront
+                const _wxR = _wLtR ? _wXFront : _wXBack
+                const _wyL = _wLtR ? _yTL : _yBL
+                const _wyR = _wLtR ? _yBL : _yTL
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_wxL, _wyL)
+                this._gCtx.lineTo(_wxR, _wyR)
+                this._gCtx.lineTo(_wxR, _wYWater)
+                this._gCtx.lineTo(_wxL, _wYWater)
+                this._gCtx.closePath()
+                this._gCtx.fill()
+                this._gCtx.globalAlpha = tileAlpha * 0.90
+                this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
+                this._gCtx.lineWidth = 1.5
+                this._gCtx.beginPath()
+                this._gCtx.moveTo(_wxL, _wyL); this._gCtx.lineTo(_wxR, _wyR)
+                this._gCtx.stroke()
+                this._gCtx.restore()
               }
             }
-            // West side face: water at row above (south bank) → draw inline before tile surface
+            // West side face: water at row above (south bank) → inline
+            // Only fire for pure north-bank diagonal: tile must NOT itself border south water
             const _westGidN = inMap ? (layer0[tileRow - 1]?.[tileCol - 1] ?? 0) : 0
             const _westNIsWater = _westGidN === 1625 || _westGidN === 1679 || _westGidN === 731
-            if (inMap && _westNIsWater && !_westIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
+            if (inMap && _westNIsWater && !_westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
               const _wX0 = this._colToScreenX(tileCol, tileRow + 1)
               const _wYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
               if (_wYWater - _yBL > 4) {
                 this._drawBankSide(this._gCtx, _wX0, _wX0, _yBL, _wYWater, tileAlpha)
               }
             }
+
             if (_hasSouthFace) {
               const _isCliffEdge = PerspectiveGroundRenderer.CLIFF_GIDS.has(
                 this.scene.mapData?.layers?.[1]?.[tileRow]?.[tileCol] ?? 0)
@@ -1647,7 +1731,6 @@ export default class PerspectiveGroundRenderer {
               })
             }
 
-            // Exit edge strip overlay
             if (inMap && this._exitEdges?.size) {
               const onExit = (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
@@ -1701,7 +1784,6 @@ export default class PerspectiveGroundRenderer {
           playerDrawn = true
         }
 
-        // Object tile — elevation-aware Y for layer 1
         const _l1Elev   = (inMap && this._elev) ? (this._elev[tileRow]?.[tileCol] ?? 0) : 0
         let _l1YTop = yTopClamped, _l1YBot = yBotClamped
         if (_l1Elev > 0) {
@@ -1725,8 +1807,6 @@ export default class PerspectiveGroundRenderer {
               if (isCliffFace && _l1Elev > 0) {
                 // already drawn by cliff system
               } else {
-                // Billboard Y lifted by terrain height at this tile.
-                // Clamp to zero on water/shore — negative valley heights must not sink trees.
                 const _rawBillY = this._rowToScreenY(tileRow + 1)
                 const _bhScale  = this._scaleAtRow(tileRow + 1)
                 const _bGid0    = layer0[tileRow]?.[tileCol] ?? 0
@@ -1755,8 +1835,6 @@ export default class PerspectiveGroundRenderer {
                 }
               }
             } else {
-              // Flat layer-1 tile — use same per-vertex Y as layer-0 so
-              // shore/edge tiles stay glued to the terrain they overlay.
               const xBL1 = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR1 = this._colToScreenX(tileCol + 1, tileRow + 1)
               const _l1sTop = this._scaleAtRow(tileRow)
@@ -1765,7 +1843,6 @@ export default class PerspectiveGroundRenderer {
               const _l1GidIsWater = (layer0[tileRow]?.[tileCol] ?? 0) === 1625
                 || (layer0[tileRow]?.[tileCol] ?? 0) === 1679
                 || (layer0[tileRow]?.[tileCol] ?? 0) === 731
-              // Water/shore layer-1 tiles always flat — no terrain warping on water
               const _l1TL = _l1GidIsWater ? yTopClamped + _l1elevDelta : yTopClamped + _l1elevDelta - this._vertexH(tileCol,     tileRow    ) * _l1sTop
               const _l1TR = _l1GidIsWater ? yTopClamped + _l1elevDelta : yTopClamped + _l1elevDelta - this._vertexH(tileCol + 1, tileRow    ) * _l1sTop
               const _l1BL = _l1GidIsWater ? yBotClamped                : yBotClamped                - this._vertexH(tileCol,     tileRow + 1) * _l1sBot
@@ -1782,7 +1859,6 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Exit markers
         if (inMap && this._exitMarkers?.length) {
           for (const marker of this._exitMarkers) {
             if (marker.tileX !== tileCol || marker.tileY !== tileRow) continue
@@ -1802,7 +1878,6 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Layer 2 — elevated flat caps
         if (inMap && layer2) {
           const gid2 = layer2[tileRow]?.[tileCol]
           if (gid2 && yBotClamped >= horizonPx + 30
@@ -1819,7 +1894,6 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Layer 3 — south plateau elevated grass + connector
         if (inMap && layer3) {
           const gid3 = layer3[tileRow]?.[tileCol]
           if (gid3 && yBotClamped >= horizonPx + 30) {
@@ -1901,7 +1975,6 @@ export default class PerspectiveGroundRenderer {
           }
         }
 
-        // Encounter flags
         if (inMap && this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
@@ -1934,7 +2007,6 @@ export default class PerspectiveGroundRenderer {
 
       } // tileCol
 
-      // Buildings
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
@@ -1966,7 +2038,7 @@ export default class PerspectiveGroundRenderer {
 
     } // tileRow
 
-    // ── Deferred cliff faces + sides ─────────────────────────────────────────
+    // Deferred cliff faces + sides
     const _cliffSet = new Map()
     for (const cf of _deferredCliffs) _cliffSet.set(`${cf.col},${cf.row}`, cf)
 
@@ -1995,68 +2067,6 @@ export default class PerspectiveGroundRenderer {
       }
     }
 
-    // ── Riverbank earth faces ────────────────────────────────────────────────
-    // Drawn at low opacity so water tiles render dominant over the bank face.
-    // The bank acts as a depth hint — visible at the turf edge, ghosted below.
-    for (const bk of _deferredBanks) {
-      const { yBL, yBR, yWater, xBL, xBR, xSL, xSR, ySL, ySR, alpha, side } = bk
-      if (side) {
-        // East/west side face of a land tile protruding beside water
-        const yBot = yWater
-        if (yBot <= Math.min(ySL, ySR) + 1) continue
-        this._gCtx.save()
-        this._gCtx.globalAlpha = alpha * 0.40
-        try {
-          const _sg = this._gCtx.createLinearGradient(0, Math.min(ySL, ySR), 0, yBot)
-          _sg.addColorStop(0,   'rgba(45, 32, 14, 0.90)')
-          _sg.addColorStop(0.5, 'rgba(62, 44, 20, 0.75)')
-          _sg.addColorStop(1,   'rgba(48, 34, 16, 0.40)')
-          this._gCtx.fillStyle = _sg
-        } catch(e) { this._gCtx.fillStyle = 'rgba(50, 35, 15, 0.55)' }
-        this._gCtx.beginPath()
-        this._gCtx.moveTo(xSL, ySL)
-        this._gCtx.lineTo(xSR, ySR)
-        this._gCtx.lineTo(xSR, yBot)
-        this._gCtx.lineTo(xSL, yBot)
-        this._gCtx.closePath()
-        this._gCtx.fill()
-        this._gCtx.restore()
-      } else {
-        // South-facing bank face
-        const yBot = yWater
-        if (yBot <= yBL + 1 && yBot <= yBR + 1) continue
-        this._gCtx.save()
-        // Ghost alpha — water will overdraw the lower portion naturally
-        this._gCtx.globalAlpha = alpha * 0.60
-        const yTop = Math.min(yBL, yBR)
-        try {
-          const _bg = this._gCtx.createLinearGradient(0, yTop, 0, yBot)
-          _bg.addColorStop(0,    'rgba(42, 30, 14, 0.95)')  // dark turf edge
-          _bg.addColorStop(0.25, 'rgba(58, 42, 18, 0.80)')  // upper soil
-          _bg.addColorStop(0.60, 'rgba(65, 48, 22, 0.55)')  // mid — water starts to show
-          _bg.addColorStop(1,    'rgba(50, 36, 16, 0.20)')  // near-transparent at waterline
-          this._gCtx.fillStyle = _bg
-        } catch(e) {
-          this._gCtx.fillStyle = 'rgba(52, 36, 16, 0.60)'
-        }
-        this._gCtx.beginPath()
-        this._gCtx.moveTo(xBL, yBL)
-        this._gCtx.lineTo(xBR, yBR)
-        this._gCtx.lineTo(xBR, yBot)
-        this._gCtx.lineTo(xBL, yBot)
-        this._gCtx.closePath()
-        this._gCtx.fill()
-        // Turf-edge stroke — full opacity, just at the very top
-        this._gCtx.globalAlpha = alpha * 0.70
-        this._gCtx.strokeStyle = 'rgba(30, 22, 8, 0.85)'
-        this._gCtx.lineWidth = 1.5
-        this._gCtx.beginPath()
-        this._gCtx.moveTo(xBL, yBL); this._gCtx.lineTo(xBR, yBR)
-        this._gCtx.stroke()
-        this._gCtx.restore()
-      }
-    }
-
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
@@ -2069,7 +2079,6 @@ export default class PerspectiveGroundRenderer {
     this._animT = ((this._animT || 0) + 0.016) % (Math.PI * 200)
     if (this._exitMarkers?.length) this._exitPulseT = (this._exitPulseT || 0) + 0.04
 
-    // Player tile highlight
     if (p) {
       let _hlLX = p.logicalX
       let _hlLY = p.logicalY
@@ -2083,8 +2092,6 @@ export default class PerspectiveGroundRenderer {
         }
       }
 
-      // Highlight — same four per-vertex Y as the ground tile it sits on,
-      // so it warps with the terrain and stays flush underfoot on hills.
       const ts      = this.tileDisplaySize
       const hlTileX = Math.floor(_hlLX / ts)
       const hlTileY = Math.floor(_hlLY / ts)
@@ -2093,7 +2100,6 @@ export default class PerspectiveGroundRenderer {
       if (_hlBaseT !== null && _hlBaseB !== null) {
         const _hlSTop = this._scaleAtRow(hlTileY)
         const _hlSBot = this._scaleAtRow(hlTileY + 1)
-        // Four screen corners matching the ground tile exactly
         const hxTL = this._colToScreenX(hlTileX,     hlTileY)
         const hxTR = this._colToScreenX(hlTileX + 1, hlTileY)
         const hxBL = this._colToScreenX(hlTileX,     hlTileY + 1)
@@ -2273,31 +2279,31 @@ export default class PerspectiveGroundRenderer {
     }
 
     if (this._boatActive) {
-  const waveRenderer = this.scene._waveRenderer
-  if (waveRenderer) {
-    this._wobblePhase = waveRenderer.wavePhaseAtPlayer
-    const waveTargetAmp = waveRenderer.waveAmpAtPlayer / (scaledTileW || 1) * 0.10
-    const boatTargetAmp = boatSpd > 8
-      ? 0.04 + Math.min(boatSpd / 120, 0.10)
-      : 0.012
-    const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
-    this._wobbleAmp = this._wobbleAmp ?? 0.012
-    this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
+      const waveRenderer = this.scene._waveRenderer
+      if (waveRenderer) {
+        this._wobblePhase = waveRenderer.wavePhaseAtPlayer
+        const waveTargetAmp = waveRenderer.waveAmpAtPlayer / (scaledTileW || 1) * 0.10
+        const boatTargetAmp = boatSpd > 8
+          ? 0.04 + Math.min(boatSpd / 120, 0.10)
+          : 0.012
+        const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
+        this._wobbleAmp = this._wobbleAmp ?? 0.012
+        this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
         const rideT   = waveRenderer.waveRideT ?? 0
         const rideAmp = waveRenderer.waveRideAmp ?? 0
         this._waveRideOffset = this._waveRideOffset ?? 0
         this._waveRideOffset += (rideT * rideAmp * 0.85 - this._waveRideOffset) * 0.06
       } else {
         this._waveRideOffset = 0
-    const wobbleFreq = 1.8 + boatSpd * 0.04
-    this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
-    const targetAmp = boatSpd > 8
-      ? 0.04 + Math.min(boatSpd / 120, 0.10)
-      : 0.012
-    this._wobbleAmp = this._wobbleAmp ?? 0.012
-    this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-  }
-} else {
+        const wobbleFreq = 1.8 + boatSpd * 0.04
+        this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
+        const targetAmp = boatSpd > 8
+          ? 0.04 + Math.min(boatSpd / 120, 0.10)
+          : 0.012
+        this._wobbleAmp = this._wobbleAmp ?? 0.012
+        this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
+      }
+    } else {
       this._wobblePhase = 0
       this._wobbleAmp   = 0
     }
@@ -2417,8 +2423,7 @@ export default class PerspectiveGroundRenderer {
     } else {
       const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
       const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
-
-	          const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
+      const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
       ctx.transform(
         breathScale * ((_playerFacing ?? this._facingLeft) ? -1 : 1), 0,
         0, breathScale,

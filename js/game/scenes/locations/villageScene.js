@@ -84,6 +84,9 @@ export default class VillageScene extends PerspectiveScene {
     if (this.perspectiveGround) {
       this.perspectiveGround._gcR = '#000000'
       this.perspectiveGround._groundColour = '#000000'
+
+      // 137=door, 201=barrel, 249/250=table, 251=chair, 252=throne
+      // All already flat:false in oryxCatalogue — billboarding handled automatically
     }
     this._buildCeilingGradient()
   }
@@ -306,15 +309,36 @@ export default class VillageScene extends PerspectiveScene {
     super.update(time, delta)
   }
 
-  // ── Collision — block north wall row and outer border ────────────────────
+  // ── Collision — interior blocking ─────────────────────────────────────────
+  // Blocks: north wall row, billboard objects in layer 1, NPC positions
+  static INTERIOR_BLOCKING = new Set([
+    201,   // barrel
+    249,   // table
+    250,   // table with papers
+    251,   // chair
+    252,   // throne
+    253,   // weapons rack
+    137,   // door (treat as solid — player exits via exit tile, not by walking through)
+  ])
+
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
 
-    // Hard block: north wall row (row 1) is behind the billboard wall
+    // Block north wall row and above
     if (ty <= 1) return true
 
-    // Delegate everything else to PerspectiveScene
+    // Block billboard objects in layer 1
+    const g1 = this.mapData?.layers?.[1]?.[ty]?.[tx]
+    if (g1 && VillageScene.INTERIOR_BLOCKING.has(g1)) return true
+
+    // Block NPC tiles
+    if (this.npcs?.some(npc => {
+      const nx = Math.floor(npc.logicalX / this.tileSize)
+      const ny = Math.floor(npc.logicalY / this.tileSize)
+      return nx === tx && ny === ty
+    })) return true
+
     return super.isColliding(x, y)
   }
 

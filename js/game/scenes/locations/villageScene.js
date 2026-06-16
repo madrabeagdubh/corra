@@ -3,9 +3,7 @@
 //
 // Extends PerspectiveScene for village interiors.
 // Suppresses outdoor features (sky, mountains, swallows, elevation, encounter deck).
-// Uses SCALE=4 tile rendering (vs outdoor SCALE=2) so the small interior map
-// fills the screen naturally — no camera zoom, no UI scaling.
-// NPCs rendered as perspective-correct sprites repositioned via PGR each frame.
+// NPCs rendered directly onto PGR canvas via onPGRDrawComplete hook.
 
 import PerspectiveScene from './perspectiveScene.js'
 import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js'
@@ -39,13 +37,18 @@ export default class VillageScene extends PerspectiveScene {
   }
 
   // ── PGR constants for interior rendering ─────────────────────────────────
-  // Saved before overriding, restored on shutdown.
-  // Interior: camera close to floor, minimal horizon, wider tile view.
+  // Tuning:
+  //   HORIZON_Y_FRAC    — fraction of screen above ground plane (0 = all floor)
+  //   CAMERA_ROW_OFFSET — virtual camera distance above map (lower = closer/bigger)
+  //   FOCAL_LENGTH      — perspective intensity (lower = flatter, less distortion)
+  //   TILES_ACROSS      — tiles visible across screen width (lower = bigger tiles)
+  //   PLAYER_SCALE      — player sprite height multiplier
+  //   PLAYER_DIST_TILES — player distance from camera (lower = larger at all depths)
   static INTERIOR_PGR = {
-    HORIZON_Y_FRAC:    0.02,  // near-zero horizon — black void above
-    CAMERA_ROW_OFFSET: 3.5,   // camera very close to the floor
-    FOCAL_LENGTH:      4.5,   // flatter perspective reduces vertical stretch
-    TILES_ACROSS:      4.5,   // fewer tiles across = wider apparent tiles
+    HORIZON_Y_FRAC:    0.02,
+    CAMERA_ROW_OFFSET: 3.5,
+    FOCAL_LENGTH:      4.5,
+    TILES_ACROSS:      4.5,
   }
 
   _applyInteriorPGR() {
@@ -54,9 +57,8 @@ export default class VillageScene extends PerspectiveScene {
       this._savedPGR[k] = PerspectiveGroundRenderer[k]
       PerspectiveGroundRenderer[k] = v
     }
-    // Bigger player sprite — save and override
-    this._savedPlayerScale  = PerspectiveGroundRenderer.PLAYER_SCALE
-    this._savedPlayerDistTiles = PerspectiveGroundRenderer.PLAYER_DIST_TILES
+    this._savedPlayerScale      = PerspectiveGroundRenderer.PLAYER_SCALE
+    this._savedPlayerDistTiles  = PerspectiveGroundRenderer.PLAYER_DIST_TILES
     PerspectiveGroundRenderer.PLAYER_SCALE      = 1
     PerspectiveGroundRenderer.PLAYER_DIST_TILES = 0.3
     console.log('[VillageScene] PGR interior constants applied')
@@ -76,40 +78,68 @@ export default class VillageScene extends PerspectiveScene {
     console.log('[VillageScene] PGR constants restored')
   }
 
-  // ── drawTilemap — apply interior PGR before PGR is constructed ───────────
+  // ── drawTilemap — SCALE=4 so interior map fills the phone screen ────────────
+  // PerspectiveScene uses SCALE=2 (48px tiles). At 10 rows that's only 480px —
+  // smaller than a phone screen, so the camera can't scroll and bottom rows are
+  // unreachable. SCALE=4 (96px tiles, 960px map) gives the camera room to move.
   drawTilemap() {
     this._applyInteriorPGR()
-    super.drawTilemap()  // PGR constructed here, reads the overridden statics
-    // Override PGR ground fill colour to black — prevents green bleed
+
+    // Temporarily patch the module-level constants PerspectiveScene reads
+    // by overriding tileSize/mapWidth/mapHeight after super.drawTilemap sets them.
+    // We call super first (which sets tileSize=48), then immediately correct it.
+    // PGR reads this.tileDisplaySize from tileSize at construction time.
+    // So we must set the override BEFORE PGR is constructed inside super.drawTilemap.
+    // 
+    // Strategy: monkeypatch this.tileSize before super runs, restore after.
+    const _origDraw = Object.getPrototypeOf(Object.getPrototypeOf(this)).drawTilemap
+    if (_origDraw) {
+      // Intercept tileSize assignment by overriding it temporarily
+      const INTERIOR_SCALE = 4
+      const TW = 24
+
+      // Pre-set so PGR constructor picks it up
+      Object.defineProperty(this, 'tileSize', {
+        value: TW * INTERIOR_SCALE,
+        writable: true, configurable: true
+      })
+      this.mapWidth  = this.mapData.width  * TW * INTERIOR_SCALE
+      this.mapHeight = this.mapData.height * TW * INTERIOR_SCALE
+    }
+
+    super.drawTilemap()
+
+    // Ensure tileSize stuck at 96 (super may have overwritten it)
+    this.tileSize  = 96
+    this.mapWidth  = this.mapData.width  * 96
+    this.mapHeight = this.mapData.height * 96
+    this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight)
+    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight + this.scale.height)
+
     if (this.perspectiveGround) {
+      this.perspectiveGround.tileDisplaySize = 96
       this.perspectiveGround._gcR = '#000000'
       this.perspectiveGround._groundColour = '#000000'
-
-      // 137=door, 201=barrel, 249/250=table, 251=chair, 252=throne
-      // All already flat:false in oryxCatalogue — billboarding handled automatically
     }
     this._buildCeilingGradient()
   }
 
-  // Injects a DOM canvas above the PGR ground canvas that fades the top of
-  // the back wall into blackness, and forces the background to pure black.
+  // ── Ceiling gradient + black mask ─────────────────────────────────────────
   _buildCeilingGradient() {
     const container = this.game.canvas.parentNode
     if (container) container.style.background = '#000'
 
-    // Black mask behind everything — kills the green PGR ground bleed
     document.getElementById('pgr-blackmask')?.remove()
     const mask = document.createElement('div')
     mask.id = 'pgr-blackmask'
     mask.style.cssText = [
       'position:absolute','top:0','left:0','right:0','bottom:0',
       'background:#000',
-      'z-index:1',          // below pgr-ground (z:2)
+      'z-index:1',
       'pointer-events:none',
     ].join(';')
     if (container) container.insertBefore(mask, container.firstChild)
 
-    // Remove any stale ceiling canvas
     document.getElementById('pgr-ceiling')?.remove()
 
     const sw = this.game.canvas.width
@@ -122,21 +152,22 @@ export default class VillageScene extends PerspectiveScene {
     c.style.cssText = [
       'position:absolute','top:0','left:0',
       'width:' + sw + 'px','height:' + sh + 'px',
-      'z-index:5',          // above pgr-objects (z:3), below Phaser canvas (z:10)
+      'z-index:5',
       'pointer-events:none',
     ].join(';')
 
     const ctx = c.getContext('2d')
-    // Gradient from solid black at top, fading to transparent ~40% down
-    const grad = ctx.createLinearGradient(0, 0, 0, sh * 0.42)
+    // Gradient extends to 65% of screen height — more gradual fade
+    const gradH = sh * 0.65
+    const grad  = ctx.createLinearGradient(0, 0, 0, gradH)
     grad.addColorStop(0,    'rgba(0,0,0,1)')
-    grad.addColorStop(0.55, 'rgba(0,0,0,0.85)')
-    grad.addColorStop(0.80, 'rgba(0,0,0,0.3)')
+    grad.addColorStop(0.30, 'rgba(0,0,0,0.92)')
+    grad.addColorStop(0.55, 'rgba(0,0,0,0.6)')
+    grad.addColorStop(0.78, 'rgba(0,0,0,0.18)')
     grad.addColorStop(1,    'rgba(0,0,0,0)')
     ctx.fillStyle = grad
-    ctx.fillRect(0, 0, sw, sh * 0.42)
+    ctx.fillRect(0, 0, sw, gradH)
 
-    // Insert above pgr-light (z:4) so it sits just below Phaser canvas
     const pgrLight = document.getElementById('pgr-light')
     if (pgrLight) container.insertBefore(c, pgrLight.nextSibling)
     else container.appendChild(c)
@@ -154,27 +185,23 @@ export default class VillageScene extends PerspectiveScene {
       this.mapData.npcs.length, 'npcs')
   }
 
-  // ── createObjects — add harp zones on top of base ─────────────────────────
+  // ── createObjects ─────────────────────────────────────────────────────────
   createObjects() {
     super.createObjects()
     this._registerHarpZones()
   }
 
-  // ── createNPCs — drawn directly onto PGR canvas via onPGRDrawComplete ──────
-  // NPCs are not Phaser sprites — they're drawn in screen space alongside the
-  // player each PGR frame, so they're perfectly anchored to the perspective.
-  // Tap detection uses a hit-list of last-frame screen rects.
+  // ── createNPCs — drawn directly onto PGR canvas ───────────────────────────
   createNPCs() {
     if (!this.mapData.npcs) return
-    this.npcs      = []
-    this._npcHits  = []   // [{id, x, y, w, h, npcData}] updated each draw
+    this.npcs     = []
+    this._npcHits = []
 
     this.mapData.npcs.forEach(npcData => {
       const pixelX    = npcData.x * this.tileSize + this.tileSize / 2
       const pixelY    = npcData.y * this.tileSize + this.tileSize / 2
       const spriteKey = `npc_${npcData.sprite || npcData.id}`
 
-      // Build an offscreen canvas from the Phaser texture
       let imgCanvas = null
       if (this.textures.exists(spriteKey)) {
         try {
@@ -192,7 +219,7 @@ export default class VillageScene extends PerspectiveScene {
         }
       }
 
-      const npc = {
+      this.npcs.push({
         id:            npcData.id,
         name:          npcData.name,
         dialogues:     npcData.dialogues || [],
@@ -201,23 +228,19 @@ export default class VillageScene extends PerspectiveScene {
         logicalY:      pixelY,
         imgCanvas,
         met:           false,
-        // last drawn screen rect for tap detection
         screenX: 0, screenY: 0, screenW: 0, screenH: 0,
-      }
-      this.npcs.push(npc)
+      })
     })
 
-    // Hook into PGR draw — called each frame with the object canvas ctx
     this.onPGRDrawComplete = (ctx) => this._drawNPCsOnPGR(ctx)
 
-    // Tap detection on the Phaser canvas
     this._npcTapHandler = (e) => {
-      const canvas  = this.game.canvas
-      const rect    = canvas.getBoundingClientRect()
-      const scaleX  = canvas.width  / rect.width
-      const scaleY  = canvas.height / rect.height
-      const cx      = (e.clientX - rect.left) * scaleX
-      const cy      = (e.clientY - rect.top)  * scaleY
+      const canvas = this.game.canvas
+      const rect   = canvas.getBoundingClientRect()
+      const scaleX = canvas.width  / rect.width
+      const scaleY = canvas.height / rect.height
+      const cx     = (e.clientX - rect.left) * scaleX
+      const cy     = (e.clientY - rect.top)  * scaleY
       for (const npc of (this.npcs || [])) {
         const { screenX: sx, screenY: sy, screenW: sw, screenH: sh } = npc
         if (sw === 0) continue
@@ -232,11 +255,17 @@ export default class VillageScene extends PerspectiveScene {
     console.log(`[${this.scene.key}] ${this.npcs.length} NPCs (PGR canvas mode)`)
   }
 
-  // Drawn by PGR hook — same coordinate space as the player sprite
+  // ── NPC size tuning ───────────────────────────────────────────────────────
+  // NPC_HEIGHT_MULT: multiplier relative to player height at same depth.
+  //   1.0 = same size as player, 2.0 = twice as tall, 0.5 = half.
+  // NPC_ASPECT: width-to-height ratio of the sprite (narrower = more slender).
+  static NPC_HEIGHT_MULT = 2.0
+  static NPC_ASPECT      = 0.55
+
   _drawNPCsOnPGR(ctx) {
     if (!this.npcs?.length || !this.perspectiveGround) return
-    const pgr  = this.perspectiveGround
-    const PGR  = pgr.constructor
+    const pgr = this.perspectiveGround
+    const PGR = pgr.constructor
 
     for (const npc of this.npcs) {
       const proj = pgr._projectLogical(npc.logicalX, npc.logicalY)
@@ -245,14 +274,13 @@ export default class VillageScene extends PerspectiveScene {
       const { screenX, screenY, scale } = proj
       const scaledTileW = scale * pgr.tileDisplaySize
 
-      // Match player formula exactly, doubled
-      const H = scaledTileW * PGR.PLAYER_SCALE * PGR.HEIGHT_MULTIPLIER * 2
-      const W = H * 0.55
+      const H = scaledTileW * PGR.PLAYER_SCALE * PGR.HEIGHT_MULTIPLIER * VillageScene.NPC_HEIGHT_MULT
+      const W = H * VillageScene.NPC_ASPECT
 
-      npc.screenX  = screenX
-      npc.screenY  = screenY
-      npc.screenW  = W
-      npc.screenH  = H
+      npc.screenX = screenX
+      npc.screenY = screenY
+      npc.screenW = W
+      npc.screenH = H
 
       if (npc.imgCanvas) {
         ctx.imageSmoothingEnabled = false
@@ -261,7 +289,6 @@ export default class VillageScene extends PerspectiveScene {
           Math.round(screenY - H),
           Math.round(W), Math.round(H))
       } else {
-        // Fallback coloured circle
         ctx.save()
         ctx.fillStyle = 'rgba(65,105,225,0.85)'
         ctx.beginPath()
@@ -270,12 +297,11 @@ export default class VillageScene extends PerspectiveScene {
         ctx.restore()
       }
 
-      // Name label if met
       if (npc.met) {
         ctx.save()
         ctx.font = '12px Georgia'
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'
         const tw = ctx.measureText(npc.name).width
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
         ctx.fillRect(screenX - tw/2 - 4, screenY - H - 20, tw + 8, 18)
         ctx.fillStyle = '#e8dcc0'
         ctx.textAlign = 'center'
@@ -285,7 +311,6 @@ export default class VillageScene extends PerspectiveScene {
     }
   }
 
-  // Wraps talkToNPC — accepts plain npc data object (not Phaser sprite)
   _talkToNPCVillage(npc) {
     if (!npc.met) npc.met = true
     if (this.joystick) this.joystick.reset()
@@ -305,20 +330,32 @@ export default class VillageScene extends PerspectiveScene {
     })
   }
 
+  // ── Update — fix south camera clamp for small interior maps ──────────────
   update(time, delta) {
     super.update(time, delta)
+    // Override PerspectiveScene south clamp for interiors.
+    // With 96px tiles the map is 960px — larger than screen, camera can scroll freely.
+    // Clamp so the south edge of the map aligns with the canvas bottom.
+    if (this.cameras?.main && this.mapHeight) {
+      const cam    = this.cameras.main
+      const zoom   = cam.zoom || 1
+      const sh     = this.scale.height
+      const maxSY  = this.mapHeight - sh
+      if (cam.scrollY > maxSY) cam.scrollY = maxSY
+      if (cam.scrollY < 0)     cam.scrollY = 0
+    }
   }
 
-  // ── Collision — interior blocking ─────────────────────────────────────────
-  // Blocks: north wall row, billboard objects in layer 1, NPC positions
+  // ── Collision ─────────────────────────────────────────────────────────────
+  // INTERIOR_BLOCKING: GIDs in layer 1 that block movement.
+  // Chairs (251) are intentionally excluded — remove from set to make anything passable.
   static INTERIOR_BLOCKING = new Set([
     201,   // barrel
     249,   // table
     250,   // table with papers
-    251,   // chair
     252,   // throne
     253,   // weapons rack
-    137,   // door (treat as solid — player exits via exit tile, not by walking through)
+    137,   // door — player exits via exit tile trigger, not by walking through
   ])
 
   isColliding(x, y) {
@@ -328,7 +365,7 @@ export default class VillageScene extends PerspectiveScene {
     // Block north wall row and above
     if (ty <= 1) return true
 
-    // Block billboard objects in layer 1
+    // Block objects in layer 1
     const g1 = this.mapData?.layers?.[1]?.[ty]?.[tx]
     if (g1 && VillageScene.INTERIOR_BLOCKING.has(g1)) return true
 
@@ -342,7 +379,7 @@ export default class VillageScene extends PerspectiveScene {
     return super.isColliding(x, y)
   }
 
-  // ── Proximity — intercept harp before base handler ────────────────────────
+  // ── Proximity ─────────────────────────────────────────────────────────────
   checkProximityInteractions() {
     if (this.narrativeInProgress) return
     if (this.textPanel?.isVisible || this.textPanelCooldown) return
@@ -388,10 +425,8 @@ export default class VillageScene extends PerspectiveScene {
     if (!this.mapData.objects) return
     this.mapData.objects.forEach(obj => {
       if (obj.type !== 'harp') return
-
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
       const pixelY = obj.y * this.tileSize + this.tileSize / 2
-
       const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
       zone.setData('id',       obj.id)
       zone.setData('type',     'harp')
@@ -401,10 +436,8 @@ export default class VillageScene extends PerspectiveScene {
       zone.setData('logicalY', pixelY)
       zone.x = pixelX
       zone.y = pixelY
-
       if (!this.interactables) this.interactables = []
       this.interactables.push(zone)
-
       console.log(`[${this.scene.key}] harp zone at [${obj.x}, ${obj.y}]`)
     })
   }
@@ -412,7 +445,6 @@ export default class VillageScene extends PerspectiveScene {
   // ── Harp overlay ──────────────────────────────────────────────────────────
   _openHarpOverlay() {
     if (this._harpOverlayEl) return
-
     if (this.joystick) this.joystick.reset()
     if (this.player)   this.player.isMoving = false
 
@@ -461,7 +493,6 @@ export default class VillageScene extends PerspectiveScene {
 
     document.body.appendChild(overlay)
     this._harpOverlayEl = overlay
-
     requestAnimationFrame(() => {
       requestAnimationFrame(() => { overlay.style.opacity = '1' })
     })
@@ -477,6 +508,7 @@ export default class VillageScene extends PerspectiveScene {
     }, 400)
   }
 
+  // ── Shutdown ──────────────────────────────────────────────────────────────
   shutdown() {
     this._destroyHarpOverlay()
     this._restoreInteriorPGR()
@@ -484,7 +516,7 @@ export default class VillageScene extends PerspectiveScene {
     document.getElementById('pgr-blackmask')?.remove()
     this._ceilingCanvas = null
     const container = this.game?.canvas?.parentNode
-    if (container) container.style.background = ''  // restore for outdoor scenes
+    if (container) container.style.background = ''
     if (this._npcTapHandler) {
       this.game?.canvas?.removeEventListener('pointerdown', this._npcTapHandler)
       this._npcTapHandler = null

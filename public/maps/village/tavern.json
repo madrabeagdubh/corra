@@ -555,7 +555,7 @@
       "id": "wall_north",
       "src": "assets/buildings/wall1.png",
       "x": 1,
-      "y": 1,
+      "y": 0,
       "fw": 14,
       "fh": 1,
       "mode": "billboard",
@@ -606,7 +606,20 @@
   },
   "border": {
     "openCols": [
-      6
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
     ],
     "openRows": []
   },

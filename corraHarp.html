@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ga">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Corra — Cláirseach</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+  @font-face{font-family:'Urchlo';src:url('./public/assets/fonts/urchlo.ttf') format('truetype')}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#000;width:100%;height:100%;overflow:hidden;touch-action:none}
+  #gc{position:relative;display:inline-block}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<div id="gc"></div>
+<script>
+
+// ── The 9 pitches the song actually uses ──────────
+// F4 G4 Bb4 B4 C5 D5 E5 F5 G5
+// Colour logic: C=red, F=blue, G=white, rest=warm grey
+const STR = [
+  {m:65, l:'F', c:'#5588ff'},  // F4  — blue
+  {m:67, l:'G', c:'#ffffff'},  // G4  — white
+  {m:70, l:'Bb',c:'#c8c0aa'}, // Bb4 — grey
+  {m:71, l:'B', c:'#c8c0aa'}, // B4  — grey
+  {m:72, l:'C', c:'#ff4422'}, // C5  — red
+  {m:74, l:'D', c:'#c8c0aa'}, // D5  — grey
+  {m:76, l:'E', c:'#c8c0aa'}, // E5  — grey
+  {m:77, l:'F', c:'#5588ff'}, // F5  — blue
+  {m:79, l:'G', c:'#c8c0aa'}, // G5  — grey
+];
+
+const N = STR.length;
+
+// ── Audio — Karplus-Strong ────────────────────────
+class Harp {
+  constructor(){this.ctx=null;this.rev=null;this._rp=null}
+
+  async _ensure(){
+  if(!this.ctx){
+    this.ctx = new(window.AudioContext||window.webkitAudioContext)();
+    // Build reverb
+    const ac=this.ctx, r=ac.sampleRate, l=Math.floor(r*2.0);
+    const b=ac.createBuffer(2,l,r);
+    for(let c=0;c<2;c++){
+      const d=b.getChannelData(c);
+      for(let i=0;i<l;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/l,1.9);
+    }
+    const cv=ac.createConvolver(); cv.buffer=b;
+    const wg=ac.createGain(); wg.gain.value=.2;
+    cv.connect(wg); wg.connect(ac.destination);
+    this.rev=cv;
+  }
+  // Always attempt resume — don't cache the promise
+  if(this.ctx.state!=='running'){
+    await this.ctx.resume();
+  }
+}
+  _ks(freq, vel){
+    const sr=this.ctx.sampleRate;
+    const dur=1.4+vel*5.5;
+    const tot=Math.floor(sr*dur);
+    const buf=this.ctx.createBuffer(1,tot,sr);
+    const out=buf.getChannelData(0);
+    const Nk=Math.max(64,Math.round(sr/freq));
+    const dl=new Float32Array(Nk);
+    for(let i=0;i<Nk;i++){
+      const w=.5*(1-Math.cos(2*Math.PI*i/Nk));
+      dl[i]=(Math.random()*2-1)*w*vel;
+    }
+    const decay=.988+vel*.009;
+    let pos=0;
+    for(let n=0;n<tot;n++){
+      const nx=(pos+1)%Nk;
+      const avg=(dl[pos]+dl[nx])*.5*decay;
+      out[n]=avg; dl[pos]=avg; pos=nx;
+    }
+    return buf;
+  }
+
+  async play(midi, vel, when){
+    await this._ensure();
+    const ac=this.ctx, now=when??ac.currentTime;
+    const freq=440*Math.pow(2,(midi-69)/12);
+    const v=Math.max(.2,vel);
+    const src=ac.createBufferSource();
+    src.buffer=this._ks(freq,v);
+    const g=ac.createGain(); g.gain.setValueAtTime(.35+v*.65,now);
+    src.connect(g); g.connect(ac.destination); g.connect(this.rev);
+    src.start(now);
+  }
+
+  now(){return this.ctx?this.ctx.currentTime:0}
+}
+const aud = new Harp();
+
+// ── Geometry — 75° diagonal, full screen ─────────
+const W = Math.min(window.innerWidth, 420);
+const H = Math.min(window.innerHeight, 820);
+
+const ANG = 75*Math.PI/180;
+const SX =  Math.cos(ANG);  //  0.259  along-string
+const SY = -Math.sin(ANG);  // -0.966  along-string (upward)
+const PX =  Math.sin(ANG);  //  0.966  perpendicular (pluck direction)
+const PY =  Math.cos(ANG);  //  0.259
+
+const AX1=W*.05, AY1=H*.04;
+const AX2=W*.95, AY2=H*.96;
+const DAX=(AX2-AX1)/(N-1);
+const DAY=(AY2-AY1)/(N-1);
+const EXT=Math.max(W,H)*1.7;
+const STRUM_CD=30;
+
+const GEOM = STR.map((_,i)=>{
+  const ax=AX1+i*DAX, ay=AY1+i*DAY;
+  return{ax,ay,
+    x1:ax-SX*EXT, y1:ay-SY*EXT,
+    x2:ax+SX*EXT, y2:ay+SY*EXT};
+});
+
+function nearStr(px,py){
+  let b=0, bd=Infinity;
+  for(let i=0;i<N;i++){
+    const{ax,ay}=GEOM[i];
+    const d=Math.abs((px-ax)*PX+(py-ay)*PY);
+    if(d<bd){bd=d;b=i}
+  }
+  return b;
+}
+
+// ── Scene ─────────────────────────────────────────
+class Scene extends Phaser.Scene {
+  constructor(){super('S')}
+
+  create(){
+    this.strings=[];
+    this._ptrs={};
+    this._bg();
+    this._buildStrings();
+    this._input();
+    window._sc=this;
+  }
+
+  _bg(){
+    // Deep night gradient
+    const g=this.add.graphics();
+    for(let y=0;y<H;y++){
+      const t=y/H;
+      g.fillStyle(Phaser.Display.Color.GetColor(
+        Math.floor(Phaser.Math.Linear(3,9,t)),
+        Math.floor(Phaser.Math.Linear(3,13,t)),
+        Math.floor(Phaser.Math.Linear(12,25,t))
+      ),1);
+      g.fillRect(0,y,W,1);
+    }
+    // Moon
+    const m=this.add.graphics();
+    m.fillStyle(0xd4c99a,.45); m.fillCircle(W*.5,H*.38,H*.09);
+    m.fillStyle(0xf0e6b2,.10); m.fillCircle(W*.5,H*.38,H*.13);
+  }
+
+  _buildStrings(){
+    this.strings=[];
+    for(let i=0;i<N;i++){
+      const s=STR[i], g=GEOM[i];
+      const isBlue=s.c==='#5588ff', isRed=s.c==='#ff4422', isWht=s.c==='#ffffff';
+      const thick = isWht?2.5 : isRed||isBlue?1.8 : 1.2;
+      const baseA = isRed?.65 : isBlue?.7 : isWht?.7 : .35;
+      const maxDraw=14+(i/(N-1))*30;
+      const decay=.11+(1-(i/(N-1)))*.22;
+      const col=Phaser.Display.Color.HexStringToColor(s.c);
+
+      const gfx=this.add.graphics().setDepth(2);
+      const vfx=this.add.graphics().setDepth(3);
+
+      // Label at midpoint, offset perpendicular
+      const lbl=this.add.text(
+        g.ax+PX*28, g.ay+PY*28,
+        s.l,
+        {fontSize:'9px',color:s.c,fontFamily:'Georgia'}
+      ).setOrigin(.5).setAlpha(.6).setDepth(5);
+
+      gfx.lineStyle(thick, col.color, baseA);
+      gfx.beginPath(); gfx.moveTo(g.x1,g.y1); gfx.lineTo(g.x2,g.y2); gfx.strokePath();
+
+      this.strings.push({
+        i, midi:s.m, label:s.l, colour:s.c,
+        ci:col.color, thick, baseA, maxDraw,
+        ax:g.ax, ay:g.ay,
+        x1:g.x1, y1:g.y1, x2:g.x2, y2:g.y2,
+        gfx, vfx, lbl,
+        st:{amp:0, vel:0, decay}
+      });
+    }
+  }
+
+  _fire(idx, vel){
+    if(vel<0.04) return;
+    const s=this.strings[idx]; if(!s) return;
+    s.st.amp=s.maxDraw*vel; s.st.vel=vel;
+    aud.play(s.midi, vel);
+    // Particles
+    if(vel>0.12){
+      const cnt=Math.round(1+vel*5);
+      for(let p=0;p<cnt;p++){
+        const d=this.add.graphics().setDepth(6);
+        d.fillStyle(s.ci, .4+vel*.45);
+        d.fillCircle(0,0,.6+vel*1.6);
+        d.x=s.ax+(Math.random()-.5)*16;
+        d.y=s.ay+(Math.random()-.5)*16;
+        this.tweens.add({
+          targets:d,
+          x:d.x+(Math.random()-.5)*28*vel,
+          y:d.y+(Math.random()-.5)*28*vel,
+          alpha:0, duration:90+vel*180, ease:'Power2',
+          onComplete:()=>d.destroy()
+        });
+      }
+    }
+  }
+
+  update(){
+    const ap={};
+    Object.values(this._ptrs).forEach(p=>{
+      if(p.si!==null&&!p.strum) ap[p.si]=p.da;
+    });
+
+    this.strings.forEach((s,i)=>{
+      const st=s.st;
+      s.vfx.clear();
+
+      // V-kink while drawing
+      if(ap[i]!==undefined && Math.abs(ap[i])>0.8){
+        const da=ap[i], pull=Math.abs(da)/s.maxDraw;
+        const kx=s.ax+PX*da, ky=s.ay+PY*da;
+        s.gfx.clear();
+        s.gfx.lineStyle(s.thick+pull*2.4, s.ci, .3+pull*.6);
+        s.gfx.beginPath(); s.gfx.moveTo(s.x1,s.y1); s.gfx.lineTo(kx,ky); s.gfx.lineTo(s.x2,s.y2); s.gfx.strokePath();
+        s.vfx.fillStyle(s.ci, .1+pull*.12);
+        s.vfx.fillCircle(kx,ky,3+pull*11);
+        return;
+      }
+
+      // Vibration — amber blur
+      if(st.amp>0.2){
+        const A=st.amp, v=st.vel, AMB=0xffcc44;
+        const oA=(.09+v*.2)*(A/s.maxDraw);
+        s.vfx.lineStyle(1,AMB,oA);
+        s.vfx.beginPath(); s.vfx.moveTo(s.x1+PX*A,s.y1+PY*A); s.vfx.lineTo(s.x2+PX*A,s.y2+PY*A); s.vfx.strokePath();
+        s.vfx.beginPath(); s.vfx.moveTo(s.x1-PX*A,s.y1-PY*A); s.vfx.lineTo(s.x2-PX*A,s.y2-PY*A); s.vfx.strokePath();
+        const steps=Math.max(2,Math.ceil(A/2));
+        for(let k=0;k<=steps;k++){
+          const oa=Phaser.Math.Linear(-A,A,k/steps);
+          const ef=1-Math.abs(k/steps-.5)*1.8;
+          s.vfx.lineStyle(1,AMB,(.04+v*.09)*(A/s.maxDraw)*Math.max(0,ef));
+          s.vfx.beginPath(); s.vfx.moveTo(s.x1+PX*oa,s.y1+PY*oa); s.vfx.lineTo(s.x2+PX*oa,s.y2+PY*oa); s.vfx.strokePath();
+        }
+        // Centre flicker
+        const fl=(Math.random()-.5)*A*.16;
+        s.vfx.lineStyle(s.thick+.5, s.ci, .6+v*.32);
+        s.vfx.beginPath(); s.vfx.moveTo(s.x1+PX*fl,s.y1+PY*fl); s.vfx.lineTo(s.x2+PX*fl,s.y2+PY*fl); s.vfx.strokePath();
+
+        st.amp=Math.max(0, st.amp-st.decay*(1.4-v*.55));
+        if(st.amp<.2){
+          st.amp=0;
+          s.gfx.clear();
+          s.gfx.lineStyle(s.thick,s.ci,s.baseA);
+          s.gfx.beginPath(); s.gfx.moveTo(s.x1,s.y1); s.gfx.lineTo(s.x2,s.y2); s.gfx.strokePath();
+        }
+      }
+    });
+  }
+
+  _input(){
+    this.input.addPointer(9);
+    const dn=p=>{
+      if(p.y<20) return;
+      aud._ensure();
+      const i=nearStr(p.x,p.y);
+      const{ax,ay}=GEOM[i];
+      this._ptrs[p.id]={si:i,sax:ax,say:ay,da:0,pd:0,strum:false,lx:p.x,ly:p.y,lt:Date.now(),cd:{}};
+      this._shl(i,true);
+    };
+    const mv=p=>{
+      const q=this._ptrs[p.id]; if(!q) return;
+      const now=Date.now(), dt=Math.max(1,now-q.lt);
+      const dx=p.x-q.sax, dy=p.y-q.say;
+      const perp=dx*PX+dy*PY;
+      const along=Math.abs(dx*SX+dy*SY);
+      if(q.si!==null&&!q.strum){
+        q.da=perp;
+        if(Math.abs(perp)>Math.abs(q.pd)) q.pd=perp;
+        if(along>38*2.0){
+          this._shl(q.si,false);
+          const v=Math.min(1,Math.max(.15,Math.abs(q.pd)/(this.strings[q.si]?.maxDraw||20)));
+          this._fire(q.si,v);
+          q.strum=true; q.si=null;
+        }
+      }
+      if(q.strum){
+        const cur=nearStr(p.x,p.y);
+        const lf=q.cd[cur]||0;
+        const spd=Math.sqrt((p.x-q.lx)**2+(p.y-q.ly)**2)/dt;
+        if(now-lf>STRUM_CD){q.cd[cur]=now; this._fire(cur,Math.min(1,.2+spd*.2))}
+      }
+      q.lx=p.x; q.ly=p.y; q.lt=now;
+    };
+    const up=p=>{
+      const q=this._ptrs[p.id]; if(!q) return;
+      if(q.si!==null&&!q.strum){
+        const s=this.strings[q.si];
+        if(s){
+          this._shl(q.si,false);
+          this._fire(q.si,Math.min(1,Math.max(.08,Math.abs(q.da)/s.maxDraw)));
+        }
+      }
+      delete this._ptrs[p.id];
+    };
+    this.input.on('pointerdown',dn);
+    this.input.on('pointermove',mv);
+    this.input.on('pointerup',up);
+    this.input.on('pointerupoutside',up);
+  }
+
+  _shl(idx,on){
+    const s=this.strings[idx]; if(!s) return;
+    s.gfx.clear();
+    s.gfx.lineStyle(on?s.thick+1.5:s.thick, s.ci, on?.65:s.baseA);
+    s.gfx.beginPath(); s.gfx.moveTo(s.x1,s.y1); s.gfx.lineTo(s.x2,s.y2); s.gfx.strokePath();
+    if(on){s.vfx.clear(); s.vfx.fillStyle(s.ci,.4); s.vfx.fillCircle(s.ax,s.ay,6)}
+  }
+}
+
+new Phaser.Game({
+  type:Phaser.AUTO,
+  width:W, height:H,
+  backgroundColor:'#030810',
+  parent:'gc',
+  scene:Scene,
+  input:{activePointers:10}
+});
+const gc=document.getElementById('gc');
+gc.style.width=W+'px';
+gc.style.height=H+'px';
+</script>
+</body>
+</html>
+

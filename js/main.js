@@ -21,9 +21,12 @@ import BogD2 from './game/scenes/locations/bog/d2.js'
 import BogD3 from './game/scenes/locations/bog/d3.js'
 import BogD4 from './game/scenes/locations/bog/d4.js'
 import BogD3Sea from './game/scenes/locations/bog/d3Sea.js'
+import Tavern from './game/scenes/locations/village/tavern.js'
+
 import { champions } from '../data/champions.js'
 import { initFullscreenButton } from './game/ui/fullscreenButton.js'
-initFullscreenButton()  // call at module load time, not inside _createGame()
+initFullscreenButton()
+
 export function startGame(selectedChampion, options = {}) {
     if (window.game) {
         window.game.destroy(true)
@@ -35,7 +38,6 @@ export function startGame(selectedChampion, options = {}) {
 }
 
 function _createGame(selectedChampion, options) {
-    // URL override: ?scene=Bog_Threshold
     const urlParams = new URLSearchParams(window.location.search)
     const sceneOverride = urlParams.get('scene')
     if (sceneOverride) options.startScene = sceneOverride
@@ -44,11 +46,9 @@ function _createGame(selectedChampion, options) {
         selectedChampion = window.devChampion || { id: 'dev', nameGa: 'Dev' }
     }
 
-    // Hide starfield loader
     const starfieldLoader = document.getElementById('starfieldLoader')
     if (starfieldLoader) starfieldLoader.style.display = 'none'
 
-    // Make sure gameContainer is visible and sized before Phaser boots
     const gameContainer = document.getElementById('gameContainer')
     if (gameContainer) {
         gameContainer.style.display    = 'block'
@@ -69,11 +69,12 @@ function _createGame(selectedChampion, options) {
         scene: [
             WorldScene,
             BowTutorial,
-		BogB0,
+            BogB0,
             BogA1, BogA2, BogA3, BogA4,
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
-            BogD1, BogD2, BogD3, BogD4, BogD3Sea,D3OpenSea
+            BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
+            Tavern,
         ],
         autoStart: false,
         scale: {
@@ -87,16 +88,12 @@ function _createGame(selectedChampion, options) {
 
     config.selectedChampion = selectedChampion
     window.game = new Phaser.Game(config)
-
     window.game.registry.set('selectedChampion', selectedChampion)
 
     const sceneToStart = options.startScene || 'BowTutorial'
     console.log('[main.js] Starting scene:', sceneToStart)
     window.startGame = startGame
 
-    // All scenes start directly — WorldScene is only used as an idle holder
-    // and does not route to other scenes. BowTutorial is no longer a special
-    // case; it starts the same way every other scene does.
     window.game.scene.start(sceneToStart, { champion: selectedChampion })
 }
 
@@ -116,7 +113,6 @@ function resizeGame() {
 function onFullscreenChange() {
     setTimeout(() => {
         resizeGame()
-        // Recentre camera on player after resize so perspective stays accurate
         if (window.game?.scene) {
             window.game.scene.scenes.forEach(scene => {
                 if (scene.player && scene.cameras?.main) {
@@ -136,7 +132,6 @@ document.addEventListener('fullscreenchange', onFullscreenChange)
 document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 window.addEventListener('load', () => console.log('Game started'))
 
-// Dev shortcut: ?scene=Bog_Threshold boots directly, bypassing hero select
 window.addEventListener('load', () => {
     const urlParams = new URLSearchParams(window.location.search)
     const sceneOverride = urlParams.get('scene')

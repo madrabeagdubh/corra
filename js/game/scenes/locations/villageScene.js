@@ -1,13 +1,10 @@
 // villageScene.js
 // Location: js/game/scenes/locations/villageScene.js
-//
-// Extends PerspectiveScene for village interiors.
-// Suppresses outdoor features (sky, mountains, swallows, elevation, encounter deck).
-// NPCs rendered directly onto PGR canvas via onPGRDrawComplete hook.
 
 import PerspectiveScene from './perspectiveScene.js'
 import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js'
 import Phaser from 'phaser'
+import { CorraHarp } from './village/corraHarp.js'
 
 const NPC_SPRITES = ['poet', 'fearghus', 'sorcha']
 
@@ -34,15 +31,18 @@ export default class VillageScene extends PerspectiveScene {
         this.load.image(`npc_${key}`, `/assets/npcs/${key}.png`)
       }
     })
+    if (!this.textures.exists('harp_sprite')) {
+      this.load.image('harp_sprite', '/assets/harp.png')
+    }
   }
 
-  // ── PGR constants for interior rendering ─────────────────────────────────
-  // Tuning:
-  //   HORIZON_Y_FRAC    — fraction of screen above ground plane (0 = all floor)
-  //   CAMERA_ROW_OFFSET — virtual camera distance above map (lower = closer/bigger)
-  //   FOCAL_LENGTH      — perspective intensity (lower = flatter, less distortion)
-  //   TILES_ACROSS      — tiles visible across screen width (lower = bigger tiles)
-  //   PLAYER_SCALE      — player sprite height multiplier
+  // ── PGR constants ─────────────────────────────────────────────────────────
+  // Tuning knobs:
+  //   HORIZON_Y_FRAC    — sky fraction (0.02 = near-zero, black void above)
+  //   CAMERA_ROW_OFFSET — camera height above map (lower = closer/bigger tiles)
+  //   FOCAL_LENGTH      — perspective intensity (lower = flatter)
+  //   TILES_ACROSS      — tile count across screen (lower = bigger tiles)
+  //   PLAYER_SCALE      — player sprite height
   //   PLAYER_DIST_TILES — player distance from camera (lower = larger at all depths)
   static INTERIOR_PGR = {
     HORIZON_Y_FRAC:    0.02,
@@ -57,11 +57,10 @@ export default class VillageScene extends PerspectiveScene {
       this._savedPGR[k] = PerspectiveGroundRenderer[k]
       PerspectiveGroundRenderer[k] = v
     }
-    this._savedPlayerScale      = PerspectiveGroundRenderer.PLAYER_SCALE
-    this._savedPlayerDistTiles  = PerspectiveGroundRenderer.PLAYER_DIST_TILES
+    this._savedPlayerScale     = PerspectiveGroundRenderer.PLAYER_SCALE
+    this._savedPlayerDistTiles = PerspectiveGroundRenderer.PLAYER_DIST_TILES
     PerspectiveGroundRenderer.PLAYER_SCALE      = 1
     PerspectiveGroundRenderer.PLAYER_DIST_TILES = 0.3
-    console.log('[VillageScene] PGR interior constants applied')
   }
 
   _restoreInteriorPGR() {
@@ -75,52 +74,52 @@ export default class VillageScene extends PerspectiveScene {
       PerspectiveGroundRenderer.PLAYER_DIST_TILES = this._savedPlayerDistTiles
       this._savedPlayerScale = null
     }
-    console.log('[VillageScene] PGR constants restored')
   }
 
-  // ── drawTilemap — SCALE=4 so interior map fills the phone screen ────────────
-  // PerspectiveScene uses SCALE=2 (48px tiles). At 10 rows that's only 480px —
-  // smaller than a phone screen, so the camera can't scroll and bottom rows are
-  // unreachable. SCALE=4 (96px tiles, 960px map) gives the camera room to move.
+  // ── drawTilemap at SCALE=4 (96px tiles) ───────────────────────────────────
+  // PGR hardcodes tileDisplaySize=48 in its constructor — we override it to 96
+  // immediately after construction so all projection math uses the right size.
   drawTilemap() {
+    if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
+
     this._applyInteriorPGR()
 
-    // Temporarily patch the module-level constants PerspectiveScene reads
-    // by overriding tileSize/mapWidth/mapHeight after super.drawTilemap sets them.
-    // We call super first (which sets tileSize=48), then immediately correct it.
-    // PGR reads this.tileDisplaySize from tileSize at construction time.
-    // So we must set the override BEFORE PGR is constructed inside super.drawTilemap.
-    // 
-    // Strategy: monkeypatch this.tileSize before super runs, restore after.
-    const _origDraw = Object.getPrototypeOf(Object.getPrototypeOf(this)).drawTilemap
-    if (_origDraw) {
-      // Intercept tileSize assignment by overriding it temporarily
-      const INTERIOR_SCALE = 4
-      const TW = 24
+    const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54, SCALE = 4
 
-      // Pre-set so PGR constructor picks it up
-      Object.defineProperty(this, 'tileSize', {
-        value: TW * INTERIOR_SCALE,
-        writable: true, configurable: true
-      })
-      this.mapWidth  = this.mapData.width  * TW * INTERIOR_SCALE
-      this.mapHeight = this.mapData.height * TW * INTERIOR_SCALE
-    }
-
-    super.drawTilemap()
-
-    // Ensure tileSize stuck at 96 (super may have overwritten it)
-    this.tileSize  = 96
-    this.mapWidth  = this.mapData.width  * 96
-    this.mapHeight = this.mapData.height * 96
+    this.tileSize  = TW * SCALE   // 96px
+    this.mapWidth  = this.mapData.width  * TW * SCALE
+    this.mapHeight = this.mapData.height * TH * SCALE
     this.physics.world.setBounds(0, 0, this.mapWidth, this.mapHeight)
+
+    this.usePerspective = true
+    this.perspectiveGround = new PerspectiveGroundRenderer(this)
     this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight + this.scale.height)
 
     if (this.perspectiveGround) {
       this.perspectiveGround.tileDisplaySize = 96
       this.perspectiveGround._gcR = '#000000'
       this.perspectiveGround._groundColour = '#000000'
+      // Register harp as a custom billboard tile (GID 9001)
+      // Also add to _flatGids so PGR renders it as a billboard not a trapezoid
+      this.perspectiveGround._flatGids.add(9001)
+      // registerCustomTile loads async — retry badge draw once ready
+      const _origRegister = this.perspectiveGround.registerCustomTile.bind(this.perspectiveGround)
+      this.perspectiveGround.registerCustomTile = (gid, url) => {
+        const _origCache = this.perspectiveGround._tileCache
+        _origRegister(gid, url)
+        // Poll until the tile canvas is available, then refresh badge
+        const _retry = setInterval(() => {
+          if (this.perspectiveGround?._tileCache?.get(gid)) {
+            clearInterval(_retry)
+            if (this._encounterPanel?._card?.visual?.gid === gid) {
+              this._encounterPanel._showBadge(this._encounterPanel._card.visual)
+            }
+          }
+        }, 100)
+      }
+      this.perspectiveGround.registerCustomTile(9001, '/assets/harp.png')
     }
+
     this._buildCeilingGradient()
   }
 
@@ -134,30 +133,22 @@ export default class VillageScene extends PerspectiveScene {
     mask.id = 'pgr-blackmask'
     mask.style.cssText = [
       'position:absolute','top:0','left:0','right:0','bottom:0',
-      'background:#000',
-      'z-index:1',
-      'pointer-events:none',
+      'background:#000','z-index:1','pointer-events:none',
     ].join(';')
     if (container) container.insertBefore(mask, container.firstChild)
 
     document.getElementById('pgr-ceiling')?.remove()
-
     const sw = this.game.canvas.width
     const sh = this.game.canvas.height
-
-    const c = document.createElement('canvas')
+    const c  = document.createElement('canvas')
     c.id = 'pgr-ceiling'
-    c.width  = sw
-    c.height = sh
+    c.width = sw; c.height = sh
     c.style.cssText = [
       'position:absolute','top:0','left:0',
-      'width:' + sw + 'px','height:' + sh + 'px',
-      'z-index:5',
-      'pointer-events:none',
+      `width:${sw}px`,`height:${sh}px`,
+      'z-index:5','pointer-events:none',
     ].join(';')
-
-    const ctx = c.getContext('2d')
-    // Gradient extends to 65% of screen height — more gradual fade
+    const ctx  = c.getContext('2d')
     const gradH = sh * 0.65
     const grad  = ctx.createLinearGradient(0, 0, 0, gradH)
     grad.addColorStop(0,    'rgba(0,0,0,1)')
@@ -167,11 +158,9 @@ export default class VillageScene extends PerspectiveScene {
     grad.addColorStop(1,    'rgba(0,0,0,0)')
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, sw, gradH)
-
     const pgrLight = document.getElementById('pgr-light')
     if (pgrLight) container.insertBefore(c, pgrLight.nextSibling)
     else container.appendChild(c)
-
     this._ceilingCanvas = c
   }
 
@@ -180,9 +169,6 @@ export default class VillageScene extends PerspectiveScene {
     this.mapData.objects        = this.mapData.objects        || []
     this.mapData.npcs           = this.mapData.npcs           || []
     this.mapData.introNarrative = this.mapData.introNarrative || []
-    console.log(`[${this.scene.key}] interior content --`,
-      this.mapData.objects.length, 'objects,',
-      this.mapData.npcs.length, 'npcs')
   }
 
   // ── createObjects ─────────────────────────────────────────────────────────
@@ -191,18 +177,16 @@ export default class VillageScene extends PerspectiveScene {
     this._registerHarpZones()
   }
 
-  // ── createNPCs — drawn directly onto PGR canvas ───────────────────────────
+  // ── createNPCs — drawn onto PGR canvas ────────────────────────────────────
   createNPCs() {
     if (!this.mapData.npcs) return
-    this.npcs     = []
-    this._npcHits = []
+    this.npcs = []
 
     this.mapData.npcs.forEach(npcData => {
       const pixelX    = npcData.x * this.tileSize + this.tileSize / 2
       const pixelY    = npcData.y * this.tileSize + this.tileSize / 2
       const spriteKey = `npc_${npcData.sprite || npcData.id}`
-
-      let imgCanvas = null
+      let imgCanvas   = null
       if (this.textures.exists(spriteKey)) {
         try {
           const tex  = this.textures.get(spriteKey)
@@ -218,16 +202,11 @@ export default class VillageScene extends PerspectiveScene {
           console.warn('[VillageScene] NPC canvas build failed:', e.message)
         }
       }
-
       this.npcs.push({
-        id:            npcData.id,
-        name:          npcData.name,
-        dialogues:     npcData.dialogues || [],
-        dialogueIndex: 0,
-        logicalX:      pixelX,
-        logicalY:      pixelY,
-        imgCanvas,
-        met:           false,
+        id: npcData.id, name: npcData.name,
+        dialogues: npcData.dialogues || [], dialogueIndex: 0,
+        logicalX: pixelX, logicalY: pixelY,
+        imgCanvas, met: false,
         screenX: 0, screenY: 0, screenW: 0, screenH: 0,
       })
     })
@@ -245,20 +224,15 @@ export default class VillageScene extends PerspectiveScene {
         const { screenX: sx, screenY: sy, screenW: sw, screenH: sh } = npc
         if (sw === 0) continue
         if (cx >= sx - sw/2 && cx <= sx + sw/2 && cy >= sy - sh && cy <= sy) {
-          this._talkToNPCVillage(npc)
-          break
+          this._talkToNPCVillage(npc); break
         }
       }
     }
     this.game.canvas.addEventListener('pointerdown', this._npcTapHandler)
-
-    console.log(`[${this.scene.key}] ${this.npcs.length} NPCs (PGR canvas mode)`)
   }
 
-  // ── NPC size tuning ───────────────────────────────────────────────────────
-  // NPC_HEIGHT_MULT: multiplier relative to player height at same depth.
-  //   1.0 = same size as player, 2.0 = twice as tall, 0.5 = half.
-  // NPC_ASPECT: width-to-height ratio of the sprite (narrower = more slender).
+  // NPC_HEIGHT_MULT: size relative to player (2.0 = twice player height)
+  // NPC_ASPECT: width/height ratio
   static NPC_HEIGHT_MULT = 2.0
   static NPC_ASPECT      = 0.55
 
@@ -266,27 +240,19 @@ export default class VillageScene extends PerspectiveScene {
     if (!this.npcs?.length || !this.perspectiveGround) return
     const pgr = this.perspectiveGround
     const PGR = pgr.constructor
-
     for (const npc of this.npcs) {
       const proj = pgr._projectLogical(npc.logicalX, npc.logicalY)
       if (!proj) { npc.screenW = 0; continue }
-
       const { screenX, screenY, scale } = proj
       const scaledTileW = scale * pgr.tileDisplaySize
-
       const H = scaledTileW * PGR.PLAYER_SCALE * PGR.HEIGHT_MULTIPLIER * VillageScene.NPC_HEIGHT_MULT
       const W = H * VillageScene.NPC_ASPECT
-
-      npc.screenX = screenX
-      npc.screenY = screenY
-      npc.screenW = W
-      npc.screenH = H
-
+      npc.screenX = screenX; npc.screenY = screenY
+      npc.screenW = W;       npc.screenH = H
       if (npc.imgCanvas) {
         ctx.imageSmoothingEnabled = false
         ctx.drawImage(npc.imgCanvas,
-          Math.round(screenX - W / 2),
-          Math.round(screenY - H),
+          Math.round(screenX - W/2), Math.round(screenY - H),
           Math.round(W), Math.round(H))
       } else {
         ctx.save()
@@ -296,7 +262,6 @@ export default class VillageScene extends PerspectiveScene {
         ctx.fill()
         ctx.restore()
       }
-
       if (npc.met) {
         ctx.save()
         ctx.font = '12px Georgia'
@@ -315,67 +280,49 @@ export default class VillageScene extends PerspectiveScene {
     if (!npc.met) npc.met = true
     if (this.joystick) this.joystick.reset()
     if (this.player)   this.player.isMoving = false
-    const dialogues = npc.dialogues
-    const index     = npc.dialogueIndex || 0
-    const dialogue  = dialogues[index]
+    const dialogue = npc.dialogues[npc.dialogueIndex || 0]
     if (!dialogue) return
     this.textPanel?.show({
-      irish:   dialogue.ga || '',
-      english: dialogue.en || '',
-      type: 'dialogue',
-      speaker: npc.name,
+      irish: dialogue.ga || '', english: dialogue.en || '',
+      type: 'dialogue', speaker: npc.name,
       onDismiss: () => {
-        npc.dialogueIndex = (index + 1) % dialogues.length
+        npc.dialogueIndex = ((npc.dialogueIndex || 0) + 1) % npc.dialogues.length
       }
     })
   }
 
-  // ── Update — fix south camera clamp for small interior maps ──────────────
+  // ── Update — PerspectiveScene south clamp is wrong for small maps ─────────
   update(time, delta) {
     super.update(time, delta)
-    // Override PerspectiveScene south clamp for interiors.
-    // With 96px tiles the map is 960px — larger than screen, camera can scroll freely.
-    // Clamp so the south edge of the map aligns with the canvas bottom.
+    // Clamp camera to map bounds — allow full scroll
     if (this.cameras?.main && this.mapHeight) {
-      const cam    = this.cameras.main
-      const zoom   = cam.zoom || 1
-      const sh     = this.scale.height
-      const maxSY  = this.mapHeight - sh
-      if (cam.scrollY > maxSY) cam.scrollY = maxSY
-      if (cam.scrollY < 0)     cam.scrollY = 0
+      const cam   = this.cameras.main
+      const sh    = this.scale.height
+      const maxSY = this.mapHeight - sh
+      if (maxSY > 0 && cam.scrollY > maxSY) cam.scrollY = maxSY
+      if (cam.scrollY < 0) cam.scrollY = 0
     }
   }
 
   // ── Collision ─────────────────────────────────────────────────────────────
-  // INTERIOR_BLOCKING: GIDs in layer 1 that block movement.
-  // Chairs (251) are intentionally excluded — remove from set to make anything passable.
   static INTERIOR_BLOCKING = new Set([
-    201,   // barrel
-    249,   // table
-    250,   // table with papers
-    252,   // throne
-    253,   // weapons rack
-    137,   // door — player exits via exit tile trigger, not by walking through
+    201, 249, 250, 252, 253, 137,
   ])
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
-
-    // Block north wall row and above
+    const mapH = this.mapData?.height ?? 14
+    // Block north wall row and above, and south padding rows (row 10+)
     if (ty <= 1) return true
-
-    // Block objects in layer 1
+    if (ty >= 10) return true  // rows 10-13 are empty padding — impassable
     const g1 = this.mapData?.layers?.[1]?.[ty]?.[tx]
     if (g1 && VillageScene.INTERIOR_BLOCKING.has(g1)) return true
-
-    // Block NPC tiles
     if (this.npcs?.some(npc => {
       const nx = Math.floor(npc.logicalX / this.tileSize)
       const ny = Math.floor(npc.logicalY / this.tileSize)
       return nx === tx && ny === ty
     })) return true
-
     return super.isColliding(x, y)
   }
 
@@ -383,25 +330,20 @@ export default class VillageScene extends PerspectiveScene {
   checkProximityInteractions() {
     if (this.narrativeInProgress) return
     if (this.textPanel?.isVisible || this.textPanelCooldown) return
-
     const playerX = this.player.logicalX
     const playerY = this.player.logicalY
     const HARP_RADIUS = this.tileSize * 2.5
-
-    let nearestHarp = null
-    let nearestDist = Infinity
-
+    let nearestHarp = null, nearestDist = Infinity
     this.interactables?.forEach(obj => {
       if (obj.getData('type') !== 'harp') return
-      const objX = obj.getData('logicalX') ?? obj.x
-      const objY = obj.getData('logicalY') ?? obj.y
-      const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY)
+      const dist = Phaser.Math.Distance.Between(
+        playerX, playerY,
+        obj.getData('logicalX') ?? obj.x,
+        obj.getData('logicalY') ?? obj.y)
       if (dist < HARP_RADIUS && dist < nearestDist) {
-        nearestDist = dist
-        nearestHarp = obj
+        nearestDist = dist; nearestHarp = obj
       }
     })
-
     if (nearestHarp) {
       this._flagInRange = true
       if (this._encounterPanel) {
@@ -409,18 +351,32 @@ export default class VillageScene extends PerspectiveScene {
         const id     = nearestHarp.getData('id')
         const visual = nearestHarp.getData('visual')
         this._pendingHarpZone = nearestHarp
+        // Monkey-patch _openPanel so badge tap opens harp overlay directly
+        this._encounterPanel._openPanel = () => {
+          this._encounterPanel.clearNotify()
+          this._openHarpOverlay()
+        }
         this._encounterPanel.notify(
           { id, visual, ga: text?.ga || '', en: text?.en || '', _isHarp: true },
-          nearestHarp
-        )
+          nearestHarp)
+        // Draw harp image on badge directly from Phaser texture (faster than PGR cache)
+        if (this.textures.exists('harp_sprite')) {
+          const badge = this._encounterPanel._badgeEl
+          if (badge) {
+            const src = this.textures.get('harp_sprite').getSourceImage()
+            const ctx = badge.getContext('2d')
+            ctx.clearRect(0, 0, badge.width, badge.height)
+            ctx.imageSmoothingEnabled = false
+            ctx.drawImage(src, 0, 0, badge.width, badge.height)
+          }
+        }
       }
       return
     }
-
     super.checkProximityInteractions()
   }
 
-  // ── Harp zone registration ────────────────────────────────────────────────
+  // ── Harp zones ────────────────────────────────────────────────────────────
   _registerHarpZones() {
     if (!this.mapData.objects) return
     this.mapData.objects.forEach(obj => {
@@ -428,89 +384,39 @@ export default class VillageScene extends PerspectiveScene {
       const pixelX = obj.x * this.tileSize + this.tileSize / 2
       const pixelY = obj.y * this.tileSize + this.tileSize / 2
       const zone = this.add.zone(pixelX, pixelY, this.tileSize * 2, this.tileSize * 2)
-      zone.setData('id',       obj.id)
-      zone.setData('type',     'harp')
-      zone.setData('text',     obj.text)
-      zone.setData('visual',   obj.visual || { gid: 255, flat: false })
-      zone.setData('logicalX', pixelX)
-      zone.setData('logicalY', pixelY)
-      zone.x = pixelX
-      zone.y = pixelY
+      zone.setData('id', obj.id).setData('type', 'harp')
+        .setData('text', obj.text)
+        .setData('visual', obj.visual || { gid: 255, flat: false })
+        .setData('logicalX', pixelX).setData('logicalY', pixelY)
+      zone.x = pixelX; zone.y = pixelY
       if (!this.interactables) this.interactables = []
       this.interactables.push(zone)
-      console.log(`[${this.scene.key}] harp zone at [${obj.x}, ${obj.y}]`)
     })
   }
 
-  // ── Harp overlay ──────────────────────────────────────────────────────────
+  // ── Harp overlay — powered by CorraHarp module ───────────────────────────
   _openHarpOverlay() {
-    if (this._harpOverlayEl) return
-    if (this.joystick) this.joystick.reset()
-    if (this.player)   this.player.isMoving = false
-
-    const overlay = document.createElement('div')
-    overlay.id = 'harp-overlay'
-    overlay.style.cssText = [
-      'position:fixed;inset:0;',
-      'z-index:2000000;',
-      'background:rgba(3,8,16,0.92);',
-      'display:flex;flex-direction:column;',
-      'align-items:center;justify-content:center;',
-      'opacity:0;transition:opacity 0.4s ease;',
-      'touch-action:none;',
-    ].join('')
-
-    const closeBtn = document.createElement('button')
-    closeBtn.textContent = '✕'
-    closeBtn.style.cssText = [
-      'position:absolute;top:16px;right:20px;',
-      'background:none;border:none;',
-      'color:rgba(200,190,170,0.6);font-size:1.4rem;',
-      'cursor:pointer;z-index:10;font-family:Georgia,serif;',
-    ].join('')
-    closeBtn.addEventListener('pointerdown', () => this._destroyHarpOverlay())
-    overlay.appendChild(closeBtn)
-
-    const label = document.createElement('div')
-    label.textContent = 'Cláirseach'
-    label.style.cssText = [
-      'font-family:Georgia,serif;',
-      'font-size:0.75rem;letter-spacing:0.18em;',
-      'color:rgba(200,190,170,0.45);',
-      'text-transform:uppercase;margin-bottom:24px;',
-    ].join('')
-    overlay.appendChild(label)
-
-    const frame = document.createElement('iframe')
-    frame.src = '/harp/corra-harp.html'
-    frame.style.cssText = [
-      'border:none;',
-      'width:min(420px,100vw);',
-      'height:min(820px,85vh);',
-      'background:transparent;',
-    ].join('')
-    overlay.appendChild(frame)
-
-    document.body.appendChild(overlay)
-    this._harpOverlayEl = overlay
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => { overlay.style.opacity = '1' })
-    })
+    if (this._corraHarp?.isOpen) return
+    this._corraHarp = new CorraHarp(this)
+    this._corraHarp
+      .on('pluck', ({ midi, stringIndex, velocity }) => {
+        // Future: drive poem sequence, respond to melody
+        console.log(`[CorraHarp] pluck: string ${stringIndex}, midi ${midi}, vel ${velocity.toFixed(2)}`)
+      })
+      .on('close', () => {
+        this._corraHarp = null
+      })
+    this._corraHarp.open()
   }
 
   _destroyHarpOverlay() {
-    const el = this._harpOverlayEl
-    if (!el) return
-    el.style.opacity = '0'
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el)
-      if (this._harpOverlayEl === el) this._harpOverlayEl = null
-    }, 400)
+    this._corraHarp?.close()
   }
 
   // ── Shutdown ──────────────────────────────────────────────────────────────
   shutdown() {
-    this._destroyHarpOverlay()
+    this._corraHarp?.close()
+    this._corraHarp = null
     this._restoreInteriorPGR()
     document.getElementById('pgr-ceiling')?.remove()
     document.getElementById('pgr-blackmask')?.remove()

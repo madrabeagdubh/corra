@@ -18,6 +18,13 @@
 //     travelMs:   number       // how long the orb takes to travel (controls
 //                               // launch time = atMs - travelMs, and speed)
 //     windowMs:   number       // forgiveness window around atMs
+//     sharp?:     boolean      // does this beat need the harp's sharp
+//                               // variant of the target string to sound
+//                               // the correct pitch? undefined/false =
+//                               // natural. Sharps are AUTOMATIC — see
+//                               // corraHarp.js header — so this just tells
+//                               // the harp which pitch to actually sound,
+//                               // it's not something the player toggles.
 //     label?:     string
 //   }
 //   Phrase = Beat[]   — beats are scheduled by atMs, not by sequence/order
@@ -30,6 +37,15 @@
 //   })
 //   player.start()
 //   player.stop()
+//
+// ── Automatic sharps ───────────────────────────────────────────────────
+// While running, the player registers a sharp-hint function on the harp
+// (corraHarp.setSharpHintFn) that, given a string index, looks at the
+// nearest unresolved in-flight beat using that string and reports whether
+// IT needs the sharp. The harp consults this at the moment the player
+// actually plucks, so the correct pitch comes out without the player
+// managing any toggle. Cleared on stop() so free play afterward is always
+// natural.
 
 export class HarpPhrasePlayer {
   constructor(corraHarp, phrase, opts = {}) {
@@ -81,6 +97,25 @@ export class HarpPhrasePlayer {
     this._drawHook = (gfx) => this._tick(gfx)
     this._harp._registerOverlayDraw?.(this._drawHook)
 
+    // Drive automatic sharps: for a given string, find the nearest
+    // unresolved in-flight beat that uses it and report whether THAT one
+    // needs the sharp. "Nearest" = closest atMs to now, since a string
+    // can have at most one beat realistically in its hit window at a
+    // time, but using nearest rather than "first found" keeps this
+    // correct even if two same-string beats are briefly both in flight.
+    this._sharpHintFn = (stringIndex) => {
+      const now = performance.now() - this._startMs
+      let best = null, bestDist = Infinity
+      this._phrase.forEach((beat, i) => {
+        const st = this._beatState[i]
+        if (st.resolved || !beat.strings.includes(stringIndex)) return
+        const dist = Math.abs(now - beat.atMs)
+        if (dist < bestDist) { bestDist = dist; best = beat }
+      })
+      return !!best?.sharp
+    }
+    this._harp.setSharpHintFn?.(this._sharpHintFn)
+
     if (this._opts.bodhranBeatMs) {
       this._nextClickAt = 0   // fire the first click immediately at phrase start
       this._clickCount   = 0
@@ -92,13 +127,17 @@ export class HarpPhrasePlayer {
     this._nextClickAt = null
     if (this._pluckHandler) this._harp.off('pluck', this._pluckHandler)
     if (this._drawHook) this._harp._unregisterOverlayDraw?.(this._drawHook)
+    this._harp.setSharpHintFn?.(null)   // back to natural-only for free play
     this._phrase.forEach(beat => beat.strings.forEach(idx => this._harp.highlightString(idx, false)))
   }
 
   // ── Pluck handling ───────────────────────────────────────────────────
   // A pluck can resolve ANY currently-in-flight beat that includes this
   // string and is within its window — not just "the current beat" since
-  // several beats may be in flight at once.
+  // several beats may be in flight at once. There's no toggle-state gate
+  // here anymore: the sharp-hint function (see start()) already made sure
+  // the harp sounded the correct pitch for this exact pluck, so any
+  // window/string match is a valid hit regardless of sharp/natural.
   _onPluck(stringIndex) {
     if (!this._running) return
     const now = performance.now() - this._startMs
@@ -179,6 +218,16 @@ export class HarpPhrasePlayer {
   // resolved beat draws its own travelling orb + comet trail along its
   // string's direction, independent of all other beats — multiple orbs
   // can be mid-flight simultaneously, exactly like real tune playback.
+  //
+  // Queue-order cue: SIMPLE solid-color distinction, not motion/brightness.
+  // Fast pulsing and brightness gradients tested as confusing and too busy
+  // on a small phone screen with several orbs in flight. Instead:
+  //   - the single next-to-play orb is solid YELLOW/GOLD
+  //   - every other queued orb is solid GREY (no gradient, no pulse)
+  // Sharp-required beats still get a violet halo around the orb itself,
+  // independent of queue position — purely informational now (sharps are
+  // automatic, nothing for the player to do about it), but useful as an
+  // at-a-glance "this one's sharp" cue.
   _draw(gfx, now) {
     const harpScene = this._harp._harpScene
     if (!harpScene) return
@@ -190,9 +239,8 @@ export class HarpPhrasePlayer {
     gfx.fillRect(hitLineX - 2, 0, 4, H)
 
     // Find the index of the next unresolved beat in sequence order —
-    // this is the one drawn brightest. Beats further ahead in the queue
-    // are progressively darker gold; this gives an unambiguous "play
-    // order" cue distinct from arrival timing alone.
+    // this is the one drawn brightest AND flashing. Beats further ahead
+    // in the queue are progressively darker gold, same as before.
     let nextUnresolvedIdx = -1
     for (let i = 0; i < this._phrase.length; i++) {
       if (!this._beatState[i].resolved) { nextUnresolvedIdx = i; break }
@@ -211,12 +259,7 @@ export class HarpPhrasePlayer {
       const stillRelevant = !st.resolved || (now - beat.atMs) < 380
       if (!stillRelevant) return
 
-      // Sequence-order brightness: the very next note to play is
-      // brightest gold; each subsequent queued note a step darker.
-      // Notes that are resolved (hit OR missed-and-passed) don't need
-      // this since they're about to stop drawing anyway.
-      const queuePos = nextUnresolvedIdx === -1 ? 0 : Math.max(0, i - nextUnresolvedIdx)
-      const brightness = Math.max(0.35, 1 - queuePos * 0.18)  // 1.0, 0.82, 0.64, ... floor 0.35
+      const isNextUp  = i === nextUnresolvedIdx
 
       beat.strings.forEach(idx => {
         const s = harpScene.strings[idx]
@@ -261,25 +304,39 @@ export class HarpPhrasePlayer {
         // fading out as it passes" case) — only stop once fully faded.
         const drawOrb = true
 
-        // Gold throughout (per your note), with sequence-order brightness
-        // baked into alpha/lightness rather than a different hue —
-        // brighter/lighter gold for "play me next", darker/dimmer for
-        // notes further out in the queue.
-        const goldBright = Phaser.Display.Color.GetColor(
-          255, Math.floor(180 + brightness * 75), Math.floor(brightness * 60)
-        )
+        // Flat two-color scheme: solid yellow/gold for the single next-up
+        // orb, solid grey for every other queued orb. No gradient, no
+        // brightness ramp — queue position beyond "next" doesn't matter
+        // visually, only the binary "is this the one to play now."
+        const orbColor = isNextUp
+          ? 0xffd700   // solid gold/yellow — play this one now
+          : 0x888888   // solid grey — waiting in queue
 
         if (drawOrb) for (let k = 1; k <= 5; k++) {
           const tProg = prog - k * 0.025
           if (tProg < 0) continue
           const td = startDist + (distToLine - startDist) * tProg
           const tx = s.ax + sx * td, ty = s.ay + sy * td
-          gfx.fillStyle(wasHit ? 0xffd700 : goldBright, (0.25 - k * 0.04) * brightness * fadeAlpha)
+          gfx.fillStyle(wasHit ? 0xffd700 : orbColor, (0.25 - k * 0.04) * fadeAlpha)
           gfx.fillCircle(tx, ty, 5 - k * 0.6)
         }
 
+        // Sharp-required halo — drawn BEHIND everything else for this orb
+        // so it reads as an aura around the orb rather than covering it.
+        // Independent of queue position: the player needs to see "this
+        // one needs the lever" while it's still approaching, not only the
+        // instant it's next-up.
+        if (beat.sharp) {
+          gfx.fillStyle(0xb47bff, 0.45 * fadeAlpha)
+          gfx.fillCircle(ox, oy, 11)
+        }
+
+        // (Removed: pulsing glow halo for next-up. The solid color swap
+        // on the orb itself is now the only "next up" cue — adding a
+        // second, separately-animated effect on top tested as confusing.)
+
         if (drawOrb) {
-          gfx.fillStyle(wasHit ? 0xffd700 : goldBright, 0.95 * fadeAlpha)
+          gfx.fillStyle(wasHit ? 0xffd700 : orbColor, 0.95 * fadeAlpha)
           gfx.fillCircle(ox, oy, 7)
           gfx.fillStyle(0xffffff, 0.6 * fadeAlpha)
           gfx.fillCircle(ox, oy, 3)
@@ -327,16 +384,20 @@ export function buildTimedPhrase(stringIndices, opts = {}) {
 // ── Helper: build a timed phrase with per-note durations (e.g. from ABC
 // note lengths) instead of a constant beatMs. `durations` is an array of
 // relative lengths (e.g. 1 = eighth note, 2 = quarter) matching stringIndices.
+// `sharps` (optional) is a parallel array of booleans — whether each note
+// needs the harp's global sharp toggle ON to sound correctly. Omit it (or
+// pass an all-false/undefined array) for tunes that need no accidentals.
 export function buildTimedPhraseFromDurations(stringIndices, durations, opts = {}) {
   const {
     unitMs    = 220,    // ms per duration-unit (tempo control)
     travelMs  = 1800,
     windowMs  = 350,
     startDelayMs = 800,
+    sharps    = null,
   } = opts
   let t = startDelayMs
   return stringIndices.map((idx, i) => {
-    const beat = { strings: [idx], atMs: t, travelMs, windowMs }
+    const beat = { strings: [idx], atMs: t, travelMs, windowMs, sharp: !!sharps?.[i] }
     t += (durations[i] ?? 1) * unitMs
     return beat
   })

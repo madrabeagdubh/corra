@@ -55,23 +55,33 @@ export default class TavernScene extends VillageScene {
   // The whole tune is scheduled up front on a master clock. Orbs launch
   // and arrive at a centred hit-line at the tune's actual rhythm. Missing
   // a note doesn't stop anything — the tune just keeps playing, like a
-  // real tune would. Replace this with the real Táin sequencing once the
-  // mechanic feels right.
+  // real tune would.
+  //
+  // Two test tunes are available:
+  //   - South Wind, The   — Gmaj, no accidentals at all.
+  //   - Silver Spear, The — Dmaj, every F needs to sound as F#, and
+  //                          nothing else in the tune needs an accidental
+  //                          (verified by inspection — no C/c appears in
+  //                          its body at all). Sharps are automatic now
+  //                          (see corraHarp.js / harpPhrasePlayer.js), so
+  //                          this just plays correctly with no player
+  //                          toggle to manage.
+  // Swap TUNE_KEY below to switch which one plays.
   _startTainPhrase() {
     const harp = this._corraHarp
     if (!harp) return
 
+    const TUNE_KEY = 'silverSpearThe'   // or 'southWindThe'
+
     const range = harp.getMidiRange()
-    // Trying South Wind (a slow waltz, narrow range, mostly stepwise
-    // motion) instead of the Ó Catháin air for an easier first pass —
-    // swap back once the mechanic feels comfortable.
-    const { indices, durations } = abcToTimedStringSequence(
-      allTunes.southWindThe, harp, range
+    const { indices, durations, sharps } = abcToTimedStringSequence(
+      allTunes[TUNE_KEY], harp, range
     )
 
-    console.log('[TavernScene] Táin test phrase — note count:', indices.length)
+    console.log('[TavernScene] phrase —', TUNE_KEY, 'note count:', indices.length)
     console.log('[TavernScene] string indices:', indices)
     console.log('[TavernScene] durations:', durations)
+    console.log('[TavernScene] sharps:', sharps)
 
     const unitMs = 300  // slower tempo to start — easier to track
     const phrase = buildTimedPhraseFromDurations(indices, durations, {
@@ -79,6 +89,7 @@ export default class TavernScene extends VillageScene {
       travelMs:     1800,  // how long each orb takes to fly in (readability)
       windowMs:     420,   // forgiveness window around exact arrival
       startDelayMs: 1200,  // grace period before first orb arrives
+      sharps,
     })
 
     this._phrasePlayer = new HarpPhrasePlayer(harp, phrase, {
@@ -87,7 +98,7 @@ export default class TavernScene extends VillageScene {
       // at L:1/8 is one quarter note) — gives a steady felt pulse under
       // the tune, independent of the note orbs themselves.
       bodhranBeatMs: unitMs * 4,
-      bodhranAccentEvery: 3,  // South Wind is a 3/4 waltz — accent every 3rd click
+      bodhranAccentEvery: 3,  // both test tunes are 3/4 waltzes — accent every 3rd click
       onBeatResult: (i, { hit, accuracy }) => {
         console.log(`[Táin] beat ${i}: ${hit ? 'hit' : 'missed'}`, accuracy?.toFixed?.(2))
       },

@@ -14,9 +14,21 @@
 //   harp.close()
 //
 // Events emitted:
-//   'pluck'  — { midi, stringIndex, velocity } when player plucks a string
-//   'close'  — when overlay is dismissed
-//   'ready'  — when Phaser instance is fully initialised
+//   'pluck'       — { midi, stringIndex, velocity, sharp } when player plucks a string
+//   'close'       — when overlay is dismissed
+//   'ready'       — when Phaser instance is fully initialised
+//
+// ── Sharps ──────────────────────────────────────────────────────────────
+// Sharps are AUTOMATIC, not player-controlled. There is no toggle/lever/
+// badge. When a scripted phrase (see harpPhrasePlayer.js) is playing and
+// a beat needs a sharped pitch on some string, the harp scene is told
+// "the next pluck on this string should sound sharp" via a small hint
+// hook (`setSharpHint` / the `getSharpHint` callback below) just before
+// that beat arrives. Free, unscripted plucking (no tune driving it) has
+// no hint registered and always sounds the natural pitch. This replaces
+// an earlier design with a global manual toggle + mismatch badge, which
+// playtesting showed was hard to use and easy to get wrong — see git
+// history if that design needs to be revisited.
 
 import Phaser from 'phaser'
 
@@ -25,20 +37,23 @@ import Phaser from 'phaser'
 // Ordered HIGH→LOW in the array so index 0 (top of screen) = highest note,
 // matching a harp stood upright: treble at the top, bass at the bottom.
 // Colour convention: G=white (tonic, every octave), C=red, F=blue (b7)
+// `sharpM` (optional): MIDI pitch this string sounds when a scripted
+// phrase flags the upcoming beat as needing the sharp. Only F strings
+// have one for now — see file header.
 const STR = [
-  { m: 86, l: 'D', c: '#c8c0aa' },  // D6  — top (highest)
-  { m: 84, l: 'C', c: '#ff4422' },  // C6  — red
-  { m: 83, l: 'B', c: '#c8c0aa' },  // B5
-  { m: 81, l: 'A', c: '#c8c0aa' },  // A5
-  { m: 79, l: 'G', c: '#ffffff' },  // G5  — white (tonic)
-  { m: 77, l: 'F', c: '#5588ff' },  // F5  — blue (b7)
-  { m: 76, l: 'E', c: '#c8c0aa' },  // E5
-  { m: 74, l: 'D', c: '#c8c0aa' },  // D5
-  { m: 72, l: 'C', c: '#ff4422' },  // C5  — red
-  { m: 71, l: 'B', c: '#c8c0aa' },  // B4
-  { m: 69, l: 'A', c: '#c8c0aa' },  // A4
-  { m: 67, l: 'G', c: '#ffffff' },  // G4  — white (tonic)
-  { m: 65, l: 'F', c: '#5588ff' },  // F4  — blue, bottom (lowest)
+  { m: 86, l: 'D', c: '#c8c0aa' },                       // D6  — top (highest)
+  { m: 84, l: 'C', c: '#ff4422' },                       // C6  — red
+  { m: 83, l: 'B', c: '#c8c0aa' },                       // B5
+  { m: 81, l: 'A', c: '#c8c0aa' },                       // A5
+  { m: 79, l: 'G', c: '#ffffff' },                       // G5  — white (tonic)
+  { m: 77, l: 'F', c: '#5588ff', sharpM: 78, sl: 'F♯' },  // F5  — blue (b7)
+  { m: 76, l: 'E', c: '#c8c0aa' },                       // E5
+  { m: 74, l: 'D', c: '#c8c0aa' },                       // D5
+  { m: 72, l: 'C', c: '#ff4422' },                       // C5  — red
+  { m: 71, l: 'B', c: '#c8c0aa' },                       // B4
+  { m: 69, l: 'A', c: '#c8c0aa' },                       // A4
+  { m: 67, l: 'G', c: '#ffffff' },                       // G4  — white (tonic)
+  { m: 65, l: 'F', c: '#5588ff', sharpM: 66, sl: 'F♯' },  // F4  — blue, bottom (lowest)
 ]
 const N = STR.length
 
@@ -168,7 +183,17 @@ class HarpScene extends Phaser.Scene {
     super('CorraHarpScene')
     this._onPluck = onPluck
     this._onReady = onReady
+    // Optional callback: (stringIndex) => boolean. Asked at the moment a
+    // string fires; if it returns true and that string has a sharpM, the
+    // pluck sounds sharp. Registered by HarpPhrasePlayer while a scripted
+    // tune is running; left null during free play, so untouched strings
+    // always sound natural. See file header.
+    this._getSharpHint = null
   }
+
+  // Register (or clear, by passing null) the sharp-hint callback. See
+  // constructor comment and file header for the model this implements.
+  setSharpHintFn(fn) { this._getSharpHint = fn || null }
 
   create() {
     this.audio   = new HarpAudio()
@@ -226,13 +251,37 @@ class HarpScene extends Phaser.Scene {
       gfx.beginPath(); gfx.moveTo(x1, y1); gfx.lineTo(x2, y2); gfx.strokePath()
 
       this.strings.push({
-        i, midi: s.m, label: s.l, colour: s.c,
+        i, midi: s.m, sharpMidi: s.sharpM, label: s.l, sharpLabel: s.sl, colour: s.c,
         ci: col.color, thick, baseA, maxDraw,
         ax, ay, x1, y1, x2, y2,
         gfx, vfx, lbl,
         st: { amp: 0, vel: 0, decay }
       })
     })
+  }
+
+  // Effective MIDI pitch this string sounds for THIS pluck, given the
+  // current sharp-hint callback (if any). Strings with no sharpM are
+  // always natural, regardless of the hint.
+  _effectiveMidi(s, idx) {
+    if (s.sharpMidi === undefined) return s.midi
+    const wantsSharp = !!this._getSharpHint?.(idx)
+    return wantsSharp ? s.sharpMidi : s.midi
+  }
+
+  // Brief visual cue that THIS pluck sounded sharp — a quick tint/label
+  // flash on the string itself, not a persistent mode change (there is
+  // no mode). Settles back to the natural label/colour on its own once
+  // the string's vibration decays past the redraw threshold in update().
+  _flashSharpCue(s) {
+    if (!s.sharpLabel) return
+    s.lbl.setText(s.sharpLabel)
+    s.gfx.clear()
+    s.gfx.lineStyle(s.thick, 0xb47bff, Math.min(1, s.baseA + 0.25))
+    s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
+    // Revert label once the vibration has settled (mirrors the existing
+    // redraw-on-settle branch in update(), so this doesn't fight it).
+    s._sharpCueActive = true
   }
 
   _nearStr(px, py) {
@@ -254,7 +303,10 @@ class HarpScene extends Phaser.Scene {
     s._lastFired = now
     s.st.amp = s.maxDraw * vel
     s.st.vel = vel
-    this.audio.play(s.midi, vel)
+    const playMidi = this._effectiveMidi(s, idx)
+    const playedSharp = playMidi === s.sharpMidi
+    if (playedSharp) this._flashSharpCue(s)
+    this.audio.play(playMidi, vel)
 
     // Particles
     if (vel > 0.12) {
@@ -276,7 +328,7 @@ class HarpScene extends Phaser.Scene {
     }
 
     // Emit pluck event to CorraHarp
-    this._onPluck?.({ midi: s.midi, stringIndex: idx, velocity: vel })
+    this._onPluck?.({ midi: playMidi, stringIndex: idx, velocity: vel, sharp: playedSharp })
   }
 
   // Registry for external modules (e.g. HarpPhrasePlayer) to draw on top
@@ -328,6 +380,10 @@ class HarpScene extends Phaser.Scene {
           s.gfx.clear()
           s.gfx.lineStyle(s.thick, s.ci, s.baseA)
           s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
+          if (s._sharpCueActive) {
+            s.lbl.setText(s.label)
+            s._sharpCueActive = false
+          }
         }
       }
     })
@@ -461,6 +517,9 @@ class HarpScene extends Phaser.Scene {
   }
 }
 
+// (Sharp badge removed — sharps are automatic now, see file header.
+// If a per-string lever UI is ever wanted, this is roughly where it'd go.)
+
 // ── Public API ─────────────────────────────────────────────────────────────
 export class CorraHarp {
   constructor(parentScene) {
@@ -576,6 +635,15 @@ export class CorraHarp {
     this._emit('ready', {})
   }
 
+  // Register (or clear, by passing null) the sharp-hint callback that
+  // HarpPhrasePlayer uses to flag "the next pluck on string X should
+  // sound sharp." Proxies straight to the underlying HarpScene. Safe to
+  // call before the scene exists — see HarpPhrasePlayer's start(), which
+  // calls this after waiting for the 'ready' event, so this should always
+  // have a live scene in practice, but the optional-chain keeps it safe
+  // either way.
+  setSharpHintFn(fn) { this._harpScene?.setSharpHintFn(fn) }
+
   // Close and destroy
   close() {
     const overlay = this._overlay
@@ -602,7 +670,9 @@ export class CorraHarp {
     this._harpScene?.highlightString(idx, on, pulse)
   }
 
-  // Get string index for a given MIDI note
+  // Get string index for a given MIDI note (matches NATURAL pitches only —
+  // sharped pitches aren't distinct STR entries, they're a modifier on the
+  // same string, so this intentionally doesn't search sharpM values).
   stringForMidi(midi) {
     return STR.findIndex(s => s.m === midi)
   }
@@ -614,14 +684,14 @@ export class CorraHarp {
   _unregisterOverlayDraw(fn) { this._harpScene?.unregisterOverlayDraw(fn) }
 
   // Exposes this harp's tuning range in the shape abcToPhrase.js expects:
-  // { min, max, available: [{m, idx}, ...] } sorted by MIDI ascending.
+  // { min, max, available: [{m, idx, sharpM?}, ...] } sorted by MIDI ascending.
   // Bodhrán-style click for external timing aids (e.g. HarpPhrasePlayer's
   // beat track). accent 0..1: higher = louder/brighter (downbeat feel).
   playClick(accent = 0.6) { this._harpScene?.audio?.playClick(accent) }
 
   getMidiRange() {
     const available = STR
-      .map((s, idx) => ({ m: s.m, idx }))
+      .map((s, idx) => ({ m: s.m, idx, sharpM: s.sharpM }))
       .sort((a, b) => a.m - b.m)
     return {
       min: available[0].m,

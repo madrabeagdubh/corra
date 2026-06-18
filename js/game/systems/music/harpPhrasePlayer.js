@@ -26,6 +26,23 @@
 //                               // the harp which pitch to actually sound,
 //                               // it's not something the player toggles.
 //     label?:     string
+//     vel?:       number       // 0..1 velocity/loudness for autoPlay's
+//                               // demoStrike — metric accent (downbeats
+//                               // louder, off-beats softer) so a played-
+//                               // back tune doesn't sound flat/mechanical.
+//                               // Ignored during real play (the player's
+//                               // own pluck velocity is used instead).
+//                               // Defaults to 0.8 if omitted.
+//     ornament?: {type,count}  // null/absent = plain note. Otherwise
+//                               // this beat stands in for an ornamental
+//                               // flourish (triplet or roll) — see
+//                               // abcToTimedStringSequence and
+//                               // corraHarp.js's playOrnament. The
+//                               // player still only hits ONE orb; the
+//                               // harp plays the actual flourish. Gets a
+//                               // wider hit-window (_effectiveHalfWindow)
+//                               // but is scored the same as any other
+//                               // beat once hit/missed.
 //   }
 //   Phrase = Beat[]   — beats are scheduled by atMs, not by sequence/order
 //
@@ -66,6 +83,21 @@ export class HarpPhrasePlayer {
       // Nth click as a louder "downbeat" (e.g. 4 for 4/4-feel emphasis).
       bodhranBeatMs:  opts.bodhranBeatMs  ?? null,
       bodhranAccentEvery: opts.bodhranAccentEvery ?? 4,
+      // Demo/preview mode: every beat plays itself automatically, exactly
+      // at atMs, via corraHarp.demoStrike — no player input is read or
+      // required. Orbs still launch, fly, and arrive through the SAME
+      // draw loop as real play (this is the whole point — it's meant to
+      // show you what correct play looks/sounds like, not a different,
+      // simplified visual). Beats still resolve as "hit" so scoring stays
+      // sane if a caller happens to read onBeatResult during a demo.
+      autoPlay: !!opts.autoPlay,
+      // Passed straight through to corraHarp.setTempoMs at start() — see
+      // that method's doc for what it's used for (scaling ornament
+      // flourish timing). Defaults to bodhranBeatMs/4 if not given
+      // explicitly (a reasonable guess at "one duration-unit" when the
+      // caller already has a bodhrán click set up at the quarter-note
+      // rate), else falls back to a sane constant.
+      tempoMs: opts.tempoMs ?? (opts.bodhranBeatMs ? opts.bodhranBeatMs / 4 : 300),
     }
     this._nextClickAt = null
     this._clickCount   = 0
@@ -91,30 +123,41 @@ export class HarpPhrasePlayer {
     this._running = true
     this._startMs  = performance.now()
 
-    this._pluckHandler = ({ stringIndex }) => this._onPluck(stringIndex)
-    this._harp.on('pluck', this._pluckHandler)
+    this._harp.setTempoMs?.(this._opts.tempoMs)
+
+    if (!this._opts.autoPlay) {
+      this._pluckHandler = ({ stringIndex }) => this._onPluck(stringIndex)
+      this._harp.on('pluck', this._pluckHandler)
+
+      // Shared lookup: for a given string, find the nearest unresolved
+      // in-flight beat that uses it. "Nearest" = closest atMs to now,
+      // since a string can have at most one beat realistically in its
+      // hit window at a time, but using nearest rather than "first
+      // found" keeps this correct even if two same-string beats are
+      // briefly in flight. Used by BOTH the sharp-hint and ornament-hint
+      // callbacks below, since they're answering the same underlying
+      // question ("which beat is this pluck actually for?").
+      const findNearestBeat = (stringIndex) => {
+        const now = performance.now() - this._startMs
+        let best = null, bestDist = Infinity
+        this._phrase.forEach((beat, i) => {
+          const st = this._beatState[i]
+          if (st.resolved || !beat.strings.includes(stringIndex)) return
+          const dist = Math.abs(now - beat.atMs)
+          if (dist < bestDist) { bestDist = dist; best = beat }
+        })
+        return best
+      }
+
+      this._sharpHintFn = (stringIndex) => !!findNearestBeat(stringIndex)?.sharp
+      this._harp.setSharpHintFn?.(this._sharpHintFn)
+
+      this._ornamentHintFn = (stringIndex) => findNearestBeat(stringIndex)?.ornament ?? null
+      this._harp.setOrnamentHintFn?.(this._ornamentHintFn)
+    }
 
     this._drawHook = (gfx) => this._tick(gfx)
     this._harp._registerOverlayDraw?.(this._drawHook)
-
-    // Drive automatic sharps: for a given string, find the nearest
-    // unresolved in-flight beat that uses it and report whether THAT one
-    // needs the sharp. "Nearest" = closest atMs to now, since a string
-    // can have at most one beat realistically in its hit window at a
-    // time, but using nearest rather than "first found" keeps this
-    // correct even if two same-string beats are briefly both in flight.
-    this._sharpHintFn = (stringIndex) => {
-      const now = performance.now() - this._startMs
-      let best = null, bestDist = Infinity
-      this._phrase.forEach((beat, i) => {
-        const st = this._beatState[i]
-        if (st.resolved || !beat.strings.includes(stringIndex)) return
-        const dist = Math.abs(now - beat.atMs)
-        if (dist < bestDist) { bestDist = dist; best = beat }
-      })
-      return !!best?.sharp
-    }
-    this._harp.setSharpHintFn?.(this._sharpHintFn)
 
     if (this._opts.bodhranBeatMs) {
       this._nextClickAt = 0   // fire the first click immediately at phrase start
@@ -127,7 +170,10 @@ export class HarpPhrasePlayer {
     this._nextClickAt = null
     if (this._pluckHandler) this._harp.off('pluck', this._pluckHandler)
     if (this._drawHook) this._harp._unregisterOverlayDraw?.(this._drawHook)
-    this._harp.setSharpHintFn?.(null)   // back to natural-only for free play
+    if (!this._opts.autoPlay) {
+      this._harp.setSharpHintFn?.(null)      // back to natural-only for free play
+      this._harp.setOrnamentHintFn?.(null)   // back to plain strikes for free play
+    }
     this._phrase.forEach(beat => beat.strings.forEach(idx => this._harp.highlightString(idx, false)))
   }
 
@@ -138,6 +184,19 @@ export class HarpPhrasePlayer {
   // here anymore: the sharp-hint function (see start()) already made sure
   // the harp sounded the correct pitch for this exact pluck, so any
   // window/string match is a valid hit regardless of sharp/natural.
+  //
+  // Ornament beats (see abcToTimedStringSequence's `ornaments` output)
+  // get a WIDER effective window — per design, hitting one beat that
+  // stands in for a fast ornamental flourish should be a little more
+  // forgiving than a plain note, since the player is committing to a
+  // trickier passage they can't physically execute note-by-note. Scoring
+  // itself (hit/miss tally, accuracy contribution) is NOT treated
+  // specially beyond that — once it's hit, it's just a normal hit.
+  _effectiveHalfWindow(beat) {
+    const half = beat.windowMs / 2
+    return beat.ornament ? half * 1.35 : half
+  }
+
   _onPluck(stringIndex) {
     if (!this._running) return
     const now = performance.now() - this._startMs
@@ -150,7 +209,7 @@ export class HarpPhrasePlayer {
       if (st.resolved) return
       if (!beat.strings.includes(stringIndex)) return
       if (st.hitsThisBeat.has(stringIndex)) return
-      const half = beat.windowMs / 2
+      const half = this._effectiveHalfWindow(beat)
       const dist = Math.abs(now - beat.atMs)
       if (dist <= half && dist < bestDist) { bestDist = dist; bestIdx = i }
     })
@@ -162,7 +221,7 @@ export class HarpPhrasePlayer {
     st.hitsThisBeat.add(stringIndex)
     this._harp.highlightString(stringIndex, false)
 
-    const accuracy = 1 - bestDist / (beat.windowMs / 2)
+    const accuracy = 1 - bestDist / this._effectiveHalfWindow(beat)
 
     if (st.hitsThisBeat.size === beat.strings.length) {
       st.resolved = true
@@ -193,7 +252,21 @@ export class HarpPhrasePlayer {
         st.launched = true
         beat.strings.forEach(idx => this._harp.highlightString(idx, true, false))
       }
-      if (st.launched && !st.resolved && now > beat.atMs + beat.windowMs / 2 + 50) {
+      // Demo mode: strike exactly at atMs (not at launch) and resolve as
+      // a hit — this is what makes the audio land precisely on-beat while
+      // the orb's flight/arrival visuals stay driven by the same launch/
+      // atMs timing as real play.
+      if (this._opts.autoPlay && st.launched && !st.resolved && now >= beat.atMs) {
+        st.resolved = true
+        beat.strings.forEach(idx => {
+          this._harp.demoStrike(idx, beat.sharp, beat.vel ?? 0.55, beat.ornament)
+          st.hitsThisBeat.add(idx)   // keeps wasHit/orb-arrival visuals consistent with real play
+        })
+        this._tally.hit++
+        this._tally.totalAccuracy += 1
+        this._opts.onBeatResult(i, { hit: true, accuracy: 1 })
+      }
+      if (!this._opts.autoPlay && st.launched && !st.resolved && now > beat.atMs + this._effectiveHalfWindow(beat) + 50) {
         // Window has closed without a full hit — mark missed, stop tracking
         st.resolved = true
         this._tally.missed++
@@ -331,6 +404,17 @@ export class HarpPhrasePlayer {
           gfx.fillCircle(ox, oy, 11)
         }
 
+        // Ornament halo — a distinct ring (not a filled aura, so it
+        // doesn't read as "the same thing as sharp" at a glance) marking
+        // "hitting this one triggers a flourish, not a plain note." Drawn
+        // a bit larger than the sharp halo so the two can stack legibly
+        // if a beat is somehow both (shouldn't normally happen on this
+        // harp's repertoire, but isn't structurally prevented).
+        if (beat.ornament) {
+          gfx.lineStyle(2, 0x7fffd4, 0.6 * fadeAlpha)
+          gfx.strokeCircle(ox, oy, 14)
+        }
+
         // (Removed: pulsing glow halo for next-up. The solid color swap
         // on the orb itself is now the only "next up" cue — adding a
         // second, separately-animated effect on top tested as confusing.)
@@ -385,8 +469,29 @@ export function buildTimedPhrase(stringIndices, opts = {}) {
 // note lengths) instead of a constant beatMs. `durations` is an array of
 // relative lengths (e.g. 1 = eighth note, 2 = quarter) matching stringIndices.
 // `sharps` (optional) is a parallel array of booleans — whether each note
-// needs the harp's global sharp toggle ON to sound correctly. Omit it (or
-// pass an all-false/undefined array) for tunes that need no accidentals.
+// needs the harp to sound that string's sharp variant. Omit it (or pass an
+// all-false/undefined array) for tunes that need no accidentals.
+// `accents` (optional) is a parallel array of 0..1 metric-strength values
+// (see abcToTimedStringSequence) — stored on each beat as `vel` so a
+// renderer/autoPlay can vary loudness instead of every note hitting
+// identically, which is most of what makes a sequenced tune sound flat
+// and mechanical rather than played. Beats with no accent data default
+// to vel 0.8 (a reasonable plain mf, not maximally loud).
+// `lilt` (optional, default 0): 0..1 strength of a small, deterministic
+// timing push-pull applied per-note (the lived-in "swing" of trad playing
+// rather than a rigid grid). 0 = perfectly quantized, as before. Kept
+// SMALL and seeded from note index (not Math.random()) so it's the same
+// every time the same tune is built — a player practicing against it
+// isn't chasing a moving target. windowMs should generally be a bit more
+// forgiving than 0 when lilt > 0, since the orb's exact arrival now
+// wobbles slightly off the strict grid.
+// `ornaments` (optional) is a parallel array of null|{type,count} (see
+// abcToTimedStringSequence) — stored on each beat as `ornament`. The
+// PLAYER still only hits one orb for an ornament beat; the harp plays
+// the actual flourish automatically (see corraHarp.js playOrnament).
+// HarpPhrasePlayer also widens the hit-window for ornament beats — see
+// _effectiveHalfWindow — since they stand in for passages a human can't
+// physically play note-by-note.
 export function buildTimedPhraseFromDurations(stringIndices, durations, opts = {}) {
   const {
     unitMs    = 220,    // ms per duration-unit (tempo control)
@@ -394,12 +499,37 @@ export function buildTimedPhraseFromDurations(stringIndices, durations, opts = {
     windowMs  = 350,
     startDelayMs = 800,
     sharps    = null,
+    accents   = null,
+    lilt      = 0,
+    ornaments = null,
   } = opts
   let t = startDelayMs
   return stringIndices.map((idx, i) => {
-    const beat = { strings: [idx], atMs: t, travelMs, windowMs, sharp: !!sharps?.[i] }
+    // Deterministic pseudo-random offset from index, not Math.random() —
+    // see header. Small sine-based wobble, max ~±18% of a duration-unit
+    // at lilt=1, scaled down for lilt<1. Kept well under half the typical
+    // note spacing so it reads as "feel", not as actually-late/early.
+    const wobble = lilt > 0
+      ? Math.sin(i * 12.9898) * unitMs * 0.18 * lilt
+      : 0
+    const beat = {
+      strings:  [idx],
+      atMs:     t + wobble,
+      travelMs,
+      windowMs,
+      sharp:    !!sharps?.[i],
+      vel:      accents?.[i] ?? 0.8,
+      ornament: ornaments?.[i] ?? null,
+    }
     t += (durations[i] ?? 1) * unitMs
     return beat
   })
 }
+
+// (HarpDemoPlayer removed — superseded by HarpPhrasePlayer's `autoPlay`
+// option, which reuses the SAME draw loop as real play instead of a
+// parallel no-orb implementation. The earlier no-orb version was a
+// mistake: it made demo mode look broken — "the orbs disappear" — rather
+// than showing the player what correct play actually looks like. See
+// tavern.js's _startDemoPlayback for the new usage.)
 

@@ -61,11 +61,36 @@ const N = STR.length
 // 20° from horizontal — strings run mostly left-right across screen.
 // Pluck direction is nearly vertical (up/down finger motion), which is
 // natural and gives a wide draw range on a phone screen.
+//
+// Each string tilts HIGH-on-the-left, LOW-on-the-right (per explicit
+// request) — SY is positive here, meaning y INCREASES (moves down the
+// screen) as you move in the positive-SX direction (left to right).
+// This is independent of the harp's overall sweep (highest-pitched
+// string at the top, lowest at the bottom), which is set separately by
+// the AX1/AY1 → AX2/AY2 anchor progression in _buildStrings and is
+// NOT changed by this constant.
+//
+// IMPORTANT: (PX,PY) MUST stay perpendicular to (SX,SY). _nearStr's hit
+// detection (px-ax)*PX + (py-ay)*PY is only a valid "distance from this
+// touch point to the string's actual line" measure when that holds —
+// it's the standard point-to-line projection formula, and it being
+// correct for ALL touch points along the string's length (not just
+// near the anchor) depends entirely on PX/PY being the true unit
+// perpendicular to the string's real direction. When SY's sign was
+// first flipped (to reverse the string tilt) without ALSO flipping
+// PX/PY to match, the dot product of the two vectors went from 0 to
+// ~0.64 — no longer perpendicular at all — which silently broke hit
+// detection for any touch far from a string's anchor point (i.e.
+// anywhere away from screen center, which on a phone is most of the
+// usable surface). That's a real, separate bug from the visual tilt
+// change itself: the strings LOOKED right but couldn't be reliably
+// plucked away from center, exactly matching "hit area is off" reports
+// after the angle reversal.
 const ANG = 20 * Math.PI / 180
 const SX  =  Math.cos(ANG)   //  0.940 — mostly horizontal
-const SY  = -Math.sin(ANG)   // -0.342 — slight upward tilt left-to-right
-const PX  =  Math.sin(ANG)   //  0.342 — pluck direction: mostly vertical
-const PY  =  Math.cos(ANG)   //  0.940
+const SY  =  Math.sin(ANG)   //  0.342 — slight DOWNWARD tilt left-to-right
+const PX  = -Math.sin(ANG)   // -0.342 — true perpendicular to (SX,SY) above
+const PY  =  Math.cos(ANG)   //  0.940 — (downward drag still reads as positive perp, unchanged feel)
 const STRUM_CD = 30
 
 // ── Karplus-Strong audio ───────────────────────────────────────────────────
@@ -189,7 +214,27 @@ class HarpScene extends Phaser.Scene {
     // tune is running; left null during free play, so untouched strings
     // always sound natural. See file header.
     this._getSharpHint = null
+    // Optional callback: (stringIndex) => {type,count}|null. Same idea as
+    // _getSharpHint — asked at the moment a string fires, tells the harp
+    // whether THIS pluck should play as an ornamented flourish instead of
+    // a plain strike, and which kind. Registered by HarpPhrasePlayer while
+    // a scripted tune is running; null during free play, so untouched
+    // strings always play as plain single strikes. See playOrnament.
+    this._getOrnamentHint = null
+    // Current tune tempo (ms per duration-unit) — used only to scale
+    // ornament internal timing (see playOrnament). Set once per phrase
+    // via setTempoMs; defaults to a sane value for free play / before
+    // any tune has set it.
+    this._tempoMs = 300
   }
+
+  // Register the current tune's tempo (ms per duration-unit), so
+  // ornament flourishes scale proportionally instead of always playing
+  // at a fixed speed regardless of how fast/slow the tune itself is.
+  setTempoMs(ms) { if (ms > 0) this._tempoMs = ms }
+
+  // Register (or clear, by passing null) the ornament-hint callback.
+  setOrnamentHintFn(fn) { this._getOrnamentHint = fn || null }
 
   // Register (or clear, by passing null) the sharp-hint callback. See
   // constructor comment and file header for the model this implements.
@@ -221,11 +266,18 @@ class HarpScene extends Phaser.Scene {
 
   _buildStrings() {
     const { width: W, height: H } = this.scale
-    // Strings spread top-to-bottom with slight right tilt (20° angle)
-    // Each string anchor is spaced vertically — strings fill the screen height
+    // Strings spread top-to-bottom by PITCH (highest-pitched string near
+    // the top, lowest near the bottom — via the AX1/AY1 → AX2/AY2 anchor
+    // progression below; unchanged from before). Each individual string
+    // is ALSO tilted ~20°, but slanting HIGH-on-the-left to LOW-on-the-
+    // right (see SY's sign above) — i.e. each string's own left end sits
+    // higher on screen than its right end. This was an explicit reversal
+    // from an earlier version where each string tilted the other way
+    // (low-left/high-right); only the per-string tilt direction changed,
+    // the overall top-to-bottom pitch sweep was deliberately left as-is.
     const MARGIN  = H * 0.08
-    const AX1 = W * 0.45, AY1 = MARGIN
-    const AX2 = W * 0.55, AY2 = H - MARGIN
+    const AX1 = W * 0.55, AY1 = MARGIN
+    const AX2 = W * 0.45, AY2 = H - MARGIN
     const DAX = (AX2 - AX1) / (N - 1)
     const DAY = (AY2 - AY1) / (N - 1)
     const EXT = W * 1.1   // extend past screen edges horizontally
@@ -260,14 +312,8 @@ class HarpScene extends Phaser.Scene {
     })
   }
 
-  // Effective MIDI pitch this string sounds for THIS pluck, given the
-  // current sharp-hint callback (if any). Strings with no sharpM are
-  // always natural, regardless of the hint.
-  _effectiveMidi(s, idx) {
-    if (s.sharpMidi === undefined) return s.midi
-    const wantsSharp = !!this._getSharpHint?.(idx)
-    return wantsSharp ? s.sharpMidi : s.midi
-  }
+  // (Pitch resolution for a given sharp-want now lives in _strike, shared
+  // between real input and demo mode — see below.)
 
   // Brief visual cue that THIS pluck sounded sharp — a quick tint/label
   // flash on the string itself, not a persistent mode change (there is
@@ -297,14 +343,49 @@ class HarpScene extends Phaser.Scene {
   _fire(idx, vel) {
     if (vel < 0.04) return
     const s = this.strings[idx]; if (!s) return
-    // Debounce: ignore if this string fired within 80ms
+    // Debounce: ignore if this string fired within 40ms (was 80ms).
+    // This exists to absorb accidental double-fires from one physical
+    // touch (sensor jitter), NOT to block two genuinely separate,
+    // deliberate plucks. 80ms turned out to be long enough to do both —
+    // bard mode can legitimately need the same string plucked twice in
+    // a row for two different consecutive gestures (e.g. two
+    // back-to-back single-note groups that both land on string 6), and
+    // a player moving at a normal pace could easily land the second
+    // pluck within that old window, which silently swallowed it
+    // entirely (this function returns BEFORE emitting the 'pluck'
+    // event, so bardAccompaniment.js never even learned a pluck
+    // happened) — exactly matching "ran out of gold strings to pluck"
+    // even though the string was lit and the player was hitting it.
+    // 40ms is still comfortably longer than any plausible jitter-only
+    // double-fire, while leaving enough room for fast deliberate replay.
     const now = Date.now()
-    if (s._lastFired && now - s._lastFired < 80) return
+    if (s._lastFired && now - s._lastFired < 40) return
     s._lastFired = now
+    const wantsSharp = !!this._getSharpHint?.(idx)
+    const ornament   = this._getOrnamentHint?.(idx) ?? null
+    const playedSharp = this.playOrnament(idx, vel, wantsSharp, ornament, this._tempoMs)
+    const playMidi = playedSharp ? s.sharpMidi : s.midi
+
+    // Emit pluck event to CorraHarp — only real player input does this;
+    // demo mode (see demoStrike) intentionally skips it, since there's no
+    // rhythm-game state to resolve when notes are playing automatically.
+    this._onPluck?.({ midi: playMidi, stringIndex: idx, velocity: vel, sharp: playedSharp })
+  }
+
+  // Shared visual+audio playback for one string: vibration, particles,
+  // sharp flash (if applicable), and the actual synth note. Used by both
+  // real player input (_fire, via the sharp-hint callback) and demo mode
+  // (demoStrike, via an explicit sharp flag — no hint needed since demo
+  // mode already knows ground truth from the tune data). Returns whether
+  // it actually played sharp (false if this string has no sharp variant
+  // regardless of what was requested).
+  _strike(idx, vel, wantsSharp) {
+    const s = this.strings[idx]; if (!s) return false
     s.st.amp = s.maxDraw * vel
     s.st.vel = vel
-    const playMidi = this._effectiveMidi(s, idx)
-    const playedSharp = playMidi === s.sharpMidi
+    const canSharp = s.sharpMidi !== undefined
+    const playedSharp = canSharp && wantsSharp
+    const playMidi = playedSharp ? s.sharpMidi : s.midi
     if (playedSharp) this._flashSharpCue(s)
     this.audio.play(playMidi, vel)
 
@@ -326,9 +407,114 @@ class HarpScene extends Phaser.Scene {
         })
       }
     }
+    return playedSharp
+  }
 
-    // Emit pluck event to CorraHarp
-    this._onPluck?.({ midi: playMidi, stringIndex: idx, velocity: vel, sharp: playedSharp })
+  // ── Demo mode ─────────────────────────────────────────────────────────
+  // Strikes a string with a known, explicit sharp flag and ornament (no
+  // hint lookup, no debounce, no 'pluck' event) — used by HarpPhrasePlayer's
+  // autoPlay mode to play a tune's notes exactly as written, ornaments
+  // included, so the player can hear what it's supposed to sound like
+  // independent of their own timing/aim.
+  demoStrike(idx, sharp, vel = 0.55, ornament = null) {
+    this.playOrnament(idx, vel, !!sharp, ornament, this._tempoMs)
+  }
+
+  // ── Ornaments ────────────────────────────────────────────────────────
+  // Plays a short, scripted flourish in place of a single strike — used
+  // for beats that represent ornamentation rather than one plain note
+  // (see abcToTimedStringSequence's `ornaments` output). The PLAYER still
+  // only does one pluck for the whole beat; this is what the harp plays
+  // back automatically in response, same idea as a real trad musician
+  // adding rolls/triplet ornaments on top of the tune's actual notes.
+  //
+  // `ornament` shape: { type: 'triplet'|'roll'|'cut', count }
+  //   Sources, from abcToTimedStringSequence: same-pitch (N tuplets become
+  //   'triplet'; a ~ marker or a multi-note {..} grace cluster becomes
+  //   'roll'; a single-note {x} grace cut becomes 'cut'.
+  //   triplet — rapid same-string re-strikes (the classic "same note,
+  //             three times, fast" ornamental triplet), decreasing
+  //             velocity so it reads as one decorated gesture rather than
+  //             three equally-weighted notes. Spaced across a window that
+  //             SCALES with the tune's tempo (tempoMs, typically the
+  //             phrase's unitMs) rather than a fixed constant — at a
+  //             slower tempo a triplet flourish should breathe a bit
+  //             more too, or it ends up feeling MORE rushed relative to
+  //             everything around it as the tune slows down, not less.
+  //   roll    — the standard trad "cut" turn: main note, quick upper
+  //             neighbour (the string one step up — strings are stored
+  //             high-to-low and adjacent-by-step, see STR comment, so
+  //             that's simply idx-1), back to main note. Very fast and
+  //             quiet on the middle note, like a finger-flick rather than
+  //             a deliberate pluck — also scales with tempoMs, though
+  //             less aggressively than a triplet (a roll's grace note is
+  //             always brisk relative to the main note, even in a slow air).
+  // `tempoMs`: the tune's current ms-per-duration-unit (i.e. its unitMs).
+  // Used only to scale ornament internal timing — defaults to a sane
+  // value if omitted so callers that don't pass it don't break.
+  // Returns the same playedSharp boolean _strike does, for the FIRST
+  // (main) note — that's what matters for the 'pluck' event's sharp flag.
+  playOrnament(idx, vel, wantsSharp, ornament, tempoMs = 300) {
+    if (!ornament) return this._strike(idx, vel, wantsSharp)
+
+    if (ornament.type === 'triplet') {
+      const n = Math.max(2, ornament.count || 3)
+      // Scales with tempo: roughly 45% of one duration-unit's time,
+      // clamped to a sane range so it's never so fast it's inaudible as
+      // distinct notes, nor so slow it stops feeling like ornamentation
+      // and starts feeling like the actual melody.
+      const totalMs = Math.max(140, Math.min(420, tempoMs * 0.45))
+      // Velocities taper down across the group, mirroring the natural
+      // decay of a quick repeated pluck rather than N equal hits.
+      let playedSharp = false
+      for (let k = 0; k < n; k++) {
+        const v = vel * (1 - k * 0.18)
+        const fire = () => { const ps = this._strike(idx, Math.max(0.15, v), wantsSharp); if (k === 0) playedSharp = ps }
+        if (k === 0) fire()
+        else this.time.delayedCall((totalMs / n) * k, fire)
+      }
+      const canSharp = this.strings[idx]?.sharpMidi !== undefined
+      return wantsSharp && canSharp
+    }
+
+    if (ornament.type === 'cut') {
+      // A cut: a single quick grace note (the standard ABC {x}note
+      // single-grace-note cut) played just BEFORE the main note, rather
+      // than the roll's after-and-back figure. Uses the same adjacent-
+      // string convention as roll (see roll's comment) since we don't
+      // carry the grace note's actual written pitch through — only how
+      // many grace notes there were. Quiet and very brief.
+      const upperIdx = Math.max(0, idx - 1)
+      const cutMs = Math.max(30, Math.min(110, tempoMs * 0.14))
+      this._strike(upperIdx, vel * 0.45, false)
+      this.time.delayedCall(cutMs, () => this._strike(idx, vel, wantsSharp))
+      // The main note plays slightly AFTER the cut, so its actual
+      // playedSharp result arrives via a delayed closure — but the
+      // 'pluck' event (in _fire) needs a same-tick boolean. Compute it
+      // directly here instead of threading the delayed result back out.
+      const canSharp = this.strings[idx]?.sharpMidi !== undefined
+      return wantsSharp && canSharp
+    }
+
+    if (ornament.type === 'roll') {
+      const upperIdx = Math.max(0, idx - 1)
+      const playedSharp = this._strike(idx, vel, wantsSharp)
+      // Scales more gently than the triplet — a roll's grace notes stay
+      // brisk even when the tune itself is slow, but shouldn't feel
+      // exactly tempo-independent either.
+      const graceMs = Math.max(40, Math.min(140, tempoMs * 0.18))
+      const closeMs = Math.max(80, Math.min(260, tempoMs * 0.35))
+      // Upper neighbour: quick, quiet, natural pitch (rolls conventionally
+      // don't carry the sharp through to the grace note) — then back to
+      // the main note to close the figure.
+      this.time.delayedCall(graceMs, () => this._strike(upperIdx, vel * 0.5, false))
+      this.time.delayedCall(closeMs, () => this._strike(idx, vel * 0.85, wantsSharp))
+      return playedSharp
+    }
+
+    // Unknown ornament type — fall back to a plain strike rather than
+    // silently doing nothing.
+    return this._strike(idx, vel, wantsSharp)
   }
 
   // Registry for external modules (e.g. HarpPhrasePlayer) to draw on top
@@ -350,9 +536,14 @@ class HarpScene extends Phaser.Scene {
         const da = ap[i], pull = Math.abs(da) / s.maxDraw
         const kx = s.ax + PX * da, ky = s.ay + PY * da
         s.gfx.clear()
-        s.gfx.lineStyle(s.thick + pull * 2.4, s.ci, 0.3 + pull * 0.6)
+        // Use gold if the string is currently bard-highlighted, so the
+        // draw-back visual stays gold throughout the gesture rather than
+        // reverting to native color while the player holds the string.
+        const drawColor = s._goldHighlighted ? 0xffcc33 : s.ci
+        const drawAlpha = s._goldHighlighted ? (0.5 + pull * 0.5) : (0.3 + pull * 0.6)
+        s.gfx.lineStyle(s.thick + pull * 2.4, drawColor, drawAlpha)
         s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(kx, ky); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
-        s.vfx.fillStyle(s.ci, 0.1 + pull * 0.12)
+        s.vfx.fillStyle(s._goldHighlighted ? 0xffcc33 : s.ci, 0.1 + pull * 0.12)
         s.vfx.fillCircle(kx, ky, 3 + pull * 11)
         return
       }
@@ -378,7 +569,19 @@ class HarpScene extends Phaser.Scene {
         if (st.amp < 0.2) {
           st.amp = 0
           s.gfx.clear()
-          s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+          // Restore whichever appearance is CURRENTLY correct for this
+          // string — gold if it's still meant to be highlighted (see
+          // highlightString's s._goldHighlighted tracking), otherwise
+          // its plain native color. Previously this unconditionally
+          // reset to native color, which silently erased gold highlights
+          // any time a highlighted string's own pluck-wobble finished
+          // decaying — independent of whatever bardAccompaniment.js's
+          // actual light/unlight calls were doing.
+          if (s._goldHighlighted) {
+            s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
+          } else {
+            s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+          }
           s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
           if (s._sharpCueActive) {
             s.lbl.setText(s.label)
@@ -403,9 +606,24 @@ class HarpScene extends Phaser.Scene {
   _shl(idx, on) {
     const s = this.strings[idx]; if (!s) return
     s.gfx.clear()
-    s.gfx.lineStyle(on ? s.thick + 1.5 : s.thick, s.ci, on ? 0.65 : s.baseA)
-    s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
-    if (on) { s.vfx.clear(); s.vfx.fillStyle(s.ci, 0.4); s.vfx.fillCircle(s.ax, s.ay, 6) }
+    if (on) {
+      s.gfx.lineStyle(s.thick + 1.5, s.ci, 0.65)
+      s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
+      s.vfx.clear(); s.vfx.fillStyle(s.ci, 0.4); s.vfx.fillCircle(s.ax, s.ay, 6)
+    } else {
+      // Restore whichever appearance is correct: gold if currently
+      // highlighted by bard mode, otherwise native color. Without this,
+      // releasing a touch after drawing back a gold string would
+      // immediately stomp it back to native color (via s.ci) before the
+      // wobble animation even started — same class of bug as in the
+      // wobble-decay-end code above.
+      if (s._goldHighlighted) {
+        s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
+      } else {
+        s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+      }
+      s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
+    }
   }
 
   _input() {
@@ -493,18 +711,62 @@ class HarpScene extends Phaser.Scene {
     this.input.on('pointerupoutside', up)
   }
 
-  // Highlight a specific string (for guided prompts later)
+  // Highlight a specific string. Two distinct looks depending on
+  // `pulse`:
+  //   pulse=false — the ORIGINAL look (native string color, slightly
+  //     thicker), used by harpPhrasePlayer.js to mark which string a
+  //     launched orb is heading for. Left exactly as it was; the orb
+  //     game already has its own tuned visual language (queue colors,
+  //     sharp halos, ornament rings) and changing this would bleed into
+  //     that unintentionally.
+  //   pulse=true — bard-accompaniment mode's "pluck this" cue. Uses a
+  //     fixed GOLD color rather than the string's own native color
+  //     (white/red/blue, see STR's color convention): using the native
+  //     color made the highlight read as "this string got slightly
+  //     thicker," not "this string wants attention" — a white string
+  //     highlighted in white barely changes. Gold is distinct from
+  //     every existing string color and from the violet sharp-pluck
+  //     flash / teal ornament halo used elsewhere, so it reads
+  //     unambiguously as its own cue. SOLID, no breathing/pulse
+  //     animation — an earlier version animated alpha here, but per
+  //     explicit feedback the animation added visual noise without
+  //     adding clarity; plain solid gold is enough on its own. This also
+  //     removes an entire class of Phaser-tween-lifecycle bugs (stacked
+  //     tweens, killTweensOf race conditions) that only existed because
+  //     there was a tween to manage in the first place.
   highlightString(idx, on, pulse = false) {
     const s = this.strings[idx]; if (!s) return
+    // Still defensively stop any leftover tween from an OLDER version of
+    // this method that might have left one running on a string (e.g.
+    // hot-reload during development) — harmless no-op otherwise now
+    // that nothing here creates new tweens.
+    if (s._pulseTween) {
+      s._pulseTween.stop()
+      s._pulseTween = null
+    }
+    // Track gold-highlight state PERSISTENTLY on the string, not just as
+    // a one-off draw. This matters because the per-frame wobble/vibration
+    // render loop (see the "Vibration" block further down) redraws s.gfx
+    // from scratch whenever a string's pluck-decay animation finishes —
+    // and until this flag existed, that code always reset the string back
+    // to its plain native color, with no way to know a gold highlight
+    // should be restored instead. That's what caused "strings stopped
+    // showing gold after only a few notes": plucking ANY string (including
+    // via demoStrike, used to auto-sound the rest of a chord — see
+    // bardAccompaniment.js) plays its wobble animation, and once that
+    // decayed, this is the code that was silently erasing gold highlights
+    // out from under the bard engine, independent of the engine's own
+    // light/unlight calls.
+    s._goldHighlighted = pulse && on
     if (on) {
+      const color = pulse ? 0xffcc33 : s.ci
+      const alpha = pulse ? 0.95 : 0.85
+      s.gfx.setAlpha(1)
       s.gfx.clear()
-      s.gfx.lineStyle(s.thick + 2.5, s.ci, 0.85)
+      s.gfx.lineStyle(s.thick + 2.5, color, alpha)
       s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
-      if (pulse) {
-        this.tweens.add({ targets: s.gfx, alpha: 0.55, duration: 280, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
-      }
     } else {
-      this.tweens.killTweensOf(s.gfx); s.gfx.setAlpha(1)
+      s.gfx.setAlpha(1)
       s.gfx.clear()
       s.gfx.lineStyle(s.thick, s.ci, s.baseA)
       s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
@@ -644,6 +906,16 @@ export class CorraHarp {
   // either way.
   setSharpHintFn(fn) { this._harpScene?.setSharpHintFn(fn) }
 
+  // Register (or clear) the ornament-hint callback. See HarpScene's
+  // constructor comment and playOrnament for what this drives.
+  setOrnamentHintFn(fn) { this._harpScene?.setOrnamentHintFn(fn) }
+
+  // Tell the harp the tune's current tempo (ms per duration-unit), so
+  // ornament flourishes (triplets/rolls) scale their internal timing
+  // proportionally instead of always playing at a fixed speed. See
+  // HarpScene.setTempoMs / playOrnament.
+  setTempoMs(ms) { this._harpScene?.setTempoMs(ms) }
+
   // Close and destroy
   close() {
     const overlay = this._overlay
@@ -688,6 +960,10 @@ export class CorraHarp {
   // Bodhrán-style click for external timing aids (e.g. HarpPhrasePlayer's
   // beat track). accent 0..1: higher = louder/brighter (downbeat feel).
   playClick(accent = 0.6) { this._harpScene?.audio?.playClick(accent) }
+
+  // Strikes a string for demo playback — exact pitch, no rhythm-game
+  // state, no visual orb. See HarpScene.demoStrike / HarpDemoPlayer.
+  demoStrike(idx, sharp, vel, ornament) { this._harpScene?.demoStrike(idx, sharp, vel, ornament) }
 
   getMidiRange() {
     const available = STR

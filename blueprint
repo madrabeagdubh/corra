@@ -1,0 +1,49 @@
+# The Corra Project: Scene-Crafting Blueprint & Campaign Architecture
+
+In this fantasy game, the Fenians are honorable poet warriors par excellance. The druids are basically magical forest vegans.
+
+parallel design for **The Martial Path (Fianna)** and **The druidic Path (Druidic)**. On the Druidic path, "veganism" is treated as the practical avoidance of animal exploitation. This path is **not** passive or soft; it is an active,  magical adventure where the player acts  against the  enemy in a lateral way. The direct martial approach is doomed. This alternative might work. But it should not be immediatly visible as an option. Player shoulnt even see the druids, unless they know where to look and what to look for. The character sets out to join the fenians.Depending on the choices they make, they may be rejected from the fenians, but be accepted by the druids.
+
+
+* [ ] **The Crossing Points:** The specific trigger where a player can pivot from Martial/Exploitative actions to Druidic/Compassionate actions, or vice versa.
+## 2. Global Design Rules for the Parallel Paths
+### The Fianna Path 
+ * **Ethos:**   **Methodology:** Solving problems via direct combat, tactical positioning, playing the game as s/nes zelda game.
+ and earning roaring praise-songs in the tavern.
+### The Druidic Path 
+ * **Ethos:**  **Methodology:** Avoiding animal exploitation (no hunting, no leather/fur gear usage, foraging flora/fungi for sustenance). Combat is  toward unnatural threats: Fomorian sea-ghouls, undead warbands, and corrupted human cultists.
+ Infiltrating enemy camps as a silent marsh heron, walking through multidimensional subterranean dungeons, .
+
+
+## 3. The Sequence Blueprint: From Woodlands to the Bog of Allen
+
+Below is the structured layout for the opening acts of the game, demonstrating how quests branch dynamically based on player ethos.
+### Act I: The Border Woodlands & The Tavern Hub
+#### Scene 1.1: The Injured Bard at the Broken Gate
+ * **The Setup:** Player explores the woodland map, discovering a tavern and an old, locked gate leading to the Bog of Allen. Near the gate, they find an injured bard ambushed by Fomorian shoreline scouts.
+ * **The Action:** A mandatory combat encounter against unnatural invaders (completely compatible with both paths). The player rescues the bard and escorts them to the tavern fire.
+ * **The Narrative Pivot:** The Bard sings of the Constellation Prophecy—specifically the Nameless Star rising beside the Harp. This establishes the player’s driving ambition to seek out the Fianna camp hidden deep in the bog.
+#### Scene 1.2: The Rationing Crisis (The Branching Side-Quest)
+ * **The Problem:** The local village or visiting Fianna scouts need supplies to prepare for the oncoming Fomorian vanguard.
+ * **Fianna Solution (The Boar’s Feast):** The player hunts a wild, aggressive boar disrupting the outer paths. They bring the meat to the tavern keeper, unlocking heavy armor upgrades and standard combat rations.
+ * **Druidic/Vegan Solution (The Hazel Grove):** The player refuses to hunt. They venture into a dangerous briar-choked valley guarded by corrupted human bandits to harvest ancient hazelnut hoards and wild grains. They deliver these to the tavern, unlocking unique potion ingredients and high-stamina foraging options.
+ * **The Bardic Feedback:** The Bard generates a song detailing either the *Slayer of the Mire* or the *Keeper of the Forest Living*, altering how NPCs treat the player in the tavern.
+### Act II: The Stone of Lughaidh (The Grand Point of No Return)
+This set-piece serves as the final trial to enter the Bog of Allen and join the Fianna camp. A heavy curse cast by the spurned druid Cairbre hangs over the area, and a token of peace is demanded.
+``  PATH A: THE FIANNA VANGUARD              PATH B: THE DRUIDIC CROSSING
+
+#### Scene 2.1: The Choice at the Mire
+ * **The Setup:** Accompanied by Líonán of the Fianna, the player corners a majestic, innocent white deer against the ancient Stone of Lughaidh.
+ * **The Path A Execution:** The player kills the deer. Its blood coats the stone, lifting Cairbre's curse through traditional blood-tithe. Líonán welcomes the player into the Fianna. The gate opens; they march forward to join the warrior elite.
+ * **The Path B Execution:** The player lowers their bow, triggering the *Fian/Líonán* poetic dialogue. The player explicitly rejects the tyranny of hunting the innocent. Líonán leaves in disappointment, leaving the player alone with the curse unlifted.
+#### Scene 2.2: The Druidic Initiation 
+ * **The Escalation:** Seachnall the Druid steps forward. He reveals that while the Fianna are powerful, the formorians will not be overcome by the forces of Ireland. Neither will they seek an alternative approach to direct confrontation. He is working on another approach and the player may offer to join to stop the Fomorians from another way.
+### Act III: Parallel Campaign Progression (Sample Set-Pieces)
+
+Once the paths diverge, the fenians gathering for war is like a fuse burning.
+
+#### The Druid Path Set-Piece: "The Sídhe Subterranean"
+ * **Objective:** Bypass a massive Fomorian army encampment to destroy the relic powering their undead vanguard.
+ * **Gameplay:** The player uses shapeshifting to slip through the canopy as a heron and through the waterways as a salmon. Over hears key information about the formorians from their princes and chieftains. They enter the "dungeons between dimensions"—ancient, glowing root-tunnels beneath the fairy mounds.
+ Facing a terrifying, ancient undead guardian in the other world. The player fights using wits and magic, confusing and disorganizing the enemy elite.
+Playing as the druid we get to know the formorians and eventually hold court with Tethra. A win involves persuading/tricking him into returning to the depths to fight another day. The fenians mass on the shore waiting fro an enemy which never arrives, unaware that the druids have averted the threat, for now. Our hero remains unsung.

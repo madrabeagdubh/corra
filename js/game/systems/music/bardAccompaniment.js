@@ -95,6 +95,20 @@ export class BardAccompaniment {
   //   pattern discussed for pairing a short tune to a long text. Off by
   //   default since that pairing decision belongs to the caller, not
   //   baked into this engine.
+  // `opts.gateLighting`: if true, the engine does NOT light a newly-
+  //   current group (nor treat its strings as live) until the caller
+  //   calls readyForNextGroup(). This lets the caller hold the harp's
+  //   prompt back until something external finishes — in the tavern,
+  //   that's the line's typewriter reveal plus a short reading beat, so
+  //   a fast player can't pluck ahead into a line they haven't had a
+  //   chance to read (a single text line can span 2-3 plucks before it
+  //   advances). Off by default — the orb-game-style "light the moment
+  //   the previous group resolves" behaviour is unchanged for any
+  //   caller that doesn't opt in. IMPORTANT: this gates BOTH the visual
+  //   lighting AND interactivity — see _onPluck — because the engine's
+  //   _groupIndex advances on completion, so without gating input too, a
+  //   stray pluck during the gap could complete the still-unlit group
+  //   before it ever appears.
   constructor(corraHarp, sequence, opts = {}) {
     this._harp     = corraHarp
     this._sequence = sequence
@@ -102,6 +116,7 @@ export class BardAccompaniment {
       onGroupComplete:  opts.onGroupComplete  ?? (() => {}),
       onSequenceComplete: opts.onSequenceComplete ?? (() => {}),
       loop: !!opts.loop,
+      gateLighting: !!opts.gateLighting,
     }
 
     this._running    = false
@@ -114,6 +129,11 @@ export class BardAccompaniment {
     // resolves the whole chord immediately, so there's no partial-chord
     // state to track between plucks at all.)
     this._orderedCursor = 0
+    // gateLighting state: true means "we've advanced to a new current
+    // group but are deliberately holding it dark and inert until
+    // readyForNextGroup() is called." Only ever true when
+    // opts.gateLighting is set.
+    this._lightPending = false
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────
@@ -122,6 +142,7 @@ export class BardAccompaniment {
     this._running = true
     this._groupIndex   = 0
     this._orderedCursor = 0
+    this._lightPending  = false
 
     this._pluckHandler = ({ stringIndex }) => this._onPluck(stringIndex)
     this._harp.on('pluck', this._pluckHandler)
@@ -154,12 +175,15 @@ export class BardAccompaniment {
     }
     this._harp.setOrnamentHintFn?.(this._ornamentHintFn)
 
-    this._lightCurrentGroup()
+    // Light the first group — gated if opts.gateLighting, so the very
+    // first line can finish typing before its strings appear.
+    this._lightOrGate()
   }
 
   stop() {
     if (!this._running) return
     this._running = false
+    this._lightPending = false
     if (this._pluckHandler) this._harp.off('pluck', this._pluckHandler)
     this._harp.setSharpHintFn?.(null)
     this._harp.setOrnamentHintFn?.(null)
@@ -170,21 +194,50 @@ export class BardAccompaniment {
     group?.strings.forEach(idx => this._harp.highlightString(idx, false))
   }
 
+  // Called by the caller (e.g. tavern.js, once the current line's
+  // typewriter reveal + reading beat has finished) to release a gated
+  // group: lights it and makes its strings live. No-op if nothing is
+  // pending (gating disabled, or already released) or if stopped, so
+  // it's always safe to call.
+  readyForNextGroup() {
+    if (!this._running) return
+    if (!this._lightPending) return
+    this._lightPending = false
+    this._lightCurrentGroup()
+  }
+
   // Jump directly to a specific group (e.g. resuming a saved position,
   // or a "skip ahead" debug control) — relights accordingly and clears
   // any in-progress run-mode cursor state, since that belongs to
-  // whichever group was previously active.
+  // whichever group was previously active. Lights DIRECTLY (un-gated)
+  // even when gateLighting is on: a manual jump has no associated text
+  // reveal to wait on, and is a developer control rather than part of
+  // the paced play flow.
   jumpTo(groupIndex) {
     if (groupIndex < 0 || groupIndex >= this._sequence.length) return
     this._unlightCurrentGroup()
     this._groupIndex = groupIndex
     this._orderedCursor = 0
+    this._lightPending = false
     if (this._running) this._lightCurrentGroup()
   }
 
   // ── Internals ─────────────────────────────────────────────────────
   _currentGroup() {
     return this._sequence[this._groupIndex] ?? null
+  }
+
+  // Light the current group now, OR — if gating is enabled — defer it
+  // by raising _lightPending and waiting for readyForNextGroup(). The
+  // single choke point both start() and _advance() route through, so
+  // the gate applies uniformly to the first group and every subsequent
+  // one.
+  _lightOrGate() {
+    if (this._opts.gateLighting) {
+      this._lightPending = true
+    } else {
+      this._lightCurrentGroup()
+    }
   }
 
   _lightCurrentGroup() {
@@ -213,6 +266,14 @@ export class BardAccompaniment {
 
   _onPluck(stringIndex) {
     if (!this._running) return
+    // Gated: the current group has advanced but is being held dark and
+    // inert (e.g. while its line types out). Until readyForNextGroup()
+    // releases it, every pluck is just free exploration — the harp
+    // still SOUNDS it (corraHarp handles that independently), but it
+    // cannot complete the group. Without this, a stray pluck during the
+    // hold could complete a group the player hasn't even seen light up,
+    // since _groupIndex has already advanced past the previous one.
+    if (this._lightPending) return
     const group = this._currentGroup()
     if (!group) return
 
@@ -306,8 +367,12 @@ export class BardAccompaniment {
       }
     }
 
+    // Fire the completion callback FIRST (so the caller can kick off the
+    // next line's text reveal), THEN light-or-gate the new current
+    // group. With gating on, the new group stays dark and inert until
+    // the caller's readyForNextGroup() — see _lightOrGate / _onPluck.
     this._opts.onGroupComplete(completedGroup, completedIndex)
-    this._lightCurrentGroup()
+    this._lightOrGate()
   }
 }
 

@@ -3,19 +3,151 @@ cheerful in the morning light saying
 Look, there is nothing there.
 There never was.
 
-It is a small matter, being Irish.
-No more than praise the stone for falling downward.
-But to be Gaelic, that is another labour entirely.
-It is a thing chosen. A road taken when other roads lay open.
+# Corra
 
-And for every Gael that breathes this island’s air, ten wait in other lands.
-Ten who have heard one phrase of the old tongue and felt quiet in a way they could not explain.
+*An Irish-language RPG.*
 
-There are those who say this way is finished,
-these customs are the smoke of what was burned.
-Let them say it.
+Corra is a single-player RPG set in ancient Ireland.
 
-It is only a surly person that would not enquire.
-To the one who feels the pull of it,
-Joy to you, and from you, to all who come after.
+---
+
+## The idea
+
+Millions of people are schooled in Irish and carry a latent, partial competence
+Corra is built to create a
+ space where that competence can be exercised.
+
+Irish is the default register
+English is dim but still legible via the moon widget.
+
+---
+
+## Core systems
+
+- **Moon widget** — swipe-controlled moon phase that governs English text opacity,
+  with a drift-back mechanic. Doubles as the persistent UI anchor and menu button.
+  Phase carries between scenes via `GameSettings.englishOpacity`.
+- **Perspective Ground Renderer (PGR)** — renders the world with depth, lighting,
+  and player scaling; draws layer-1 tiles as upright billboards over the ground
+  plane.
+v### Scenes
+
+`heroSelect` · `characterModal` · `constellationScene` · `tutorialOrAdventure` ·
+`bowTutorial` · `advancedTraining` · `dawnCrossing` · `returnCrossing` · plus the
+bog location scenes and the wider world map.
+
+---
+
+## Tech stack
+
+- **Phaser 3** — game framework
+- **Vite** — dev server and build
+- **Vanilla ES modules** — no framework beyond Phaser
+- **Oryx tilesets** — pixel-art art assets
+- **Web Audio API** — procedural trad music
+- Developed on **Termux (Android)**, deployed to **DigitalOcean / nginx**
+
+---
+
+## Project structure
+
+```
+.
+├── js/
+│   └── game/
+│       ├── scenes/            # heroSelect, crossings, locations/bog/, etc.
+│       ├── effects/           # perspectiveGroundRenderer.js (PGR)
+│       └── ...                # moonWidget.js, gameTypography.js, sheet helpers
+├── public/
+│   ├── maps/                  # map JSON (e.g. bogMaps/c3.json) with tile legends
+│   ├── oryx-catalogue.json    # GID → asset catalogue
+│   └── data/                  # game data (root-relative imports use /data/)
+└── index.html
+```
+
+---
+
+## Getting started
+
+Requires Node.js and npm.
+
+```bash
+# install dependencies
+npm install
+
+# run the dev server (Vite)
+npm run dev
+
+# build for production
+npm run build
+
+# preview the production build locally
+npm run preview
+```
+
+> Script names assume the conventional Vite setup — adjust to match your
+> `package.json` if they differ.
+
+---
+
+## Deployment
+
+The production build (`npm run build`) outputs static assets that are served by
+nginx on a DigitalOcean droplet. Deploy by building and syncing the output to the
+web root configured in nginx.
+
+---
+
+## Development notes
+
+Hard-won gotchas worth keeping in mind:
+
+- **Use relative dynamic import paths.** Vite does not resolve absolute paths in
+  dynamic `import()` calls — use relative paths.
+- **Root-relative data lives under `/data/`.** That's the correct convention for
+  root-relative imports here.
+- **Hoist `let` above closures.** A `let` referenced by a closure must be declared
+  above it, or you'll hit a temporal-dead-zone error.
+- **No UTF-8 box-drawing characters in source.** They break Vite's parser. Keep
+  source ASCII-clean.
+- **GID offsets matter.** Creature targets use the Oryx creatures spritesheet with
+  `GID_OFFSET = 1765`; the catalogue maps GIDs to assets.
+
+### Branches
+
+Active development happens on **`theButterfly`**. Sync `main` to it with a
+fast-forward when you want the trunk current:
+
+```bash
+git checkout main
+git merge --ff-only theButterfly
+git push origin main
+```
+
+---
+
+## Status & roadmap
+
+The framing scenes (hero select, tutorial, crossings) and the core world systems
+are in place. The work ahead is the part that turns it into something a stranger
+can walk into and play:
+
+- [ ] Complete the core game loop — NPC encounters, quests, level progression
+- [ ] Settlement and shop structure
+- [ ] Music-based combat against supernatural creatures
+      three strains of sleep, laughter, and sorrow — as a mechanic)
+- [ ] Full swipeable inventory / menu panel system anchored to the moon tile
+
+---
+
+## Credits & license
+
+- Pixel-art assets: **Oryx Design Lab** tilesets.
+- Music: theSession.org
+
+License: *to be specified.*
+
+---
+
+*Corra is a solo project. Built with care, ar shon na cúise.*
 

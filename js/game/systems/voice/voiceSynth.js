@@ -73,6 +73,8 @@ function rootHzForVoice(rac, voiceId) {
     // Ronnie has octaveShift -1.3 applied inside synthesis, so pre-shift
     // we place him at octave 5 so he lands around 200-380Hz after shift.
     // Peig has no shift, so octave 4 gives female speaking range 262-494Hz.
+    // 'bard' is a deep ronnie (octaveShift -2.0) — same octave-5 placement
+    // so its larger shift still lands in a sensible (low) male range.
     const oct = voiceId === 'ronnie' ? 5 : 4
     return st2hz(rac + (oct - 4) * 12)
 }
@@ -157,6 +159,13 @@ function irishSyllables(text) {
     return result.length > 0 ? result : [{ stressed: true }]
 }
 
+// Syllable count for a line (vowel-groups per word). Exported so callers
+// laying melody notes against syllables (e.g. bard sing mode) can size
+// their note slice without re-counting.
+export function syllableCount(text) {
+    return irishSyllables(text).length
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PUNCTUATION PAUSE INJECTION
 // Scans the text for punctuation marks and inserts gap notes at the
@@ -211,9 +220,8 @@ function buildNotesWithRoot(gaText, tuneKey, voiceId) {
     if (n === 0) return []
 
     // Duration: target total ~2.0-3.2s, stressed syllables 1.5× unstressed
-   
-const targetTotal  = Math.max(1.6, n * 0.29)
-	const stressCount  = sylInfo.filter(s => s.stressed).length
+    const targetTotal  = Math.max(1.6, n * 0.29)
+    const stressCount  = sylInfo.filter(s => s.stressed).length
     const unstressCount = n - stressCount
     const baseDur  = targetTotal / (stressCount * 1.5 + unstressCount)
     const stressDur = baseDur * 1.5
@@ -316,6 +324,65 @@ const targetTotal  = Math.max(1.6, n * 0.29)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MELODY NOTE BUILDER (bard sing mode)
+// Like buildNotesWithRoot, but the PITCH of each syllable comes from the
+// MELODY — `melodyOffsets[i]` is a semitone offset from the tune's tonic,
+// one per syllable, supplied by the caller (which walks the tune note by
+// note across the poem). This is what makes the voice SING the actual tune
+// rather than an invented emotional contour. The duration / stress / pause
+// logic is identical to buildNotesWithRoot, so the sung line keeps the same
+// readable pacing the spoken read-along already had. There is deliberately
+// NO forced final cadence here — the melody itself supplies the ending, so
+// overriding the last note would fight the tune.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildNotesFromMelody(gaText, melodyOffsets, tuneKey, voiceId) {
+    const ki   = parseKey(tuneKey)
+    const rHz  = rootHzForVoice(ki.rac, voiceId)
+    const sylInfo = irishSyllables(gaText)
+    const n = sylInfo.length
+    if (n === 0) return []
+
+    const targetTotal   = Math.max(1.6, n * 0.29)
+    const stressCount   = sylInfo.filter(s => s.stressed).length
+    const unstressCount = n - stressCount
+    const baseDur   = targetTotal / (stressCount * 1.5 + unstressCount)
+    const stressDur = baseDur * 1.5
+
+    const words    = gaText.replace(/[.,!?;:'"()…]/g,'').trim().split(/\s+/).filter(Boolean)
+    const pauseMap = buildPauseMap(gaText)
+    const sylWordBoundaries = []
+    let sylIdx = 0
+    for (let wi = 0; wi < words.length; wi++) {
+        const sc = Math.max(1, (words[wi].match(/[aeiouáéíóúAEIOUÁÉÍÓÚ]+/g)||[]).length)
+        for (let s = 0; s < sc; s++) sylWordBoundaries[sylIdx++] = wi
+    }
+    const pauseAfterSyl = new Array(n).fill(0)
+    for (const p of pauseMap) {
+        let lastSyl = -1
+        for (let i = 0; i < n; i++) if (sylWordBoundaries[i] === p.afterWord) lastSyl = i
+        if (lastSyl >= 0) pauseAfterSyl[lastSyl] = Math.max(pauseAfterSyl[lastSyl], p.mult)
+    }
+
+    const notes = []
+    for (let i = 0; i < n; i++) {
+        const info = sylInfo[i]
+        const dur  = info.stressed ? stressDur : baseDur
+        // Pitch straight from the melody — fall back to the last supplied
+        // offset (then the tonic) if the caller under-supplied offsets.
+        const off  = melodyOffsets[i] ?? melodyOffsets[melodyOffsets.length - 1] ?? 0
+        notes.push({
+            hz: rHz * Math.pow(2, off / 12),
+            dur, stressed: info.stressed, type: 'syl',
+        })
+        if (pauseAfterSyl[i] > 0) {
+            notes.push({ hz: 0, dur: baseDur * pauseAfterSyl[i], stressed: false, type: 'gap' })
+        }
+    }
+    return notes
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INTERJECTION BUILDERS
 // Returns a note sequence for a short expressive sound.
 // All pitches relative to rootHz (will be shifted by voice octaveShift).
@@ -375,18 +442,34 @@ const INTERJECTIONS = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VOICES = {
+    // The tavern bard — a deep, gravelly storyteller in the register of
+    // Ronnie Drew: low pitch + a big dark resonating cavity + heavy rasp.
+    // (Formerly two presets, 'ronnie' and a separate deep 'bard'; merged
+    // into one since this voice is only used for the bard now.) The four
+    // levers that make the character, with how far they're pushed:
+    //   os  — octave shift. Low, but NOT chased past intelligibility (the
+    //         read-along has to stay legible); the darkness comes from fs/lp.
+    //   fs  — formant scale / cavity size. The big one: low = a large, dark
+    //         vocal tract, which is most of what reads as "deep" vs just "low".
+    //   lp  — resonance lid (per-voice lowpass, see schedSyl). Rolls off the
+    //         bright top so the energy sits low and chesty.
+    //   mix.r + the saw-heavy oscillator blend — the audible GRAVEL, Drew's
+    //         signature; sawtooth carries grit better than the smooth triangle.
+    // To go even deeper/grittier: lower os toward -2.4, fs toward 0.30, lp
+    // toward 1800, raise mix.r toward 0.8 — at the cost of clarity.
     ronnie: {
-        os:  -1.3,   // octave shift — tunes down ~1.3 octaves into bass register
-        fs:   0.48,  // formant scale — very dark resonating cavity
-        mix:  { t: 0.12, s: 0.38, r: 0.50 },  // tri/saw/rough oscillator blend
-        br:   0.0,   // breathiness
-        cv:   1.00,  // consonant thud volume
-        ck:   0.08,  // tongue-tip click volume
-        vf:   0.78,  // voiced fraction (rest is gap)
-        on:   45,    // onset ms — slow pitch finding
-        cl:   55,    // close ms
-        wv:   0.72,  // weak vowel scale
-        ns:   0.0,   // nasality
+        os:  -2.2,   // low, but intelligible — darkness is carried by fs/lp
+        fs:   0.32,  // big dark cavity (was 0.48) — the main "deep" knob
+        lp:   2200,  // resonance lid (default 3600) — rolls off the bright top
+        mix:  { t: 0.08, s: 0.46, r: 0.68 },  // saw-heavy + heavy gravel
+        br:   0.0,
+        cv:   1.00,
+        ck:   0.08,
+        vf:   0.78,
+        on:   45,
+        cl:   55,
+        wv:   0.72,
+        ns:   0.0,
     },
     peig: {
         os:   0.0,
@@ -584,7 +667,7 @@ function schedSyl(ac, dest, bHz, when, dur, fromHz, v, ss, spu, stressBoost) {
     fl2.frequency.setValueAtTime(fp, t3)
     fl2.frequency.exponentialRampToValueAtTime(fc, t5)
 
-    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .4; lp.frequency.value = 3600
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .4; lp.frequency.value = v.lp ?? 3600
     const gf1 = ac.createGain(); gf1.gain.value = .55
     const gf2 = ac.createGain(); gf2.gain.value = 1.0
 
@@ -724,14 +807,20 @@ export class VoiceSynth {
      * Speak a line of Irish text.
      * @param {string} gaText   — Irish language text
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'peig'
+     * @param {string} opts.voice    — 'ronnie' | 'bard' | 'peig'
      * @param {string} opts.tuneKey  — ABC K: field, e.g. 'Edor', 'Dmix', 'Gmaj'
      * @param {Function} [opts.onDone] — called when speech ends
+     * @param {number[]} [opts.melodyOffsets] — if supplied, the voice SINGS
+     *        the melody: each entry is a semitone offset from the tune's
+     *        tonic, one per syllable (see buildNotesFromMelody). Absent →
+     *        the original spoken emotional contour (buildNotesWithRoot).
      */
-    speak(gaText, { voice = 'peig', tuneKey = 'D', onDone } = {}) {
+    speak(gaText, { voice = 'peig', tuneKey = 'D', onDone, melodyOffsets } = {}) {
         if (this._ac.state === 'suspended') this._ac.resume()
         const voiceId = VOICES[voice] ? voice : 'peig'
-        const notes   = buildNotesWithRoot(gaText, tuneKey, voiceId)
+        const notes   = (melodyOffsets && melodyOffsets.length)
+            ? buildNotesFromMelody(gaText, melodyOffsets, tuneKey, voiceId)
+            : buildNotesWithRoot(gaText, tuneKey, voiceId)
         this._out.gain.cancelScheduledValues(this._ac.currentTime)
         this._out.gain.setValueAtTime(this._out.gain.value, this._ac.currentTime)
         this._out.gain.linearRampToValueAtTime(0.72, this._ac.currentTime + 0.08)
@@ -742,7 +831,7 @@ export class VoiceSynth {
      * Play a short non-lexical interjection.
      * @param {string} type  — 'hmm' | 'oh' | 'laugh' | 'distress' | 'mhm' | 'eist' | 'sigh'
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'peig'
+     * @param {string} opts.voice    — 'ronnie' | 'bard' | 'peig'
      * @param {string} opts.tuneKey  — for root pitch
      * @param {string} [opts.rhythm] — 'reel'|'jig'|'waltz' etc. affects laugh pace
      */
@@ -798,10 +887,6 @@ export class VoiceSynth {
 // Convenience: derive voice from champion gender
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns 'ronnie' or 'peig' from a champion object.
- * Checks champion.gender, champion.sex, champion.pronouns in that order.
- */
 /**
  * Returns 'ronnie' (male) or 'peig' (female) from a champion object.
  * Reads champion.pronouns.en.subject or .ga.subject.

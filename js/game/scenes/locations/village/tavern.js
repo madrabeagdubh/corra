@@ -6,7 +6,54 @@ import { HarpPhrasePlayer, buildTimedPhraseFromDurations } from '../../../system
 import { abcToTimedStringSequence } from '../../../systems/music/abcToPhrase.js'
 import { allTunes } from '../../../systems/music/allTunes.js'
 import { BardAccompaniment } from '../../../systems/music/bardAccompaniment.js'
-import { buildBardSequence, zipBardSequenceWithText } from '../../../systems/music/bardHarmonizer.js'
+import { buildBardSequence } from '../../../systems/music/bardHarmonizer.js'
+import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
+
+// ── Bard text pacing ─────────────────────────────────────────────────
+// A text line is no longer pinned 1:1 to a single musical group. Instead
+// each line carries a NOTE BUDGET: gestures are played under the line
+// until the budget runs out, then the text advances. This is what gives
+// "several notes of the tune per line" rather than one pluck per line —
+// without it the melody never gets a chance to be heard before the text
+// turns over. Budget is spent per gesture by _bardGroupWeight:
+//   single  → 1   (one melody note)
+//   run(K)  → K   (K melody notes, in order)
+//   chord   → 2   (one melody note but a full triad — weighted heavier
+//                  so chord lines turn over in fewer plucks: "fewer
+//                  notes per line when chords are involved")
+// With a target of 3, lines land around 3-5 notes (runs can overflow a
+// little, which is the "sometimes 4" variety). Tune freely.
+const BARD_LINE_NOTE_TARGET = 3
+// Breath between gestures WITHIN one text line — how long after
+// completing a gesture the NEXT group's strings light. Short, because
+// these are part of one musical phrase under one line; the long pause
+// happens only at text boundaries (see READING_BEAT in _showBardLine).
+// Roughly matches the gold fade-in so the next string eases in rather
+// than snapping.
+const BARD_FLOW_DELAY = 250
+
+// ── Bard read-along voice ────────────────────────────────────────────
+// The voice synth speaks each Irish line AS IT TYPES — a reading guide,
+// the purpose voiceSynth.js was originally built for (it rode the
+// character-bio typewriter the same way). It uses its own emotional
+// contour derived from the line + the tune's modal key; it does NOT sing
+// the harp melody (that's a separate, harder feature). One voicing per
+// text line, started when the line begins typing.
+//   BARD_VOICE_ENABLED — flip to false to silence it entirely (kept as a
+//     single switch since this whole feature is experimental and the
+//     voice may not suit every taste).
+//   BARD_VOICE — 'ronnie' (male) suits the two old bards' bickering;
+//     'peig' (female) is the alternative. Per-character voicing (narrator
+//     vs Tigernach vs Dallán) is a future editorial layer, not done here.
+//   BARD_VOICE_TUNE_KEY — the waltz's key, for the synth's pitch + the
+//     modal-darkness input to its automatic emotion derivation.
+const BARD_VOICE_ENABLED  = true
+const BARD_VOICE          = 'ronnie'  // the deep gravelly storyteller voice (see voiceSynth VOICES)
+const BARD_VOICE_TUNE_KEY = 'Ador'
+// Stage-1 sing mode: the voice sings the actual waltz melody (one note per
+// syllable, walked across the poem) instead of speaking on an invented
+// contour. Flip to false for the plain spoken read-along (deep voice kept).
+const BARD_SING           = true
 
 // "The Pretty Girl Milking Her Cow" — K:Ador waltz, thesession.org —
 // chosen for the bard-accompaniment mode (see design discussion). Lives
@@ -28,12 +75,11 @@ gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/G2-|G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3-|A2A/B/||
 cc/d/ e/f/|gg/e/ d/B/|A/B/G2-|G2A/B/|cc/d/ e/f/|gc'>b|a3-|a>a b/a/|
 gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/^G2-|^G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3|A2||`
 
-// Maebh/Táin poem content — full bilingual text. Chunked one couplet
-// (one ga/en pair) per array entry, which zipBardSequenceWithText then
-// maps one-to-one onto musical groups (cycling whichever side is
-// shorter — see that function's own comment). This chunking-by-couplet
-// choice can be revisited; it was the most direct mapping of what was
-// provided, not a deeply considered editorial decision on its own.
+// Maebh/Táin poem content — full bilingual text. One couplet (one ga/en
+// pair) per array entry. Lines are now paced by note-budget (see
+// BARD_LINE_NOTE_TARGET above) rather than mapped 1:1 to musical groups,
+// so the line index advances independently of the group index — driven
+// straight from this array, cycling if the tune outlasts the poem.
 const BARD_PLACEHOLDER_TEXT = [
   { ga: 'Ansin a chruinnigh na filí,', en: 'Then it was the poets gathered,' },
   { ga: 'Agus go deimhin, bhrónach an scéal', en: 'Then indeed it was a sorrow,' },
@@ -252,11 +298,11 @@ export default class TavernScene extends VillageScene {
     return { phrase, unitMs }
   }
 
-  // Builds the musical BardSequence for the bard-accompaniment mode and
-  // zips it with text. Separate from _buildTainPhrase since this mode
-  // needs no atMs/travelMs/windowMs scheduling at all — see
-  // bardAccompaniment.js's file header for why that's a different
-  // engine entirely, not a variant of the orb player's data.
+  // Builds the musical BardSequence (groups only — text is paced
+  // separately now, see _startBardAccompaniment / BARD_LINE_NOTE_TARGET).
+  // Separate from _buildTainPhrase since this mode needs no
+  // atMs/travelMs/windowMs scheduling at all — see bardAccompaniment.js's
+  // file header for why that's a different engine entirely.
   _buildBardSequence() {
     const harp = this._corraHarp
     const range = harp.getMidiRange()
@@ -265,77 +311,163 @@ export default class TavernScene extends VillageScene {
       '(chord:', groups.filter(g => !g.ordered && g.strings.length > 1).length,
       'run:', groups.filter(g => g.ordered).length,
       'single:', groups.filter(g => g.strings.length === 1).length, ')')
+    return groups
+  }
 
-    // See BARD_PLACEHOLDER_TEXT's comment above — this pairs the short
-    // placeholder text with the musical groups for now (cycling the
-    // MUSIC, since there's currently more music than placeholder text;
-    // once the real ~200-line poem replaces this, the relationship will
-    // likely flip — more text than one pass of the tune — at which
-    // point zipBardSequenceWithText's existing "cycle the shorter side"
-    // behavior handles that direction too, with no change needed here).
-    return zipBardSequenceWithText(groups, BARD_PLACEHOLDER_TEXT)
+  // Build the per-note melodic line the bard voice sings (stage-1 sing
+  // mode). Returns semitone offsets from the tune's tonic, one per melody
+  // note, walked continuously across text lines via _bardMelodyCursor so
+  // the voice traverses the actual waltz over the poem (independent of the
+  // player's plucks — that harp-sync was the declined stage 2). Tonic is A
+  // (pitch class 9) because the tune is K:Ador; update if the key changes.
+  _buildBardMelodyOffsets() {
+    const harp = this._corraHarp
+    const range = harp.getMidiRange()
+    const { indices, sharps } = abcToTimedStringSequence(PRETTY_GIRL_MILKING_HER_COW, null, range)
+    const byIdx = new Map(range.available.map(e => [e.idx, e]))
+    const midis = indices
+      .map((idx, i) => {
+        const e = byIdx.get(idx)
+        if (!e) return null
+        return (sharps[i] && e.sharpM !== undefined) ? e.sharpM : e.m
+      })
+      .filter(m => m != null)
+    if (!midis.length) return [0]
+    // Anchor offsets to the A nearest the melody's average pitch, so the
+    // sung contour sits centred on the voice's root rather than an octave off.
+    const avg = midis.reduce((a, b) => a + b, 0) / midis.length
+    let anchor = Math.round(avg)
+    while ((((anchor % 12) + 12) % 12) !== 9) anchor--   // walk down to an A
+    return midis.map(m => m - anchor)
+  }
+
+  // How much of a text line's note-budget one completed gesture spends.
+  // See BARD_LINE_NOTE_TARGET for the rationale on the chord weighting.
+  _bardGroupWeight(group) {
+    if (!group) return 1
+    if (group.ordered) return group.strings.length   // run — K melody notes
+    if (group.strings.length > 1) return 2            // chord — weighted heavier
+    return 1                                          // single
+  }
+
+  // Lazily create the read-along voice synth on first use. Lets the synth
+  // create its own AudioContext (we don't have a handle on the game's
+  // here) — the bard button tap is a user gesture, so speak()'s own
+  // resume() can start it under autoplay policy. Wrapped in try/catch so a
+  // synth failure (no Web Audio, etc.) silently disables the voice rather
+  // than breaking bard mode. Returns null when disabled or unavailable.
+  _ensureBardVoice() {
+    if (!BARD_VOICE_ENABLED) return null
+    if (this._bardVoice !== undefined) return this._bardVoice
+    try {
+      this._bardVoice = new VoiceSynth({ volume: 0.6 })
+    } catch (e) {
+      console.warn('[Táin/bard] voice synth unavailable:', e)
+      this._bardVoice = null
+    }
+    return this._bardVoice
+  }
+
+  // Speak one line's Irish text. speak() interrupts any line already in
+  // progress (its player.stop() runs first), so a fast player advancing
+  // lines cleanly cuts the previous voicing rather than overlapping.
+  _speakBardLine(line) {
+    if (!line?.ga) return
+    const v = this._ensureBardVoice()
+    if (!v) return
+    const opts = { voice: BARD_VOICE, tuneKey: BARD_VOICE_TUNE_KEY }
+    // Sing mode: hand the synth the next run of melody notes (one per
+    // syllable), advancing the cursor so the tune progresses line to line.
+    if (BARD_SING && this._bardMelodyOffsets?.length) {
+      const n = Math.max(1, syllableCount(line.ga))
+      const offs = []
+      for (let i = 0; i < n; i++) {
+        offs.push(this._bardMelodyOffsets[(this._bardMelodyCursor + i) % this._bardMelodyOffsets.length])
+      }
+      this._bardMelodyCursor = (this._bardMelodyCursor + n) % this._bardMelodyOffsets.length
+      opts.melodyOffsets = offs
+    }
+    v.speak(line.ga, opts)
   }
 
   // ── Bard accompaniment mode ─────────────────────────────────────────
   // Player-paced: strings light up, the player plucks them (any order
   // for a chord, in sequence for a run — see bardAccompaniment.js), and
-  // each completed gesture reveals the NEXT chunk of story text. No
-  // clock, no score, no miss — see bardAccompaniment.js's file header
-  // for the full reasoning on why this is a separate engine.
+  // the story text advances as gestures are played. No clock, no score,
+  // no miss — see bardAccompaniment.js's file header for the full
+  // reasoning on why this is a separate engine.
   //
-  // Text display: pinned in the top third of the screen. New lines fade
-  // in quickly; the line being REPLACED fades out slowly while drifting
-  // upward — "smoke-like," per explicit request — rather than either
-  // swapping instantly or using a symmetric crossfade. Earlier attempts
-  // used TextPanel's 'notification' type (wrong API shape — it expects
-  // {irish, english}, not {ga, en} — and auto-dismisses on its own
-  // fixed 3s timer regardless of player progress) and then
-  // ScrollingTextPlayer (built entirely around continuous multi-second
-  // scroll-in-from-the-bottom motion, with no way to spawn already in
-  // place) — neither fit this mode's actual needs, so this is a small
-  // purpose-built DOM layer instead (see _ensureBardTextContainer).
+  // Text display: pinned in the top third of the screen, composited
+  // ABOVE the harp overlay (z-index beats the overlay's so the text sits
+  // over the strings). The Irish line TYPES IN one glyph at a time
+  // (matching characterModal.js's bio typewriter); the English gloss
+  // fades in softly under it once the Irish finishes. The replaced line
+  // drifts upward and fades out, "smoke-like." No background box — the
+  // per-glyph glow and the English's dark backing stroke carry
+  // legibility on their own.
   //
-  // Per explicit design: the FIRST line is visible immediately when bard
-  // mode starts (before any plucking), and stays up until the first
-  // gesture completes — only then does it advance to the next line.
-  // This means onGroupComplete(group, idx) must show sequence[idx+1]'s
-  // text (the line for what's now current), NOT group.text (group
-  // idx's own line, which was already on screen while the player was
-  // busy completing it) — showing group.text again on completion would
-  // just redisplay the same line the player had already been reading.
+  // PACING + GATING: a text line is NOT one musical group. Each line
+  // carries a note-budget (BARD_LINE_NOTE_TARGET) spent down by
+  // _bardGroupWeight per completed gesture. WITHIN a line (budget not
+  // yet spent), the next group's strings light after a short breath
+  // (BARD_FLOW_DELAY) so the tune flows as a little phrase under the
+  // text. When the budget runs out the line ADVANCES, and the gate is
+  // held (via the bard engine's gateLighting) until the new line's Irish
+  // has finished typing plus a reading beat — so a fast player can't
+  // blow past a line they haven't read. Both the within-line release and
+  // the boundary release go through bardPlayer.readyForNextGroup().
   //
-  // Bard-mode text display: each line gets its OWN element appended to
-  // a shared container, rather than one fixed pair of elements whose
-  // content is swapped in place. This is what allows the "smoke"
-  // effect — the outgoing line needs to keep existing on screen,
-  // fading out and drifting upward, for ~1.4s AFTER the new line has
-  // already faded in, rather than being replaced instantly. A
-  // single-element swap can't show two lines' worth of independent
-  // animation at once.
+  // Each line gets its OWN element in a shared GRID container; every line
+  // is pinned to the same grid cell (grid-area:1/1) so incoming and
+  // outgoing lines share a constant width and the outgoing line doesn't
+  // reflow as it floats up.
   _ensureBardTextContainer() {
     if (this._bardTextContainer) return this._bardTextContainer
     const el = document.createElement('div')
     el.style.cssText = [
       'position:fixed;left:50%;top:14%;transform:translateX(-50%);',
       'width:88%;max-width:580px;text-align:center;',
-      'pointer-events:none;z-index:9997;',
-      // Dark backing panel — without this, the text sits directly over
-      // whatever scene content happens to be behind it (string lines,
-      // gradient overlays, character sprites), which can either compete
-      // visually with the text or appear to dim it. A semi-transparent
-      // dark panel behind the text ensures it reads clearly regardless
-      // of what the scene is doing, without looking like a hard opaque
-      // box. Rounded corners + moderate padding keep it feeling light.
-      'background:rgba(0,4,0,0.62);',
-      'border-radius:12px;padding:18px 20px 16px;',
-      'backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);',
+      // Above the harp overlay (which is z-index:2000000) so the text
+      // composites over the strings rather than behind them.
+      'pointer-events:none;z-index:2000001;',
+      // CSS grid so every line stacks into one cell at a constant width —
+      // keeps the outgoing line from reflowing as it floats.
+      'display:grid;',
+      // No background box — just the text. A little padding so the grid
+      // cell has breathing room; the glow bleeds beyond it freely since
+      // the container doesn't clip overflow.
+      'padding:4px;',
     ].join('')
     document.body.appendChild(el)
     this._bardTextContainer = el
     return el
   }
 
+  // Inject the per-glyph reveal keyframe once. Each typed character gets
+  // its own <span> animating with this, the same shape characterModal.js
+  // uses for its Irish-bio typewriter (a small rise + fade-in per letter).
+  _ensureBardKeyframes() {
+    if (document.getElementById('bard-kf')) return
+    const s = document.createElement('style')
+    s.id = 'bard-kf'
+    s.textContent = '@keyframes bardLetterIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}'
+    document.head.appendChild(s)
+  }
+
   _destroyBardTextEl() {
+    // Kill any in-flight typewriter / gate-release / voice jobs so a
+    // teardown mid-type doesn't leave a dangling timer appending glyphs to
+    // a removed element, releasing a gate on a stopped player, or speaking
+    // a line that's gone. Stops the voice but keeps the synth instance
+    // (and its AudioContext) for reuse — full disposal is in
+    // _destroyHarpOverlay.
+    clearTimeout(this._bardTypeTimer)
+    clearTimeout(this._bardGateTimer)
+    clearTimeout(this._bardVoiceTimer)
+    this._bardTypeTimer = null
+    this._bardGateTimer = null
+    this._bardVoiceTimer = null
+    this._bardVoice?.stop?.()
     this._bardTextContainer?.remove()
     this._bardTextContainer = null
     this._bardCurrentLineEl = null
@@ -344,11 +476,13 @@ export default class TavernScene extends VillageScene {
   _showBardLine(line) {
     if (!line) return
     const container = this._ensureBardTextContainer()
+    this._ensureBardKeyframes()
 
     // The line currently on screen (if any) becomes the OUTGOING line —
-    // let it drift upward and fade out slowly, "smoke-like," rather
-    // than removing it immediately. It removes itself from the DOM once
-    // its own transition finishes.
+    // let it drift upward and fade out slowly, "smoke-like," rather than
+    // removing it immediately. It removes itself from the DOM once its
+    // own transition finishes. No position change — grid keeps it
+    // stacked at a constant width, so it doesn't reflow as it floats.
     const outgoing = this._bardCurrentLineEl
     if (outgoing) {
       outgoing.style.transition = 'opacity 1400ms ease-in, transform 1400ms ease-in'
@@ -357,30 +491,22 @@ export default class TavernScene extends VillageScene {
       setTimeout(() => outgoing.remove(), 1500)
     }
 
-    // The new line: appears in place, fades in FAST (per request —
-    // quick in, slow out is the intended asymmetry, not a symmetric
-    // crossfade).
+    // The new line shares the same grid cell as the outgoing one.
     const wrap = document.createElement('div')
     wrap.style.cssText = [
-      'position:relative;opacity:0;transform:translateY(0);',
-      'transition:opacity 180ms ease-out;',
+      'grid-area:1/1;opacity:0;transform:translateY(0);',
+      'transition:opacity 450ms ease-out;',
     ].join('')
 
     const ga = document.createElement('div')
-    ga.textContent = line.ga || ''
     ga.style.cssText = [
-      // Pure white fill (was a warm-tinted off-white, #fff3d6) — against
-      // a dim, warm-toned tavern scene, a warm-tinted fill blends into
-      // the background palette instead of standing apart from it. Pure
-      // white reads as categorically brighter than anything else in the
-      // scene, the same way the glow needs to.
+      // Pure white fill — against a dim, warm-toned tavern scene, pure
+      // white reads as categorically brighter than anything else.
       'font-family:Urchlo,serif;font-size:1.85rem;color:#ffffff;',
-      // MUCH stronger glow than before — per direct feedback that the
-      // first pass was still too faint. More layers, higher opacity at
-      // every radius, and a near-solid dark backing stroke close to the
-      // glyph edges for legibility against busy/bright scene content
-      // (character sprites, string lines) without that backing stroke
-      // reading as a flat outline.
+      // Strong multi-layer glow + near-solid dark backing stroke close
+      // to the glyph edges, for legibility against busy/bright scene
+      // content without the backing reading as a flat outline — this is
+      // what lets us drop the background box entirely.
       'text-shadow:',
       '0 0 2px rgba(0,0,0,0.95),',
       '0 0 5px rgba(0,0,0,0.85),',
@@ -389,6 +515,13 @@ export default class TavernScene extends VillageScene {
       '0 0 38px rgba(255,180,60,0.85),',
       '0 0 64px rgba(255,160,40,0.6);',
       'line-height:1.4;font-weight:700;',
+      // Reserve the first line's height before any glyphs exist, so the
+      // English gloss doesn't sit jammed under an empty box and then get
+      // shoved down as the Irish types in.
+      'min-height:1.4em;',
+      // Left-aligned so the Irish grows rightward like a real typewriter
+      // (centred would drift left as each glyph lands).
+      'text-align:left;',
     ].join('')
 
     const en = document.createElement('div')
@@ -397,6 +530,9 @@ export default class TavernScene extends VillageScene {
       'font-family:"Courier New",monospace;font-size:1.2rem;color:#d8f0d8;',
       'text-shadow:0 0 2px rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.7),0 0 12px rgba(170,220,170,0.7),0 0 22px rgba(150,210,150,0.45);',
       'line-height:1.3;margin-top:10px;font-weight:500;',
+      // English starts invisible and fades in only after the Irish has
+      // finished typing — keeps the Irish as the hero line.
+      'opacity:0;transition:opacity 500ms ease-out;',
     ].join('')
 
     wrap.appendChild(ga)
@@ -404,9 +540,76 @@ export default class TavernScene extends VillageScene {
     container.appendChild(wrap)
     this._bardCurrentLineEl = wrap
 
-    // Trigger the fade-in on the next frame (so the transition actually
-    // animates from opacity:0 rather than snapping straight to 1).
-    requestAnimationFrame(() => { wrap.style.opacity = '1' })
+    // The wrap becomes visible (glyphs animate individually below); HOLD
+    // gives the outgoing line a beat to start clearing before this one
+    // arrives, so they don't both sit bright at once.
+    const HOLD = 1750, CHAR_MS = 52, READING_BEAT = 200
+    setTimeout(() => { wrap.style.opacity = '1' }, HOLD)
+
+    // Read-along voice: speak the Irish line when it begins typing, so
+    // voice and text appear together (both run ~2-3s, close enough for a
+    // reading guide). Tracked + cleared so a fast advance cancels a
+    // pending speak before it fires on a now-outgoing line.
+    clearTimeout(this._bardVoiceTimer)
+    this._bardVoiceTimer = setTimeout(() => this._speakBardLine(line), HOLD)
+
+    // Type the Irish one glyph at a time, then fade the English under it
+    // and — after a reading beat — release the engine's lighting gate so
+    // the NEXT line's first group lights (this is the text-BOUNDARY
+    // release; within-line releases happen in onGroupComplete). Cancel
+    // any in-flight jobs first so a teardown/restart can't leave timers
+    // appending glyphs to a removed element or releasing a gate on a
+    // stopped player.
+    clearTimeout(this._bardTypeTimer)
+    clearTimeout(this._bardGateTimer)
+    const text = line.ga || ''
+    // Split into [word, space, word, ...] (keeping separators) so each
+    // WORD stays un-breakable while spaces remain line-break points —
+    // typing bare inline-block glyphs let the line-breaker split words
+    // mid-glyph (e.g. "bhróna" / "ch").
+    const tokens = text.split(/(\s+)/)
+    let ti = 0, ci = 0
+    let wordSpan = null   // current nowrap word container being filled
+    const typeNext = () => {
+      // Skip empty tokens (split can yield ''), then we're done.
+      while (ti < tokens.length && tokens[ti] === '') ti++
+      if (ti >= tokens.length) {
+        // Irish finished: fade English in shortly after, then release
+        // the gate after the reading beat so the next line's strings light.
+        setTimeout(() => { en.style.opacity = '1' }, 400)
+        this._bardGateTimer = setTimeout(() => {
+          this._bardPlayer?.readyForNextGroup()
+        }, READING_BEAT)
+        return
+      }
+      const token = tokens[ti]
+      if (/^\s+$/.test(token)) {
+        // Whitespace run: emit as one breakable span (a legal line-break
+        // point, so NOT inside a nowrap word). pre-wrap preserves the
+        // space AND allows a wrap here.
+        const sp = document.createElement('span')
+        sp.textContent = token
+        sp.style.whiteSpace = 'pre-wrap'
+        ga.appendChild(sp)
+        ti++; ci = 0; wordSpan = null
+        this._bardTypeTimer = setTimeout(typeNext, CHAR_MS)
+        return
+      }
+      // Start a new nowrap word container on the first glyph of a word.
+      if (ci === 0) {
+        wordSpan = document.createElement('span')
+        wordSpan.style.whiteSpace = 'nowrap'
+        ga.appendChild(wordSpan)
+      }
+      const span = document.createElement('span')
+      span.textContent = token[ci]
+      span.style.cssText = 'display:inline-block;opacity:0;animation:bardLetterIn 300ms ease both;'
+      wordSpan.appendChild(span)
+      ci++
+      if (ci >= token.length) { ti++; ci = 0; wordSpan = null }
+      this._bardTypeTimer = setTimeout(typeNext, CHAR_MS)
+    }
+    this._bardTypeTimer = setTimeout(typeNext, HOLD)
   }
 
   _startBardAccompaniment() {
@@ -426,21 +629,47 @@ export default class TavernScene extends VillageScene {
     const sequence = this._buildBardSequence()
     if (!sequence.length) return
 
+    // Text pacing state: line index into BARD_PLACEHOLDER_TEXT and the
+    // remaining note-budget for the current line. Driven independently
+    // of the group index now (see BARD_LINE_NOTE_TARGET).
+    this._bardLineIdx    = 0
+    this._bardLineBudget = BARD_LINE_NOTE_TARGET
+
+    // Melodic line + cursor for sing mode (null/unused when BARD_SING is off).
+    this._bardMelodyOffsets = (BARD_SING && BARD_VOICE_ENABLED) ? this._buildBardMelodyOffsets() : null
+    this._bardMelodyCursor  = 0
+
     // Show the FIRST line immediately, before any plucking — per design.
-    this._showBardLine(sequence[0].text)
+    // With gateLighting on, the first group's strings won't light until
+    // this line's typewriter finishes and releases the gate.
+    this._showBardLine(BARD_PLACEHOLDER_TEXT[0])
 
     this._bardPlayer = new BardAccompaniment(harp, sequence, {
+      gateLighting: true,   // hold each group's lights/interactivity
+                            // until we release via readyForNextGroup
       onGroupComplete: (group, idx) => {
-        console.log('[Táin/bard] group', idx, 'complete')
-        // Advance to the line for the NEW current group (idx + 1), not
-        // the line for the group that just finished — that one was
-        // already showing. zipBardSequenceWithText cycles text across
-        // however many groups exist, so idx + 1 is always in range as
-        // long as the sequence itself has any length; only the very
-        // last group has no "next" line to show, which is exactly when
-        // onSequenceComplete (below) takes over instead.
-        const nextLine = sequence[idx + 1]?.text
-        if (nextLine) this._showBardLine(nextLine)
+        // Spend this gesture's weight from the current line's budget.
+        this._bardLineBudget -= this._bardGroupWeight(group)
+
+        if (this._bardLineBudget > 0) {
+          // Still within the current line — keep the tune flowing: light
+          // the next group's strings after a short breath, WITHOUT
+          // advancing the text. (readyForNextGroup is a no-op until the
+          // engine has actually advanced + gated, which it does right
+          // after this callback returns; the delay clears that ordering.)
+          clearTimeout(this._bardGateTimer)
+          this._bardGateTimer = setTimeout(() => {
+            this._bardPlayer?.readyForNextGroup()
+          }, BARD_FLOW_DELAY)
+        } else {
+          // Budget spent — advance to the next text line and gate until
+          // it's been read (the typewriter completion in _showBardLine
+          // releases the gate). Cycle the poem if the tune outlasts it.
+          this._bardLineIdx++
+          this._bardLineBudget = BARD_LINE_NOTE_TARGET
+          const nextLine = BARD_PLACEHOLDER_TEXT[this._bardLineIdx % BARD_PLACEHOLDER_TEXT.length]
+          this._showBardLine(nextLine)
+        }
       },
       onSequenceComplete: () => {
         console.log('[Táin/bard] sequence complete')
@@ -544,6 +773,11 @@ export default class TavernScene extends VillageScene {
     this._bardPlayer?.stop()
     this._bardPlayer = null
     this._destroyBardTextEl()
+    // Fully dispose the voice synth (closes its AudioContext if it owns
+    // one). _destroyBardTextEl only stops playback; this releases the
+    // instance so it isn't held across harp opens.
+    this._bardVoice?.destroy?.()
+    this._bardVoice = undefined
     this._demoBtn = null
     this._bardBtn = null
     super._destroyHarpOverlay()

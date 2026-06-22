@@ -111,10 +111,9 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             GameSettings.setEnglishOpacity(phase);
             // ScrollingTextPlayer reads GameSettings.englishOpacity each frame
         },
-    })
-	;
+    });
 
-	// ── Skip menu ─────────────────────────────────────────────────────────────
+    // ── Skip menu ─────────────────────────────────────────────────────────────
     const skipBackdrop = document.createElement('div');
     skipBackdrop.style.cssText = [
         'position:fixed;inset:0;z-index:1000001;',
@@ -216,15 +215,17 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     }));
 
     // ── Swell ─────────────────────────────────────────────────────────────────
-    const WAVE_COUNT = 6;
+    // A few long sine components, summed per-scanline in the draw loop to make a
+    // rolling swell of light crests and dark troughs. `wl` is in world units (not
+    // screen fraction), so wavelengths compress toward the horizon for perspective.
+    const WAVE_COUNT = 5;
     const waves = Array.from({ length: WAVE_COUNT }, (_, i) => ({
-        phase:  (i / WAVE_COUNT) * Math.PI * 2,
-        speed:  rnd(0.00028, 0.00048),
-        amp:    rnd(0.018, 0.038),
-        wl:     rnd(0.22, 0.40),
-        alpha:  rnd(0.04, 0.11),
-        bright: rnd(0.5, 1.0),
+        phase: Math.random() * Math.PI * 2,
+        speed: rnd(0.00045, 0.00085) * (i % 2 ? -0.6 : 1),   // mostly inbound, some cross-swell
+        amp:   rnd(0.020, 0.045),
+        wl:    rnd(0.55, 1.30),
     }));
+    const waveAmpSum = waves.reduce((s, w) => s + w.amp, 0) || 1;
 
     // ── Foam lines ────────────────────────────────────────────────────────────
     const FOAM_COUNT = 42;
@@ -251,32 +252,6 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             maxLife: rnd(1800, 3200),
             alpha:   rnd(0.18, 0.38),
         };
-    }
-
-    // ── Splash ────────────────────────────────────────────────────────────────
-    let splashParticles = [];
-    let nextSplashAt    = rnd(3000, 6000);
-
-    function fireSplash(elapsed) {
-        const sx   = rnd(0.05, 0.95);
-        const sy   = rnd(0.82, 0.92);
-        const roll = Math.random();
-        const bias = roll < 0.33 ? -1 : roll < 0.66 ? 1 : 0;
-        const count = Math.floor(rnd(28, 55));
-        for (let i = 0; i < count; i++) {
-            const speed  = rnd(0.0006, 0.0022);
-            const spread = rnd(-0.55, 0.55);
-            const angle  = -Math.PI/2 + bias * rnd(0.1, 0.65) + spread * 0.45;
-            splashParticles.push({
-                x: sx, y: sy,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                life: 0,
-                maxLife: rnd(500, 1600),
-                r: rnd(1.5, 5),
-            });
-        }
-        nextSplashAt = elapsed + rnd(7000, 10000);
     }
 
     // ── Yaw state ─────────────────────────────────────────────────────────────
@@ -732,26 +707,66 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             }
         }
 
-        // Swell
+        // Swell — rolling crests and troughs across the sea plane.
+        // Each scanline sums the wave components at its perspective-mapped depth,
+        // then shades light (crest) or dark (trough). Wavelengths bunch toward the
+        // horizon and spread out near the boat, so the sea reads as a flat plane
+        // receding into distance rather than a wall of stripes.
         {
+            for (const w of waves) w.phase += w.speed * dt;
+
+            const horizon    = 0.44;   // sky/sea meeting line
+            const bandTop    = 0.47;
+            const bandBottom = 0.99;
+            const SLICES     = 80;
+
             ctx.save();
-            for (const w of waves) {
-                w.phase += w.speed * dt;
-                const bandTop = 0.48, bandBottom = 0.96;
-                const STEPS = 38;
-                for (let s = 0; s < STEPS; s++) {
-                    const fy  = bandTop + (bandBottom - bandTop) * (s / STEPS);
-                    const fy1 = bandTop + (bandBottom - bandTop) * ((s+1) / STEPS);
-                    const wave = Math.sin(fy * Math.PI * (1/w.wl) + w.phase);
-                    if (wave < 0.3) continue;
-                    const wAlpha = (wave - 0.3) / 0.7 * w.alpha * (fy > 0.7 ? 1 : fy/0.7);
-                    const wR = Math.round(lerp(sr, 210, wave * w.bright * 0.55));
-                    const wG = Math.round(lerp(sg, 220, wave * w.bright * 0.55));
-                    const wB = Math.round(lerp(sb, 228, wave * w.bright * 0.65));
-                    const dx = Math.sin(fy * 7.3 + elapsed * 0.0004) * W * 0.012;
-                    ctx.fillStyle = `rgba(${wR},${wG},${wB},${wAlpha.toFixed(3)})`;
-                    ctx.fillRect(dx, fy*H, W+4, Math.ceil((fy1-fy)*H)+1);
+            for (let s = 0; s < SLICES; s++) {
+                const ft  = s / SLICES;                       // 0 at horizon → 1 at boat
+                const fy  = bandTop + (bandBottom - bandTop) * ft;
+                const fy1 = bandTop + (bandBottom - bandTop) * ((s + 1) / SLICES);
+
+                // Perspective depth: reciprocal mapping = a receding flat plane.
+                // Far (small spacing) near the horizon, near (wide spacing) at the boat.
+                const dist = 1 / (ft * 0.84 + 0.16);          // ~6.25 at horizon → 1.0 at boat
+
+                // Sum the swell components at this depth, normalised to ~[-1, 1].
+                let h = 0;
+                for (const w of waves) {
+                    h += w.amp * Math.sin(dist / w.wl * Math.PI * 2 + w.phase);
                 }
+                const lift = h / waveAmpSum;
+
+                // Fade out toward the horizon (this also hides the sub-pixel
+                // aliasing where far wavelengths bunch below one slice) and give
+                // the near swell a touch more contrast.
+                const horizonFade = clamp((ft - 0.04) / 0.22, 0, 1);
+                const nearGain    = lerp(0.55, 1.0, ft);
+                const strength    = horizonFade * nearGain;
+                if (strength < 0.01) continue;
+
+                const mag   = Math.abs(lift) * strength;
+                const alpha = 0.30 * mag;
+                if (alpha < 0.006) continue;
+
+                let cr, cg, cb;
+                if (lift > 0) {
+                    // Crest — catches the cool sky light.
+                    const t = lift * strength;
+                    cr = lerp(sr, 196, t * 0.85);
+                    cg = lerp(sg, 212, t * 0.85);
+                    cb = lerp(sb, 230, t * 0.90);
+                } else {
+                    // Trough — sinks darker and a touch bluer.
+                    const t = -lift * strength;
+                    cr = lerp(sr, 3,  t * 0.85);
+                    cg = lerp(sg, 10, t * 0.85);
+                    cb = lerp(sb, 20, t * 0.80);
+                }
+
+                const dx = Math.sin(fy * 5.5 + elapsed * 0.00028) * W * 0.010;
+                ctx.fillStyle = `rgba(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)},${alpha.toFixed(3)})`;
+                ctx.fillRect(dx, Math.round(fy * H), W + 6, Math.ceil((fy1 - fy) * H) + 1);
             }
             ctx.restore();
         }
@@ -1026,28 +1041,6 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             ctx.globalAlpha = 1;
         }
         ctx.restore();
-
-        // Splash bursts
-        {
-            if (elapsed >= nextSplashAt) fireSplash(elapsed);
-            ctx.save();
-            splashParticles = splashParticles.filter(p => p.life <= p.maxLife);
-            for (const p of splashParticles) {
-                p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt;
-                p.vy  += 0.0000018 * dt;
-                const lifeT = p.life / p.maxLife;
-                const alpha = lifeT < 0.12 ? lifeT / 0.12 : 1 - Math.pow(lifeT, 1.6);
-                if (alpha < 0.01) continue;
-                const brightness = Math.round(lerp(210, 245, 1 - lifeT));
-                ctx.globalAlpha = alpha * 0.75;
-                ctx.fillStyle   = `rgb(${brightness},${brightness+3},${brightness+6})`;
-                ctx.beginPath();
-                ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-        }
 
         // Vignette
         const vig = ctx.createRadialGradient(W*0.5, H*0.5, H*0.07, W*0.5, H*0.5, H*0.95);

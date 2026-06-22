@@ -777,6 +777,17 @@
       "mode": "billboard",
       "overscale": 1.0,
       "roofSplit": 0.0
+    },
+    {
+      "id": "hearth",
+      "src": "assets/hearth.png",
+      "x": 7,
+      "y": 1,
+      "fw": 2,
+      "fh": 3,
+      "mode": "billboard",
+      "overscale": 1.0,
+      "roofSplit": 0.0
     }
   ],
   "legend": {
@@ -795,18 +806,6 @@
     "player": {
       "x": 7,
       "y": 7
-    }
-  },
-  "exits": {
-    "south": {
-      "tiles": [
-        [
-          6,
-          9
-        ]
-      ],
-      "destination": "village_exterior",
-      "entryPoint": "north"
     }
   },
   "entries": {
@@ -834,7 +833,7 @@
       "x": 2,
       "y": 3,
       "text": {
-        "ga": "Cl\u00e1irseach",
+        "ga": "Cláirseach",
         "en": "A harp"
       },
       "visual": {
@@ -847,16 +846,16 @@
     {
       "id": "poet",
       "name": "An File",
-      "x": 2,
+      "x": 7,
       "y": 4,
       "sprite": "poet",
       "dialogues": [
         {
-          "ga": "Suigh s\u00edos. \u00c9ist. T\u00e1 sc\u00e9al agam.",
+          "ga": "Suigh síos. Éist. Tá scéal agam.",
           "en": "Sit down. Listen. I have a story."
         },
         {
-          "ga": "An gcloiseann t\u00fa an chl\u00e1irseach? T\u00e1 s\u00ed ag fanacht leat.",
+          "ga": "An gcloiseann tú an chláirseach? Tá sí ag fanacht leat.",
           "en": "Do you hear the harp? It is waiting for you."
         }
       ]
@@ -864,12 +863,12 @@
     {
       "id": "fearghus",
       "name": "Fearghus",
-      "x": 4,
-      "y": 6,
+      "x": 9,
+      "y": 7,
       "sprite": "fearghus",
       "dialogues": [
         {
-          "ga": "O\u00edche fhuar at\u00e1 ann.",
+          "ga": "Oíche fhuar atá ann.",
           "en": "It is a cold night."
         }
       ]
@@ -885,7 +884,23 @@
           "ga": "An bhfuil deoch uait?",
           "en": "Do you want a drink?"
         }
-      ]
+      ],
+      "triggerRadius": 3
+    }
+  ],
+  "doors": [
+    {
+      "id": "tavern_exit",
+      "x": 6,
+      "y": 9,
+      "destination": "b0",
+      "entryEdge": "fromTavern",
+      "ga": "Amach",
+      "en": "Outside",
+      "visual": {
+        "gid": 137,
+        "flat": false
+      }
     }
   ]
 }

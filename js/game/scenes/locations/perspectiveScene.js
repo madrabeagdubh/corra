@@ -190,6 +190,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     this._createInputUI()
     this.initializeLocation()
     this._createPlayerUI()
+    this._registerDoorZones()
 
     if (this.perspectiveGround) {
       this.perspectiveGround.setPlayer(this.player)
@@ -442,6 +443,10 @@ export default class PerspectiveScene extends BaseLocationScene {
     const now = Date.now()
     if (now - (this._lastJoyTap || 0) < 700) return
     this._lastJoyTap = now
+    if (this._encounterPanel?._card?._isDoor) {
+      this._triggerDoor(this._encounterPanel._card._door)
+      return
+    }
     if (this._encounterPanel?._card?.id === 'disembark') {
       this._encounterPanel.clearNotify()
       this._disembarkBadgeShown = false
@@ -718,6 +723,132 @@ export default class PerspectiveScene extends BaseLocationScene {
         })
       }
     })
+  }
+
+  // ── Doors (interior <-> exterior) ─────────────────────────────────────────
+  // A door is a deliberate, tap-to-use transition rather than a walk-onto-tile
+  // edge exit: standing near it raises a door badge on the moon tile (the same
+  // encounter-panel channel the harp uses), and a joystick tap fires it. No
+  // edge-walk tween -- the player steps through a fixed point. Driven entirely
+  // by a `doors` array in the map JSON; the destination places the player via
+  // its own entries[entryEdge], exactly like checkExits does.
+  static DOOR_RADIUS_TILES = 2.0
+  static DOOR_VISUAL = { gid: 137, flat: false }   // oryx "closed door" badge icon
+
+  _registerDoorZones() {
+    this._doorZones = []
+    const doors = this.mapData?.doors
+    if (!doors?.length) return
+    for (const d of doors) {
+      const px = d.x * this.tileSize + this.tileSize / 2
+      const py = d.y * this.tileSize + this.tileSize / 2
+      const zone = this.add.zone(px, py, this.tileSize, this.tileSize)
+      zone.setData('id', d.id)
+      zone.setData('type', 'door')
+      zone.setData('door', d)
+      zone.setData('logicalX', px)
+      zone.setData('logicalY', py)
+      zone.x = px; zone.y = py
+      this._doorZones.push(zone)
+    }
+  }
+
+  _updateDoorProximity() {
+    if (this._exiting || !this.player || !this._encounterPanel) return
+    const zones = this._doorZones
+    if (!zones?.length) return
+    const px = this.player.logicalX, py = this.player.logicalY
+    const R  = PerspectiveScene.DOOR_RADIUS_TILES * this.tileSize
+    let nearest = null, nearestDist = Infinity
+    for (const z of zones) {
+      const dist = Phaser.Math.Distance.Between(px, py, z.getData('logicalX'), z.getData('logicalY'))
+      if (dist < R && dist < nearestDist) { nearestDist = dist; nearest = z }
+    }
+    const panel = this._encounterPanel
+    if (nearest) {
+      const door   = nearest.getData('door')
+      const cardId = 'door:' + door.id
+      // Show the door badge only when nothing else (e.g. an encounter flag) is
+      // already claiming the panel -- and re-assert if something cleared it.
+      if ((!panel._card || panel._card._isDoor) && panel._card?.id !== cardId) {
+        panel.notify({
+          id:      cardId,
+          visual:  door.visual || PerspectiveScene.DOOR_VISUAL,
+          ga:      door.ga || 'An doras',
+          en:      door.en || 'The door',
+          _isDoor: true,
+          _door:   door,
+        }, nearest)
+      }
+      // Route the panel's open action to the transition (same hook the harp
+      // uses for _openHarpOverlay) so pressing the badge teleports rather
+      // than opening a default encounter card.
+      if (!panel._card || panel._card._isDoor) panel._openPanel = () => this._triggerDoor(door)
+    } else if (panel._card?._isDoor) {
+      panel.clearNotify()
+    }
+  }
+
+  _triggerDoor(door) {
+    if (!door || this._exiting) return
+    this._exiting = true
+    if (this.joystick) this.joystick.reset()
+    if (this.player)   this.player.isMoving = false
+    if (this._encounterPanel?._card?._isDoor) this._encounterPanel.clearNotify()
+    console.log(`[${this.scene.key}] door -> ${door.destination} via ${door.entryEdge}`)
+    this.cameras.main.fadeOut(220, 0, 0, 0)
+    import('../../ui/sceneTransition.js').then(m => m.transitionOut(220))
+    this.time.delayedCall(240, () => {
+      this.scene.start(door.destination, {
+        entryEdge: door.entryEdge,
+        arrivedAt: Date.now(),
+        fromDoor:  door.id,
+      })
+    })
+  }
+
+  // ── Unified door proximity ────────────────────────────────────────────────
+  // Doors must participate in the SAME per-frame _flagInRange protocol as
+  // harp/NPC/encounter flags. The base does, each frame:
+  //     this._flagInRange = false
+  //     this.checkProximityInteractions()
+  //     if (!this._flagInRange) this._encounterPanel.clearNotify()
+  // so a door badge is only kept alive by setting _flagInRange here -- and the
+  // base's own clearNotify() handles hiding it (with its grace timer) when you
+  // leave. Running this AFTER super.update() instead (the old _updateDoorProximity)
+  // let the base fight the door every frame and produced the inverted flicker.
+  checkProximityInteractions() {
+    if (this._checkDoorProximity()) return
+    super.checkProximityInteractions()
+  }
+
+  _checkDoorProximity() {
+    if (this._exiting || !this.player || !this._encounterPanel) return false
+    const zones = this._doorZones
+    if (!zones?.length) return false
+    const px = this.player.logicalX, py = this.player.logicalY
+    const R  = PerspectiveScene.DOOR_RADIUS_TILES * this.tileSize
+    let nearest = null, nearestDist = Infinity
+    for (const z of zones) {
+      const dist = Phaser.Math.Distance.Between(px, py, z.getData('logicalX'), z.getData('logicalY'))
+      if (dist < R && dist < nearestDist) { nearestDist = dist; nearest = z }
+    }
+    if (!nearest) return false
+    const door   = nearest.getData('door')
+    const cardId = 'door:' + door.id
+    this._flagInRange = true   // keep the base from clearing while we're at the door
+    if (this._encounterPanel._card?.id !== cardId) {
+      this._encounterPanel.notify({
+        id:      cardId,
+        visual:  door.visual || PerspectiveScene.DOOR_VISUAL,
+        ga:      door.ga || 'An doras',
+        en:      door.en || 'The door',
+        _isDoor: true,
+        _door:   door,
+      }, nearest)
+    }
+    this._encounterPanel._openPanel = () => this._triggerDoor(door)
+    return true
   }
 
   // ── Intro narrative ───────────────────────────────────────────────────────

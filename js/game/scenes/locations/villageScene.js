@@ -202,33 +202,21 @@ export default class VillageScene extends PerspectiveScene {
           console.warn('[VillageScene] NPC canvas build failed:', e.message)
         }
       }
+      const npcZone = this.add.zone(pixelX, pixelY, this.tileSize, this.tileSize)
+      npcZone.setData('id', npcData.id); npcZone.setData('type', 'npc')
+      npcZone.setData('logicalX', pixelX); npcZone.setData('logicalY', pixelY)
+      npcZone.x = pixelX; npcZone.y = pixelY
       this.npcs.push({
         id: npcData.id, name: npcData.name,
         dialogues: npcData.dialogues || [], dialogueIndex: 0,
         logicalX: pixelX, logicalY: pixelY,
-        imgCanvas, met: false,
+        imgCanvas, met: false, zone: npcZone,
+        triggerRadius: npcData.triggerRadius ?? null,
         screenX: 0, screenY: 0, screenW: 0, screenH: 0,
       })
     })
 
     this.onPGRDrawComplete = (ctx) => this._drawNPCsOnPGR(ctx)
-
-    this._npcTapHandler = (e) => {
-      const canvas = this.game.canvas
-      const rect   = canvas.getBoundingClientRect()
-      const scaleX = canvas.width  / rect.width
-      const scaleY = canvas.height / rect.height
-      const cx     = (e.clientX - rect.left) * scaleX
-      const cy     = (e.clientY - rect.top)  * scaleY
-      for (const npc of (this.npcs || [])) {
-        const { screenX: sx, screenY: sy, screenW: sw, screenH: sh } = npc
-        if (sw === 0) continue
-        if (cx >= sx - sw/2 && cx <= sx + sw/2 && cy >= sy - sh && cy <= sy) {
-          this._talkToNPCVillage(npc); break
-        }
-      }
-    }
-    this.game.canvas.addEventListener('pointerdown', this._npcTapHandler)
   }
 
   // NPC_HEIGHT_MULT: size relative to player (2.0 = twice player height)
@@ -330,50 +318,99 @@ export default class VillageScene extends PerspectiveScene {
   checkProximityInteractions() {
     if (this.narrativeInProgress) return
     if (this.textPanel?.isVisible || this.textPanelCooldown) return
-    const playerX = this.player.logicalX
-    const playerY = this.player.logicalY
+    const px = this.player.logicalX
+    const py = this.player.logicalY
+
     const HARP_RADIUS = this.tileSize * 2.5
-    let nearestHarp = null, nearestDist = Infinity
+    const NPC_RADIUS  = this.tileSize * 1.8
+
+    let nearestHarp = null, harpDist = Infinity
     this.interactables?.forEach(obj => {
       if (obj.getData('type') !== 'harp') return
-      const dist = Phaser.Math.Distance.Between(
-        playerX, playerY,
-        obj.getData('logicalX') ?? obj.x,
-        obj.getData('logicalY') ?? obj.y)
-      if (dist < HARP_RADIUS && dist < nearestDist) {
-        nearestDist = dist; nearestHarp = obj
-      }
+      const d = Phaser.Math.Distance.Between(
+        px, py, obj.getData('logicalX') ?? obj.x, obj.getData('logicalY') ?? obj.y)
+      if (d < HARP_RADIUS && d < harpDist) { harpDist = d; nearestHarp = obj }
     })
-    if (nearestHarp) {
+
+    let nearestNPC = null, npcDist = Infinity
+    ;(this.npcs || []).forEach(npc => {
+      const r = npc.triggerRadius != null ? npc.triggerRadius * this.tileSize : NPC_RADIUS
+      const d = Phaser.Math.Distance.Between(px, py, npc.logicalX, npc.logicalY)
+      if (d < r && d < npcDist) { npcDist = d; nearestNPC = npc }
+    })
+
+    // Nearest in-range interactable claims the moon-tile badge (harp wins ties).
+    if (nearestHarp && (!nearestNPC || harpDist <= npcDist)) {
       this._flagInRange = true
-      if (this._encounterPanel) {
-        const text   = nearestHarp.getData('text')
-        const id     = nearestHarp.getData('id')
-        const visual = nearestHarp.getData('visual')
-        this._pendingHarpZone = nearestHarp
-        // Monkey-patch _openPanel so badge tap opens harp overlay directly
-        this._encounterPanel._openPanel = () => {
-          this._encounterPanel.clearNotify()
-          this._openHarpOverlay()
-        }
-        this._encounterPanel.notify(
-          { id, visual, ga: text?.ga || '', en: text?.en || '', _isHarp: true },
-          nearestHarp)
-        // Draw harp image on badge directly from Phaser texture (faster than PGR cache)
-        if (this.textures.exists('harp_sprite')) {
-          const badge = this._encounterPanel._badgeEl
-          if (badge) {
-            const src = this.textures.get('harp_sprite').getSourceImage()
-            const ctx = badge.getContext('2d')
-            ctx.clearRect(0, 0, badge.width, badge.height)
-            ctx.imageSmoothingEnabled = false
-            ctx.drawImage(src, 0, 0, badge.width, badge.height)
-          }
-        }
-      }
+      this._showHarpBadge(nearestHarp)
       return
     }
+    if (nearestNPC) {
+      this._flagInRange = true
+      this._showNPCBadge(nearestNPC)
+      return
+    }
+    // Nothing in range: clear our own harp/NPC badge so it doesn't linger after
+    // we step away (leave a door badge alone -- _updateDoorProximity owns that).
+    if (this._encounterPanel?._card?._isHarp || this._encounterPanel?._card?._isNPC) {
+      this._encounterPanel.clearNotify()
+    }
+    this._flagInRange = false
     super.checkProximityInteractions()
+  }
+
+  // Raise the harp badge on the moon tile; pressing it opens the harp overlay.
+  _showHarpBadge(nearestHarp) {
+    if (!this._encounterPanel) return
+    const text   = nearestHarp.getData('text')
+    const id     = nearestHarp.getData('id')
+    const visual = nearestHarp.getData('visual')
+    this._pendingHarpZone = nearestHarp
+    this._encounterPanel._openPanel = () => {
+      this._encounterPanel.clearNotify()
+      this._openHarpOverlay()
+    }
+    this._encounterPanel.notify(
+      { id, visual, ga: text?.ga || '', en: text?.en || '', _isHarp: true },
+      nearestHarp)
+    if (this.textures.exists('harp_sprite')) {
+      const badge = this._encounterPanel._badgeEl
+      if (badge) {
+        const src = this.textures.get('harp_sprite').getSourceImage()
+        const ctx = badge.getContext('2d')
+        ctx.clearRect(0, 0, badge.width, badge.height)
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(src, 0, 0, badge.width, badge.height)
+      }
+    }
+  }
+
+  // Raise an NPC badge on the moon tile; pressing it opens that NPC's dialogue.
+  // Replaces the old canvas-wide tap hit-test so dialogue is a deliberate press,
+  // only available when the player is actually beside the NPC.
+  _showNPCBadge(npc) {
+    if (!this._encounterPanel) return
+    this._encounterPanel._openPanel = () => {
+      this._encounterPanel.clearNotify()
+      this._talkToNPCVillage(npc)
+    }
+    this._encounterPanel.notify({
+      id:     'npc:' + npc.id,
+      visual: { gid: 255, flat: false },
+      ga:     `Labhair le ${npc.name}`,
+      en:     `Speak with ${npc.name}`,
+      _isNPC: true,
+      _npc:   npc,
+    }, npc.zone || null)
+    if (npc.imgCanvas) {
+      const badge = this._encounterPanel._badgeEl
+      if (badge) {
+        const ctx = badge.getContext('2d')
+        ctx.clearRect(0, 0, badge.width, badge.height)
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(npc.imgCanvas, 0, 0, badge.width, badge.height)
+      }
+    }
   }
 
   // ── Harp zones ────────────────────────────────────────────────────────────

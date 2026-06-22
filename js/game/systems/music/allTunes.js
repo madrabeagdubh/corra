@@ -792,7 +792,7 @@ T: Merrily Kiss The Quaker
 Z: Jeremy
 S: https://thesession.org/tunes/70#setting70
 R: slide
-M: 12/8
+M: 6/8
 L: 1/8
 K: Gmaj
 |:D|GAB G2B c2A BGE|GAB DEG A2A AGE|
@@ -2537,7 +2537,7 @@ T: Star Above The Garter, The
 Z: fidicen
 S: https://thesession.org/tunes/1398#setting1398
 R: slide
-M: 12/8
+M: 6/8
 L: 1/8
 K: Gmaj
 |:d2B BAG ~A3 ABA|G2E c2B BAG ABc|

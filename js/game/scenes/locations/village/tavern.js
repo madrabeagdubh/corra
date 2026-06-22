@@ -81,65 +81,59 @@ gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/^G2-|^G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3|A2||`
 // so the line index advances independently of the group index — driven
 // straight from this array, cycling if the tune outlasts the poem.
 const BARD_PLACEHOLDER_TEXT = [
-  { ga: 'Ansin a chruinnigh na filí,', en: 'Then it was the poets gathered,' },
-  { ga: 'Agus go deimhin, bhrónach an scéal', en: 'Then indeed it was a sorrow,' },
-  { ga: 'Óir dáimsigh síad go raibh an Táin caillte.', en: 'For they found the Táin had perished.' },
-  { ga: '"Cá bhfuil sé anois?" a diar Forgall Stadach', en: '"Where is it now?" cried Forgall the Stammerer' },
-  { ga: 'Cá bhfuil ár Táin Cúailnge?', en: 'Where is our Raid of Cooley?' },
-  { ga: 'Cá bhfuil na tairbh, Donn Cuailnge,', en: 'Where the bulls, the Brown of Cooley,' },
-  { ga: 'Cá bhfuil fianas an áth?', en: 'Where the deeds done at the ford-crossing?' },
-  { ga: 'Agus thit tost ar gach duine acu', en: 'Then it was they each fell silent' },
-  { ga: 'imithe, arsa Muireann liath,', en: 'gone, said grey Muirenn,' },
-  { ga: 'Níl líne fágtha gur fiú an insint.', en: 'Not one line fit for the telling.' },
-  { ga: 'Ba mhór an t-uafás orthú', en: 'Then indeed it was a sorrow' },
-  { ga: 'd’éirigh Tiarnach Cham Bhéil,', en: 'Twisted-Mouth Tigernach rose,' },
-  { ga: 'Ag chraitha maide chaorthainn,', en: 'shaking his rowan staff,' },
-  { ga: 'Ag chraitha fhéasog fhiáin', en: 'shaking his wild beard' },
-  { ga: 'Éist liom', en: 'Listen to me' },
-  { ga: 'Éistigí liom cé nach dtaitneoidh sé libh.', en: 'Listen to me though ye will not like it.' },
-  { ga: 'Tá Táin léite agamsa', en: 'I have read a Táin' },
-  { ga: 'ag lobhadh faoi Chluain Mhic Nóis,', en: 'That rotted under Clonmacnoise,' },
-  { ga: 'An téacs a d’ith na péiste buí.', en: 'The book the yellow worms had eaten.' },
-  { ga: 'Sna scéalta sin', en: 'In those tellings' },
-  { ga: 'Ní raibh Cú Chulainn ánn', en: 'Cú Chulainn was not there' },
-  { ga: 'Deabhail Cú ar an teorainn!', en: 'No Hound upon the border!' },
-  { ga: 'Sáite isteach mar cuach sa Táin,', en: 'He was set there later like the cuckoo,' },
-  { ga: 'I neid éanlaith bocht éigin,', en: "Set in some poor warbler's nesthole," },
-  { ga: 'Ag ithe na scalltán,', en: 'Eating up the rightful nestlings,' },
-  { ga: 'Ag sciobadh grá agus clú.', en: 'Taking all the warmth and honour.' },
-  { ga: 'Cleasaí éigin a chuir án é,', en: 'He was put there by some schemer,' },
-  { ga: 'Ag scríobadh mainistreach éiginn,', en: 'By some monastery-scratching' },
-  { ga: 'Manach caolghéagach le cuspóir fuar', en: 'Thin-armed monk with cold ambitions' },
-  { ga: 'ar thóir ghlóir an laoich mhoir', en: "Who desired a hero's glory" },
-  { ga: 'a bhronnadh ar ríocht a pátrún', en: 'For the province of his patron' },
-  { ga: 'Tá lámh Laighean ann, a bhráithre,', en: "Leinster's hand is in it, brothers," },
-  { ga: 'Muintir Laighean mar is de gnáth!', en: "Leinster's hand has always stirred it!" },
-  { ga: 'Léim Dallán Forgaill ina sheasamh, an lasair ina ghruanna', en: 'Up leapt red-faced Dallán Forgaill,' },
-  { ga: 'Ag leaga triúr suíthe,', en: 'Knocking over three men seated,' },
-  { ga: 'Ag doirteadh cupáin na Chonnachtaí,', en: 'Upsetting the cups of Connacht,' },
-  { ga: 'Ag stealladh meá ar dhá bhrat breá fhilíochta.', en: 'Slopping mead on two good bard-cloaks.' },
-  { ga: 'Tá tú ag insint bréag trí do chuid fiacla liatha!', en: 'Thou art lying through thy grey teeth!' },
-  { ga: 'Tá tú ag insint bréag trí do bhachall chaorthainn!', en: 'Thou art lying through thy rowan-staff!' },
-  // NOTE: kept "Te Hound" exactly as provided rather than silently
-  // "fixing" it to "The Hound" — could be an intentional dialect/voice
-  // choice (Tigernach's speech, mid-laughter) rather than a typo. Flag
-  // for your own pass; easy one-word edit either way if not intended.
-  { ga: 'Bhí an Cú ar an teorainn go deimhin,', en: 'Te Hound was there upon the border,' },
-  { ga: 'Sheas sé leis féin in aghaidh sluaite,', en: 'There he stood alone against armies,' },
-  { ga: 'Chosain sé an tír ó áth go háth reoite,', en: 'There he fought from ford to cold ford,' },
-  { ga: 'Dhoirt sé fuil as créachtaí thar chomhaireamh!', en: 'There he bled from wounds uncountable!' },
-  { ga: 'Tá a fhios sin ag gach leanbh in Éirinn,', en: 'Every child of Erin knows it,' },
-  { ga: 'Ó gach buime a chan go ciúin!', en: 'Every nurse who ever sang low!' },
-  { ga: 'Buimeanna! arsa Tiarnach', en: 'Nurses! cried Tigernach' },
-  { ga: 'Ag gáire go dtí go rith deora,', en: 'Laughing till his eyes ran water,' },
-  { ga: 'Taispeáin dom an seanscríbh,', en: 'Show me now the old manuscript,' },
-  { ga: 'Áit a bhfuil a ainm curtha,', en: 'Where his name is set,' },
-  { ga: 'Curtha roimh ruathar an Donn!', en: "Set before the Brown Bull's driving!" },
-  { ga: 'Ní féidir leat. Ní ánn dó a mhic.', en: 'Thou canst not. It is not there, man.' },
-  { ga: 'Sáitheadh isteach ar ball é.', en: 'He was thrust in, later.' },
-  { ga: 'Cuach. Cuach.', en: 'Cuckoo. Cuckoo.' },
-]
-
+  {
+    en: "Then the hall was all uproar.",
+    ga: "Le rírá agus rúille búille."
+  },
+  {
+    en: "Ulster's poets rose up shouting",
+    ga: "Sheas filí Uladh suas le béic"
+  },
+  {
+    en: "Munster's poets rose up answering",
+    ga: "Sheas filí na Mumhan mar freaga"
+  },
+  {
+    en: "One man hit another sharply",
+    ga: "Bhuail fear amháin fear eile go docht"
+  },
+  {
+    en: "One man caught another's collar",
+    ga: "Rug fear amháin ar gheansaí eile"
+  },
+  {
+    en: "Tore the fine brooch from his shoulder",
+    ga: "Ag straceadh dealg bhreá dá ghualainn"
+  },
+  {
+    en: "Three harps fell and none would right them",
+    ga: "Fágadh trí chruit áit ar thuit síad"
+  },
+  {
+    en: "Hear me now, ye thick-skulled lords",
+    ga: "Éistigí liom anois, a thiarnaí thiubh"
+  },
+  {
+    en: "I am queen over Connacht's chieftains",
+    ga: "Mise an bhanríon thar thaoisigh na Chonnachta"
+  },
+  {
+    en: "My wars called men's quarrels",
+    ga: "Mo cogaí tuighta mar achrann fear"
+  },
+  {
+    en: "I who stood astride the chariot, reins in hand",
+    ga: "Mise a sheas ard sa charbaid, úim sa lámh"
+  },
+  {
+    en: "I Shall speak the truth",
+    ga: "Inseoidh mise an fhírine"
+  },
+  {
+    en: "Hear me now.",
+    ga: "Chlois anois mé."
+  }
+];
 export default class TavernScene extends VillageScene {
   constructor() { super({ key: 'tavern' }) }
 
@@ -173,6 +167,17 @@ export default class TavernScene extends VillageScene {
     if (card?._isHarp) {
       this._encounterPanel.clearNotify()
       this._openHarpOverlay()
+      return
+    }
+
+    if (card?._isDoor) {
+      this._triggerDoor(card._door)
+      return
+    }
+
+    if (card?._isNPC) {
+      this._encounterPanel.clearNotify()
+      this._talkToNPCVillage(card._npc)
       return
     }
 

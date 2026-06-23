@@ -2,6 +2,18 @@ import BogLocationScene from '../bogScene.js'
 
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
+
+  // Defensive: the tavern's interior overlay (#pgr-ceiling gradient +
+  // #pgr-blackmask) is raw DOM that the tavern is meant to tear down on exit.
+  // If that teardown is missed on the door-exit path it would leave the village
+  // dark, so strip any leftovers here -- the exterior never creates them itself.
+  create() {
+    super.create()
+    document.getElementById('pgr-ceiling')?.remove()
+    document.getElementById('pgr-blackmask')?.remove()
+    const c = this.game?.canvas?.parentNode
+    if (c) c.style.background = ''
+  }
   getMapKey()      { return 'b0' }
   getAmbient()     { return 0x223322 }
   getPlayerLight() { return { color: 0xfff5dd, intensity: 2.0, radius: 320 } }

@@ -1313,14 +1313,11 @@ export default class PerspectiveGroundRenderer {
     let playerDrawn   = false
 
     if (p) {
-      const snapX = this._boatActive
-        ? p.logicalX
-        : Math.floor(p.logicalX / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
-      const snapY = this._boatActive
-        ? p.logicalY
-        : Math.floor(p.logicalY / this.tileDisplaySize) * this.tileDisplaySize + this.tileDisplaySize * 0.5
-      const proj     = this._projectLogical(snapX, snapY)
-      if (proj) {
+     
+const proj  = this._projectLogical(p.logicalX, p.logicalY)
+
+
+	    if (proj) {
         const _ptCol     = Math.floor((p.targetX ?? p.logicalX) / this.tileDisplaySize)
         const _ptRow     = Math.floor((p.targetY ?? p.logicalY) / this.tileDisplaySize)
         const _ptGid     = this.scene.mapData?.layers?.[0]?.[_ptRow]?.[_ptCol] ?? 0
@@ -2209,33 +2206,23 @@ export default class PerspectiveGroundRenderer {
     const boatVX = this._boatActive ? (this.scene?.boatSystem?._vx ?? 0) : 0
     const boatVY = this._boatActive ? (this.scene?.boatSystem?._vy ?? 0) : 0
     const boatSpd = Math.hypot(boatVX, boatVY)
+if (this._boatActive) {
+  if (boatVX < -4)      this._facingLeft = true
+  else if (boatVX > 4)  this._facingLeft = false
+} else if (p?.isMoving) {
+  if (p.moveDirection.x < 0)      this._facingLeft = true
+  else if (p.moveDirection.x > 0) this._facingLeft = false
+}
 
-    const curTileX = p ? Math.floor(p.logicalX / this.tileDisplaySize) : 0
-    const curTileY = p ? Math.floor(p.logicalY / this.tileDisplaySize) : 0
-    const dvx = curTileX - (this._prevTileX ?? curTileX)
-    const dvy = curTileY - (this._prevTileY ?? curTileY)
-    const stepped = dvx !== 0 || dvy !== 0
-    this._prevTileX = curTileX
-    this._prevTileY = curTileY
-
-    if (this._boatActive) {
-      if (boatVX < -4)      this._facingLeft = true
-      else if (boatVX > 4)  this._facingLeft = false
-    } else {
-      if (dvx < 0)      this._facingLeft = true
-      else if (dvx > 0) this._facingLeft = false
-    }
-
-    if (!this._boatActive && stepped) {
-      this._moveDir = Math.abs(dvx) > 0 ? 'ew' : 'ns'
-      this._nextSwaySign = dvx !== 0 ? (dvx > 0 ? 1 : -1) : (this._swaySign ?? 1)
-      const st = this._stepT ?? 1
-      if (st > 0.85 || st === 0) {
-        this._stepT    = 0
-        this._swaySign = this._nextSwaySign
-      }
-    }
-
+if (!this._boatActive && p?.isMoving && (this._lastStepKeyX !== p.startX || this._lastStepKeyY !== p.startY)) {
+  this._lastStepKeyX = p.startX
+  this._lastStepKeyY = p.startY
+  this._stepT    = 0
+  this._moveDir  = p.moveDirection.x !== 0 ? 'ew' : 'ns'
+  this._swaySign = p.moveDirection.x !== 0
+    ? (p.moveDirection.x > 0 ? 1 : -1)
+    : (p.moveDirection.y > 0 ? 1 : -1)
+}
     const moving = this._boatActive ? boatSpd > 8 : (p?.isMoving ?? false)
 
     if (this._boatActive) {
@@ -2247,15 +2234,15 @@ export default class PerspectiveGroundRenderer {
       } else {
         this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.015)
       }
-    } else if (moving) {
-      this._stepT = (this._stepT || 0) + 0.09
-      if (this._stepT >= 1.0) {
-        this._stepT    = 0
-        this._swaySign = this._nextSwaySign ?? this._swaySign ?? 1
-      }
-    }
+  } else if (moving) {
+  const _refDuration = 150 // matches Player.baseStepDuration
+  const _stepRate    = 0.09 * (_refDuration / (p?.stepDuration || _refDuration))
+  this._stepT = (this._stepT || 0) + _stepRate
+  if (this._stepT >= 1.0) this._stepT = 1.0
+}
 
-    const strokeT = this._strokeT ?? 0
+
+const strokeT = this._strokeT ?? 0
     let rowLean = 0, rowBob = 0, boatTilt = 0
     if (this._boatActive) {
       if (strokeT < 0.15) {

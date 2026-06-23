@@ -148,6 +148,100 @@ export default class TavernScene extends VillageScene {
     ]
   }
 
+  // ── Hearth flame ─────────────────────────────────────────────────────────
+  // Animated fire for the back-wall hearth: rising flame particles, a few
+  // drifting embers, and a breathing amber glow that spills onto the floor.
+  // Drawn straight onto the PGR canvas via onPGRDrawComplete -- chained in
+  // FRONT of the NPC draw so the flame renders first (behind the NPCs, which is
+  // correct for a back-wall hearth) -- and positioned every frame through
+  // pgr._projectLogical so it stays locked to the hearth as the camera follows
+  // the player. Tune via HEARTH_FLAME.
+  static HEARTH_FLAME = {
+    ROW_OFFSET:  2,   // tiles below the hearth building's y to the firebox
+    GLOW_RADIUS: 30,   // glow radius in px at scale 1
+    PARTICLES:   16,    // flame + ember population
+  }
+
+  createNPCs() {
+    super.createNPCs()
+    const prev = this.onPGRDrawComplete   // the NPC draw set by VillageScene
+    this.onPGRDrawComplete = (ctx) => { this._drawHearthFlame(ctx); if (prev) prev(ctx) }
+  }
+
+  _ensureHearthAnchor() {
+    if (this._hearthAnchor !== undefined) return this._hearthAnchor
+    const b = (this.mapData?.buildings || []).find(x => x.id === 'hearth')
+    if (!b) { this._hearthAnchor = null; return null }
+    const F = TavernScene.HEARTH_FLAME
+    this._hearthAnchor = {
+      x: (b.x + (b.fw ?? 2) / 2) * this.tileSize,   // horizontal centre of the hearth
+      y: (b.y + F.ROW_OFFSET) * this.tileSize,       // down into the firebox
+    }
+    return this._hearthAnchor
+  }
+
+  _drawHearthFlame(ctx) {
+    const pgr = this.perspectiveGround
+    if (!pgr || !pgr._projectLogical) return
+    const anchor = this._ensureHearthAnchor()
+    if (!anchor) return
+    const proj = pgr._projectLogical(anchor.x, anchor.y)
+    if (!proj) return
+    const { screenX, screenY, scale } = proj
+    const F = TavernScene.HEARTH_FLAME
+    const now = performance.now()
+    const dt = Math.min(now - (this._flameLastT || now), 64)
+    this._flameLastT = now
+    const unit = scale * pgr.tileDisplaySize     // on-screen px per tile at this depth
+    if (!this._flameParticles) this._flameParticles = []
+    const parts = this._flameParticles
+    while (parts.length < F.PARTICLES) {
+      const ember = Math.random() < 0.16
+      parts.push({
+        ox: (Math.random() - 0.5) * 0.30, oy: 0,
+        vx: (Math.random() - 0.5) * 0.00020,
+        vy: -(0.00075 + Math.random() * 0.00065) * (ember ? 0.6 : 1),
+        life: 0, max: ember ? 1500 + Math.random() * 900 : 420 + Math.random() * 520,
+        ember, seed: Math.random() * 6.28,
+      })
+    }
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    // Breathing glow.
+    const flick = 0.78 + 0.14 * Math.sin(now * 0.013) + 0.08 * Math.sin(now * 0.041 + 1.3)
+    const R = F.GLOW_RADIUS * scale * flick
+    if (R > 1) {
+      const g = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, R)
+      g.addColorStop(0,    `rgba(255,180,90,${(0.30 * flick).toFixed(3)})`)
+      g.addColorStop(0.45, `rgba(255,120,45,${(0.14 * flick).toFixed(3)})`)
+      g.addColorStop(1,    'rgba(255,90,25,0)')
+      ctx.fillStyle = g
+      ctx.beginPath(); ctx.arc(screenX, screenY, R, 0, Math.PI * 2); ctx.fill()
+    }
+    // Particles: recycled in place to keep a constant population.
+    for (const p of parts) {
+      p.life += dt; p.ox += p.vx * dt; p.oy += p.vy * dt; p.vx *= 0.98
+      if (p.life >= p.max) {
+        p.life = 0; p.oy = 0; p.ox = (Math.random() - 0.5) * 0.30
+        p.vy = -(0.00075 + Math.random() * 0.00065); continue
+      }
+      const t = p.life / p.max
+      const px = screenX + p.ox * unit + Math.sin(now * 0.006 + p.seed) * unit * 0.04
+      const py = screenY + p.oy * unit
+      const fade = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85
+      const a = Math.max(0, fade) * (p.ember ? 0.5 : 0.85)
+      if (a < 0.02) continue
+      let r, gg, b
+      if (t < 0.4) { r = 255; gg = Math.round(220 - t * 180); b = Math.round(120 - t * 200) }
+      else { r = Math.round(255 - (t - 0.4) * 110); gg = Math.round(110 - (t - 0.4) * 120); b = 30 }
+      const size = (p.ember ? 0.05 : 0.12 * (1 - t * 0.6)) * unit
+      if (size < 0.4) continue
+      ctx.fillStyle = `rgba(${r},${Math.max(0, gg)},${Math.max(0, b)},${a.toFixed(3)})`
+      ctx.beginPath(); ctx.arc(px, py, size, 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.restore()
+  }
+
   onEnter() {
     this.time.delayedCall(800, () => {
       this.textPanel?.show({

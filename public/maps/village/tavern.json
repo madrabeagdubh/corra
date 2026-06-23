@@ -782,7 +782,7 @@
       "id": "hearth",
       "src": "assets/hearth.png",
       "x": 7,
-      "y": 1,
+      "y": -1,
       "fw": 2,
       "fh": 3,
       "mode": "billboard",

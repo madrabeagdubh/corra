@@ -4,6 +4,7 @@ import Joystick from '../../input/joystick.js';
 import TextPanel from '../../ui/textPanel.js';
 import TerrainManager from '../../systems/terrainManager.js'
 import HPDisplay from '../../ui/HPDisplay.js'
+import PerspectiveGroundRenderer from '../../effects/perspectiveGroundRenderer.js'
 
 /**
  * Base class for all location scenes.
@@ -15,6 +16,38 @@ import HPDisplay from '../../ui/HPDisplay.js'
 export default class BaseLocationScene extends Phaser.Scene {
   constructor(config) {
     super(config);
+  }
+
+  // ── PGR camera/perspective config ────────────────────────────────────────
+  // Every scene's view (overworld, interior, future first-person dungeon,
+  // etc.) is expressed as a COMPLETE, ABSOLUTE config here — never as a
+  // delta from whatever the previous scene left behind. This is what makes
+  // entering/leaving any combination of scene types safe: each scene fully
+  // (re)applies its own settings on entry, so there's nothing to restore on
+  // exit and no ordering dependency between shutdown() and the next scene's
+  // create(). Subclasses override this method to layer their own values on
+  // top via `...super.getPGRConfig()`, rather than mutating the
+  // PerspectiveGroundRenderer statics directly and trying to undo it later.
+  //
+  // These defaults mirror PerspectiveGroundRenderer's own static class
+  // fields, i.e. what WorldScene (which never touches PGR at all) implicitly
+  // uses. They are the canonical "overworld" baseline.
+  getPGRConfig() {
+    return {
+      HORIZON_Y_FRAC:    0.28,
+      CAMERA_ROW_OFFSET: 14.0,
+      FOCAL_LENGTH:      12.0,
+      TILES_ACROSS:      3.8,
+      PLAYER_SCALE:      0.7,
+      PLAYER_DIST_TILES: 1.2,
+    }
+  }
+
+  _applyPGRConfig() {
+    const cfg = this.getPGRConfig()
+    for (const [k, v] of Object.entries(cfg)) {
+      PerspectiveGroundRenderer[k] = v
+    }
   }
 
   // ── Preload ───────────────────────────────────────────────────────────────

@@ -23,20 +23,11 @@ export default class VillageScene extends PerspectiveScene {
   getPlayerLight() { return { color: 0xffcc88, intensity: 1.6, radius: 220 } }
   getWisps()       { return [] }
 
-  // ── Preload NPC sprites ───────────────────────────────────────────────────
-  preload() {
-    super.preload()
-    NPC_SPRITES.forEach(key => {
-      if (!this.textures.exists(`npc_${key}`)) {
-        this.load.image(`npc_${key}`, `/assets/npcs/${key}.png`)
-      }
-    })
-    if (!this.textures.exists('harp_sprite')) {
-      this.load.image('harp_sprite', '/assets/harp.png')
-    }
-  }
-
-  // ── PGR constants ─────────────────────────────────────────────────────────
+  // ── PGR camera/perspective config ─────────────────────────────────────────
+  // A complete, absolute config for interior scenes — layered on top of
+  // BaseLocationScene's overworld baseline rather than mutating it. Applied
+  // fresh on every entry (see drawTilemap -> _applyPGRConfig), so there is
+  // nothing to save/restore on exit and no ordering dependency on shutdown().
   // Tuning knobs:
   //   HORIZON_Y_FRAC    — sky fraction (0.02 = near-zero, black void above)
   //   CAMERA_ROW_OFFSET — camera height above map (lower = closer/bigger tiles)
@@ -44,35 +35,15 @@ export default class VillageScene extends PerspectiveScene {
   //   TILES_ACROSS      — tile count across screen (lower = bigger tiles)
   //   PLAYER_SCALE      — player sprite height
   //   PLAYER_DIST_TILES — player distance from camera (lower = larger at all depths)
-  static INTERIOR_PGR = {
-    HORIZON_Y_FRAC:    0.02,
-    CAMERA_ROW_OFFSET: 3.5,
-    FOCAL_LENGTH:      4.5,
-    TILES_ACROSS:      4.5,
-  }
-
-  _applyInteriorPGR() {
-    this._savedPGR = {}
-    for (const [k, v] of Object.entries(VillageScene.INTERIOR_PGR)) {
-      this._savedPGR[k] = PerspectiveGroundRenderer[k]
-      PerspectiveGroundRenderer[k] = v
-    }
-    this._savedPlayerScale     = PerspectiveGroundRenderer.PLAYER_SCALE
-    this._savedPlayerDistTiles = PerspectiveGroundRenderer.PLAYER_DIST_TILES
-    PerspectiveGroundRenderer.PLAYER_SCALE      = 1
-    PerspectiveGroundRenderer.PLAYER_DIST_TILES = 0.3
-  }
-
-  _restoreInteriorPGR() {
-    if (!this._savedPGR) return
-    for (const [k, v] of Object.entries(this._savedPGR)) {
-      PerspectiveGroundRenderer[k] = v
-    }
-    this._savedPGR = null
-    if (this._savedPlayerScale != null) {
-      PerspectiveGroundRenderer.PLAYER_SCALE      = this._savedPlayerScale
-      PerspectiveGroundRenderer.PLAYER_DIST_TILES = this._savedPlayerDistTiles
-      this._savedPlayerScale = null
+  getPGRConfig() {
+    return {
+      ...super.getPGRConfig(),
+      HORIZON_Y_FRAC:    0.02,
+      CAMERA_ROW_OFFSET: 3.5,
+      FOCAL_LENGTH:      4.5,
+      TILES_ACROSS:      4.5,
+      PLAYER_SCALE:      1,
+      PLAYER_DIST_TILES: 0.3,
     }
   }
 
@@ -82,7 +53,7 @@ export default class VillageScene extends PerspectiveScene {
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
 
-    this._applyInteriorPGR()
+    this._applyPGRConfig()
 
     const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54, SCALE = 4
 
@@ -454,7 +425,6 @@ export default class VillageScene extends PerspectiveScene {
   shutdown() {
     this._corraHarp?.close()
     this._corraHarp = null
-    this._restoreInteriorPGR()
     document.getElementById('pgr-ceiling')?.remove()
     document.getElementById('pgr-blackmask')?.remove()
     this._ceilingCanvas = null

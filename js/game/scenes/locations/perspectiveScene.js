@@ -576,7 +576,7 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
-
+ this._applyPGRConfig()  
     this.tileSize  = TW * SCALE
     this.mapWidth  = this.mapData.width  * TW * SCALE
     this.mapHeight = this.mapData.height * TH * SCALE

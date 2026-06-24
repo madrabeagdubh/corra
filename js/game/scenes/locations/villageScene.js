@@ -157,6 +157,7 @@ export default class VillageScene extends PerspectiveScene {
       const pixelX    = npcData.x * this.tileSize + this.tileSize / 2
       const pixelY    = npcData.y * this.tileSize + this.tileSize / 2
       const spriteKey = `npc_${npcData.sprite || npcData.id}`
+      console.log('[VillageScene] NPC', npcData.id, 'spriteKey:', spriteKey, 'exists:', this.textures.exists(spriteKey))
       let imgCanvas   = null
       if (this.textures.exists(spriteKey)) {
         try {
@@ -248,19 +249,6 @@ export default class VillageScene extends PerspectiveScene {
         npc.dialogueIndex = ((npc.dialogueIndex || 0) + 1) % npc.dialogues.length
       }
     })
-  }
-
-  // ── Update — PerspectiveScene south clamp is wrong for small maps ─────────
-  update(time, delta) {
-    super.update(time, delta)
-    // Clamp camera to map bounds — allow full scroll
-    if (this.cameras?.main && this.mapHeight) {
-      const cam   = this.cameras.main
-      const sh    = this.scale.height
-      const maxSY = this.mapHeight - sh
-      if (maxSY > 0 && cam.scrollY > maxSY) cam.scrollY = maxSY
-      if (cam.scrollY < 0) cam.scrollY = 0
-    }
   }
 
   // ── Collision ─────────────────────────────────────────────────────────────

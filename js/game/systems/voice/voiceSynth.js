@@ -15,8 +15,10 @@
  * No emotion tag required. Emotion is derived automatically from the
  * Irish text using lexical and grammatical features plus the tune's
  * modal darkness. Voice is 'ronnie' (male), 'peig' (female), 'dallan'
- * (younger male), 'seanchai' (lower, firmer female narrator), or
- * 'maebh' (bright, ethereal, ghostly female) — see VOICES below.
+ * (younger male), 'forgall' (anxious, reedy male), 'seanchai' (lower,
+ * firmer female narrator), 'maebh' (forceful, supernatural/doubled
+ * entity — see her VOICES entry's `double` field), or 'bird1' (bright,
+ * ethereal, melodic female) — see VOICES below.
  * tuneKey is an ABC K: field string, e.g. 'Edor', 'Dmix', 'Gmaj', 'Bmin'.
  */
 
@@ -80,13 +82,14 @@ const st2hz = st => A4 * Math.pow(2, (st - 9) / 12)
 // needing ronnie's huge shift; he's meant to read as younger/sharper
 // than ronnie, not "ronnie but bright," and a big os value would have
 // dragged him back toward ronnie's same deep placement instead. seanchai
-// (the narrator) and maebh both stay at octave 4 alongside peig (all
-// three are female-register voices) — seanchai's distinction from peig
-// comes from a much lower os (-2.5 vs peig's 0.0, landing ~381Hz);
-// maebh's comes from a HIGHER os instead (+2.5, landing ~508Hz) — per
-// explicit design call, she's meant to read as bright/ethereal/ghostly,
-// the opposite direction from every other voice rather than just another
-// shade of grounded.
+// (the narrator), maebh, and bird1 all stay at octave 4 alongside peig
+// (all are female-register voices) — each is distinguished from peig
+// (and from each other) by os alone, not octave: seanchai -2.5 (~381Hz,
+// grounded narrator authority), maebh -1.5 (~404Hz, a forceful battle-
+// queen register, distinct from both seanchai's lower calm and peig's
+// own 440Hz), bird1 +2.5 (~508Hz, bright/ethereal — bird1 was Maebh's
+// first attempt, kept under a neutral name once it turned out lovely
+// but wrong for her character).
 //
 // This replaces an earlier version that only special-cased 'ronnie'
 // (octave 5) vs everything else (octave 4, same as 'peig') — with more
@@ -95,10 +98,14 @@ const st2hz = st => A4 * Math.pow(2, (st - 9) / 12)
 // which is exactly what made a first pass at 'dallan' (a male voice with
 // only a small os shift) come out sounding as high as peig instead of
 // male. An explicit per-voice table makes each voice's base register a
-// deliberate choice instead of an accidental default.
+// deliberate choice instead of an accidental default. forgall shares
+// dallan's octave 3 (also male) but uses a different os/timbre — see
+// his VOICES entry below — distinguishing them by character rather
+// than by register.
 const OCTAVE_BY_VOICE = {
     ronnie: 5,
     dallan: 3,
+    forgall: 3,
 }
 
 function rootHzForVoice(rac, voiceId) {
@@ -535,6 +542,39 @@ const VOICES = {
         wv:   0.66,
         ns:   0.0,
     },
+    // Forgall the Stammerer — anxious, reedy, searching voice; distinct
+    // from every other male voice (ronnie's deep gravel, dallan's bright
+    // confident edge) by being thinner and more strained rather than
+    // either deep or sharp-confident:
+    //   os   -0.2 (vs dallan's -0.6) — sits a little HIGHER than dallan
+    //         within the same octave 3 (see OCTAVE_BY_VOICE) — a touch
+    //         more strained/nervous, less grounded than a young bard's
+    //         confident register.
+    //   fs   0.62 — thinner/smaller cavity than dallan (0.78) — reedier,
+    //         less full-bodied.
+    //   br   0.045 — noticeably breathier than dallan (0.010) or ronnie
+    //         (0.0) — an anxious, slightly out-of-breath quality.
+    //   cv/ck  quick and LIGHT (0.32/0.10) rather than dallan's firm
+    //         click (0.55/0.16) — a hesitant, stammering attack rather
+    //         than a decisive one.
+    //   on/cl  short (22/30, vs dallan's 32/42) — clipped and jittery,
+    //         syllables landing abruptly rather than settling.
+    //   mix.r  0.10 — a little strain/rasp, just enough to read as
+    //         anxious rather than smooth and composed.
+    forgall: {
+        os:  -0.2,
+        fs:   0.62,
+        lp:   3600,
+        mix:  { t: 0.34, s: 0.40, r: 0.10 },
+        br:   0.045,
+        cv:   0.32,
+        ck:   0.10,
+        vf:   0.68,
+        on:   22,
+        cl:   30,
+        wv:   0.60,
+        ns:   0.05,
+    },
     // Seanchaí — the narrator's voice. (Renamed from an earlier 'maebh'
     // preset — that name now belongs to a different, ethereal voice; see
     // below. This preset is unchanged in substance: lower and firmer
@@ -562,46 +602,33 @@ const VOICES = {
         wv:   0.70,
         ns:   0.15,   // a little nasality kept for clarity/projection, well under peig's 0.70
     },
-    // Maebh — bright, distinctly female, melodic and ETHEREAL. Per
-    // explicit design call: in this telling Maebh is something like a
-    // ghost, so this preset deliberately moves AWAY from the grounded,
-    // present qualities every other voice leans on, toward airiness and
-    // shimmer:
+    // Bird1 — bright, distinctly female, melodic and ETHEREAL. Originally
+    // built as Maebh's voice; per explicit feedback it was a lovely
+    // sound but wrong for her character ("a lovely little songbird," not
+    // a battle-queen) — kept here under a neutral name for possible
+    // future use (e.g. an actual bird/spirit character) rather than
+    // discarded. Deliberately moves AWAY from the grounded, present
+    // qualities every other voice leans on, toward airiness and shimmer:
     //   os  +2.5 (vs peig's 0.0)  — distinctly HIGHER than every other
-    //         voice, not lower like the old maebh preset was. Sits
-    //         ~508Hz at octave 4 (see OCTAVE_BY_VOICE) — bright without
-    //         tipping into a chipmunk extreme.
+    //         voice. Sits ~508Hz at octave 4 (see OCTAVE_BY_VOICE) —
+    //         bright without tipping into a chipmunk extreme.
     //   br  0.085 — by far the highest breath-noise of any voice (next
-    //         highest is peig's 0.022) — this is the main lever for
-    //         "airy/spectral" rather than "present and grounded."
+    //         highest is peig's 0.022) — the main lever for "airy/
+    //         spectral" rather than "present and grounded."
     //   cv/ck  pulled WAY down (0.18 / 0.05) — soft, barely-there
-    //         consonants; ghosts don't land hard percussive attacks.
-    //   mix.r  0  — zero roughness; ghosts are smooth, not gravelly.
+    //         consonants.
+    //   mix.r  0  — zero roughness; smooth, not gravelly.
     //   on/cl  pushed LONGER (58/68 vs e.g. peig's 40/52) — softer
     //         onset/closure envelopes so each syllable blooms and fades
-    //         rather than snapping in firmly, for the "melodic" quality
-    //         requested — pairs especially well with BARD_SING mode,
-    //         where she's already singing the actual tune rather than a
+    //         rather than snapping in firmly — pairs well with BARD_SING
+    //         mode, where the voice sings the actual tune rather than a
     //         spoken contour.
     //   ns  0.05 — kept low; nasality reads as grounded/present, the
-    //         opposite of what this voice is going for.
-    // — all of the above is UNCHANGED from the first pass; per explicit
-    // feedback the character itself ("a lovely little songbird") was
-    // right, just thin/squeaky at the edges for anyone without a
-    // sympathetic ear. Fullness/warmth added WITHOUT touching pitch,
-    // breath, softness, or roughness (the things that make her her):
-    //   fs   1.15 → 1.42 — bigger resonant cavity adds low-formant body
-    //         underneath the brightness; this is the single biggest
-    //         lever for "fuller" without changing the pitch at all.
-    //   lp   5200 → 4400 — pulled back somewhat from the very brightest
-    //         setting, letting a bit more low-mid warmth through while
-    //         still staying clearly the airiest/brightest lid of any
-    //         voice (next is dallan's 4200).
-    //   mix.t 0.58 → 0.68 — more triangle (the roundest, most
-    //         fundamental-heavy waveform), for roundness over thinness.
-    //   vf   0.84 → 0.90 — slightly longer voiced sustain reads as
-    //         fuller rather than clipped/thin.
-    maebh: {
+    //         opposite of this voice's character.
+    //   fs/lp/mix.t/vf were tuned UP from a thinner first pass (1.15→1.42,
+    //         5200→4400, 0.58→0.68, 0.84→0.90) for more fullness/warmth
+    //         without touching pitch, breath, softness, or roughness.
+    bird1: {
         os:   2.5,
         fs:   1.42,
         lp:   4400,
@@ -614,6 +641,67 @@ const VOICES = {
         cl:   68,
         wv:   0.55,
         ns:   0.05,
+    },
+    // Maebh — a supernatural entity, not an ordinary voice pushed to an
+    // extreme. Per explicit design call: she can sound "far out" — she's
+    // effectively otherworldly, and listenability matters more than
+    // staying inside the normal-human-voice parameter space every other
+    // character lives in. Two earlier attempts (a lower/commanding take,
+    // now 'seanchai'; a bright/ethereal take, now 'bird1') stayed within
+    // that normal space and didn't read as distinct enough once heard
+    // alongside the rest of the cast — tabulating every voice's fs/lp
+    // showed her sitting almost exactly BETWEEN peig and seanchai
+    // (fs 1.08 vs their 1.02/0.92), which is the literal opposite of
+    // distinct: the average of two other voices.
+    //
+    // This version does two things differently:
+    //   1. PUSHES FURTHER on the same axes, clear of the peig/seanchai
+    //      cluster rather than sitting between them: fs 1.08 → 1.55 (the
+    //      largest cavity of ANY voice, well past bird1's 1.42), lp 3900
+    //      → 3200 (darker/more cavernous than her old setting, not
+    //      brighter), mix.r 0.12 → 0.22 (more edge).
+    //   2. Adds a STRUCTURALLY different layer via v.double (see
+    //      Player.play in the PLAYER section below) — a second,
+    //      detuned copy of every syllable scheduled alongside the
+    //      primary one, using bird1's airier timbre and a near-unison
+    //      detuning (+0.35 semitones — NOT a clean octave/fifth, which
+    //      would sound merely "harmonic"; a near-unison interval beats/
+    //      phases against the primary pitch, the actual mechanism behind
+    //      most film-score "ghost/spirit" choral effects). No other
+    //      voice has a second layer at all, so this alone makes her
+    //      structurally unlike anyone else in the cast, not just a
+    //      different parameter setting of the same one-voice model.
+    maebh: {
+        os:  -1.5,
+        fs:   1.55,
+        lp:   3200,
+        mix:  { t: 0.30, s: 0.46, r: 0.22 },
+        br:   0.010,
+        cv:   0.58,
+        ck:   0.20,
+        vf:   0.88,
+        on:   30,
+        cl:   40,
+        wv:   0.74,
+        ns:   0.10,
+        // Reverb send amount (0..1) — per explicit request ("let it
+        // ring"), a substantial wet send into the shared long convolver
+        // tail (see buildReverbImpulse / VoiceSynth constructor), giving
+        // her voice a floaty, lingering quality no other character has.
+        // The dry signal is untouched at any reverb value, so she stays
+        // intelligible — this only adds the wash on top. No other voice
+        // sets this field, so everyone else stays completely dry.
+        reverb: 0.55,
+        double: {
+            voice: 'bird1',        // the contrasting-timbre layer to blend in
+            intervalSt: 0.35,      // near-unison detune, in semitones — deliberately
+                                   // NOT a clean interval; creates beating/phasing
+                                   // rather than a pleasant harmony
+            overrides: { br: 0.14, mix: { t: 0.55, s: 0.10, r: 0.0 } },
+                                   // even airier/smoother than bird1's own defaults,
+                                   // so the double layer reads as a ghostly haze
+                                   // behind the primary voice, not a second equal voice
+        },
     },
 }
 
@@ -671,14 +759,35 @@ class SyllableStream {
 
 const ffq = v => ({ f1: 300 + (1-v)*400, f2: 900 + v*2300 })
 
-function schedSyl(ac, dest, bHz, when, dur, fromHz, v, ss, spu, stressBoost) {
+// ─────────────────────────────────────────────────────────────────────────────
+// REVERB — long, ringing convolver tail for voices that want one (currently
+// only 'maebh' — see v.reverb in VOICES and its use in schedSyl/VoiceSynth).
+// Same white-noise-decay convolver technique corraHarp.js's HarpAudio uses
+// for its own reverb, but tuned for a noticeably LONGER, more lingering
+// tail (per explicit design call: "let it ring") rather than a short room
+// tone — 3.5s decay with a gentler power-curve falloff (1.3 vs the harp's
+// 1.9), so the tail actually sustains audibly instead of fading quickly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildReverbImpulse(ac) {
+    const sr  = ac.sampleRate
+    const len = Math.floor(sr * 3.5)
+    const buf = ac.createBuffer(2, len, sr)
+    for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c)
+        for (let i = 0; i < len; i++) {
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.3)
+        }
+    }
+    return buf
+}
+
+
+function schedSyl(ac, dest, bHz, when, dur, fromHz, v, sy, spu, stressBoost, reverbSend) {
     if (!ac || !dest || dur < .03) return
 
     const hz  = bHz  * Math.pow(2, v.os || 0)
     const fhs = fromHz ? fromHz * Math.pow(2, v.os || 0) : 0
-    const u   = dur / spu
-    const iT  = u >= 3
-    const sy  = ss.next(u, iT)
     const { f1: fb, f2: f2b } = ffq(sy.v)
     const f1  = fb  * v.fs
     const f2  = f2b * v.fs
@@ -839,6 +948,19 @@ function schedSyl(ac, dest, bHz, when, dur, fromHz, v, ss, spu, stressBoost) {
     if (ng2) ng2.connect(env)
     env.connect(dest)
 
+    // Wet reverb send — only for voices that opt in via v.reverb (a 0..1
+    // send amount; currently only 'maebh' has this set). The dry signal
+    // above is UNCHANGED regardless, so a reverb voice still stays
+    // intelligible/on-time; this just additionally sends a copy of the
+    // same envelope into the shared convolver reverb send, mixed in
+    // alongside everyone else's dry output at the destination.
+    if (v.reverb > 0 && reverbSend) {
+        const wetGain = ac.createGain()
+        wetGain.gain.value = v.reverb
+        env.connect(wetGain)
+        wetGain.connect(reverbSend)
+    }
+
     o1.start(t1); o1.stop(t5 + .008)
     o2.start(t1); o2.stop(t5 + .008)
 }
@@ -848,9 +970,10 @@ function schedSyl(ac, dest, bHz, when, dur, fromHz, v, ss, spu, stressBoost) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class Player {
-    constructor(ac, dest) {
+    constructor(ac, dest, reverbSend) {
         this._ac   = ac
         this._dest = dest
+        this._reverbSend = reverbSend || null
         this._ss   = new SyllableStream()
         this._nt   = 0     // next note time
         this._ph   = 0     // previous Hz (for portamento)
@@ -888,12 +1011,68 @@ class Player {
                     // Silent gap — just advance time
                     this._nt += n.dur
                 } else {
+                    // Pick the vocable ONCE per real syllable, here, not
+                    // inside schedSyl — so a doubled voice layer (see
+                    // v.double below) can reuse the SAME pick for its
+                    // second pass instead of drawing a fresh one, which
+                    // would silently desync the SyllableStream's internal
+                    // pattern state from every other voice that calls
+                    // schedSyl exactly once per syllable.
+                    const u  = n.dur / this._spu
+                    const iT = u >= 3
+                    const sy = this._ss.next(u, iT)
+
                     schedSyl(
                         this._ac, this._dest,
                         n.hz, this._nt, n.dur,
-                        this._ph, v, this._ss, this._spu,
-                        n.stressed
+                        this._ph, v, sy, this._spu,
+                        n.stressed, this._reverbSend
                     )
+
+                    // Optional second, detuned/differently-voiced layer —
+                    // see v.double in VOICES (currently only 'maebh' uses
+                    // this). Scheduled at the SAME time/duration/vocable
+                    // as the primary layer, just a different pitch
+                    // interval and/or timbre (v.double.voice), producing
+                    // a chorus-like doubling no single-oscillator-pair
+                    // voice can replicate — the intended "far out,
+                    // supernatural" quality rather than a normal human
+                    // voice pushed to an extreme parameter setting.
+                    if (v.double) {
+                        const dV = VOICES[v.double.voice] || v
+                        // os is forced to 0 here — detunedHz/detunedFrom
+                        // below are already FULLY RESOLVED frequencies
+                        // (n.hz/this._ph, which themselves already had
+                        // the PRIMARY voice's os baked in by
+                        // buildNotesWithRoot/buildNotesFromMelody, plus
+                        // the explicit intervalSt detuning), so letting
+                        // schedSyl's own `hz = bHz * 2^(v.os/12)` apply
+                        // the double-voice's os AGAIN on top would shift
+                        // the pitch a second, unintended time — e.g.
+                        // bird1's os:+2.5 stacking on top of the already-
+                        // detuned pitch and landing far from the
+                        // deliberately near-unison interval this was
+                        // designed around. Confirmed by direct
+                        // calculation before this fix: an intended ~412Hz
+                        // detuned layer was actually landing at ~476Hz.
+                        // reverb is explicitly carried over from the
+                        // PRIMARY voice (v.reverb), not dV's own (bird1
+                        // has none) — otherwise the doubled haze layer
+                        // would stay dry while only the primary voice
+                        // rang, an inconsistent half-applied effect.
+                        const mergedV = { ...dV, ...v.double.overrides, os: 0, reverb: v.reverb ?? 0 }
+                        const detunedHz = n.hz * Math.pow(2, (v.double.intervalSt ?? 0) / 12)
+                        const detunedFrom = this._ph
+                            ? this._ph * Math.pow(2, (v.double.intervalSt ?? 0) / 12)
+                            : 0
+                        schedSyl(
+                            this._ac, this._dest,
+                            detunedHz, this._nt, n.dur,
+                            detunedFrom, mergedV, sy, this._spu,
+                            n.stressed, this._reverbSend
+                        )
+                    }
+
                     this._ph = n.hz
                     this._nt += n.dur
                 }
@@ -931,14 +1110,29 @@ export class VoiceSynth {
         this._out.gain.value = volume
         this._out.connect(masterGain || this._ac.destination)
 
-        this._player = new Player(this._ac, this._out)
+        // Reverb send — a single shared convolver per VoiceSynth instance
+        // (not per-syllable; building a fresh impulse buffer per note
+        // would be wasteful). Any syllable from a voice with v.reverb > 0
+        // sends a copy of its signal here (see schedSyl); voices without
+        // it never touch this path at all, so they're entirely unaffected.
+        // Output of the convolver joins the SAME destination as the dry
+        // path (masterGain || ac.destination), so wet and dry mix
+        // together there rather than needing a separate output route.
+        this._reverbSend = this._ac.createGain()
+        this._reverbSend.gain.value = 1.0
+        this._reverbConvolver = this._ac.createConvolver()
+        this._reverbConvolver.buffer = buildReverbImpulse(this._ac)
+        this._reverbSend.connect(this._reverbConvolver)
+        this._reverbConvolver.connect(masterGain || this._ac.destination)
+
+        this._player = new Player(this._ac, this._out, this._reverbSend)
     }
 
     /**
      * Speak a line of Irish text.
      * @param {string} gaText   — Irish language text
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai'
+     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai' | 'forgall' | 'bird1'
      * @param {string} opts.tuneKey  — ABC K: field, e.g. 'Edor', 'Dmix', 'Gmaj'
      * @param {Function} [opts.onDone] — called when speech ends
      * @param {number[]} [opts.melodyOffsets] — if supplied, the voice SINGS
@@ -962,7 +1156,7 @@ export class VoiceSynth {
      * Play a short non-lexical interjection.
      * @param {string} type  — 'hmm' | 'oh' | 'laugh' | 'distress' | 'mhm' | 'eist' | 'sigh'
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai'
+     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai' | 'forgall' | 'bird1'
      * @param {string} opts.tuneKey  — for root pitch
      * @param {string} [opts.rhythm] — 'reel'|'jig'|'waltz' etc. affects laugh pace
      */

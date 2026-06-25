@@ -14,7 +14,9 @@
  *
  * No emotion tag required. Emotion is derived automatically from the
  * Irish text using lexical and grammatical features plus the tune's
- * modal darkness. Voice is 'ronnie' (male) or 'peig' (female).
+ * modal darkness. Voice is 'ronnie' (male), 'peig' (female), 'dallan'
+ * (younger male), 'seanchai' (lower, firmer female narrator), or
+ * 'maebh' (bright, ethereal, ghostly female) — see VOICES below.
  * tuneKey is an ABC K: field string, e.g. 'Edor', 'Dmix', 'Gmaj', 'Bmin'.
  */
 
@@ -69,13 +71,38 @@ function parseKey(k) {
 const A4 = 440
 const st2hz = st => A4 * Math.pow(2, (st - 9) / 12)
 
+// Octave per voice, BEFORE that voice's own os shift is applied in
+// synthesis (hz = bHz * Math.pow(2, v.os||0)). Octave 5 + ronnie's large
+// os (-2.2) lands him ~200-380Hz after the shift. Octave 4 + peig's os
+// (0.0) gives her 262-494Hz (the original, untouched female speaking
+// range). dallan sits at octave 3 — one octave below peig — so his SMALL
+// os (-0.6) still lands him in a clearly male register (~210Hz) without
+// needing ronnie's huge shift; he's meant to read as younger/sharper
+// than ronnie, not "ronnie but bright," and a big os value would have
+// dragged him back toward ronnie's same deep placement instead. seanchai
+// (the narrator) and maebh both stay at octave 4 alongside peig (all
+// three are female-register voices) — seanchai's distinction from peig
+// comes from a much lower os (-2.5 vs peig's 0.0, landing ~381Hz);
+// maebh's comes from a HIGHER os instead (+2.5, landing ~508Hz) — per
+// explicit design call, she's meant to read as bright/ethereal/ghostly,
+// the opposite direction from every other voice rather than just another
+// shade of grounded.
+//
+// This replaces an earlier version that only special-cased 'ronnie'
+// (octave 5) vs everything else (octave 4, same as 'peig') — with more
+// voices now in play, that meant any NEW voice landed at peig's pitch by
+// default regardless of whether it was meant to read as male or female,
+// which is exactly what made a first pass at 'dallan' (a male voice with
+// only a small os shift) come out sounding as high as peig instead of
+// male. An explicit per-voice table makes each voice's base register a
+// deliberate choice instead of an accidental default.
+const OCTAVE_BY_VOICE = {
+    ronnie: 5,
+    dallan: 3,
+}
+
 function rootHzForVoice(rac, voiceId) {
-    // Ronnie has octaveShift -1.3 applied inside synthesis, so pre-shift
-    // we place him at octave 5 so he lands around 200-380Hz after shift.
-    // Peig has no shift, so octave 4 gives female speaking range 262-494Hz.
-    // 'bard' is a deep ronnie (octaveShift -2.0) — same octave-5 placement
-    // so its larger shift still lands in a sensible (low) male range.
-    const oct = voiceId === 'ronnie' ? 5 : 4
+    const oct = OCTAVE_BY_VOICE[voiceId] ?? 4   // peig, seanchai, maebh, and any future voice default here
     return st2hz(rac + (oct - 4) * 12)
 }
 
@@ -484,6 +511,110 @@ const VOICES = {
         wv:   0.70,
         ns:   0.70,
     },
+    // Dallán — younger, sharper-tongued bard; indignant rebuttal voice.
+    // Distinct from 'ronnie' (Tigernach's low, gravelly accuser) by being
+    // brighter and tighter rather than deep: a smaller/tighter formant
+    // cavity (the opposite of ronnie's big dark one) and a harder, more
+    // triangle/saw-forward attack with much LESS roughness/gravel —
+    // reads as younger and quicker to anger rather than old and
+    // weathered. Sits at octave 3 in rootHzForVoice (see OCTAVE_BY_VOICE
+    // above) — between ronnie's deep register and peig/maebh's female
+    // register — so a small os here is enough; no need for ronnie's huge
+    // -2.2 shift.
+    dallan: {
+        os:  -0.6,
+        fs:   0.78,  // tighter, smaller cavity than ronnie (0.32) or peig (1.02)
+        lp:   4200,  // brighter top end than ronnie's dulled 2200
+        mix:  { t: 0.30, s: 0.52, r: 0.16 },  // saw-forward, only light grit
+        br:   0.010,
+        cv:   0.55,
+        ck:   0.16,  // sharper consonant click — clipped, indignant attack
+        vf:   0.72,
+        on:   32,
+        cl:   42,
+        wv:   0.66,
+        ns:   0.0,
+    },
+    // Seanchaí — the narrator's voice. (Renamed from an earlier 'maebh'
+    // preset — that name now belongs to a different, ethereal voice; see
+    // below. This preset is unchanged in substance: lower and firmer
+    // than 'peig', a touch of grounding roughness, reads as a steady
+    // storyteller's authority.) Distinct from 'peig' (softer register)
+    // by sitting lower and harder: less nasality/breath, a firmer
+    // consonant attack, and a touch of the same roughness register
+    // ronnie uses for gravity (much less than ronnie's, but more than
+    // peig's near-zero). os pushed to -2.5 (vs peig's 0.0) for a clearly
+    // lower, more grounded register at the same octave-4 placement peig
+    // uses — a smaller -0.35 shift (tried first) was nearly
+    // indistinguishable from peig (431Hz vs 440Hz); -2.5 lands ~381Hz,
+    // clearly separated while staying well above the male voices.
+    seanchai: {
+        os:  -2.5,
+        fs:   0.92,  // slightly smaller cavity than peig (1.02) — firmer, less airy
+        lp:   3800,
+        mix:  { t: 0.36, s: 0.36, r: 0.14 },  // even tri/saw blend + a little grit for edge
+        br:   0.008,  // much less breath than peig (0.022) — less soft, more direct
+        cv:   0.50,
+        ck:   0.17,   // firm, decisive consonant attack
+        vf:   0.76,
+        on:   36,
+        cl:   46,
+        wv:   0.70,
+        ns:   0.15,   // a little nasality kept for clarity/projection, well under peig's 0.70
+    },
+    // Maebh — bright, distinctly female, melodic and ETHEREAL. Per
+    // explicit design call: in this telling Maebh is something like a
+    // ghost, so this preset deliberately moves AWAY from the grounded,
+    // present qualities every other voice leans on, toward airiness and
+    // shimmer:
+    //   os  +2.5 (vs peig's 0.0)  — distinctly HIGHER than every other
+    //         voice, not lower like the old maebh preset was. Sits
+    //         ~508Hz at octave 4 (see OCTAVE_BY_VOICE) — bright without
+    //         tipping into a chipmunk extreme.
+    //   br  0.085 — by far the highest breath-noise of any voice (next
+    //         highest is peig's 0.022) — this is the main lever for
+    //         "airy/spectral" rather than "present and grounded."
+    //   cv/ck  pulled WAY down (0.18 / 0.05) — soft, barely-there
+    //         consonants; ghosts don't land hard percussive attacks.
+    //   mix.r  0  — zero roughness; ghosts are smooth, not gravelly.
+    //   on/cl  pushed LONGER (58/68 vs e.g. peig's 40/52) — softer
+    //         onset/closure envelopes so each syllable blooms and fades
+    //         rather than snapping in firmly, for the "melodic" quality
+    //         requested — pairs especially well with BARD_SING mode,
+    //         where she's already singing the actual tune rather than a
+    //         spoken contour.
+    //   ns  0.05 — kept low; nasality reads as grounded/present, the
+    //         opposite of what this voice is going for.
+    // — all of the above is UNCHANGED from the first pass; per explicit
+    // feedback the character itself ("a lovely little songbird") was
+    // right, just thin/squeaky at the edges for anyone without a
+    // sympathetic ear. Fullness/warmth added WITHOUT touching pitch,
+    // breath, softness, or roughness (the things that make her her):
+    //   fs   1.15 → 1.42 — bigger resonant cavity adds low-formant body
+    //         underneath the brightness; this is the single biggest
+    //         lever for "fuller" without changing the pitch at all.
+    //   lp   5200 → 4400 — pulled back somewhat from the very brightest
+    //         setting, letting a bit more low-mid warmth through while
+    //         still staying clearly the airiest/brightest lid of any
+    //         voice (next is dallan's 4200).
+    //   mix.t 0.58 → 0.68 — more triangle (the roundest, most
+    //         fundamental-heavy waveform), for roundness over thinness.
+    //   vf   0.84 → 0.90 — slightly longer voiced sustain reads as
+    //         fuller rather than clipped/thin.
+    maebh: {
+        os:   2.5,
+        fs:   1.42,
+        lp:   4400,
+        mix:  { t: 0.68, s: 0.18, r: 0.0 },  // rounder, more triangle-forward; still zero grit
+        br:   0.085,
+        cv:   0.18,
+        ck:   0.05,
+        vf:   0.90,
+        on:   58,
+        cl:   68,
+        wv:   0.55,
+        ns:   0.05,
+    },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -807,7 +938,7 @@ export class VoiceSynth {
      * Speak a line of Irish text.
      * @param {string} gaText   — Irish language text
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'bard' | 'peig'
+     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai'
      * @param {string} opts.tuneKey  — ABC K: field, e.g. 'Edor', 'Dmix', 'Gmaj'
      * @param {Function} [opts.onDone] — called when speech ends
      * @param {number[]} [opts.melodyOffsets] — if supplied, the voice SINGS
@@ -831,7 +962,7 @@ export class VoiceSynth {
      * Play a short non-lexical interjection.
      * @param {string} type  — 'hmm' | 'oh' | 'laugh' | 'distress' | 'mhm' | 'eist' | 'sigh'
      * @param {object} opts
-     * @param {string} opts.voice    — 'ronnie' | 'bard' | 'peig'
+     * @param {string} opts.voice    — 'ronnie' | 'peig' | 'dallan' | 'maebh' | 'seanchai'
      * @param {string} opts.tuneKey  — for root pitch
      * @param {string} [opts.rhythm] — 'reel'|'jig'|'waltz' etc. affects laugh pace
      */

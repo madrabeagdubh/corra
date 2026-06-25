@@ -24,10 +24,11 @@ import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
 // With a target of 3, lines land around 3-5 notes (runs can overflow a
 // little, which is the "sometimes 4" variety). Tune freely.
 // IMPORTANT: one note-budget cycle still spans a full {ga,en} PAIR (one
-// BARD_PLACEHOLDER_TEXT entry), exactly as before — the new 4-line
-// scroll display (see _showBardLine) is purely a rendering/audio-pacing
-// change *within* that same per-pair contract. onGroupComplete /
-// _bardLineIdx / _bardLineBudget below are therefore unchanged.
+// entry from this._tainPoem, fetched at runtime — see _fetchTainPoem),
+// exactly as before — the fixed 4-slot text display (see _showBardLine)
+// is purely a rendering/audio-pacing change *within* that same per-pair
+// contract. onGroupComplete / _bardLineIdx / _bardLineBudget below are
+// therefore unchanged.
 const BARD_LINE_NOTE_TARGET = 3
 // Breath between gestures WITHIN one text line — how long after
 // completing a gesture the NEXT group's strings light. Short, because
@@ -47,13 +48,69 @@ const BARD_FLOW_DELAY = 250
 //   BARD_VOICE_ENABLED — flip to false to silence it entirely (kept as a
 //     single switch since this whole feature is experimental and the
 //     voice may not suit every taste).
-//   BARD_VOICE — 'ronnie' (male) suits the two old bards' bickering;
-//     'peig' (female) is the alternative. Per-character voicing (narrator
-//     vs Tigernach vs Dallán) is a future editorial layer, not done here.
+//   BARD_SPEAKER_VOICE — per-character voicing, keyed by each tain.json
+//     entry's `speaker` field. tigernach uses 'seanchai' (a lower,
+//     firmer female-register narrator voice). muirenn now uses 'peig'
+//     (the original soft/warm female preset, previously unused by any
+//     speaker) rather than sharing 'ronnie' with narrator/forgall.
+//     dallan and maebh keep their own distinct presets — maebh's is
+//     bright, melodic, and ethereal/ghostly (per explicit design call:
+//     in this telling she's something like a ghost). Falls back to
+//     'ronnie' for any unrecognised/missing speaker tag, via
+//     _voiceForSpeaker.
+//   BARD_SPEAKER_COLOR — per-character FILL colour for the Irish line.
+//     Per explicit design call, the original fully-saturated per-speaker
+//     colours (moss-green, amber, lavender, etc.) looked "muddy" as a
+//     fill — the plain white fill was what actually looked good, with
+//     its warm glow. So differentiation moved to the GLOW instead (see
+//     BARD_SPEAKER_GLOW below); fills are now all subtle near-white
+//     "chalk" tones — each nudged toward its character's hue family for
+//     a little personality, but never far enough from white to look
+//     muddy or hurt legibility. Falls back to plain white for any
+//     unrecognised/missing speaker tag, via _colorForSpeaker.
+//   BARD_SPEAKER_GLOW — per-character text-shadow GLOW colour for the
+//     Irish line, replacing the single fixed warm-amber glow every
+//     speaker used to share. Each entry is the 3 glow-layer colours
+//     (innermost to outermost, matching the original layer/blur/alpha
+//     structure) — the 2 dark backing-stroke layers stay fixed for
+//     every speaker (pure legibility, not characterisation). Looked up
+//     via _glowForSpeaker, which assembles the full text-shadow string;
+//     falls back to the original warm-amber glow for any unrecognised/
+//     missing speaker tag.
 //   BARD_VOICE_TUNE_KEY — the waltz's key, for the synth's pitch + the
 //     modal-darkness input to its automatic emotion derivation.
 const BARD_VOICE_ENABLED  = true
-const BARD_VOICE          = 'ronnie'  // the deep gravelly storyteller voice (see voiceSynth VOICES)
+const BARD_SPEAKER_VOICE = {
+    narrator:  'ronnie',
+    forgall:   'ronnie',
+    muirenn:   'peig',
+    tigernach: 'seanchai',
+    dallan:    'dallan',
+    maebh:     'maebh',
+}
+// Subtle near-white "chalk" fills — each a few degrees warmer/cooler
+// than pure white, in the direction of that speaker's glow family,
+// never saturated enough to look tinted at a glance.
+const BARD_SPEAKER_COLOR = {
+    narrator:  '#fffaf0',   // warm chalk (matches the original amber-glow family)
+    forgall:   '#f0f8ff',   // cool chalk
+    muirenn:   '#ebf2f5',   // silvery chalk
+    tigernach: '#f0f8e8',   // mossy chalk
+    dallan:    '#fff4e0',   // warm amber-chalk
+    maebh:     '#f5eeff',   // lavender-chalk
+}
+// The 3 glow layers (innermost → outermost), reusing the ORIGINAL
+// amber glow's blur radii and alpha values exactly — only the hue
+// changes per speaker, so every speaker's glow has the same shape/
+// intensity "feel," just a different colour family.
+const BARD_SPEAKER_GLOW = {
+    narrator:  ['255,221,140', '255,200,90', '255,180,60'],   // original warm amber/gold
+    forgall:   ['255,221,140', '255,200,90', '255,180,60'],
+    muirenn:   ['190,225,255', '150,205,255', '120,180,255'], // cool silvery-blue
+    tigernach: ['190,230,160', '150,210,120', '120,190,90'],  // mossy green
+    dallan:    ['255,190,150', '255,160,110', '255,130,70'],  // hotter amber/red — more "indignant"
+    maebh:     ['225,200,255', '205,170,255', '185,140,255'], // pale violet
+}
 const BARD_VOICE_TUNE_KEY = 'Ador'
 // Stage-1 sing mode: the voice sings the actual waltz melody (one note per
 // syllable, walked across the poem) instead of speaking on an invented
@@ -107,151 +164,14 @@ gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/G2-|G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3-|A2A/B/||
 cc/d/ e/f/|gg/e/ d/B/|A/B/G2-|G2A/B/|cc/d/ e/f/|gc'>b|a3-|a>a b/a/|
 gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/^G2-|^G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3|A2||`
 
-// Maebh/Táin poem content — full bilingual text. One Irish line and its
-// English line per array entry (REVERTED from an earlier doubled-up
-// version that joined 2 poem-lines per entry with \n — that doubling is
-// no longer used now that the display shows one language-line at a time;
-// see _showBardLine). Lines are paced by note-budget across each
-// {en,ga} PAIR (see BARD_LINE_NOTE_TARGET above), cycling if the tune
-// outlasts the poem.
-//
-// NOTE: the entry "Hear me you who name me war-bringer" / "you who lay
-// the slaughter at my door" has no corresponding Irish line in the
-// source text it was drawn from — ga is left null here rather than
-// guessed. Fill in or remove before shipping.
-const BARD_PLACEHOLDER_TEXT = [
-  { en: "Then it was the poets gathered", ga: "Ansin a chruinnigh na filí" },
-  { en: "Then indeed it was a sorrow", ga: "Agus go deimhin bhrónach an scéal" },
-  { en: "For they found the Táin had perished", ga: "Óir dáimsigh síad go raibh an Táin caillte" },
-  { en: "\"Where is it now?\" cried Forgall the Stammerer", ga: "\"Cá bhfuil sé anois?\" a diar Forgall Stadach" },
-  { en: "\"Where is our Raid of Cooley?", ga: "Cá bhfuil ár Táin Cúailnge?" },
-  { en: "gone said grey Muirenn", ga: "imithe arsa Muireann liath" },
-  { en: "Not one line fit for the telling", ga: "Níl líne fágtha gur fiú an insint" },
-  { en: "Then indeed it was a sorrow", ga: "Ba mhór an t-uafás orthú" },
-  { en: "Twisted-Mouth Tigernach rose", ga: "d'éirigh Tiarnach Cham Bhéil" },
-  { en: "shaking his rowan staff", ga: "Ag chraitha maide chaorthainn" },
-  { en: "Listen to me", ga: "Éist liom" },
-  { en: "Listen to me though ye will not like it", ga: "Éistigí liom cé nach dtaitneoidh sé libh" },
-  { en: "I have read the Táin", ga: "Tá an Táin léite agamsa" },
-  { en: "That rotted under Clonmacnoise", ga: "a lobhadh faoi Chluain Mhic Nóis" },
-  { en: "In a book the yellow worms had eaten", ga: "I téacs a d'ith na péiste buí" },
-  { en: "In that telling", ga: "Sna scéalta sin" },
-  { en: "Cú Chulainn was not there", ga: "Ní raibh Cú Chulainn ánn" },
-  { en: "No Hound upon the border!", ga: "Deabhail Cú ar an teorainn!" },
-  { en: "Thrust in like a cuckoo", ga: "Sádh isteach mar cuach sa Táin é" },
-  { en: "Taking all the warmth and honour", ga: "Ag sciobadh grá agus clú" },
-  { en: "By some thin-armed monk", ga: "Ag manach caolghéagach éiginn" },
-  { en: "For the province of his patron", ga: "a bhronnadh ar ríocht a pátrún" },
-  { en: "Leinster's hand is in it brothers", ga: "Tá lámh Laighean ann a bhráithre" },
-  { en: "Leinster's hand has always stirred it!", ga: "Muintir Laighean mar is de gnáth!" },
-  { en: "Up leapt red-faced Dallán Forgaill", ga: "Léim Dallán Forgaill ina sheasamh an lasair ina ghruanna" },
-  { en: "Knocking over three men seated", ga: "Ag leaga triúr suíthe" },
-  { en: "Thou art lying through thy grey teeth!", ga: "Tá tú ag insint bréag trí do chuid fiacla liatha!" },
-  { en: "Te Hound was there upon the border", ga: "Bhí an Cú ar an teorainn go deimhin" },
-  { en: "There he stood alone against armies", ga: "Sheas sé leis féin in aghaidh sluaite" },
-  { en: "Show me then the old manuscript", ga: "Taispeáin dom an seanscríbh mar sin" },
-  { en: "Where his name is set", ga: "Áit a bhfuil a ainm curtha" },
-  { en: "Set before the Brown Bull's driving", ga: "Curtha roimh ruathar an Donn" },
-  { en: "Thou canst not. It is not there man", ga: "Ní féidir leat. Ní ánn dó a mhic" },
-  { en: "He was thrust in later", ga: "Sáitheadh isteach ar ball é" },
-  { en: "Cuckoo Cuckoo!", ga: "Cuach Cuach!" },
-  { en: "Then the hall was all confusion", ga: "Bhí an halla bun os cionn an uair sin" },
-  { en: "Then the hall was all uproar", ga: "Le rírá agus rúille búille" },
-  { en: "Ulster's poets rose up shouting", ga: "Sheas filí Uladh suas le béic" },
-  { en: "Munster's poets rose up answering", ga: "Sheas filí na Mumhan le freaga" },
-  { en: "One man hit another sharply", ga: "Bhuail fear amháin fear eile go docht" },
-  { en: "Tore the fine brooch from his shoulder", ga: "Ag straceadh dealg bhreá dá ghualainn" },
-  { en: "Three harps fell and none would right them", ga: "Fágadh trí chruit áit ar thuit síad" },
-  { en: "And still old Tigernach kept shouting", ga: "Agus lean sean Tiarnach síar ag béicigh" },
-  { en: "Cuckoo! Cuckoo! He was planted!", ga: "An chuach! An chuach! Sáithe isteach!" },
-  { en: "Find the older text!", ga: "Aimsigh an seantéacs!" },
-  { en: "Ha! Text?", ga: "Áh! Téacs an ea?" },
-  { en: "Hear me now ye thick-skulled lords", ga: "Éistigí liom anois a thiarnaí thiubh" },
-  { en: "Who weigh a queen's worth by her husband's hoard", ga: "Ag comhríonn fiúntas ríon i saibhreas rí" },
-  { en: "I'll not be reckoned so!", ga: "Ní mheasfar mise mar sin!" },
-  { en: "Who speaks thus?", ga: "Cé hé seo atá ag caint?" },
-  { en: "With voice like a blade", ga: "Le guth le faobhar" },
-  { en: "That silences bards mid-quarrel?", ga: "A chuireann tost ar filí i lár rac?" },
-  { en: "I am the lightning in the blood of Connacht", ga: "Mise an splanc i cúisle na Chonnachta" },
-  { en: "I am the sword-gleam on the western water", ga: "Mise lonradh lainne ar uiscí an iarthair" },
-  { en: "I am queen over Connacht's chieftains", ga: "Banríonn thaoisaigh Chonnacht mé" },
-  { en: "as the storm is queen over the sea!", ga: "Mar stoirm thar an bhfairraige mhóir!" },
-  { en: "My wars called men's quarrels", ga: "Mo cogaí tuighta mar achrann na fir" },
-  { en: "My rule  unmade!", ga: "Mo fhlaitheas scriosta!" },
-  { en: "I who stood astride the chariot reins in hand", ga: "Mise a sheas ard sa charbaid úim sa lámh" },
-  { en: "I shall speak the truth", ga: "Inseoidh mise an fhírinne" },
-  { en: "To reclaim every warrior-queen", ga: "Chun gach ríon chogaidh" },
-  { en: "You have buried out of sight", ga: "A chuir sibh as radharc a tairtháil" },
-  { en: "O bright and fierce queen", ga: "A bhanríon gheal fhiáin" },
-  { en: "What would you undo", ga: "Cad a cheartfá" },
-  { en: "That learned men have twisted crooked?", ga: "Atá stangtha ag insint na saoi?" },
-  { en: "The truth the Táin you kept from telling", ga: "Fírinne an Táin a d'fhág sibh síar" },
-  { en: "is the tale of what a sovereignty costs", ga: "Is ea, scéal an phraghais ar bhflaitheas" },
-  { en: "They tell it thus:", ga: "Seo mar a insíonn siad é:" },
-  { en: "Maeve had her wealth", ga: "Bhí a saibhreas féin ag Meadhbh" },
-  { en: "had her cattle", ga: "A cuid bó aici" },
-  { en: "had her gold", ga: "Bhí ór aici" },
-  { en: "had great halls loud with feasting", ga: "Is a hallaí glóracha fleáúla aici" },
-  { en: "had all things but one thing", ga: "Is gach uile ní ach aon ní amháin aici:" },
-  { en: "The Brown Bull of Cooley", ga: "Tarbh Donn Cúailnge" },
-  { en: "That she must borrow or seize", ga: "Nach mór di a iasacht nó a gabháil" },
-  { en: "to make her tally true.", ga: "Go seasfadh a ríomh." },
-  { en: "Ailill did boast his white-horned bull", ga: "Mhaíomh Ailill a tharbh fionn-adharcach" },
-  { en: "And my bull was compared to his", ga: "Agus cuireadh mo tharbh i gcomparáid leis" },
-  { en: "But my captains rode beside his", ga: "Ach mharcaigh mo thaoiseach in aice a chuid-se" },
-  { en: "And my dreaming stood as tall as his", ga: "Agus sheas mo thoil go cothrom leis" },
-  { en: "Hear me you who name me war-bringer", ga: null },
-  { en: "you who lay the slaughter at my door", ga: null },
-  { en: "I knew sovereignty's worth", ga: "Thuig mé fhlaitheas" },
-  { en: "No woman should lie sleeping", ga: "Níor cheart d'aon bhean codladh" },
-  { en: "While a man beside her counts", ga: "Agus fear in aice léi ag comhaireamh" },
-  { en: "What is hers as though his own", ga: "An méid gur léi mar a chuid féin" },
-  { en: "In Cuailnge stood the great dark marvel", ga: "I gCuailnge a sheas an t-iontas dorcha" },
-  { en: "I asked as queen I asked as equal", ga: "D'iarr mé mar bhanríon, díarr mé mar chomhchéim" },
-  { en: "I named fair terms", ga: "Thairg mé tearmaí chothrom" },
-  { en: "I did not stay to be corrected", ga: "Níor fhan mé le go gceartófaí mé" },
-  { en: "In haste I called my armies to me", ga: "Brostaigh mé mo shluaite chugam" },
-  { en: "I followed the old true road", ga: "Lean mé an sean bhóthar" },
-  { en: "As well as any king might", ga: "Chomh maith le rí ar bith" },
-  { en: "Cú Chulainn was at the fording-place", ga: "Bhí Cú Chulainn ag an áth" },
-  { en: "He stood there young and bright", ga: "Sheas sé ansin óg agus glé" },
-  { en: "While Ulster lay in Macha's pangs", ga: "Fhad is a bhí Uladh sínte faoi malacht Mhacha" },
-  { en: "O hear me well I'll tell it plain", ga: "Éist liom go maith beidh mé soiléir" },
-  { en: "I did not fear him", ga: "Ní raibh eagla orm roimhe" },
-  { en: "I walked to him I spoke to him", ga: "Shiúil mé chuige labhair mé leis" },
-  { en: "I offered terms as queen to warrior", ga: "Thairg mé téarmaí ó banríon go ghaiscíoch" },
-  { en: "And used the tools that queens must use", ga: "D'úsáid mé neart an banríon" },
-  { en: "Call it wisdom call it cunning", ga: "Tabhair gliceas air nó gaois más mian" },
-  { en: "The host of Connacht crossed the border", ga: "Thrasnaigh slua Chonnacht an teorainn" },
-  { en: "And I was she who brought them through", ga: "Agus mise a thug an ceannaireacht" },
-  { en: "My raid was the balancing of the world", ga: "Meá na saolta mo tháin" },
-  { en: "When the Dun Bull found his strength;", ga: "Nuair a fuair an Donn a neart" },
-  { en: "Then did I see my triumph turn", ga: "Ansin a chonaic mé mo bua ag chasadh" },
-  { en: "He gored the White through flank and side", ga: "Sáith sé an fionn tríd lár agus easna" },
-  { en: "They tore the hillside from the hill", ga: "Bhain siad an talamh den sliabh" },
-  { en: "Drove rivers from their beds;", ga: "Thiomáin siad aibhneacha as a gcursaí;" },
-  { en: "Then did the White Bull stagger back", ga: "Ansin thit an Tarbh Bán ar gcúl" },
-  { en: "His red blood blackened the plain;", ga: "Dhuibhigh an fhuil dhearg an mhá;" },
-  { en: "He fell to the the broken ground", ga: "Thit sé ar an gcré dhubh bhriste" },
-  { en: "And did not rise again", ga: "Agus níor éirigh sé arís" },
-  { en: "The Dun Bull stood above the slain", ga: "Sheas an Donn os cionn an mhairbh" },
-  { en: "His dreadful roar was heard", ga: "Chualathas a bhúir uafásach" },
-  { en: "Then wandered off and died alone", ga: "Ansin d'imigh sé chun bás leis féin" },
-  { en: "They say I started all of it for a bull", ga: "Deirtar gur mhaithe le tarbh a chúsaigh mé seo" },
-  { en: "Not for Donn Cuailnge's broad brown back", ga: "Ní ar son dhroim leathan  Dhonn Chuailnge" },
-  { en: "Not for Ailill's white-horned pride", ga: "Ní ar son uabhair adharcbháin Ailealla" },
-  { en: "But this:", ga: "Ach seo:" },
-  { en: "A queen who will not reckon is no queen", ga: "Ní banríon í gan a cóir" },
-  { en: "They will ask what Medb was truly", ga: "Fiafróidh siad cearbh í Meadhbh í féin" },
-  { en: "Was she reckless was she ruinous?", ga: "An raibh sí místuama an raibh sí creachach?" },
-  { en: "Answer them with plainness:", ga: "Freagair iad go soiléir:" },
-  { en: "One woman stood on a hill", ga: "Sheas bean amháin ar chnoc" },
-  { en: "And set the land trembling", ga: "Is chuir an saol ar crith" },
-  { en: "every daughter of Ireland O!", ga: "gach iníon in Éireann ó!" },
-  { en: "Call upon her yet and hear her", ga: "Glaoigh uirthi fós agus éist léi" },
-  { en: "She was equal in her asking;", ga: "Bhí sí comhionann ina éilimh;" },
-  { en: "She has not ceased her answering.", ga: "Níor stop sí ag freagairt." },
-];
+// Maebh/Táin poem content now lives externally at public/data/tain.json
+// (one {en, ga} object per array entry, fetched at runtime — see
+// _fetchTainPoem). Cached on this._tainPoem once loaded. NOTE: the entry
+// "Hear me you who name me war-bringer" / "you who lay the slaughter at
+// my door" has no corresponding Irish line in the source text it was
+// drawn from — ga is null in the JSON rather than guessed. Fill in or
+// remove in tain.json before shipping.
+
 export default class TavernScene extends VillageScene {
   constructor() { super({ key: 'tavern' }) }
 
@@ -399,11 +319,45 @@ export default class TavernScene extends VillageScene {
   // ── Override: hook the phrase player onto the harp once it's open ──────
   _openHarpOverlay() {
     super._openHarpOverlay()
+    // Start loading the poem now, as early as possible — well before the
+    // player can reach the bard button — so it's already cached by the
+    // time _startBardAccompaniment needs it. Fire-and-forget here
+    // deliberately: _fetchTainPoem caches its own promise, so this is
+    // just a head start, not something this call site needs to await.
+    this._fetchTainPoem()
     this._corraHarp?.on('ready', () => {
       this._addDemoButton()
       this._addBardModeButton()
       this._startTainPhrase()
     })
+  }
+
+  // Fetches and caches the Táin poem from public/data/tain.json. Safe to
+  // call multiple times — the underlying fetch only ever happens once;
+  // subsequent calls return the SAME cached promise (whether still
+  // pending or already resolved), so concurrent callers (e.g. the
+  // fire-and-forget head-start in _openHarpOverlay racing a fast tap on
+  // the bard button) never trigger duplicate network requests. Resolves
+  // to an array of {en, ga} objects, or null on failure (logged, not
+  // thrown) so a fetch error degrades to "bard mode silently can't
+  // start" rather than an unhandled rejection breaking the harp overlay.
+  _fetchTainPoem() {
+    if (this._tainPoemPromise) return this._tainPoemPromise
+    this._tainPoemPromise = fetch('/data/tain.json')
+      .then(res => {
+        if (!res.ok) throw new Error(`tain.json fetch failed: ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        this._tainPoem = data
+        return data
+      })
+      .catch(err => {
+        console.warn('[Táin/bard] failed to load tain.json:', err)
+        this._tainPoem = null
+        return null
+      })
+    return this._tainPoemPromise
   }
 
   // TEST UI: a small "hear it" button so you can listen to the tune
@@ -680,6 +634,7 @@ export default class TavernScene extends VillageScene {
     this._bardCurEl  = null
     this._bardEnAEl  = null
     this._bardEnBEl  = null
+    this._bardCurSpeaker = null
   }
 
   // Shared empty-shell builder for the two Irish-styled slots (previous
@@ -689,12 +644,17 @@ export default class TavernScene extends VillageScene {
   _buildBardIrishSlotEl() {
     const ga = document.createElement('div')
     ga.style.cssText = [
-      // Pure white fill — against a dim, warm-toned tavern scene, pure
-      // white reads as categorically brighter than anything else.
-      'font-family:Urchlo,serif;font-size:1.85rem;color:#ffffff;',
+      // Initial shell fill/glow — overwritten per-line by
+      // _colorForSpeaker/_glowForSpeaker the moment the first real line
+      // is shown (see startTypingNewLine in _showBardLine). These
+      // starting values just mirror the narrator/default look so there's
+      // no flash-of-wrong-color before that first write.
+      'font-family:Urchlo,serif;font-size:1.85rem;color:#fffaf0;',
       // Strong multi-layer glow + near-solid dark backing stroke close to
       // the glyph edges, for legibility against busy/bright scene content
-      // without the backing reading as a flat outline.
+      // without the backing reading as a flat outline. The 2 dark layers
+      // stay fixed across every speaker; only the glow hue (the 3 warm
+      // layers here) changes per-line — see _glowForSpeaker.
       'text-shadow:',
       '0 0 2px rgba(0,0,0,0.95),',
       '0 0 5px rgba(0,0,0,0.85),',
@@ -781,11 +741,16 @@ export default class TavernScene extends VillageScene {
   // Speak one line's Irish text. speak() interrupts any line already in
   // progress (its player.stop() runs first), so a fast player advancing
   // lines cleanly cuts the previous voicing rather than overlapping.
-  _speakBardLine(gaText) {
+  // `speaker` is the tain.json entry's speaker tag (narrator/forgall/
+  // muirenn/tigernach/dallan/maebh) — looked up via _voiceForSpeaker to
+  // pick the right voiceSynth preset; falls back to 'ronnie' for any
+  // unrecognised or missing tag (e.g. the closing "Tá an scéal
+  // críochnaithe" line, which has no speaker of its own).
+  _speakBardLine(gaText, speaker) {
     if (!gaText) return
     const v = this._ensureBardVoice()
     if (!v) return
-    const opts = { voice: BARD_VOICE, tuneKey: BARD_VOICE_TUNE_KEY }
+    const opts = { voice: this._voiceForSpeaker(speaker), tuneKey: BARD_VOICE_TUNE_KEY }
     // Sing mode: hand the synth the next run of melody notes (one per
     // syllable), advancing the cursor so the tune progresses line to line.
     if (BARD_SING && this._bardMelodyOffsets?.length) {
@@ -798,6 +763,37 @@ export default class TavernScene extends VillageScene {
       opts.melodyOffsets = offs
     }
     v.speak(gaText, opts)
+  }
+
+  // Looks up the voiceSynth preset for a tain.json speaker tag, falling
+  // back to 'ronnie' if the tag is missing or unrecognised.
+  _voiceForSpeaker(speaker) {
+    return BARD_SPEAKER_VOICE[speaker] ?? 'ronnie'
+  }
+
+  // Looks up the Irish-line FILL colour for a tain.json speaker tag,
+  // falling back to white if the tag is missing or unrecognised.
+  _colorForSpeaker(speaker) {
+    return BARD_SPEAKER_COLOR[speaker] ?? '#ffffff'
+  }
+
+  // Assembles the full text-shadow for a tain.json speaker tag: the 2
+  // dark backing-stroke layers stay FIXED for every speaker (pure
+  // legibility against busy scene content, not characterisation), while
+  // the 3 glow layers take their hue from BARD_SPEAKER_GLOW — same blur
+  // radii/alpha as the original single amber glow, just recoloured.
+  // Falls back to the original warm-amber glow for any unrecognised/
+  // missing speaker tag.
+  _glowForSpeaker(speaker) {
+    const [inner, mid, outer] = BARD_SPEAKER_GLOW[speaker] ?? ['255,221,140', '255,200,90', '255,180,60']
+    return [
+      '0 0 2px rgba(0,0,0,0.95)',
+      '0 0 5px rgba(0,0,0,0.85)',
+      `0 0 10px rgba(${inner},1)`,
+      `0 0 20px rgba(${mid},0.95)`,
+      `0 0 38px rgba(${outer},0.85)`,
+      `0 0 64px rgba(${outer},0.6)`,
+    ].join(',')
   }
 
   // Rough estimate of how long a spoken line takes. Currently UNUSED
@@ -851,12 +847,21 @@ export default class TavernScene extends VillageScene {
     clearTimeout(this._bardEnDoneTimer)
     clearTimeout(this._bardPrevFadeTimer)
 
-    const outgoingGa = this._bardCurEl.textContent
+    const outgoingGa      = this._bardCurEl.textContent
+    const outgoingSpeaker = this._bardCurSpeaker
     const startTypingNewLine = () => {
+      // Apply this pair's speaker fill colour AND glow to the CURRENT
+      // slot before typing begins, and remember the speaker so a later
+      // demote (when this line becomes the "previous" one) carries the
+      // right look with it rather than defaulting back to the fallback.
+      this._bardCurEl.style.color = this._colorForSpeaker(line.speaker)
+      this._bardCurEl.style.textShadow = this._glowForSpeaker(line.speaker)
+      this._bardCurSpeaker = line.speaker
+
       // Type the new Irish into the current slot, speaking it
       // concurrently (per explicit direction — heard while it's being
-      // read, not after).
-      this._speakBardLine(line.ga)
+      // read, not after), in this line's speaker's voice.
+      this._speakBardLine(line.ga, line.speaker)
       this._typeBardIrishInto(this._bardCurEl, line.ga || '', () => {
         this._bardEnTimer = setTimeout(() => {
           enSlot.textContent = line.en || ''
@@ -883,11 +888,14 @@ export default class TavernScene extends VillageScene {
     this._bardPrevEl.style.transition = `opacity ${PREV_FADE_OUT_MS}ms ease-in`
     this._bardPrevEl.style.opacity = '0'
     this._bardPrevFadeTimer = setTimeout(() => {
-      // Step 2: set the demoted text into the previous slot FIRST, so
-      // its box reflects the REAL height of the incoming content before
-      // we measure anything — see header comment history on this exact
+      // Step 2: set the demoted text (and ITS speaker's fill+glow — not
+      // the new line's) into the previous slot FIRST, so its box
+      // reflects the REAL height of the incoming content before we
+      // measure anything — see header comment history on this exact
       // sequencing for why order matters here.
       this._bardPrevEl.style.transition = 'none'
+      this._bardPrevEl.style.color = this._colorForSpeaker(outgoingSpeaker)
+      this._bardPrevEl.style.textShadow = this._glowForSpeaker(outgoingSpeaker)
       this._bardPrevEl.textContent = outgoingGa
       this._bardPrevEl.style.opacity = '0'
 
@@ -936,11 +944,11 @@ export default class TavernScene extends VillageScene {
   // _bardLineIdx starting at -2 (see _startBardAccompaniment), the first
   // call here increments it to -1, and JS's % preserves the sign of the
   // dividend (-1 % 47 === -1, not 46 like Python). A plain modulo here
-  // indexed BARD_PLACEHOLDER_TEXT[-1], which is undefined — and
+  // indexed this._tainPoem[-1], which is undefined — and
   // _showBardLine(undefined, ...) hits its `if (!line) return` guard and
   // silently does nothing: exactly the "first pluck does nothing" bug.
   _bardWrapIdx(i) {
-    const len = BARD_PLACEHOLDER_TEXT.length
+    const len = this._tainPoem.length
     return ((i % len) + len) % len
   }
 
@@ -970,13 +978,37 @@ export default class TavernScene extends VillageScene {
     })
 
     this._bardLineIdx++
-    const lineA = BARD_PLACEHOLDER_TEXT[this._bardWrapIdx(this._bardLineIdx)]
+    const lineA = this._tainPoem[this._bardWrapIdx(this._bardLineIdx)]
     this._showBardLine(lineA, this._bardEnAEl, () => {
       clearTimeout(this._bardPairBreathTimer)
       this._bardPairBreathTimer = setTimeout(() => {
         this._bardLineIdx++
-        const lineB = BARD_PLACEHOLDER_TEXT[this._bardWrapIdx(this._bardLineIdx)]
+        // POEM-END DETECTION: _bardLineIdx only ever increments (it's
+        // wrapped into a real array index via _bardWrapIdx, never reset
+        // except at _startBardAccompaniment). Once it reaches the poem's
+        // length, every line has now been shown exactly once across this
+        // playthrough — per explicit design call, that's the point the
+        // whole bard experience should end and hand control back to the
+        // player, rather than wrapping around and reciting the poem
+        // again. Checked here (after incrementing for pair B, the LAST
+        // line shown in this cycle) rather than after pair A, since pair
+        // B is always the later of the two lines in the cycle.
+        const poemFinished = this._bardLineIdx >= this._tainPoem.length
+        const lineB = this._tainPoem[this._bardWrapIdx(this._bardLineIdx)]
         this._showBardLine(lineB, this._bardEnBEl, () => {
+          if (poemFinished) {
+            // One full pass through the poem is complete — stop the
+            // music/gating machinery and close the harp overlay entirely,
+            // returning control to the player, rather than releasing the
+            // gate for another pluck.
+            console.log('[Táin/bard] poem complete — closing harp')
+            clearTimeout(this._bardGateTimer)
+            this._bardGateTimer = setTimeout(() => {
+              this._bardPlayer?.stop()
+              this._corraHarp?.close()
+            }, READING_BEAT)
+            return
+          }
           // Pair B has now fully finished too — release the gate after
           // one short reading beat, same beat duration as before.
           clearTimeout(this._bardGateTimer)
@@ -988,7 +1020,7 @@ export default class TavernScene extends VillageScene {
     })
   }
 
-  _startBardAccompaniment() {
+  async _startBardAccompaniment() {
     const harp = this._corraHarp
     if (!harp) return
 
@@ -1002,10 +1034,23 @@ export default class TavernScene extends VillageScene {
     this._bardPlayer?.stop()
     this._destroyBardTextEl()
 
+    // The poem fetch is normally already resolved by now — it's kicked
+    // off as soon as the harp overlay opens (see _openHarpOverlay), well
+    // before the player can reach the bard button — but awaiting here
+    // too means this method is correct even if bard mode is somehow
+    // entered before that fetch settles (e.g. a very fast tap, or the
+    // fetch being slow on a poor connection). _fetchTainPoem caches its
+    // result/promise, so this is a no-op await once already loaded.
+    this._tainPoem = await this._fetchTainPoem()
+    if (!this._tainPoem?.length) {
+      console.warn('[Táin/bard] poem failed to load — aborting bard mode')
+      return
+    }
+
     const sequence = this._buildBardSequence()
     if (!sequence.length) return
 
-    // Text pacing state: line index into BARD_PLACEHOLDER_TEXT and the
+    // Text pacing state: line index into this._tainPoem and the
     // remaining note-budget for the current line. Driven independently
     // of the group index (see BARD_LINE_NOTE_TARGET). Started at -1 (not
     // 0) and with budget pre-exhausted (0, not BARD_LINE_NOTE_TARGET) so
@@ -1032,6 +1077,16 @@ export default class TavernScene extends VillageScene {
     this._bardPlayer = new BardAccompaniment(harp, sequence, {
       gateLighting: true,   // hold each group's lights/interactivity
                             // until we release via readyForNextGroup
+      // The musical sequence (built from one short waltz) is FAR shorter
+      // than the poem (131 lines). Without loop:true, BardAccompaniment
+      // fires onSequenceComplete the moment the tune's own gestures run
+      // out — completely independent of how much of the poem has been
+      // shown — which is exactly what was cutting the recitation short
+      // partway through with "Tá an scéal críochnaithe," several lines
+      // before the poem itself was actually finished. Looping the music
+      // lets the tune keep cycling under the player's plucking for as
+      // long as it takes the (separately-cycling) poem to finish.
+      loop: true,
       onGroupComplete: (group, idx) => {
         // Spend this gesture's weight from the current line's budget.
         this._bardLineBudget -= this._bardGroupWeight(group)
@@ -1056,8 +1111,17 @@ export default class TavernScene extends VillageScene {
           this._revealNextBardPairs()
         }
       },
+      // With loop:true, this should now only ever fire if the ENGINE
+      // itself is stopped/torn down mid-loop rather than from the tune
+      // naturally running out — kept as a safety net, not the poem's
+      // real ending. The poem's own ending is reached when
+      // _bardWrapIdx's cycling brings it back to the start; that's not
+      // currently surfaced as a distinct "the poem is done" event (it
+      // just keeps cycling for as long as the player keeps plucking, by
+      // design, same as the tune does) — flagged here in case a real
+      // "stop after N full passes of the poem" behaviour is wanted later.
       onSequenceComplete: () => {
-        console.log('[Táin/bard] sequence complete')
+        console.log('[Táin/bard] musical sequence loop ended unexpectedly')
         this._showBardLine({ ga: 'Tá an scéal críochnaithe.', en: 'The tale is finished.' }, this._bardEnAEl)
       },
     })
@@ -1178,6 +1242,10 @@ export default class TavernScene extends VillageScene {
     this._bardVoice = undefined
     this._demoBtn = null
     this._bardBtn = null
+    // this._tainPoem / this._tainPoemPromise are deliberately NOT cleared
+    // here — the poem's content is static for the lifetime of the scene,
+    // so keeping it cached across harp opens/closes avoids a redundant
+    // re-fetch every time the player reopens the harp.
     super._destroyHarpOverlay()
   }
 }

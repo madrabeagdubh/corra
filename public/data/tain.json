@@ -1,0 +1,659 @@
+[
+  {
+    "en": "Then it was the poets gathered",
+    "ga": "Ansin a chruinnigh na filí",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Then indeed it was a sorrow",
+    "ga": "Agus go deimhin bhrónach an scéal",
+    "speaker": "narrator"
+  },
+  {
+    "en": "For they found the Táin had perished",
+    "ga": "Óir dáimsigh síad go raibh an Táin caillte",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Where is it now?",
+    "ga": "Cá bhfuil sé anois?",
+    "speaker": "forgall"
+  },
+  {
+    "en": "cried Forgall the Stammerer",
+    "ga": "a diar Forgall Stadach",
+    "speaker": "narrator"
+  },
+
+  {
+    "en": "Where is our Raid of Cooley?",
+    "ga": "Cá bhfuil ár Táin Cúailnge?",
+    "speaker": "forgall"
+  },
+  {
+    "en": "gone",
+    "ga": "imithe",
+    "speaker": "muirenn"
+  },{
+    "en": "said grey Muirenn",
+    "ga": "arsa Muireann liath",
+    "speaker": "narrator"
+  },
+
+  {
+    "en": "Not one line fit for the telling",
+    "ga": "Níl líne fágtha gur fiú an insint",
+    "speaker": "muireann"
+  },
+  {
+    "en": "Then indeed it was a sorrow",
+    "ga": "Ba mhór an t-uafás orthú",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Twisted-Mouth Tigernach rose",
+    "ga": "d'éirigh Tiarnach Cham Bhéil",
+    "speaker": "narrator"
+  },
+  {
+    "en": "shaking his rowan staff",
+    "ga": "Ag chraitha maide chaorthainn",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Listen to me",
+    "ga": "Éist liom",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Listen to me though ye will not like it",
+    "ga": "Éistigí liom cé nach dtaitneoidh sé libh",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "I have read the Táin",
+    "ga": "Tá an Táin léite agamsa",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "That rotted under Clonmacnoise",
+    "ga": "a lobhadh faoi Chluain Mhic Nóis",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "In a book the yellow worms had eaten",
+    "ga": "I téacs a d'ith na péiste buí",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "In that telling...",
+    "ga": "Sna scéalta sin...",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Cú Chulainn was not there",
+    "ga": "Ní raibh Cú Chulainn ánn",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "No Hound upon the border!",
+    "ga": "Deabhail Cú ar an teorainn!",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "He\'s thrust into the Táin like a cuckoo",
+    "ga": "Sádh isteach mar cuach sa Táin é",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "By some thin-armed monk",
+    "ga": "Ag manach caolghéagach éiginn",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "For the province of his patron",
+    "ga":"Ar son cúige a oide",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Leinster's hand is in it brothers",
+    "ga": "Tá lámh Laighean ann a bhráithre",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Leinster's hand has always stirred it!",
+    "ga": "Muintir Laighean mar is de gnáth!",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Up leapt red-faced Dallán Forgaill",
+    "ga": "Léim Dallán Forgaill ina sheasamh an lasair ina ghruanna",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Knocking over three men seated",
+    "ga": "Ag leaga triúr suíthe",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Thou art lying through thy grey teeth!",
+    "ga": "Tá tú ag insint bréag trí do chuid fiacla liatha!",
+    "speaker": "dallan"
+  },
+  {
+    "en": "Te Hound was there upon the border",
+    "ga": "Bhí an Cú ar an teorainn go deimhin",
+    "speaker": "dallan"
+  },
+  {
+    "en": "There he stood alone against armies",
+    "ga": "Sheas sé leis féin in aghaidh sluaite",
+    "speaker": "dallan"
+  },
+  {
+    "en": "Show me then the old manuscript",
+    "ga": "Taispeáin dom an seanscríbh mar sin",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Where his name is set",
+    "ga": "Áit a bhfuil a ainm curtha",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Set before the Brown Bull's driving",
+    "ga": "Curtha roimh ruathar an Donn",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Thou canst not. It is not there man",
+    "ga": "Ní féidir leat. Ní ánn dó a mhic",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "He was thrust in later",
+    "ga": "Sáitheadh isteach ar ball é",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Cuckoo Cuckoo!",
+    "ga": "Cuach Cuach!",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Then the hall was all confusion",
+    "ga": "Bhí an halla bun os cionn an uair sin",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Then the hall was all uproar",
+    "ga": "Le rírá agus rúille búille",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Ulster's poets rose up shouting",
+    "ga": "Sheas filí Uladh suas le béic",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Munster's poets rose up answering",
+    "ga": "Sheas filí na Mumhan le freaga",
+    "speaker": "narrator"
+  },
+  {
+    "en": "One man hit another sharply",
+    "ga": "Bhuail fear amháin fear eile go docht",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Tore the fine brooch from his shoulder",
+    "ga": "Ag straceadh dealg bhreá dá ghualainn",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Three harps fell and none would right them",
+    "ga": "Fágadh trí chruit áit ar thuit síad",
+    "speaker": "narrator"
+  },
+  {
+    "en": "And still old Tigernach kept shouting",
+    "ga": "Agus lean sean Tiarnach síar ag béicigh",
+    "speaker": "narrator"
+  },
+  {
+    "en": "Cuckoo! Cuckoo! He was planted!",
+    "ga": "An chuach! An chuach! Sáithe isteach!",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Find the older text!",
+    "ga": "Aimsigh an seantéacs!",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "Ha! Text?",
+    "ga": "Áh! Téacs an ea?",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Hear me now ye thick-skulled lords",
+    "ga": "Éistigí liom anois a thiarnaí thiubh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Who weigh a queen's worth by her husband's hoard",
+    "ga": "Ag comhríonn fiúntas ríon i saibhreas rí",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I'll not be reckoned so!",
+    "ga": "Ní mheasfar mise mar sin!",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Who speaks thus?",
+    "ga": "Cé hé seo atá ag caint?",
+    "speaker": "dallan"
+  },
+  
+  {
+    "en": "With voice that silences bards mid-quarrel?",
+    "ga": "Le guth a chuireann tost ar filí i lár rac?",
+    "speaker": "tigernach"
+  },
+  {
+    "en": "I am the lightning in the blood of Connacht",
+    "ga": "Mise an splanc i cúisle na Chonnachta",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I am the sword-gleam on the western water",
+    "ga": "Mise lonradh lainne ar uiscí an iarthair",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I am queen over Connacht's chieftains",
+    "ga": "Banríonn thaoisaigh Chonnacht mé",
+    "speaker": "maebh"
+  },
+  {
+    "en": "as the storm is queen over the sea!",
+    "ga": "Mar stoirm thar an bhfairraige mhóir!",
+    "speaker": "maebh"
+  },
+  {
+    "en": "My wars called men's quarrels",
+    "ga": "Mo cogaí tuighta mar achrann na fir",
+    "speaker": "maebh"
+  },
+  {
+    "en": "My rule  unmade!",
+    "ga": "Mo fhlaitheas scriosta!",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I who stood astride the chariot reins in hand",
+    "ga": "Mise a sheas ard sa charbaid úim sa lámh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I shall speak the truth",
+    "ga": "Inseoidh mise an fhírinne",
+    "speaker": "maebh"
+  },
+  {
+    "en": "To reclaim every warrior-queen",
+    "ga": "Chun gach ríon chogaidh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "You have buried out of sight",
+    "ga": "A chuir sibh as radharc a tairtháil",
+    "speaker": "maebh"
+  },
+  {
+    "en": "O bright and fierce queen",
+    "ga": "A bhanríon gheal fhiáin",
+    "speaker": "dallan"
+  },
+  {
+    "en": "What would you undo",
+    "ga": "Cad a cheartfá",
+    "speaker": "dallan"
+  },
+  {
+    "en": "That learned men have twisted crooked?",
+    "ga": "Atá stangtha ag insint na saoi?",
+    "speaker": "dallan"
+  },
+  {
+    "en": "The truth the Táin you kept from telling",
+    "ga": "Fírinne an Táin a d'fhág sibh síar",
+    "speaker": "maebh"
+  },
+  {
+    "en": "is the tale of what a sovereignty costs",
+    "ga": "Is ea, scéal an phraghais ar bhflaitheas",
+    "speaker": "maebh"
+  },
+  {
+    "en": "They tell it thus:",
+    "ga": "Seo mar a insíonn siad é:",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Maeve had her wealth",
+    "ga": "Bhí a saibhreas féin ag Meadhbh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "had her cattle",
+    "ga": "A cuid bó aici",
+    "speaker": "maebh"
+  },
+  {
+    "en": "had her gold",
+    "ga": "Bhí ór aici",
+    "speaker": "maebh"
+  },
+  {
+    "en": "had great halls loud with feasting",
+    "ga": "Is a hallaí glóracha fleáúla aici",
+    "speaker": "maebh"
+  },
+  {
+    "en": "had all things but one thing",
+    "ga": "Is gach uile ní ach aon ní amháin aici:",
+    "speaker": "maebh"
+  },
+  {
+    "en": "The Brown Bull of Cooley",
+    "ga": "Tarbh Donn Cúailnge",
+    "speaker": "maebh"
+  },
+  {
+    "en": "That she must borrow or seize",
+    "ga": "Nach mór di a iasacht nó a gabháil",
+    "speaker": "maebh"
+  },
+  {
+    "en": "to make her tally true.",
+    "ga": "Go seasfadh a ríomh.",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Ailill did boast his white-horned bull",
+    "ga": "Mhaíomh Ailill a tharbh fionn-adharcach",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And my bull was compared to his",
+    "ga": "Agus cuireadh mo tharbh i gcomparáid leis",
+    "speaker": "maebh"
+  },
+  {
+    "en": "But my captains rode beside his",
+    "ga": "Ach mharcaigh mo thaoiseach in aice a chuid-se",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And my dreaming stood as tall as his",
+    "ga": "Agus sheas mo thoil go cothrom leis",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Hear me you who name me war-bringer",
+    "ga": null,
+    "speaker": "maebh"
+  },
+  {
+    "en": "you who lay the slaughter at my door",
+    "ga": null,
+    "speaker": "maebh"
+  },
+  {
+    "en": "I knew sovereignty's worth",
+    "ga": "Thuig mé fhlaitheas",
+    "speaker": "maebh"
+  },
+  {
+    "en": "No woman should lie sleeping",
+    "ga": "Níor cheart d'aon bhean codladh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "While a man beside her counts",
+    "ga": "Agus fear in aice léi ag comhaireamh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "What is hers as though his own",
+    "ga": "An méid gur léi mar a chuid féin",
+    "speaker": "maebh"
+  },
+  {
+    "en": "In Cuailnge stood the great dark marvel",
+    "ga": "I gCuailnge a sheas an t-iontas dorcha",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I asked as queen I asked as equal",
+    "ga": "D'iarr mé mar bhanríon, díarr mé mar chomhchéim",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I named fair terms",
+    "ga": "Thairg mé tearmaí chothrom",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I did not stay to be corrected",
+    "ga": "Níor fhan mé le go gceartófaí mé",
+    "speaker": "maebh"
+  },
+  {
+    "en": "In haste I called my armies to me",
+    "ga": "Brostaigh mé mo shluaite chugam",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I followed the old true road",
+    "ga": "Lean mé an sean bhóthar",
+    "speaker": "maebh"
+  },
+  {
+    "en": "As well as any king might",
+    "ga": "Chomh maith le rí ar bith",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Cú Chulainn was at the fording-place",
+    "ga": "Bhí Cú Chulainn ag an áth",
+    "speaker": "maebh"
+  },
+  {
+    "en": "He stood there young and bright",
+    "ga": "Sheas sé ansin óg agus glé",
+    "speaker": "maebh"
+  },
+  {
+    "en": "While Ulster lay in Macha's pangs",
+    "ga": "Fhad is a bhí Uladh sínte faoi malacht Mhacha",
+    "speaker": "maebh"
+  },
+  {
+    "en": "O hear me well I'll tell it plain",
+    "ga": "Éist liom go maith beidh mé soiléir",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I did not fear him",
+    "ga": "Ní raibh eagla orm roimhe",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I walked to him I spoke to him",
+    "ga": "Shiúil mé chuige labhair mé leis",
+    "speaker": "maebh"
+  },
+  {
+    "en": "I offered terms as queen to warrior",
+    "ga": "Thairg mé téarmaí ó banríon go ghaiscíoch",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And used the tools that queens must use",
+    "ga": "D'úsáid mé neart an banríon",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Call it wisdom call it cunning",
+    "ga": "Tabhair gliceas air nó gaois más mian",
+    "speaker": "maebh"
+  },
+  {
+    "en": "The host of Connacht crossed the border",
+    "ga": "Thrasnaigh slua Chonnacht an teorainn",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And I was she who brought them through",
+    "ga": "Agus mise a thug an ceannaireacht",
+    "speaker": "maebh"
+  },
+  {
+    "en": "My raid was the balancing of the world",
+    "ga": "Meá na saolta mo tháin",
+    "speaker": "maebh"
+  },
+  {
+    "en": "When the Dun Bull found his strength;",
+    "ga": "Nuair a fuair an Donn a neart",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Then did I see my triumph turn",
+    "ga": "Ansin a chonaic mé mo bua ag chasadh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "He gored the White through flank and side",
+    "ga": "Sáith sé an fionn tríd lár agus easna",
+    "speaker": "maebh"
+  },
+  {
+    "en": "They tore the hillside from the hill",
+    "ga": "Bhain siad an talamh den sliabh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Drove rivers from their beds;",
+    "ga": "Thiomáin siad aibhneacha as a gcursaí;",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Then did the White Bull stagger back",
+    "ga": "Ansin thit an Tarbh Bán ar gcúl",
+    "speaker": "maebh"
+  },
+  {
+    "en": "His red blood blackened the plain;",
+    "ga": "Dhuibhigh an fhuil dhearg an mhá;",
+    "speaker": "maebh"
+  },
+  {
+    "en": "He fell to the the broken ground",
+    "ga": "Thit sé ar an gcré dhubh bhriste",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And did not rise again",
+    "ga": "Agus níor éirigh sé arís",
+    "speaker": "maebh"
+  },
+  {
+    "en": "The Dun Bull stood above the slain",
+    "ga": "Sheas an Donn os cionn an mhairbh",
+    "speaker": "maebh"
+  },
+  {
+    "en": "His dreadful roar was heard",
+    "ga": "Chualathas a bhúir uafásach",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Then wandered off and died alone",
+    "ga": "Ansin d'imigh sé chun bás leis féin",
+    "speaker": "maebh"
+  },
+  {
+    "en": "They say I started all of it for a bull",
+    "ga": "Deirtar gur mhaithe le tarbh a chúsaigh mé seo",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Not for Donn Cuailnge's broad brown back",
+    "ga": "Ní ar son dhroim leathan  Dhonn Chuailnge",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Not for Ailill's white-horned pride",
+    "ga": "Ní ar son uabhair adharcbháin Ailealla",
+    "speaker": "maebh"
+  },
+  {
+    "en": "But this:",
+    "ga": "Ach seo:",
+    "speaker": "maebh"
+  },
+  {
+    "en": "A queen who will not reckon is no queen",
+    "ga": "Ní banríon í gan a cóir",
+    "speaker": "maebh"
+  },
+  {
+    "en": "They will ask what Medb was truly",
+    "ga": "Fiafróidh siad cearbh í Meadhbh í féin",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Was she reckless was she ruinous?",
+    "ga": "An raibh sí místuama an raibh sí creachach?",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Answer them with plainness:",
+    "ga": "Freagair iad go soiléir:",
+    "speaker": "maebh"
+  },
+  {
+    "en": "One woman stood on a hill",
+    "ga": "Sheas bean amháin ar chnoc",
+    "speaker": "maebh"
+  },
+  {
+    "en": "And set the land trembling",
+    "ga": "Is chuir an saol ar crith",
+    "speaker": "maebh"
+  },
+  {
+    "en": "every daughter of Ireland O!",
+    "ga": "gach iníon in Éireann ó!",
+    "speaker": "maebh"
+  },
+  {
+    "en": "Call upon her yet and hear her",
+    "ga": "Glaoigh uirthi fós agus éist léi",
+    "speaker": "maebh"
+  },
+  {
+    "en": "She was equal in her asking;",
+    "ga": "Bhí sí comhionann ina éilimh;",
+    "speaker": "maebh"
+  },
+  {
+    "en": "She has not ceased her answering.",
+    "ga": "Níor stop sí ag freagairt.",
+    "speaker": "maebh"
+  }
+]

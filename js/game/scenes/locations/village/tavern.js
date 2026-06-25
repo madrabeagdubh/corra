@@ -50,14 +50,14 @@ const BARD_FLOW_DELAY = 250
 //     voice may not suit every taste).
 //   BARD_SPEAKER_VOICE — per-character voicing, keyed by each tain.json
 //     entry's `speaker` field. tigernach uses 'seanchai' (a lower,
-//     firmer female-register narrator voice). muirenn now uses 'peig'
-//     (the original soft/warm female preset, previously unused by any
-//     speaker) rather than sharing 'ronnie' with narrator/forgall.
-//     dallan and maebh keep their own distinct presets — maebh's is
-//     bright, melodic, and ethereal/ghostly (per explicit design call:
-//     in this telling she's something like a ghost). Falls back to
-//     'ronnie' for any unrecognised/missing speaker tag, via
-//     _voiceForSpeaker.
+//     firmer female-register narrator voice). muirenn uses 'peig' (the
+//     original soft/warm female preset). forgall has his own preset —
+//     anxious, reedy, stammering — rather than sharing 'ronnie' with the
+//     narrator, which an earlier pass left him on by default. dallan and
+//     maebh keep their own distinct presets — maebh's is bright,
+//     melodic, and ethereal/ghostly (per explicit design call: in this
+//     telling she's something like a ghost). Falls back to 'ronnie' for
+//     any unrecognised/missing speaker tag, via _voiceForSpeaker.
 //   BARD_SPEAKER_COLOR — per-character FILL colour for the Irish line.
 //     Per explicit design call, the original fully-saturated per-speaker
 //     colours (moss-green, amber, lavender, etc.) looked "muddy" as a
@@ -82,7 +82,7 @@ const BARD_FLOW_DELAY = 250
 const BARD_VOICE_ENABLED  = true
 const BARD_SPEAKER_VOICE = {
     narrator:  'ronnie',
-    forgall:   'ronnie',
+    forgall:   'forgall',
     muirenn:   'peig',
     tigernach: 'seanchai',
     dallan:    'dallan',
@@ -93,11 +93,12 @@ const BARD_SPEAKER_VOICE = {
 // never saturated enough to look tinted at a glance.
 const BARD_SPEAKER_COLOR = {
     narrator:  '#fffaf0',   // warm chalk (matches the original amber-glow family)
-    forgall:   '#f0f8ff',   // cool chalk
+    forgall:   '#f6f8ec',   // pale sallow chalk — anxious, slightly sickly undertone
     muirenn:   '#ebf2f5',   // silvery chalk
     tigernach: '#f0f8e8',   // mossy chalk
     dallan:    '#fff4e0',   // warm amber-chalk
-    maebh:     '#f5eeff',   // lavender-chalk
+    maebh:     '#fff0ee',   // pale rose-chalk — just enough warmth toward crimson to hint
+                            // at her glow without the fill itself looking tinted/muddy
 }
 // The 3 glow layers (innermost → outermost), reusing the ORIGINAL
 // amber glow's blur radii and alpha values exactly — only the hue
@@ -105,11 +106,18 @@ const BARD_SPEAKER_COLOR = {
 // intensity "feel," just a different colour family.
 const BARD_SPEAKER_GLOW = {
     narrator:  ['255,221,140', '255,200,90', '255,180,60'],   // original warm amber/gold
-    forgall:   ['255,221,140', '255,200,90', '255,180,60'],
+    forgall:   ['230,235,150', '210,220,110', '190,205,80'],  // pale, sickly yellow-green —
+                                                                // anxious, distinct from
+                                                                // tigernach's mossier green
     muirenn:   ['190,225,255', '150,205,255', '120,180,255'], // cool silvery-blue
     tigernach: ['190,230,160', '150,210,120', '120,190,90'],  // mossy green
     dallan:    ['255,190,150', '255,160,110', '255,130,70'],  // hotter amber/red — more "indignant"
-    maebh:     ['225,200,255', '205,170,255', '185,140,255'], // pale violet
+    maebh:     ['230,90,90', '210,55,55', '170,30,35'],       // deep crimson — fierce
+                                                                // battle-queen, replacing the
+                                                                // earlier pale-violet ethereal
+                                                                // glow that suited her OLD
+                                                                // voice (now 'bird1') but not
+                                                                // her current forceful one
 }
 const BARD_VOICE_TUNE_KEY = 'Ador'
 // Stage-1 sing mode: the voice sings the actual waltz melody (one note per
@@ -343,14 +351,44 @@ export default class TavernScene extends VillageScene {
   // start" rather than an unhandled rejection breaking the harp overlay.
   _fetchTainPoem() {
     if (this._tainPoemPromise) return this._tainPoemPromise
+    // Fetches as TEXT first (rather than res.json() directly) so a parse
+    // failure can be diagnosed precisely — logging the actual length and
+    // first/last characters received, plus the real JSON.parse error
+    // message and the exact character index it failed at. The earlier
+    // version used res.json() directly, which on failure only surfaces
+    // an opaque "SyntaxError {}" with no detail about WHAT was actually
+    // received — unhelpful for diagnosing a mismatch between a clean
+    // file on disk/over curl and a failing in-app fetch. This is
+    // temporary diagnostic instrumentation; safe to simplify back to a
+    // plain res.json() once the actual cause is found.
     this._tainPoemPromise = fetch('/data/tain.json')
       .then(res => {
         if (!res.ok) throw new Error(`tain.json fetch failed: ${res.status}`)
-        return res.json()
+        return res.text()
       })
-      .then(data => {
-        this._tainPoem = data
-        return data
+      .then(text => {
+        console.log('[Táin/bard] tain.json fetched — length:', text.length)
+        console.log('[Táin/bard] first 20 chars:', JSON.stringify(text.slice(0, 20)))
+        console.log('[Táin/bard] last 20 chars:', JSON.stringify(text.slice(-20)))
+        try {
+          const data = JSON.parse(text)
+          this._tainPoem = data
+          return data
+        } catch (parseErr) {
+          console.warn('[Táin/bard] JSON.parse failed:', parseErr.message)
+          // Most JS engines include the failing character position in
+          // the message (e.g. "...at position 1234") — extract it and
+          // print the actual text around that point so the exact bad
+          // byte/character is visible, not just its numeric offset.
+          const m = parseErr.message.match(/position (\d+)/)
+          if (m) {
+            const pos = parseInt(m[1], 10)
+            const start = Math.max(0, pos - 30)
+            console.warn('[Táin/bard] context around failure position', pos, ':',
+              JSON.stringify(text.slice(start, pos + 30)))
+          }
+          throw parseErr
+        }
       })
       .catch(err => {
         console.warn('[Táin/bard] failed to load tain.json:', err)

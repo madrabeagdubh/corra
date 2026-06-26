@@ -8,6 +8,7 @@ import { allTunes } from '../../../systems/music/allTunes.js'
 import { BardAccompaniment } from '../../../systems/music/bardAccompaniment.js'
 import { buildBardSequence } from '../../../systems/music/bardHarmonizer.js'
 import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
+import { StoryVisuals } from '../../../effects/storyVisuals.js'
 
 // ── Bard text pacing ─────────────────────────────────────────────────
 // A text line is no longer pinned 1:1 to a single musical group. Instead
@@ -659,12 +660,14 @@ export default class TavernScene extends VillageScene {
     clearTimeout(this._bardEnDoneTimer)
     clearTimeout(this._bardPairBreathTimer)
     clearTimeout(this._bardPrevFadeTimer)
+    clearTimeout(this._bardEndTimer)
     this._bardTypeTimer = null
     this._bardGateTimer = null
     this._bardEnTimer   = null
     this._bardEnDoneTimer = null
     this._bardPairBreathTimer = null
     this._bardPrevFadeTimer = null
+    this._bardEndTimer = null
     this._bardVoice?.stop?.()
     this._bardTextContainer?.remove()
     this._bardTextContainer = null
@@ -1016,6 +1019,7 @@ export default class TavernScene extends VillageScene {
     })
 
     this._bardLineIdx++
+    this._storyVisuals?.start()
     const lineA = this._tainPoem[this._bardWrapIdx(this._bardLineIdx)]
     this._showBardLine(lineA, this._bardEnAEl, () => {
       clearTimeout(this._bardPairBreathTimer)
@@ -1035,16 +1039,8 @@ export default class TavernScene extends VillageScene {
         const lineB = this._tainPoem[this._bardWrapIdx(this._bardLineIdx)]
         this._showBardLine(lineB, this._bardEnBEl, () => {
           if (poemFinished) {
-            // One full pass through the poem is complete — stop the
-            // music/gating machinery and close the harp overlay entirely,
-            // returning control to the player, rather than releasing the
-            // gate for another pluck.
-            console.log('[Táin/bard] poem complete — closing harp')
-            clearTimeout(this._bardGateTimer)
-            this._bardGateTimer = setTimeout(() => {
-              this._bardPlayer?.stop()
-              this._corraHarp?.close()
-            }, READING_BEAT)
+            console.log('[Táin/bard] poem complete — ending sequence')
+            this._endBardTale()
             return
           }
           // Pair B has now fully finished too — release the gate after
@@ -1056,6 +1052,53 @@ export default class TavernScene extends VillageScene {
         })
       }, BARD_PAIR_BREATH_MS)
     })
+  }
+
+  // Runs the full end-of-tale sequence once the poem has been recited in
+  // full: hold the final text on screen for a few seconds (so the player
+  // can finish reading it), then "the lights come back up" (vignette
+  // fades out) while the text fades out alongside it, and only once both
+  // fades have finished does the harp overlay actually close — handing
+  // control back to the player. Replaces an earlier version that closed
+  // the harp almost immediately (200ms) with no text/vignette fade-out
+  // at all, AND — separately — had a real bug: this._bardPlayer?.stop()
+  // ran inside that same 200ms-delayed timeout rather than immediately,
+  // leaving a window where the underlying BardAccompaniment engine (built
+  // with loop:true so the music wouldn't run out before the poem did)
+  // was still fully live and gate-released, waiting for the next pluck.
+  // If the player plucked during that window, onGroupComplete fired once
+  // more, _bardLineIdx incremented and wrapped via modulo, and the poem
+  // visibly restarted from line 0 even though nothing ever told it to —
+  // exactly the reported "reaches the end, then loops on its own" bug.
+  // Stopping the player IMMEDIATELY (not after any delay) closes that
+  // window entirely.
+  _endBardTale() {
+    // Stop the engine right now — no delay. This is the actual fix for
+    // the looping bug; everything after this point is just the visual
+    // wind-down and can take as long as it likes.
+    this._bardPlayer?.stop()
+    clearTimeout(this._bardGateTimer)
+
+    const HOLD_BEFORE_FADE_MS = 5000   // let the player finish reading the final lines
+    const FADE_OUT_MS = 1200           // text fade-out duration, matches storyVisuals' vignette fade-out
+
+    clearTimeout(this._bardEndTimer)
+    this._bardEndTimer = setTimeout(() => {
+      // "Lights come back up" — vignette fades out.
+      this._storyVisuals?.fadeOut()
+      // Text fades out alongside it. Fading the single shared container
+      // (rather than each of the 4 slots individually) since all of
+      // them are its children — see _ensureBardTextContainer.
+      if (this._bardTextContainer) {
+        this._bardTextContainer.style.transition = `opacity ${FADE_OUT_MS}ms ease-out`
+        this._bardTextContainer.style.opacity = '0'
+      }
+
+      clearTimeout(this._bardEndTimer)
+      this._bardEndTimer = setTimeout(() => {
+        this._corraHarp?.close()
+      }, FADE_OUT_MS)
+    }, HOLD_BEFORE_FADE_MS)
   }
 
   async _startBardAccompaniment() {
@@ -1071,6 +1114,8 @@ export default class TavernScene extends VillageScene {
     this._demoPlayer = null
     this._bardPlayer?.stop()
     this._destroyBardTextEl()
+    this._storyVisuals?.destroy()
+    this._storyVisuals = null
 
     // The poem fetch is normally already resolved by now — it's kicked
     // off as soon as the harp overlay opens (see _openHarpOverlay), well
@@ -1087,6 +1132,15 @@ export default class TavernScene extends VillageScene {
 
     const sequence = this._buildBardSequence()
     if (!sequence.length) return
+
+    // Stage visuals — currently just a vignette, see storyVisuals.js.
+    // Mounted here, right alongside the rest of bard-mode setup, so its
+    // DOM exists for the whole bard session and tears down with it.
+    // (An earlier, larger version of this also drove ambient particle
+    // effects via a line-indexed cue system — removed per explicit
+    // feedback that it was distracting; see storyVisuals.js's header.)
+    this._storyVisuals = new StoryVisuals()
+    this._storyVisuals.mount()
 
     // Text pacing state: line index into this._tainPoem and the
     // remaining note-budget for the current line. Driven independently
@@ -1273,6 +1327,8 @@ export default class TavernScene extends VillageScene {
     this._bardPlayer?.stop()
     this._bardPlayer = null
     this._destroyBardTextEl()
+    this._storyVisuals?.destroy()
+    this._storyVisuals = null
     // Fully dispose the voice synth (closes its AudioContext if it owns
     // one). _destroyBardTextEl only stops playback; this releases the
     // instance so it isn't held across harp opens.

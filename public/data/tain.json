@@ -31,8 +31,8 @@
     "speaker": "forgall"
   },
   {
-    "en": "gone",
-    "ga": "imithe",
+    "en": "gone!",
+    "ga": "imithe!",
     "speaker": "muirenn"
   },{
     "en": "said grey Muirenn",
@@ -75,24 +75,15 @@
     "ga": "Tá an Táin léite agamsa",
     "speaker": "tigernach"
   },
-  {
-    "en": "That rotted under Clonmacnoise",
-    "ga": "a lobhadh faoi Chluain Mhic Nóis",
-    "speaker": "tigernach"
-  },
-  {
+    {
     "en": "In a book the yellow worms had eaten",
     "ga": "I téacs a d'ith na péiste buí",
     "speaker": "tigernach"
   },
+  
   {
-    "en": "In that telling...",
-    "ga": "Sna scéalta sin...",
-    "speaker": "tigernach"
-  },
-  {
-    "en": "Cú Chulainn was not there",
-    "ga": "Ní raibh Cú Chulainn ánn",
+    "en": "In that telling, Cú Chulainn was not there",
+    "ga": "Sa leagan sin, ní raibh Cú Chulainn ánn",
     "speaker": "tigernach"
   },
   {
@@ -101,13 +92,13 @@
     "speaker": "tigernach"
   },
   {
-    "en": "He's thrust into the Táin like a cuckoo",
-    "ga": "Sádh isteach mar cuach sa Táin é",
+    "en": "Some thin-armed monk thrust him in later",
+    "ga": "Sháigh manach caolghéagach éigin isteach ar ball é",
     "speaker": "tigernach"
   },
   {
-    "en": "By some thin-armed monk",
-    "ga": "Ag manach caolghéagach éiginn",
+    "en": "",
+    "ga": "",
     "speaker": "tigernach"
   },
   {
@@ -126,29 +117,25 @@
     "speaker": "tigernach"
   },
   {
-    "en": "Up leapt red-faced Dallán Forgaill",
+    "en": "Up leapt Blind Forgaill red-faced",
     "ga": "Léim Dallán Forgaill ina sheasamh an lasair ina ghruanna",
     "speaker": "narrator"
   },
-  {
-    "en": "Knocking over three men seated",
-    "ga": "Ag leaga triúr suíthe",
-    "speaker": "narrator"
-  },
+  
   {
     "en": "Thou art lying through thy grey teeth!",
     "ga": "Tá tú ag insint bréag trí do chuid fiacla liatha!",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
-    "en": "Te Hound was there upon the border",
+    "en": "The Hound was there upon the border",
     "ga": "Bhí an Cú ar an teorainn go deimhin",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
     "en": "There he stood alone against armies",
     "ga": "Sheas sé leis féin in aghaidh sluaite",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
     "en": "Show me then the old manuscript",
@@ -156,13 +143,8 @@
     "speaker": "tigernach"
   },
   {
-    "en": "Where his name is set",
-    "ga": "Áit a bhfuil a ainm curtha",
-    "speaker": "tigernach"
-  },
-  {
-    "en": "Set before the Brown Bull's driving",
-    "ga": "Curtha roimh ruathar an Donn",
+    "en": "Where his name is set before the Brown Bull's driving",
+    "ga": "Áit a bhfuil a ainm curtha roimh ruathar an Donn",
     "speaker": "tigernach"
   },
   {
@@ -171,8 +153,8 @@
     "speaker": "tigernach"
   },
   {
-    "en": "He was thrust in later",
-    "ga": "Sáitheadh isteach ar ball é",
+    "en": "He was thrust in like a cuckoo",
+    "ga": "Sáitheadh isteach mar cuach é",
     "speaker": "tigernach"
   },
   {
@@ -242,7 +224,7 @@
   },
   {
     "en": "Who weigh a queen's worth by her husband's hoard",
-    "ga": "Ag comhríonn fiúntas ríon i saibhreas rí",
+    "ga": "A comhríonn fiúntas ríon i saibhreas rí",
     "speaker": "maebh"
   },
   {
@@ -252,14 +234,14 @@
   },
   {
     "en": "Who speaks thus?",
-    "ga": "Cé hé seo atá ag caint?",
-    "speaker": "dallan"
+    "ga": "Cé hí seo atá ag caint?",
+    "speaker": "forgall"
   },
   
   {
     "en": "With voice that silences bards mid-quarrel?",
     "ga": "Le guth a chuireann tost ar filí i lár rac?",
-    "speaker": "tigernach"
+    "speaker": "forgall"
   },
   {
     "en": "I am the lightning in the blood of Connacht",
@@ -302,29 +284,29 @@
     "speaker": "maebh"
   },
   {
-    "en": "To reclaim every warrior-queen",
-    "ga": "Chun gach ríon chogaidh",
+    "en": "That every warrior-queen,",
+    "ga": "Chun gach ríon chogaidh,",
     "speaker": "maebh"
   },
   {
-    "en": "You have buried out of sight",
+    "en": "you buried out of sight be reclaimed",
     "ga": "A chuir sibh as radharc a tairtháil",
     "speaker": "maebh"
   },
   {
     "en": "O bright and fierce queen",
     "ga": "A bhanríon gheal fhiáin",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
     "en": "What would you undo",
     "ga": "Cad a cheartfá",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
     "en": "That learned men have twisted crooked?",
     "ga": "Atá stangtha ag insint na saoi?",
-    "speaker": "dallan"
+    "speaker": "forgall"
   },
   {
     "en": "The truth the Táin you kept from telling",
@@ -337,8 +319,8 @@
     "speaker": "maebh"
   },
   {
-    "en": "They tell it thus:",
-    "ga": "Seo mar a insíonn siad é:",
+    "en": "They told it thus:",
+    "ga": "Seo mar a ninsíodh é:",
     "speaker": "maebh"
   },
   {
@@ -358,7 +340,7 @@
   },
   {
     "en": "had great halls loud with feasting",
-    "ga": "Is a hallaí glóracha fleáúla aici",
+    "ga": "Bhí hallaí glóracha fleáúla aici",
     "speaker": "maebh"
   },
   {
@@ -403,12 +385,12 @@
   },
   {
     "en": "Hear me you who name me war-bringer",
-    "ga": null,
+    "ga":" Éistigí, sibhse a bhaist 'bean an chogaidh' orm",
     "speaker": "maebh"
   },
   {
     "en": "you who lay the slaughter at my door",
-    "ga": null,
+    "ga": "Sibhse a fhágann an t-ár ar mo thairseach",
     "speaker": "maebh"
   },
   {
@@ -467,8 +449,8 @@
     "speaker": "maebh"
   },
   {
-    "en": "Cú Chulainn was at the fording-place",
-    "ga": "Bhí Cú Chulainn ag an áth",
+    "en": "And Cú Chulainn was at the fording-place!",
+    "ga": "Agus bhí Cú Chulainn ag an áth!",
     "speaker": "maebh"
   },
   {
@@ -481,11 +463,7 @@
     "ga": "Fhad is a bhí Uladh sínte faoi malacht Mhacha",
     "speaker": "maebh"
   },
-  {
-    "en": "O hear me well I'll tell it plain",
-    "ga": "Éist liom go maith beidh mé soiléir",
-    "speaker": "maebh"
-  },
+ 
   {
     "en": "I did not fear him",
     "ga": "Ní raibh eagla orm roimhe",
@@ -518,7 +496,7 @@
   },
   {
     "en": "And I was she who brought them through",
-    "ga": "Agus mise a thug an ceannaireacht",
+    "ga": "Ba mise a thug cheannaireacht",
     "speaker": "maebh"
   },
   {

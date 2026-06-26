@@ -23,6 +23,41 @@ export default class VillageScene extends PerspectiveScene {
   getPlayerLight() { return { color: 0xffcc88, intensity: 1.6, radius: 220 } }
   getWisps()       { return [] }
 
+  // ── Preload ────────────────────────────────────────────────────────────────
+  // ROOT CAUSE FIX for the NPC "blue circle" fallback and the wrong
+  // graphic on the harp moon-tile badge: PerspectiveScene.preload() (the
+  // base class) loads a shared batch of textures, but never loaded
+  // npc_poet / npc_fearghus / npc_sorcha / harp_sprite — and
+  // VillageScene had no preload() override of its own at all, so those
+  // four textures were simply never requested. this.textures.exists(...)
+  // was correctly reporting false for all of them; the blue-circle/wrong-
+  // badge behavior elsewhere in this file is each just the CORRECT
+  // fallback responding to textures that never existed, not a bug in
+  // the fallback logic itself.
+  //
+  // The asset files already exist on disk (confirmed):
+  //   public/assets/npcs/poet.png
+  //   public/assets/npcs/fearghus.png
+  //   public/assets/npcs/sorcha.png
+  // harp_sprite points at the same image already used elsewhere via
+  // registerCustomTile(9001, '/assets/harp.png') in drawTilemap() below
+  // — but that registers it as a custom PGR MAP TILE, a different
+  // mechanism from a standard Phaser texture load, so it does NOT also
+  // create a 'harp_sprite' texture key. Loading the same file again
+  // under that key here gives _showHarpBadge a real texture to draw
+  // onto the badge canvas.
+  //
+  // NPC_SPRITES (declared above) existed before this fix but was never
+  // actually used anywhere — exactly the shape of a preload loop that
+  // was planned but never written. This is that loop.
+  preload() {
+    super.preload()
+    NPC_SPRITES.forEach(name => {
+      this.load.image(`npc_${name}`, `/assets/npcs/${name}.png`)
+    })
+    this.load.image('harp_sprite', '/assets/harp.png')
+  }
+
   // ── PGR camera/perspective config ─────────────────────────────────────────
   // A complete, absolute config for interior scenes — layered on top of
   // BaseLocationScene's overworld baseline rather than mutating it. Applied

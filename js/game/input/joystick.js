@@ -475,6 +475,108 @@ if (this._root.style.opacity === '0') {
   getMoonCanvas() { return this._moonCanvas }
   getMoonRadius() { return Math.round(this.radius * 0.24) }
 
+
+
+
+
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// PATCH for joystick.js
+// ═══════════════════════════════════════════════════════════════════════
+//
+// CONTEXT: _hubDom (the moon's circular backing + _moonCanvas inside it)
+// is currently `position:absolute` relative to _root, which is itself
+// `position:fixed` at z-index:1000004. That's fine for every existing
+// overlay (e.g. inventory), which all sit BELOW 1000004 — so the
+// joystick (with hideDirections() hiding just the 4 cardinal buttons)
+// is already on top without any special-casing.
+//
+// The harp overlay (corraHarp.js) is different: it deliberately sits at
+// z-index:2000000, ABOVE the joystick. To let the moon show through and
+// stay interactive on top of the harp (per explicit design call — reuse
+// the SAME moon widget instance, not a second one), the moon hub needs
+// to temporarily escape _root's stacking context entirely.
+//
+// elevateMoon(zIndex) does this by switching _hubDom from
+// position:absolute (relative to _root, inheriting _root's transform/
+// stacking) to position:fixed at its CURRENT on-screen coordinates —
+// read via getBoundingClientRect(), which already reflects whatever
+// scale transform _reposition() applied to _root, so no manual
+// transform math is needed. Once fixed, _hubDom's z-index competes
+// directly against any other fixed-position element in the document
+// (like the harp overlay), regardless of DOM nesting under _root.
+//
+// restoreMoon() reverts _hubDom back to its normal position:absolute
+// state, letting _reposition() resume controlling it normally (e.g. on
+// the next orientation change/resize while back in the normal game view).
+//
+// Insert these two methods into the Joystick class — anywhere is fine,
+// e.g. right after hideDirections()/showDirections().
+// ═══════════════════════════════════════════════════════════════════════
+
+  // Temporarily lifts the moon hub (backing + canvas) out of _root's
+  // normal stacking context so it can render/receive input ABOVE another
+  // high z-index overlay (currently used for corraHarp.js's harp overlay,
+  // z-index:2000000) — while still being the exact same widget instance,
+  // same GameSettings.englishOpacity wiring, same swipe/tap physics.
+  // Call hideDirections() alongside this if the 4 cardinal buttons
+  // shouldn't also show through (the harp overlay has no use for them).
+  elevateMoon(zIndex = 2000001) {
+    if (!this._hubDom || this._hubElevated) return
+    const rect = this._hubDom.getBoundingClientRect()
+    this._hubPrevStyle = {
+      position: this._hubDom.style.position,
+      left:     this._hubDom.style.left,
+      top:      this._hubDom.style.top,
+      zIndex:   this._hubDom.style.zIndex,
+    }
+    this._hubDom.style.position = 'fixed'
+    this._hubDom.style.left     = `${rect.left}px`
+    this._hubDom.style.top      = `${rect.top}px`
+    this._hubDom.style.width    = `${rect.width}px`
+    this._hubDom.style.height   = `${rect.height}px`
+    this._hubDom.style.zIndex   = String(zIndex)
+    // pointer-events on _hubDom itself is already 'none' (only the moon
+    // canvas inside it receives input) — that's preserved as-is, since
+    // we're only changing position/sizing/z-index here, not pointer
+    // behaviour. The canvas's own pointer-events:all still works
+    // identically once its containing _hubDom is fixed-positioned.
+    this._hubElevated = true
+  }
+
+  // Reverts elevateMoon()'s changes, restoring _hubDom to its normal
+  // position:absolute-within-_root state so _reposition() resumes
+  // controlling it on the next call (e.g. after a resize/orientation
+  // change once back in the normal game view).
+  restoreMoon() {
+    if (!this._hubDom || !this._hubElevated) return
+    const prev = this._hubPrevStyle || {}
+    this._hubDom.style.position = prev.position || 'absolute'
+    this._hubDom.style.left     = prev.left     || ''
+    this._hubDom.style.top      = prev.top      || ''
+    this._hubDom.style.zIndex   = prev.zIndex   || '2'
+    // width/height: clear the inline px values elevateMoon() set, so the
+    // hub's own CSS rule (set at construction, sized off hubD) takes
+    // back over rather than leaving it pinned to whatever rect was
+    // captured at elevate-time.
+    this._hubDom.style.width    = ''
+    this._hubDom.style.height   = ''
+    this._hubElevated  = false
+    this._hubPrevStyle = null
+    // Force a fresh _reposition() pass so the hub's position is
+    // recomputed from _root's current transform rather than relying on
+    // whatever stale absolute left/top it's reverted to (in case the
+    // viewport changed at all while elevated).
+    this._reposition?.()
+  }
+
+
+
+
+
   // -- Public API -----------------------------------------------------------
   reset() {
     this.force = 0

@@ -332,8 +332,18 @@ export default class Player {
     else if (angle >= -112.5 && angle <  -67.5) {            dy = -1; }
     else if (angle >=  -67.5 && angle <  -22.5) { dx =  1;  dy = -1; }
 
-    this.startX   = Math.round(this.logicalX / this.tileSize) * this.tileSize;
-    this.startY   = Math.round(this.logicalY / this.tileSize) * this.tileSize;
+    // BUG FIX: previously snapped to the tile's TOP-LEFT CORNER
+    // (Math.round(logicalX/tileSize) * tileSize), not its centre. Spawn
+    // position (BaseLocationScene.initializeLocation) places the player at
+    // tileIndex*tileSize + tileSize/2 -- centred. Every step after spawn
+    // was re-snapping back to the corner, so after the very first move the
+    // player would visually drift toward the top-left of its tile instead
+    // of staying centred. Fixed by computing the tile INDEX first, then
+    // re-applying the same +tileSize/2 centring offset spawn uses.
+    const startTileX = Math.round((this.logicalX - this.tileSize / 2) / this.tileSize);
+    const startTileY = Math.round((this.logicalY - this.tileSize / 2) / this.tileSize);
+    this.startX   = startTileX * this.tileSize + this.tileSize / 2;
+    this.startY   = startTileY * this.tileSize + this.tileSize / 2;
     this.logicalX = this.startX;
     this.logicalY = this.startY;
 

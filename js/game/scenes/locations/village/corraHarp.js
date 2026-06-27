@@ -29,6 +29,20 @@
 // an earlier design with a global manual toggle + mismatch badge, which
 // playtesting showed was hard to use and easy to get wrong — see git
 // history if that design needs to be revisited.
+//
+// ── Moon widget on top of the harp ────────────────────────────────────
+// The harp overlay sits at z-index:2000000 — above the joystick's
+// z-index:1000004, which normally means the moon widget (embedded in
+// the joystick's hub) is invisible behind it. Per explicit design call,
+// open()/close() now call joystick.js's elevateMoon()/restoreMoon() so
+// the SAME moon widget instance (same GameSettings.englishOpacity
+// wiring, same swipe/tap/long-press physics) temporarily escapes the
+// joystick's normal stacking context and renders/works on top of this
+// overlay instead — letting the player fade English text (and, per the
+// bard-mode design this enables, dim non-gold strings / intensify
+// ghostly stage visuals) without leaving the harp. hideDirections()/
+// showDirections() hide just the 4 cardinal d-pad buttons, which have
+// no use here — only the moon hub itself elevates.
 
 import Phaser from 'phaser'
 
@@ -798,6 +812,15 @@ export class CorraHarp {
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
 
+    // Bring the SAME moon widget (not a second instance) up above this
+    // overlay's own z-index:2000000, so the player can still see/use it
+    // while the harp is open — see joystick.js's elevateMoon() and this
+    // file's header comment. Only the moon hub elevates; the 4 cardinal
+    // d-pad buttons stay hidden via the existing hideDirections(), since
+    // they have no use here.
+    this._scene.joystick?.hideDirections()
+    this._scene.joystick?.elevateMoon(2000001)
+
     // Dim wrapper
     const overlay = document.createElement('div')
     overlay.id = 'corra-harp-overlay'
@@ -922,6 +945,13 @@ export class CorraHarp {
     if (!overlay) return
     overlay.style.background = 'rgba(3,8,16,0)'
     if (this._container) this._container.style.opacity = '0'
+
+    // Restore the joystick to its normal state — moon hub back to its
+    // usual position:absolute-in-_root spot (restoreMoon() also forces a
+    // fresh _reposition() pass), direction buttons visible again.
+    this._scene.joystick?.restoreMoon()
+    this._scene.joystick?.showDirections()
+
     if (this._resizeHandler) {
       window.removeEventListener('resize', this._resizeHandler)
       this._resizeHandler = null

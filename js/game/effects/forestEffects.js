@@ -310,85 +310,121 @@ export default class ForestEffects {
   // ── Per-frame update ───────────────────────────────────────────────────────
   // Call AFTER perspectiveGround.update() so playerScreenX/Y are current for
   // this frame (PGR sets these as plain properties during its own update()).
-  update() {
-    const pgr = this.scene.perspectiveGround
-    if (!pgr) return
 
-    const sw = this._sw, sh = this._sh
-    const ctx = this._ctx
 
-    // Fall back to screen centre if PGR hasn't projected a player position
-    // yet (e.g. very first frame before player exists).
-    const px = pgr.playerScreenX ?? sw / 2
-    const py = pgr.playerScreenY ?? sh / 2
+// ── Per-frame update ───────────────────────────────────────────────────────
+// Call AFTER perspectiveGround.update() so playerScreenX/Y are current for
+// this frame (PGR sets these as plain properties during its own update()).
+update() {
 
-    ctx.clearRect(0, 0, sw, sh)
 
-    // Player's tile row, needed to determine which trunks sit "south" of
-    // the player (i.e. between the player and the camera -- the camera
-    // looks toward decreasing row values, so a trunk at a higher row than
-    // the player is the one that would visually block them).
-    const ts = pgr.tileDisplaySize ?? 48
-    const playerTileY = (this.scene.player?.logicalY ?? 0) / ts
 
-    // 0a) Tint wall-cell floor positions dark, so the ground itself shows
-    // the maze shape -- not just trunks floating with no relationship to
-    // what's actually walkable beneath them.
-    this._drawWallFloorTint(pgr)
 
-    // 0a-debug) Paint exit tiles bright red -- DEBUG AID, not final art.
-    // Added because the real exit tiles were genuinely hard to locate
-    // visually in the maze (dense trunks + small map made it easy to miss
-    // a 3-tile-wide opening). Remove once exits are easy to find by eye
-    // through other means (signage, lighter floor colour, etc).
-    this._drawExitMarkers(pgr)
 
-    // 0b) Draw trunks, standing on/above that tinted ground. Trunks south
-    // of the player (between player and camera) are faded -- not erased --
-    // so we never lose track of where the player is, without making those
-    // trees disappear outright. Trunks north of the player (behind them,
-    // from the camera's POV) draw at full opacity since they're not
-    // blocking anything.
-    this._drawTrunks(pgr, playerTileY)
+  const pgr = this.scene.perspectiveGround
+  if (!pgr) return
 
-    if (!ForestEffects.CANOPY_ENABLED) return
-
-    // 1) Paint the canopy texture, restricted to a band at the TOP of the
-    // screen only, fading to transparent at the band's bottom edge.
-    const bandH = sh * ForestEffects.CANOPY_BAND_FRAC
-    const fadeH = bandH * ForestEffects.CANOPY_BAND_FADE_FRAC
-    const solidH = bandH - fadeH
-
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, 0, sw, bandH)
-    ctx.clip()
-
-    ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
-    ctx.fillRect(0, 0, sw, solidH)
-
-    if (fadeH > 0) {
-      const fadeGrad = ctx.createLinearGradient(0, solidH, 0, bandH)
-      fadeGrad.addColorStop(0, 'rgba(0,0,0,1)')
-      fadeGrad.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
-      ctx.fillRect(0, solidH, sw, fadeH)
-      // Composite the fade gradient as a mask over just that strip.
-      ctx.globalCompositeOperation = 'destination-in'
-      ctx.fillStyle = fadeGrad
-      ctx.fillRect(0, solidH, sw, fadeH)
-      ctx.globalCompositeOperation = 'source-over'
-    }
-    ctx.restore()
-
-    // 2) Cut a soft circular hole through the canopy band, centred on the
-    // player. Only matters where the band actually is (top of screen) --
-    // if the player is lower on screen, much of this circle has nothing
-    // to erase, which is fine and cheap.
-    const radius = Math.sqrt(sw * sw + sh * sh) * ForestEffects.HOLE_RADIUS_FRAC
-    this._punchHole(px, py, radius, ForestEffects.HOLE_INNER_FRAC)
+  // Re-read every frame, exactly like PGR does -- don't trust cached
+  // dimensions, since fullscreen/orientation changes don't reliably
+  // fire a `resize` event on mobile.
+  const canvas = this.scene.game.canvas
+  if (canvas.width !== this._sw || canvas.height !== this._sh) {
+    this._sw = canvas.width
+    this._sh = canvas.height
+    this._canvas.width  = this._sw
+    this._canvas.height = this._sh
   }
+
+  const sw = this._sw, sh = this._sh
+  const ctx = this._ctx
+// TEMP DEBUG -- remove once fullscreen scale mismatch is confirmed/fixed
+if (!this._loggedScaleOnce || this._lastLoggedFS !== document.fullscreenElement) {
+  this._loggedScaleOnce = true
+  this._lastLoggedFS = document.fullscreenElement
+  const rect = canvas.getBoundingClientRect()
+  console.log('[ForestEffects DEBUG]',
+    'fullscreen:', !!document.fullscreenElement,
+    '| backbuffer:', canvas.width, 'x', canvas.height,
+    '| CSS rect:', rect.width.toFixed(1), 'x', rect.height.toFixed(1),
+    '| devicePixelRatio:', window.devicePixelRatio,
+    '| forestCanvas backbuffer:', this._canvas.width, 'x', this._canvas.height,
+    '| forestCanvas CSS rect:', this._canvas.getBoundingClientRect().width.toFixed(1),
+    'x', this._canvas.getBoundingClientRect().height.toFixed(1)
+  )
+}
+  // Fall back to screen centre if PGR hasn't projected a player position
+  // yet (e.g. very first frame before player exists).
+  const px = pgr.playerScreenX ?? sw / 2
+  const py = pgr.playerScreenY ?? sh / 2
+
+  ctx.clearRect(0, 0, sw, sh)
+
+  // Player's tile row, needed to determine which trunks sit "south" of
+  // the player (i.e. between the player and the camera -- the camera
+  // looks toward decreasing row values, so a trunk at a higher row than
+  // the player is the one that would visually block them).
+  const p = this.scene.player
+  const ts = pgr.tileDisplaySize ?? 48
+  const playerTileY = Math.floor((p?.targetY ?? p?.logicalY ?? 0) / ts)
+
+  // 0a) Tint wall-cell floor positions dark, so the ground itself shows
+  // the maze shape -- not just trunks floating with no relationship to
+  // what's actually walkable beneath them.
+  this._drawWallFloorTint(pgr)
+
+  // 0a-debug) Paint exit tiles bright red -- DEBUG AID, not final art.
+  // Added because the real exit tiles were genuinely hard to locate
+  // visually in the maze (dense trunks + small map made it easy to miss
+  // a 3-tile-wide opening). Remove once exits are easy to find by eye
+  // through other means (signage, lighter floor colour, etc).
+  this._drawExitMarkers(pgr)
+
+  // 0b) Draw trunks, standing on/above that tinted ground. Trunks south
+  // of the player (between player and camera) are faded -- not erased --
+  // so we never lose track of where the player is, without making those
+  // trees disappear outright. Trunks north of the player (behind them,
+  // from the camera's POV) draw at full opacity since they're not
+  // blocking anything.
+  this._drawTrunks(pgr, playerTileY)
+
+  if (!ForestEffects.CANOPY_ENABLED) return
+
+  // 1) Paint the canopy texture, restricted to a band at the TOP of the
+  // screen only, fading to transparent at the band's bottom edge.
+  const bandH = sh * ForestEffects.CANOPY_BAND_FRAC
+  const fadeH = bandH * ForestEffects.CANOPY_BAND_FADE_FRAC
+  const solidH = bandH - fadeH
+
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, 0, sw, bandH)
+  ctx.clip()
+
+  ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
+  ctx.fillRect(0, 0, sw, solidH)
+
+  if (fadeH > 0) {
+    const fadeGrad = ctx.createLinearGradient(0, solidH, 0, bandH)
+    fadeGrad.addColorStop(0, 'rgba(0,0,0,1)')
+    fadeGrad.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
+    ctx.fillRect(0, solidH, sw, fadeH)
+    // Composite the fade gradient as a mask over just that strip.
+    ctx.globalCompositeOperation = 'destination-in'
+    ctx.fillStyle = fadeGrad
+    ctx.fillRect(0, solidH, sw, fadeH)
+    ctx.globalCompositeOperation = 'source-over'
+  }
+  ctx.restore()
+
+  // 2) Cut a soft circular hole through the canopy band, centred on the
+  // player. Only matters where the band actually is (top of screen) --
+  // if the player is lower on screen, much of this circle has nothing
+  // to erase, which is fine and cheap.
+  const radius = Math.sqrt(sw * sw + sh * sh) * ForestEffects.HOLE_RADIUS_FRAC
+  this._punchHole(px, py, radius, ForestEffects.HOLE_INNER_FRAC)
+}
 
   // Shared soft-circle erase: punches a hole through whatever has already
   // been drawn to this._ctx, centred at (cx, cy), fully transparent within

@@ -256,14 +256,19 @@ export default class PerspectiveGroundRenderer {
     container.appendChild(mtn)
     this._mountainImg = mtn
 
-    this._resizeHandler = () => {
-      setTimeout(() => {
-      const canvas = this.scene?.game?.canvas
-      if (!canvas) return
-      const nw = canvas.clientWidth || canvas.width
-      const nh = canvas.clientHeight || canvas.height
-      if (nw === this._sw && nh === this._sh) return
-      this._sw = nw; this._sh = nh
+
+
+
+this._resizeHandler = () => {
+  setTimeout(() => {
+  const canvas = this.scene?.game?.canvas
+  if (!canvas) return
+  console.log('[PGR resize]', 'clientW/H:', canvas.clientWidth, canvas.clientHeight, '| backbuffer:', canvas.width, canvas.height, '| dpr:', window.devicePixelRatio)
+  const nw = canvas.clientWidth || canvas.width
+  const nh = canvas.clientHeight || canvas.height
+  if (nw === this._sw && nh === this._sh) return
+  this._sw = nw; this._sh = nh
+
       const newSkyH   = Math.floor(nh * 0.85)
       const horizonPx = Math.floor(nh * PerspectiveGroundRenderer.HORIZON_Y_FRAC)
       const newMtnH   = horizonPx

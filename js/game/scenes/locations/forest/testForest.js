@@ -33,9 +33,11 @@ import ForestEffects from '../../../effects/forestEffects.js'
 
 export default class TestForest extends PerspectiveScene {
 
-  constructor() { super({ key: 'testForest' }) }
-
-  getMapKey() { return 'testForest' }
+ constructor() {
+    super({ key: 'testForest' })
+    this.tileSize = 48   // must match Player's default and wallMask's authored grid
+  }
+	getMapKey() { return 'testForest' }
 
   // Map lives in public/maps/forest/, not the inherited default
   // (/maps/bogMaps/${key}.json) -- forest maps get their own folder.
@@ -51,13 +53,12 @@ export default class TestForest extends PerspectiveScene {
   isColliding(x, y) {
     return false
 
-    // -- real version, restore once debugging is done --
-    // const tx = Math.floor(x / this.tileSize)
-    // const ty = Math.floor(y / this.tileSize)
-    // const mask = this.mapData?.wallMask
-    // if (!mask) return false
-    // if (ty < 0 || ty >= mask.length || tx < 0 || tx >= mask[0].length) return true
-    // return mask[ty][tx] === 1
+  const tx = Math.floor(x / this.tileSize)
+  const ty = Math.floor(y / this.tileSize)
+  const mask = this.mapData?.wallMask
+  if (!mask) return false
+  if (ty < 0 || ty >= mask.length || tx < 0 || tx >= mask[0].length) return true
+  return mask[ty][tx] === 1 
   }
 
   // ── Camera: close / over-the-shoulder ─────────────────────────────────────

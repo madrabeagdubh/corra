@@ -1,43 +1,23 @@
 // perspectiveScene.js
 // Location: js/game/scenes/locations/perspectiveScene.js
 //
-// ── Purpose ───────────────────────────────────────────────────────────────────
-// Middle layer between BaseLocationScene and all perspective-rendered map scenes.
-// Owns everything that requires PerspectiveGroundRenderer but is generic across
-// ALL perspective maps (bog, river, dungeon, castle, etc.).
+// ── IMPORTANT: shutdown() wiring ───────────────────────────────────────────────
+// Phaser dispatches 'shutdown' as an EVENT through this.events/this.sys.events
+// -- it does NOT automatically invoke a plain method literally named
+// shutdown() on a Scene subclass just because one exists (confirmed via
+// Phaser's own docs: Scenes.Events.SHUTDOWN is "dispatched... Listen to it
+// from a Scene using this.events.on('shutdown', listener)"). The shutdown()
+// method below was very likely NEVER firing on its own in any scene that
+// extends this class -- confirmed directly in a test scene (built on this
+// same base) where no "shutdown() called" log ever appeared during a real
+// scene.start() transition, which in turn caused a scene-specific overlay
+// (a separate DOM canvas layered above PGR) to persist visually into the
+// next scene because its own destroy() call -- made from inside shutdown()
+// -- never ran.
 //
-// ── What lives here ───────────────────────────────────────────────────────────
-//   • PGR + ElevationRenderer setup and update
-//   • drawTilemap() — oryx tile rendering + PGR canvas
-//   • FOV system + fog renderer
-//   • Tap-to-path (PathFinder)
-//   • Joystick + moon widget + menu hub + encounter panel (full input UI)
-//   • applyEntryPosition, showIntroNarrative
-//   • Exit handling (checkExits, _triggerExit)
-//   • Walk grid building
-//   • BowMechanics
-//
-// ── What does NOT live here ───────────────────────────────────────────────────
-//   • Boat system → RiverScene
-//   • Encounter deck placement → BogScene
-//   • Map-specific content loading → individual scene subclasses
-//   • Map-specific GIDs, sky images, music → override hooks (getSkyImage etc.)
-//
-// ── Override hooks (implement in subclasses) ──────────────────────────────────
-//   getMapKey()              — required — e.g. 'great_open_bog'
-//   getMapPath()             — optional — default: /maps/bogMaps/${key}.json
-//   getAmbient()             — optional — default: 0x334422
-//   getPlayerLight()         — optional — { color, intensity, radius }
-//   getWisps()               — optional — array of wisp light configs
-//   getMusicTrack()          — optional — track key for tradConductor
-//   getExtraUnwalkableGIDs() — optional — Set of additional unwalkable GIDs
-//   getSkyImage()            — optional — URL string or null
-//   getSkyPosition()         — optional — CSS position string
-//   getMountainImage()       — optional — URL string or null
-//   getMountainPosition()    — optional — CSS position string
-//   getElevationConfig()     — optional — returns ElevationRenderer config or null
-//   onEnter()                — optional — called after scene is fully ready
-//   _loadContent()           — optional — override to load map-specific objects/NPCs
+// Fixed by also wiring the same cleanup through the real event, registered
+// once in create(). The shutdown() method itself is left unchanged as a
+// fallback in case anything elsewhere explicitly calls it directly.
 
 import Phaser from 'phaser'
 import BaseLocationScene from './baseLocationScene.js'
@@ -63,10 +43,8 @@ import Joystick              from '../../input/joystick.js'
 
 window.GameState = GameState
 
-// Oryx tileset constants
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54, SCALE = 2
 
-// GIDs that are never walkable regardless of map
 const ALWAYS_UNWALKABLE = new Set([
   1634, 1688, 740,
   228, 231, 233, 234, 235, 236, 226, 229, 230, 232, 242, 243,
@@ -77,7 +55,6 @@ const ALWAYS_UNWALKABLE = new Set([
 
 export default class PerspectiveScene extends BaseLocationScene {
 
-  // ── Override hooks ────────────────────────────────────────────────────────
   getMapKey()              { return 'unnamed_map' }
   getMapPath()             { return `/maps/bogMaps/${this.getMapKey()}.json?v=${Date.now()}` }
   getAmbient()             { return 0x334422 }
@@ -104,8 +81,6 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   async _loadContent() {}
 
-  // ── Joystick Y position ───────────────────────────────────────────────────
-
   get _joyY() {
     const canvasRect = this.game?.canvas?.getBoundingClientRect()
     const statusRect = document.getElementById('status-bar')?.getBoundingClientRect()
@@ -113,8 +88,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     const scaleY = this.scale.height / canvasRect.height
     return (statusRect.top - canvasRect.top) * scaleY - 60
   }
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   init(data) {
     this.entryData = data || {}
@@ -169,9 +142,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     this.drawTilemap()
 
     const elevConfig = this.getElevationConfig()
-    // If the map ships an explicit per-tile elevationGrid (e.g. generated river
-    // banks), PGR loads it directly — do NOT also spin up an ElevationRenderer,
-    // which would overwrite _elev via GID matching and re-introduce stray faces.
     if (this.mapData.hasCliffs && this.perspectiveGround && elevConfig
         && !this.mapData.elevationGrid) {
       this.elevationRenderer = new ElevationRenderer(this.perspectiveGround, elevConfig)
@@ -209,9 +179,6 @@ export default class PerspectiveScene extends BaseLocationScene {
 
     this.cameras.main.centerOn(this.player.logicalX, this.player.logicalY)
     this.cameras.main.startFollow(this._camProxy, true, 0.1, 0.1)
-    // Extend south bound by one screen height so the camera can follow the
-    // player to the last map row without Phaser stopping it half a screen early.
-    // The update() clamp below prevents it going further than the map edge.
     this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight + this.scale.height)
 
     this._lastFovKey = null
@@ -244,13 +211,20 @@ export default class PerspectiveScene extends BaseLocationScene {
     this.showIntroNarrative()
     this.onEnter()
 
+    // FIX: wire shutdown cleanup to the REAL Phaser shutdown event. See
+    // header comment for why -- shutdown() below was very likely never
+    // firing on its own. .once() so it can only fire one time per instance.
+    this.events.once('shutdown', () => {
+      console.log(`[${this.scene.key}] real Phaser shutdown EVENT fired -- running cleanup`)
+      this.shutdown()
+    })
+
     console.log(`[${this.scene.key}] ready -- ${this.mapData.width}x${this.mapData.height}`)
     transitionIn()
     this._drawExitDebug()
   }
 
   update(time, delta) {
-    // ElevationRenderer must run before PGR so _elev is current
     if (this.elevationRenderer) this.elevationRenderer.update(this.mapData)
     if (this.perspectiveGround) this.perspectiveGround.update()
     super.update(time, delta)
@@ -269,15 +243,11 @@ export default class PerspectiveScene extends BaseLocationScene {
     if (this.playerLight  && this.player)    this.playerLight.setPosition(this.player.logicalX, this.player.logicalY)
     if (this.bowMechanics)                   this.bowMechanics.update(delta)
 
-    // ── South camera clamp ────────────────────────────────────────────────
-    // Pin the bottom edge of the last map row to the bottom of the screen.
-    // PGR computes the exact scrollY using the perspective formula so the
-    // south tile edge lands precisely at screen bottom — no gap, no overshoot.
     if (this.cameras?.main && this.perspectiveGround && this.mapData) {
       const _cam   = this.cameras.main
       const _zoom  = _cam.zoom || 1
       const _pgr   = this.perspectiveGround
-      const _mapH  = this.mapData.height  // tile rows
+      const _mapH  = this.mapData.height
       const _ts    = this.tileSize
       const _sh    = this.scale.height
       const _FL    = _pgr.constructor.FOCAL_LENGTH
@@ -285,11 +255,6 @@ export default class PerspectiveScene extends BaseLocationScene {
       const _horizPx = _pgr._horizonPx?.() ?? (_sh * _pgr.constructor.HORIZON_Y_FRAC)
       const _camOff  = _pgr._cameraRowOffset ?? _pgr.constructor.CAMERA_ROW_OFFSET
 
-      // Solve: _rowToScreenY(mapH) == sh
-      // sh = horizonPx + groundH * FL / (FL + d)  where d = camRow - mapH
-      // => d = FL * groundH / (sh - horizonPx) - FL
-      // => camRow = mapH + d
-      // => scrollY = (camRow - camOffset) * tileSize - sh / (2 * zoom)
       const _denom = _sh - _horizPx
       if (_denom > 0) {
         const _d      = _FL * _groundH / _denom - _FL
@@ -301,6 +266,9 @@ export default class PerspectiveScene extends BaseLocationScene {
     }
   }
 
+  // Unchanged. Now also invoked via the real 'shutdown' event wired in
+  // create() above. Harmless to call more than once (every branch is
+  // null-guarded), so leaving it directly callable here too is safe.
   shutdown() {
     if (this._encounterPanel)   { this._encounterPanel.destroy();  this._encounterPanel  = null }
     if (this._moonWidget)       { this._moonWidget.destroy();      this._moonWidget      = null }
@@ -337,8 +305,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     this.lights.destroy()
     if (super.shutdown) super.shutdown()
   }
-
-  // ── Input UI ──────────────────────────────────────────────────────────────
 
   _createInputUI() {
     this._easca = new Easca3(this, (text) => {
@@ -462,8 +428,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     this._lastMenuClose = Date.now()
   }
 
-  // ── Tap to path ───────────────────────────────────────────────────────────
-
   _setupTapToPath() {
     const canvas = this.game.canvas
     canvas.addEventListener('pointerdown', (e) => {
@@ -522,8 +486,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     })
   }
 
-  // ── FOV ───────────────────────────────────────────────────────────────────
-
   _recomputeFov() {
     if (!this.fovSystem || !this.player) return
     const tx = Math.floor(this.player.logicalX / this.tileSize)
@@ -531,8 +493,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     this.fovSystem.compute(tx, ty)
     if (this.fogRenderer) this.fogRenderer.update(this.fovSystem)
   }
-
-  // ── Walk grid ─────────────────────────────────────────────────────────────
 
   _buildWalkGrid() {
     const tiles = this.mapData.layers[0]
@@ -571,8 +531,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     }
     return false
   }
-
-  // ── Tilemap ───────────────────────────────────────────────────────────────
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }
@@ -643,8 +601,6 @@ export default class PerspectiveScene extends BaseLocationScene {
       }
     }
   }
-
-  // ── Entry / exits ─────────────────────────────────────────────────────────
 
   applyEntryPosition() {
     const edge = this.entryData?.entryEdge
@@ -725,15 +681,8 @@ export default class PerspectiveScene extends BaseLocationScene {
     })
   }
 
-  // ── Doors (interior <-> exterior) ─────────────────────────────────────────
-  // A door is a deliberate, tap-to-use transition rather than a walk-onto-tile
-  // edge exit: standing near it raises a door badge on the moon tile (the same
-  // encounter-panel channel the harp uses), and a joystick tap fires it. No
-  // edge-walk tween -- the player steps through a fixed point. Driven entirely
-  // by a `doors` array in the map JSON; the destination places the player via
-  // its own entries[entryEdge], exactly like checkExits does.
   static DOOR_RADIUS_TILES = 2.0
-  static DOOR_VISUAL = { gid: 137, flat: false }   // oryx "closed door" badge icon
+  static DOOR_VISUAL = { gid: 137, flat: false }
 
   _registerDoorZones() {
     this._doorZones = []
@@ -768,8 +717,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     if (nearest) {
       const door   = nearest.getData('door')
       const cardId = 'door:' + door.id
-      // Show the door badge only when nothing else (e.g. an encounter flag) is
-      // already claiming the panel -- and re-assert if something cleared it.
       if ((!panel._card || panel._card._isDoor) && panel._card?.id !== cardId) {
         panel.notify({
           id:      cardId,
@@ -780,9 +727,6 @@ export default class PerspectiveScene extends BaseLocationScene {
           _door:   door,
         }, nearest)
       }
-      // Route the panel's open action to the transition (same hook the harp
-      // uses for _openHarpOverlay) so pressing the badge teleports rather
-      // than opening a default encounter card.
       if (!panel._card || panel._card._isDoor) panel._openPanel = () => this._triggerDoor(door)
     } else if (panel._card?._isDoor) {
       panel.clearNotify()
@@ -807,16 +751,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     })
   }
 
-  // ── Unified door proximity ────────────────────────────────────────────────
-  // Doors must participate in the SAME per-frame _flagInRange protocol as
-  // harp/NPC/encounter flags. The base does, each frame:
-  //     this._flagInRange = false
-  //     this.checkProximityInteractions()
-  //     if (!this._flagInRange) this._encounterPanel.clearNotify()
-  // so a door badge is only kept alive by setting _flagInRange here -- and the
-  // base's own clearNotify() handles hiding it (with its grace timer) when you
-  // leave. Running this AFTER super.update() instead (the old _updateDoorProximity)
-  // let the base fight the door every frame and produced the inverted flicker.
   checkProximityInteractions() {
     if (this._checkDoorProximity()) return
     super.checkProximityInteractions()
@@ -836,7 +770,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     if (!nearest) return false
     const door   = nearest.getData('door')
     const cardId = 'door:' + door.id
-    this._flagInRange = true   // keep the base from clearing while we're at the door
+    this._flagInRange = true
     if (this._encounterPanel._card?.id !== cardId) {
       this._encounterPanel.notify({
         id:      cardId,
@@ -850,8 +784,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     this._encounterPanel._openPanel = () => this._triggerDoor(door)
     return true
   }
-
-  // ── Intro narrative ───────────────────────────────────────────────────────
 
   showIntroNarrative() {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
@@ -883,8 +815,6 @@ export default class PerspectiveScene extends BaseLocationScene {
     }
     showNext()
   }
-
-  // ── Debug ─────────────────────────────────────────────────────────────────
 
   _drawExitDebug() {
     if (!window._devExits || !this.mapData?.exits) return

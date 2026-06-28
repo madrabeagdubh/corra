@@ -66,7 +66,7 @@ function _createGame(selectedChampion, options) {
         height: window.innerHeight,
         transparent: true,
         parent: 'gameContainer',
-        scene: [TestForest,
+        scene: [
             WorldScene,
             BowTutorial,
             BogB0,
@@ -74,7 +74,7 @@ function _createGame(selectedChampion, options) {
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
             BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
-            Tavern,
+            Tavern,TestForest
         ],
         autoStart: false,
         scale: {

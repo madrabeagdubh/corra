@@ -2143,7 +2143,42 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
     this._boatCanvas = c
     console.log('[PGR] boat canvas ready -', c.width, 'x', c.height)
   }
+destroy() {
+    console.log('[PGR v8] destroy() called')
 
+    window.removeEventListener('resize', this._resizeHandler)
+    document.removeEventListener('fullscreenchange', this._resizeHandler)
+    document.removeEventListener('webkitfullscreenchange', this._resizeHandler)
+    this._resizeHandler = null
+
+    if (this._groundCanvas?.parentNode) this._groundCanvas.parentNode.removeChild(this._groundCanvas)
+    if (this._objectCanvas?.parentNode) this._objectCanvas.parentNode.removeChild(this._objectCanvas)
+    this._groundCanvas = null
+    this._objectCanvas = null
+    this._gCtx = null
+    this._oCtx = null
+
+    if (this._lightDiv?.parentNode) this._lightDiv.parentNode.removeChild(this._lightDiv)
+    this._lightDiv = null
+
+    if (this._skyImg?.parentNode) this._skyImg.parentNode.removeChild(this._skyImg)
+    if (this._mountainImg?.parentNode) this._mountainImg.parentNode.removeChild(this._mountainImg)
+    this._skyImg = null
+    this._mountainImg = null
+
+    this._tileCache?.clear()
+    this._bakedTintCache?.clear()
+    this._tilesetImg = null
+    this._player = null
+    this._playerCanvas = null
+    this._buildings = []
+    this._encounterFlags = []
+    this._boatCanvas = null
+
+    this._destroyed = true
+
+    console.log('[PGR v8] destroy() complete -- DOM elements removed')
+  }
   setBoatActive(active) {
     this._boatActive  = !!active
     this._boatScreenX = null

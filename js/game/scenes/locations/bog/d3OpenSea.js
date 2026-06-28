@@ -1249,7 +1249,7 @@ export default class D3OpenSea extends RiverScene {
       if (this._fadeDiv) this._fadeDiv.style.opacity = '0'
       this.time.delayedCall(600, () => {
         this._cleanupEffects()
-        this.scene.start('d3_sea')
+        this.scene.start('d3_open_sea')
       })
     })
   }

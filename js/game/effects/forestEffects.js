@@ -271,41 +271,63 @@ export default class ForestEffects {
   // rather than redrawing noise every frame. Simple deterministic blob noise
   // -- not meant to be final art, just enough visual texture to read as
   // foliage rather than a flat color.
-  _bakeCanopyPattern() {
-    const size = ForestEffects.CANOPY_TILE_SIZE
-    const tile = document.createElement('canvas')
-    tile.width = size
-    tile.height = size
-    const tctx = tile.getContext('2d')
+// Bakes a repeatable mottled texture once into an offscreen canvas, then
+// wraps it as a CanvasPattern. Aiming for "primordial Atlantic rainforest"
+// density/variety: not one uniform green, but overlapping passes in
+// different hues (deep black-green, warm brown-green, mossy yellow-green)
+// at different blob sizes, so the canopy reads as mixed species and uneven
+// density rather than a flat single-color mass.
+_bakeCanopyPattern() {
+  const size = ForestEffects.CANOPY_TILE_SIZE
+  const tile = document.createElement('canvas')
+  tile.width = size
+  tile.height = size
+  const tctx = tile.getContext('2d')
 
-    tctx.fillStyle = ForestEffects.CANOPY_BASE_COLOR
-    tctx.fillRect(0, 0, size, size)
+  tctx.fillStyle = ForestEffects.CANOPY_BASE_COLOR
+  tctx.fillRect(0, 0, size, size)
 
-    // Deterministic pseudo-random blobs -- same seed every time so the
-    // texture doesn't shift between scene reloads.
-    let seed = 1337
-    const rand = () => {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff
-      return seed / 0x7fffffff
-    }
-
-    const blobPass = (color, count, minR, maxR) => {
-      tctx.fillStyle = color
-      for (let i = 0; i < count; i++) {
-        const x = rand() * size
-        const y = rand() * size
-        const r = minR + rand() * (maxR - minR)
-        tctx.beginPath()
-        tctx.arc(x, y, r, 0, Math.PI * 2)
-        tctx.fill()
-      }
-    }
-
-    blobPass(ForestEffects.CANOPY_MOTTLE_DARK,  22, 6, 18)
-    blobPass(ForestEffects.CANOPY_MOTTLE_LIGHT, 16, 4, 12)
-
-    return this._ctx.createPattern(tile, 'repeat')
+  let seed = 1337
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return seed / 0x7fffffff
   }
+
+  const blobPass = (color, count, minR, maxR) => {
+    tctx.fillStyle = color
+    for (let i = 0; i < count; i++) {
+      const x = rand() * size
+      const y = rand() * size
+      const r = minR + rand() * (maxR - minR)
+      tctx.beginPath()
+      tctx.arc(x, y, r, 0, Math.PI * 2)
+      tctx.fill()
+    }
+  }
+
+  // Large dark masses first -- the "deep canopy" base variation, bigger
+  // and sparser than before so it suggests broad foliage clumps rather
+  // than fine grain.
+  blobPass('rgba(3, 10, 4, 0.65)',   10, 18, 34)
+  blobPass('rgba(14, 22, 10, 0.5)',  14, 12, 26)
+
+  // Mid-size warmer/cooler variation -- suggests mixed species (oak vs
+  // yew vs birch canopy) rather than one tree repeated.
+  blobPass('rgba(40, 36, 18, 0.4)',  16, 8, 16)   // warm brown-green
+  blobPass('rgba(20, 46, 24, 0.4)',  16, 8, 16)   // cooler moss-green
+
+  // Fine mottle, denser and more numerous than before for texture at
+  // close range.
+  blobPass(ForestEffects.CANOPY_MOTTLE_DARK,  30, 5, 12)
+  blobPass(ForestEffects.CANOPY_MOTTLE_LIGHT, 22, 3, 9)
+
+  // Sparse small bright flecks -- hints of gap-glow/light catching leaf
+  // edges, without implying an actual light source yet. Few and small so
+  // it reads as texture, not as designed light beams.
+  blobPass('rgba(120, 130, 70, 0.22)', 6, 2, 5)
+
+  return this._ctx.createPattern(tile, 'repeat')
+} 
 
   // ── Per-frame update ───────────────────────────────────────────────────────
   // Call AFTER perspectiveGround.update() so playerScreenX/Y are current for
@@ -391,6 +413,15 @@ if (!this._loggedScaleOnce || this._lastLoggedFS !== document.fullscreenElement)
 
   // 1) Paint the canopy texture, restricted to a band at the TOP of the
   // screen only, fading to transparent at the band's bottom edge.
+
+
+// 1) Paint the canopy texture, restricted to a band at the TOP of the
+  // screen only, fading to transparent at the band's bottom edge. A
+  // vertical brightness gradient is layered on top -- darkest at the
+  // very top (deepest into the foliage mass), lightening toward the
+  // bottom seam (closer to the gap where canopy gives way to open view)
+  // -- so the band reads as "looking up into canopy" rather than a flat
+  // dark slab sitting on the screen.
   const bandH = sh * ForestEffects.CANOPY_BAND_FRAC
   const fadeH = bandH * ForestEffects.CANOPY_BAND_FADE_FRAC
   const solidH = bandH - fadeH
@@ -401,23 +432,41 @@ if (!this._loggedScaleOnce || this._lastLoggedFS !== document.fullscreenElement)
   ctx.rect(0, 0, sw, bandH)
   ctx.clip()
 
+  // Base texture fill across the whole band.
   ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
-  ctx.fillRect(0, 0, sw, solidH)
+  ctx.fillRect(0, 0, sw, bandH)
 
+  // Vertical brightening wash -- multiply-style lightening toward the
+  // bottom, via a 'lighten'-ish additive overlay. Using a soft white-green
+  // gradient with 'overlay'-like behaviour approximated by low-alpha
+  // source-over, since canvas2d's blend modes are inconsistent across
+  // mobile browsers -- alpha-blended fill is the safe cross-platform bet.
+  const brightenGrad = ctx.createLinearGradient(0, 0, 0, bandH)
+  brightenGrad.addColorStop(0,   'rgba(40, 60, 30, 0)')     // top: no lightening
+  brightenGrad.addColorStop(0.6, 'rgba(60, 80, 40, 0.12)')  // mid: starting to lighten
+  brightenGrad.addColorStop(1,   'rgba(90, 110, 60, 0.32)') // bottom seam: brightest
+  ctx.fillStyle = brightenGrad
+  ctx.fillRect(0, 0, sw, bandH)
+
+  // Re-apply the existing bottom-edge fade-to-transparent, unchanged.
   if (fadeH > 0) {
     const fadeGrad = ctx.createLinearGradient(0, solidH, 0, bandH)
     fadeGrad.addColorStop(0, 'rgba(0,0,0,1)')
     fadeGrad.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = this._canopyPattern ?? ForestEffects.CANOPY_BASE_COLOR
-    ctx.fillRect(0, solidH, sw, fadeH)
-    // Composite the fade gradient as a mask over just that strip.
     ctx.globalCompositeOperation = 'destination-in'
+    // destination-in needs full coverage at the unmasked stops, so paint
+    // solid black (alpha channel only matters) -- same approach as before,
+    // just scoped to the fade strip.
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, solidH, sw, fadeH)
+    ctx.clip()
     ctx.fillStyle = fadeGrad
-    ctx.fillRect(0, solidH, sw, fadeH)
+    ctx.fillRect(0, 0, sw, bandH)
+    ctx.restore()
     ctx.globalCompositeOperation = 'source-over'
   }
   ctx.restore()
-
   // 2) Cut a soft circular hole through the canopy band, centred on the
   // player. Only matters where the band actually is (top of screen) --
   // if the player is lower on screen, much of this circle has nothing

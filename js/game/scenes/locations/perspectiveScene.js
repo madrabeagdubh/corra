@@ -255,16 +255,41 @@ export default class PerspectiveScene extends BaseLocationScene {
       const _horizPx = _pgr._horizonPx?.() ?? (_sh * _pgr.constructor.HORIZON_Y_FRAC)
       const _camOff  = _pgr._cameraRowOffset ?? _pgr.constructor.CAMERA_ROW_OFFSET
 
-      const _denom = _sh - _horizPx
-      if (_denom > 0) {
-        const _d      = _FL * _groundH / _denom - _FL
-        const _camRow = _mapH + _d
-        const _maxSY  = (_camRow - _camOff) * _ts - _sh / (2 * _zoom)
-        if (_cam.scrollY > _maxSY) _cam.scrollY = _maxSY
+
+
+
+const _denom = _sh - _horizPx
+    if (_denom > 0) {
+      const _d      = _FL * _groundH / _denom - _FL
+      const _camRow = _mapH + _d
+      const _maxSY  = (_camRow - _camOff) * _ts - _sh / (2 * _zoom)
+
+      // TEMP DEBUG -- logs ONCE, only when scroll position is close to
+      // the clamp boundary, rather than every frame (a per-frame log
+      // was scrolling away the relevant frame before it could be read).
+      if (this.scene.key === 'tavern' && !this._gapDebugLogged) {
+        const margin = _maxSY - _cam.scrollY
+        if (margin < 50) {
+          this._gapDebugLogged = true
+          console.log('[scrollClamp] SUSPICIOUS FRAME', {
+            scrollY: _cam.scrollY.toFixed(1),
+            maxSY: _maxSY.toFixed(1),
+            margin: margin.toFixed(1),
+            camRow: _camRow.toFixed(2),
+            groundH: _groundH.toFixed(1),
+            horizPx: _horizPx.toFixed(1),
+            mapH: _mapH,
+          })
+        }
       }
-      if (_cam.scrollY < 0) _cam.scrollY = 0
+
+      if (_cam.scrollY > _maxSY) _cam.scrollY = _maxSY
     }
+    if (_cam.scrollY < 0) _cam.scrollY = 0
   }
+
+
+
 
   // Unchanged. Now also invoked via the real 'shutdown' event wired in
   // create() above. Harmless to call more than once (every branch is

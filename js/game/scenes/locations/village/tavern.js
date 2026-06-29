@@ -67,6 +67,8 @@ export default class TavernScene extends VillageScene {
   getPlayerLight() { return { color: 0xffcc88, intensity: 2.2, radius: 280 } }
   getMusicTrack()  { return 'village_slow' }
 
+  hasContinuousAnimation() { return true }
+
   getWisps() {
     return [
       { rx: 6/20, ry: 1/12, color: 0xff6622, intensity: 1.8, radius: 220 }

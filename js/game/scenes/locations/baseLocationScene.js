@@ -50,6 +50,52 @@ export default class BaseLocationScene extends Phaser.Scene {
     }
   }
 
+  // ── Continuous animation flag ────────────────────────────────────────────────
+  // PGR's update() has a battery-saving early-return: if the player is
+  // stationary, the camera/zoom haven't changed, and 8+ seconds have
+  // passed since the last movement, it skips the rest of its own
+  // update() entirely for that frame. This silently froze anything that
+  // needs to keep animating regardless of player/camera movement --
+  // confirmed across multiple unrelated systems: water tile animation
+  // (_waterPhase, advanced inside PGR's own update()), the tavern's
+  // hearth fire particles, and ForestEffects' canopy sway -- all stopped
+  // dead whenever the player stood still for 8+ seconds.
+  //
+  // Rather than teaching PGR about every individual animated system,
+  // scenes report whether they have ANY continuous animation via this
+  // method, and PGR's idle-skip respects it. Default implementation
+  // here auto-detects water tiles (GIDs 1625/1679, the same two PGR's
+  // own water-phase code checks for) directly from mapData -- this
+  // covers every water-bearing map automatically with no per-scene
+  // wiring needed. Scenes with OTHER continuous animation (fire
+  // particles, canopy sway, etc.) that ISN'T detectable from map data
+  // override this method directly (see ForestEffects-using scenes for
+  // an example) and should still call super.hasContinuousAnimation() if
+  // they also want the water auto-detection to apply.
+  hasContinuousAnimation() {
+    // Cache the result keyed to the actual layers array reference --
+    // re-scanning the whole tile grid every frame (this method is
+    // called from inside PGR's per-frame update()) would reintroduce a
+    // real per-frame cost, the same category of problem as the bug this
+    // exists to fix. Cache invalidates automatically if mapData.layers
+    // changes (e.g. a hot-reloaded map), since the reference comparison
+    // will fail and trigger a re-scan.
+    const layer0 = this.mapData?.layers?.[0]
+    if (!layer0) return false
+    if (this._hasWaterCache?.layer0Ref === layer0) {
+      return this._hasWaterCache.result
+    }
+    let result = false
+    for (const row of layer0) {
+      for (const gid of row) {
+        if (gid === 1625 || gid === 1679) { result = true; break }
+      }
+      if (result) break
+    }
+    this._hasWaterCache = { layer0Ref: layer0, result }
+    return result
+  }
+
   // ── Preload ───────────────────────────────────────────────────────────────
 
   preload() {

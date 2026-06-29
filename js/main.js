@@ -23,6 +23,7 @@ import BogD4 from './game/scenes/locations/bog/d4.js'
 import BogD3Sea from './game/scenes/locations/bog/d3Sea.js'
 import Tavern from './game/scenes/locations/village/tavern.js'
 import TestForest from './game/scenes/locations/forest/testForest.js'
+import Grove from './game/scenes/locations/forest/grove.js'
 import { champions } from '../data/champions.js'
 import { initFullscreenButton } from './game/ui/fullscreenButton.js'
 initFullscreenButton()
@@ -74,7 +75,7 @@ function _createGame(selectedChampion, options) {
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
             BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
-            Tavern,TestForest
+            Tavern,TestForest,Grove
         ],
         autoStart: false,
         scale: {

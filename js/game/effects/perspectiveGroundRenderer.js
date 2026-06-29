@@ -1202,17 +1202,31 @@ this._resizeHandler = () => {
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
 
-    const bowAiming = this.scene.bowMechanics?.isAiming ?? false
-    const now = Date.now()
-    if (this._player && !this._player.isMoving && this._lastMoveTime) {
-      if (now - this._lastMoveTime > 8000) {
-        if (cam.scrollX === this._lastCamX &&
-            cam.scrollY === this._lastCamY &&
-            zoom        === this._lastCamZoom &&
-            !bowAiming) return
-      }
-    }
-    if (this._player?.isMoving) this._lastMoveTime = now
+
+
+const bowAiming = this.scene.bowMechanics?.isAiming ?? false
+const now = Date.now()
+// Skip redraw when idle (player stationary, camera/zoom unchanged, 8s+
+// since last movement) -- a battery-saving optimization. BUT: this
+// early-return previously fired regardless of whether anything else in
+// the scene needed continuous per-frame animation (water tile phase,
+// fire particles, canopy sway, etc.) -- those all silently froze
+// whenever the player stood still for 8+ seconds, confirmed across
+// multiple unrelated systems. hasContinuousAnimation() lets a scene opt
+// out of the skip when it has animation that must keep running
+// regardless of player/camera movement; defaults to false (preserving
+// the original battery-saving behaviour) for scenes that don't define it.
+const hasContinuousAnim = this.scene?.hasContinuousAnimation?.() ?? false
+if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuousAnim) {
+  if (now - this._lastMoveTime > 8000) {
+    if (cam.scrollX === this._lastCamX &&
+        cam.scrollY === this._lastCamY &&
+        zoom        === this._lastCamZoom &&
+        !bowAiming) return
+  }
+}
+
+   if (this._player?.isMoving) this._lastMoveTime = now
 
     this._lastCamX    = cam.scrollX
     this._lastCamY    = cam.scrollY

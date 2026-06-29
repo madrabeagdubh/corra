@@ -1203,7 +1203,6 @@ this._resizeHandler = () => {
     const zoom = this._zoom()
 
 
-
 const bowAiming = this.scene.bowMechanics?.isAiming ?? false
 const now = Date.now()
 // Skip redraw when idle (player stationary, camera/zoom unchanged, 8s+
@@ -1226,7 +1225,8 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
   }
 }
 
-   if (this._player?.isMoving) this._lastMoveTime = now
+
+    if (this._player?.isMoving) this._lastMoveTime = now
 
     this._lastCamX    = cam.scrollX
     this._lastCamY    = cam.scrollY

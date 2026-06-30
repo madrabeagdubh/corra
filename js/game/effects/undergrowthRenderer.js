@@ -321,10 +321,21 @@ export default class UndergrowthRenderer {
     const mapW = mask[0]?.length ?? 0
     const RS = UndergrowthRenderer.REGION_SIZE
 
+    // Water tiles are also wallMask=1 (unwalkable) -- excluded here so
+    // rock/root/bramble obstacles don't spawn in open water. Same fix as
+    // ForestEffects' trunk placement; see that file's comment for the
+    // full rationale.
+    const layer0 = this.scene.mapData?.layers?.[0]
+    const isWater = (x, y) => {
+      const gid = layer0?.[y]?.[x]
+      return gid === 1625 || gid === 1679
+    }
+
     const obstacles = []
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
         if (mask[ty][tx] !== 1) continue
+        if (isWater(tx, ty)) continue
 
         const zoneX = Math.floor(tx / RS)
         const zoneY = Math.floor(ty / RS)

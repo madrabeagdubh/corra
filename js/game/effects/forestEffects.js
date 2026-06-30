@@ -316,6 +316,20 @@ export default class ForestEffects {
     const mapW = mask[0]?.length ?? 0
     const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? mask[y][x] === 1 : true
 
+    // Water tiles are ALSO marked wallMask=1 (they're unwalkable, same as
+    // trees) -- but obviously shouldn't grow trunks. A first version of
+    // this map (the lagoon) had trees clustering directly over open
+    // water because wallMask alone can't distinguish "unwalkable because
+    // tree" from "unwalkable because water." Checking the actual ground
+    // GID against the known water GIDs (1625/1679, same pair used
+    // throughout -- confirmed from d3_sea.json and PGR's _isWater logic)
+    // excludes water cells from trunk candidacy entirely.
+    const layer0 = this.scene.mapData?.layers?.[0]
+    const isWater = (x, y) => {
+      const gid = layer0?.[y]?.[x]
+      return gid === 1625 || gid === 1679
+    }
+
     const cellKeepValue = (x, y) => {
       let h = (x * 374761393 + y * 668265263) | 0
       h = Math.imul(h ^ (h >>> 13), 1274126177)
@@ -327,6 +341,7 @@ export default class ForestEffects {
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
         if (!isWall(tx, ty)) continue
+        if (isWater(tx, ty)) continue
         const bordersOpen =
           !isWall(tx + 1, ty) || !isWall(tx - 1, ty) ||
           !isWall(tx, ty + 1) || !isWall(tx, ty - 1)
@@ -679,6 +694,17 @@ export default class ForestEffects {
     const mapH = mask.length
     const mapW = mask[0]?.length ?? 0
 
+    // Water tiles are also wallMask=1 -- excluded from the tint here,
+    // same fix as trunk/undergrowth placement. Water already visually
+    // reads as unwalkable on its own; the dark tint on top produced a
+    // murky shadowy patch sitting on otherwise clean water, with no
+    // purpose, confirmed via screenshot.
+    const layer0 = this.scene.mapData?.layers?.[0]
+    const isWater = (x, y) => {
+      const gid = layer0?.[y]?.[x]
+      return gid === 1625 || gid === 1679
+    }
+
     const horizonPx = pgr._horizonPx?.() ?? 0
     const tileDisplaySize = pgr.tileDisplaySize ?? 48
     const sh = this._sh
@@ -686,6 +712,7 @@ export default class ForestEffects {
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
         if (mask[ty][tx] !== 1) continue
+        if (isWater(tx, ty)) continue
 
         const yTopRaw = pgr._rowToScreenY?.(ty)
         const yBotRaw = pgr._rowToScreenY?.(ty + 1)

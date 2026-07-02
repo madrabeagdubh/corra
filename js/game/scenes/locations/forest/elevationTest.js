@@ -1,4 +1,4 @@
-// testForest.js
+// tiestForest.js
 // Location: js/game/scenes/locations/forest/testForest.js
 //
 // Open forest test scene. Trees (from wallMask, scatter-generated) are
@@ -14,14 +14,14 @@ import PerspectiveScene from '../perspectiveScene.js'
 import ForestEffects from '../../../effects/forestEffects.js'
 import UndergrowthRenderer from '../../../effects/undergrowthRenderer.js'
 
-export default class TestForest extends PerspectiveScene {
+export default class ElevationTest extends PerspectiveScene {
 
   constructor() {
-    super({ key: 'testForest' })
+    super({ key: 'elevationTest' })
     this.tileSize = 48   // must match Player's default and wallMask's authored grid
   }
 
-  getMapKey() { return 'testForest' }
+  getMapKey() { return 'elevationTest' }
 
   // Map lives in public/maps/forest/, not the inherited default
   // (/maps/bogMaps/${key}.json) -- forest maps get their own folder.
@@ -60,13 +60,18 @@ export default class TestForest extends PerspectiveScene {
   // Dark ambient + small warm player light = "your own light is small against
   // the dark." No sky image -- canopy blocks it entirely (PGR falls back to
   // flat ground colour when getSkyImage() returns null).
-  getAmbient() { return 0x0a0c08 }
 
-  getPlayerLight() {
-    return { color: 0xffcc88, intensity: 1.1, radius: 140 }
-  }
 
-  getSkyImage() { return null }
+
+
+getAmbient()     { return 0xcccccc }   // was 0x556644 -- deliberately bright for
+                                          // this test, so elevation is unmistakable
+                                          // rather than something you have to squint
+                                          // at in gloom
+  getPlayerLight() { return { color: 0xffffff, intensity: 1.0, radius: 200 } }
+
+
+	getSkyImage() { return null }
 
   getWisps()      { return [] }
   getMusicTrack() { return null }

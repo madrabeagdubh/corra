@@ -226,7 +226,12 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   update(time, delta) {
     if (this.elevationRenderer) this.elevationRenderer.update(this.mapData)
-    if (this.perspectiveGround) this.perspectiveGround.update()
+   
+
+if (this.perspectiveGround) this.perspectiveGround.update()
+
+this._updatePlayerOcclusionFade()
+
     super.update(time, delta)
 
     if (this.fovSystem && this.player) {
@@ -264,7 +269,89 @@ export default class PerspectiveScene extends BaseLocationScene {
       }
       if (_cam.scrollY < 0) _cam.scrollY = 0
     }
-  }
+  } 
+
+
+// ── Adaptive player fade: hide the player when terrain would occlude them ──
+  // v3: camera repositioning (v1/v2) could never actually fix this, because
+  // the player sprite and ground terrain are drawn on two SEPARATE DOM
+  // canvases (_gCtx for ground, _oCtx for objects/player) stacked via fixed
+  // CSS z-index -- the object canvas ALWAYS renders on top of the ground
+  // canvas, at any camera angle, regardless of geometry. No amount of
+  // camera math could change that hard compositing rule. This version uses
+  // the same sightline-severity detection as before, but fades the player
+  // sprite's own opacity (pgr._playerOcclusionAlpha, read by
+  // _drawPlayerAnimated) instead of moving the camera -- directly hiding
+  // the symptom rather than trying to prevent a geometric overlap that
+  // was never actually the cause.
+// ── Adaptive player fade: hide the player when terrain would occlude them ──
+  // v4: v3 used a fixed world-space column window (playerCol ± 4) as a
+  // proxy for "in front of the player on screen" -- but perspective means
+  // a tile a few columns away can land almost anywhere on screen depending
+  // on distance, so that heuristic was firing for hills nowhere near the
+  // player's actual screen position (confirmed via screenshot: fade
+  // triggered with no visible overlap at all). This version instead
+  // projects each candidate tile to its REAL screen X (via the same
+  // _colToScreenX the renderer itself uses) and only counts it as
+  // occluding if that screen X genuinely falls within the player's own
+  // on-screen width -- a true screen-space check, not a world-space guess.
+  _updatePlayerOcclusionFade() {
+    const pgr = this.perspectiveGround
+    if (!pgr) return
+    if (!pgr._heightMapSrc || !this.player) { pgr._playerOcclusionAlpha = 1; return }
+
+    const ts = this.tileSize
+    const playerCol = Math.floor(this.player.logicalX / ts)
+    const playerRow = Math.floor(this.player.logicalY / ts)
+    const camRow = pgr._perspCamRow()
+    const playerScreenY = pgr.playerScreenY ?? pgr._rowToScreenY(playerRow + 1)
+    const playerScreenX = pgr.playerScreenX ?? pgr._colToScreenX(playerCol + 0.5, playerRow + 1)
+
+    // Half-width the occluder's screen X must fall within to count as
+    // actually covering the player -- based on the player's own current
+    // on-screen size, with a little slack (1.3x) since a hill doesn't
+    // need to align PERFECTLY to visually clip the sprite's edge.
+    const playerScaleAtRow = pgr._scaleAtRow(playerRow + 1)
+    const playerHalfWidthPx = (playerScaleAtRow > 0 ? playerScaleAtRow : ts) * 0.65
+
+    let worstOverlapPx = 0
+    if (playerScreenY != null && playerScreenX != null) {
+      const LOOKAHEAD = 14
+      const COL_SPREAD = 6   // widened since we now filter properly by real screen X, not relying on this to be tight
+      for (let r = playerRow + 1; r < Math.min(camRow, playerRow + 1 + LOOKAHEAD); r++) {
+        for (let dc = -COL_SPREAD; dc <= COL_SPREAD; dc++) {
+          const col = playerCol + dc
+          const h = pgr._tileHeightAt(col, r)
+          if (h <= 0) continue
+
+          const occluderScreenX = pgr._colToScreenX(col + 0.5, r + 1)
+          if (occluderScreenX == null) continue
+          if (Math.abs(occluderScreenX - playerScreenX) > playerHalfWidthPx) continue   // real screen-space filter -- not actually in front of the player
+
+          const baseY = pgr._rowToScreenY(r + 1)
+          const scale = pgr._scaleAtRow(r + 1)
+          if (baseY == null || !(scale > 0)) continue
+          const occluderTopY = baseY - h * scale
+          const overlapPx = playerScreenY - occluderTopY
+          if (overlapPx > worstOverlapPx) worstOverlapPx = overlapPx
+        }
+      }
+    }
+
+    const severity = Math.max(0, Math.min(1, worstOverlapPx / (this.scale.height * 0.15)))
+    const targetAlpha = 1 - severity
+
+    const cur = pgr._playerOcclusionAlpha ?? 1
+    const EASE = 0.25
+    pgr._playerOcclusionAlpha = cur + (targetAlpha - cur) * EASE
+  } 
+
+
+
+
+
+
+  
 
   // Unchanged. Now also invoked via the real 'shutdown' event wired in
   // create() above. Harmless to call more than once (every branch is
@@ -509,6 +596,22 @@ export default class PerspectiveScene extends BaseLocationScene {
     }
     return grid
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)

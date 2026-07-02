@@ -37,26 +37,36 @@ layer1 = [[0 for _ in range(W)] for _ in range(H)]
 WATER_GID_A = 1625
 WATER_GID_B = 1679
 
-# ── Basin heightmap (carved depression, not gentle rolling noise) ───────────
-# Reuses the same multi-octave value-noise technique as
-# gen_forest_heightmap.mjs for the SURROUNDING terrain's gentle
-# undulation, then SUBTRACTS a radial basin function centred on the
-# dolmen so the middle genuinely sinks well below the surrounding
-# ground -- the noise alone (as used for the grove) never dips low
-# enough to read as "the ground gave way here."
+# ── Directional rim heightmap (NOT radially symmetric) ───────────────────────
+# A first version used a radially symmetric "noise minus a circular dip"
+# approach, carried over from gen_forest_heightmap.mjs's gentle rolling
+# style -- but that meant the south approach rose to the SAME height as
+# every other direction once far enough from the pond, producing a steep
+# ridge directly in the player's entry path (confirmed via screenshot).
+# Replaced entirely with a directional rim: south stays low (gentle
+# walkable approach), N/E/W rise much higher (dramatic, secluded-feeling
+# enclosure) -- height is built UP from the basin floor toward a
+# direction-dependent rim target, not carved DOWN from flat noise.
 VW, VH = W + 1, H + 1
-HEIGHT_AMP = 0.7
-BASELINE_SHIFT = 0.55
-BASIN_DEPTH = 3.2          # was 1.6 -- much more dramatic sunken bowl, per
-# explicit direction ("allow more variation in heights, to really sink
-# the water down into a bowl"). Note HEIGHT_AMP itself is only 0.7, so
-# this depth substantially exceeds the surrounding terrain's own natural
-# variation -- intentional, since the basin should read as a clear
-# anomaly (the ground gave way here) against otherwise gentle terrain.
-BASIN_RADIUS = POND_RADIUS + 3.0   # basin is wider than the water itself,
-                                     # so the depression reads as a real
-                                     # sunken bowl, not a sudden pit exactly
-                                     # at the water's edge
+BASIN_RADIUS_INNER = POND_RADIUS + 1.0   # within this distance of centre,
+                                           # height is pulled toward the
+                                           # basin floor (0) regardless of
+                                           # direction -- the pond itself
+                                           # and its immediate banks.
+RIM_FULL_RADIUS = max(W, H) * 0.55        # distance at which the rim
+                                           # reaches its full directional
+                                           # target height -- chosen to
+                                           # reach most of the way to the
+                                           # map edge, so N/E/W edges
+                                           # genuinely read as elevated/
+                                           # enclosing, not just the
+                                           # immediate pond banks.
+NOISE_DETAIL_AMP = 0.4   # small per-tile texture on top of the smooth
+                          # directional rim -- much smaller than the rim
+                          # heights themselves (2-6.5), so it reads as
+                          # roughness/texture, not a competing height
+                          # signal that could itself create unwanted
+                          # ridges the way the old approach did.
 
 OCTAVES = [
     {"scale": 0.12, "amp": 1.00},
@@ -95,17 +105,77 @@ for vy in range(VH):
         v = 0.0
         for o in OCTAVES:
             v += (value_noise(vx, vy, o["scale"]) * 2 - 1) * o["amp"]
-        v /= TOTAL_AMP
-        v_shifted = v + BASELINE_SHIFT
-        base_h = max(0, min(HEIGHT_AMP, v_shifted * HEIGHT_AMP))
+        v /= TOTAL_AMP   # [-1, 1], pure noise texture, used as DETAIL on
+                          # top of the directional rim below, not as the
+                          # primary height source any more
 
-        # Basin subtraction: distance from centre, smoothly interpolated
-        # so the depression has a gentle sloped rim rather than a hard
-        # cliff edge -- you walk DOWN into it, not fall off a step.
-        dist = math.hypot(vx - CENTER[0], vy - CENTER[1])
-        basin_t = 1 - smoothstep(0, BASIN_RADIUS, dist)  # 1 at centre, 0 at/past radius
-        h = base_h - BASIN_DEPTH * basin_t
-        row.append(round(max(0.0, h), 4))  # clamp at 0 -- PGR doesn't expect negative heights
+        dx = vx - CENTER[0]
+        dy = vy - CENTER[1]
+        dist = math.hypot(dx, dy)
+
+        # ── Directional rim height ──────────────────────────────────────────
+        # A first version used a RADIALLY SYMMETRIC basin (noise minus a
+        # uniform circular dip) -- this meant the south approach rose to
+        # the SAME height as every other direction once far enough from
+        # the pond, producing a steep faceted ridge directly in the
+        # player's path (confirmed via screenshot: player standing at
+        # the base of a sharp rise on the south side). Fixed by making
+        # the RIM HEIGHT ITSELF directional: south stays low (max ~2),
+        # N/E/W rise much higher (max ~6-7), per explicit values given.
+        # angle: 0 = east, increasing CCW in screen space (y-down).
+        angle = math.atan2(dy, dx)
+        south = math.pi / 2
+        # ang_t: 0 at due south, 1 at due north (the angularly furthest
+        # point from south) -- smooth cosine-based blend, not a hard
+        # north/south split, so the rim rises gradually as you move away
+        # from the south-facing approach rather than jumping at an exact
+        # angle.
+        ang_diff = abs(((angle - south + math.pi) % (2 * math.pi)) - math.pi)
+        ang_t = ang_diff / math.pi   # 0 at south, 1 at north
+        # Smoothstep the angular blend too, so the transition between
+        # "low south rim" and "high N/E/W rim" curves rather than
+        # changing linearly with angle.
+        ang_t_smooth = ang_t * ang_t * (3 - 2 * ang_t)
+
+        RIM_SOUTH_MAX = 2.0   # per explicit value: "southern edge should
+                               # be 2 at its highest"
+        RIM_OTHER_MAX = 6.5   # per explicit value: "N/W/E edges can be
+                               # up to 6 or 7" -- 6.5 splits the difference
+        rim_target = RIM_SOUTH_MAX + (RIM_OTHER_MAX - RIM_SOUTH_MAX) * ang_t_smooth
+
+        # Distance blend: a first version used ONE shared outer radius
+        # for every direction, so south rose toward its (lower) ceiling
+        # at the SAME RATE as north rose toward its much higher one --
+        # producing a steep grassy bank looming right over the water on
+        # the south side (confirmed via screenshot: "looking underground
+        # to where the roots would be" -- a sharp rise starting almost
+        # immediately past the shore). Fixed by making the BLEND
+        # DISTANCE itself direction-dependent too: south's rise is
+        # stretched over a much longer distance (gentle, gradual apron),
+        # while N/E/W can rise more quickly since they're meant to feel
+        # dramatic/enclosing close-in.
+        SOUTH_RISE_DISTANCE = RIM_FULL_RADIUS * 2.2   # south needs MUCH
+                                                          # more distance to
+                                                          # reach its (lower)
+                                                          # ceiling -- a long,
+                                                          # gentle apron
+        OTHER_RISE_DISTANCE = RIM_FULL_RADIUS * 0.7   # N/E/W reach their
+                                                          # (higher) ceiling
+                                                          # over a shorter
+                                                          # distance -- still
+                                                          # smooth, not abrupt,
+                                                          # but enclosing
+                                                          # sooner
+        rise_distance = SOUTH_RISE_DISTANCE + (OTHER_RISE_DISTANCE - SOUTH_RISE_DISTANCE) * ang_t_smooth
+
+        dist_t = smoothstep(BASIN_RADIUS_INNER, BASIN_RADIUS_INNER + rise_distance, dist)
+
+        # Noise adds gentle per-tile texture/roughness on top of the
+        # smooth directional rim -- scaled down substantially (NOISE_DETAIL_AMP,
+        # not HEIGHT_AMP) so it reads as texture, not as a competing
+        # height signal that could itself create unwanted ridges.
+        h = rim_target * dist_t + v * NOISE_DETAIL_AMP
+        row.append(round(max(0.0, h), 4))
     height_map.append(row)
 
 # ── Water placement ──────────────────────────────────────────────────────────
@@ -119,16 +189,18 @@ def tile_avg_height(tx, ty):
             height_map[ty+1][tx] + height_map[ty+1][tx+1]) / 4.0
 
 WATER_HEIGHT_THRESHOLD = 0.12   # tiles below this average height become water
-WATER_HARD_RADIUS = POND_RADIUS + 1.0   # water can ONLY exist within this
-# distance of centre, regardless of height -- a first version let ANY
-# low-noise spot on the map become water if it happened to dip below the
-# threshold, producing stray disconnected ponds at map corners unrelated
-# to the dolmen's basin at all (confirmed visually). The basin's radial
-# falloff already guarantees centre-ward tiles are lower, but ambient
-# noise elsewhere on a 40x40 map can still independently dip low by
-# chance -- this hard radius is the actual fix, not just a tighter
-# threshold (which wouldn't have prevented the stray ponds, only
-# shrunk them).
+WATER_HARD_RADIUS = POND_RADIUS + 1.5   # was +1.0 -- widened slightly so
+# the pond is a bit bigger overall, per direct feedback ("making the
+# submerged area that little bit bigger").
+WATER_GUARANTEED_RADIUS = POND_RADIUS - 1.0   # was implicit/absent --
+# everything within THIS distance of centre is unconditionally water,
+# no height check at all. A first version relied purely on the height
+# threshold even close to centre, which let the noise-detail layer
+# (NOISE_DETAIL_AMP) occasionally push a tile's average height just
+# above WATER_HEIGHT_THRESHOLD even deep inside the basin, producing a
+# stray land patch breaking the water surface (confirmed via
+# screenshot). This guarantees the pond's core is always solid water
+# regardless of noise.
 
 water_tiles = set()
 for ty in range(H):
@@ -136,12 +208,45 @@ for ty in range(H):
         dist = math.hypot(tx + 0.5 - CENTER[0], ty + 0.5 - CENTER[1])
         if dist > WATER_HARD_RADIUS:
             continue
+        if dist <= WATER_GUARANTEED_RADIUS:
+            water_tiles.add((tx, ty))
+            wall_mask[ty][tx] = 1
+            continue
         if tile_avg_height(tx, ty) < WATER_HEIGHT_THRESHOLD:
             water_tiles.add((tx, ty))
             wall_mask[ty][tx] = 1   # water is unwalkable by default --
                                      # stepping stones below punch through
 
 print(f"Water tiles: {len(water_tiles)}")
+
+# ── Fill stray island holes ──────────────────────────────────────────────────
+# Even with WATER_GUARANTEED_RADIUS covering the pond's deep interior,
+# noise-detail variation near the EDGE of the water radius can still
+# occasionally push an individual tile's height just above
+# WATER_HEIGHT_THRESHOLD despite being substantially surrounded by water
+# on most sides -- confirmed via direct detection: 5 such "island" tiles
+# existed even after the guaranteed-radius fix, scattered at different
+# points around the pond's edge (not just one location), each surrounded
+# by water on 3 of its 4 neighbouring cells. This pass converts any such
+# cell to water too, since a single landlocked tile surrounded by water
+# reads as a visual bug (a stray patch breaking the water surface), not
+# as a meaningful tiny island worth preserving.
+stones_set = set(tuple(s) for s in [])  # populated AFTER stepping stones are
+                                          # placed below -- see second pass
+filled_holes = 0
+for ty in range(1, H - 1):
+    for tx in range(1, W - 1):
+        if (tx, ty) in water_tiles:
+            continue
+        neighbor_water = sum(
+            1 for (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1)]
+            if (tx+dx, ty+dy) in water_tiles
+        )
+        if neighbor_water >= 3:
+            water_tiles.add((tx, ty))
+            wall_mask[ty][tx] = 1
+            filled_holes += 1
+print(f"Filled stray island holes: {filled_holes}")
 
 # ── Stepping stones ──────────────────────────────────────────────────────────
 # A straight-ish line of discrete walkable tiles from the nearest dry
@@ -177,6 +282,11 @@ for (sx, sy) in stone_positions:
     tx, ty = int(round(sx)), int(round(sy))
     if 0 <= tx < W and 0 <= ty < H:
         wall_mask[ty][tx] = 0   # punch through water's unwalkable flag
+        water_tiles.discard((tx, ty))   # remove from water set too, so the
+        # GID-writing pass below gives this cell real ground (839/840),
+        # not a water GID -- a first version left stepping stones IN
+        # water_tiles, so they were walkable but still visually painted
+        # as water, which defeats the purpose of a visible stone path.
         stepping_stones.append([tx, ty])
 
 print(f"Stepping stones placed: {len(stepping_stones)}")
@@ -187,35 +297,36 @@ print(f"Stepping stones placed: {len(stepping_stones)}")
 # produced there) -- but with PER-SECTOR density weighting instead of
 # uniform distribution: NE/NW arc gets a tree in nearly every sector,
 # SE/S/W arc skips most sectors, producing the requested "densely wooded
-# NE to NW, sparse SE/S/W" gradient rather than an even ring.
+# Per direct revised feedback: dense forest surrounding the ENTIRE map on
+# all sides except south (player's view/approach direction must stay
+# clear), with trees extending all the way out to obscure the map edges
+# completely -- "this is an isolated place deep in the woods." This
+# replaces the earlier NE-through-W gradient concept, which only
+# produced a partial density bias, not full edge coverage. Band now
+# extends much further out (close to the map boundary itself) rather
+# than stopping 10 tiles past the pond.
 TREE_BAND_INNER = WATER_HARD_RADIUS + 2.0
-TREE_BAND_OUTER = TREE_BAND_INNER + 10.0   # wide band, since this is a much
-                                             # bigger map than the grove
-MIN_TREE_SPACING = 1.8
+TREE_BAND_OUTER = max(W, H) * 0.75   # reaches close to the map edge,
+                                       # not just a fixed ring width
+MIN_TREE_SPACING = 2.9   # was 2.2 -- still landed at 118 trees (target ~70),
+                          # nudged up based on observed scaling.
 
 def sector_keep_chance(angle_rad):
-    """Returns keep-probability for a sector at this angle. 0 rad = east,
-    increasing counter-clockwise (standard atan2 convention, screen-Y-down
-    so this is mathematical CCW in screen space) -- dense arc spans NE
-    (~-45deg/-0.785rad) continuously through N through to W
-    (~180deg/pi rad), sparse through SE/S. Centred on NW (-135deg/
-    -2.356rad, the midpoint of the NE-to-W arc) rather than due N, so
-    both NE and W endpoints get strong density rather than the arc
-    tapering off before ever reaching W (a first version centred on N
-    alone, which under-served W per clarified direction: "one continuous
-    dense arc from NE around through N to W")."""
-    nw = -3 * math.pi / 4   # -135 degrees
-    diff = abs(((angle_rad - nw + math.pi) % (2 * math.pi)) - math.pi)
-    t = diff / math.pi  # 0 at NW (arc centre), 1 at SE (arc's opposite point)
-    # Steeper falloff than a plain linear blend -- t**1.6 pushes the
-    # transition to happen faster near the dense end, producing a more
-    # visually obvious "quite a bit more forested" contrast rather than
-    # the subtle statistical skew a first (linear) version produced
-    # (confirmed via direct measurement: real bias present, but mean
-    # angular distance only modestly below the uniform-random
-    # expectation -- not a strong enough visual effect).
-    t_curved = t ** 1.6
-    return 0.96 * (1 - t_curved) + 0.04 * t_curved
+    """Dense (0.95) on all sides EXCEPT a south wedge centred on due
+    south (angle = +pi/2 in this screen-Y-down convention, since the
+    player's spawn/approach is south of the dolmen) -- that wedge fades
+    down to near-zero so the player's view/entry path stays open. Smooth
+    cosine-style falloff at the wedge's own edges, not a hard cutoff, so
+    the transition into open ground doesn't look like a mechanically
+    straight tree-wall stopping at an exact angle."""
+    south = math.pi / 2
+    diff = abs(((angle_rad - south + math.pi) % (2 * math.pi)) - math.pi)
+    # diff=0 at due south (clearest), diff=pi at due north (densest)
+    SOUTH_WEDGE_HALF_ANGLE = math.radians(38)   # wedge width each side of due south
+    if diff < SOUTH_WEDGE_HALF_ANGLE:
+        t = diff / SOUTH_WEDGE_HALF_ANGLE   # 0 at dead centre south, 1 at wedge edge
+        return 0.06 + 0.89 * (t ** 1.4)     # ranges ~0.06 (centre) to ~0.95 (wedge edge)
+    return 0.99   # everywhere outside the south wedge: near-certain, was 0.95
 
 placed_trees = []
 def far_enough(x, y):
@@ -224,16 +335,15 @@ def far_enough(x, y):
             return False
     return True
 
-sector_count = 90   # finer-grained than the grove's 22, since this band
-                     # is much wider/longer and covers a bigger map
+sector_count = 120   # finer-grained again, since the south wedge's own
+                      # smooth falloff needs enough angular resolution to
+                      # read as a gradual opening, not a stepped one
 sector_width = (2 * math.pi) / sector_count
 
-# Multiple radial rings per sector, not just one point total -- a first
-# version placed at most ONE tree per angular sector regardless of how
-# deep the band was, so widening the band (pond got bigger -> band moved
-# outward) thinned density rather than preserving it. Rings let density
-# actually scale with the band's radial depth.
-RING_COUNT = 4
+# More rings, denser spacing, reaching much further out toward the map
+# edge -- per "map edges should be entirely obscured," not just a
+# generous treeline some distance in from the boundary.
+RING_COUNT = 4   # was 12 -- way too dense. Targeting ~70 trees total.
 ring_spacing = (TREE_BAND_OUTER - TREE_BAND_INNER) / RING_COUNT
 
 for i in range(sector_count):
@@ -308,7 +418,7 @@ map_data = {
     "exits": {}   # standalone test space for now, same as grove was
 }
 
-with open('public/maps/forest/lagoon.json', 'w') as f:
+with open('public/maps/forest/grove.json', 'w') as f:
     json.dump(map_data, f)
 
 print(f"\nFinal: {W}x{H} map, {len(water_tiles)} water tiles, "

@@ -350,13 +350,22 @@ export default class Player {
     this.targetX = this.startX + dx * this.tileSize;
     this.targetY = this.startY + dy * this.tileSize;
 
-    if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
+    
+if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetX = this.startX;
       this.targetY = this.startY;
       this.isMoving = false;
       return;
     }
 
+    // NEW: slope collision -- blocks climbing a step that's too steep,
+    // never blocks dropping down. See PerspectiveScene.isSlopeBlocked.
+    if (this.scene?.isSlopeBlocked?.(this.startX, this.startY, this.targetX, this.targetY)) {
+      this.targetX = this.startX;
+      this.targetY = this.startY;
+      this.isMoving = false;
+      return;
+    }
     const pgr = this.scene.perspectiveGround;
     if (pgr && dy !== 0 && !pgr._heightMapSrc) {
       // Screen-space lerp for smooth perspective movement — only used when

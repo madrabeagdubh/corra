@@ -754,8 +754,16 @@ this._resizeHandler = () => {
 
   _zoom()      { return this.scene.cameras?.main?.zoom || 1 }
   _cameraReady() { return !!(this.scene.cameras?.main) }
-  _horizonPx() { return Math.floor(this._sh * PerspectiveGroundRenderer.HORIZON_Y_FRAC) }
-  _groundH()   { return this._sh - this._horizonPx() }
+ 
+
+
+_horizonPx() {
+    return Math.floor(this._sh * (this._horizonYFrac ?? PerspectiveGroundRenderer.HORIZON_Y_FRAC))
+  }
+
+
+
+ _groundH()   { return this._sh - this._horizonPx() }
 
   _pxPerTileAtPlayer() {
     return (this._sw * this._zoom()) / PerspectiveGroundRenderer.TILES_ACROSS
@@ -2250,6 +2258,7 @@ destroy() {
 
   _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) {
     if (!img) return
+    ctx.globalAlpha = this._playerOcclusionAlpha ?? 1
     const t   = this._animT || 0
     const p   = this._player
     const ps  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
@@ -2457,6 +2466,7 @@ const strokeT = this._strokeT ?? 0
         const _cropH0ns = H - _sink0ns
         ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0ns / H), -W/2, -H + _sink0ns, W, _cropH0ns)
         ctx.restore()
+        ctx.globalAlpha = 1
         return
       }
 
@@ -2478,6 +2488,7 @@ const strokeT = this._strokeT ?? 0
     const _cropH   = H - _sink
     ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
     ctx.restore()
+    ctx.globalAlpha = 1
   }
 
 }

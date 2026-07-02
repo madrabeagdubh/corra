@@ -1,538 +1,569 @@
 // undergrowthRenderer.js
 // Location: js/game/effects/undergrowthRenderer.js
 //
-// ── Purpose ───────────────────────────────────────────────────────────────────
-// Renders scene.mapData.wallMask cells as discrete textured 3D-ish box
-// obstacles (rocks, root tangles, bramble clumps) -- giving the existing
-// unwalkable cells real physical presence instead of the flat dark tint
-// ForestEffects currently paints over them.
+// Forest floor decoration: ferns/grass/flowers as camera-facing billboards,
+// small leaning/irregular rocks (deliberately NOT cube-like), and sparse
+// large boulder-knoll mounds. Rocks and knolls act as anchor points for
+// small flora tufts, since they're natural nodes for leafy growth that
+// doesn't need its own identity/description (see forestEffects.js /
+// testForest.js discussion -- anything that DOES need a description
+// belongs in mapData.objects as an authored entry, not here).
 //
-// ── Why this is NOT built on ElevationRenderer ──────────────────────────────────
-// ElevationRenderer's _buildElevationMap() is a PLATEAU detector: it scans
-// each map column for a single north/south cliff edge (a row where an
-// elevatedGid tile borders a cliffSouth tile) and elevates everything
-// between that edge and the map boundary. That model fits buildings and
-// terraced terrain -- one or two big contiguous raised regions per map --
-// but does NOT fit scattered, irregular, single-cell obstacles with no
-// consistent edge to detect. Forcing wallMask's scattered blobs through
-// that algorithm would very likely produce wrong/undefined results rather
-// than "lots of small bumps." This module reimplements just the piece we
-// actually need (project a tile position + height into a textured box via
-// PGR's own projection math) without any plateau/cliff-edge logic at all.
-//
-// ── What this does ────────────────────────────────────────────────────────────
-// For every wallMask cell, draws a simple box: one top-face trapezoid plus
-// one front-face (south-facing) trapezoid, projected through PGR's
-// _rowToScreenY/_colToScreenX/_scaleAtRow -- the same functions
-// ForestEffects already uses for trunks, so boxes move/scale identically
-// to everything else in the scene with no separate sync problem.
-//
-// Each cell's height/footprint/texture-variant is derived deterministically
-// from REGIONAL zones (coarse blocks of the map, currently 4x4 tiles) so
-// nearby obstacles read as belonging to the same "kind" of undergrowth
-// (a rocky patch, a bramble thicket, a root tangle) rather than each cell
-// rolling fully independently. Individual cells within a zone still vary
-// modestly around that zone's baseline so it doesn't look like a uniform
-// stamped grid.
-//
-// ── What this does NOT do yet ─────────────────────────────────────────────────
-//   • Does not use real Oryx tile art -- placeholder procedural textures
-//     only, same spirit as forestEffects.js's canopy pattern and the
-//     canopy_test.png experiment. Swap in real art/Oryx scatter later.
-//   • Does not replace collision -- wallMask already drives isColliding()
-//     upstream; this module is purely visual.
-//   • Does not yet vary footprint shape beyond width/depth scale -- "mix
-//     of full-cell and smaller/irregular" is implemented as a per-cell
-//     scale-down factor and offset jitter, not arbitrary polygon shapes.
-//
-// ── Usage ─────────────────────────────────────────────────────────────────────
-//   import UndergrowthRenderer from '../../effects/undergrowthRenderer.js'
-//   this.undergrowth = new UndergrowthRenderer(this, ctx)  // shares a canvas ctx
-//   // each frame, alongside forestEffects.update():
-//   this.undergrowth.update(pgr)
-//   // no DOM canvas of its own -- pass in an existing 2D context to draw into
-//   // (e.g. ForestEffects' own canvas) to avoid managing another DOM layer.
+// Draws onto ForestEffects' own canvas context -- no separate DOM layer.
 
 export default class UndergrowthRenderer {
 
-  // Regional zone size, in tiles. Cells are grouped into REGION_SIZE x
-  // REGION_SIZE blocks; each block deterministically picks one "kind" of
-  // undergrowth from KINDS below. Smaller = more zone variety per map,
-  // larger = bigger contiguous patches of one kind.
-  static REGION_SIZE = 4
-
-  // ── Undergrowth kinds ────────────────────────────────────────────────────────
-  // Each kind has a baseline height (in tile-height units, same unit
-  // ForestEffects' TRUNK_BASE_HEIGHT_TILES uses) and a colour pair (dark
-  // fill + lighter rim, same two-tone approach as trunk species) so kinds
-  // are visually distinguishable from across the screen, not just by
-  // height. heightJitter/footprintJitter are PER-CELL variation ranges
-  // applied on top of the zone's baseline.
-  static KINDS = {
-    rocks: {
-      baseHeight: 0.55,
-      heightJitter: 0.25,
-      footprintMin: 0.55, footprintMax: 0.85,   // fraction of full cell width
-      colorTop:  'rgba(96, 92, 84, 0.95)',
-      colorFace: 'rgba(58, 54, 48, 0.95)',
-      colorSide: 'rgba(42, 39, 34, 0.95)',
-      textureKey: 'rocks',
-    },
-    roots: {
-      baseHeight: 0.4,
-      heightJitter: 0.2,
-      footprintMin: 0.65, footprintMax: 1.0,
-      colorTop:  'rgba(64, 46, 28, 0.92)',
-      colorFace: 'rgba(40, 28, 16, 0.92)',
-      colorSide: 'rgba(28, 19, 10, 0.92)',
-      textureKey: 'roots',
-    },
-    brambles: {
-      baseHeight: 0.95,
-      heightJitter: 0.35,
-      footprintMin: 0.7, footprintMax: 1.05,    // can slightly exceed cell bounds
-      colorTop:  'rgba(36, 48, 22, 0.9)',
-      colorFace: 'rgba(22, 30, 14, 0.92)',
-      colorSide: 'rgba(15, 21, 9, 0.92)',
-      textureKey: 'brambles',
-    },
+  // ── Flora: billboard chance per open ground cell ─────────────────────────────
+  static FLORA_KINDS = {
+    grass:  { chance: 0.16, minScale: 0.65, maxScale: 1.05, heightTiles: 0.35 },
+    fern:   { chance: 0.07, minScale: 0.75, maxScale: 1.15, heightTiles: 0.55 },
+    flower: { chance: 0.04, minScale: 0.6,  maxScale: 0.9,  heightTiles: 0.3  },
   }
-  static KIND_KEYS = Object.keys(UndergrowthRenderer.KINDS)
+  static FLORA_KIND_KEYS = Object.keys(UndergrowthRenderer.FLORA_KINDS)
+  static FLORA_TOTAL_CHANCE = UndergrowthRenderer.FLORA_KIND_KEYS
+    .reduce((sum, k) => sum + UndergrowthRenderer.FLORA_KINDS[k].chance, 0)
 
-  // ctx: an existing 2D canvas context to draw into (pass ForestEffects'
-  // own context to avoid a second DOM canvas layer). scene: the owning
-  // Phaser scene, same role as ForestEffects' constructor.
-  constructor(scene, ctx, options = {}) {
+  static TEMPLATE_VARIANTS_PER_KIND = 3
+  static BAKE_REF_SIZE = 64
+
+  // ── Small rocks: slope-gated, leaning, irregular ─────────────────────────────
+  static ROCK_SLOPE_THRESHOLD = 0.05
+  static ROCK_CHANCE          = 0.10
+  static ROCK_HEIGHT_MIN      = 0.12
+  static ROCK_HEIGHT_MAX      = 0.26
+  static ROCK_FOOTPRINT_MIN   = 0.3
+  static ROCK_FOOTPRINT_MAX   = 0.55
+
+  // ── Boulder knolls: rare, large, dome-like mounds ────────────────────────────
+  static KNOLL_MAX_COUNT      = 3
+  static KNOLL_MIN_SPACING    = 9     // tiles between knoll centres
+  static KNOLL_FOOTPRINT_MIN  = 1.8
+  static KNOLL_FOOTPRINT_MAX  = 2.8
+  static KNOLL_HEIGHT_MIN     = 0.35
+  static KNOLL_HEIGHT_MAX     = 0.55
+  static KNOLL_CORNER_CUT     = 0.28  // 0=sharp quad, higher=rounder octagon silhouette
+  static KNOLL_TUFT_COUNT_MIN = 4
+  static KNOLL_TUFT_COUNT_MAX = 7
+
+  constructor(scene, ctx) {
     this.scene = scene
     this._ctx  = ctx
-    // keepChance: fraction of wallMask cells that get an obstacle at all
-    // (1.0 = every cell, same as original behaviour). heightScale:
-    // multiplier on every kind's baseHeight, for scenes wanting a
-    // visually lighter undergrowth presence (e.g. the grove) without
-    // touching the shared KINDS config used by other scenes.
-    this._keepChance  = options.keepChance  ?? 1.0
-    this._heightScale = options.heightScale ?? 1.0
-    this._patterns = this._bakeAllPatterns()
-    this._obstacles = this._buildObstaclesFromMask()
-    console.log('[UndergrowthRenderer] constructed -', this._obstacles.length, 'obstacles -- keepChance:', this._keepChance, 'heightScale:', this._heightScale)
+    this._templates   = this._bakeAllTemplates()
+    this._rockPattern = this._bakeRockPattern()
+    this._mossPattern = this._bakeMossOverlayPattern()
+
+    const rockResult  = this._buildRocks()
+    const knollResult = this._buildKnolls()
+    this._rocks  = rockResult.rocks
+    this._knolls = knollResult.knolls
+    this._flora  = this._buildFlora().concat(rockResult.anchoredFlora, knollResult.anchoredFlora)
+
+    console.log('[UndergrowthRenderer] constructed --', this._flora.length, 'flora,',
+      this._rocks.length, 'rocks,', this._knolls.length, 'knolls')
   }
 
-  // Bakes one CanvasPattern per kind, each with a visually distinct
-  // procedural texture rather than a flat fill -- same general technique
-  // as ForestEffects._bakeCanopyPattern() (deterministic seeded blobs/
-  // strokes baked once into an offscreen canvas, then wrapped as a
-  // tiling pattern), but each kind gets its OWN shape language rather
-  // than reusing one blob style for everything:
-  //   rocks    -> angular faceted polygons + small speckle dots
-  //   roots    -> long thin streaky strokes, mostly one direction
-  //   brambles -> tangled criss-crossing thin lines + small thorns
-  // Patterns are baked at the kind's colorTop tone -- side/face shading
-  // is then applied per-draw via globalAlpha-based darkening rather than
-  // baking three separate pattern variants per kind, which would triple
-  // the bake cost for a difference that's primarily about brightness.
-  _bakeAllPatterns() {
-    const patterns = {}
-    for (const key of UndergrowthRenderer.KIND_KEYS) {
-      const kind = UndergrowthRenderer.KINDS[key]
-      if (key === 'rocks')    patterns[key] = this._bakeRockPattern(kind)
-      if (key === 'roots')    patterns[key] = this._bakeRootPattern(kind)
-      if (key === 'brambles') patterns[key] = this._bakeBramblePattern(kind)
-    }
-    return patterns
-  }
-
-  _bakeRockPattern(kind) {
-    const size = 96
-    const tile = document.createElement('canvas')
-    tile.width = size; tile.height = size
-    const tctx = tile.getContext('2d')
-
-    tctx.fillStyle = kind.colorTop
-    tctx.fillRect(0, 0, size, size)
-
-    let seed = 4242
-    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
-
-    // Rounded, irregular blob masses -- NOT angular polygons. A first
-    // attempt used faceted straight-edged shapes here, which read as
-    // cut/dressed stone (deliberate masonry) rather than natural
-    // weathered rock -- confirmed via direct feedback ("looks more like
-    // an aztec temple"). Natural boulders erode round and lumpy, so this
-    // uses overlapping soft-edged blobs (same blob-clip-gradient
-    // technique as ForestEffects' canopy) instead of polygons.
-    const blobPass = (count, minR, maxR, colorDark, colorLight) => {
-      for (let i = 0; i < count; i++) {
-        const cx = rand() * size, cy = rand() * size
-        const r  = minR + rand() * (maxR - minR)
-        const useDark = rand() < 0.55
-        tctx.fillStyle = useDark ? colorDark : colorLight
-        tctx.beginPath()
-        tctx.arc(cx, cy, r, 0, Math.PI * 2)
-        tctx.fill()
-      }
-    }
-    // Large lumpy boulder-shadow masses, then smaller highlight blobs on
-    // top -- gives a rounded volumetric read rather than a flat speckle.
-    blobPass(7, 10, 20, 'rgba(30,28,24,0.32)', 'rgba(150,146,136,0.22)')
-    blobPass(10, 5, 11,  'rgba(24,22,18,0.28)', 'rgba(160,156,146,0.2)')
-
-    // Patchy moss/lichen blotches -- irregular soft-edged green-ish
-    // patches, deliberately uneven in size/placement (not a uniform
-    // speckle) so it reads as organic growth claiming parts of the
-    // surface rather than a texture applied everywhere equally.
-    const mossSpots = 5 + Math.floor(rand() * 4)
-    for (let i = 0; i < mossSpots; i++) {
-      const cx = rand() * size, cy = rand() * size
-      const r  = 6 + rand() * 14
-      const grad = tctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-      grad.addColorStop(0,   'rgba(58, 78, 30, 0.55)')
-      grad.addColorStop(0.6, 'rgba(48, 66, 26, 0.35)')
-      grad.addColorStop(1,   'rgba(48, 66, 26, 0)')
-      tctx.fillStyle = grad
-      tctx.beginPath()
-      tctx.arc(cx, cy, r, 0, Math.PI * 2)
-      tctx.fill()
-    }
-
-    // Thin crack lines -- fine, irregular, NOT the bold straight facet
-    // edges from the previous version. Cracks wander slightly via a
-    // jittered multi-segment line rather than one straight stroke.
-    tctx.strokeStyle = 'rgba(10,9,7,0.4)'
-    tctx.lineWidth = 1
-    for (let i = 0; i < 6; i++) {
-      let x = rand() * size, y = rand() * size
-      tctx.beginPath()
-      tctx.moveTo(x, y)
-      const segs = 3 + Math.floor(rand() * 3)
-      for (let s = 0; s < segs; s++) {
-        x += (rand() - 0.5) * 14
-        y += (rand() - 0.5) * 14
-        tctx.lineTo(x, y)
-      }
-      tctx.stroke()
-    }
-
-    // Fine speckle for close-up grain.
-    tctx.fillStyle = 'rgba(0,0,0,0.15)'
-    for (let i = 0; i < 60; i++) {
-      const x = rand() * size, y = rand() * size, r = 1 + rand() * 2
-      tctx.beginPath(); tctx.arc(x, y, r, 0, Math.PI * 2); tctx.fill()
-    }
-
-    return this._ctx.createPattern(tile, 'repeat')
-  }
-
-  _bakeRootPattern(kind) {
-    const size = 96
-    const tile = document.createElement('canvas')
-    tile.width = size; tile.height = size
-    const tctx = tile.getContext('2d')
-
-    tctx.fillStyle = kind.colorTop
-    tctx.fillRect(0, 0, size, size)
-
-    let seed = 9119
-    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
-
-    // Long thin streaky strokes, loosely one dominant direction --
-    // reads as fibrous/woody rather than rocky or leafy.
-    for (let i = 0; i < 22; i++) {
-      const x0 = rand() * size, y0 = rand() * size
-      const ang = Math.PI * 0.5 + (rand() - 0.5) * 0.6   // mostly vertical-ish, some spread
-      const len = 20 + rand() * 40
-      const x1 = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len
-      tctx.strokeStyle = rand() < 0.5 ? 'rgba(15,10,4,0.35)' : 'rgba(90,68,40,0.3)'
-      tctx.lineWidth = 1.5 + rand() * 2.5
-      tctx.beginPath(); tctx.moveTo(x0, y0); tctx.lineTo(x1, y1); tctx.stroke()
-    }
-
-    return this._ctx.createPattern(tile, 'repeat')
-  }
-
-  _bakeBramblePattern(kind) {
-    const size = 96
-    const tile = document.createElement('canvas')
-    tile.width = size; tile.height = size
-    const tctx = tile.getContext('2d')
-
-    tctx.fillStyle = kind.colorTop
-    tctx.fillRect(0, 0, size, size)
-
-    let seed = 5577
-    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
-
-    // Tangled criss-crossing thin curved lines -- reads as a thicket
-    // rather than rock or wood grain.
-    for (let i = 0; i < 26; i++) {
-      const x0 = rand() * size, y0 = rand() * size
-      const ang = rand() * Math.PI * 2
-      const len = 10 + rand() * 22
-      const cx  = x0 + Math.cos(ang) * len * 0.5 + (rand() - 0.5) * 10
-      const cy  = y0 + Math.sin(ang) * len * 0.5 + (rand() - 0.5) * 10
-      const x1  = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len
-      tctx.strokeStyle = rand() < 0.6 ? 'rgba(10,14,6,0.4)' : 'rgba(70,84,40,0.28)'
-      tctx.lineWidth = 1 + rand() * 1.5
-      tctx.beginPath()
-      tctx.moveTo(x0, y0)
-      tctx.quadraticCurveTo(cx, cy, x1, y1)
-      tctx.stroke()
-    }
-    // Small thorn flecks.
-    tctx.fillStyle = 'rgba(0,0,0,0.25)'
-    for (let i = 0; i < 30; i++) {
-      const x = rand() * size, y = rand() * size, r = 0.8 + rand() * 1.2
-      tctx.beginPath(); tctx.arc(x, y, r, 0, Math.PI * 2); tctx.fill()
-    }
-
-    return this._ctx.createPattern(tile, 'repeat')
-  }
-
-  // Deterministic per-cell hash -> [0,1), same hashing approach
-  // ForestEffects uses for trunk thinning -- stable across reloads.
-  static _hash01(x, y) {
-    let h = (x * 374761393 + y * 668265263) | 0
+  static _hash01(x, y, salt = 0) {
+    let h = (x * 374761393 + y * 668265263 + salt * 2654435761) | 0
     h = Math.imul(h ^ (h >>> 13), 1274126177)
     h = (h ^ (h >>> 16)) >>> 0
     return h / 0xffffffff
   }
 
-  // Picks one KIND for a given REGION_SIZE x REGION_SIZE zone,
-  // deterministically from the zone's own coordinates -- this is what
-  // gives "regional consistency" (nearby obstacles share a kind) rather
-  // than each cell rolling independently.
-  _kindForZone(zoneX, zoneY) {
-    const t = UndergrowthRenderer._hash01(zoneX * 9176 + 17, zoneY * 5471 + 31)
-    const idx = Math.floor(t * UndergrowthRenderer.KIND_KEYS.length)
-    return UndergrowthRenderer.KIND_KEYS[Math.min(idx, UndergrowthRenderer.KIND_KEYS.length - 1)]
-  }
+  // ── Flora template baking ────────────────────────────────────────────────────
 
-  // Builds one obstacle descriptor per wallMask cell: kind (from its
-  // zone), per-cell height/footprint jitter, and a small per-cell stroke
-  // seed for the procedural texture variant. All derived live from
-  // scene.mapData.wallMask, same pattern ForestEffects uses for trunks --
-  // no separate authoring data needed.
-  _buildObstaclesFromMask() {
-    const mask = this.scene.mapData?.wallMask
-    if (!mask) {
-      console.warn('[UndergrowthRenderer] no mapData.wallMask found -- no obstacles will render')
-      return []
-    }
-    const mapH = mask.length
-    const mapW = mask[0]?.length ?? 0
-    const RS = UndergrowthRenderer.REGION_SIZE
-
-    // Water tiles are also wallMask=1 (unwalkable) -- excluded here so
-    // rock/root/bramble obstacles don't spawn in open water. Same fix as
-    // ForestEffects' trunk placement; see that file's comment for the
-    // full rationale.
-    const layer0 = this.scene.mapData?.layers?.[0]
-    const isWater = (x, y) => {
-      const gid = layer0?.[y]?.[x]
-      return gid === 1625 || gid === 1679
-    }
-
-    const obstacles = []
-    for (let ty = 0; ty < mapH; ty++) {
-      for (let tx = 0; tx < mapW; tx++) {
-        if (mask[ty][tx] !== 1) continue
-        if (isWater(tx, ty)) continue
-
-        const zoneX = Math.floor(tx / RS)
-        const zoneY = Math.floor(ty / RS)
-        const kindKey = this._kindForZone(zoneX, zoneY)
-        const kind = UndergrowthRenderer.KINDS[kindKey]
-
-        // Per-cell seeded rand, continuing the same LCG pattern used
-        // elsewhere in this codebase for deterministic-but-varied values.
-        let seed = Math.floor(tx * 7919 + ty * 104729 + zoneX * 13 + zoneY * 29) & 0x7fffffff
-        const rand = () => {
-          seed = (seed * 1103515245 + 12345) & 0x7fffffff
-          return seed / 0x7fffffff
-        }
-
-        // Density thinning -- applied AFTER drawing from rand() once for
-        // determinism's sake isn't required here since this is purely a
-        // keep/skip gate, not used for shape variation -- but draw it
-        // from the same sequence regardless so adding this check doesn't
-        // shift every subsequent rand() call's results relative to a
-        // keepChance of 1.0 (kept ordering identical to avoid silently
-        // changing every other scene's existing obstacle shapes).
-        if (rand() > this._keepChance) continue
-
-        const heightTiles = Math.max(0.15,
-          (kind.baseHeight + (rand() - 0.5) * kind.heightJitter) * this._heightScale)
-        const footprintFrac = kind.footprintMin +
-          rand() * (kind.footprintMax - kind.footprintMin)
-        // Offset jitter keeps some obstacles centred, others pushed
-        // toward a cell edge -- this is the "mix of full-cell and
-        // smaller/irregular" footprint variation, rather than every
-        // obstacle being perfectly centred at every size.
-        const offsetX = (rand() - 0.5) * (1 - footprintFrac) * 0.8
-        const offsetY = (rand() - 0.5) * (1 - footprintFrac) * 0.4
-        const textureSeed = Math.floor(rand() * 1e9)
-
-        obstacles.push({ tx, ty, kindKey, kind, heightTiles, footprintFrac, offsetX, offsetY, textureSeed })
+  _bakeAllTemplates() {
+    const templates = {}
+    for (const key of UndergrowthRenderer.FLORA_KIND_KEYS) {
+      templates[key] = []
+      for (let v = 0; v < UndergrowthRenderer.TEMPLATE_VARIANTS_PER_KIND; v++) {
+        let seed = key.charCodeAt(0) * 7919 + v * 104729
+        const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+        if (key === 'grass')  templates[key].push(this._bakeGrassTemplate(rand))
+        if (key === 'fern')   templates[key].push(this._bakeFernTemplate(rand))
+        if (key === 'flower') templates[key].push(this._bakeFlowerTemplate(rand))
       }
     }
-    return obstacles
+    return templates
   }
 
-  // playerTileY is accepted for a future south-of-player fade (matching
-  // ForestEffects' trunk fade) but not yet applied -- obstacles currently
-  // always draw at full opacity. Revisit if nearby obstacles end up
-  // hiding the player the way trunks could before that fade existed.
-  //
-  // sw/sh: current canvas dimensions, passed in explicitly rather than
-  // read off pgr -- PGR doesn't reliably expose its own width/height as
-  // public properties (ForestEffects itself tracks these independently
-  // via scene.game.canvas, not via pgr._sw/_sh, which may not exist).
+  _bakeGrassTemplate(rand) {
+    const S = UndergrowthRenderer.BAKE_REF_SIZE
+    const canvas = document.createElement('canvas')
+    canvas.width = S; canvas.height = S
+    const c = canvas.getContext('2d')
+    const baseX = S / 2, baseY = S * 0.95
+
+    const bladeCount = 6 + Math.floor(rand() * 4)
+    for (let i = 0; i < bladeCount; i++) {
+      const spread = (rand() - 0.5) * S * 0.55
+      const height = S * (0.55 + rand() * 0.4)
+      const curve  = (rand() - 0.5) * S * 0.25
+      const tipX = baseX + spread + curve
+      const tipY = baseY - height
+      const midX = baseX + spread * 0.5 + curve * 0.4
+      const midY = baseY - height * 0.5
+
+      const shade = 0.55 + rand() * 0.4
+      c.strokeStyle = `rgba(${Math.round(50*shade)}, ${Math.round(95*shade)}, ${Math.round(38*shade)}, 0.85)`
+      c.lineWidth = 1.5 + rand() * 1.5
+      c.beginPath()
+      c.moveTo(baseX + spread * 0.2, baseY)
+      c.quadraticCurveTo(midX, midY, tipX, tipY)
+      c.stroke()
+    }
+    return canvas
+  }
+
+  _bakeFernTemplate(rand) {
+    const S = UndergrowthRenderer.BAKE_REF_SIZE
+    const canvas = document.createElement('canvas')
+    canvas.width = S; canvas.height = S
+    const c = canvas.getContext('2d')
+    const baseX = S / 2, baseY = S * 0.95
+
+    const frondCount = 4 + Math.floor(rand() * 3)
+    for (let i = 0; i < frondCount; i++) {
+      const ang = (i / frondCount - 0.5) * 1.6 + (rand() - 0.5) * 0.2
+      const len = S * (0.6 + rand() * 0.35)
+      const tipX = baseX + Math.sin(ang) * len
+      const tipY = baseY - Math.cos(ang) * len
+      const midX = baseX + Math.sin(ang) * len * 0.5
+      const midY = baseY - Math.cos(ang) * len * 0.6
+
+      const shade = 0.5 + rand() * 0.4
+      c.strokeStyle = `rgba(${Math.round(34*shade)}, ${Math.round(70*shade)}, ${Math.round(30*shade)}, 0.9)`
+      c.lineWidth = 2 + rand() * 1.5
+      c.beginPath()
+      c.moveTo(baseX, baseY)
+      c.quadraticCurveTo(midX, midY, tipX, tipY)
+      c.stroke()
+
+      const tickCount = 4 + Math.floor(rand() * 3)
+      for (let t = 1; t <= tickCount; t++) {
+        const f = t / (tickCount + 1)
+        const px = baseX + (tipX - baseX) * f
+        const py = baseY + (tipY - baseY) * f
+        const tickLen = (1 - f) * S * 0.12
+        const tickAng = ang + Math.PI / 2
+        c.strokeStyle = `rgba(${Math.round(40*shade)}, ${Math.round(80*shade)}, ${Math.round(34*shade)}, 0.7)`
+        c.lineWidth = 1
+        c.beginPath()
+        c.moveTo(px, py)
+        c.lineTo(px + Math.sin(tickAng) * tickLen, py - Math.cos(tickAng) * tickLen)
+        c.stroke()
+      }
+    }
+    return canvas
+  }
+
+  _bakeFlowerTemplate(rand) {
+    const canvas = this._bakeGrassTemplate(rand)
+    const c = canvas.getContext('2d')
+    const S = UndergrowthRenderer.BAKE_REF_SIZE
+    const petalColors = ['rgba(230,220,150,0.9)', 'rgba(210,140,160,0.9)', 'rgba(200,200,230,0.9)']
+
+    const bloomCount = 2 + Math.floor(rand() * 3)
+    for (let i = 0; i < bloomCount; i++) {
+      const x = S * (0.3 + rand() * 0.4)
+      const y = S * (0.25 + rand() * 0.3)
+      const r = S * (0.04 + rand() * 0.03)
+      c.fillStyle = petalColors[Math.floor(rand() * petalColors.length)]
+      c.beginPath()
+      c.arc(x, y, r, 0, Math.PI * 2)
+      c.fill()
+    }
+    return canvas
+  }
+
+  _bakeRockPattern() {
+    const size = 96
+    const tile = document.createElement('canvas')
+    tile.width = size; tile.height = size
+    const c = tile.getContext('2d')
+    c.fillStyle = 'rgba(96, 92, 84, 0.95)'
+    c.fillRect(0, 0, size, size)
+
+    let seed = 4242
+    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+    for (let i = 0; i < 10; i++) {
+      const cx = rand() * size, cy = rand() * size, r = 5 + rand() * 14
+      c.fillStyle = rand() < 0.5 ? 'rgba(30,28,24,0.3)' : 'rgba(150,146,136,0.2)'
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill()
+    }
+    for (let i = 0; i < 5; i++) {
+      const x = rand() * size, y = rand() * size, r = 6 + rand() * 12
+      const grad = c.createRadialGradient(x, y, 0, x, y, r)
+      grad.addColorStop(0, 'rgba(58,78,30,0.5)')
+      grad.addColorStop(1, 'rgba(58,78,30,0)')
+      c.fillStyle = grad
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill()
+    }
+    return this._ctx.createPattern(tile, 'repeat')
+  }
+
+  // Green blotchy OVERLAY pattern (mostly transparent) for knoll tops --
+  // drawn on top of the rock pattern so moss/grass appears to be
+  // reclaiming the stone rather than replacing its texture entirely.
+  _bakeMossOverlayPattern() {
+    const size = 96
+    const tile = document.createElement('canvas')
+    tile.width = size; tile.height = size
+    const c = tile.getContext('2d')
+    let seed = 8181
+    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+    const blotchCount = 10 + Math.floor(rand() * 6)
+    for (let i = 0; i < blotchCount; i++) {
+      const x = rand() * size, y = rand() * size, r = 8 + rand() * 18
+      const grad = c.createRadialGradient(x, y, 0, x, y, r)
+      grad.addColorStop(0,   'rgba(60,92,34,0.85)')
+      grad.addColorStop(0.6, 'rgba(50,80,28,0.55)')
+      grad.addColorStop(1,   'rgba(50,80,28,0)')
+      c.fillStyle = grad
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill()
+    }
+    return this._ctx.createPattern(tile, 'repeat')
+  }
+
+  // ── Placement: flora on open ground ──────────────────────────────────────────
+
+  _buildFlora() {
+    const mask = this.scene.mapData?.wallMask
+    if (!mask) return []
+    const mapH = mask.length, mapW = mask[0]?.length ?? 0
+    const flora = []
+
+    for (let ty = 0; ty < mapH; ty++) {
+      for (let tx = 0; tx < mapW; tx++) {
+        if (mask[ty][tx] === 1) continue
+
+        const roll = UndergrowthRenderer._hash01(tx, ty, 11)
+        if (roll >= UndergrowthRenderer.FLORA_TOTAL_CHANCE) continue
+
+        let acc = 0, chosenKey = null
+        for (const key of UndergrowthRenderer.FLORA_KIND_KEYS) {
+          acc += UndergrowthRenderer.FLORA_KINDS[key].chance
+          if (roll < acc) { chosenKey = key; break }
+        }
+        if (!chosenKey) continue
+
+        const variantRoll = UndergrowthRenderer._hash01(tx, ty, 23)
+        const variantIdx = Math.floor(variantRoll * UndergrowthRenderer.TEMPLATE_VARIANTS_PER_KIND)
+        const scaleRoll = UndergrowthRenderer._hash01(tx, ty, 37)
+        const kind = UndergrowthRenderer.FLORA_KINDS[chosenKey]
+        const scale = kind.minScale + scaleRoll * (kind.maxScale - kind.minScale)
+        const offX = (UndergrowthRenderer._hash01(tx, ty, 41) - 0.5) * 0.7
+        const offY = (UndergrowthRenderer._hash01(tx, ty, 53) - 0.5) * 0.4
+
+        flora.push({ tx: tx + 0.5 + offX, ty: ty + 0.5 + offY, kindKey: chosenKey, kind, variantIdx, scale })
+      }
+    }
+    return flora
+  }
+
+  // ── Placement: small rocks on sloped terrain ─────────────────────────────────
+
+  _localSlope(tx, ty) {
+    const hm = this.scene.mapData?.heightMap
+    if (!hm) return 0
+    const h00 = hm[ty]?.[tx] ?? 0
+    const h10 = hm[ty]?.[tx + 1] ?? 0
+    const h01 = hm[ty + 1]?.[tx] ?? 0
+    const h11 = hm[ty + 1]?.[tx + 1] ?? 0
+    return Math.max(h00, h10, h01, h11) - Math.min(h00, h10, h01, h11)
+  }
+
+  _buildRocks() {
+    const mask = this.scene.mapData?.wallMask
+    if (!mask) return { rocks: [], anchoredFlora: [] }
+    const mapH = mask.length, mapW = mask[0]?.length ?? 0
+    const rocks = []
+    const anchoredFlora = []
+
+    for (let ty = 0; ty < mapH; ty++) {
+      for (let tx = 0; tx < mapW; tx++) {
+        if (mask[ty][tx] === 1) continue
+        if (this._localSlope(tx, ty) < UndergrowthRenderer.ROCK_SLOPE_THRESHOLD) continue
+
+        const roll = UndergrowthRenderer._hash01(tx, ty, 71)
+        if (roll >= UndergrowthRenderer.ROCK_CHANCE) continue
+
+        const heightTiles = UndergrowthRenderer.ROCK_HEIGHT_MIN +
+          UndergrowthRenderer._hash01(tx, ty, 83) * (UndergrowthRenderer.ROCK_HEIGHT_MAX - UndergrowthRenderer.ROCK_HEIGHT_MIN)
+        const footprintFrac = UndergrowthRenderer.ROCK_FOOTPRINT_MIN +
+          UndergrowthRenderer._hash01(tx, ty, 97) * (UndergrowthRenderer.ROCK_FOOTPRINT_MAX - UndergrowthRenderer.ROCK_FOOTPRINT_MIN)
+        const offX = (UndergrowthRenderer._hash01(tx, ty, 101) - 0.5) * (1 - footprintFrac) * 0.6
+        const offY = (UndergrowthRenderer._hash01(tx, ty, 109) - 0.5) * (1 - footprintFrac) * 0.4
+
+        // Lean: the top face is offset sideways relative to the ground
+        // footprint, so the rock reads as a leaning/tilted mass rather
+        // than a perfectly upright cube -- this was the single biggest
+        // giveaway that made the earlier version look architectural.
+        const leanAngle = UndergrowthRenderer._hash01(tx, ty, 131) * Math.PI * 2
+        const leanMag   = (0.3 + UndergrowthRenderer._hash01(tx, ty, 137) * 0.5) * footprintFrac
+        const leanX = Math.cos(leanAngle) * leanMag
+        const leanY = Math.sin(leanAngle) * leanMag * 0.3
+
+        // Irregular footprint: each ground corner gets its own small
+        // independent jitter instead of a perfect square -- a second,
+        // cheap fix for the "cube" read.
+        const jit = footprintFrac * 0.22
+        const cornerJitter = (salt) => (UndergrowthRenderer._hash01(tx, ty, salt) - 0.5) * jit
+
+        rocks.push({
+          tx, ty, heightTiles, footprintFrac, offX, offY, leanX, leanY,
+          jTL: { x: cornerJitter(141), y: cornerJitter(142) },
+          jTR: { x: cornerJitter(143), y: cornerJitter(144) },
+          jBL: { x: cornerJitter(145), y: cornerJitter(146) },
+          jBR: { x: cornerJitter(147), y: cornerJitter(148) },
+        })
+
+        // Anchor a small tuft of grass/fern right around this rock --
+        // rocks are natural nodes for leafy growth that doesn't need its
+        // own description (texture, not notable flora).
+        const tuftCount = 2 + Math.floor(UndergrowthRenderer._hash01(tx, ty, 151) * 3)
+        for (let i = 0; i < tuftCount; i++) {
+          const kindKey = UndergrowthRenderer._hash01(tx, ty, 160 + i) < 0.6 ? 'grass' : 'fern'
+          const kind = UndergrowthRenderer.FLORA_KINDS[kindKey]
+          const ang = UndergrowthRenderer._hash01(tx, ty, 170 + i) * Math.PI * 2
+          const rad = footprintFrac * (0.5 + UndergrowthRenderer._hash01(tx, ty, 180 + i) * 0.5)
+          const fx = tx + 0.5 + Math.cos(ang) * rad
+          const fy = ty + 0.5 + Math.sin(ang) * rad * 0.5
+          const variantIdx = Math.floor(UndergrowthRenderer._hash01(tx, ty, 190 + i) * UndergrowthRenderer.TEMPLATE_VARIANTS_PER_KIND)
+          const scale = kind.minScale + UndergrowthRenderer._hash01(tx, ty, 200 + i) * (kind.maxScale - kind.minScale)
+          anchoredFlora.push({ tx: fx, ty: fy, kindKey, kind, variantIdx, scale })
+        }
+      }
+    }
+    return { rocks, anchoredFlora }
+  }
+
+  // ── Placement: sparse boulder knolls ─────────────────────────────────────────
+  // No slope requirement here -- unlike small rocks, a knoll creates its
+  // own relief rather than needing existing terrain variation to sit in.
+  // Candidates are ranked by a deterministic hash and greedily picked
+  // subject to a max count and minimum spacing, so knolls stay rare and
+  // spread out rather than clustering.
+
+  _buildKnolls() {
+    const mask = this.scene.mapData?.wallMask
+    if (!mask) return { knolls: [], anchoredFlora: [] }
+    const mapH = mask.length, mapW = mask[0]?.length ?? 0
+
+    const candidates = []
+    for (let ty = 2; ty < mapH - 2; ty++) {
+      for (let tx = 2; tx < mapW - 2; tx++) {
+        if (mask[ty][tx] === 1) continue
+        candidates.push({ tx, ty, suitability: UndergrowthRenderer._hash01(tx, ty, 211) })
+      }
+    }
+    candidates.sort((a, b) => b.suitability - a.suitability)
+
+    const knolls = []
+    for (const c of candidates) {
+      if (knolls.length >= UndergrowthRenderer.KNOLL_MAX_COUNT) break
+      const tooClose = knolls.some(k => Math.hypot(k.tx - c.tx, k.ty - c.ty) < UndergrowthRenderer.KNOLL_MIN_SPACING)
+      if (tooClose) continue
+      const footprintFrac = UndergrowthRenderer.KNOLL_FOOTPRINT_MIN +
+        UndergrowthRenderer._hash01(c.tx, c.ty, 221) * (UndergrowthRenderer.KNOLL_FOOTPRINT_MAX - UndergrowthRenderer.KNOLL_FOOTPRINT_MIN)
+      const heightTiles = UndergrowthRenderer.KNOLL_HEIGHT_MIN +
+        UndergrowthRenderer._hash01(c.tx, c.ty, 223) * (UndergrowthRenderer.KNOLL_HEIGHT_MAX - UndergrowthRenderer.KNOLL_HEIGHT_MIN)
+      knolls.push({ tx: c.tx, ty: c.ty, footprintFrac, heightTiles })
+    }
+
+    const anchoredFlora = []
+    for (const k of knolls) {
+      const tuftCount = UndergrowthRenderer.KNOLL_TUFT_COUNT_MIN +
+        Math.floor(UndergrowthRenderer._hash01(k.tx, k.ty, 231) *
+          (UndergrowthRenderer.KNOLL_TUFT_COUNT_MAX - UndergrowthRenderer.KNOLL_TUFT_COUNT_MIN + 1))
+      for (let i = 0; i < tuftCount; i++) {
+        const kindKey = UndergrowthRenderer._hash01(k.tx, k.ty, 240 + i) < 0.75 ? 'grass' : 'fern'
+        const kind = UndergrowthRenderer.FLORA_KINDS[kindKey]
+        const ang = UndergrowthRenderer._hash01(k.tx, k.ty, 250 + i) * Math.PI * 2
+        const rad = (k.footprintFrac / 2) * UndergrowthRenderer._hash01(k.tx, k.ty, 260 + i)
+        const fx = k.tx + 0.5 + Math.cos(ang) * rad
+        const fy = k.ty + 0.5 + Math.sin(ang) * rad * 0.5
+        const variantIdx = Math.floor(UndergrowthRenderer._hash01(k.tx, k.ty, 270 + i) * UndergrowthRenderer.TEMPLATE_VARIANTS_PER_KIND)
+        const scale = kind.minScale + UndergrowthRenderer._hash01(k.tx, k.ty, 280 + i) * (kind.maxScale - kind.minScale)
+        anchoredFlora.push({ tx: fx, ty: fy, kindKey, kind, variantIdx, scale })
+      }
+    }
+    return { knolls, anchoredFlora }
+  }
+
+  // ── Draw ──────────────────────────────────────────────────────────────────
+
   update(pgr, sw, sh) {
     if (!pgr) return
+    this._drawKnolls(pgr, sw, sh)
+    this._drawRocks(pgr, sw, sh)
+    this._drawFlora(pgr, sw, sh)
+  }
+
+  _terrainHAt(pgr, px, py) {
+    const x0i = Math.floor(px), y0i = Math.floor(py)
+    const fx = px - x0i, fy = py - y0i
+    const h00 = pgr._vertexH?.(x0i, y0i) ?? 0
+    const h10 = pgr._vertexH?.(x0i + 1, y0i) ?? 0
+    const h01 = pgr._vertexH?.(x0i, y0i + 1) ?? 0
+    const h11 = pgr._vertexH?.(x0i + 1, y0i + 1) ?? 0
+    return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy
+  }
+
+  _groundScreenPos(pgr, tx, ty) {
+    const baseScreenY = pgr._rowToScreenY?.(ty + 0.5 + 1)
+    const scale = pgr._scaleAtRow?.(ty + 0.5 + 1)
+    if (baseScreenY == null || !(scale > 0)) return null
+    const screenX = pgr._colToScreenX?.(tx, ty + 0.5 + 1)
+    if (screenX == null) return null
+
+    const groundRow = Math.floor(ty + 1)
+    const hLeft  = pgr._vertexH?.(Math.floor(tx), groundRow) ?? 0
+    const hRight = pgr._vertexH?.(Math.floor(tx) + 1, groundRow) ?? 0
+    const groundHeightTiles = (hLeft + hRight) * 0.5
+    const screenY = baseScreenY - groundHeightTiles * scale
+
+    return { screenX, screenY, scale }
+  }
+
+  _drawFlora(pgr, sw, sh) {
     const ctx = this._ctx
+    for (const f of this._flora) {
+      const pos = this._groundScreenPos(pgr, f.tx, f.ty)
+      if (!pos) continue
+      const { screenX, screenY, scale } = pos
+      if (screenX < -100 || screenX > sw + 100 || screenY < -100 || screenY > sh + 100) continue
 
-    for (const ob of this._obstacles) {
-      this._drawObstacle(pgr, ctx, ob, sw, sh)
+      const img = this._templates[f.kindKey][f.variantIdx]
+      const drawH = f.kind.heightTiles * scale * f.scale * 2
+      const drawW = drawH * (img.width / img.height)
+
+      ctx.drawImage(img, screenX - drawW / 2, screenY - drawH, drawW, drawH)
     }
   }
 
-  // Projects one obstacle's footprint corners at ground level, then
-  // raises a copy of those corners by heightTiles to form the top face,
-  // and draws: (1) east + west side faces, (2) front (south) face, (3)
-  // top face. North (far) face is deliberately skipped -- same
-  // simplification PGR's own building/cliff rendering relies on, since
-  // the camera never sees behind an obstacle from this fixed viewing
-  // angle. East/west faces were ORIGINALLY skipped too on the same
-  // assumption, but that assumption was wrong: obstacles whose footprint
-  // offset jitter shifts them enough, or that sit near screen edges
-  // where the viewing angle exposes a side, showed a hollow open-sided
-  // look with nothing drawn there at all. Confirmed via screenshot.
-  _drawObstacle(pgr, ctx, ob, sw, sh) {
-    const { tx, ty, kind, heightTiles, footprintFrac, offsetX, offsetY } = ob
+  _drawRocks(pgr, sw, sh) {
+    const ctx = this._ctx
+    for (const r of this._rocks) {
+      const half = r.footprintFrac / 2
+      const cx = r.tx + 0.5 + r.offX
+      const cy = r.ty + 0.5 + r.offY
+      const x0 = cx - half, x1 = cx + half
+      const y0 = cy - half, y1 = cy + half
 
-    // Footprint corners in TILE space, before projection -- centred in
-    // the cell, shrunk by footprintFrac, shifted by offset jitter.
-    const half = footprintFrac / 2
-    const cx = tx + 0.5 + offsetX
-    const cy = ty + 0.5 + offsetY
-    const x0 = cx - half, x1 = cx + half
-    const y0 = cy - half, y1 = cy + half   // y0 = north edge, y1 = south edge (closer to camera)
+      const gTL = this._project(pgr, x0 + r.jTL.x, y0 + r.jTL.y)
+      const gTR = this._project(pgr, x1 + r.jTR.x, y0 + r.jTR.y)
+      const gBL = this._project(pgr, x0 + r.jBL.x, y1 + r.jBL.y)
+      const gBR = this._project(pgr, x1 + r.jBR.x, y1 + r.jBR.y)
+      if (!gTL || !gTR || !gBL || !gBR) continue
 
-    // Project all four GROUND corners first.
-    const gTL = this._project(pgr, x0, y0)
-    const gTR = this._project(pgr, x1, y0)
-    const gBL = this._project(pgr, x0, y1)
-    const gBR = this._project(pgr, x1, y1)
-    if (!gTL || !gTR || !gBL || !gBR) return   // offscreen/behind camera
+      const sTop = pgr._scaleAtRow?.(y0) ?? 0
+      const sBot = pgr._scaleAtRow?.(y1) ?? 0
+      gTL.y -= this._terrainHAt(pgr, x0, y0) * sTop
+      gTR.y -= this._terrainHAt(pgr, x1, y0) * sTop
+      gBL.y -= this._terrainHAt(pgr, x0, y1) * sBot
+      gBR.y -= this._terrainHAt(pgr, x1, y1) * sBot
 
-    // Terrain-height adjustment: shift each ground corner by its own
-    // vertex height (bilinearly interpolated from the four nearest
-    // integer vertices, since this footprint's corners sit at fractional
-    // tile coordinates, not on the vertex grid itself) -- same _vertexH
-    // data PGR's own tile loop reads. Without this, obstacle bases float
-    // above or sink into the real ground once a heightMap exists, even
-    // though the obstacle's own box height still looks fine in isolation.
-    // Falls back to 0 harmlessly if _vertexH is unavailable or the map
-    // has no heightMap.
-    const terrainH = (px, py) => {
-      const x0i = Math.floor(px), y0i = Math.floor(py)
-      const fx = px - x0i, fy = py - y0i
-      const h00 = pgr._vertexH?.(x0i,     y0i)     ?? 0
-      const h10 = pgr._vertexH?.(x0i + 1, y0i)     ?? 0
-      const h01 = pgr._vertexH?.(x0i,     y0i + 1) ?? 0
-      const h11 = pgr._vertexH?.(x0i + 1, y0i + 1) ?? 0
-      return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy)
-           + h01 * (1 - fx) * fy       + h11 * fx * fy
+      const xs = [gTL.x, gTR.x, gBL.x, gBR.x], ys = [gTL.y, gTR.y, gBL.y, gBR.y]
+      if (Math.max(...xs) < -100 || Math.min(...xs) > sw + 100) continue
+      if (Math.max(...ys) < -100 || Math.min(...ys) > sh + 100) continue
+
+      const hTop = r.heightTiles * sTop
+      const hBot = r.heightTiles * sBot
+      const leanPxX = r.leanX * sTop
+      const leanPxY = r.leanY * sTop
+
+      const topTL = { x: gTL.x + leanPxX, y: gTL.y - hTop + leanPxY }
+      const topTR = { x: gTR.x + leanPxX, y: gTR.y - hTop + leanPxY }
+      const topBL = { x: gBL.x + leanPxX, y: gBL.y - hBot + leanPxY }
+      const topBR = { x: gBR.x + leanPxX, y: gBR.y - hBot + leanPxY }
+
+      this._fillQuad(ctx, topTL, topBL, gBL, gTL, this._rockPattern, 0.55)
+      this._fillQuad(ctx, topTR, topBR, gBR, gTR, this._rockPattern, 0.55)
+      this._fillQuad(ctx, topBL, topBR, gBR, gBL, this._rockPattern, 0.72)
+      this._fillQuad(ctx, topTL, topTR, topBR, topBL, this._rockPattern, 1.0)
     }
-    const sTopGround = pgr._scaleAtRow?.(y0) ?? 0
-    const sBotGround = pgr._scaleAtRow?.(y1) ?? 0
-    gTL.y -= terrainH(x0, y0) * sTopGround
-    gTR.y -= terrainH(x1, y0) * sTopGround
-    gBL.y -= terrainH(x0, y1) * sBotGround
-    gBR.y -= terrainH(x1, y1) * sBotGround
-
-    // Cull cheaply if the whole footprint is far outside the visible
-    // screen -- generous margin since height can push the top face
-    // upward beyond the ground footprint's own bounds. Falls back to a
-    // very large bound if sw/sh weren't passed, effectively disabling
-    // the cull rather than wrongly culling everything.
-    const safeSw = sw ?? 99999, safeSh = sh ?? 99999
-    const xs = [gTL.x, gTR.x, gBL.x, gBR.x]
-    const ys = [gTL.y, gTR.y, gBL.y, gBR.y]
-    if (Math.max(...xs) < -150 || Math.min(...xs) > safeSw + 150) return
-    if (Math.max(...ys) < -150 || Math.min(...ys) > safeSh + 150) return
-
-    // Height offset in screen pixels at each corner's own row scale --
-    // using each corner's individual scale (not a single shared value)
-    // keeps the box's top face correctly perspective-skewed rather than
-    // uniformly shifted, matching how PGR itself raises elevated tiles.
-    // Applied ON TOP of the terrain-height-adjusted ground corners above,
-    // so the obstacle's own height stacks correctly on undulating ground
-    // rather than replacing the terrain adjustment.
-    const hTL = heightTiles * sTopGround
-    const hTR = hTL
-    const hBL = heightTiles * sBotGround
-    const hBR = hBL
-
-    const topTL = { x: gTL.x, y: gTL.y - hTL }
-    const topTR = { x: gTR.x, y: gTR.y - hTR }
-    const topBL = { x: gBL.x, y: gBL.y - hBL }
-    const topBR = { x: gBR.x, y: gBR.y - hBR }
-
-    // Side faces drawn first (furthest from viewer logically, and the
-    // top/front faces' fills will paint over any seam at the shared
-    // edges). Uses the SAME baked pattern as the top face, darkened via
-    // a translucent black overlay rather than a separate baked texture
-    // variant -- this keeps texture visible on every face (flat-colored
-    // sides were part of why obstacles read as too uniform/synthetic)
-    // while still preserving the cheap directional-shading cue.
-    const pattern = this._patterns[ob.kindKey]
-    this._fillTexturedQuad(ctx, topTL, topBL, gBL, gTL, pattern, 0.55)   // west face, darkest
-    this._fillTexturedQuad(ctx, topTR, topBR, gBR, gTR, pattern, 0.55)   // east face, darkest
-
-    // Front (south) face: connects the south GROUND edge to the south
-    // TOP edge. Slightly less darkened than the sides.
-    this._fillTexturedQuad(ctx, topBL, topBR, gBR, gBL, pattern, 0.72)
-
-    // Top face, drawn last, full brightness (no darkening overlay).
-    this._fillTexturedQuad(ctx, topTL, topTR, topBR, topBL, pattern, 1.0)
   }
 
-  // Fills a quad with a CanvasPattern, then optionally darkens it via a
-  // translucent black overlay clipped to the same quad path --
-  // brightnessFrac of 1.0 = no darkening, lower values = darker. This
-  // lets all faces share one baked pattern per kind while still reading
-  // as differently-lit faces of a 3D box.
-  _fillTexturedQuad(ctx, p1, p2, p3, p4, pattern, brightnessFrac) {
+  _drawKnolls(pgr, sw, sh) {
+    const ctx = this._ctx
+    for (const k of this._knolls) {
+      const half = k.footprintFrac / 2
+      const cx = k.tx + 0.5, cy = k.ty + 0.5
+      const x0 = cx - half, x1 = cx + half
+      const y0 = cy - half, y1 = cy + half
+
+      const gTL = this._project(pgr, x0, y0)
+      const gTR = this._project(pgr, x1, y0)
+      const gBL = this._project(pgr, x0, y1)
+      const gBR = this._project(pgr, x1, y1)
+      if (!gTL || !gTR || !gBL || !gBR) continue
+
+      const sTop = pgr._scaleAtRow?.(y0) ?? 0
+      const sBot = pgr._scaleAtRow?.(y1) ?? 0
+      gTL.y -= this._terrainHAt(pgr, x0, y0) * sTop
+      gTR.y -= this._terrainHAt(pgr, x1, y0) * sTop
+      gBL.y -= this._terrainHAt(pgr, x0, y1) * sBot
+      gBR.y -= this._terrainHAt(pgr, x1, y1) * sBot
+
+      const xs = [gTL.x, gTR.x, gBL.x, gBR.x], ys = [gTL.y, gTR.y, gBL.y, gBR.y]
+      if (Math.max(...xs) < -150 || Math.min(...xs) > sw + 150) continue
+      if (Math.max(...ys) < -150 || Math.min(...ys) > sh + 150) continue
+
+      const hTop = k.heightTiles * sTop
+      const hBot = k.heightTiles * sBot
+      const topTL = { x: gTL.x, y: gTL.y - hTop }
+      const topTR = { x: gTR.x, y: gTR.y - hTop }
+      const topBL = { x: gBL.x, y: gBL.y - hBot }
+      const topBR = { x: gBR.x, y: gBR.y - hBot }
+
+      // Sides + front: same trapezoid approach as rocks -- at this low a
+      // height-to-footprint ratio these read as a gentle bank, not a wall.
+      this._fillQuad(ctx, topTL, topBL, gBL, gTL, this._rockPattern, 0.5)
+      this._fillQuad(ctx, topTR, topBR, gBR, gTR, this._rockPattern, 0.5)
+      this._fillQuad(ctx, topBL, topBR, gBR, gBL, this._rockPattern, 0.68)
+
+      // Top face: octagon-cut (not a plain quad) so the mound's silhouette
+      // reads as rounded rather than boxy, then a moss overlay on top of
+      // the rock texture -- "boulder heaved up as a grassy knoll."
+      const octagon = this._octagonFromQuad(topTL, topTR, topBR, topBL, UndergrowthRenderer.KNOLL_CORNER_CUT)
+      this._fillPolygon(ctx, octagon, this._rockPattern, 0)
+      this._fillPolygon(ctx, octagon, this._mossPattern, 0)
+    }
+  }
+
+  _octagonFromQuad(tl, tr, br, bl, cutFrac) {
+    const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+    return [
+      lerp(tl, tr, cutFrac), lerp(tr, tl, cutFrac),
+      lerp(tr, br, cutFrac), lerp(br, tr, cutFrac),
+      lerp(br, bl, cutFrac), lerp(bl, br, cutFrac),
+      lerp(bl, tl, cutFrac), lerp(tl, bl, cutFrac),
+    ]
+  }
+
+  _fillQuad(ctx, p1, p2, p3, p4, pattern, brightnessFrac) {
+    this._fillPolygon(ctx, [p1, p2, p3, p4], pattern, brightnessFrac < 1 ? (1 - brightnessFrac) : 0)
+  }
+
+  _fillPolygon(ctx, points, fillStyle, darkenAlpha) {
     ctx.save()
     ctx.beginPath()
-    ctx.moveTo(p1.x, p1.y)
-    ctx.lineTo(p2.x, p2.y)
-    ctx.lineTo(p3.x, p3.y)
-    ctx.lineTo(p4.x, p4.y)
+    ctx.moveTo(points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y)
     ctx.closePath()
     ctx.clip()
-
-    ctx.fillStyle = pattern
-    ctx.fillRect(
-      Math.min(p1.x, p2.x, p3.x, p4.x), Math.min(p1.y, p2.y, p3.y, p4.y),
-      Math.max(p1.x, p2.x, p3.x, p4.x) - Math.min(p1.x, p2.x, p3.x, p4.x),
-      Math.max(p1.y, p2.y, p3.y, p4.y) - Math.min(p1.y, p2.y, p3.y, p4.y)
-    )
-
-    if (brightnessFrac < 1.0) {
-      ctx.fillStyle = `rgba(0,0,0,${(1 - brightnessFrac).toFixed(3)})`
-      ctx.fillRect(
-        Math.min(p1.x, p2.x, p3.x, p4.x), Math.min(p1.y, p2.y, p3.y, p4.y),
-        Math.max(p1.x, p2.x, p3.x, p4.x) - Math.min(p1.x, p2.x, p3.x, p4.x),
-        Math.max(p1.y, p2.y, p3.y, p4.y) - Math.min(p1.y, p2.y, p3.y, p4.y)
-      )
+    const xs = points.map(p => p.x), ys = points.map(p => p.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    ctx.fillStyle = fillStyle
+    ctx.fillRect(minX, minY, maxX - minX, maxY - minY)
+    if (darkenAlpha > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${darkenAlpha.toFixed(3)})`
+      ctx.fillRect(minX, minY, maxX - minX, maxY - minY)
     }
-
     ctx.restore()
   }
 
-  // Thin wrapper around PGR's projection functions for a tile-space
-  // point -- returns {x, y} in screen space, or null if off-camera.
   _project(pgr, tileX, tileY) {
     const y = pgr._rowToScreenY?.(tileY)
     if (y == null) return null
@@ -542,8 +573,9 @@ export default class UndergrowthRenderer {
   }
 
   destroy() {
-    this._obstacles = []
+    this._flora = []
+    this._rocks = []
+    this._knolls = []
     this._ctx = null
   }
 }
-

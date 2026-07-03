@@ -231,7 +231,7 @@ export default class PerspectiveScene extends BaseLocationScene {
 if (this.perspectiveGround) this.perspectiveGround.update()
 
 this._updatePlayerOcclusionFade()
-
+this._updateCameraTerrainAvoidance()
     super.update(time, delta)
 
     if (this.fovSystem && this.player) {
@@ -347,7 +347,71 @@ this._updatePlayerOcclusionFade()
   } 
 
 
+// ── Camera terrain avoidance ──────────────────────────────────────────────
+  // Raises/steepens the camera when tall terrain sits between the player
+  // and the camera (the "camera passes through the hill" break in
+  // solidity). Resurrects the earlier adaptive-camera infrastructure
+  // (pgr._horizonYFrac / pgr._cameraRowOffset instance overrides), but
+  // with a corrected detection: rather than comparing occluder screen
+  // positions against the player (the old, wrong question), it simply
+  // measures the max terrain height in the band of rows SOUTH of the
+  // player (toward the camera), relative to the player's own ground
+  // height. Measuring relative to the player's row rather than the
+  // camera's row avoids a feedback loop -- adjusting CAMERA_ROW_OFFSET
+  // moves the camera row itself, so a camera-row-relative measurement
+  // would chase its own adjustments.
+  _updateCameraTerrainAvoidance() {
+    const pgr = this.perspectiveGround
+    if (!pgr?._heightMapSrc || !this.player) return
 
+    const base = this.getPGRConfig()
+    const ts = this.tileSize
+    const mapW = this.mapData?.width ?? 0
+    const mapH = this.mapData?.height ?? 0
+    const playerCol = Math.floor(this.player.logicalX / ts)
+    const playerRow = Math.floor(this.player.logicalY / ts)
+    const playerH = pgr._tileHeightAt(playerCol, playerRow)
+
+    // Max terrain height in the band south of the player (between player
+    // and camera), across columns near screen centre.
+    const BAND_START = 2    // rows south of player where the band begins
+    const BAND_ROWS  = 9    // how deep the band reaches toward the camera
+    const COL_SPREAD = 5
+    let maxForegroundH = 0
+    for (let r = playerRow + BAND_START; r <= Math.min(mapH - 1, playerRow + BAND_START + BAND_ROWS); r++) {
+      for (let dc = -COL_SPREAD; dc <= COL_SPREAD; dc++) {
+        const c = playerCol + dc
+        if (c < 0 || c >= mapW) continue
+        const h = pgr._tileHeightAt(c, r)
+        if (h > maxForegroundH) maxForegroundH = h
+      }
+    }
+
+    // Severity: how far foreground terrain rises above the player's own
+    // ground level, past a comfortable clearance. 0 = no adjustment
+    // needed, 1 = maximum response.
+    const CLEARANCE = 0.6   // height units of foreground rise tolerated before reacting
+    const RANGE     = 2.0   // rise beyond clearance that maps to full response
+    const severity = Math.max(0, Math.min(1, (maxForegroundH - playerH - CLEARANCE) / RANGE))
+
+    const HORIZON_MIN    = 0.10
+    const CAMOFF_MAX_ADD = 10.0
+    const targetHorizon = base.HORIZON_Y_FRAC - (base.HORIZON_Y_FRAC - HORIZON_MIN) * severity
+    const targetCamOff  = base.CAMERA_ROW_OFFSET + CAMOFF_MAX_ADD * severity
+
+    const cur    = pgr._horizonYFrac    ?? base.HORIZON_Y_FRAC
+    const curOff = pgr._cameraRowOffset ?? base.CAMERA_ROW_OFFSET
+
+    // Asymmetric ease: react quickly when terrain looms, relax slowly --
+    // avoids visible hunting near the threshold.
+    const risingEase  = 0.15
+    const fallingEase = 0.04
+    const horizonEase = targetHorizon < cur    ? risingEase : fallingEase
+    const camOffEase  = targetCamOff  > curOff ? risingEase : fallingEase
+
+    pgr._horizonYFrac    = cur    + (targetHorizon - cur)    * horizonEase
+    pgr._cameraRowOffset = curOff + (targetCamOff  - curOff) * camOffEase
+  }
 
 
 
@@ -634,6 +698,30 @@ this._updatePlayerOcclusionFade()
     }
     return false
   }
+
+
+
+
+// Max height GAIN (in heightMap units) allowed moving from one tile to
+  // an adjacent one. Moving DOWN is never blocked by this -- only
+  // climbing beyond this threshold is. Combined with terrain peaks/hills,
+  // gradual gaussian tapers stay under this and are climbable; sharp
+  // edges exceed it and become one-way drop-offs.
+  static CLIMB_MAX_STEP = 0.6
+
+  isSlopeBlocked(fromX, fromY, toX, toY) {
+    const pgr = this.perspectiveGround
+    if (!pgr?._heightMapSrc) return false   // no heightmap on this map -- nothing to check
+    const ts = this.tileSize
+    const fromCol = Math.floor(fromX / ts), fromRow = Math.floor(fromY / ts)
+    const toCol   = Math.floor(toX   / ts), toRow   = Math.floor(toY   / ts)
+    const fromH = pgr._tileHeightAt?.(fromCol, fromRow) ?? 0
+    const toH   = pgr._tileHeightAt?.(toCol,   toRow)   ?? 0
+    return (toH - fromH) > PerspectiveScene.CLIMB_MAX_STEP
+  }
+
+
+
 
   drawTilemap() {
     if (!this.mapData?.layers) { console.error(`[${this.scene.key}] No layers`); return }

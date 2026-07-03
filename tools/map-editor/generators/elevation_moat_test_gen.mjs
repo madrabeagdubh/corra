@@ -38,12 +38,15 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUTPUT_DIR = resolve(__dirname, '../../../public/maps/forest')
 
+
+
+
 const HILL_DEFAULTS = {
-  plateauRadius: 3,      // flat walkable top
-  steepSigma:    0.8,    // falloff sharpness on the non-ramp sides -- steep, blocks climbing
-  gentleSigma:   4.5,    // falloff sharpness along the ramp direction -- gradual, climbable
-  rampSharpness: 3,      // higher = narrower ramp sector
-  amplitude:     2.4,    // total height above base
+  plateauRadius: 5,      // was 3 -- bigger flat top, proportionally more visible grass
+  steepSigma:    0.8,
+  gentleSigma:   4.5,
+  rampSharpness: 3,
+  amplitude:     2.4,
 }
 
 const CONFIG = {

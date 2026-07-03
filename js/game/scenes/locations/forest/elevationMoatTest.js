@@ -18,6 +18,7 @@
 // tools/map-editor/generators/elevation_moat_test_gen.mjs)
 
 import PerspectiveScene from '../perspectiveScene.js'
+import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
 export default class ElevationMoatTest extends PerspectiveScene {
 
@@ -28,7 +29,9 @@ export default class ElevationMoatTest extends PerspectiveScene {
 
   getMapKey()  { return 'elevationMoatTest' }
   getMapPath() { return `/maps/forest/cliffShowcase.json?v=${Date.now()}` }
-
+onPGRDrawComplete() {
+    if (this.steepFaces) this.steepFaces.update()
+  }
   // Same wallMask-based collision pattern as testForest/elevationTest --
   // blocks the moat water and the map perimeter.
   isColliding(x, y) {
@@ -54,7 +57,14 @@ export default class ElevationMoatTest extends PerspectiveScene {
     this.mapData.introNarrative = []
   }
 
+	shutdown() {
+    if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
+    super.shutdown()
+  }
+
   onEnter() {
+
+	  this.steepFaces = new SteepFaceRenderer(this)
     console.log('[elevationMoatTest] ready -- walk north toward the hill, the gentle side should be a visible dry ramp, water should ring every other side')
   }
 }

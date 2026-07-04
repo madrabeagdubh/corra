@@ -9,6 +9,7 @@ import { BardAccompaniment } from '../../../systems/music/bardAccompaniment.js'
 import { buildBardSequence } from '../../../systems/music/bardHarmonizer.js'
 import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
 import { StoryVisuals } from '../../../effects/storyVisuals.js'
+import { GameSettings } from '../../../settings/gameSettings.js'
 
 const BARD_LINE_NOTE_TARGET = 3
 const BARD_FLOW_DELAY = 250
@@ -194,102 +195,16 @@ export default class TavernScene extends VillageScene {
 
     super._onJoystickTap()
   }
-_openHarpOverlay() {
-  super._openHarpOverlay()
-  this._fetchTainPoem()
-  this._corraHarp?.on('ready', () => {
-    this._startBardAccompaniment()
-  })
-}
 
-  _fetchTainPoem() {
-    if (this._tainPoemPromise) return this._tainPoemPromise
-    this._tainPoemPromise = fetch('/data/tain.json')
-      .then(res => {
-        if (!res.ok) throw new Error(`tain.json fetch failed: ${res.status}`)
-        return res.text()
-      })
-      .then(text => {
-        try {
-          const data = JSON.parse(text)
-          this._tainPoem = data
-          return data
-        } catch (parseErr) {
-          console.warn('[Táin/bard] JSON.parse failed:', parseErr.message)
-          throw parseErr
-        }
-      })
-      .catch(err => {
-        console.warn('[Táin/bard] failed to load tain.json:', err)
-        this._tainPoem = null
-        return null
-      })
-    return this._tainPoemPromise
-  }
-
-  _addDemoButton() {
-    const overlay = this._corraHarp?._overlay
-    if (!overlay || this._demoBtn) return
-    const btn = document.createElement('button')
-    btn.textContent = '▶ demo'
-    btn.style.cssText = [
-      'position:absolute;bottom:18px;left:50%;transform:translateX(-50%);',
-      'background:rgba(20,14,8,0.55);border:1px solid rgba(200,190,170,0.35);',
-      'color:rgba(220,210,190,0.85);font-size:0.75rem;letter-spacing:0.05em;',
-      'padding:6px 16px;border-radius:14px;cursor:pointer;',
-      'font-family:Georgia,serif;z-index:10;touch-action:none;',
-    ].join('')
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      this._startDemoPlayback()
-    })
-    overlay.appendChild(btn)
-    this._demoBtn = btn
-  }
-
-  _addBardModeButton() {
-    const overlay = this._corraHarp?._overlay
-    if (!overlay || this._bardBtn) return
-    const btn = document.createElement('button')
-    btn.textContent = '🎙 bard'
-    btn.style.cssText = [
-      'position:absolute;bottom:18px;left:50%;transform:translateX(72px);',
-      'background:rgba(20,14,8,0.55);border:1px solid rgba(200,190,170,0.35);',
-      'color:rgba(220,210,190,0.85);font-size:0.75rem;letter-spacing:0.05em;',
-      'padding:6px 16px;border-radius:14px;cursor:pointer;',
-      'font-family:Georgia,serif;z-index:10;touch-action:none;',
-    ].join('')
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
+  // Opens straight into bard mode — no demo/orb-rhythm mode, no dev
+  // buttons. Per explicit design call: sitting at the harp goes directly
+  // to the poem recitation with gold strings lit and waiting for input.
+  _openHarpOverlay() {
+    super._openHarpOverlay()
+    this._fetchTainPoem()
+    this._corraHarp?.on('ready', () => {
       this._startBardAccompaniment()
     })
-    overlay.appendChild(btn)
-    this._bardBtn = btn
-  }
-
-  _buildTainPhrase() {
-    const harp = this._corraHarp
-    const TUNE_KEY = 'silverSpearThe'
-
-    const range = harp.getMidiRange()
-    const { indices, durations, sharps, accents, ornaments } = abcToTimedStringSequence(
-      allTunes[TUNE_KEY], harp, range
-    )
-
-    const unitMs = 600
-    const phrase = buildTimedPhraseFromDurations(indices, durations, {
-      unitMs,
-      travelMs:     460,
-      windowMs:     420,
-      startDelayMs: 1200,
-      sharps,
-      accents,
-      ornaments,
-      lilt: 0.5,
-    })
-    return { phrase, unitMs }
   }
 
   _buildBardSequence() {
@@ -371,7 +286,23 @@ _openHarpOverlay() {
     document.head.appendChild(s)
   }
 
+  // Called on 'englishOpacityChange' while bard mode is running, so
+  // swiping the moon mid-line updates whichever English slot(s) are
+  // currently showing text immediately, rather than only taking effect
+  // the next time a line is revealed. Slots with no text yet are left
+  // alone — their opacity gets set correctly when their line is shown
+  // (see _showBardLine).
+  _updateBardEnglishOpacity() {
+    const v = String(GameSettings.englishOpacity)
+    if (this._bardEnAEl?.textContent) this._bardEnAEl.style.opacity = v
+    if (this._bardEnBEl?.textContent) this._bardEnBEl.style.opacity = v
+  }
+
   _destroyBardTextEl() {
+    if (this._onEnglishOpacityChange) {
+      window.removeEventListener('englishOpacityChange', this._onEnglishOpacityChange)
+      this._onEnglishOpacityChange = null
+    }
     clearTimeout(this._bardTypeTimer)
     clearTimeout(this._bardGateTimer)
     clearTimeout(this._bardEnTimer)
@@ -526,7 +457,10 @@ _openHarpOverlay() {
           enSlot.textContent = line.en || ''
           void enSlot.offsetHeight
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => { enSlot.style.opacity = '1' })
+            // Capped at GameSettings.englishOpacity (moon-driven) rather
+            // than always fading in to full opacity — a dark moon keeps
+            // the English subtitle hidden even once typed, per design.
+            requestAnimationFrame(() => { enSlot.style.opacity = String(GameSettings.englishOpacity) })
           })
           this._bardEnDoneTimer = setTimeout(() => {
             onPairDone?.()
@@ -683,10 +617,6 @@ _openHarpOverlay() {
     const harp = this._corraHarp
     if (!harp) return
 
-    this._phrasePlayer?.stop()
-    this._phrasePlayer = null
-    this._demoPlayer?.stop()
-    this._demoPlayer = null
     this._bardPlayer?.stop()
     this._destroyBardTextEl()
     this._storyVisuals?.destroy()
@@ -709,6 +639,12 @@ _openHarpOverlay() {
 
     this._bardMelodyOffsets = (BARD_SING && BARD_VOICE_ENABLED) ? this._buildBardMelodyOffsets() : null
     this._bardMelodyCursor  = 0
+
+    // Live-update the visible English slot(s) if the moon phase changes
+    // mid-line, rather than only picking up the new value the next time
+    // a line is revealed. Torn down in _destroyBardTextEl.
+    this._onEnglishOpacityChange = () => this._updateBardEnglishOpacity()
+    window.addEventListener('englishOpacityChange', this._onEnglishOpacityChange)
 
     this._bardPlayer = new BardAccompaniment(harp, sequence, {
       gateLighting: true,
@@ -735,57 +671,32 @@ _openHarpOverlay() {
     this._bardPlayer.readyForNextGroup()
   }
 
-  _startTainPhrase() {
-    const harp = this._corraHarp
-    if (!harp) return
-
-    this._phrasePlayer?.stop()
-    const { phrase, unitMs } = this._buildTainPhrase()
-
-    this._phrasePlayer = new HarpPhrasePlayer(harp, phrase, {
-      hitLineFrac: 0.5,
-      tempoMs: unitMs,
-      bodhranBeatMs: unitMs * 4,
-      bodhranAccentEvery: 4,
-      onBeatResult: (i, { hit, accuracy }) => {},
-      onPhraseComplete: (tally) => {
-        this.textPanel?.show({
-          ga: 'Tá an scéal críochnaithe.',
-          en: 'The tale is finished.',
-          type: 'notification',
-        })
-      },
-    })
-    this._phrasePlayer.start()
-  }
-
-  _startDemoPlayback() {
-    const harp = this._corraHarp
-    if (!harp || this._demoPlayer) return
-
-    this._phrasePlayer?.stop()
-    this._phrasePlayer = null
-
-    const { phrase, unitMs } = this._buildTainPhrase()
-    this._demoPlayer = new HarpPhrasePlayer(harp, phrase, {
-      hitLineFrac: 0.5,
-      autoPlay: true,
-      tempoMs: unitMs,
-      bodhranBeatMs: unitMs * 4,
-      bodhranAccentEvery: 4,
-      onPhraseComplete: () => {
-        this._demoPlayer = null
-        this._startTainPhrase()
-      },
-    })
-    this._demoPlayer.start()
+  _fetchTainPoem() {
+    if (this._tainPoemPromise) return this._tainPoemPromise
+    this._tainPoemPromise = fetch('/data/tain.json')
+      .then(res => {
+        if (!res.ok) throw new Error(`tain.json fetch failed: ${res.status}`)
+        return res.text()
+      })
+      .then(text => {
+        try {
+          const data = JSON.parse(text)
+          this._tainPoem = data
+          return data
+        } catch (parseErr) {
+          console.warn('[Táin/bard] JSON.parse failed:', parseErr.message)
+          throw parseErr
+        }
+      })
+      .catch(err => {
+        console.warn('[Táin/bard] failed to load tain.json:', err)
+        this._tainPoem = null
+        return null
+      })
+    return this._tainPoemPromise
   }
 
   _destroyHarpOverlay() {
-    this._phrasePlayer?.stop()
-    this._phrasePlayer = null
-    this._demoPlayer?.stop()
-    this._demoPlayer = null
     this._bardPlayer?.stop()
     this._bardPlayer = null
     this._destroyBardTextEl()
@@ -793,8 +704,6 @@ _openHarpOverlay() {
     this._storyVisuals = null
     this._bardVoice?.destroy?.()
     this._bardVoice = undefined
-    this._demoBtn = null
-    this._bardBtn = null
     super._destroyHarpOverlay()
   }
 }

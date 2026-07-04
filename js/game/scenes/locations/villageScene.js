@@ -309,7 +309,7 @@ export default class VillageScene extends PerspectiveScene {
   }
 
   // ── Proximity ─────────────────────────────────────────────────────────────
-  checkProximityInteractions() {
+checkProximityInteractions() {
     if (this.narrativeInProgress) return
     if (this.textPanel?.isVisible || this.textPanelCooldown) return
     const px = this.player.logicalX
@@ -319,12 +319,19 @@ export default class VillageScene extends PerspectiveScene {
     const NPC_RADIUS  = this.tileSize * 1.8
 
     let nearestHarp = null, harpDist = Infinity
-    this.interactables?.forEach(obj => {
-      if (obj.getData('type') !== 'harp') return
-      const d = Phaser.Math.Distance.Between(
-        px, py, obj.getData('logicalX') ?? obj.x, obj.getData('logicalY') ?? obj.y)
-      if (d < HARP_RADIUS && d < harpDist) { harpDist = d; nearestHarp = obj }
-    })
+    // Skip harp detection entirely while the overlay is already open —
+    // otherwise this loop (run every frame) kept re-notifying the badge
+    // the whole time the player stood at the harp playing it, and
+    // clearNotify() never got a chance to run (see encounterPanel.js's
+    // own clearNotify fix for the other half of this bug).
+    if (!this._corraHarp?.isOpen) {
+      this.interactables?.forEach(obj => {
+        if (obj.getData('type') !== 'harp') return
+        const d = Phaser.Math.Distance.Between(
+          px, py, obj.getData('logicalX') ?? obj.x, obj.getData('logicalY') ?? obj.y)
+        if (d < HARP_RADIUS && d < harpDist) { harpDist = d; nearestHarp = obj }
+      })
+    }
 
     let nearestNPC = null, npcDist = Infinity
     ;(this.npcs || []).forEach(npc => {
@@ -352,7 +359,6 @@ export default class VillageScene extends PerspectiveScene {
     this._flagInRange = false
     super.checkProximityInteractions()
   }
-
   // Raise the harp badge on the moon tile; pressing it opens the harp overlay.
   _showHarpBadge(nearestHarp) {
     if (!this._encounterPanel) return

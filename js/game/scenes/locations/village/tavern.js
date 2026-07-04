@@ -194,16 +194,13 @@ export default class TavernScene extends VillageScene {
 
     super._onJoystickTap()
   }
-
-  _openHarpOverlay() {
-    super._openHarpOverlay()
-    this._fetchTainPoem()
-    this._corraHarp?.on('ready', () => {
-      this._addDemoButton()
-      this._addBardModeButton()
-      this._startTainPhrase()
-    })
-  }
+_openHarpOverlay() {
+  super._openHarpOverlay()
+  this._fetchTainPoem()
+  this._corraHarp?.on('ready', () => {
+    this._startBardAccompaniment()
+  })
+}
 
   _fetchTainPoem() {
     if (this._tainPoemPromise) return this._tainPoemPromise

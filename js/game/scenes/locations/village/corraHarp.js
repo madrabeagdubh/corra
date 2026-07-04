@@ -30,21 +30,30 @@
 // playtesting showed was hard to use and easy to get wrong — see git
 // history if that design needs to be revisited.
 //
-// ── Moon widget on top of the harp ────────────────────────────────────
-// The harp overlay sits at z-index:2000000 — above the joystick's
-// z-index:1000004, which normally means the moon widget (embedded in
-// the joystick's hub) is invisible behind it. Per explicit design call,
-// open()/close() now call joystick.js's elevateMoon()/restoreMoon() so
-// the SAME moon widget instance (same GameSettings.englishOpacity
-// wiring, same swipe/tap/long-press physics) temporarily escapes the
-// joystick's normal stacking context and renders/works on top of this
-// overlay instead — letting the player fade English text (and, per the
-// bard-mode design this enables, dim non-gold strings / intensify
-// ghostly stage visuals) without leaving the harp. hideDirections()/
-// showDirections() hide just the 4 cardinal d-pad buttons, which have
-// no use here — only the moon hub itself elevates.
+// ── Moon widget over the harp ──────────────────────────────────────────
+// The harp overlay sits at z-index:500000 — BELOW the joystick's
+// z-index:1000004 (dpad root, which contains the moon hub). This is the
+// same pattern the inventory screen already uses: rather than lifting
+// the moon out of the joystick's stacking context, the overlay simply
+// sits underneath it, so the moon hub (and, incidentally, the fullscreen
+// icon) show through and stay interactive for free. hideDirections()
+// hides the 4 cardinal d-pad buttons (no use here) and hideRing() hides
+// the dark circular backing, leaving just the moon hub visible above the
+// strings — this also frees up screen space and avoids accidental
+// direction-button presses while strumming, per explicit design call.
+//
+// Swiping the moon changes GameSettings.englishOpacity (see
+// perspectiveScene.js), which drives two things in this scene: the
+// ambient visibility of non-gold-highlighted strings (see
+// _ambientAlpha/_refreshAmbientStrings below — fully dark moon = only
+// gold strings visible) and, in tavern.js, the opacity of the bard mode's
+// English subtitles. Both listen for the same 'englishOpacityChange'
+// window event that GameSettings dispatches on every change, so this
+// works whether the player swipes with the harp already open or arrives
+// with the moon already dark from earlier.
 
 import Phaser from 'phaser'
+import { GameSettings } from '../../../settings/gameSettings.js'
 
 // ── The 9 pitches the song uses ────────────────────────────────────────────
 // G mixolydian, octave + fifth: G4 to D6 (13 strings).
@@ -263,7 +272,34 @@ class HarpScene extends Phaser.Scene {
     this._buildStrings()
     this._input()
 
+    // Live-update non-gold string dimming when the moon's phase changes
+    // (GameSettings.englishOpacity), rather than only picking it up the
+    // next time a string happens to redraw itself via pluck/decay/touch.
+    // See _ambientAlpha/_refreshAmbientStrings and the file header.
+    this._onEnglishOpacityChange = () => this._refreshAmbientStrings()
+    window.addEventListener('englishOpacityChange', this._onEnglishOpacityChange)
+
     this._onReady?.()
+  }
+
+  // Non-gold strings' visibility scales with GameSettings.englishOpacity
+  // — the same moon-driven value used for the bard's English subtitles
+  // (see tavern.js) — so a fully dark moon (englishOpacity → 0) leaves
+  // only gold-highlighted strings visible, per explicit design call.
+  // Gold-highlighted strings are untouched by this; they're meant to
+  // read regardless of moon position.
+  _ambientAlpha(s) { return s.baseA * GameSettings.englishOpacity }
+
+  // Redraws every non-gold string's resting stroke at the current
+  // ambient alpha. Called on 'englishOpacityChange' so dimming responds
+  // immediately while swiping, rather than waiting for the next pluck.
+  _refreshAmbientStrings() {
+    this.strings.forEach(s => {
+      if (s._goldHighlighted) return
+      s.gfx.clear()
+      s.gfx.lineStyle(s.thick, s.ci, this._ambientAlpha(s))
+      s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
+    })
   }
 
   _bg() {
@@ -313,7 +349,10 @@ class HarpScene extends Phaser.Scene {
         fontSize: '9px', color: s.c, fontFamily: 'Georgia'
       }).setOrigin(0.5).setAlpha(0.6).setDepth(5)
 
-      gfx.lineStyle(thick, col.color, baseA)
+      // Ambient (moon-driven) alpha applied on the initial draw too, so
+      // strings start correctly dim/bright if the moon is already partway
+      // dark/light when the harp opens — not just after the first pluck.
+      gfx.lineStyle(thick, col.color, baseA * GameSettings.englishOpacity)
       gfx.beginPath(); gfx.moveTo(x1, y1); gfx.lineTo(x2, y2); gfx.strokePath()
 
       this.strings.push({
@@ -586,15 +625,16 @@ class HarpScene extends Phaser.Scene {
           // Restore whichever appearance is CURRENTLY correct for this
           // string — gold if it's still meant to be highlighted (see
           // highlightString's s._goldHighlighted tracking), otherwise
-          // its plain native color. Previously this unconditionally
-          // reset to native color, which silently erased gold highlights
-          // any time a highlighted string's own pluck-wobble finished
+          // its plain native color at the current ambient (moon-driven)
+          // alpha. Previously this unconditionally reset to native color
+          // at full baseA, which silently erased gold highlights any
+          // time a highlighted string's own pluck-wobble finished
           // decaying — independent of whatever bardAccompaniment.js's
           // actual light/unlight calls were doing.
           if (s._goldHighlighted) {
             s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
           } else {
-            s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+            s.gfx.lineStyle(s.thick, s.ci, this._ambientAlpha(s))
           }
           s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
           if (s._sharpCueActive) {
@@ -626,15 +666,15 @@ class HarpScene extends Phaser.Scene {
       s.vfx.clear(); s.vfx.fillStyle(s.ci, 0.4); s.vfx.fillCircle(s.ax, s.ay, 6)
     } else {
       // Restore whichever appearance is correct: gold if currently
-      // highlighted by bard mode, otherwise native color. Without this,
-      // releasing a touch after drawing back a gold string would
-      // immediately stomp it back to native color (via s.ci) before the
-      // wobble animation even started — same class of bug as in the
-      // wobble-decay-end code above.
+      // highlighted by bard mode, otherwise native color at the current
+      // ambient (moon-driven) alpha. Without this, releasing a touch
+      // after drawing back a gold string would immediately stomp it back
+      // to native color (via s.ci) before the wobble animation even
+      // started — same class of bug as in the wobble-decay-end code above.
       if (s._goldHighlighted) {
         s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
       } else {
-        s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+        s.gfx.lineStyle(s.thick, s.ci, this._ambientAlpha(s))
       }
       s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
     }
@@ -782,12 +822,13 @@ class HarpScene extends Phaser.Scene {
     } else {
       s.gfx.setAlpha(1)
       s.gfx.clear()
-      s.gfx.lineStyle(s.thick, s.ci, s.baseA)
+      s.gfx.lineStyle(s.thick, s.ci, this._ambientAlpha(s))
       s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
     }
   }
 
   destroy() {
+    window.removeEventListener('englishOpacityChange', this._onEnglishOpacityChange)
     this.audio?.destroy()
     super.destroy()
   }
@@ -812,21 +853,22 @@ export class CorraHarp {
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
 
-    // Bring the SAME moon widget (not a second instance) up above this
-    // overlay's own z-index:2000000, so the player can still see/use it
-    // while the harp is open — see joystick.js's elevateMoon() and this
-    // file's header comment. Only the moon hub elevates; the 4 cardinal
-    // d-pad buttons stay hidden via the existing hideDirections(), since
-    // they have no use here.
+    // Hide the 4 cardinal d-pad buttons (no use here — this also frees
+    // up screen space and avoids accidental direction presses while
+    // strumming) and the dark circular backing, leaving just the moon
+    // hub visible above the strings. The overlay's own z-index (below)
+    // sits BELOW the joystick's z-index, so the moon hub shows through
+    // and stays interactive without any special-casing — same pattern
+    // the inventory screen already uses. See file header.
     this._scene.joystick?.hideDirections()
-    this._scene.joystick?.elevateMoon(2000001)
+    this._scene.joystick?.hideRing()
 
     // Dim wrapper
     const overlay = document.createElement('div')
     overlay.id = 'corra-harp-overlay'
     overlay.style.cssText = [
       'position:fixed;inset:0;',
-      'z-index:2000000;',
+      'z-index:500000;',
       'background:rgba(3,8,16,0.0);',
       'display:flex;flex-direction:column;',
       'align-items:center;justify-content:center;',
@@ -946,10 +988,9 @@ export class CorraHarp {
     overlay.style.background = 'rgba(3,8,16,0)'
     if (this._container) this._container.style.opacity = '0'
 
-    // Restore the joystick to its normal state — moon hub back to its
-    // usual position:absolute-in-_root spot (restoreMoon() also forces a
-    // fresh _reposition() pass), direction buttons visible again.
-    this._scene.joystick?.restoreMoon()
+    // Restore the joystick to its normal state — ring backing and the 4
+    // cardinal direction buttons visible again.
+    this._scene.joystick?.showRing()
     this._scene.joystick?.showDirections()
 
     if (this._resizeHandler) {
@@ -1029,4 +1070,3 @@ export class CorraHarp {
 
   get isOpen() { return !!this._overlay }
 }
-

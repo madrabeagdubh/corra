@@ -51,7 +51,8 @@ export class StoryVisuals {
       // Above the tavern scene itself but BELOW the existing text slots
       // and harp strings — see tavern.js's z-index:2000001 for the text
       // container and corraHarp.js's overlay at z-index:2000000.
-      'z-index:1999998;',
+      
+'z-index:499999;',
       // Radial gradient: a lit, mostly-clear oval at bottom-center
       // (where the bard/text stands) widening out to fully dark at the
       // edges and top.

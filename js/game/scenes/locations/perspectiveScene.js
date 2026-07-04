@@ -18,6 +18,21 @@
 // Fixed by also wiring the same cleanup through the real event, registered
 // once in create(). The shutdown() method itself is left unchanged as a
 // fallback in case anything elsewhere explicitly calls it directly.
+//
+// ── ForestEffects + wallMask collision (this pass) ────────────────────────────
+// ForestEffects (rendered trees) and real tree collision (wallMask) are now
+// wired at THIS shared level, not duplicated per subclass -- both RiverScene
+// and BogScene (and anything else extending this class) get them for free.
+// Guarded on this.mapData?.wallMask existing, so unmigrated maps (no
+// wallMask) are completely unaffected -- no behaviour change, no extra
+// canvas, no console spam.
+//
+// IMPORTANT: RiverScene previously had its OWN separate ForestEffects
+// wiring (added before this was known to be needed at the shared level).
+// That must be removed from riverScene.js now that it's here, or
+// RiverScene (which extends BogScene which extends this class) will
+// construct ForestEffects TWICE -- two overlapping canvases, duplicate
+// trunks.
 
 import Phaser from 'phaser'
 import BaseLocationScene from './baseLocationScene.js'
@@ -40,6 +55,7 @@ import { createGameMenuHub } from '../../ui/gameMenuHub.js'
 import { createStatusBar }   from '../../ui/statusBar.js'
 import Easca3                from '../../ui/easca3.js'
 import Joystick              from '../../input/joystick.js'
+import ForestEffects         from '../../effects/forestEffects.js'
 
 window.GameState = GameState
 
@@ -208,6 +224,15 @@ export default class PerspectiveScene extends BaseLocationScene {
     if (track && window.tradConductor) window.tradConductor.playTrack(track)
 
     this.bowMechanics = new BowMechanics(this, this.player)
+
+    // Rendered trees for any map migrated from dense Oryx tree stamps to
+    // sparse wallMask-driven trunks (see tools/map-editor/migrate_oryx_trees.mjs).
+    // Guarded on wallMask existing -- unmigrated maps get no ForestEffects
+    // instance at all, so this is a pure no-op for them.
+    if (this.mapData?.wallMask) {
+      this.forestEffects = new ForestEffects(this, { trunkKeepChance: 1.0 })
+    }
+
     this.showIntroNarrative()
     this.onEnter()
 
@@ -226,9 +251,10 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   update(time, delta) {
     if (this.elevationRenderer) this.elevationRenderer.update(this.mapData)
-   
+
 
 if (this.perspectiveGround) this.perspectiveGround.update()
+if (this.forestEffects) this.forestEffects.update()
 
 this._updatePlayerOcclusionFade()
 this._updateCameraTerrainAvoidance()
@@ -269,7 +295,7 @@ this._updateCameraTerrainAvoidance()
       }
       if (_cam.scrollY < 0) _cam.scrollY = 0
     }
-  } 
+  }
 
 
 // ── Adaptive player fade: hide the player when terrain would occlude them ──
@@ -344,7 +370,7 @@ this._updateCameraTerrainAvoidance()
     const cur = pgr._playerOcclusionAlpha ?? 1
     const EASE = 0.25
     pgr._playerOcclusionAlpha = cur + (targetAlpha - cur) * EASE
-  } 
+  }
 
 
 // ── Camera terrain avoidance ──────────────────────────────────────────────
@@ -415,7 +441,6 @@ this._updateCameraTerrainAvoidance()
 
 
 
-  
 
   // Unchanged. Now also invoked via the real 'shutdown' event wired in
   // create() above. Harmless to call more than once (every branch is
@@ -433,6 +458,7 @@ this._updateCameraTerrainAvoidance()
     if (this._swallows)         { this._swallows.stop();                this._swallows        = null }
     if (this.elevationRenderer) { this.elevationRenderer.destroy();     this.elevationRenderer = null }
     if (this.perspectiveGround) { this.perspectiveGround.destroy();     this.perspectiveGround = null }
+    if (this.forestEffects)     { this.forestEffects.destroy();         this.forestEffects    = null }
     if (this.fogRenderer)       { this.fogRenderer.destroy();           this.fogRenderer      = null }
     if (this.itemSheet)         { this.itemSheet.clear();               this.itemSheet        = null }
     if (this.bowMechanics)      { this.bowMechanics.destroy();          this.bowMechanics     = null }
@@ -661,26 +687,19 @@ this._updateCameraTerrainAvoidance()
     return grid
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
     const ty = Math.floor(y / this.tileSize)
     if (ty < 0 || ty >= this.mapData.height || tx < 0 || tx >= this.mapData.width) return true
+
+    // Rendered-tree collision for maps migrated from Oryx tree stamps
+    // (see tools/map-editor/migrate_oryx_trees.mjs). Absent on unmigrated
+    // maps, so this is a no-op there. Added at THIS shared level (not
+    // just RiverScene's override) so BogScene-based land maps also get
+    // real tree collision, which they never had with the old decorative
+    // Oryx trees.
+    if (this.mapData?.wallMask?.[ty]?.[tx] === 1) return true
+
     const extra = this.getExtraUnwalkableGIDs()
     const g0 = this.mapData.layers[0]?.[ty]?.[tx]
     if (ALWAYS_UNWALKABLE.has(g0) || extra.has(g0)) return true
@@ -698,8 +717,6 @@ this._updateCameraTerrainAvoidance()
     }
     return false
   }
-
-
 
 
 // Max height GAIN (in heightMap units) allowed moving from one tile to
@@ -1020,4 +1037,3 @@ this._updateCameraTerrainAvoidance()
     }
   }
 }
-

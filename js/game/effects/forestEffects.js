@@ -7,26 +7,26 @@
 // stormOverlay.js, starfield.js etc. -- standalone effect modules that a
 // scene opts into explicitly.
 //
-// ── v2 (this version): two fixes ─────────────────────────────────────────────
-// 1. Player-tree occlusion: replaced the old fixed-radius punch-hole
-//    (always cut a circular hole in the canopy layer around the player,
-//    regardless of whether a tree was actually nearby -- looked like an
-//    odd glow, confirmed via screenshot) with the SAME real-geometry
-//    approach the hill occlusion system uses: fade the player's own
-//    alpha (pgr._playerOcclusionAlpha, read by PGR's _drawPlayerAnimated)
-//    when their screen position genuinely falls inside a nearby tree's
-//    bounding box. Combined with any existing occlusion value via
-//    Math.min() rather than overwriting -- a map can have both trees and
-//    heightMap hills active at once, and the player should be at least
-//    as faded as whichever source currently judges them more hidden.
-// 2. Canvas sizing now mirrors PGR's OWN ground canvas (#pgr-ground) --
-//    backbuffer size AND CSS style size, every frame -- instead of the
-//    Phaser game canvas via a resize event listener. Same fullscreen-
-//    toggle drift bug fixed earlier in steepFaceRenderer.js: PGR resizes
-//    its own canvases (including devicePixelRatio handling) differently
-//    from the Phaser canvas on fullscreen toggle, and syncing to the
-//    wrong one left this canvas's drawn content offset/scaled from the
-//    actual terrain.
+// ── v3 (this version): corrected player/tree occlusion ───────────────────────
+// v2 tried to fade the PLAYER's own alpha (pgr._playerOcclusionAlpha) when
+// a tree overlapped them, copying the hill-occlusion approach. That
+// approach only works for hills because PGR's ground canvas (z:2) sits
+// BELOW the player's own canvas (z:3) -- fading the player's alpha there
+// fakes occlusion against geometry that was never really on top. This
+// forest-canopy canvas sits at z:5, ABOVE the player -- a tree genuinely
+// paints over the player, so fading the player's alpha does nothing
+// (confirmed: player was fully invisible behind an opaque tree,
+// regardless of alpha value). Fixed by fading the TREE's own drawn
+// opacity instead, per-trunk, when that trunk's bounding box overlaps
+// the player's screen position -- the layer that's actually on top is
+// the one that needs to become transparent.
+//
+// ── v2 fix (kept): fullscreen-toggle canvas sync ──────────────────────────────
+// Canvas sizing mirrors PGR's OWN ground canvas (#pgr-ground) -- backbuffer
+// size AND CSS style size, every frame -- instead of the Phaser game
+// canvas. PGR resizes its own canvases differently from the Phaser canvas
+// on fullscreen toggle; syncing to the wrong one left this canvas's drawn
+// content offset/scaled from the actual terrain.
 //
 // ── Terrain contour driven entirely by tree roots ────────────────────────────
 // Terrain peaks are baked into the map JSON at generation/migration time,
@@ -138,8 +138,10 @@ export default class ForestEffects {
 
   static TRUNK_KEEP_CHANCE = 0.45
 
-  // Player-tree occlusion fade -- see v2 header note.
-  static TREE_OCCLUSION_ALPHA = 0.5
+  // Per-trunk occlusion fade -- see v3 header note. Applied to the
+  // TREE's own drawn alpha, not the player's, since this canvas sits
+  // above the player's own canvas (z:5 vs z:3).
+  static TREE_OCCLUSION_ALPHA = 0.35
   static TREE_OCCLUSION_EASE  = 0.25
 
   constructor(scene, options = {}) {
@@ -333,39 +335,6 @@ export default class ForestEffects {
   get width() { return this._sw }
   get height() { return this._sh }
 
-  // Rectangular bounding box test: does (px, py) fall inside a nearby
-  // tree's canopy/trunk footprint? Reuses the same widthPx/heightPx/
-  // capRadius math _drawTrunks uses -- no new geometry, just checked
-  // against the player's screen position instead of drawn.
-  _isPlayerOccludedByTrees(pgr, px, py) {
-    for (const trunk of this._trunks) {
-      const baseScreenY = pgr._rowToScreenY?.(trunk.ty + 1)
-      const scale       = pgr._scaleAtRow?.(trunk.ty + 1)
-      if (baseScreenY == null || !(scale > 0)) continue
-
-      const screenX = pgr._colToScreenX?.(trunk.tx + 0.5, trunk.ty + 1)
-      if (screenX == null) continue
-
-      const groundRow = Math.floor(trunk.ty + 1)
-      const hLeft  = pgr._vertexH?.(Math.floor(trunk.tx),     groundRow) ?? 0
-      const hRight = pgr._vertexH?.(Math.floor(trunk.tx) + 1, groundRow) ?? 0
-      const groundHeightTiles = (hLeft + hRight) * 0.5
-      const screenY = baseScreenY - groundHeightTiles * scale
-
-      const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
-      const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
-      const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL
-
-      const boxLeft   = screenX - capRadius
-      const boxRight  = screenX + capRadius
-      const boxBottom = screenY
-      const boxTop    = screenY - heightPx - capRadius
-
-      if (px >= boxLeft && px <= boxRight && py >= boxTop && py <= boxBottom) return true
-    }
-    return false
-  }
-
   update() {
 
     const pgr = this.scene.perspectiveGround
@@ -376,7 +345,7 @@ export default class ForestEffects {
     // PGR resizes its canvases (including devicePixelRatio handling)
     // differently from the Phaser canvas, and syncing to the wrong one
     // left this canvas's drawn content offset/scaled from the actual
-    // terrain (same bug fixed earlier in steepFaceRenderer.js).
+    // terrain.
     const groundCanvas = document.getElementById('pgr-ground')
     if (groundCanvas) {
       if (groundCanvas.width !== this._sw || groundCanvas.height !== this._sh) {
@@ -395,9 +364,6 @@ export default class ForestEffects {
     const sw = this._sw, sh = this._sh
     const ctx = this._ctx
 
-    const px = pgr.playerScreenX ?? sw / 2
-    const py = pgr.playerScreenY ?? sh / 2
-
     ctx.clearRect(0, 0, sw, sh)
 
     const p = this.scene.player
@@ -412,15 +378,6 @@ export default class ForestEffects {
 
     if (this._canopyHazeEnabled) this._drawCanopyHaze(sw, sh)
     this._drawTrunks(pgr, playerTileY)
-
-    // Player-tree occlusion fade -- see v2 header note. Combined with
-    // any existing occlusion value (e.g. from hill terrain) via
-    // Math.min() rather than overwriting.
-    const occluded = this._isPlayerOccludedByTrees(pgr, px, py)
-    const target = occluded ? ForestEffects.TREE_OCCLUSION_ALPHA : 1
-    const cur = this._treeOcclusionAlpha ?? 1
-    this._treeOcclusionAlpha = cur + (target - cur) * ForestEffects.TREE_OCCLUSION_EASE
-    pgr._playerOcclusionAlpha = Math.min(pgr._playerOcclusionAlpha ?? 1, this._treeOcclusionAlpha)
   }
 
   _drawCanopyHaze(sw, sh) {
@@ -714,6 +671,9 @@ export default class ForestEffects {
     const fadeRangeTiles = ForestEffects.SOUTH_FADE_RANGE_TILES
     const minAlpha = ForestEffects.SOUTH_FADE_MIN_ALPHA
 
+    const playerScreenX = pgr.playerScreenX ?? this._sw / 2
+    const playerScreenY = pgr.playerScreenY ?? this._sh / 2
+
     const sortedTrunks = [...this._trunks].sort((a, b) => a.ty - b.ty)
 
     for (const trunk of sortedTrunks) {
@@ -739,10 +699,25 @@ export default class ForestEffects {
         const t = 1 - southDist / fadeRangeTiles
         alpha = 1 - t * (1 - minAlpha)
       }
-      ctx.globalAlpha = alpha
 
       const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
       const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
+
+      // Fade THIS TREE (not the player) when its bounding box overlaps
+      // the player's screen position -- this canvas sits above the
+      // player's own canvas (z:5 vs z:3), so the tree genuinely paints
+      // over the player; fading the player's alpha can't work here the
+      // way it does for hills (see v3 header note). Eased per-trunk so
+      // it doesn't pop abruptly as the player moves in/out of the box.
+      const capRadiusCheck = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL
+      const occluding =
+        playerScreenX >= screenX - capRadiusCheck && playerScreenX <= screenX + capRadiusCheck &&
+        playerScreenY <= screenY && playerScreenY >= screenY - heightPx - capRadiusCheck
+      const targetTreeAlpha = occluding ? ForestEffects.TREE_OCCLUSION_ALPHA : 1
+      trunk._treeAlpha = (trunk._treeAlpha ?? 1) + (targetTreeAlpha - (trunk._treeAlpha ?? 1)) * ForestEffects.TREE_OCCLUSION_EASE
+      alpha *= trunk._treeAlpha
+
+      ctx.globalAlpha = alpha
 
       const groundY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
 

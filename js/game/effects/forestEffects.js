@@ -7,63 +7,52 @@
 // stormOverlay.js, starfield.js etc. -- standalone effect modules that a
 // scene opts into explicitly.
 //
-// ── Canopy approach (current) ────────────────────────────────────────────────
-// Canopy is drawn as a FOLIAGE CAP on each individual trunk, inside
-// _drawTrunks itself -- see history in prior versions of this file for
-// why screen-space bands and standalone patches were tried and abandoned.
+// ── v2 (this version): two fixes ─────────────────────────────────────────────
+// 1. Player-tree occlusion: replaced the old fixed-radius punch-hole
+//    (always cut a circular hole in the canopy layer around the player,
+//    regardless of whether a tree was actually nearby -- looked like an
+//    odd glow, confirmed via screenshot) with the SAME real-geometry
+//    approach the hill occlusion system uses: fade the player's own
+//    alpha (pgr._playerOcclusionAlpha, read by PGR's _drawPlayerAnimated)
+//    when their screen position genuinely falls inside a nearby tree's
+//    bounding box. Combined with any existing occlusion value via
+//    Math.min() rather than overwriting -- a map can have both trees and
+//    heightMap hills active at once, and the player should be at least
+//    as faded as whichever source currently judges them more hidden.
+// 2. Canvas sizing now mirrors PGR's OWN ground canvas (#pgr-ground) --
+//    backbuffer size AND CSS style size, every frame -- instead of the
+//    Phaser game canvas via a resize event listener. Same fullscreen-
+//    toggle drift bug fixed earlier in steepFaceRenderer.js: PGR resizes
+//    its own canvases (including devicePixelRatio handling) differently
+//    from the Phaser canvas on fullscreen toggle, and syncing to the
+//    wrong one left this canvas's drawn content offset/scaled from the
+//    actual terrain.
 //
 // ── Terrain contour driven entirely by tree roots ────────────────────────────
-// Each tree raises a real peak in the heightMap (see
-// _raiseGroundPeaksForTrunks) with a small flat PLATEAU at full height
-// right around the tree (ROOT_PEAK_PLATEAU_RADIUS_TILES), so the mound
-// doesn't need pixel-perfect alignment with wherever the trunk's own
-// height sample point happens to land -- see the plateau comment on that
-// method for why. Map-level authored hills (the old CONFIG.bumps in the
-// generator) should stay scrapped -- tree-root peaks are the ONLY source
-// of terrain elevation on this map.
+// Terrain peaks are baked into the map JSON at generation/migration time,
+// NOT mutated here at runtime.
 //
-// ── Trunk sinks into the ground (current fix for the "floating" look) ────────
-// Even with the plateau, small gaps between the visible ground and the
-// trunk's drawn base persisted in review -- chasing pixel-perfect
-// alignment between the terrain sample point and the trunk's anchor
-// turned out to be a losing battle. Instead, the trunk's drawn shape now
-// extends PAST its ground anchor point by TRUNK_UNDERGROUND_EXTEND_PX_MUL
-// (relative to trunk width) -- the top of the trunk is unaffected (so
-// canopy height/position stays correct), but the bottom is pushed further
-// down-screen than the true ground point, burying it. Any small mismatch
-// between terrain and anchor is now irrelevant, since the trunk always
-// overlaps the ground by a guaranteed margin rather than needing to land
-// exactly on it.
+// ── Trunk sinks into the ground ───────────────────────────────────────────────
+// The trunk's drawn shape extends PAST its ground anchor point by
+// TRUNK_UNDERGROUND_EXTEND_PX_MUL, burying the base -- guarantees overlap
+// with the ground regardless of small anchor/terrain alignment mismatch.
 //
-// ── What this does ────────────────────────────────────────────────────────────
-// Renders trunk clusters (species-varied stroke shapes, bark striations,
-// a real root-driven terrain peak, ground-sunk trunk bases, and a soft
-// mottled foliage cap) derived live from scene.mapData.wallMask. A soft
-// player-centred cutout keeps the player's own sprite from ever being
-// fully obscured by a nearby trunk/cap -- flagged separately as needing
-// its own revisit, not addressed in this pass.
-//
-// ── What this does NOT do yet ─────────────────────────────────────────────────
-//   • Does not touch PerspectiveGroundRenderer source at all
-//   • Does not know about tile GIDs, walls, or collision
-//   • Does not manage its own update loop -- the owning scene calls update()
-//     once per frame, same as it already does for perspectiveGround.update()
-//   • Bark striations are a cheap procedural approximation, not real
-//     bark texture.
-//   • Player-visibility punch-hole is known to look wrong; deferred.
-//   • No vegetation/undergrowth pass in this version -- deliberately
-//     deferred until the root/elevation look is confirmed working.
+// ── Per-instance scale + haze options (for non-forest use, e.g. riverScene) ──
+// widthScale/heightScale shrink the whole tree (trunk + canopy); canopyHaze
+// gates the atmospheric haze band. Defaults (1.0/1.0/true) preserve
+// testForest's existing look exactly.
 //
 // ── Usage ─────────────────────────────────────────────────────────────────────
 //   import ForestEffects from '../../effects/forestEffects.js'
-//   this.forestEffects = new ForestEffects(this)
+//   this.forestEffects = new ForestEffects(this, {
+//     trunkKeepChance: 1.0,
+//     widthScale: 0.5, heightScale: 0.5,
+//     canopyHaze: false,
+//   })
 //   this.forestEffects.update()   // each frame, after perspectiveGround.update()
 //   if (this.forestEffects) { this.forestEffects.destroy(); this.forestEffects = null }   // shutdown
 
 export default class ForestEffects {
-
-  static HOLE_RADIUS_FRAC = 0.11
-  static HOLE_INNER_FRAC = 0.15
 
   static CANOPY_BASE_COLOR  = 'rgba(10, 26, 12, 1)'
   static CANOPY_MOTTLE_DARK = 'rgba(4, 14, 6, 0.55)'
@@ -82,11 +71,6 @@ export default class ForestEffects {
   static TRUNK_BASE_HEIGHT_TILES = 4.4
   static TRUNK_BASE_WIDTH_TILES  = 1.3
 
-  // How far the trunk's DRAWN shape extends below its true ground anchor
-  // point, relative to the trunk's own on-screen width -- see file header
-  // "Trunk sinks into the ground." Purely visual burial; does not affect
-  // canopy height/position (topY is computed independently, see
-  // _drawTrunks).
   static TRUNK_UNDERGROUND_EXTEND_PX_MUL = 0.8
 
   // ── Bark striations ───────────────────────────────────────────────────────────
@@ -94,19 +78,6 @@ export default class ForestEffects {
   static BARK_STRIPE_COUNT_MAX = 9
   static BARK_STRIPE_DARK  = 'rgba(0, 0, 0, 0.2)'
   static BARK_STRIPE_LIGHT = 'rgba(255, 255, 255, 0.09)'
-
-  // ── Tree-root terrain peaks (the sole source of elevation) ───────────────────
-  static ROOT_PEAK_RADIUS_TILES = 0.9    // gaussian sigma (falloff region), in tiles
-  static ROOT_PEAK_AMPLITUDE    = 0.75   // per-trunk peak height contribution
-  static ROOT_PEAK_MAX_ADD      = 1.1    // cap on SUMMED contribution per vertex
-  // Radius (in tiles) around each tree that sits at FULL peak height
-  // before any falloff begins -- a flat plateau, not a single sharp
-  // point. Exists because the trunk's visual anchor and the exact vertex
-  // sampled for its height don't line up with pixel precision (an
-  // existing quirk in this projection, not introduced by this pass) -- a
-  // plateau makes the mound forgiving of that mismatch instead of
-  // requiring the peak to land on an exact point.
-  static ROOT_PEAK_PLATEAU_RADIUS_TILES = 0.5
 
   // ── Foliage cap (canopy-on-trunk) ────────────────────────────────────────────
   static CAP_RADIUS_WIDTH_MUL = 2.6
@@ -165,12 +136,21 @@ export default class ForestEffects {
 
   static CANOPY_ENABLED = true
 
+  static TRUNK_KEEP_CHANCE = 0.45
+
+  // Player-tree occlusion fade -- see v2 header note.
+  static TREE_OCCLUSION_ALPHA = 0.5
+  static TREE_OCCLUSION_EASE  = 0.25
+
   constructor(scene, options = {}) {
     this.scene = scene
     this._sw = scene.game.canvas.width
     this._sh = scene.game.canvas.height
 
-    this._trunkKeepChance = options.trunkKeepChance ?? ForestEffects.TRUNK_KEEP_CHANCE
+    this._trunkKeepChance   = options.trunkKeepChance ?? ForestEffects.TRUNK_KEEP_CHANCE
+    this._widthScale        = options.widthScale      ?? 1.0
+    this._heightScale       = options.heightScale     ?? 1.0
+    this._canopyHazeEnabled = options.canopyHaze      ?? true
 
     const container = scene.game.canvas.parentNode
     this._canvas = document.createElement('canvas')
@@ -186,37 +166,14 @@ export default class ForestEffects {
     this._ctx = this._canvas.getContext('2d')
     this._ctx.imageSmoothingEnabled = false
 
-    this._resizeHandler = () => {
-      const canvas = scene.game.canvas
-      this._sw = canvas.width
-      this._sh = canvas.height
-      this._canvas.width  = this._sw
-      this._canvas.height = this._sh
-    }
-    window.addEventListener('resize', this._resizeHandler)
-
     this._canopyPattern = this._bakeCanopyPattern()
     this._leafTextures = this._loadLeafTextures()
     this._trunks = this._bakeTrunkShapesFromMask()
 
-
-
-
-
-// Terrain peaks are now baked into the map JSON at generation time
-    // (see forest_scatter_gen.mjs's buildTrunkPositions/
-    // applyRootPeaksToHeightMap) rather than mutated at runtime here --
-    // runtime mutation of scene.mapData.heightMap didn't actually reach
-    // PGR's rendering (PGR very likely copies/converts heightMap into
-    // its own internal structure during scene setup, before this
-    // constructor ever runs). _raiseGroundPeaksForTrunks is left defined
-    // below, unused, in case a hand-authored map without pre-baked peaks
-    // ever wants runtime baking.
-
-    console.log('[ForestEffects] constructed -', this._sw, 'x', this._sh, '-', this._trunks.length, 'trunk clusters -- trunkKeepChance:', this._trunkKeepChance)
+    console.log('[ForestEffects] constructed -', this._sw, 'x', this._sh, '-', this._trunks.length, 'trunk clusters -- trunkKeepChance:', this._trunkKeepChance, '-- widthScale:', this._widthScale, 'heightScale:', this._heightScale, 'canopyHaze:', this._canopyHazeEnabled)
   }
 
-	  _loadLeafTextures() {
+  _loadLeafTextures() {
     const slots = new Array(ForestEffects.LEAF_TEXTURE_PATHS.length).fill(null)
     ForestEffects.LEAF_TEXTURE_PATHS.forEach((path, i) => {
       const img = new Image()
@@ -230,8 +187,6 @@ export default class ForestEffects {
     })
     return slots
   }
-
-  static TRUNK_KEEP_CHANCE = 0.45
 
   _bakeTrunkShapesFromMask() {
     const mask = this.scene.mapData?.wallMask
@@ -270,56 +225,6 @@ export default class ForestEffects {
       }
     }
     return positions.map(([tx, ty]) => this._buildTrunkShape(tx, ty))
-  }
-
-  // Mutates scene.mapData.heightMap in place, adding a peak with a flat
-  // plateau (full height within ROOT_PEAK_PLATEAU_RADIUS_TILES) around
-  // each trunk position, falling off with a gaussian beyond that -- see
-  // ROOT_PEAK_PLATEAU_RADIUS_TILES comment for why the plateau exists.
-  // Accumulates into a separate buffer first, then applies with a
-  // per-vertex cap (ROOT_PEAK_MAX_ADD) so vertices shared by several
-  // trunks in a dense cluster blend into one hillock rather than stacking
-  // into an unboundedly tall spike.
-  _raiseGroundPeaksForTrunks(positions) {
-    const hm = this.scene.mapData?.heightMap
-    if (!hm) {
-      console.warn('[ForestEffects] no heightMap found -- skipping root-driven terrain peaks')
-      return
-    }
-    const vertsH = hm.length
-    const vertsW = hm[0]?.length ?? 0
-    const sigma = ForestEffects.ROOT_PEAK_RADIUS_TILES
-    const amp = ForestEffects.ROOT_PEAK_AMPLITUDE
-    const plateau = ForestEffects.ROOT_PEAK_PLATEAU_RADIUS_TILES
-    const reach = Math.ceil((sigma + plateau) * 2.5)
-
-    const add = Array.from({ length: vertsH }, () => new Array(vertsW).fill(0))
-
-    for (const [tx, ty] of positions) {
-      const vx0 = Math.max(0, Math.floor(tx - reach))
-      const vx1 = Math.min(vertsW - 1, Math.ceil(tx + reach))
-      const vy0 = Math.max(0, Math.floor(ty - reach))
-      const vy1 = Math.min(vertsH - 1, Math.ceil(ty + reach))
-      for (let vy = vy0; vy <= vy1; vy++) {
-        for (let vx = vx0; vx <= vx1; vx++) {
-          const d = Math.sqrt((vx - tx) ** 2 + (vy - ty) ** 2)
-          const g = d <= plateau
-            ? 1
-            : Math.exp(-((d - plateau) ** 2) / (2 * sigma * sigma))
-          add[vy][vx] += amp * g
-        }
-      }
-    }
-
-    let mutated = 0
-    for (let vy = 0; vy < vertsH; vy++) {
-      for (let vx = 0; vx < vertsW; vx++) {
-        if (add[vy][vx] <= 0) continue
-        hm[vy][vx] = hm[vy][vx] + Math.min(add[vy][vx], ForestEffects.ROOT_PEAK_MAX_ADD)
-        mutated++
-      }
-    }
-    console.log('[ForestEffects] raised', mutated, 'heightMap vertices for', positions.length, 'tree-root peaks')
   }
 
   _buildTrunkShape(tx, ty) {
@@ -428,17 +333,63 @@ export default class ForestEffects {
   get width() { return this._sw }
   get height() { return this._sh }
 
+  // Rectangular bounding box test: does (px, py) fall inside a nearby
+  // tree's canopy/trunk footprint? Reuses the same widthPx/heightPx/
+  // capRadius math _drawTrunks uses -- no new geometry, just checked
+  // against the player's screen position instead of drawn.
+  _isPlayerOccludedByTrees(pgr, px, py) {
+    for (const trunk of this._trunks) {
+      const baseScreenY = pgr._rowToScreenY?.(trunk.ty + 1)
+      const scale       = pgr._scaleAtRow?.(trunk.ty + 1)
+      if (baseScreenY == null || !(scale > 0)) continue
+
+      const screenX = pgr._colToScreenX?.(trunk.tx + 0.5, trunk.ty + 1)
+      if (screenX == null) continue
+
+      const groundRow = Math.floor(trunk.ty + 1)
+      const hLeft  = pgr._vertexH?.(Math.floor(trunk.tx),     groundRow) ?? 0
+      const hRight = pgr._vertexH?.(Math.floor(trunk.tx) + 1, groundRow) ?? 0
+      const groundHeightTiles = (hLeft + hRight) * 0.5
+      const screenY = baseScreenY - groundHeightTiles * scale
+
+      const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
+      const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
+      const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL
+
+      const boxLeft   = screenX - capRadius
+      const boxRight  = screenX + capRadius
+      const boxBottom = screenY
+      const boxTop    = screenY - heightPx - capRadius
+
+      if (px >= boxLeft && px <= boxRight && py >= boxTop && py <= boxBottom) return true
+    }
+    return false
+  }
+
   update() {
 
     const pgr = this.scene.perspectiveGround
     if (!pgr) return
 
-    const canvas = this.scene.game.canvas
-    if (canvas.width !== this._sw || canvas.height !== this._sh) {
-      this._sw = canvas.width
-      this._sh = canvas.height
-      this._canvas.width  = this._sw
-      this._canvas.height = this._sh
+    // Mirror PGR's own ground canvas exactly -- backbuffer size AND CSS
+    // size -- rather than the Phaser game canvas. On fullscreen toggle
+    // PGR resizes its canvases (including devicePixelRatio handling)
+    // differently from the Phaser canvas, and syncing to the wrong one
+    // left this canvas's drawn content offset/scaled from the actual
+    // terrain (same bug fixed earlier in steepFaceRenderer.js).
+    const groundCanvas = document.getElementById('pgr-ground')
+    if (groundCanvas) {
+      if (groundCanvas.width !== this._sw || groundCanvas.height !== this._sh) {
+        this._sw = groundCanvas.width
+        this._sh = groundCanvas.height
+        this._canvas.width  = this._sw
+        this._canvas.height = this._sh
+      }
+      if (this._canvas.style.width  !== groundCanvas.style.width ||
+          this._canvas.style.height !== groundCanvas.style.height) {
+        this._canvas.style.width  = groundCanvas.style.width
+        this._canvas.style.height = groundCanvas.style.height
+      }
     }
 
     const sw = this._sw, sh = this._sh
@@ -453,22 +404,23 @@ export default class ForestEffects {
     const ts = pgr.tileDisplaySize ?? 48
     const playerTileY = Math.floor((p?.targetY ?? p?.logicalY ?? 0) / ts)
 
-    // _drawWallFloorTint intentionally NOT called -- unwalkable cells are
-    // communicated by trees alone. Method left defined below in case
-    // another forest scene reusing this class still wants it.
     this._drawExitMarkers(pgr)
 
     if (this.undergrowthRenderer) {
       this.undergrowthRenderer.update(pgr, sw, sh)
     }
 
-    this._drawCanopyHaze(sw, sh)
+    if (this._canopyHazeEnabled) this._drawCanopyHaze(sw, sh)
     this._drawTrunks(pgr, playerTileY)
 
-    // Player-visibility punch-hole: known to look wrong, deliberately
-    // left unchanged in this pass -- revisit separately.
-    const radius = Math.sqrt(sw * sw + sh * sh) * ForestEffects.HOLE_RADIUS_FRAC
-    this._punchHole(px, py, radius, ForestEffects.HOLE_INNER_FRAC)
+    // Player-tree occlusion fade -- see v2 header note. Combined with
+    // any existing occlusion value (e.g. from hill terrain) via
+    // Math.min() rather than overwriting.
+    const occluded = this._isPlayerOccludedByTrees(pgr, px, py)
+    const target = occluded ? ForestEffects.TREE_OCCLUSION_ALPHA : 1
+    const cur = this._treeOcclusionAlpha ?? 1
+    this._treeOcclusionAlpha = cur + (target - cur) * ForestEffects.TREE_OCCLUSION_EASE
+    pgr._playerOcclusionAlpha = Math.min(pgr._playerOcclusionAlpha ?? 1, this._treeOcclusionAlpha)
   }
 
   _drawCanopyHaze(sw, sh) {
@@ -543,20 +495,6 @@ export default class ForestEffects {
     this._hazeCanvasH = sh
   }
 
-  _punchHole(cx, cy, radius, innerStopFrac) {
-    const ctx = this._ctx
-    ctx.globalCompositeOperation = 'destination-out'
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
-    grad.addColorStop(0,             'rgba(0,0,0,1)')
-    grad.addColorStop(innerStopFrac, 'rgba(0,0,0,1)')
-    grad.addColorStop(1,             'rgba(0,0,0,0)')
-    ctx.fillStyle = grad
-    ctx.beginPath()
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.globalCompositeOperation = 'source-over'
-  }
-
   _drawExitMarkers(pgr) {
     const exits = this.scene.mapData?.exits
     if (!exits) return
@@ -599,7 +537,9 @@ export default class ForestEffects {
     }
   }
 
-  // NOT called from update() anymore -- see comment at the call site.
+  // NOT called from update() -- see comment at the call site. Left
+  // defined in case another forest scene reusing this class still wants
+  // the dark unwalkable-tile tint.
   _drawWallFloorTint(pgr) {
     const mask = this.scene.mapData?.wallMask
     if (!mask) return
@@ -801,13 +741,9 @@ export default class ForestEffects {
       }
       ctx.globalAlpha = alpha
 
-      const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale
-      const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale
+      const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
+      const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
 
-      // Ground-sink: the drawn shape's BASE extends this far past the
-      // true ground anchor (screenY), burying it. topY below is computed
-      // from the original screenY, NOT groundY, so canopy height/position
-      // is unaffected -- only the visible bottom moves.
       const groundY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
 
       for (const s of trunk.strokes) {
@@ -889,7 +825,6 @@ export default class ForestEffects {
   destroy() {
     console.log('[ForestEffects] destroy() called -- canvas present:', !!this._canvas,
       'has parent:', !!this._canvas?.parentNode)
-    window.removeEventListener('resize', this._resizeHandler)
     if (this._canvas?.parentNode) {
       this._canvas.parentNode.removeChild(this._canvas)
       console.log('[ForestEffects] canvas removed from DOM')

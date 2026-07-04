@@ -11,8 +11,16 @@
 //   • _doDisembark() — find nearest land tile, snap player
 //   • _restoreBoatOnEnter() — restore moored boat from GameState
 //   • Tap validation (reject land tiles when in boat)
-//   • isColliding() override — water + reeds passable in boat
+//   • isColliding() override — water + reeds passable in boat, wallMask
+//     trees block on land
 //   • Disembark badge UI
+//   • ForestEffects — rendered tree trunks for maps migrated from dense
+//     Oryx tree stamps (see tools/map-editor/migrate_oryx_trees.mjs).
+//     Only activates if mapData.wallMask exists, so unmigrated maps are
+//     completely unaffected. trunkKeepChance is 1.0 because the
+//     migration script already thinned tree density BEFORE writing
+//     wallMask -- every kept cell should render a trunk, no further
+//     thinning needed here.
 //
 // ── Usage ─────────────────────────────────────────────────────────────────────
 //   export default class D3SeaScene extends RiverScene {
@@ -27,28 +35,33 @@ import BogScene from './bogScene.js'
 import PathFinder from '../../systems/pathFinder.js'
 import BoatSystem from '../../systems/boatSystem.js'
 import { GameState } from '../../systems/gameState.js'
+import ForestEffects from '../../effects/forestEffects.js'
 
 const WATER_GIDS = new Set([1625, 1679])
 const REED_GIDS  = new Set([731])
 
 export default class RiverScene extends BogScene {
 
-
-
-
-
-
 preload() {
   super.preload()
   this.load.image('boat', '/assets/boat.png')  // adjust path from grep result
 }
-
 
   async create() {
     // BoatSystem must exist BEFORE super.create() because super.create()
     // calls onEnter() at the end, and onEnter() may call boatSystem.activate().
     this.boatSystem = new BoatSystem(this)
     await super.create()
+
+    // Migrated maps (have wallMask) get rendered tree trunks. Unmigrated
+    // maps have no wallMask, so this is a no-op for them.
+    if (this.mapData?.wallMask) {
+      this.forestEffects = new ForestEffects(this, {
+        trunkKeepChance: 1.0,
+        widthScale:  0.5,
+        heightScale: 0.5,
+        canopyHaze:  false,
+      })    }
   }
 
   update(time, delta) {
@@ -56,10 +69,12 @@ preload() {
     // Boat physics before PGR so position is current when renderer reads it
     if (this.boatSystem) this.boatSystem.update(delta)
     super.update(time, delta)
+    if (this.forestEffects) this.forestEffects.update()
   }
 
   shutdown() {
-    if (this.boatSystem) { this.boatSystem.destroy(); this.boatSystem = null }
+    if (this.boatSystem)    { this.boatSystem.destroy();    this.boatSystem    = null }
+    if (this.forestEffects) { this.forestEffects.destroy(); this.forestEffects = null }
     super.shutdown()
   }
 
@@ -164,6 +179,9 @@ preload() {
 
   // ── Collision override ────────────────────────────────────────────────────
   // In boat: water and reeds are passable; land blocks.
+  // On land: wallMask trees block (migrated maps only -- see ForestEffects
+  // note above; wallMask is absent on unmigrated maps, so this check is a
+  // silent no-op there).
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)
@@ -173,6 +191,7 @@ preload() {
       const g = this.mapData.layers[0]?.[ty]?.[tx]
       return !(WATER_GIDS.has(g) || REED_GIDS.has(g))
     }
+    if (this.mapData?.wallMask?.[ty]?.[tx] === 1) return true
     return super.isColliding(x, y)
   }
 
@@ -271,4 +290,3 @@ preload() {
     })
   }
 }
-

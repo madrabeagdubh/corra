@@ -7,47 +7,51 @@
 // stormOverlay.js, starfield.js etc. -- standalone effect modules that a
 // scene opts into explicitly.
 //
-// ── v3 (this version): corrected player/tree occlusion ───────────────────────
-// v2 tried to fade the PLAYER's own alpha (pgr._playerOcclusionAlpha) when
-// a tree overlapped them, copying the hill-occlusion approach. That
-// approach only works for hills because PGR's ground canvas (z:2) sits
-// BELOW the player's own canvas (z:3) -- fading the player's alpha there
-// fakes occlusion against geometry that was never really on top. This
-// forest-canopy canvas sits at z:5, ABOVE the player -- a tree genuinely
-// paints over the player, so fading the player's alpha does nothing
-// (confirmed: player was fully invisible behind an opaque tree,
-// regardless of alpha value). Fixed by fading the TREE's own drawn
-// opacity instead, per-trunk, when that trunk's bounding box overlaps
-// the player's screen position -- the layer that's actually on top is
-// the one that needs to become transparent.
+// ── v5 (this version): tapered branches + tintManager foliage tint ──────────
+// 1. Branches were a constant-width straight stroke at HALF the trunk's
+//    own width (Math.max(1.5, w * 0.5)) -- confirmed via screenshot this
+//    read as girder-like, not branch-like. Replaced with a TAPERED FILLED
+//    SHAPE (thick at the trunk, narrow at the tip) with a slight curve,
+//    at a much smaller base width. New branchScale instance option
+//    (default 1.0) additionally scales branch length/width, or disables
+//    branches entirely at 0 -- for contexts (open landscape, non-forest
+//    maps) where the dense, twiggy look doesn't fit.
+// 2. Foliage canopy now gets the SAME tintManager-driven per-tile colour
+//    variation the old Oryx tree stamps had (PerspectiveGroundRenderer's
+//    tintManager, 'vegetation' category -- hue/saturation/lightness
+//    hashed per tile position, same code path Oryx billboards used).
+//    Applied once when a trunk's canopy is baked (not per-frame), via a
+//    source-atop overlay on the cached cap canvas.
 //
-// ── v2 fix (kept): fullscreen-toggle canvas sync ──────────────────────────────
-// Canvas sizing mirrors PGR's OWN ground canvas (#pgr-ground) -- backbuffer
-// size AND CSS style size, every frame -- instead of the Phaser game
-// canvas. PGR resizes its own canvases differently from the Phaser canvas
-// on fullscreen toggle; syncing to the wrong one left this canvas's drawn
-// content offset/scaled from the actual terrain.
+// ── v4: canopy bushiness controls ─────────────────────────────────────────────
+// canopyFacetScale / canopyLayerScale / canopyRadiusScale (all default
+// 1.0) let non-forest contexts have visibly smaller, sparser canopies
+// without touching testForest's own look.
+//
+// ── v3: corrected player/tree occlusion ───────────────────────────────────────
+// Fades the TREE's own drawn opacity (per-trunk), not the player's, when a
+// trunk's bounding box overlaps the player's screen position -- this
+// canvas sits above the player's own canvas (z:5 vs z:3).
+//
+// ── v2: fullscreen-toggle canvas sync ──────────────────────────────────────────
+// Canvas sizing mirrors PGR's OWN ground canvas (#pgr-ground) every frame.
 //
 // ── Terrain contour driven entirely by tree roots ────────────────────────────
 // Terrain peaks are baked into the map JSON at generation/migration time,
 // NOT mutated here at runtime.
 //
 // ── Trunk sinks into the ground ───────────────────────────────────────────────
-// The trunk's drawn shape extends PAST its ground anchor point by
-// TRUNK_UNDERGROUND_EXTEND_PX_MUL, burying the base -- guarantees overlap
-// with the ground regardless of small anchor/terrain alignment mismatch.
-//
-// ── Per-instance scale + haze options (for non-forest use, e.g. riverScene) ──
-// widthScale/heightScale shrink the whole tree (trunk + canopy); canopyHaze
-// gates the atmospheric haze band. Defaults (1.0/1.0/true) preserve
-// testForest's existing look exactly.
+// The trunk's drawn shape extends PAST its ground anchor point, burying
+// the base regardless of small terrain/anchor alignment mismatch.
 //
 // ── Usage ─────────────────────────────────────────────────────────────────────
 //   import ForestEffects from '../../effects/forestEffects.js'
 //   this.forestEffects = new ForestEffects(this, {
 //     trunkKeepChance: 1.0,
-//     widthScale: 0.5, heightScale: 0.5,
+//     widthScale: 0.35, heightScale: 0.35,
 //     canopyHaze: false,
+//     canopyFacetScale: 0.5, canopyLayerScale: 0.5, canopyRadiusScale: 0.55,
+//     branchScale: 0.4,   // 0 to disable branches entirely
 //   })
 //   this.forestEffects.update()   // each frame, after perspectiveGround.update()
 //   if (this.forestEffects) { this.forestEffects.destroy(); this.forestEffects = null }   // shutdown
@@ -79,6 +83,12 @@ export default class ForestEffects {
   static BARK_STRIPE_DARK  = 'rgba(0, 0, 0, 0.2)'
   static BARK_STRIPE_LIGHT = 'rgba(255, 255, 255, 0.09)'
 
+  // ── Branches (tapered, see v5 note) ──────────────────────────────────────────
+  static BRANCH_LENGTH_MUL     = 3.2   // was effectively 4 (x) / 3 (y), now uniform
+  static BRANCH_BASE_WIDTH_MUL = 0.16  // was 0.5 -- half-trunk-width read as girders
+  static BRANCH_TIP_WIDTH_FRAC = 0.12  // tip width as a fraction of base width (taper)
+  static BRANCH_CURVE_FRAC     = 0.15  // sideways bow, as a fraction of branch length
+
   // ── Foliage cap (canopy-on-trunk) ────────────────────────────────────────────
   static CAP_RADIUS_WIDTH_MUL = 2.6
   static CAP_HEIGHT_OFFSET_MUL = 0.35
@@ -87,6 +97,12 @@ export default class ForestEffects {
   static CAP_LAYER_COUNT_MIN = 3
   static CAP_LAYER_COUNT_MAX = 5
   static CAP_LAYER_SPACING   = 0.55
+
+  // GID used purely as a lookup key into tintManager's 'vegetation'
+  // category (see GID_CATEGORIES.vegetation in tintManager.js) -- any
+  // vegetation-category GID works identically here, since getTint()'s
+  // actual colour output is driven by tile position hashing, not GID.
+  static TINT_LOOKUP_GID = 315
 
   static SWAY_MAX_ANGLE_RAD = 0.045
   static SWAY_SPEED_MIN     = 0.25
@@ -138,9 +154,6 @@ export default class ForestEffects {
 
   static TRUNK_KEEP_CHANCE = 0.45
 
-  // Per-trunk occlusion fade -- see v3 header note. Applied to the
-  // TREE's own drawn alpha, not the player's, since this canvas sits
-  // above the player's own canvas (z:5 vs z:3).
   static TREE_OCCLUSION_ALPHA = 0.35
   static TREE_OCCLUSION_EASE  = 0.25
 
@@ -153,6 +166,10 @@ export default class ForestEffects {
     this._widthScale        = options.widthScale      ?? 1.0
     this._heightScale       = options.heightScale     ?? 1.0
     this._canopyHazeEnabled = options.canopyHaze      ?? true
+    this._canopyFacetScale  = options.canopyFacetScale  ?? 1.0
+    this._canopyLayerScale  = options.canopyLayerScale  ?? 1.0
+    this._canopyRadiusScale = options.canopyRadiusScale ?? 1.0
+    this._branchScale       = options.branchScale       ?? 1.0
 
     const container = scene.game.canvas.parentNode
     this._canvas = document.createElement('canvas')
@@ -172,7 +189,7 @@ export default class ForestEffects {
     this._leafTextures = this._loadLeafTextures()
     this._trunks = this._bakeTrunkShapesFromMask()
 
-    console.log('[ForestEffects] constructed -', this._sw, 'x', this._sh, '-', this._trunks.length, 'trunk clusters -- trunkKeepChance:', this._trunkKeepChance, '-- widthScale:', this._widthScale, 'heightScale:', this._heightScale, 'canopyHaze:', this._canopyHazeEnabled)
+    console.log('[ForestEffects] constructed -', this._sw, 'x', this._sh, '-', this._trunks.length, 'trunk clusters -- trunkKeepChance:', this._trunkKeepChance, '-- widthScale:', this._widthScale, 'heightScale:', this._heightScale, 'canopyHaze:', this._canopyHazeEnabled, '-- canopyFacetScale:', this._canopyFacetScale, 'canopyLayerScale:', this._canopyLayerScale, 'canopyRadiusScale:', this._canopyRadiusScale, '-- branchScale:', this._branchScale)
   }
 
   _loadLeafTextures() {
@@ -266,15 +283,15 @@ export default class ForestEffects {
         strokes.push({ xOffset, curve, heightMul, widthMul, branches, stripeCount })
       }
 
-      const layerCount = ForestEffects.CAP_LAYER_COUNT_MIN +
-        Math.floor(rand() * (ForestEffects.CAP_LAYER_COUNT_MAX - ForestEffects.CAP_LAYER_COUNT_MIN + 1))
+      const layerCount = Math.max(1, Math.round((ForestEffects.CAP_LAYER_COUNT_MIN +
+        Math.floor(rand() * (ForestEffects.CAP_LAYER_COUNT_MAX - ForestEffects.CAP_LAYER_COUNT_MIN + 1))) * this._canopyLayerScale))
       const capLayers = []
       for (let layer = 0; layer < layerCount; layer++) {
         const layerYOffset = -layer * ForestEffects.CAP_LAYER_SPACING
         const layerScale = 1.0 - layer * 0.12
 
-        const facetCount = ForestEffects.CAP_FACET_COUNT_MIN +
-          Math.floor(rand() * (ForestEffects.CAP_FACET_COUNT_MAX - ForestEffects.CAP_FACET_COUNT_MIN + 1))
+        const facetCount = Math.max(2, Math.round((ForestEffects.CAP_FACET_COUNT_MIN +
+          Math.floor(rand() * (ForestEffects.CAP_FACET_COUNT_MAX - ForestEffects.CAP_FACET_COUNT_MIN + 1))) * this._canopyFacetScale))
         const facets = []
         for (let i = 0; i < facetCount; i++) {
           const cx = (rand() - 0.5) * 2.2 * layerScale
@@ -340,12 +357,6 @@ export default class ForestEffects {
     const pgr = this.scene.perspectiveGround
     if (!pgr) return
 
-    // Mirror PGR's own ground canvas exactly -- backbuffer size AND CSS
-    // size -- rather than the Phaser game canvas. On fullscreen toggle
-    // PGR resizes its canvases (including devicePixelRatio handling)
-    // differently from the Phaser canvas, and syncing to the wrong one
-    // left this canvas's drawn content offset/scaled from the actual
-    // terrain.
     const groundCanvas = document.getElementById('pgr-ground')
     if (groundCanvas) {
       if (groundCanvas.width !== this._sw || groundCanvas.height !== this._sh) {
@@ -494,9 +505,8 @@ export default class ForestEffects {
     }
   }
 
-  // NOT called from update() -- see comment at the call site. Left
-  // defined in case another forest scene reusing this class still wants
-  // the dark unwalkable-tile tint.
+  // NOT called from update() -- left defined in case another forest
+  // scene reusing this class still wants the dark unwalkable-tile tint.
   _drawWallFloorTint(pgr) {
     const mask = this.scene.mapData?.wallMask
     if (!mask) return
@@ -565,7 +575,7 @@ export default class ForestEffects {
 
   static BAKE_REFERENCE_RADIUS_PX = 80
 
-  _bakeCapForTrunk(trunk) {
+  _bakeCapForTrunk(trunk, pgr) {
     const R = ForestEffects.BAKE_REFERENCE_RADIUS_PX
     const canvas = document.createElement('canvas')
     const padX     = R * 1.6
@@ -622,6 +632,21 @@ export default class ForestEffects {
       bctx.restore()
     }
 
+    // Per-position colour variation, same tintManager path the old Oryx
+    // tree stamps used ('vegetation' category -- hue/sat/lightness hashed
+    // per tile position). Baked once here, not per-frame.
+    const tint = pgr?.tintManager?.getTint?.(
+      ForestEffects.TINT_LOOKUP_GID, Math.floor(trunk.tx), Math.floor(trunk.ty)
+    )
+    if (tint) {
+      bctx.save()
+      bctx.globalCompositeOperation = 'source-atop'
+      bctx.globalAlpha = tint.alpha ?? 0.5
+      bctx.fillStyle = `hsl(${tint.h},${tint.s}%,${tint.l}%)`
+      bctx.fillRect(0, 0, canvas.width, canvas.height)
+      bctx.restore()
+    }
+
     trunk._cachedCapCanvas = canvas
     trunk._cachedCapAnchorX = cx
     trunk._cachedCapAnchorY = cy
@@ -630,14 +655,14 @@ export default class ForestEffects {
     trunk._cachedCapTextureCount = loadedTextures.length
   }
 
-  _drawFoliageCap(trunk, screenX, topY, widthPx, alpha) {
+  _drawFoliageCap(trunk, screenX, topY, widthPx, alpha, pgr) {
     const ctx = this._ctx
-    const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL
+    const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
     if (!(capRadius > 0)) return
 
     const loadedCount = this._leafTextures?.filter(t => t != null).length ?? 0
     if (!trunk._cachedCapCanvas || trunk._cachedCapTextureCount !== loadedCount) {
-      this._bakeCapForTrunk(trunk)
+      this._bakeCapForTrunk(trunk, pgr)
     }
 
     const capAnchorY = topY - capRadius * ForestEffects.CAP_HEIGHT_OFFSET_MUL
@@ -664,6 +689,37 @@ export default class ForestEffects {
     ctx.translate(-screenX, -capAnchorY)
     ctx.drawImage(trunk._cachedCapCanvas, drawX, drawY, drawW, drawH)
     ctx.restore()
+  }
+
+  // Tapered, slightly curved branch -- filled shape (thick at the trunk,
+  // narrow at the tip), not a constant-width stroke. See v5 header note
+  // for why the old straight, half-trunk-width stroke read as a girder.
+  _drawBranch(baseX, baseY, ang, len, colorDark) {
+    const ctx = this._ctx
+    const endX = baseX + Math.sin(ang) * len
+    const endY = baseY - Math.cos(ang) * len
+
+    const baseWidth = Math.max(0.6, len * 0.09)   // proportion to length, not trunk width
+    const tipWidth  = baseWidth * ForestEffects.BRANCH_TIP_WIDTH_FRAC
+
+    const dx = endX - baseX, dy = endY - baseY
+    const segLen = Math.hypot(dx, dy) || 1
+    const nx = -dy / segLen, ny = dx / segLen
+
+    // Slight sideways bow, direction derived from the branch's own angle
+    // (deterministic, no extra random state needed) so it curves away
+    // from straight without looking arbitrary.
+    const bow = segLen * ForestEffects.BRANCH_CURVE_FRAC * (ang >= 0 ? 1 : -1)
+    const midX = (baseX + endX) / 2 + nx * bow
+    const midY = (baseY + endY) / 2 + ny * bow
+
+    ctx.fillStyle = colorDark
+    ctx.beginPath()
+    ctx.moveTo(baseX - nx * baseWidth / 2, baseY - ny * baseWidth / 2)
+    ctx.quadraticCurveTo(midX - nx * tipWidth, midY - ny * tipWidth, endX, endY)
+    ctx.quadraticCurveTo(midX + nx * tipWidth, midY + ny * tipWidth, baseX + nx * baseWidth / 2, baseY + ny * baseWidth / 2)
+    ctx.closePath()
+    ctx.fill()
   }
 
   _drawTrunks(pgr, playerTileY) {
@@ -703,13 +759,7 @@ export default class ForestEffects {
       const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
       const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
 
-      // Fade THIS TREE (not the player) when its bounding box overlaps
-      // the player's screen position -- this canvas sits above the
-      // player's own canvas (z:5 vs z:3), so the tree genuinely paints
-      // over the player; fading the player's alpha can't work here the
-      // way it does for hills (see v3 header note). Eased per-trunk so
-      // it doesn't pop abruptly as the player moves in/out of the box.
-      const capRadiusCheck = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL
+      const capRadiusCheck = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
       const occluding =
         playerScreenX >= screenX - capRadiusCheck && playerScreenX <= screenX + capRadiusCheck &&
         playerScreenY <= screenY && playerScreenY >= screenY - heightPx - capRadiusCheck
@@ -748,23 +798,19 @@ export default class ForestEffects {
         ctx.quadraticCurveTo(midX - w / 4, midY, topX - w / 8, topY)
         ctx.stroke()
 
-        for (const br of s.branches) {
-          const branchBaseX = baseX + (topX - baseX) * br.at
-          const branchBaseY = screenY + (topY - screenY) * br.at
-          const branchEndX  = branchBaseX + Math.sin(br.ang) * w * 4 * br.len
-          const branchEndY  = branchBaseY - Math.cos(br.ang) * w * 3 * br.len
-          ctx.strokeStyle = trunk.species.colorDark
-          ctx.lineWidth = Math.max(1.5, w * 0.5)
-          ctx.beginPath()
-          ctx.moveTo(branchBaseX, branchBaseY)
-          ctx.lineTo(branchEndX, branchEndY)
-          ctx.stroke()
+        if (this._branchScale > 0.001) {
+          for (const br of s.branches) {
+            const branchBaseX = baseX + (topX - baseX) * br.at
+            const branchBaseY = screenY + (topY - screenY) * br.at
+            const len = w * ForestEffects.BRANCH_LENGTH_MUL * br.len * this._branchScale
+            this._drawBranch(branchBaseX, branchBaseY, br.ang, len, trunk.species.colorDark)
+          }
         }
       }
 
       if (ForestEffects.CANOPY_ENABLED) {
         const topY = screenY - heightPx
-        this._drawFoliageCap(trunk, screenX, topY, widthPx, alpha)
+        this._drawFoliageCap(trunk, screenX, topY, widthPx, alpha, pgr)
       }
     }
     ctx.globalAlpha = 1.0

@@ -14,13 +14,16 @@
 //   • isColliding() override — water + reeds passable in boat, wallMask
 //     trees block on land
 //   • Disembark badge UI
-//   • ForestEffects — rendered tree trunks for maps migrated from dense
-//     Oryx tree stamps (see tools/map-editor/migrate_oryx_trees.mjs).
-//     Only activates if mapData.wallMask exists, so unmigrated maps are
-//     completely unaffected. trunkKeepChance is 1.0 because the
-//     migration script already thinned tree density BEFORE writing
-//     wallMask -- every kept cell should render a trunk, no further
-//     thinning needed here.
+//
+// ── ForestEffects now lives in PerspectiveScene, not here ────────────────────
+// Rendered tree trunks (for maps migrated from dense Oryx tree stamps,
+// see tools/map-editor/migrate_oryx_trees.mjs) are constructed, updated,
+// and destroyed at the shared PerspectiveScene level -- both RiverScene
+// and plain BogScene land maps get the same tuning (smaller trees, no
+// canopy haze) for free. This file previously had its own separate
+// ForestEffects wiring; removed to avoid constructing it TWICE (once
+// here, once inherited), which would have produced two overlapping
+// canvases and duplicate trunks.
 //
 // ── Usage ─────────────────────────────────────────────────────────────────────
 //   export default class D3SeaScene extends RiverScene {
@@ -35,7 +38,6 @@ import BogScene from './bogScene.js'
 import PathFinder from '../../systems/pathFinder.js'
 import BoatSystem from '../../systems/boatSystem.js'
 import { GameState } from '../../systems/gameState.js'
-import ForestEffects from '../../effects/forestEffects.js'
 
 const WATER_GIDS = new Set([1625, 1679])
 const REED_GIDS  = new Set([731])
@@ -52,16 +54,6 @@ preload() {
     // calls onEnter() at the end, and onEnter() may call boatSystem.activate().
     this.boatSystem = new BoatSystem(this)
     await super.create()
-
-    // Migrated maps (have wallMask) get rendered tree trunks. Unmigrated
-    // maps have no wallMask, so this is a no-op for them.
-    if (this.mapData?.wallMask) {
-      this.forestEffects = new ForestEffects(this, {
-        trunkKeepChance: 1.0,
-        widthScale:  0.5,
-        heightScale: 0.5,
-        canopyHaze:  false,
-      })    }
   }
 
   update(time, delta) {
@@ -69,12 +61,10 @@ preload() {
     // Boat physics before PGR so position is current when renderer reads it
     if (this.boatSystem) this.boatSystem.update(delta)
     super.update(time, delta)
-    if (this.forestEffects) this.forestEffects.update()
   }
 
   shutdown() {
-    if (this.boatSystem)    { this.boatSystem.destroy();    this.boatSystem    = null }
-    if (this.forestEffects) { this.forestEffects.destroy(); this.forestEffects = null }
+    if (this.boatSystem) { this.boatSystem.destroy(); this.boatSystem = null }
     super.shutdown()
   }
 
@@ -179,9 +169,9 @@ preload() {
 
   // ── Collision override ────────────────────────────────────────────────────
   // In boat: water and reeds are passable; land blocks.
-  // On land: wallMask trees block (migrated maps only -- see ForestEffects
-  // note above; wallMask is absent on unmigrated maps, so this check is a
-  // silent no-op there).
+  // On land: wallMask trees block (migrated maps only -- see PerspectiveScene's
+  // ForestEffects wiring; wallMask is absent on unmigrated maps, so this
+  // check is a silent no-op there).
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize)

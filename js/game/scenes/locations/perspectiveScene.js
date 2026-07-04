@@ -229,9 +229,16 @@ export default class PerspectiveScene extends BaseLocationScene {
     // sparse wallMask-driven trunks (see tools/map-editor/migrate_oryx_trees.mjs).
     // Guarded on wallMask existing -- unmigrated maps get no ForestEffects
     // instance at all, so this is a pure no-op for them.
-    if (this.mapData?.wallMask) {
-      this.forestEffects = new ForestEffects(this, { trunkKeepChance: 1.0 })
-    }
+   this.forestEffects = new ForestEffects(this, {
+        trunkKeepChance: 1.0,
+        widthScale:  0.35,
+        heightScale: 0.35,
+        canopyHaze:  false,
+        canopyFacetScale:  0.5,
+        canopyLayerScale:  0.5,
+        canopyRadiusScale: 0.55,
+        branchScale: 0.4,
+      })
 
     this.showIntroNarrative()
     this.onEnter()

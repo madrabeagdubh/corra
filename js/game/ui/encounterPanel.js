@@ -120,16 +120,16 @@ export class EncounterPanel {
     this._showBadge(card.visual)
   }
 
-  clearNotify() {
-    if (this._isOpen) return
-    if (this._clearTimer) clearTimeout(this._clearTimer)
-    this._clearTimer = setTimeout(() => {
-      this._hideBadge()
-      this._card       = null
-      this._active     = null
-      this._clearTimer = null
-    }, CLEAR_DELAY_MS)
-  }
+clearNotify() {
+  if (this._isOpen) return
+  if (this._clearTimer) return   // already counting down — let it finish
+  this._clearTimer = setTimeout(() => {
+    this._hideBadge()
+    this._card       = null
+    this._active     = null
+    this._clearTimer = null
+  }, CLEAR_DELAY_MS)
+} 
 
   // -- Badge helpers ---------------------------------------------------------
 

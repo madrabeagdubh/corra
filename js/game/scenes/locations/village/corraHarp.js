@@ -30,6 +30,13 @@
 // playtesting showed was hard to use and easy to get wrong — see git
 // history if that design needs to be revisited.
 //
+// A sharped pluck still gets a brief visual cue (a violet tint flash on
+// the string itself, see _flashSharpCue) — there used to also be an
+// on-screen letter label swap (e.g. "F" -> "F♯") for this, but per
+// explicit design call ALL per-string note letters were removed
+// entirely (see _buildStrings) to declutter the harp view, so the flash
+// is now the only cue.
+//
 // ── Moon widget over the harp ──────────────────────────────────────────
 // The harp overlay sits at z-index:500000 — BELOW the joystick's
 // z-index:1000004 (dpad root, which contains the moon hub). This is the
@@ -43,14 +50,15 @@
 // direction-button presses while strumming, per explicit design call.
 //
 // Swiping the moon changes GameSettings.englishOpacity (see
-// perspectiveScene.js), which drives two things in this scene: the
-// ambient visibility of non-gold-highlighted strings (see
-// _ambientAlpha/_refreshAmbientStrings below — fully dark moon = only
-// gold strings visible) and, in tavern.js, the opacity of the bard mode's
-// English subtitles. Both listen for the same 'englishOpacityChange'
-// window event that GameSettings dispatches on every change, so this
-// works whether the player swipes with the harp already open or arrives
-// with the moon already dark from earlier.
+// perspectiveScene.js). In tavern.js this still drives the opacity of
+// the bard mode's English subtitles. It no longer drives string
+// dimming — that was tried (see _ambientAlpha below) and found not to
+// improve the experience, so _ambientAlpha currently just returns each
+// string's plain baseA regardless of moon phase. The englishOpacityChange
+// listener/refresh plumbing is left in place (harmless, and easy to
+// re-enable by changing _ambientAlpha's one line) rather than ripped out,
+// in case moon-driven string dimming is revisited later in a different
+// form.
 
 import Phaser from 'phaser'
 import { GameSettings } from '../../../settings/gameSettings.js'
@@ -59,7 +67,11 @@ import { GameSettings } from '../../../settings/gameSettings.js'
 // G mixolydian, octave + fifth: G4 to D6 (13 strings).
 // Ordered HIGH→LOW in the array so index 0 (top of screen) = highest note,
 // matching a harp stood upright: treble at the top, bass at the bottom.
-// Colour convention: G=white (tonic, every octave), C=red, F=blue (b7)
+// Colour convention: G=white (tonic, every octave), C=red, F=blue (b7).
+// This colour hue is kept as a subtle tint (see _buildStrings) but no
+// longer carries any extra thickness/opacity weight — all strings read
+// as visually equal at rest, so only the gold bard-highlight draws the
+// eye.
 // `sharpM` (optional): MIDI pitch this string sounds when a scripted
 // phrase flags the upcoming beat as needing the sharp. Only F strings
 // have one for now — see file header.
@@ -273,26 +285,29 @@ class HarpScene extends Phaser.Scene {
     this._input()
 
     // Live-update non-gold string dimming when the moon's phase changes
-    // (GameSettings.englishOpacity), rather than only picking it up the
-    // next time a string happens to redraw itself via pluck/decay/touch.
-    // See _ambientAlpha/_refreshAmbientStrings and the file header.
+    // (GameSettings.englishOpacity). Currently a no-op in effect, since
+    // _ambientAlpha ignores englishOpacity — see that method and the
+    // file header for why. Left wired up rather than removed, in case
+    // moon-driven string dimming is revisited in a different form later.
     this._onEnglishOpacityChange = () => this._refreshAmbientStrings()
     window.addEventListener('englishOpacityChange', this._onEnglishOpacityChange)
 
     this._onReady?.()
   }
 
-  // Non-gold strings' visibility scales with GameSettings.englishOpacity
-  // — the same moon-driven value used for the bard's English subtitles
-  // (see tavern.js) — so a fully dark moon (englishOpacity → 0) leaves
-  // only gold-highlighted strings visible, per explicit design call.
-  // Gold-highlighted strings are untouched by this; they're meant to
-  // read regardless of moon position.
-  _ambientAlpha(s) { return s.baseA * GameSettings.englishOpacity }
+  // Non-gold strings' resting alpha. Previously scaled with
+  // GameSettings.englishOpacity (moon phase) so a dark moon left only
+  // gold-highlighted strings visible — tried, and found not to improve
+  // the experience, so this now just returns the string's plain baseA
+  // regardless of moon position. Change the line below to reintroduce
+  // moon-driven dimming if wanted again; _refreshAmbientStrings and the
+  // englishOpacityChange listener are still wired up either way.
+  _ambientAlpha(s) { return s.baseA }
 
   // Redraws every non-gold string's resting stroke at the current
-  // ambient alpha. Called on 'englishOpacityChange' so dimming responds
-  // immediately while swiping, rather than waiting for the next pluck.
+  // ambient alpha. Called on 'englishOpacityChange' so dimming (if
+  // re-enabled — see _ambientAlpha) responds immediately while swiping,
+  // rather than waiting for the next pluck.
   _refreshAmbientStrings() {
     this.strings.forEach(s => {
       if (s._goldHighlighted) return
@@ -336,30 +351,35 @@ class HarpScene extends Phaser.Scene {
       const ax = AX1 + i * DAX, ay = AY1 + i * DAY
       const x1 = ax - SX * EXT, y1 = ay - SY * EXT
       const x2 = ax + SX * EXT, y2 = ay + SY * EXT
-      const isBlue = s.c === '#5588ff', isRed = s.c === '#ff4422', isWht = s.c === '#ffffff'
-      const thick  = isWht ? 2.5 : (isRed || isBlue) ? 1.8 : 1.2
-      const baseA  = isRed ? 0.65 : isBlue ? 0.7 : isWht ? 0.7 : 0.35
+      // Thickness/opacity are UNIFORM across all strings regardless of
+      // colour, per explicit design call — white/red/blue strings used
+      // to draw thicker and more opaque than the grey/tan "natural"
+      // strings, which made them compete visually with the gold bard-
+      // highlight cue. Colour hue is kept (a subtle tint) but no longer
+      // carries any extra visual weight.
+      const thick  = 1.2
+      const baseA  = 0.35
       const maxDraw = 50 + (i / (N - 1)) * 20  // 50-70px — generous, consistent draw range
       const decay   = 0.11 + (1 - i / (N - 1)) * 0.22
       const col     = Phaser.Display.Color.HexStringToColor(s.c)
 
       const gfx = this.add.graphics().setDepth(2)
       const vfx = this.add.graphics().setDepth(3)
-      const lbl = this.add.text(ax + PX * 28, ay + PY * 28, s.l, {
-        fontSize: '9px', color: s.c, fontFamily: 'Georgia'
-      }).setOrigin(0.5).setAlpha(0.6).setDepth(5)
 
-      // Ambient (moon-driven) alpha applied on the initial draw too, so
-      // strings start correctly dim/bright if the moon is already partway
-      // dark/light when the harp opens — not just after the first pluck.
-      gfx.lineStyle(thick, col.color, baseA * GameSettings.englishOpacity)
+      // Ambient alpha mirrors _ambientAlpha(s) below — kept as a direct
+      // duplicate here (rather than deferred until after this.strings.push)
+      // since the string object doesn't exist yet at this point. If
+      // _ambientAlpha's formula changes, update this line to match, or
+      // this initial draw will disagree with every later redraw until
+      // the next pluck/swipe triggers one.
+      gfx.lineStyle(thick, col.color, baseA)
       gfx.beginPath(); gfx.moveTo(x1, y1); gfx.lineTo(x2, y2); gfx.strokePath()
 
       this.strings.push({
         i, midi: s.m, sharpMidi: s.sharpM, label: s.l, sharpLabel: s.sl, colour: s.c,
         ci: col.color, thick, baseA, maxDraw,
         ax, ay, x1, y1, x2, y2,
-        gfx, vfx, lbl,
+        gfx, vfx,
         st: { amp: 0, vel: 0, decay }
       })
     })
@@ -368,18 +388,22 @@ class HarpScene extends Phaser.Scene {
   // (Pitch resolution for a given sharp-want now lives in _strike, shared
   // between real input and demo mode — see below.)
 
-  // Brief visual cue that THIS pluck sounded sharp — a quick tint/label
+  // Brief visual cue that THIS pluck sounded sharp — a quick violet tint
   // flash on the string itself, not a persistent mode change (there is
-  // no mode). Settles back to the natural label/colour on its own once
-  // the string's vibration decays past the redraw threshold in update().
+  // no mode). Settles back to the string's normal appearance on its own
+  // once the string's vibration decays past the redraw threshold in
+  // update(). Previously also swapped the string's on-screen letter
+  // label (e.g. "F" -> "F♯") for the duration of the flash; all per-
+  // string note letters were removed entirely per explicit design call
+  // (see file header), so the flash itself is now the only cue.
   _flashSharpCue(s) {
     if (!s.sharpLabel) return
-    s.lbl.setText(s.sharpLabel)
     s.gfx.clear()
     s.gfx.lineStyle(s.thick, 0xb47bff, Math.min(1, s.baseA + 0.25))
     s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
-    // Revert label once the vibration has settled (mirrors the existing
-    // redraw-on-settle branch in update(), so this doesn't fight it).
+    // Revert to native colour once the vibration has settled (mirrors
+    // the existing redraw-on-settle branch in update(), so this doesn't
+    // fight it).
     s._sharpCueActive = true
   }
 
@@ -625,12 +649,12 @@ class HarpScene extends Phaser.Scene {
           // Restore whichever appearance is CURRENTLY correct for this
           // string — gold if it's still meant to be highlighted (see
           // highlightString's s._goldHighlighted tracking), otherwise
-          // its plain native color at the current ambient (moon-driven)
-          // alpha. Previously this unconditionally reset to native color
-          // at full baseA, which silently erased gold highlights any
-          // time a highlighted string's own pluck-wobble finished
-          // decaying — independent of whatever bardAccompaniment.js's
-          // actual light/unlight calls were doing.
+          // its plain native color at the current ambient alpha.
+          // Previously this unconditionally reset to native color at
+          // full baseA, which silently erased gold highlights any time
+          // a highlighted string's own pluck-wobble finished decaying —
+          // independent of whatever bardAccompaniment.js's actual
+          // light/unlight calls were doing.
           if (s._goldHighlighted) {
             s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
           } else {
@@ -638,7 +662,6 @@ class HarpScene extends Phaser.Scene {
           }
           s.gfx.beginPath(); s.gfx.moveTo(s.x1, s.y1); s.gfx.lineTo(s.x2, s.y2); s.gfx.strokePath()
           if (s._sharpCueActive) {
-            s.lbl.setText(s.label)
             s._sharpCueActive = false
           }
         }
@@ -667,10 +690,10 @@ class HarpScene extends Phaser.Scene {
     } else {
       // Restore whichever appearance is correct: gold if currently
       // highlighted by bard mode, otherwise native color at the current
-      // ambient (moon-driven) alpha. Without this, releasing a touch
-      // after drawing back a gold string would immediately stomp it back
-      // to native color (via s.ci) before the wobble animation even
-      // started — same class of bug as in the wobble-decay-end code above.
+      // ambient alpha. Without this, releasing a touch after drawing
+      // back a gold string would immediately stomp it back to native
+      // color (via s.ci) before the wobble animation even started —
+      // same class of bug as in the wobble-decay-end code above.
       if (s._goldHighlighted) {
         s.gfx.lineStyle(s.thick + 2.5, 0xffcc33, 0.95)
       } else {
@@ -889,19 +912,6 @@ export class CorraHarp {
     closeBtn.addEventListener('pointerdown', () => this.close())
     overlay.appendChild(closeBtn)
 
-    // Label
-    const label = document.createElement('div')
-    label.textContent = 'Cláirseach'
-    label.style.cssText = [
-      'position:absolute;top:20px;left:50%;transform:translateX(-50%);',
-      'font-family:Georgia,serif;font-size:0.7rem;',
-      'letter-spacing:0.2em;color:rgba(200,190,170,0.0);',
-      'text-transform:uppercase;',
-      'transition:color 0.8s ease;',
-      'pointer-events:none;',
-    ].join('')
-    overlay.appendChild(label)
-
     // Canvas container for Phaser
     const container = document.createElement('div')
     container.style.cssText = [
@@ -913,7 +923,6 @@ export class CorraHarp {
     document.body.appendChild(overlay)
     this._overlay   = overlay
     this._container = container
-    this._label     = label
 
     // Boot Phaser inside the container — use actual viewport dimensions and
     // RESIZE mode so the internal coordinate space exactly matches the
@@ -957,7 +966,6 @@ export class CorraHarp {
 
   _onHarpReady() {
     if (this._container) this._container.style.opacity = '1'
-    if (this._label)     this._label.style.color = 'rgba(200,190,170,0.4)'
     this._harpScene = this._game?.scene?.getScene('CorraHarpScene')
     this._emit('ready', {})
   }
@@ -1070,3 +1078,4 @@ export class CorraHarp {
 
   get isOpen() { return !!this._overlay }
 }
+

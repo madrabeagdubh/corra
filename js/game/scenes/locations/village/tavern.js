@@ -10,7 +10,7 @@ import { buildBardSequence } from '../../../systems/music/bardHarmonizer.js'
 import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
 import { StoryVisuals } from '../../../effects/storyVisuals.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
-
+import { TYPE } from '../../../systems/gameTypography.js'
 const BARD_LINE_NOTE_TARGET = 3
 const BARD_FLOW_DELAY = 250
 
@@ -344,18 +344,19 @@ export default class TavernScene extends VillageScene {
     return ga
   }
 
-  _buildBardEnglishSlotEl() {
-    const en = document.createElement('div')
-    en.style.cssText = [
-      'font-family:"Courier New",monospace;font-size:1.2rem;color:#d8f0d8;',
-      'text-shadow:0 0 2px rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.7),0 0 12px rgba(170,220,170,0.7),0 0 22px rgba(150,210,150,0.45);',
-      'line-height:1.3;font-weight:500;',
-      'min-height:2.6em;',
-      `opacity:0;transition:opacity ${BARD_EN_FADE_MS}ms ease-out;`,
-    ].join('')
-    return en
-  }
 
+
+_buildBardEnglishSlotEl() {
+  const en = document.createElement('div')
+  en.style.cssText = [
+    `font-family:"Courier New",monospace;font-size:${TYPE.domBodyEn.size};color:#d8f0d8;`,
+    'text-shadow:0 0 2px rgba(0,0,0,0.9),0 0 6px rgba(0,0,0,0.7),0 0 12px rgba(170,220,170,0.7),0 0 22px rgba(150,210,150,0.45);',
+    'line-height:1.3;font-weight:500;',
+    'min-height:2.6em;',
+    `opacity:0;transition:opacity ${BARD_EN_FADE_MS}ms ease-out;`,
+  ].join('')
+  return en
+}
   _typeBardIrishInto(slotEl, gaText, onDone) {
     slotEl.textContent = ''
     const tokens = (gaText || '').split(/(\s+)/)

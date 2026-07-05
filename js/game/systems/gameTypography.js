@@ -160,13 +160,18 @@ export function speakerColor(speaker) {
     skull_south:    COLORS.skull,
     villain:        COLORS.villain,
 
-manannan: '#a8d8ff',   // cold luminous ice-blue — moonlight on deep water
-
+manannan: '#d8fff5',   // pastel teal-white — moonlight on deep water
 
   }
   return map[speaker?.toLowerCase?.()] || COLORS.npc
 }
 
+export function speakerGlow(speaker) {
+  const map = {
+    manannan: 'rgba(60,255,210,0.85)',   // striking teal glow
+  }
+  return map[speaker?.toLowerCase?.()] || 'rgba(0,6,26,0.9)'
+}
 export function speakerColorEn(speaker) {
   const map = {
     queen:          '#b8966a',

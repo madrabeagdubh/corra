@@ -26,8 +26,7 @@
  * rAF) so wrapper.offsetHeight is accurate after the browser has rendered.
  */
 
-import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn } from '../systems/gameTypography.js';
-
+import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn, speakerGlow } from '../systems/gameTypography.js';
 // ── Tuning ────────────────────────────────────────────────────────────────────
 
 const SCROLL_PX_PER_SEC = 30;
@@ -187,18 +186,20 @@ export class ScrollingTextPlayer {
                 'top:-9999px;',
             ].join('');
 
-            const gaColor = speakerColor(line.speaker);
-            const gaEl    = document.createElement('div');
-            gaEl.textContent = line.ga;
-            gaEl.style.cssText = [
-                `font-family:${IRISH_FONT};`,
-                `font-size:${IRISH_FONT_SIZE};`,
-                `color:${gaColor};`,
-                `text-shadow:0 0 18px ${STROKE_COLOR},0 0 8px ${STROKE_COLOR};`,
-                `line-height:${SPACING.irishLineHeight};`,
-                'opacity:0;',
-            ].join('');
-            wrapper.appendChild(gaEl);
+           const gaColor = speakerColor(line.speaker);
+const gaGlow  = speakerGlow(line.speaker);
+const gaEl    = document.createElement('div');
+gaEl.textContent = line.ga;
+gaEl.style.cssText = [
+    `font-family:${IRISH_FONT};`,
+    `font-size:${IRISH_FONT_SIZE};`,
+    `color:${gaColor};`,
+    `text-shadow:0 0 18px ${gaGlow},0 0 8px ${gaGlow};`,
+    `line-height:${SPACING.irishLineHeight};`,
+    'opacity:0;',
+].join('');
+
+		wrapper.appendChild(gaEl);
 
             let enEl = null;
             if (line.en) {

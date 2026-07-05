@@ -17,7 +17,7 @@ const MANANNAN_TRIGGER_COL = 45
 const POINT_OF_NO_RETURN   = 65
 
 const MANANNAN_COLLISION_RADIUS = 160
-const MANANNAN_SCROLL_SPEED = 48
+const MANANNAN_SCROLL_SPEED = 56
 
 const MANANNAN_FINAL = {
   ga: 'D\'fhanas leat. Anois, tar liom.',

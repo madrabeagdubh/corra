@@ -17,7 +17,7 @@ const MANANNAN_TRIGGER_COL = 45
 const POINT_OF_NO_RETURN   = 65
 
 const MANANNAN_COLLISION_RADIUS = 160
-const MANANNAN_SCROLL_SPEED = 56
+const MANANNAN_SCROLL_SPEED = 66
 
 const MANANNAN_FINAL = {
   ga: 'D\'fhanas leat. Anois, tar liom.',
@@ -25,20 +25,33 @@ const MANANNAN_FINAL = {
 }
 
 const MANANNAN_LINES = [
-  { ga: 'A leanbh baoth faoi mhóid bheith saor',                              en: 'O reckless child of defiant vow',                                       speaker: 'manannan' },
-  { ga: 'cén gealtachas atá ort?',                                             en: 'what madness drives thee so?',                                          speaker: 'manannan' },
-  { ga: 'Cad a spreagann thú chun troid i gcoinne',                            en: 'What maketh thee to quarrel against',                                   speaker: 'manannan' },
-  { ga: 'mo ghaoithe craosacha',                                               en: 'my ravenous winds',                                                     speaker: 'manannan' },
-  { ga: 'mo tonnta básach',                                                    en: 'my deadly waves',                                                       speaker: 'manannan' },
-  
-  { ga: 'Óir mise a chuir ríthe faoin tonn agus a scrios laochra',             en: 'For I have drowned kings and unmade heroes',                            speaker: 'manannan' },
-  { ga: "Feicim d'altanna cnámh bán",                                en: 'I see thy bone white knuckles',                                   speaker: 'manannan' },
-  { ga: 'i nglas ar maide oclánach',                                           en: 'locked upon a groaning oar',                                            speaker: 'manannan' },
-  { ga: 'Agus feicim ionait cíanta bhfúr ndícheall',                                en: 'And I see in you the ages of mortal striving',                                  speaker: 'manannan' },
-  { ga: 'Is mór an t-iontas liom é!',                                      en: 'At which I marvel greatly!',                                            speaker: 'manannan' },
-  { ga: "Fill ar d'oileán glas",                                              en: 'Go back to thy green island',                                           speaker: 'manannan' },
-  { ga: 'Scaoileann an fharraige saor tú...',                                  en: 'The sea releases thee...',                                              speaker: 'manannan' },
-  { ga: 'an uair seo.',                                                        en: 'this time.',                                                            speaker: 'manannan' },
+  // Manannán — opening challenge
+  { ga: 'a chroí diongbháilte',                                           en: 'O stubborn-hearted mortal',                              speaker: 'manannan' },
+  { ga: 'cén gealtachas atá ort?',                                        en: 'what madness drives thee so?',                           speaker: 'manannan' },
+  { ga: 'Cad a spreagann thú chun troid i gcoinne',                       en: 'What maketh thee to quarrel against',                    speaker: 'manannan' },
+  { ga: 'mo ghaoithe craosacha',                                          en: 'my ravenous winds',                                      speaker: 'manannan' },
+  { ga: 'mo tonnta básach',                                               en: 'my deadly waves',                                        speaker: 'manannan' },
+
+  // Hero — their piece
+  { ga: 'Tréan an tonn a bhriseann orm,',                                 en: 'Great the wave that breaks over me,',                    speaker: 'player' },
+  { ga: 'Dorcha an ghaoth dá mo ruaigeadh!',                              en: 'Dark the wind that drives me!',                          speaker: 'player' },
+  { ga: 'Feicim máistir na farraigí seo',                       en: 'I see the master of these waters',                          speaker: 'player' },
+  { ga: 'Mac Lir, tiarna na naoi tonn fuara!',                            en: 'Son of Lir, lord of the nine cold waves!',               speaker: 'player' },
+  { ga: 'Ach ní báfar inniú mé!',                                         en: 'But I shall not be drowned today!',                     speaker: 'player' },
+  { ga: 'Óir tá gníomh fós le déanamh agam,',                             en: 'For there is a thing I have not yet done,',              speaker: 'player' },
+  { ga: 'Agus cáil nár thuilleas dom féin fós.',                          en: 'And a fame I have not yet earned me.',                   speaker: 'player' },
+  { ga: 'Go dtí go ndéanfar an gníomh sin is go castar an t-ainm sin,',   en: 'Till that deed is done and that name sung,',             speaker: 'player' },
+  { ga: 'Níl an neart ag do stoirm mé a choinneáil siar!',                en: 'Thy storm hath not the strength to hold me!',            speaker: 'player' },
+
+  // Manannán — satisfaction, then release
+  { ga: "Feicim d'altanna cnámh bán",                                    en: 'I see thy bone white knuckles',                          speaker: 'manannan' },
+  { ga: 'i nglas ar maide oclánach',                                     en: 'locked upon a groaning oar',                             speaker: 'manannan' },
+  { ga: 'Agus feicim ionait cíanta bhfúr ndícheall',                     en: 'And I see in you the ages of mortal striving',           speaker: 'manannan' },
+  { ga: 'Is mór an t-iontas liom é!',                                    en: 'At which I marvel greatly!',                             speaker: 'manannan' },
+  { ga: 'A leanbh baoth faoi mhóid bheith saor',                         en: 'O reckless child of defiant vow',                        speaker: 'manannan' },
+  { ga: "Fill ar d'oileán glas",                                         en: 'Go back to thy green island',                            speaker: 'manannan' },
+  { ga: 'Scaoileann an fharraige saor tú...',                            en: 'The sea releases thee...',                               speaker: 'manannan' },
+  { ga: 'an uair seo.',                                                   en: 'this time.',                                             speaker: 'manannan' },
 ]
 
 export default class D3OpenSea extends RiverScene {

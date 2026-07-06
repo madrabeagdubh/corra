@@ -58,17 +58,19 @@ export class ScrollingTextPlayer {
      * @param {HTMLElement}  [container]
      * @param {number}       [bottomClearancePx]
      */
-    constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0 }) {
-        this._lines             = lines;
-        this._getMoonPhase      = getMoonPhase || (() => 0);
-        this._onComplete        = onComplete   || (() => {});
-        this._container         = container    || document.body;
-        this._bottomClearancePx = Math.max(0, bottomClearancePx);
 
-        this._scrollY      = 0;
-        this._velocity     = SCROLL_PX_PER_SEC / 60;
-        this._naturalVel   = SCROLL_PX_PER_SEC / 60;
-        this._running      = false;
+
+constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0, scrollSpeed = SCROLL_PX_PER_SEC }) {
+    this._lines             = lines;
+    this._getMoonPhase      = getMoonPhase || (() => 0);
+    this._onComplete        = onComplete   || (() => {});
+    this._container         = container    || document.body;
+    this._bottomClearancePx = Math.max(0, bottomClearancePx);
+
+    this._scrollY      = 0;
+    this._velocity     = scrollSpeed / 60;
+    this._naturalVel   = scrollSpeed / 60;
+       this._running      = false;
         this._paused       = false;
         this._pauseTimer   = null;
         this._rafId        = null;

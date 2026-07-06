@@ -160,8 +160,8 @@ export function speakerColor(speaker) {
     skull_south:    COLORS.skull,
     villain:        COLORS.villain,
 
-manannan: '#d8fff5',   // pastel teal-white — moonlight on deep water
-
+    manannan: '#d8fff5',   // pastel teal-white — moonlight on deep water
+    player:   '#fdf8e0',   // pale near-white gold — mortal defiance
   }
   return map[speaker?.toLowerCase?.()] || COLORS.npc
 }
@@ -169,9 +169,11 @@ manannan: '#d8fff5',   // pastel teal-white — moonlight on deep water
 export function speakerGlow(speaker) {
   const map = {
     manannan: 'rgba(60,255,210,0.85)',   // striking teal glow
+    player:   'rgba(255,215,90,0.8)',    // warm golden glow
   }
   return map[speaker?.toLowerCase?.()] || 'rgba(0,6,26,0.9)'
 }
+
 export function speakerColorEn(speaker) {
   const map = {
     queen:          '#b8966a',
@@ -183,11 +185,8 @@ export function speakerColorEn(speaker) {
     skull_north:    '#9a8878',
     skull_south:    '#9a8878',
 
-
-manannan: '#6a8fa8',   // dim tide-grey — secondary to the Irish
-
-
-
+    manannan: '#6a8fa8',   // dim tide-grey — secondary to the Irish
+    player:   '#b8a878',   // dim antique gold — secondary to the Irish
   }
   return map[speaker?.toLowerCase?.()] || COLORS.english
 }
@@ -453,5 +452,4 @@ export function createDomButton(cfg) {
 
   return { el: btn, applyLanguage }
 }
-
 

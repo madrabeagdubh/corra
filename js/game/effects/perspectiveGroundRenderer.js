@@ -1,4 +1,4 @@
-// PerspectiveGroundRenderer.js  (v8.3 — modular elevation + building billboards)
+// PerspectiveGroundRenderer.js  (v8.4 — modular elevation + building billboards + trunk integration)
 // Location: js/game/effects/perspectiveGroundRenderer.js
 //
 // ── Architecture ─────────────────────────────────────────────────────────────
@@ -10,10 +10,31 @@
 //   • Layer 2/3 elevated tile rendering (reads this._elev set by ElevationRenderer)
 //   • Building image billboards (set via setBuildings, drawn per anchor row)
 //   • Player and boat rendering (_drawPlayerAnimated)
+//   • Tree trunk rendering (set via setForestEffects, drawn per anchor row --
+//     see v8.4 note below)
+//
+// ── v8.4: tree trunks drawn inline, on _gCtx, alongside cliffs ───────────────
+// Trunks used to be drawn entirely by ForestEffects on its own separate
+// always-on-top canvas (z:5), which meant trees could never be occluded by
+// nearer terrain, and the player could never stand in front of a tree --
+// that canvas always won regardless of true relative depth. Cliffs never had
+// this problem because they're drawn on THIS renderer's own _gCtx (z:2),
+// below the player's _oCtx (z:3) -- so the player always correctly draws
+// over a cliff, and _gCtx's own per-row draw order (far-to-near) already
+// gives correct hill-vs-cliff occlusion.
+//
+// setForestEffects() lets a scene hand PGR a reference to its ForestEffects
+// instance. PGR then queries forestEffects.getTrunksForRow(tileRow) inside
+// its own per-row loop (same place buildings are drawn) and calls
+// forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow) for each --
+// trees now inherit the exact same occlusion mechanism cliffs already have,
+// for free. ForestEffects itself no longer draws trunks or owns their
+// canvas; it only bakes shapes and exposes them for PGR to draw.
 //
 // ── Related modules ───────────────────────────────────────────────────────────
 //   js/game/systems/elevationRenderer.js  — builds this._elev, draws cliff faces
 //   js/game/systems/playerRenderer.js     — utilities for enemy/NPC rendering
+//   js/game/effects/forestEffects.js      — bakes trunk shapes, drawTrunk()/getTrunksForRow()
 //   js/game/systems/PGR_ARCHITECTURE.md   — full integration guide
 //
 // ── Elevation ─────────────────────────────────────────────────────────────────
@@ -108,6 +129,32 @@ export default class PerspectiveGroundRenderer {
 
   static EDGE_EXTEND = 6
 
+  // How many rows into the north neighbour's territory to render as a
+  // fading preview (see _drawNorthPreviewRow). First-guess value bumped
+  // up 2-3x after playtesting -- cost is bounded and cheap regardless
+  // (rows beyond the fade threshold exit before any column work happens,
+  // and preview tiles are plain flat trapezoids with none of the cliff/
+  // water/elevation branching the main renderer does), so there's room
+  // to tune this further by eye without much performance concern.
+  static NORTH_PREVIEW_DEPTH = 45
+
+  // Atmospheric haze target for the north preview -- ground tiles blend
+  // toward this pale, cool, desaturated tone as they approach the
+  // horizon line on screen (see NORTH_FADE_BAND_FRAC below), rather than
+  // just fading to transparent, which is what "distance" actually looks
+  // like.
+  static NORTH_HAZE_H = 205
+  static NORTH_HAZE_S = 18
+  static NORTH_HAZE_L = 74
+
+  // Fraction of the ground's own screen height (sh - horizonPx) used as
+  // the fade band, measured from the horizon line downward. Screen-space,
+  // not world-depth -- see _drawNorthPreviewRow's own note on why that
+  // distinction matters (perspective compresses distant world-rows into
+  // a shrinking band of screen pixels, so a world-depth-based fade still
+  // reads as an abrupt cutoff on screen).
+  static NORTH_FADE_BAND_FRAC = 0.4
+
   static CLIFF_GIDS      = new Set([740])
   static CLIFF_FACE_GID  = 740
   static CLIFF_HEIGHT    = 1.0
@@ -120,6 +167,8 @@ export default class PerspectiveGroundRenderer {
     this._playerFrameKey = null
     this._encounterFlags = []
     this._buildings      = []
+    this._forestEffects  = null
+    this._northNeighbor  = null
     this._boatActive      = false
     this._boatDrifting    = false
     this._boatCanvas      = null
@@ -404,6 +453,36 @@ this._resizeHandler = () => {
     if (player.sprite)     player.sprite.setVisible(false)
     if (player.bowOverlay) player.bowOverlay.setVisible(false)
     console.log('[PGR v8] player registered')
+  }
+
+  // Wires a scene's ForestEffects instance in so PGR can draw trunks
+  // directly onto its own _gCtx from inside the per-row loop below (see
+  // v8.4 header note). Call once, after both PGR and ForestEffects exist
+  // (typically right after `this.forestEffects = new ForestEffects(...)`
+  // in PerspectiveScene.create()). Pass null/undefined to unregister
+  // (e.g. on scene shutdown, though destroying PGR itself already stops
+  // any further update() calls).
+  setForestEffects(forestEffects) {
+    this._forestEffects = forestEffects || null
+  }
+
+  // North-direction map preview (see _drawNorthPreviewRow below). Scene
+  // calls this after fetching the north neighbour's raw map JSON --
+  // purely ground GIDs + heightmap, not its NPCs/objects/content. Pass
+  // null/undefined to clear (e.g. if the current map has no north exit,
+  // or the fetch failed) -- the renderer already falls back gracefully
+  // to its existing flat-fill behaviour with no neighbour set.
+  setNorthNeighbor(data) {
+    this._northNeighbor = data || null
+  }
+
+  // Mirrors _vertexH() but reads from the north neighbour's heightMap
+  // instead of the current map's.
+  _neighborVertexH(col, row) {
+    const nb = this._northNeighbor
+    if (!nb?.heightMap) return 0
+    if (col < 0 || row < 0 || col > nb.width || row > nb.height) return 0
+    return nb.heightMap[row]?.[col] ?? 0
   }
 
   prewarmBillboardTints(mapData) {
@@ -1168,6 +1247,150 @@ _horizonPx() {
     ctx.globalAlpha = 1.0
   }
 
+  /**
+   * Draws one row of the north-neighbour preview -- ground tiles + trees,
+   * faded toward the horizon, no collision/FOV/interactivity of any kind
+   * (the player can't actually reach these rows until the real scene
+   * transition happens). Called from inside update()'s main per-row loop
+   * for any tileRow < 0, INSTEAD of that loop's normal per-tile-row body
+   * (which is written entirely in terms of the CURRENT map's own data and
+   * would need touching in dozens of places to be neighbour-aware --
+   * deliberately not attempted here, since this is a pure visual preview,
+   * not a second playable map).
+   *
+   * @param {number} tileRow       -- negative world row (e.g. -1 is
+   *   immediately north of the current map's own row 0)
+   * @param {number} camCol
+   * @param {number} sw
+   * @param {number} horizonPx
+   * @param {number} playerTileRow -- passed through to ForestEffects.drawTrunk
+   *   for its own (unrelated) south-fade-near-player effect; irrelevant at
+   *   these distances but harmless to pass through.
+   */
+  _drawNorthPreviewRow(tileRow, camCol, sw, horizonPx, playerTileRow) {
+    const nb = this._northNeighbor
+    if (!nb?.layer0) return
+    const neighborH = nb.height
+    const neighborW = nb.width
+    if (!neighborH || !neighborW) return
+
+    // Shift the negative world row into the neighbour's own local row
+    // indexing -- its southmost row (adjacent to our row 0) is world row
+    // -1, so local row = tileRow + neighborH.
+    const localRow = tileRow + neighborH
+    if (localRow < 0 || localRow >= neighborH) return
+
+    const yTop = this._rowToScreenY(tileRow)
+    const yBot = this._rowToScreenY(tileRow + 1)
+    if (yBot === null) return
+    if (yTop !== null && yTop > this._sh + 100) return
+    if (yBot < horizonPx - this.tileDisplaySize * 3) return
+
+    const yTopClamped = (yTop === null || yTop < horizonPx - this.tileDisplaySize)
+      ? horizonPx - this.tileDisplaySize : yTop
+    const yBotClamped = Math.min(this._sh + 100, yBot)
+    if (yBotClamped <= yTopClamped) return
+
+    // The fade is driven by SCREEN-SPACE proximity to the horizon line,
+    // NOT world-depth (tileRow) directly. Reasoning: perspective
+    // compresses distant world-rows into an ever-shrinking band of
+    // screen pixels near the horizon -- a fade that's gradual in WORLD
+    // units still ends up looking like an abrupt cutoff on screen,
+    // because most of that "gradual" range only ever occupies a handful
+    // of actual pixels. Tying the fade to how close this row's screen
+    // position is to the horizon line guarantees a visually smooth
+    // dissolve regardless of that compression -- the same principle the
+    // main renderer already uses for its own horizonFade, just with a
+    // much wider band here since this needs to read as genuine
+    // atmospheric distance, not a last-instant fade-in.
+    const groundSpan   = Math.max(1, this._sh - horizonPx)
+    const fadeBandPx   = groundSpan * PerspectiveGroundRenderer.NORTH_FADE_BAND_FRAC
+    const distToHorizonPx = Math.max(0, yBotClamped - horizonPx)
+    const t = Math.min(1, distToHorizonPx / fadeBandPx)   // 0 = at the horizon line, 1 = fadeBandPx+ away from it
+
+    // hazeT: strong atmospheric wash right at the horizon, fading out as
+    // the row's screen position moves away from it.
+    const hazeT = Math.pow(1 - t, 1.3)
+    // edgeAlpha: fully transparent exactly at the horizon, opaque once
+    // far enough from it -- no depth-based cutoff any more, this alone
+    // governs visibility.
+    const edgeAlpha = Math.pow(t, 0.8)
+    if (edgeAlpha <= 0.01) return
+
+    // Outer safety bound only -- caps how many world-rows ever get
+    // iterated per frame, regardless of how the screen-space fade above
+    // plays out. Not itself responsible for the visual fade any more.
+    if (Math.abs(tileRow) > PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH) return
+
+    const scaleNear = this._scaleAtRow(tileRow + 1)
+    const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : neighborW
+    const colStart  = Math.floor(camCol - halfCols) - PerspectiveGroundRenderer.EDGE_EXTEND
+    const colEnd    = Math.ceil(camCol + halfCols)  + PerspectiveGroundRenderer.EDGE_EXTEND
+
+    const HAZE_H = PerspectiveGroundRenderer.NORTH_HAZE_H
+    const HAZE_S = PerspectiveGroundRenderer.NORTH_HAZE_S
+    const HAZE_L = PerspectiveGroundRenderer.NORTH_HAZE_L
+
+    for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
+      if (tileCol < 0 || tileCol >= neighborW) continue
+
+      const xTL = this._colToScreenX(tileCol,     tileRow)
+      const xTR = this._colToScreenX(tileCol + 1, tileRow)
+      if (xTR < -10 || xTL > sw + 10) continue
+
+      const gid0raw = nb.layer0[localRow]?.[tileCol] ?? 0
+      if (!gid0raw) continue
+      // Static water frame (no phase animation) -- fine for a distant,
+      // already-hazy preview; not worth the extra bookkeeping.
+      const gid0 = (gid0raw === 1625 || gid0raw === 1679) ? 1625 : gid0raw
+
+      const xBL = this._colToScreenX(tileCol,     tileRow + 1)
+      const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+
+      let tint0
+      if (nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)) {
+        const h00 = this._neighborVertexH(tileCol,     localRow)
+        const h10 = this._neighborVertexH(tileCol + 1, localRow)
+        const h01 = this._neighborVertexH(tileCol,     localRow + 1)
+        const h11 = this._neighborVertexH(tileCol + 1, localRow + 1)
+        tint0 = this.tintManager.getGroundTint(gid0, tileCol, localRow, h00, h10, h01, h11)
+      } else {
+        tint0 = this.tintManager.getTint(gid0, tileCol, localRow)
+      }
+      // getTint()/getGroundTint() return null for uncategorised GIDs --
+      // fall back to a neutral base so the haze blend still has
+      // something sensible to work from.
+      if (!tint0) tint0 = { h: 90, s: 20, l: 45, alpha: 0.5 }
+
+      // Blend toward the haze colour, AND boost the wash's own opacity
+      // toward near-total coverage as hazeT approaches 1 -- otherwise
+      // the tile's own underlying texture detail would still show
+      // through even at maximum haze, undercutting the "melts into
+      // distance" effect (the tint is a translucent wash over the base
+      // tile, not a full recolour -- see _drawTrapezoidTinted).
+      const hazedTint = {
+        h: tint0.h + (HAZE_H - tint0.h) * hazeT,
+        s: tint0.s + (HAZE_S - tint0.s) * hazeT,
+        l: tint0.l + (HAZE_L - tint0.l) * hazeT,
+        alpha: Math.min(0.95, (tint0.alpha ?? 0.5) + hazeT * 0.4),
+      }
+
+      this._gCtx.globalAlpha = edgeAlpha
+      this._drawTrapezoidTinted(this._gCtx, gid0,
+        { x: xTL, y: yTopClamped }, { x: xTR, y: yTopClamped },
+        { x: xBL, y: yBotClamped }, { x: xBR, y: yBotClamped },
+        hazedTint)
+    }
+    this._gCtx.globalAlpha = 1.0
+
+    if (this._forestEffects) {
+      const rowTrunks = this._forestEffects.getNorthPreviewTrunksForRow(tileRow)
+      for (const trunk of rowTrunks) {
+        this._forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow, edgeAlpha)
+      }
+    }
+  }
+
   update(fov) {
     if (!this._ready) return
     if (!this._cameraReady()) return
@@ -1331,7 +1554,8 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     this._gCtx.clip()
 
     const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX * 3)
-    const tileRowStart = Math.max(0, Math.floor(camRow - FL * 8))
+    const _northPreviewFloor = this._northNeighbor ? -PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH : 0
+    const tileRowStart = Math.max(_northPreviewFloor, Math.floor(camRow - FL * 8))
 
     const p = this._player
     let playerTileRow = -1
@@ -1364,6 +1588,14 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
     const _deferredCliffs = []
 
     for (let tileRow = tileRowStart; tileRow <= tileRowEnd; tileRow++) {
+
+      // North-preview rows (beyond the current map's own row 0) go
+      // through a dedicated, much simpler path -- see _drawNorthPreviewRow's
+      // own header note for why this isn't woven into the logic below.
+      if (tileRow < 0) {
+        this._drawNorthPreviewRow(tileRow, camCol, sw, horizonPx, playerTileRow)
+        continue
+      }
 
       const yTop = this._rowToScreenY(tileRow)
       const yBot = this._rowToScreenY(tileRow + 1)
@@ -1449,7 +1681,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               const _h10 = this._vertexH(tileCol + 1, tileRow    )
               const _h01 = this._vertexH(tileCol,     tileRow + 1)
               const _h11 = this._vertexH(tileCol + 1, tileRow + 1)
-              tint0 = this.tintManager.getGroundTint(gid0, tileCol, tileRow, _h00, _h10, _h01, _h11)
+              const _pd  = this.scene.mapData?.pathDist?.[tileRow]?.[tileCol] ?? null
+              tint0 = this.tintManager.getGroundTint(gid0, tileCol, tileRow, _h00, _h10, _h01, _h11, _pd)
             } else {
               tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
             }
@@ -2031,6 +2264,20 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
 
       } // tileCol
 
+      // Tree trunks anchored to THIS row -- drawn on _gCtx (same canvas as
+      // cliffs/elevated terrain), so they inherit correct occlusion for
+      // free: nearer rows processed later in this loop naturally cover
+      // farther trunks, and the player (always on the separate, higher-
+      // z _oCtx) always draws over any trunk regardless of row. See the
+      // v8.4 header note for why this replaces ForestEffects' old
+      // always-on-top overlay canvas.
+      if (this._forestEffects) {
+        const rowTrunks = this._forestEffects.getTrunksForRow(tileRow)
+        for (const trunk of rowTrunks) {
+          this._forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow)
+        }
+      }
+
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
@@ -2109,7 +2356,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       if (this._boatActive && this._boatScreenX != null) {
         const _ts   = this.tileDisplaySize
         const _bRow = this._screenYToWorldRow(this._boatScreenY)
-        if (_bRow != null) {
+
+	              if (_bRow != null) {
           const _bCol = (this._boatScreenX - this._sw / 2) / this._scaleAtRow(_bRow) + this._perspCamCol()
           _hlLX = _bCol * _ts
           _hlLY = (_bRow - 1) * _ts
@@ -2201,6 +2449,7 @@ destroy() {
     this._buildings = []
     this._encounterFlags = []
     this._boatCanvas = null
+    this._forestEffects = null
 
     this._destroyed = true
 

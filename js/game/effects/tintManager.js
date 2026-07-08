@@ -108,6 +108,14 @@ for (const [cat, gids] of Object.entries(GID_CATEGORIES)) {
 const LIGHT_X = -0.707   // NW x component
 const LIGHT_Y = -0.707   // NW y component
 
+// -- Path (mud trail) tint target -------------------------------------------
+// Muddy brown the ground blends toward at a path's centreline. Kept as a
+// single constant here (not per-mood) since it's meant to read as "worn
+// earth" consistently regardless of the surrounding biome's palette --
+// unlike vegetation/rock/etc, a path isn't a material category with its
+// own GIDs, so it has no natural home in GID_CATEGORIES/_palette.
+const PATH_MUD_HSL = { h: 28, s: 42, l: 22 }
+
 // -------------------------------------------------------------------------
 
 export class TintManager {
@@ -244,8 +252,13 @@ export class TintManager {
    * @param {number} h10      - vertex height top-right    (col+1, row)
    * @param {number} h01      - vertex height bottom-left  (col,   row+1)
    * @param {number} h11      - vertex height bottom-right (col+1, row+1)
+   * @param {number} [pathDist] - optional 0..1, 0 = path centre, 1 = far from
+   *   any path. When provided, blends the final colour toward a muddy brown
+   *   the closer to 0 -- same continuous-blend mechanism as the height/slope
+   *   shading below, just a third input. Omit (or pass null) for maps with
+   *   no path data, which leaves output identical to before this was added.
    */
-  getGroundTint(gid, tx, ty, h00, h10, h01, h11) {
+  getGroundTint(gid, tx, ty, h00, h10, h01, h11, pathDist = null) {
     // Base palette tint (same per-tile hash variation as getTint)
     const base = this.getTint(gid, tx, ty)
     if (!base) return null
@@ -273,12 +286,26 @@ export class TintManager {
     // SE-shadow slopes: shift toward blue-purple (hue +18°)
     const slopeH  = slopeT > 0 ? slopeT * -8 : slopeT * -18
 
-    return {
-      h:     base.h + heightH + slopeH,
-      s:     base.s + Math.abs(slopeT) * 3 + Math.max(0, -heightT) * 4,
-      l:     Math.max(10, Math.min(68, base.l + heightL + slopeL)),
-      alpha: base.alpha + 0.06,
+    let h = base.h + heightH + slopeH
+    let s = base.s + Math.abs(slopeT) * 3 + Math.max(0, -heightT) * 4
+    let l = Math.max(10, Math.min(68, base.l + heightL + slopeL))
+    let alpha = base.alpha + 0.06
+
+    // ── Path (mud) blending ──────────────────────────────────────────────
+    // pathDist: 0 at the trail centre, 1 at/beyond the tint falloff distance.
+    // Blend factor is (1 - pathDist), so centre = full mud tint, falloff
+    // edge and beyond = untouched height/slope-shaded colour. Applied AFTER
+    // height/slope shading so a path reads as "worn ground" consistently
+    // regardless of the terrain contour underneath it.
+    if (pathDist !== null && pathDist < 1) {
+      const mudT = 1 - Math.max(0, Math.min(1, pathDist))
+      h = h + (PATH_MUD_HSL.h - h) * mudT
+      s = s + (PATH_MUD_HSL.s - s) * mudT
+      l = l + (PATH_MUD_HSL.l - l) * mudT
+      alpha = alpha + (0.7 - alpha) * mudT * 0.5   // slightly more opaque at trail centre
     }
+
+    return { h, s, l, alpha }
   }
 
   _buildDefaultPalette() {

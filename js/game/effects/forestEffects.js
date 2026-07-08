@@ -1,40 +1,60 @@
 // forestEffects.js
 // Location: js/game/effects/forestEffects.js
 //
-// ── Purpose ───────────────────────────────────────────────────────────────────
-// Forest-interior-specific atmosphere, kept OUT of PerspectiveGroundRenderer
-// (which is already large) per the same pattern as distantRain.js,
-// stormOverlay.js, starfield.js etc. -- standalone effect modules that a
-// scene opts into explicitly.
+// ── v7 (this version): trunks moved into PGR's ground canvas ────────────────
+// Trunks USED TO render on their own dedicated canvas, pinned at a fixed
+// z-index ABOVE both PGR's ground canvas (_gCtx, z:2) and its object canvas
+// (_oCtx, z:3, where the player is drawn). That meant trunks could never be
+// occluded by nearer/taller terrain (hills always "see-through" for trees),
+// and the player could never stand in front of a tree (the tree's canvas
+// always won, regardless of true relative depth).
 //
-// ── v5 (this version): tapered branches + tintManager foliage tint ──────────
+// Cliffs/elevated terrain don't have this problem: they're drawn on _gCtx,
+// which sits BELOW _oCtx -- so the player (fixed on _oCtx) always correctly
+// draws over a cliff face, and within _gCtx itself, PGR's own per-row draw
+// order (far-to-near) already gives correct hill-vs-cliff occlusion.
+//
+// This version moves trunk drawing into THAT SAME mechanism: ForestEffects
+// no longer owns a canvas for trunks or draws them itself. It only bakes
+// trunk SHAPES (unchanged baking logic) and exposes them via
+// getTrunksForRow()/drawTrunk(ctx, ...), which PerspectiveGroundRenderer
+// calls from inside its own per-row loop, passing its own _gCtx. Trees now
+// inherit the same proven occlusion behaviour as cliffs, for free.
+//
+// The old per-trunk "occluding" alpha-fade hack (dimming a tree when the
+// player stood near it, to fake "player in front of tree") is REMOVED --
+// it only existed to work around trunks being unconditionally on top of
+// the player; now that trunks are on _gCtx, the player (still on _oCtx)
+// always draws over them correctly with no special-case check needed.
+//
+// ForestEffects STILL owns its own canvas for canopy haze and exit markers
+// -- those are full-screen/atmospheric effects, not solid occludable
+// objects, so keeping them always-on-top is correct and unaffected by any
+// of the above.
+//
+// ── v6: trunk screen-position fix ────────────────────────────────────────────
+// _bakeTrunkShapesFromMask() stores each trunk's anchor as tile-CENTRE
+// coordinates: [tx + 0.5, ty + 0.5]. The old _drawTrunks() was adding a
+// FURTHER +0.5 (X) / +1 (Y) on top of that already-offset value, drawing
+// the trunk a half-tile southeast of the wallMask cell it actually
+// collides on. Fixed by using trunk.tx / trunk.ty + 0.5 directly (already
+// tile-centre) instead of adding a second offset. Preserved in the
+// refactored drawTrunk() below.
+//
+// ── v5: tapered branches + tintManager foliage tint ──────────────────────────
 // 1. Branches were a constant-width straight stroke at HALF the trunk's
-//    own width (Math.max(1.5, w * 0.5)) -- confirmed via screenshot this
-//    read as girder-like, not branch-like. Replaced with a TAPERED FILLED
-//    SHAPE (thick at the trunk, narrow at the tip) with a slight curve,
-//    at a much smaller base width. New branchScale instance option
-//    (default 1.0) additionally scales branch length/width, or disables
-//    branches entirely at 0 -- for contexts (open landscape, non-forest
-//    maps) where the dense, twiggy look doesn't fit.
-// 2. Foliage canopy now gets the SAME tintManager-driven per-tile colour
-//    variation the old Oryx tree stamps had (PerspectiveGroundRenderer's
-//    tintManager, 'vegetation' category -- hue/saturation/lightness
-//    hashed per tile position, same code path Oryx billboards used).
-//    Applied once when a trunk's canopy is baked (not per-frame), via a
-//    source-atop overlay on the cached cap canvas.
+//    own width -- confirmed via screenshot this read as girder-like, not
+//    branch-like. Replaced with a TAPERED FILLED SHAPE (thick at the
+//    trunk, narrow at the tip) with a slight curve, at a much smaller base
+//    width. branchScale instance option (default 1.0) scales branch
+//    length/width, or disables branches entirely at 0.
+// 2. Foliage canopy gets the SAME tintManager-driven per-tile colour
+//    variation the old Oryx tree stamps had. Baked once per trunk cap,
+//    not per-frame.
 //
 // ── v4: canopy bushiness controls ─────────────────────────────────────────────
 // canopyFacetScale / canopyLayerScale / canopyRadiusScale (all default
-// 1.0) let non-forest contexts have visibly smaller, sparser canopies
-// without touching testForest's own look.
-//
-// ── v3: corrected player/tree occlusion ───────────────────────────────────────
-// Fades the TREE's own drawn opacity (per-trunk), not the player's, when a
-// trunk's bounding box overlaps the player's screen position -- this
-// canvas sits above the player's own canvas (z:5 vs z:3).
-//
-// ── v2: fullscreen-toggle canvas sync ──────────────────────────────────────────
-// Canvas sizing mirrors PGR's OWN ground canvas (#pgr-ground) every frame.
+// 1.0) let non-forest contexts have visibly smaller, sparser canopies.
 //
 // ── Terrain contour driven entirely by tree roots ────────────────────────────
 // Terrain peaks are baked into the map JSON at generation/migration time,
@@ -53,7 +73,8 @@
 //     canopyFacetScale: 0.5, canopyLayerScale: 0.5, canopyRadiusScale: 0.55,
 //     branchScale: 0.4,   // 0 to disable branches entirely
 //   })
-//   this.forestEffects.update()   // each frame, after perspectiveGround.update()
+//   this.perspectiveGround.setForestEffects(this.forestEffects)   // NEW -- wires trunks into PGR's own draw loop
+//   this.forestEffects.update()   // each frame, after perspectiveGround.update() -- still needed for haze/exit markers
 //   if (this.forestEffects) { this.forestEffects.destroy(); this.forestEffects = null }   // shutdown
 
 export default class ForestEffects {
@@ -154,8 +175,17 @@ export default class ForestEffects {
 
   static TRUNK_KEEP_CHANCE = 0.45
 
-  static TREE_OCCLUSION_ALPHA = 0.35
-  static TREE_OCCLUSION_EASE  = 0.25
+  // Row offset added to trunk.ty (already tile-centre, i.e. originalTY+0.5)
+  // to get the anchor row used for screenX/screenY/scale. Calibrated from
+  // two direct visual observations, not re-derived from projection math a
+  // third time: +0.5 (i.e. originalTY+1, the tile's south/front edge)
+  // read as the tile's TOP edge; +1.0 (originalTY+1.5) read as the tile's
+  // BOTTOM edge. Since those two values bracket the tile and land on its
+  // two edges, their average -- +0.75 (originalTY+1.25) -- should land on
+  // the tile's MIDDLE, which is what we actually want. If this still
+  // isn't centred, the discrepancy is probably a full-tile-scale issue
+  // elsewhere, not a fraction to keep splitting.
+  static TRUNK_ROW_ANCHOR_OFFSET = 0.75
 
   constructor(scene, options = {}) {
     this.scene = scene
@@ -171,6 +201,9 @@ export default class ForestEffects {
     this._canopyRadiusScale = options.canopyRadiusScale ?? 1.0
     this._branchScale       = options.branchScale       ?? 1.0
 
+    // This canvas is now ONLY used for canopy haze + exit markers --
+    // full-screen/atmospheric effects with no per-tile occlusion needs.
+    // Trunks are drawn by PGR directly onto its own _gCtx (see drawTrunk()).
     const container = scene.game.canvas.parentNode
     this._canvas = document.createElement('canvas')
     this._canvas.id = 'forest-canopy'
@@ -188,6 +221,24 @@ export default class ForestEffects {
     this._canopyPattern = this._bakeCanopyPattern()
     this._leafTextures = this._loadLeafTextures()
     this._trunks = this._bakeTrunkShapesFromMask()
+
+    // Row index for PGR to query cheaply during its own per-row loop.
+    // trunk.ty is tile-centre (originalTY + 0.5); floor gives the real
+    // tile row the trunk's wallMask cell occupies.
+    this._trunksByRow = new Map()
+    for (const trunk of this._trunks) {
+      const row = Math.floor(trunk.ty)
+      if (!this._trunksByRow.has(row)) this._trunksByRow.set(row, [])
+      this._trunksByRow.get(row).push(trunk)
+    }
+
+    // North-direction map preview (see PerspectiveGroundRenderer's
+    // setNorthNeighbor/_drawNorthPreviewRow) -- empty until the scene
+    // calls setNorthNeighborWallMask() with the north neighbour's data,
+    // if any. Purely visual: these trunks live at NEGATIVE world rows,
+    // are never collided with, and are only ever drawn by the dedicated
+    // preview path, faded toward the horizon.
+    this._northPreviewTrunksByRow = new Map()
 
     console.log('[ForestEffects] constructed -', this._sw, 'x', this._sh, '-', this._trunks.length, 'trunk clusters -- trunkKeepChance:', this._trunkKeepChance, '-- widthScale:', this._widthScale, 'heightScale:', this._heightScale, 'canopyHaze:', this._canopyHazeEnabled, '-- canopyFacetScale:', this._canopyFacetScale, 'canopyLayerScale:', this._canopyLayerScale, 'canopyRadiusScale:', this._canopyRadiusScale, '-- branchScale:', this._branchScale)
   }
@@ -352,6 +403,10 @@ export default class ForestEffects {
   get width() { return this._sw }
   get height() { return this._sh }
 
+  // Still called each frame by the scene (unchanged contract) -- now only
+  // handles canvas resize-sync, exit markers, undergrowth, and canopy
+  // haze. Trunk drawing has moved to PGR (see drawTrunk()/getTrunksForRow()
+  // below, called from PerspectiveGroundRenderer.update()).
   update() {
 
     const pgr = this.scene.perspectiveGround
@@ -377,18 +432,18 @@ export default class ForestEffects {
 
     ctx.clearRect(0, 0, sw, sh)
 
-    const p = this.scene.player
-    const ts = pgr.tileDisplaySize ?? 48
-    const playerTileY = Math.floor((p?.targetY ?? p?.logicalY ?? 0) / ts)
-
-    this._drawExitMarkers(pgr)
+    // _drawExitMarkers() call removed -- the solid red rectangle it draws
+    // over every exit tile was fine at the old 5-tile-wide exit slice, but
+    // with most borders now spanning the map's whole edge (34 tiles) it
+    // rendered as a glaring red stripe across nearly the entire boundary.
+    // Method left defined below (unused) in case a narrower, more
+    // deliberate indicator is wanted later.
 
     if (this.undergrowthRenderer) {
       this.undergrowthRenderer.update(pgr, sw, sh)
     }
 
     if (this._canopyHazeEnabled) this._drawCanopyHaze(sw, sh)
-    this._drawTrunks(pgr, playerTileY)
   }
 
   _drawCanopyHaze(sw, sh) {
@@ -655,8 +710,9 @@ export default class ForestEffects {
     trunk._cachedCapTextureCount = loadedTextures.length
   }
 
-  _drawFoliageCap(trunk, screenX, topY, widthPx, alpha, pgr) {
-    const ctx = this._ctx
+  // ctx now passed explicitly (was this._ctx) -- PGR calls this with its
+  // own _gCtx so the cap draws on the ground canvas alongside cliffs.
+  _drawFoliageCap(ctx, trunk, screenX, topY, widthPx, alpha, pgr) {
     const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
     if (!(capRadius > 0)) return
 
@@ -694,8 +750,8 @@ export default class ForestEffects {
   // Tapered, slightly curved branch -- filled shape (thick at the trunk,
   // narrow at the tip), not a constant-width stroke. See v5 header note
   // for why the old straight, half-trunk-width stroke read as a girder.
-  _drawBranch(baseX, baseY, ang, len, colorDark) {
-    const ctx = this._ctx
+  // ctx now passed explicitly (was this._ctx).
+  _drawBranch(ctx, baseX, baseY, ang, len, colorDark) {
     const endX = baseX + Math.sin(ang) * len
     const endY = baseY - Math.cos(ang) * len
 
@@ -722,102 +778,204 @@ export default class ForestEffects {
     ctx.fill()
   }
 
-  _drawTrunks(pgr, playerTileY) {
-    const ctx = this._ctx
+  /**
+   * Trunks anchored to the given integer tile row, in the same order they
+   * were baked (typically only a handful per row, so no extra sort is
+   * needed -- PGR's own per-row loop already provides the correct
+   * far-to-near draw order at the row level).
+   */
+  getTrunksForRow(row) {
+    return this._trunksByRow.get(row) ?? []
+  }
+
+  /**
+   * Bakes trunk shapes for the map's NORTH NEIGHBOUR (see
+   * PerspectiveScene's north-preview fetch and PGR's setNorthNeighbor/
+   * _drawNorthPreviewRow), so a fading glimpse of trees beyond the
+   * current map's north edge can be drawn. Purely visual -- these trunks
+   * are indexed by NEGATIVE world row (the neighbour's own row `r`, out
+   * of `neighborHeight` local rows, maps to world row `r - neighborHeight`,
+   * so its southmost row -- immediately adjacent to our row 0 -- lands at
+   * world row -1). Reuses the exact same per-cell hash/border logic as
+   * the current map's own trunk baking, just sourced from a different
+   * wallMask and shifted into negative-row space.
+   *
+   * @param {number[][]|null} wallMask   -- the neighbour's wallMask, or
+   *   null/undefined to clear any existing preview (e.g. if the neighbour
+   *   has no wallMask at all, such as b1's empty fields).
+   * @param {number} neighborHeight      -- the neighbour's own tile height
+   */
+  setNorthNeighborWallMask(wallMask, neighborHeight) {
+    this._northPreviewTrunksByRow = new Map()
+    if (!wallMask || !neighborHeight) return
+
+    const mapH = wallMask.length
+    const mapW = wallMask[0]?.length ?? 0
+    const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? wallMask[y][x] === 1 : true
+    const cellKeepValue = (x, y) => {
+      let h = (x * 374761393 + y * 668265263) | 0
+      h = Math.imul(h ^ (h >>> 13), 1274126177)
+      h = (h ^ (h >>> 16)) >>> 0
+      return h / 0xffffffff
+    }
+
+    for (let ty = 0; ty < mapH; ty++) {
+      for (let tx = 0; tx < mapW; tx++) {
+        if (!isWall(tx, ty)) continue
+        const bordersOpen =
+          !isWall(tx + 1, ty) || !isWall(tx - 1, ty) ||
+          !isWall(tx, ty + 1) || !isWall(tx, ty - 1)
+        if (!bordersOpen) continue
+        if (cellKeepValue(tx, ty) > this._trunkKeepChance) continue
+
+        const worldTy = (ty + 0.5) - neighborHeight
+        const trunk = this._buildTrunkShape(tx + 0.5, worldTy)
+        const row = Math.floor(worldTy)
+        if (!this._northPreviewTrunksByRow.has(row)) this._northPreviewTrunksByRow.set(row, [])
+        this._northPreviewTrunksByRow.get(row).push(trunk)
+      }
+    }
+  }
+
+  getNorthPreviewTrunksForRow(row) {
+    return this._northPreviewTrunksByRow.get(row) ?? []
+  }
+
+  /**
+   * Shared screen-anchor computation for a trunk -- used by BOTH drawTrunk()
+   * and getTrunkScreenBounds() below, so the two can never drift apart the
+   * way position math has already drifted twice in this file's history.
+   * Returns null if the trunk is off-screen or the row can't be projected.
+   */
+  _computeTrunkAnchor(trunk, pgr) {
+    const anchorRow = trunk.ty + ForestEffects.TRUNK_ROW_ANCHOR_OFFSET
+
+    const baseScreenY = pgr._rowToScreenY?.(anchorRow)
+    const scale       = pgr._scaleAtRow?.(anchorRow)
+    if (baseScreenY == null || !(scale > 0)) return null
+
+    const screenX = pgr._colToScreenX?.(trunk.tx, anchorRow)
+    if (screenX == null) return null
+
+    const groundRow = Math.floor(trunk.ty + 1)
+    const hLeft  = pgr._vertexH?.(Math.floor(trunk.tx),     groundRow) ?? 0
+    const hRight = pgr._vertexH?.(Math.floor(trunk.tx) + 1, groundRow) ?? 0
+    const groundHeightTiles = (hLeft + hRight) * 0.5
+    const screenY = baseScreenY - groundHeightTiles * scale
+
+    if (screenX < -200 || screenX > this._sw + 200) return null
+    if (screenY < -200 || screenY > this._sh + 200) return null
+
+    const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
+    const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
+
+    return { screenX, screenY, scale, widthPx, heightPx }
+  }
+
+  /**
+   * Screen-space bounds for a trunk's rendered silhouette (trunk + canopy),
+   * for precise occlusion checks (e.g. "does the player's actual screen
+   * position fall inside this tree," not just "is a tree nearby in tile
+   * space"). Mirrors the same geometry drawTrunk() actually draws, via the
+   * shared _computeTrunkAnchor() above.
+   *
+   * @returns {{screenX:number, capRadius:number, topY:number, footY:number}|null}
+   */
+  getTrunkScreenBounds(trunk, pgr) {
+    const anchor = this._computeTrunkAnchor(trunk, pgr)
+    if (!anchor) return null
+    const { screenX, screenY, widthPx, heightPx } = anchor
+
+    const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
+    const trunkTopY = screenY - heightPx
+    // Canopy extends upward from the trunk top by roughly capRadius,
+    // offset slightly by CAP_HEIGHT_OFFSET_MUL (see _drawFoliageCap) --
+    // generous but not exact, adequate for an occlusion test rather than
+    // pixel-perfect hit-testing.
+    const topY = trunkTopY - capRadius
+    const footY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
+
+    return { screenX, capRadius, topY, footY }
+  }
+
+  /**
+   * Draw a single trunk onto the given context. Called by
+   * PerspectiveGroundRenderer from inside its own per-row loop, passing
+   * its _gCtx -- NOT called from this class's own update() any more.
+   *
+   * @param {CanvasRenderingContext2D} ctx        -- PGR's _gCtx
+   * @param {object} trunk                        -- from getTrunksForRow()
+   * @param {PerspectiveGroundRenderer} pgr
+   * @param {number} playerTileRow                -- for the south-fade-near-player effect
+   * @param {number} [extraAlpha]                  -- additional multiplier, e.g. the
+   *   north-preview's horizon fade. Defaults to 1 (no change) for normal calls.
+   */
+  drawTrunk(ctx, trunk, pgr, playerTileRow, extraAlpha = 1) {
     const fadeRangeTiles = ForestEffects.SOUTH_FADE_RANGE_TILES
     const minAlpha = ForestEffects.SOUTH_FADE_MIN_ALPHA
 
-    const playerScreenX = pgr.playerScreenX ?? this._sw / 2
-    const playerScreenY = pgr.playerScreenY ?? this._sh / 2
+    const anchor = this._computeTrunkAnchor(trunk, pgr)
+    if (!anchor) return
+    const { screenX, screenY, widthPx, heightPx } = anchor
 
-    const sortedTrunks = [...this._trunks].sort((a, b) => a.ty - b.ty)
+    let alpha = 1.0
+    const southDist = trunk.ty - playerTileRow
+    if (southDist > 0 && southDist < fadeRangeTiles) {
+      const t = 1 - southDist / fadeRangeTiles
+      alpha = 1 - t * (1 - minAlpha)
+    }
+    alpha *= extraAlpha
 
-    for (const trunk of sortedTrunks) {
-      const baseScreenY = pgr._rowToScreenY?.(trunk.ty + 1)
-      const scale       = pgr._scaleAtRow?.(trunk.ty + 1)
-      if (baseScreenY == null || !(scale > 0)) continue
+    ctx.globalAlpha = alpha
 
-      const screenX = pgr._colToScreenX?.(trunk.tx + 0.5, trunk.ty + 1)
-      if (screenX == null) continue
+    const groundY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
 
-      const groundRow = Math.floor(trunk.ty + 1)
-      const hLeft  = pgr._vertexH?.(Math.floor(trunk.tx),     groundRow) ?? 0
-      const hRight = pgr._vertexH?.(Math.floor(trunk.tx) + 1, groundRow) ?? 0
-      const groundHeightTiles = (hLeft + hRight) * 0.5
-      const screenY = baseScreenY - groundHeightTiles * scale
+    for (const s of trunk.strokes) {
+      const w = widthPx * s.widthMul
+      const h = heightPx * s.heightMul
+      const baseX = screenX + s.xOffset * widthPx
+      const topX  = baseX + s.curve * w * 3
+      const topY  = screenY - h
+      const midX  = (baseX + topX) / 2 + s.curve * w * 1.5
+      const midY  = (screenY + topY) / 2
 
-      if (screenX < -200 || screenX > this._sw + 200) continue
-      if (screenY < -200 || screenY > this._sh + 200) continue
+      ctx.fillStyle = trunk.species.colorDark
+      ctx.beginPath()
+      ctx.moveTo(baseX - w / 2, groundY)
+      ctx.quadraticCurveTo(midX - w / 4, midY, topX - w / 8, topY)
+      ctx.lineTo(topX + w / 8, topY)
+      ctx.quadraticCurveTo(midX + w / 4, midY, baseX + w / 2, groundY)
+      ctx.closePath()
+      ctx.fill()
 
-      let alpha = 1.0
-      const southDist = trunk.ty - playerTileY
-      if (southDist > 0 && southDist < fadeRangeTiles) {
-        const t = 1 - southDist / fadeRangeTiles
-        alpha = 1 - t * (1 - minAlpha)
-      }
+      this._drawBarkStriations(ctx, baseX, groundY, topX, topY, midX, midY, w, s.stripeCount)
 
-      const widthPx  = ForestEffects.TRUNK_BASE_WIDTH_TILES  * scale * this._widthScale
-      const heightPx = ForestEffects.TRUNK_BASE_HEIGHT_TILES * scale * this._heightScale
+      ctx.strokeStyle = trunk.species.colorRim
+      ctx.lineWidth = Math.max(1, w * 0.12)
+      ctx.beginPath()
+      ctx.moveTo(baseX - w / 2, groundY)
+      ctx.quadraticCurveTo(midX - w / 4, midY, topX - w / 8, topY)
+      ctx.stroke()
 
-      const capRadiusCheck = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
-      const occluding =
-        playerScreenX >= screenX - capRadiusCheck && playerScreenX <= screenX + capRadiusCheck &&
-        playerScreenY <= screenY && playerScreenY >= screenY - heightPx - capRadiusCheck
-      const targetTreeAlpha = occluding ? ForestEffects.TREE_OCCLUSION_ALPHA : 1
-      trunk._treeAlpha = (trunk._treeAlpha ?? 1) + (targetTreeAlpha - (trunk._treeAlpha ?? 1)) * ForestEffects.TREE_OCCLUSION_EASE
-      alpha *= trunk._treeAlpha
-
-      ctx.globalAlpha = alpha
-
-      const groundY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
-
-      for (const s of trunk.strokes) {
-        const w = widthPx * s.widthMul
-        const h = heightPx * s.heightMul
-        const baseX = screenX + s.xOffset * widthPx
-        const topX  = baseX + s.curve * w * 3
-        const topY  = screenY - h
-        const midX  = (baseX + topX) / 2 + s.curve * w * 1.5
-        const midY  = (screenY + topY) / 2
-
-        ctx.fillStyle = trunk.species.colorDark
-        ctx.beginPath()
-        ctx.moveTo(baseX - w / 2, groundY)
-        ctx.quadraticCurveTo(midX - w / 4, midY, topX - w / 8, topY)
-        ctx.lineTo(topX + w / 8, topY)
-        ctx.quadraticCurveTo(midX + w / 4, midY, baseX + w / 2, groundY)
-        ctx.closePath()
-        ctx.fill()
-
-        this._drawBarkStriations(baseX, groundY, topX, topY, midX, midY, w, s.stripeCount)
-
-        ctx.strokeStyle = trunk.species.colorRim
-        ctx.lineWidth = Math.max(1, w * 0.12)
-        ctx.beginPath()
-        ctx.moveTo(baseX - w / 2, groundY)
-        ctx.quadraticCurveTo(midX - w / 4, midY, topX - w / 8, topY)
-        ctx.stroke()
-
-        if (this._branchScale > 0.001) {
-          for (const br of s.branches) {
-            const branchBaseX = baseX + (topX - baseX) * br.at
-            const branchBaseY = screenY + (topY - screenY) * br.at
-            const len = w * ForestEffects.BRANCH_LENGTH_MUL * br.len * this._branchScale
-            this._drawBranch(branchBaseX, branchBaseY, br.ang, len, trunk.species.colorDark)
-          }
+      if (this._branchScale > 0.001) {
+        for (const br of s.branches) {
+          const branchBaseX = baseX + (topX - baseX) * br.at
+          const branchBaseY = screenY + (topY - screenY) * br.at
+          const len = w * ForestEffects.BRANCH_LENGTH_MUL * br.len * this._branchScale
+          this._drawBranch(ctx, branchBaseX, branchBaseY, br.ang, len, trunk.species.colorDark)
         }
       }
-
-      if (ForestEffects.CANOPY_ENABLED) {
-        const topY = screenY - heightPx
-        this._drawFoliageCap(trunk, screenX, topY, widthPx, alpha, pgr)
-      }
     }
+
+    if (ForestEffects.CANOPY_ENABLED) {
+      const topY = screenY - heightPx
+      this._drawFoliageCap(ctx, trunk, screenX, topY, widthPx, alpha, pgr)
+    }
+
     ctx.globalAlpha = 1.0
   }
 
-  _drawBarkStriations(baseX, baseY, topX, topY, midX, midY, w, stripeCount) {
-    const ctx = this._ctx
+  _drawBarkStriations(ctx, baseX, baseY, topX, topY, midX, midY, w, stripeCount) {
     ctx.save()
     ctx.beginPath()
     ctx.moveTo(baseX - w / 2, baseY)
@@ -856,3 +1014,4 @@ export default class ForestEffects {
     this._ctx = null
   }
 }
+

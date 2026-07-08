@@ -3,6 +3,44 @@
  * Generates all 17 grid maps (4×4 bog grid + b0 village) and writes them
  * to public/maps/bogMaps/
  *
+ * ── This revision: open borders + shared forest continuity (a1-d3 only) ─────
+ * The 12 maps a1-d3 (rows 1-3) now:
+ *   - Sample ONE shared tree-cluster field (_clusterShared.mjs) instead of
+ *     independent per-map placement, so forest continues naturally across
+ *     shared seams instead of two unrelated fields coincidentally meeting
+ *     at an edge. a2 (previously genOpenBog -- rocks/cobwebs, no real
+ *     thematic tie to its neighbours) is now forest too, matching a1/a3.
+ *   - Write trunks directly as wallMask + baked heightMap root-peaks (via
+ *     _treeShared.mjs), NOT GID tile stamps -- the old buildTreeLayer/
+ *     Oryx-stamp approach is fully retired for these maps; nothing in the
+ *     live game has rendered Oryx tree stamps since migrate_oryx_trees.mjs.
+ *   - Have FULLY OPEN internal borders (every shared edge among the 12
+ *     spans its whole width, not a 5-tile exit slice) EXCEPT:
+ *       - b1's north edge (into b0, village -- untouched)
+ *       - row3's south edge (into row4 -- deliberately left narrow/closed;
+ *         row4 is planned as a separate, more restricted "druid forest"
+ *         area, not opened up this pass)
+ *       - row3's own east/west river-crossings (already have their own
+ *         water-following wide-bank-corridor logic via streamEdges
+ *         chaining -- a literal river is a more meaningful "restriction"
+ *         than an arbitrary wall, so left as-is rather than forced fully
+ *         open)
+ *       - d3's east edge (into d3Sea -- separate system, untouched)
+ *     xFromSource entry logic (perspectiveScene.js applyEntryPosition) is
+ *     required for the new north/south open edges to work correctly --
+ *     see that file's own changes.
+ *   - Carry the village-to-river path (b0->b1->c1->c2->[c3]) with a mud-
+ *     tint blend (TintManager.getGroundTint's pathDist input) and a
+ *     tree-free corridor, wandering freely now that it can cross full-
+ *     width open borders rather than threading a narrow slot. The path
+ *     stops short of adding explicit corridor data to c3 itself (a river
+ *     map with its own complex water-avoiding terrain) -- it hands off
+ *     naturally through c3's now-open north edge onto that map's existing
+ *     walkable riverbank.
+ *
+ * row4 (a4-d4, dark druid forest), b0 (village), and the sea maps are
+ * UNCHANGED by this revision.
+ *
  * Usage (from ~/Corra):
  *   node tools/map-editor/generators/gen_all_maps.mjs
  */
@@ -10,6 +48,10 @@
 import { writeFileSync, mkdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
+
+import { buildTrunkPositions, applyRootPeaksToHeightMap } from './_treeShared.mjs'
+import { buildPathWaypoints, buildPathDistGrid, carvePathCorridor } from './_pathShared.mjs'
+import { buildSharedClusterField, sampleLocalWallMask } from './_clusterShared.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(__dirname, '../../../public/maps/bogMaps')
@@ -26,18 +68,22 @@ function mulberry32(seed) {
 }
 function seededRng(name) { return mulberry32(name.split('').reduce((a,c)=>a+c.charCodeAt(0),0)*2654435761) }
 
-// ── Shared height map ─────────────────────────────────────────────────────────
-// One vertex per tile corner. Vertex (vx, vy) is the top-left corner of tile
-// (vx, vy), shared with tile (vx-1, vy-1) etc — so adjacent tiles naturally
-// share corners and there are no seams.
-//
-// Grid layout (a=col0, row1=row0):
-//   col:  0=a  1=b  2=c  3=d
-//   row:  0=row1  1=row2  2=row3  3=row4
-//
-// Full vertex grid is (4*W+1) × (4*H+1) = 145×145.
-// Row-3 maps (row index 2) cover tile-y 72–108 (global vertex rows 72–108).
+// Deterministic per-cell hash for south-bank thinning (genRiver) -- same
+// family as the hashes used elsewhere in the codebase for per-tile
+// variation. Doesn't need cross-map seam agreement the way
+// _clusterShared.mjs's hash does (south-bank thinning is a per-map
+// cosmetic reduction, not a continuity concern), but kept deterministic
+// anyway for reproducible output.
+function _riverBankHash(gx, gy) {
+  let h = (gx * 374761393 + gy * 668265263) | 0
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  h = (h ^ (h >>> 16)) >>> 0
+  return h / 0xffffffff
+}
 
+// ── Shared height map (UNCHANGED -- still spans the full 4x4 grid, since
+// row4 still needs seamless elevation continuity with row3 even though
+// it's untouched by the forest/border work this pass) ───────────────────────
 const GRID_COLS  = 4
 const GRID_ROWS  = 4
 const VW         = GRID_COLS * W + 1   // 145
@@ -45,20 +91,16 @@ const VH         = GRID_ROWS * H + 1   // 145
 const HEIGHT_AMP = 3
 
 function buildSharedHeightMap() {
-  // Deterministic corner hash — no RNG object needed
   function cornerHash(gx, gy) {
     let s = (gx * 374761393 + gy * 1103515245) | 0
     s = Math.imul((s ^ (s >>> 16)), 0x45d9f3b)
     s = Math.imul((s ^ (s >>> 16)), 0x45d9f3b)
     return ((s ^ (s >>> 16)) & 0xffff) / 0xffff
   }
-
-  // Bilinear value noise at continuous coords (nx, ny) with given frequency scale
   function valueNoise(nx, ny, scale) {
     const gx0 = Math.floor(nx * scale), gy0 = Math.floor(ny * scale)
     const gx1 = gx0 + 1,               gy1 = gy0 + 1
     const fx  = nx * scale - gx0,      fy  = ny * scale - gy0
-    // Smoothstep
     const sfx = fx * fx * (3 - 2 * fx)
     const sfy = fy * fy * (3 - 2 * fy)
     return (
@@ -68,42 +110,27 @@ function buildSharedHeightMap() {
       cornerHash(gx1, gy1) *      sfx  *      sfy
     )
   }
-
   const octaves = [
     { scale: 0.040, amp: 1.00 },
     { scale: 0.090, amp: 0.45 },
     { scale: 0.200, amp: 0.20 },
   ]
   const totalAmp = octaves.reduce((s, o) => s + o.amp, 0)
-
-  // Flat array, row-major: index = vy * VW + vx
   const raw = new Array(VW * VH)
-
   for (let vy = 0; vy < VH; vy++) {
     for (let vx = 0; vx < VW; vx++) {
-      // Accumulate octaves, normalise to [-1, 1]
       let v = 0
       for (const { scale, amp } of octaves) {
         v += (valueNoise(vx, vy, scale) * 2 - 1) * amp
       }
-      v /= totalAmp  // [-1, 1]
-
-      // No valley bias — negative heights are clamped to 0 in _vertexH so they
-      // would create black holes. River maps read as low naturally via water tiles.
+      v /= totalAmp
       raw[vy * VW + vx] = +Math.max(0, Math.min(HEIGHT_AMP, v * HEIGHT_AMP)).toFixed(4)
     }
   }
-  return raw   // flat Array of floats, length VW*VH
+  return raw
 }
-
 const SHARED_HM = buildSharedHeightMap()
 
-/**
- * Slice a (H+1)×(W+1) 2-D array from the shared height map for a map at
- * grid position (gridX, gridY).
- *   gridX: 0=a  1=b  2=c  3=d
- *   gridY: 0=row1  1=row2  2=row3  3=row4
- */
 function sliceHeightMap(gridX, gridY) {
   const ox = gridX * W
   const oy = gridY * H
@@ -113,7 +140,6 @@ function sliceHeightMap(gridX, gridY) {
     for (let dx = 0; dx <= W; dx++) {
       const vx = ox + dx
       const vy = oy + dy
-      // clamp to edge if somehow out of range
       const cvx = Math.max(0, Math.min(VW - 1, vx))
       const cvy = Math.max(0, Math.min(VH - 1, vy))
       row.push(SHARED_HM[cvy * VW + cvx])
@@ -123,9 +149,17 @@ function sliceHeightMap(gridX, gridY) {
   return rows
 }
 
+// ── Shared tree-cluster field (NEW -- rows 1-3 only, i.e. a1-d3; row4 is
+// untouched and keeps its own independent dense/dark forestCA below) ────────
+const CLUSTER_GRID_ROWS = 3
+const CLUSTER_CFG = {
+  gridCols: GRID_COLS, gridRows: CLUSTER_GRID_ROWS, mapW: W, mapH: H,
+  clustersPerMap: 9, clusterMinRadius: 1.5, clusterMaxRadius: 3.0,
+  clusterPeakChance: 0.4, strayTreeChance: 0.01,
+}
+const CLUSTER_FIELD = buildSharedClusterField(CLUSTER_CFG, seededRng('sharedForestClusters'))
+
 // ── Tile GIDs ─────────────────────────────────────────────────────────────────
-const OAK  = {TL:260,TC:261,TR:262,ML:314,MC:315,MR:316,BL:368,BC:369,BR:370}
-const BOG_TREE = {TL:263,TC:264,TR:265,ML:317,MC:318,MR:319,BL:371,BC:372,BR:373}
 const GRASS    = [839,840]
 const WATERSIDE= 731
 const WATER    = [1625,1679]
@@ -138,13 +172,19 @@ const BOG_FLAT = 733
 const BOG_POOL = [83,84,99,100]
 const STONE_CIRCLE = [154,155,208,209]
 
+// GID stamps below are ONLY used by row4's genForestMaze (dark druid
+// forest, untouched this pass) -- rows 1-3 no longer use tile-stamp trees
+// at all (see header note).
+const OAK  = {TL:260,TC:261,TR:262,ML:314,MC:315,MR:316,BL:368,BC:369,BR:370}
+const BOG_TREE = {TL:263,TC:264,TR:265,ML:317,MC:318,MR:319,BL:371,BC:372,BR:373}
+
 const BLDG_THATCH1 = 3001
 const BLDG_THATCH2 = 3002
 const BLDG_WALL1   = 3011
 const BLDG_WALL2   = 3012
 const BLDG_WALL3   = 3013
 
-// ── Forest CA ─────────────────────────────────────────────────────────────────
+// ── Forest CA (row4 / dark druid forest ONLY -- see genForestMazeDark) ──────
 function forestCA(cfg, water, rng) {
   let g = make2D(W,H,false)
   for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
@@ -210,6 +250,11 @@ function buildGrassBase(water) {
 }
 
 function scatterDetail(overlay, forest, water, rng) {
+  // NOTE: no bush/flower scatter here any more -- strip_ground_clutter.mjs
+  // deliberately removed GIDs 44/45/48/98/100 project-wide so they can be
+  // reintroduced later as deliberate collectible objects, not randomised
+  // decoration tiles. This function now only scatters non-clutter detail
+  // (kept for row4/river use where rocks/withered singles are still fine).
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(overlay[y][x]||( forest&&forest[y][x])||(water&&water[y][x])) continue
     if(water){
@@ -218,15 +263,16 @@ function scatterDetail(overlay, forest, water, rng) {
         if(getG(water,x+dx,y+dy,false)){nearWater=true;break}
       if(nearWater) continue
     }
-    const r=rng()
-    if(r<0.04) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
-    else if(r<0.07) overlay[y][x]=FLOWERS[Math.floor(rng()*FLOWERS.length)]
+    // intentionally no-op for now -- see note above
   }
 }
 
 // ── Exit/entry builders ───────────────────────────────────────────────────────
 const MID = 17
 
+// Legacy narrow (5-tile) exit -- still used for: b1's north edge (into
+// b0), row3's south edge (into row4), and anywhere else not part of this
+// pass's open-border set.
 function makeExitEntry(exits_def) {
   const exits={}, entries={}
   const HALF=2
@@ -251,10 +297,63 @@ function makeExitEntry(exits_def) {
   return {exits,entries}
 }
 
+// NEW -- full-width open-border exit. Spans the entire edge (minus the
+// two literal corner tiles, same as any map corner). xFromSource/
+// yFromSource means a crossing anywhere along the edge lands at the
+// CORRESPONDING point on the far side, not recentred to the middle --
+// needs the matching applyEntryPosition() support in perspectiveScene.js.
+function makeOpenExitEntry(dir, dest) {
+  let tiles, entryPoint, entry
+  if (dir === 'west') {
+    tiles = Array.from({ length: H - 2 }, (_, i) => [0, i + 1])
+    entryPoint = 'east'; entry = { x: 4, yFromSource: true }
+  } else if (dir === 'east') {
+    tiles = Array.from({ length: H - 2 }, (_, i) => [W - 1, i + 1])
+    entryPoint = 'west'; entry = { x: W - 4, yFromSource: true }
+  } else if (dir === 'north') {
+    tiles = Array.from({ length: W - 2 }, (_, i) => [i + 1, 0])
+    entryPoint = 'south'; entry = { y: 4, xFromSource: true }
+  } else {
+    tiles = Array.from({ length: W - 2 }, (_, i) => [i + 1, H - 1])
+    entryPoint = 'north'; entry = { y: H - 4, xFromSource: true }
+  }
+  return { exit: { tiles, destination: dest, entryPoint }, entry }
+}
+
+/**
+ * Builds exits/entries for a map given a per-direction mode map, e.g.
+ *   { east: ['open','c1'], south: ['narrow','a2'], north: null }
+ * Mixes makeOpenExitEntry and the narrow single-direction logic from
+ * makeExitEntry as needed, since most of the 12 maps have SOME open and
+ * SOME narrow (or absent) edges.
+ */
+function buildMixedExitEntry(dirModes) {
+  const exits = {}, entries = {}
+  const HALF = 2
+  for (const [dir, spec] of Object.entries(dirModes)) {
+    if (!spec) continue
+    const [mode, dest] = spec
+    if (mode === 'open') {
+      const { exit, entry } = makeOpenExitEntry(dir, dest)
+      exits[dir] = exit; entries[dir] = entry
+    } else {
+      // narrow, single-direction (reuses makeExitEntry's per-dir shape)
+      const { exits: e1, entries: n1 } = makeExitEntry({ [dir]: dest })
+      exits[dir] = e1[dir]; entries[dir] = n1[dir]
+    }
+  }
+  return { exits, entries }
+}
+
 const RIVER_EDGE_HALF = 4
 const BANK_ROWS       = 3
 
-function makeRiverExitEntry(exits_def, riverYs) {
+// River exits: east/west keep their existing water-following wide-bank
+// corridor (unchanged -- a literal river is a more meaningful edge than
+// an arbitrary wall). North becomes fully open (openNorth=true, for the
+// row2->row3 boundary); south stays narrow (row3->row4, deliberately
+// closed this pass).
+function makeRiverExitEntry(exits_def, riverYs, openNorth=false) {
   const exits={}, entries={}
   const HALF=2
   for(const [dir,dest] of Object.entries(exits_def)){
@@ -269,9 +368,14 @@ function makeRiverExitEntry(exits_def, riverYs) {
       exits[dir]={tiles, destination:dest, entryPoint: dir==='west'?'east':'west'}
       entries[dir]={x: dir==='west'?4:W-4, y:cy, yFromSource:true}
     } else if(dir==='north'){
-      exits[dir]={tiles:[[MID-HALF,1],[MID-1,1],[MID,1],[MID+1,1],[MID+HALF,1]],
-                  destination:dest, entryPoint:'south'}
-      entries[dir]={x:MID, y:4, yFromSource:false}
+      if (openNorth) {
+        const { exit, entry } = makeOpenExitEntry('north', dest)
+        exits[dir] = exit; entries[dir] = entry
+      } else {
+        exits[dir]={tiles:[[MID-HALF,1],[MID-1,1],[MID,1],[MID+1,1],[MID+HALF,1]],
+                    destination:dest, entryPoint:'south'}
+        entries[dir]={x:MID, y:4, yFromSource:false}
+      }
     } else {
       exits[dir]={tiles:[[MID-HALF,H-2],[MID-1,H-2],[MID,H-2],[MID+1,H-2],[MID+HALF,H-2]],
                   destination:dest, entryPoint:'north'}
@@ -281,7 +385,7 @@ function makeRiverExitEntry(exits_def, riverYs) {
   return {exits,entries}
 }
 
-// ── River stream helper ───────────────────────────────────────────────────────
+// ── River stream helper (UNCHANGED) ──────────────────────────────────────────
 function buildRiver(rng, entryY, exitYHint) {
   const water=make2D(W,H,false)
   const hw=3
@@ -299,7 +403,7 @@ function buildRiver(rng, entryY, exitYHint) {
     const w=(x<4||x>W-5)?hw+1:hw
     for(let r=-w;r<=w;r++) if(inB(x,cy+r))water[cy+r][x]=true
   }
-  return {water, westY:centres[0], eastY:centres[W-1]}
+  return {water, westY:centres[0], eastY:centres[W-1], centres}
 }
 
 function buildWaterOverlay(water) {
@@ -336,7 +440,8 @@ function clearRiverExits(forest, overlay, water) {
   }
 }
 
-// ── Open bog generator ────────────────────────────────────────────────────────
+// ── Open bog generator (RETIRED for a2 -- kept only in case another map
+// wants this style later; a2 now uses genForestMazeShared) ─────────────────
 function genOpenBog(name, exits_def, rng, gridX, gridY) {
   const base=make2D(W,H,BOG_FLAT)
   const overlay=make2D(W,H,0)
@@ -364,7 +469,7 @@ function clearOverlayCorridor(overlay, dir) {
   }
 }
 
-// ── Village (b0) ──────────────────────────────────────────────────────────────
+// ── Village (b0) -- UNCHANGED ────────────────────────────────────────────────
 function bldgGid(dy, fh, wallGid) {
   if (dy === fh - 1) return wallGid
   const roofRows    = fh - 1
@@ -403,7 +508,6 @@ function genVillage(name, exits_def, rng, gridX, gridY) {
   const {exits,entries}=makeExitEntry(exits_def)
   for(const dir of Object.keys(exits_def)) clearOverlayCorridor(overlay,dir)
   const map=buildMap(name,base,overlay,exits,entries,{x:MID,y:H-6},gridX,gridY)
-  // Village is a cleared, settled area — flatten heights significantly
   map.heightMap = map.heightMap.map(row => row.map(v => +(v * 0.12).toFixed(4)))
   map.hasCliffs=true
   map.elevationConfig={
@@ -429,20 +533,77 @@ function genVillage(name, exits_def, rng, gridX, gridY) {
   return map
 }
 
-// ── Fields approach (b1) ──────────────────────────────────────────────────────
-function genFields(name, exits_def, rng, gridX, gridY) {
+// ── Fields approach (b1) -- UNCHANGED except no clutter scatter (see
+// strip_ground_clutter.mjs note above); b1 has no wallMask/trees at all ────
+function genFields(name, dirModes, rng, gridX, gridY, pathSpec=null) {
   const base=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>(x+y)%2===0?GRASS[0]:GRASS[1]))
   const overlay=make2D(W,H,0)
-  for(let y=2;y<H-2;y++) for(let x=2;x<W-2;x++){
-    if(rng()<0.05) overlay[y][x]=BUSHES[Math.floor(rng()*BUSHES.length)]
+  const wallMask=make2D(W,H,0)
+
+  let pathDist = null
+  if (pathSpec) {
+    const waypoints = buildPathWaypoints(pathSpec.x0, pathSpec.y0, pathSpec.x1, pathSpec.y1, pathSpec.opts)
+    const distGrid  = buildPathDistGrid(waypoints, W, H)
+    pathDist = carvePathCorridor(wallMask, distGrid, W, H, { halfWidth: 3, tintFalloff: 7 })
   }
-  const {exits,entries}=makeExitEntry(exits_def)
-  for(const dir of Object.keys(exits_def)) clearOverlayCorridor(overlay,dir)
-  return buildMap(name,base,overlay,exits,entries,{x:MID,y:MID},gridX,gridY)
+
+  const {exits,entries} = buildMixedExitEntry(dirModes)
+  const map = buildMap(name,base,overlay,exits,entries,{x:MID,y:H-6},gridX,gridY)
+  map.wallMask = wallMask
+  if (pathDist) map.pathDist = pathDist
+  return map
 }
 
-// ── Forest maze generator ─────────────────────────────────────────────────────
-function genForestMaze(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
+// ── Forest maze generator -- SHARED-CLUSTER version, for a1/c1/d1/a2/b2/c2/d2 ─
+// Writes trunks directly as wallMask + baked heightMap root-peaks, NOT GID
+// stamps. Optionally carries a path corridor (village-to-river route).
+function genForestMazeShared(name, dirModes, gridX, gridY, pathSpec=null) {
+  const wallMask = sampleLocalWallMask(CLUSTER_FIELD, gridX, gridY, CLUSTER_CFG)
+
+  // Spawn is always map-centre for these maps. Unlike the old maze
+  // generator (which force-cleared a corridor that always included the
+  // spawn point), sparse random clusters have no such guarantee -- a
+  // cluster could occasionally land right on (MID,MID). Force-clear a
+  // small radius BEFORE baking trunk positions, so no ghost root-peak
+  // survives under a spawn that's already guaranteed walkable.
+  const SPAWN_CLEAR_RADIUS = 2
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (Math.hypot(x - MID, y - MID) <= SPAWN_CLEAR_RADIUS) wallMask[y][x] = 0
+    }
+  }
+
+  let pathDist = null
+  if (pathSpec) {
+    const waypoints = buildPathWaypoints(pathSpec.x0, pathSpec.y0, pathSpec.x1, pathSpec.y1, pathSpec.opts)
+    const distGrid  = buildPathDistGrid(waypoints, W, H)
+    pathDist = carvePathCorridor(wallMask, distGrid, W, H, { halfWidth: 3, tintFalloff: 7 })
+  }
+
+  const heightMap = sliceHeightMap(gridX, gridY)
+  const trunkPositions = buildTrunkPositions(wallMask, W, H)
+  const mutated = applyRootPeaksToHeightMap(heightMap, trunkPositions)
+  console.log(`  ${name}: ${trunkPositions.length} trunk positions, ${mutated} heightMap vertices raised`)
+
+  const base = buildGrassBase(null)
+  const overlay = make2D(W, H, 0)
+
+  const {exits,entries} = buildMixedExitEntry(dirModes)
+
+  // Spawn: prefer the middle of whichever edge has an entry hint, else map centre.
+  const spawn = { x: MID, y: MID }
+
+  const map = buildMap(name, base, overlay, exits, entries, spawn, gridX, gridY)
+  map.wallMask  = wallMask
+  map.heightMap = heightMap
+  if (pathDist) map.pathDist = pathDist
+  return map
+}
+
+// ── Forest maze generator -- DARK/DENSE version, row4 ONLY, UNCHANGED ───────
+// (still uses forestCA + GID tile stamps -- row4 is a separate future
+// development, per plan, not touched this pass)
+function genForestMazeDark(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
   const cfg={density:opts.density||0.48, passes:opts.passes||3, birth:opts.birth||5, survive:opts.survive||3}
   const forest=forestCA(cfg,null,rng)
   const DEPTH=7,HALF=2
@@ -474,25 +635,42 @@ function genForestMaze(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
   return buildMap(name,base,overlay,exits,entries,spawn,gridX,gridY)
 }
 
-// ── River map generator ───────────────────────────────────────────────────────
+// ── River map generator -- open-north variant for row3 ──────────────────────
 function genRiver(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
   const entryY = opts.riverEntryY ?? MID
   const exitYHint = opts.riverExitYHint ?? null
-  const {water,westY,eastY} = buildRiver(rng, entryY, exitYHint)
+  const {water,westY,eastY,centres} = buildRiver(rng, entryY, exitYHint)
 
-  const forestCfg={density:0.35,passes:2,birth:5,survive:3}
-  const forest=forestCA(forestCfg,water,rng)
+  // Bankside forest now samples the SAME shared cluster field the other
+  // 8 forest maps use (already dimensioned to cover row 3) instead of an
+  // independent dense CA. The old CA (density:0.35) was tuned back when
+  // trees were static GID stamps -- once every bordering wallMask cell
+  // renders a full trunk+canopy, that density became far too dense
+  // (slowdown, and the south bank -- closest to the camera in this view
+  // -- became visually overwhelming). South bank gets extra thinning on
+  // top of the shared field, since it's both the performance-heaviest
+  // and the most visually obstructive side.
+  let forest = sampleLocalWallMask(CLUSTER_FIELD, gridX, gridY, CLUSTER_CFG)
+  const SOUTH_BANK_KEEP_CHANCE = 0.35
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     if(!forest[y][x]) continue
     let nearWater=false
     for(let dy=-1;dy<=1&&!nearWater;dy++) for(let dx=-1;dx<=1;dx++)
       if(getG(water,x+dx,y+dy,false)){nearWater=true;break}
-    if(nearWater) forest[y][x]=false
+    if(nearWater){ forest[y][x]=0; continue }
+    if (y > centres[x] && _riverBankHash(gridX*1000+x, gridY*1000+y) > SOUTH_BANK_KEEP_CHANCE) {
+      forest[y][x] = 0
+    }
   }
   const DEPTH=7,HALF=2
   const corridorY = dir => dir==='west' ? westY : dir==='east' ? eastY : MID
-  for(const dir of Object.keys(exits_def))
+  for(const dir of Object.keys(exits_def)){
+    if (dir === 'north' && opts.openNorth) continue   // handled as a full-width clear below, not a narrow corridor
     clearCorridor(forest,dir,corridorY(dir),MID,DEPTH,RIVER_EDGE_HALF+BANK_ROWS)
+  }
+  // Perimeter solid FIRST (same order as the original), THEN clear exit
+  // corridors -- reversing this order would let the perimeter pass
+  // silently undo the corridor clearing done above.
   for(let x=0;x<W;x++){forest[0][x]=true;forest[H-1][x]=true}
   for(let y=0;y<H;y++){forest[y][0]=true;forest[y][W-1]=true}
   for(const dir of Object.keys(exits_def)){
@@ -502,6 +680,8 @@ function genRiver(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
         if(dir==='west'&&inB(0,cy+o))   forest[cy+o][0]=false
         if(dir==='east'&&inB(W-1,cy+o)) forest[cy+o][W-1]=false
       }
+    } else if (dir === 'north' && opts.openNorth) {
+      for (let x = 0; x < W; x++) forest[0][x] = false   // whole north row walkable
     } else {
       for(let o=-HALF;o<=HALF;o++){
         if(dir==='north'&&inB(MID+o,0))  forest[0][MID+o]=false
@@ -518,23 +698,34 @@ function genRiver(name, exits_def, rng, opts={}, gridX=0, gridY=0) {
       if(getG(water,x+dx,y+dy,false)){nearWater2=true;break}
     if(nearWater2) forest[y][x]=false
   }
+
+  // Bankside forest now uses the SAME wallMask + baked root-peak system as
+  // the other 8 forest maps -- the `forest` CA grid above already avoids
+  // water correctly, it just needs to stop being rendered as GID tile
+  // stamps (buildTreeLayer/OAK) and become real wallMask + trunk data
+  // instead, so ForestEffects renders it with correct occlusion like
+  // everywhere else, and it no longer looks like old Oryx trees.
+  const wallMask = forest.map(row => row.map(v => v ? 1 : 0))
+  const heightMap = sliceHeightMap(gridX, gridY)
+  const trunkPositions = buildTrunkPositions(wallMask, W, H)
+  const mutated = applyRootPeaksToHeightMap(heightMap, trunkPositions)
+  console.log(`  ${name}: ${trunkPositions.length} trunk positions, ${mutated} heightMap vertices raised`)
+
   const base=buildGrassBase(water)
-  const treeLayer=buildTreeLayer(forest,false)
   const overlay=make2D(W,H,0)
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
-    overlay[y][x]=waterOverlay[y][x]||treeLayer[y][x]
+    overlay[y][x]=waterOverlay[y][x]
   }
-  scatterDetail(overlay,forest,water,rng)
-  const {exits,entries}=makeRiverExitEntry(exits_def,{west:westY,east:eastY})
+  const {exits,entries}=makeRiverExitEntry(exits_def,{west:westY,east:eastY}, opts.openNorth||false)
   const spawnX = exits_def.east ? W-5 : (exits_def.west ? 4 : MID)
   const spawnY = Math.max(2, (exits_def.east||exits_def.west ? entries[Object.keys(exits_def)[0]]?.y??MID : MID) - 3)
 
-return {
-    ...buildMap(name, base, overlay, exits, entries, {x:spawnX, y:spawnY}, gridX, gridY),
-    streamEdges: { west:westY, east:eastY },
-    hasCliffs: true,                            }
-
-
+const map = buildMap(name, base, overlay, exits, entries, {x:spawnX, y:spawnY}, gridX, gridY)
+map.wallMask   = wallMask
+map.heightMap  = heightMap
+map.streamEdges = { west:westY, east:eastY }
+map.hasCliffs  = true
+return map
 }
 
 // ── Map assembler ─────────────────────────────────────────────────────────────
@@ -600,36 +791,46 @@ function writeMap(map) {
 
 console.log('\nGenerating Corra grid (4×4 bog + b0 village)...\n')
 
-console.log('Row 3 — river maps (chained east→west):')
-const d3rng=seededRng('d3'), d3=genRiver('d3',{west:'c3',north:'d2',south:'d4',east:'d3Sea'},d3rng,{riverEntryY:MID},3,2)
+console.log('Row 3 — river maps (chained east→west), north edges now OPEN into row 2:')
+const d3rng=seededRng('d3'), d3=genRiver('d3',{west:'c3',north:'d2',south:'d4',east:'d3Sea'},d3rng,{riverEntryY:MID, openNorth:true},3,2)
 writeMap(d3)
-const c3rng=seededRng('c3'), c3=genRiver('c3',{west:'b3',east:'d3',north:'c2',south:'c4'},c3rng,{riverEntryY:d3.streamEdges?.west??MID, riverExitYHint:d3.streamEdges?.west??MID},2,2)
+const c3rng=seededRng('c3'), c3=genRiver('c3',{west:'b3',east:'d3',north:'c2',south:'c4'},c3rng,{riverEntryY:d3.streamEdges?.west??MID, riverExitYHint:d3.streamEdges?.west??MID, openNorth:true},2,2)
 writeMap(c3)
-const b3rng=seededRng('b3'), b3=genRiver('b3',{west:'a3',east:'c3',north:'b2',south:'b4'},b3rng,{riverEntryY:c3.streamEdges?.west??MID, riverExitYHint:c3.streamEdges?.west??MID},1,2)
+const b3rng=seededRng('b3'), b3=genRiver('b3',{west:'a3',east:'c3',north:'b2',south:'b4'},b3rng,{riverEntryY:c3.streamEdges?.west??MID, riverExitYHint:c3.streamEdges?.west??MID, openNorth:true},1,2)
 writeMap(b3)
-const a3rng=seededRng('a3'), a3=genRiver('a3',{north:'a2',east:'b3',south:'a4'},a3rng,{riverEntryY:b3.streamEdges?.west??MID, riverExitYHint:b3.streamEdges?.west??MID},0,2)
+const a3rng=seededRng('a3'), a3=genRiver('a3',{north:'a2',east:'b3',south:'a4'},a3rng,{riverEntryY:b3.streamEdges?.west??MID, riverExitYHint:b3.streamEdges?.west??MID, openNorth:true},0,2)
 writeMap(a3)
 
-console.log('\nRow 0 — village:')
+console.log('\nRow 0 — village (unchanged):')
 writeMap(genVillage('b0',{south:'b1'},seededRng('b0'),1,0))
 
-console.log('\nRow 1 — fields/forest:')
-writeMap(genForestMaze('a1',{east:'b1',south:'a2'},seededRng('a1'),{density:0.52},0,0))
-writeMap(genFields('b1',{west:'a1',east:'c1',south:'b2',north:'b0'},seededRng('b1'),1,0))
-writeMap(genForestMaze('c1',{west:'b1',east:'d1',south:'c2'},seededRng('c1'),{},2,0))
-writeMap(genForestMaze('d1',{west:'c1',south:'d2'},seededRng('d1'),{},3,0))
+console.log('\nRow 1 — forest (shared clusters, open internal borders) + b1 fields/path:')
+writeMap(genForestMazeShared('a1', { east:['open','b1'], south:['open','a2'] }, 0, 0))
+writeMap(genFields('b1',
+  { west:['open','a1'], east:['open','c1'], south:['open','b2'], north:['narrow','b0'] },
+  seededRng('b1'), 1, 0,
+  { x0: MID, y0: 0, x1: W - 1, y1: MID, opts: { wobbleAmp: 3, wobbleFreq: 1.0, samples: 20, seed: 0.4 } }
+))
+writeMap(genForestMazeShared('c1',
+  { west:['open','b1'], east:['open','d1'], south:['open','c2'] }, 2, 0,
+  { x0: 0, y0: MID, x1: MID, y1: H - 1, opts: { wobbleAmp: 4, wobbleFreq: 1.2, samples: 24, seed: 1.7 } }
+))
+writeMap(genForestMazeShared('d1', { west:['open','c1'], south:['open','d2'] }, 3, 0))
 
-console.log('\nRow 2 — transitional forest:')
-writeMap(genOpenBog('a2',{north:'a1',east:'b2',south:'a3'},seededRng('a2'),0,1))
-writeMap(genForestMaze('b2',{north:'b1',west:'a2',east:'c2',south:'b3'},seededRng('b2'),{},1,1))
-writeMap(genForestMaze('c2',{north:'c1',west:'b2',east:'d2',south:'c3'},seededRng('c2'),{},2,1))
-writeMap(genForestMaze('d2',{north:'d1',west:'c2',south:'d3'},seededRng('d2'),{stoneCircle:true},3,1))
+console.log('\nRow 2 — forest (shared clusters, open internal borders); a2 converted from open-bog:')
+writeMap(genForestMazeShared('a2', { north:['open','a1'], east:['open','b2'], south:['open','a3'] }, 0, 1))
+writeMap(genForestMazeShared('b2', { north:['open','b1'], west:['open','a2'], east:['open','c2'], south:['open','b3'] }, 1, 1))
+writeMap(genForestMazeShared('c2',
+  { north:['open','c1'], west:['open','b2'], east:['open','d2'], south:['open','c3'] }, 2, 1,
+  { x0: MID, y0: 0, x1: MID, y1: H - 1, opts: { wobbleAmp: 4, wobbleFreq: 1.3, samples: 24, seed: 2.3 } }
+))
+writeMap(genForestMazeShared('d2', { north:['open','d1'], west:['open','c2'], south:['open','d3'] }, 3, 1))
 
-console.log('\nRow 4 — druid forest (dark, dense):')
-writeMap(genForestMaze('a4',{north:'a3',east:'b4'},seededRng('a4'),{density:0.58,dark:true},0,3))
-writeMap(genForestMaze('b4',{north:'b3',west:'a4',east:'c4'},seededRng('b4'),{density:0.56,dark:true},1,3))
-writeMap(genForestMaze('c4',{north:'c3',west:'b4',east:'d4'},seededRng('c4'),{density:0.56,dark:true},2,3))
-writeMap(genForestMaze('d4',{north:'d3',west:'c4'},seededRng('d4'),{density:0.58,dark:true},3,3))
+console.log('\nRow 4 — druid forest (dark, dense) -- UNCHANGED, still narrow/closed edges:')
+writeMap(genForestMazeDark('a4',{north:'a3',east:'b4'},seededRng('a4'),{density:0.58,dark:true},0,3))
+writeMap(genForestMazeDark('b4',{north:'b3',west:'a4',east:'c4'},seededRng('b4'),{density:0.56,dark:true},1,3))
+writeMap(genForestMazeDark('c4',{north:'c3',west:'b4',east:'d4'},seededRng('c4'),{density:0.56,dark:true},2,3))
+writeMap(genForestMazeDark('d4',{north:'d3',west:'c4'},seededRng('d4'),{density:0.58,dark:true},3,3))
 
 console.log('\nDone. 17 maps written to public/maps/bogMaps/')
 console.log('Enable exit debug: window._devExits = true in browser console')

@@ -33,6 +33,20 @@
 // RiverScene (which extends BogScene which extends this class) will
 // construct ForestEffects TWICE -- two overlapping canvases, duplicate
 // trunks.
+//
+// ── Player occlusion fade now also considers trees ───────────────────────────
+// See _updatePlayerOcclusionFade() below. Trunks now draw on PGR's _gCtx
+// (same canvas cliffs use), which means the player (fixed on the higher
+// _oCtx) always draws over any tree regardless of true depth -- correct
+// when the player is genuinely in front of a tree, but with no counterpart
+// for when the player should be HIDDEN behind one. Extended the existing
+// terrain-occlusion fade (originally hills/cliffs only) to also treat any
+// trunk a few rows south of the player, roughly in their own column, as
+// occluding -- capping alpha at a flat 0.5 rather than a continuous
+// per-pixel fade, since a tree canopy's shape makes pixel-precise overlap
+// harder to justify than it is for terrain height, and a flat, recognisable
+// dimming reads as "you're behind something" without looking like a
+// rendering glitch.
 
 import Phaser from 'phaser'
 import BaseLocationScene from './baseLocationScene.js'
@@ -73,6 +87,10 @@ export default class PerspectiveScene extends BaseLocationScene {
 
   getMapKey()              { return 'unnamed_map' }
   getMapPath()             { return `/maps/bogMaps/${this.getMapKey()}.json?v=${Date.now()}` }
+  // Mirrors getMapPath()'s own default convention -- override alongside
+  // getMapPath() if a subclass uses a different folder (e.g. testForest's
+  // /maps/forest/). Used only for the north-preview neighbour fetch below.
+  getNeighborMapPath(key)  { return `/maps/bogMaps/${key}.json?v=${Date.now()}` }
   getAmbient()             { return 0x334422 }
   getPlayerLight()         { return { color: 0xfff2cc, intensity: 2.0, radius: 300 } }
   getWisps()               { return [] }
@@ -239,6 +257,55 @@ export default class PerspectiveScene extends BaseLocationScene {
         canopyRadiusScale: 0.55,
         branchScale: 0.4,
       })
+    this.perspectiveGround.setForestEffects(this.forestEffects)
+
+    // North-direction map preview (see PerspectiveGroundRenderer's
+    // setNorthNeighbor/_drawNorthPreviewRow and ForestEffects'
+    // setNorthNeighborWallMask) -- fetches just the north neighbour's
+    // ground/height/tree data, not its NPCs/objects/content, so the
+    // renderer can show a fading glimpse of what lies beyond the current
+    // map's north edge. Purely visual: no collision, no interactivity.
+    // Fire-and-forget -- if there's no north exit, or the fetch fails,
+    // this silently does nothing and the renderer's existing flat-fill
+    // fallback is unaffected.
+    const _northDest = this.mapData.exits?.north?.destination
+    if (_northDest) {
+      fetch(this.getNeighborMapPath(_northDest))
+        .then(r => r.ok ? r.json() : null)
+        .then(neighborMapData => {
+          if (!neighborMapData || !this.perspectiveGround) return
+          this.perspectiveGround.setNorthNeighbor({
+            layer0:    neighborMapData.layers?.[0] ?? null,
+            heightMap: neighborMapData.heightMap ?? null,
+            width:     neighborMapData.width,
+            height:    neighborMapData.height,
+          })
+          this.forestEffects?.setNorthNeighborWallMask(
+            neighborMapData.wallMask ?? null, neighborMapData.height
+          )
+        })
+        .catch(e => console.warn(`[${this.scene.key}] north neighbour preview fetch failed:`, e.message))
+    } else if (this.perspectiveGround) {
+      // No real north neighbour at all (world edge, e.g. a1/c1/d1) --
+      // synthesize a plain flat "open fields" placeholder so the edge
+      // fades into more world rather than stopping dead. Flattened to
+      // match the CURRENT map's own row-0 vertex heights (repeated for
+      // every row) so there's no jarring cliff right at the boundary.
+      // Placeholder only -- Ribo intends to swap in actual wall/hedgerow
+      // art here later, at which point this synthetic fallback can be
+      // replaced or layered with that.
+      const _fw = this.mapData.width
+      const _fh = Math.max(PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH + 2, 20)
+      const _edgeHeightRow = this.mapData.heightMap?.[0] ?? new Array(_fw + 1).fill(0)
+      const _fields = {
+        layer0: Array.from({ length: _fh }, (_, y) =>
+          Array.from({ length: _fw }, (_, x) => (x + y) % 2 === 0 ? 839 : 840)),
+        heightMap: Array.from({ length: _fh + 1 }, () => [..._edgeHeightRow]),
+        width: _fw, height: _fh,
+      }
+      this.perspectiveGround.setNorthNeighbor(_fields)
+      this.forestEffects?.setNorthNeighborWallMask(null, _fh)
+    }
 
     this.showIntroNarrative()
     this.onEnter()
@@ -328,6 +395,24 @@ this._updateCameraTerrainAvoidance()
   // _colToScreenX the renderer itself uses) and only counts it as
   // occluding if that screen X genuinely falls within the player's own
   // on-screen width -- a true screen-space check, not a world-space guess.
+  //
+  // v5: trunks now draw on PGR's _gCtx (same canvas as terrain/cliffs),
+  // which means the player -- always on the higher _oCtx -- now
+  // unconditionally draws over any tree regardless of true depth. Correct
+  // when the player is genuinely standing in front of a tree, but with no
+  // counterpart for when a tree should be hiding the player. Added a
+  // second check alongside the existing terrain scan: any trunk whose
+  // REAL rendered screen silhouette (via ForestEffects.getTrunkScreenBounds,
+  // mirroring drawTrunk()'s own geometry) overlaps the player's actual
+  // screen position is treated as occluding, capping alpha at a flat 0.5
+  // rather than blending continuously like the terrain case -- a tree
+  // canopy's shape doesn't lend itself to the same pixel-precise partial-
+  // overlap math terrain height does, so a flat, recognisable dim reads as
+  // "you're behind something" without looking like a glitch. (An earlier
+  // version of this check used coarse tile-space proximity instead of a
+  // real screen-space test -- it flagged occlusion whenever a tree was
+  // roughly nearby, not when it actually covered the player on screen;
+  // replaced after that was visibly wrong in play.)
   _updatePlayerOcclusionFade() {
     const pgr = this.perspectiveGround
     if (!pgr) return
@@ -372,7 +457,33 @@ this._updateCameraTerrainAvoidance()
     }
 
     const severity = Math.max(0, Math.min(1, worstOverlapPx / (this.scale.height * 0.15)))
-    const targetAlpha = 1 - severity
+    const terrainAlpha = 1 - severity
+
+    // Trees: precise screen-space overlap test now, matching the terrain
+    // check above -- NOT the coarse tile-proximity check this had at
+    // first, which flagged the player as occluded whenever a tree was
+    // roughly nearby in tile-space, regardless of whether it actually
+    // covered the player on screen (confirmed: player was visibly fading
+    // with no tree actually overlapping them). getTrunkScreenBounds()
+    // mirrors drawTrunk()'s own geometry exactly (shared helper), so this
+    // checks against the tree's REAL rendered silhouette.
+    let treeOccluding = false
+    if (this.forestEffects) {
+      const TREE_LOOKAHEAD = 8   // generous row range -- the screen check itself is the real filter
+      for (let r = playerRow + 1; r < playerRow + 1 + TREE_LOOKAHEAD && !treeOccluding; r++) {
+        const trunks = this.forestEffects.getTrunksForRow(r)
+        for (const trunk of trunks) {
+          const bounds = this.forestEffects.getTrunkScreenBounds(trunk, pgr)
+          if (!bounds) continue
+          if (Math.abs(bounds.screenX - playerScreenX) > bounds.capRadius) continue
+          if (playerScreenY > bounds.footY || playerScreenY < bounds.topY) continue
+          treeOccluding = true
+          break
+        }
+      }
+    }
+
+    const targetAlpha = treeOccluding ? Math.min(terrainAlpha, 0.5) : terrainAlpha
 
     const cur = pgr._playerOcclusionAlpha ?? 1
     const EASE = 0.25
@@ -824,14 +935,24 @@ this._updateCameraTerrainAvoidance()
     if (!entry) return
 
     const sourceY = this.entryData.sourceTile?.y
+    const sourceX = this.entryData.sourceTile?.x
     const sourceH = this.entryData.sourceHeight || this.mapData.height
+    const sourceW = this.entryData.sourceWidth  || this.mapData.width
     const destH   = this.mapData.height
     const destW   = this.mapData.width
 
     let entryY = entry.yFromSource && sourceY != null
       ? Math.max(1, Math.min(destH - 2, Math.round(sourceY / sourceH * destH)))
       : (entry.y ?? Math.floor(destH / 2))
-    const entryX = Math.max(1, Math.min(destW - 2, entry.x ?? Math.floor(destW / 2)))
+    // xFromSource mirrors yFromSource -- needed now that north/south edges
+    // can be fully open across their whole width (not just a narrow exit
+    // slice near the middle), so a player crossing anywhere along that
+    // edge needs to land at the CORRESPONDING point on the other side,
+    // not be recentred to the map's middle column regardless of where
+    // they actually crossed.
+    let entryX = entry.xFromSource && sourceX != null
+      ? Math.max(1, Math.min(destW - 2, Math.round(sourceX / sourceW * destW)))
+      : Math.max(1, Math.min(destW - 2, entry.x ?? Math.floor(destW / 2)))
     const px = entryX * this.tileSize + this.tileSize / 2
     const py = entryY * this.tileSize + this.tileSize / 2
 
@@ -1044,3 +1165,4 @@ this._updateCameraTerrainAvoidance()
     }
   }
 }
+

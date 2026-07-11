@@ -277,6 +277,7 @@ export default class PerspectiveScene extends BaseLocationScene {
           this.perspectiveGround.setNorthNeighbor({
             layer0:    neighborMapData.layers?.[0] ?? null,
             heightMap: neighborMapData.heightMap ?? null,
+            pathDist:  neighborMapData.pathDist  ?? null,
             width:     neighborMapData.width,
             height:    neighborMapData.height,
           })

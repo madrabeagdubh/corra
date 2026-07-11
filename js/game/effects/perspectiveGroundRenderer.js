@@ -75,6 +75,18 @@ function _mirrorIndex(i, n) {
   return m
 }
 
+// h in degrees, s/l in percent -> [r, g, b] 0-255. Used by the LOD fill
+// path (_lodFillQuad) to blend a tile's HSL tint into its average RGB
+// colour without going through a canvas composite operation.
+function _hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360
+  s /= 100; l /= 100
+  const k = n => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)]
+}
+
 const GID_CATEGORIES_GROUND = new Set([
   732, 733, 735, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848,
   849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861,
@@ -144,6 +156,21 @@ export default class PerspectiveGroundRenderer {
   static TILESET_URL = '/assets/oryx/oryx_16bit_fantasy_world_trans.png'
 
   static EDGE_EXTEND = 6
+
+  // LOD (level-of-detail) cutoff: once a row's tiles are narrower than
+  // this many screen pixels, ground quads are drawn as SOLID COLOUR
+  // fills (average tile colour blended with the tile's tint -- see
+  // _lodFillQuad) instead of textured trapezoids. At these sizes the
+  // texture is genuinely invisible (a 24px source squeezed into 1-4px),
+  // but the textured path still costs two clipped affine draws plus a
+  // composite tint pass PER TILE -- and these are exactly the rows where
+  // perspective explodes the column count into the hundreds (halfCols =
+  // (sw/2)/scale). The phantom-edge and north-preview extensions made
+  // those rows do real draw work where they used to `continue`, which
+  // is what made this cutoff necessary. Tunable by eye: raise it and
+  // more of the distance becomes flat colour (faster), lower it and
+  // texture persists further back (slower).
+  static LOD_MIN_ROW_PX = 6
 
   // How many rows into the north neighbour's territory to render as a
   // fading preview (see _drawNorthPreviewRow). First-guess value bumped
@@ -999,6 +1026,62 @@ _horizonPx() {
     return tc
   }
 
+  // Average RGB of a tile's own pixels (transparent pixels skipped),
+  // computed via getImageData ONCE per GID and cached forever. Used by
+  // the LOD fill path -- see LOD_MIN_TEXTURE_PX. Deliberately does NOT
+  // cache a null result: _getTileCanvas can legitimately return null
+  // while a registerCustomTile image is still loading, and caching that
+  // would lock the GID out of ever getting a real colour.
+  _getTileAvgColor(gid) {
+    if (!this._avgColorCache) this._avgColorCache = new Map()
+    if (this._avgColorCache.has(gid)) return this._avgColorCache.get(gid)
+    const img = this._getTileCanvas(gid)
+    if (!img) return null
+    let avg = null
+    try {
+      const d = img.getContext('2d').getImageData(0, 0, img.width, img.height).data
+      let r = 0, g = 0, b = 0, n = 0
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 10) continue
+        r += d[i]; g += d[i + 1]; b += d[i + 2]
+        n++
+      }
+      if (n > 0) avg = { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) }
+    } catch (e) { /* tainted canvas etc. -- caller falls back to textured draw */ }
+    this._avgColorCache.set(gid, avg)
+    return avg
+  }
+
+  // LOD replacement for _drawTrapezoidTinted: one flat path-fill in the
+  // tile's average colour with its tint pre-blended in arithmetic (no
+  // clip, no setTransform, no composite pass -- the three expensive
+  // parts of the textured path). Only ever called for rows narrower
+  // than LOD_MIN_TEXTURE_PX, where the texture couldn't be seen anyway.
+  // Returns false (without drawing) if the average colour isn't
+  // available yet, so the caller can fall back to the textured draw:
+  //   if (!lodRow || !this._lodFillQuad(...)) this._drawTrapezoidTinted(...)
+  _lodFillQuad(ctx, gid, tint, alpha, tl, tr, bl, br) {
+    const avg = this._getTileAvgColor(gid)
+    if (!avg) return false
+    let r = avg.r, g = avg.g, b = avg.b
+    if (tint) {
+      const ta  = Math.min(1, tint.alpha ?? 0.45)
+      const rgb = _hslToRgb(tint.h, tint.s, tint.l)
+      r += (rgb[0] - r) * ta
+      g += (rgb[1] - g) * ta
+      b += (rgb[2] - b) * ta
+    }
+    this._profLod = (this._profLod ?? 0) + 1
+    ctx.globalAlpha = alpha
+    ctx.fillStyle = 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')'
+    ctx.beginPath()
+    ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y)
+    ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y)
+    ctx.closePath(); ctx.fill()
+    ctx.globalAlpha = 1.0
+    return true
+  }
+
   // True only if this GID's computed source rectangle actually falls
   // within the real, loaded Oryx tileset image. Some GIDs (e.g. building
   // footprint codes stamped into a village map's own layer0, like
@@ -1053,6 +1136,7 @@ _horizonPx() {
   }
 
   _drawTrapezoidTinted(ctx, gid, tl, tr, bl, br, tint) {
+    this._profTex = (this._profTex ?? 0) + 1
     const img = this._getTileCanvas(gid)
     if (!img) return
     const W = img.width, H = img.height
@@ -1375,6 +1459,13 @@ _horizonPx() {
     const colStart  = Math.floor(camCol - halfCols) - PerspectiveGroundRenderer.EDGE_EXTEND
     const colEnd    = Math.ceil(camCol + halfCols)  + PerspectiveGroundRenderer.EDGE_EXTEND
 
+    // LOD -- see LOD_MIN_TEXTURE_PX. The preview lives entirely in the
+    // horizon band, so in practice almost all of it qualifies: the haze
+    // wash was already pushing tint alpha toward 0.95 (near-total
+    // coverage of the texture) up there, so a flat pre-blended fill is
+    // visually equivalent at a fraction of the cost.
+    const lodRow = yTop === null || (yBot - yTop) < PerspectiveGroundRenderer.LOD_MIN_ROW_PX
+
     const HAZE_H = PerspectiveGroundRenderer.NORTH_HAZE_H
     const HAZE_S = PerspectiveGroundRenderer.NORTH_HAZE_S
     const HAZE_L = PerspectiveGroundRenderer.NORTH_HAZE_L
@@ -1437,11 +1528,12 @@ _horizonPx() {
         alpha: Math.min(0.95, (tint0.alpha ?? 0.5) + hazeT * 0.4),
       }
 
+      const _nTL = { x: xTL, y: yTopClamped }, _nTR = { x: xTR, y: yTopClamped }
+      const _nBL = { x: xBL, y: yBotClamped }, _nBR = { x: xBR, y: yBotClamped }
       this._gCtx.globalAlpha = edgeAlpha
-      this._drawTrapezoidTinted(this._gCtx, gid0,
-        { x: xTL, y: yTopClamped }, { x: xTR, y: yTopClamped },
-        { x: xBL, y: yBotClamped }, { x: xBR, y: yBotClamped },
-        hazedTint)
+      if (!lodRow || !this._lodFillQuad(this._gCtx, gid0, hazedTint, edgeAlpha, _nTL, _nTR, _nBL, _nBR)) {
+        this._drawTrapezoidTinted(this._gCtx, gid0, _nTL, _nTR, _nBL, _nBR, hazedTint)
+      }
     }
     this._gCtx.globalAlpha = 1.0
 
@@ -1524,6 +1616,14 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     this._lastCamX    = cam.scrollX
     this._lastCamY    = cam.scrollY
     this._lastCamZoom = zoom
+
+    // Frame profiler start -- placed AFTER the idle-skip early return
+    // above so cheap skipped frames don't drag the average down and
+    // hide the true cost of a real redraw. Reported every ~3s at the
+    // end of update().
+    const _profT0 = performance.now()
+    this._profTex = 0
+    this._profLod = 0
 
     this._refreshPlayerCanvas()
     this.playerScreenX = null
@@ -1720,6 +1820,11 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       const scaleNear = this._scaleAtRow(tileRow + 1)
       const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW
 
+      // Whole-row LOD decision -- see LOD_MIN_TEXTURE_PX. Rows this far
+      // back are exactly the ones whose column counts explode, so this
+      // is where the flat-fill path pays for itself.
+      const lodRow = yTop === null || (yBot - yTop) < PerspectiveGroundRenderer.LOD_MIN_ROW_PX
+
       const colStart = Math.floor(camCol - halfCols) - EX
       const colEnd   = Math.ceil(camCol + halfCols)  + EX
 
@@ -1806,13 +1911,19 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               const _pxBL = this._colToScreenX(tileCol,     tileRow + 1)
               const _pxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
 
+              const _pTL = { x: xTL,   y: yTopClamped - _hL0 * _sTop }
+              const _pTR = { x: xTR,   y: yTopClamped - _hR0 * _sTop }
+              const _pBL = { x: _pxBL, y: yBotClamped - _hL1 * _sBot }
+              const _pBR = { x: _pxBR, y: yBotClamped - _hR1 * _sBot }
               this._gCtx.globalAlpha = horizonFade
-              this._drawTrapezoidTinted(this._gCtx, mGid,
-                { x: xTL,   y: yTopClamped - _hL0 * _sTop },
-                { x: xTR,   y: yTopClamped - _hR0 * _sTop },
-                { x: _pxBL, y: yBotClamped - _hL1 * _sBot },
-                { x: _pxBR, y: yBotClamped - _hR1 * _sBot },
-                mTint)
+              // LOD: phantom tiles are the single biggest contributor to
+              // the distant-row column explosion (they fill everything
+              // beyond the map edge), so the flat-fill path matters most
+              // here. Falls back to the textured draw if the average
+              // colour isn't ready yet.
+              if (!lodRow || !this._lodFillQuad(this._gCtx, mGid, mTint, horizonFade, _pTL, _pTR, _pBL, _pBR)) {
+                this._drawTrapezoidTinted(this._gCtx, mGid, _pTL, _pTR, _pBL, _pBR, mTint)
+              }
               this._gCtx.globalAlpha = 1.0
             }
           }
@@ -1914,10 +2025,14 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               }
             }
 
-            this._drawTrapezoidTinted(this._gCtx, gid0,
-              {x: xTL, y: _yTL}, {x: xTR, y: _yTR},
-              {x: xBL, y: _yBL}, {x: xBR, y: _yBR},
-              tint0)
+            const _qTL = { x: xTL, y: _yTL }, _qTR = { x: xTR, y: _yTR }
+            const _qBL = { x: xBL, y: _yBL }, _qBR = { x: xBR, y: _yBR }
+            // LOD: same corner coords either way, so terrain contours
+            // and elevation offsets are preserved -- only the interior
+            // texture (invisible at this size) is replaced.
+            if (!lodRow || !this._lodFillQuad(this._gCtx, gid0, tint0, tileAlpha, _qTL, _qTR, _qBL, _qBR)) {
+              this._drawTrapezoidTinted(this._gCtx, gid0, _qTL, _qTR, _qBL, _qBR, tint0)
+            }
 
             const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
               && yBotClamped >= horizonPx + 30
@@ -2177,7 +2292,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               })
             }
 
-            if (inMap && this._exitEdges?.size) {
+          if (inMap && this._exitEdges?.size) {
               const onExit = (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
                 (this._exitEdges.has('east')  && tileCol === mapW - 1) ||
@@ -2579,11 +2694,41 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       }
     }
 
-    this.scene?.onPGRDrawComplete?.(this._oCtx)
+    // NOTE: this was accidentally called TWICE here previously -- every
+    // scene's post-draw hook (NPCs, overlays, whatever it draws) ran
+    // double per frame. Single call is the correct behaviour; if
+    // anything now looks fainter, it was relying on being drawn twice.
     this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()
     this._gCtx.restore()
     this._updateLight(playerScreenX, playerScreenY)
+
+    // Frame profiler report -- rolling stats since the last log, printed
+    // every ~3s. "tex" is textured trapezoid draws (the expensive
+    // clip+transform path -- watch this number), "lod" is flat-colour
+    // LOD fills (cheap). Together they show how much work the frame is
+    // doing and where the LOD cutoff is landing; budget on a 60fps
+    // phone is ~16ms total per frame, and PGR shares that with Phaser
+    // and everything else, so an avg above ~8-10ms here is the lag.
+    {
+      const _dt = performance.now() - _profT0
+      this._profSum = (this._profSum ?? 0) + _dt
+      this._profN   = (this._profN ?? 0) + 1
+      if (_dt > (this._profMax ?? 0)) this._profMax = _dt
+      const _nowMs = performance.now()
+      if (!this._profLastLog) this._profLastLog = _nowMs
+      if (_nowMs - this._profLastLog > 3000) {
+        console.log('[PGR prof] avg ' + (this._profSum / this._profN).toFixed(1) +
+          'ms  max ' + this._profMax.toFixed(1) +
+          'ms  (' + this._profN + ' frames) | last frame: tex ' + this._profTex +
+          '  lod ' + this._profLod +
+          '  ground ' + groundCount + '  obj ' + objectCount)
+        this._profSum = 0
+        this._profN = 0
+        this._profMax = 0
+        this._profLastLog = _nowMs
+      }
+    }
 
     if (!this._debugged) {
       this._debugged = true
@@ -2631,6 +2776,7 @@ destroy() {
 
     this._tileCache?.clear()
     this._bakedTintCache?.clear()
+    this._avgColorCache?.clear()
     this._tilesetImg = null
     this._player = null
     this._playerCanvas = null
@@ -2929,4 +3075,3 @@ const strokeT = this._strokeT ?? 0
   }
 
 }
-

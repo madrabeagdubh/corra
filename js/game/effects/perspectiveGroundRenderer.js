@@ -59,6 +59,22 @@ function _tmHashPGR(tx, ty) {
   return (h ^ (h >>> 16)) >>> 0
 }
 
+// Mirror-reflect an index outside [0, n) back into range -- a "ping-pong"
+// bounce (0,1,2,...,n-1,n-1,...,2,1,0,0,1,2,...) rather than a straight
+// wrap-repeat (i % n). Used by the phantom-tile rendering (see the main
+// per-column loop's !inMap handling) to extend a map's real ground data
+// beyond its own edges: mirroring guarantees the seam at the REAL edge is
+// always continuous (the first phantom index exactly re-shows the last
+// real one), which a plain repeat can't promise since a map's opposite
+// edges generally don't match.
+function _mirrorIndex(i, n) {
+  if (n <= 0) return 0
+  const period = 2 * n
+  let m = ((i % period) + period) % period
+  if (m >= n) m = period - 1 - m
+  return m
+}
+
 const GID_CATEGORIES_GROUND = new Set([
   732, 733, 735, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848,
   849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861,
@@ -983,6 +999,24 @@ _horizonPx() {
     return tc
   }
 
+  // True only if this GID's computed source rectangle actually falls
+  // within the real, loaded Oryx tileset image. Some GIDs (e.g. building
+  // footprint codes stamped into a village map's own layer0, like
+  // b0's BLDG_THATCH1/BLDG_WALL1 etc.) are numerically far outside the
+  // tileset's real bounds -- they're meant to be intercepted by a
+  // completely separate system (setBuildings/customTiles), never drawn
+  // via this texture lookup at all. _getTileCanvas doesn't validate this
+  // itself (drawImage with an out-of-bounds source rect just silently
+  // produces a blank/transparent result, no error) -- used by the
+  // phantom-tile and north-preview paths to skip such GIDs gracefully
+  // instead of attempting a draw that quietly does nothing, which looked
+  // like a gap in the rendered ground.
+  _isValidTilesetGid(gid) {
+    if (!this._tilesetImg) return false
+    const { sy, sh } = this._srcRect(gid)
+    return (sy + sh) <= this._tilesetImg.height
+  }
+
   _drawAffineTriangle(ctx, img, t0, t1, t2, p0, p1, p2) {
     const { u: u0, v: v0 } = t0, { u: u1, v: v1 } = t1, { u: u2, v: v2 } = t2
     const det = u0*(v1-v2) - u1*(v0-v2) + u2*(v0-v1)
@@ -993,7 +1027,15 @@ _horizonPx() {
     const b = (p0.y*(v1-v2) + p1.y*(v2-v0) + p2.y*(v0-v1)) / det
     const d = (p0.y*(u2-u1) + p1.y*(u0-u2) + p2.y*(u1-u0)) / det
     const f =  p0.y - b*u0 - d*v0
-    const BLEED = 1.75
+    // BLEED: how far each triangle's own clip boundary expands outward
+    // from its centroid, so adjacent tiles' expanded regions overlap
+    // slightly rather than leaving a hairline gap between them (visible
+    // as thin lines revealing whatever's drawn UNDER this same canvas --
+    // e.g. the base ground-fill -- at tile boundaries, worse at some
+    // zoom levels/tile sizes than others). Bumped up from 1.75 as a
+    // direct test of whether the existing seam is simply not quite wide
+    // enough, rather than a deeper coordinate-mismatch issue.
+    const BLEED = 3
     const cx    = (p0.x + p1.x + p2.x) / 3
     const cy    = (p0.y + p1.y + p2.y) / 3
     const expand = (p) => ({
@@ -1277,8 +1319,14 @@ _horizonPx() {
     // Shift the negative world row into the neighbour's own local row
     // indexing -- its southmost row (adjacent to our row 0) is world row
     // -1, so local row = tileRow + neighborH.
-    const localRow = tileRow + neighborH
-    if (localRow < 0 || localRow >= neighborH) return
+    // If the preview depth (NORTH_PREVIEW_DEPTH) reaches further than the
+    // neighbour's own height, mirror-reflect back into its valid row
+    // range rather than returning nothing -- same technique as the
+    // column mirroring below, and for the same reason: the screen-space
+    // fade doesn't know or care how tall the neighbour actually is, so
+    // without this, rows beyond the neighbour's own size left a real gap
+    // where the fade still expected visible ground.
+    const localRow = _mirrorIndex(tileRow + neighborH, neighborH)
 
     const yTop = this._rowToScreenY(tileRow)
     const yBot = this._rowToScreenY(tileRow + 1)
@@ -1332,14 +1380,27 @@ _horizonPx() {
     const HAZE_L = PerspectiveGroundRenderer.NORTH_HAZE_L
 
     for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
-      if (tileCol < 0 || tileCol >= neighborW) continue
+      // Mirror-reflect columns beyond the NEIGHBOUR's own width, same
+      // technique and reasoning as the main map's own phantom-tile
+      // handling (see the main loop's !inMap block) -- this preview row
+      // needs FAR more columns than the neighbour actually has once
+      // perspective widens near the horizon, and a straight `continue`
+      // left the exact same kind of gap here that fix solved for the
+      // main map's own rows.
+      const mCol = _mirrorIndex(tileCol, neighborW)
 
       const xTL = this._colToScreenX(tileCol,     tileRow)
       const xTR = this._colToScreenX(tileCol + 1, tileRow)
       if (xTR < -10 || xTL > sw + 10) continue
 
-      const gid0raw = nb.layer0[localRow]?.[tileCol] ?? 0
+      const gid0raw = nb.layer0[localRow]?.[mCol] ?? 0
       if (!gid0raw) continue
+      // Skip special-purpose codes (building footprints etc.) that were
+      // never meant to render via the normal tileset lookup -- see
+      // _isValidTilesetGid's own note. Falls back to the base ground
+      // fill (already drawn beneath everything) rather than an
+      // attempted draw that quietly produces nothing.
+      if (!this._isValidTilesetGid(gid0raw)) continue
       // Static water frame (no phase animation) -- fine for a distant,
       // already-hazy preview; not worth the extra bookkeeping.
       const gid0 = (gid0raw === 1625 || gid0raw === 1679) ? 1625 : gid0raw
@@ -1349,13 +1410,14 @@ _horizonPx() {
 
       let tint0
       if (nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)) {
-        const h00 = this._neighborVertexH(tileCol,     localRow)
-        const h10 = this._neighborVertexH(tileCol + 1, localRow)
-        const h01 = this._neighborVertexH(tileCol,     localRow + 1)
-        const h11 = this._neighborVertexH(tileCol + 1, localRow + 1)
-        tint0 = this.tintManager.getGroundTint(gid0, tileCol, localRow, h00, h10, h01, h11)
+        const h00 = this._neighborVertexH(mCol,     localRow)
+        const h10 = this._neighborVertexH(mCol + 1, localRow)
+        const h01 = this._neighborVertexH(mCol,     localRow + 1)
+        const h11 = this._neighborVertexH(mCol + 1, localRow + 1)
+        const pd0 = nb.pathDist?.[localRow]?.[mCol] ?? null
+        tint0 = this.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0)
       } else {
-        tint0 = this.tintManager.getTint(gid0, tileCol, localRow)
+        tint0 = this.tintManager.getTint(gid0, mCol, localRow)
       }
       // getTint()/getGroundTint() return null for uncategorised GIDs --
       // fall back to a neutral base so the haze blend still has
@@ -1500,10 +1562,28 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     const camRow = this._perspCamRow()
     const camCol = this._perspCamCol()
 
-    const fillGid  = layer0[mapH - 1]?.[Math.floor(mapW / 2)] ?? 733
-    const fillTint = this.tintManager.getTint(fillGid, 0, 0)
+    // Computed here (earlier than previously) so the base-fill below can
+    // clip its own top edge to match -- see that fill's own note.
+    const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX * 3)
+    const _northPreviewFloor = this._northNeighbor ? -PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH : 0
+    const tileRowStart = Math.max(_northPreviewFloor, Math.floor(camRow - FL * 8))
 
-    const gcR = this._gcR ?? this._groundColour ?? '#2a3a1a'
+    // Sample the PLAYER's own current tile for the fill colour, not a
+    // fixed map corner -- the player is standing on it, so it's
+    // guaranteed to be typical, walkable ground. A fixed corner sample
+    // (the old approach) could land on water, forest-floor, or any
+    // other atypical tile depending on the specific map, producing a
+    // fill colour that visibly clashed with the actual ground shown
+    // everywhere else on screen (confirmed: a dark teal/olive band,
+    // matching a water-tile tint, on a map where the corner cell
+    // happened to be water).
+    const _playerCol = this.scene.player
+      ? Math.floor(this.scene.player.logicalX / this.tileDisplaySize) : null
+    const _playerRow = this.scene.player
+      ? Math.floor(this.scene.player.logicalY / this.tileDisplaySize) : null
+    const fillGid  = (_playerRow != null && layer0[_playerRow]?.[_playerCol])
+      || layer0[mapH - 1]?.[Math.floor(mapW / 2)] || 733
+    const fillTint = this.tintManager.getTint(fillGid, 0, 0)
 
     this._gCtx.clearRect(0, 0, sw, sh)
     if (!this._domChecked) {
@@ -1523,13 +1603,43 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     const clipRight  = Math.min(sw, rightX)
     const clipW      = Math.max(0,  clipRight - clipLeft)
 
-    const groundGrad = this._gCtx.createLinearGradient(0, horizonPx, 0, horizonPx + 160)
-    groundGrad.addColorStop(0, 'rgba(30,24,18,0)')
-    groundGrad.addColorStop(1, gcR)
-    this._gCtx.fillStyle = groundGrad
-    this._gCtx.fillRect(0, horizonPx, sw, 160)
-    this._gCtx.fillStyle = gcR
-    this._gCtx.fillRect(0, horizonPx + 160, sw, sh - horizonPx - 160)
+    // Flat fill across the WHOLE ground area, using the CURRENT map's
+    // own actual ground tint. Drawn ONCE, before any tile, across the
+    // full width -- this is what masks the many small seams between
+    // adjacent perspective-warped tiles (see _drawAffineTriangle's
+    // BLEED constant, which reduces but doesn't fully eliminate them).
+    // Deliberately NOT a gradient toward any sky-derived colour any
+    // more: this fill only ever shows through TINY seams BETWEEN two
+    // ground tiles that are both otherwise rendering correctly -- it
+    // never represents "the true edge of the world," so there's no
+    // reason for it to ever look like sky. An earlier version gradiented
+    // toward this._gcR (sky-derived) across the fill's full height,
+    // which read as a stark dark bar cutting across the screen --
+    // _gcR was computed for a totally different, narrow original
+    // purpose (a subtle 160px transition band) and is deliberately dark
+    // by design, so stretching it across a much taller area made that
+    // darkness far more visually prominent than intended.
+    const _nearH = fillTint?.h ?? 100
+    const _nearS = fillTint?.s ?? 25
+    const _nearL = fillTint?.l ?? 30
+    const _nearColor = `hsl(${_nearH},${_nearS}%,${_nearL}%)`
+
+    // Top edge clipped to wherever the tile-rendering loop (below) ACTUALLY
+    // begins this frame (tileRowStart's own screen position), not the
+    // fixed true-horizon line. A finite map's northernmost row can only
+    // ever approach the true horizon asymptotically -- it reaches it
+    // exactly only when a north-preview is successfully extending
+    // content that far. Anywhere that isn't the case (no working north-
+    // neighbour for this scene, fetch failed, etc.), tiles stop well
+    // short of horizonPx, and filling all the way up to horizonPx
+    // regardless exposed this fill as a big flat rectangle sitting
+    // above the tiles -- confirmed via screenshot. Using
+    // Math.max(horizonPx, ...) means this only ever pulls the fill's
+    // top edge DOWN to match the tiles (never past horizonPx itself),
+    // so it stays a no-op whenever a preview already reaches that far.
+    const _fillTopY = Math.max(horizonPx, this._rowToScreenY(tileRowStart) ?? horizonPx)
+    this._gCtx.fillStyle = _nearColor
+    this._gCtx.fillRect(0, _fillTopY, sw, sh - _fillTopY)
     if (this.scene?.getMapKey?.()?.includes('sea') || this.scene?.getMapKey?.()?.includes('d3')) {
       this._gCtx.fillStyle = '#2a3f5a'
       this._gCtx.fillRect(0, sh - 40, sw, 40)
@@ -1537,7 +1647,7 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
 
     const _lastRowScreenY = this._rowToScreenY(mapH)
     if (_lastRowScreenY !== null && _lastRowScreenY < sh) {
-      this._gCtx.fillStyle = gcR
+      this._gCtx.fillStyle = _nearColor
       this._gCtx.fillRect(0, Math.max(horizonPx, Math.floor(_lastRowScreenY)), sw,
         sh - Math.max(horizonPx, Math.floor(_lastRowScreenY)))
     }
@@ -1552,10 +1662,6 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     this._gCtx.beginPath()
     this._gCtx.rect(0, horizonPx, sw, sh - horizonPx)
     this._gCtx.clip()
-
-    const tileRowEnd   = Math.min(Math.floor(camRow) - 1, mapH - 1 + EX * 3)
-    const _northPreviewFloor = this._northNeighbor ? -PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH : 0
-    const tileRowStart = Math.max(_northPreviewFloor, Math.floor(camRow - FL * 8))
 
     const p = this._player
     let playerTileRow = -1
@@ -1628,7 +1734,90 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
         const colInMap = tileCol >= 0 && tileCol < mapW
         const inMap    = rowInMap && colInMap
 
-        if (!inMap) continue
+        if (!inMap) {
+          // Phantom tiles: mirror-reflect the map's OWN real ground data
+          // into the region beyond its edge (columns run out east/west
+          // of a valid row -- the oblique-angle cutoff; or rows run out
+          // south of the map), rather than inventing a synthetic
+          // colour. Mirroring (not straight wrap-repeat) guarantees the
+          // seam at the REAL edge is continuous -- the first phantom
+          // column/row exactly re-shows the last real one, then
+          // reflects inward -- since a plain repeat would reintroduce a
+          // hard seam wherever the map's own far edges don't happen to
+          // match. Uses the SAME textured trapezoid draw real tiles
+          // use, at the REAL (unmirrored) screen position, so the
+          // shape stays perspective-correct and the texture/height/
+          // tint are genuine, not synthesized.
+          //
+          // Scope: ground only for now -- not cliffs, water-bank
+          // dithering, buildings, or encounter flags (duplicating those
+          // would be actively confusing, not just visually flat), and
+          // not trees (individual trunks are keyed to real tile
+          // coordinates in a way that needs its own transform to
+          // duplicate correctly -- a natural next step, not attempted
+          // here).
+          const isPhantomCol = rowInMap && !colInMap
+          const isPhantomRow = !rowInMap && colInMap && tileRow >= mapH
+          if (isPhantomCol || isPhantomRow) {
+            // Skip the expensive part (tint lookup + textured draw)
+            // when this row is ALREADY faded to near-invisibility
+            // (horizonFade, computed once per row above) -- the base
+            // background fill drawn before this loop already shows
+            // through correctly in that case, so there's nothing lost
+            // visually. NOT a hard distance cap: an earlier version
+            // capped mirrored coverage to a fixed tile margin, which
+            // directly reintroduced a visible gap wherever a row's
+            // required column range exceeded that margin (confirmed --
+            // perspective genuinely needs more columns near the
+            // horizon, that's not wasted work to be capped away).
+            if (horizonFade < 0.03) { continue }
+
+            const mCol = isPhantomCol ? _mirrorIndex(tileCol, mapW) : tileCol
+            const mRow = isPhantomRow ? _mirrorIndex(tileRow, mapH) : tileRow
+
+            const mGidRaw = layer0[mRow]?.[mCol] ?? 0
+            if (mGidRaw && this._isValidTilesetGid(mGidRaw)) {
+              const _isWaterM = mGidRaw === 1625 || mGidRaw === 1679
+              const mGid = _isWaterM
+                ? (((Math.floor(this._waterPhase + mCol * 0.7 - mRow * 0.3)) & 1) ? 1625 : 1679)
+                : mGidRaw
+
+              let mTint
+              if (this._heightMapSrc && GID_CATEGORIES_GROUND.has(mGid)) {
+                const _h00 = this._vertexH(mCol,     mRow)
+                const _h10 = this._vertexH(mCol + 1, mRow)
+                const _h01 = this._vertexH(mCol,     mRow + 1)
+                const _h11 = this._vertexH(mCol + 1, mRow + 1)
+                const _pdM = this.scene.mapData?.pathDist?.[mRow]?.[mCol] ?? null
+                mTint = this.tintManager.getGroundTint(mGid, mCol, mRow, _h00, _h10, _h01, _h11, _pdM)
+              } else {
+                mTint = this.tintManager.getTint(mGid, mCol, mRow)
+              }
+
+              // Elevation offset comes from the MIRRORED tile's own
+              // real height (so hills/contours genuinely repeat),
+              // applied at the REAL (unmirrored) screen corners.
+              const _sTop = this._scaleAtRow(tileRow)
+              const _sBot = this._scaleAtRow(tileRow + 1)
+              const _hL0 = this._vertexH(mCol,     mRow)
+              const _hR0 = this._vertexH(mCol + 1, mRow)
+              const _hL1 = this._vertexH(mCol,     mRow + 1)
+              const _hR1 = this._vertexH(mCol + 1, mRow + 1)
+              const _pxBL = this._colToScreenX(tileCol,     tileRow + 1)
+              const _pxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
+
+              this._gCtx.globalAlpha = horizonFade
+              this._drawTrapezoidTinted(this._gCtx, mGid,
+                { x: xTL,   y: yTopClamped - _hL0 * _sTop },
+                { x: xTR,   y: yTopClamped - _hR0 * _sTop },
+                { x: _pxBL, y: yBotClamped - _hL1 * _sBot },
+                { x: _pxBR, y: yBotClamped - _hR1 * _sBot },
+                mTint)
+              this._gCtx.globalAlpha = 1.0
+            }
+          }
+          continue
+        }
 
         const edgeDist  = Math.min(tileRow, tileCol, mapH - 1 - tileRow, mapW - 1 - tileCol)
         const edgeAlpha = edgeDist === 0 ? 0.85
@@ -2104,7 +2293,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               const _l1TR = _l1GidIsWater ? yTopClamped + _l1elevDelta : yTopClamped + _l1elevDelta - this._vertexH(tileCol + 1, tileRow    ) * _l1sTop
               const _l1BL = _l1GidIsWater ? yBotClamped                : yBotClamped                - this._vertexH(tileCol,     tileRow + 1) * _l1sBot
               const _l1BR = _l1GidIsWater ? yBotClamped                : yBotClamped                - this._vertexH(tileCol + 1, tileRow + 1) * _l1sBot
-              const tint1 = this.tintManager.getTint(gid1, tileCol, tileRow)
+                           const tint1 = this.tintManager.getTint(gid1, tileCol, tileRow)
               this._gCtx.globalAlpha = tileAlpha
               this._drawTrapezoidTinted(this._gCtx, gid1,
                 {x: xTL,  y: _l1TL}, {x: xTR,  y: _l1TR},
@@ -2356,8 +2545,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       if (this._boatActive && this._boatScreenX != null) {
         const _ts   = this.tileDisplaySize
         const _bRow = this._screenYToWorldRow(this._boatScreenY)
-
-	              if (_bRow != null) {
+        if (_bRow != null) {
           const _bCol = (this._boatScreenX - this._sw / 2) / this._scaleAtRow(_bRow) + this._perspCamCol()
           _hlLX = _bCol * _ts
           _hlLY = (_bRow - 1) * _ts

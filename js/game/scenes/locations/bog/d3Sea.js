@@ -3,7 +3,7 @@ import RiverScene from '../riverScene.js'
 export default class BogD3Sea extends RiverScene {
 
   constructor() { super({ key: 'd3_sea' }) }
-
+hasNorthFallback() { return false }
   usesSwallows()         { return false }
   getMapKey()              { return 'd3_sea' }
   getAmbient()             { return 0x223344 }

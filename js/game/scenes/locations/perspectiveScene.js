@@ -286,7 +286,9 @@ export default class PerspectiveScene extends BaseLocationScene {
           )
         })
         .catch(e => console.warn(`[${this.scene.key}] north neighbour preview fetch failed:`, e.message))
-    } else if (this.perspectiveGround) {
+    
+
+} else if (this.perspectiveGround && this.hasNorthFallback()) {
       // No real north neighbour at all (world edge, e.g. a1/c1/d1) --
       // synthesize a plain flat "open fields" placeholder so the edge
       // fades into more world rather than stopping dead. Flattened to

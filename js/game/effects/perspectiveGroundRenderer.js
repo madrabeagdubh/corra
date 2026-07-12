@@ -971,13 +971,27 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
 
               // Elevation offset comes from the MIRRORED tile's own
               // real height (so hills/contours genuinely repeat),
-              // applied at the REAL (unmirrored) screen corners.
+              // applied at the REAL (unmirrored) screen corners --
+              // EXCEPT for water, which the real-tile path (below,
+              // `_isGroundWater`) deliberately renders FLAT regardless
+              // of the heightmap, so it doesn't ripple with terrain
+              // contours. This phantom path was missing that same
+              // check: it applied the height offset to water GIDs too,
+              // so the moment a river/lake tile crossed from the last
+              // real column into its mirrored phantom column, water
+              // jumped from flat to height-offset -- a visible step
+              // fixed exactly at the map edge in world space. Mirroring
+              // itself was already correct (mirrorIndex(-1, n) = 0, so
+              // the phantom column's GID and tint exactly match the
+              // real edge column) -- only the water flatness rule
+              // wasn't carried over.
+              const _isPhantomWater = mGidRaw === 1625 || mGidRaw === 1679 || mGidRaw === 731
               const _sTop = this._scaleAtRow(tileRow)
               const _sBot = this._scaleAtRow(tileRow + 1)
-              const _hL0 = this._vertexH(mCol,     mRow)
-              const _hR0 = this._vertexH(mCol + 1, mRow)
-              const _hL1 = this._vertexH(mCol,     mRow + 1)
-              const _hR1 = this._vertexH(mCol + 1, mRow + 1)
+              const _hL0 = _isPhantomWater ? 0 : this._vertexH(mCol,     mRow)
+              const _hR0 = _isPhantomWater ? 0 : this._vertexH(mCol + 1, mRow)
+              const _hL1 = _isPhantomWater ? 0 : this._vertexH(mCol,     mRow + 1)
+              const _hR1 = _isPhantomWater ? 0 : this._vertexH(mCol + 1, mRow + 1)
               const _pxBL = this._colToScreenX(tileCol,     tileRow + 1)
               const _pxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
 

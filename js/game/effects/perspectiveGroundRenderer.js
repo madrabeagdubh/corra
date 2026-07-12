@@ -1,4 +1,4 @@
-// PerspectiveGroundRenderer.js  (v8.4 — modular elevation + building billboards + trunk integration)
+// PerspectiveGroundRenderer.js  (v9.0 — modular split; companion modules in ./pgr/)
 // Location: js/game/effects/perspectiveGroundRenderer.js
 //
 // ── Architecture ─────────────────────────────────────────────────────────────
@@ -31,6 +31,22 @@
 // for free. ForestEffects itself no longer draws trunks or owns their
 // canvas; it only bakes shapes and exposes them for PGR to draw.
 //
+// ── v9.0: file split ─────────────────────────────────────────────────────────
+// The renderer is split across ./pgr/ modules (plain functions taking the
+// PGR instance as first arg; all state stays on the instance):
+//   pgr/pgrShared.js       — GID tables + pure helpers (hashes, mirror, hsl)
+//   pgr/pgrSky.js          — sky/mountain/light DOM, parallax, palette
+//   pgr/pgrTileCache.js    — tileset load, tile/tint/avg-colour caches
+//   pgr/pgrBuildings.js    — building billboards (box/decal/billboard)
+//   pgr/pgrCliffFaces.js   — cliff + elevated-terrain faces
+//   pgr/pgrNorthPreview.js — north-neighbour preview rows
+//   pgr/pgrWaterBanks.js   — river/lake bank + corner-cap faces
+//   pgr/pgrPlayerBoat.js   — player, boat, and weapon rendering
+// Every extracted method keeps a one-line delegate on this class, so
+// external callers (scenes, boatSystem, elevationRenderer, forestEffects)
+// need no changes. Projection math + draw primitives stay HERE: they are
+// the hottest code and everything calls them through the instance.
+//
 // ── Related modules ───────────────────────────────────────────────────────────
 //   js/game/systems/elevationRenderer.js  — builds this._elev, draws cliff faces
 //   js/game/systems/playerRenderer.js     — utilities for enemy/NPC rendering
@@ -51,87 +67,15 @@
 // Player's Phaser sprite is hidden; PGR owns all player rendering.
 
 import { TintManager } from './tintManager.js'
-
-function _tmHashPGR(tx, ty) {
-  let h = (tx * 374761393 + ty * 1103515245) | 0
-  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
-  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
-  return (h ^ (h >>> 16)) >>> 0
-}
-
-// Mirror-reflect an index outside [0, n) back into range -- a "ping-pong"
-// bounce (0,1,2,...,n-1,n-1,...,2,1,0,0,1,2,...) rather than a straight
-// wrap-repeat (i % n). Used by the phantom-tile rendering (see the main
-// per-column loop's !inMap handling) to extend a map's real ground data
-// beyond its own edges: mirroring guarantees the seam at the REAL edge is
-// always continuous (the first phantom index exactly re-shows the last
-// real one), which a plain repeat can't promise since a map's opposite
-// edges generally don't match.
-function _mirrorIndex(i, n) {
-  if (n <= 0) return 0
-  const period = 2 * n
-  let m = ((i % period) + period) % period
-  if (m >= n) m = period - 1 - m
-  return m
-}
-
-// h in degrees, s/l in percent -> [r, g, b] 0-255. Used by the LOD fill
-// path (_lodFillQuad) to blend a tile's HSL tint into its average RGB
-// colour without going through a canvas composite operation.
-function _hslToRgb(h, s, l) {
-  h = ((h % 360) + 360) % 360
-  s /= 100; l /= 100
-  const k = n => (n + h / 30) % 12
-  const a = s * Math.min(l, 1 - l)
-  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)]
-}
-
-const GID_CATEGORIES_GROUND = new Set([
-  732, 733, 735, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848,
-  849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861,
-  862, 863, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903,
-  904, 905, 906, 907, 908, 909, 910,
-  1379, 1380, 1381, 1382, 1383, 1384, 1385, 1386, 1387, 1388,
-  1389, 1390, 1391, 1392, 1393, 1394, 1395, 1396, 1397, 1398,
-  1399, 1400, 1401, 1402, 1403, 1433, 1434, 1435, 1436, 1437,
-  1438, 1439, 1440, 1441, 1442, 1443, 1444, 1445, 1446, 1447,
-  1448, 1449, 1450,
-  1254, 1255, 1256, 1257, 1258, 1259,
-  1308, 1309, 1310, 1311, 1312, 1313,
-])
-
-function _tileHash(tx, ty) {
-  let h = (tx * 374761393 + ty * 1103515245) | 0
-  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
-  h = Math.imul((h ^ (h >>> 16)), 0x45d9f3b)
-  return ((h ^ (h >>> 16)) & 0xffff) / 0xffff
-}
-
-const BOG_TREE_GIDS      = new Set([208])
-const WITHERED_TREE_GIDS = new Set([209])
-
-const OAK_TOP_GIDS      = new Set([260, 261, 262])
-const OAK_MID_GIDS      = new Set([314, 315, 316, 422, 423, 424])
-const OAK_BOT_GIDS      = new Set([368, 369, 370, 476, 477, 478])
-
-const BOG_STAMP_TOP_GIDS = new Set([263, 264, 265])
-const BOG_STAMP_MID_GIDS = new Set([317, 318, 319, 425, 426, 427])
-const BOG_STAMP_BOT_GIDS = new Set([371, 372, 373, 479, 480, 481])
-
-const WITHERED_TOP_GIDS  = new Set([266, 267, 268])
-const WITHERED_MID_GIDS  = new Set([320, 321, 322, 428, 429, 430])
-const WITHERED_BOT_GIDS  = new Set([374, 375, 376, 482, 483, 484])
-
-const OAK_STAMP_GIDS = new Set([
-  ...OAK_TOP_GIDS, ...OAK_MID_GIDS, ...OAK_BOT_GIDS
-])
-const BOG_STAMP_GIDS = new Set([
-  ...BOG_STAMP_TOP_GIDS, ...BOG_STAMP_MID_GIDS, ...BOG_STAMP_BOT_GIDS
-])
-const WITHERED_STAMP_GIDS = new Set([
-  ...WITHERED_TOP_GIDS, ...WITHERED_MID_GIDS, ...WITHERED_BOT_GIDS
-])
+import { GID_CATEGORIES_GROUND, OAK_STAMP_GIDS, BOG_STAMP_GIDS,
+         WITHERED_STAMP_GIDS, tmHashPGR, mirrorIndex, hslToRgb } from './pgr/pgrShared.js'
+import * as PGRSky from './pgr/pgrSky.js'
+import * as PGRTiles from './pgr/pgrTileCache.js'
+import * as PGRBuildings from './pgr/pgrBuildings.js'
+import * as PGRCliffs from './pgr/pgrCliffFaces.js'
+import * as PGRPreview from './pgr/pgrNorthPreview.js'
+import * as PGRBanks from './pgr/pgrWaterBanks.js'
+import * as PGRPlayer from './pgr/pgrPlayerBoat.js'
 
 export default class PerspectiveGroundRenderer {
 
@@ -157,8 +101,8 @@ export default class PerspectiveGroundRenderer {
 
   static EDGE_EXTEND = 6
 
-  // LOD (level-of-detail) cutoff: once a row's tiles are narrower than
-  // this many screen pixels, ground quads are drawn as SOLID COLOUR
+  // LOD (level-of-detail) cutoff: once a row is shorter than
+  // this many screen pixels TALL, ground quads are drawn as SOLID COLOUR
   // fills (average tile colour blended with the tile's tint -- see
   // _lodFillQuad) instead of textured trapezoids. At these sizes the
   // texture is genuinely invisible (a 24px source squeezed into 1-4px),
@@ -244,23 +188,8 @@ export default class PerspectiveGroundRenderer {
     this._gcR        = null
 
     this._flatGids = new Set()
-    this._loadCatalogue()
-
-    if (PerspectiveGroundRenderer.DEBUG_RECTS) {
-      this._ready = true
-    } else {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        this._tilesetImg = img
-        this._ready      = true
-        this._lastCamX   = null
-        this._lastCamY   = null
-        console.log('[PGR v8] tileset ready -', img.width, 'x', img.height)
-      }
-      img.onerror = e => console.error('[PGR v8] tileset load failed', e)
-      img.src = PerspectiveGroundRenderer.TILESET_URL
-    }
+    PGRTiles.loadCatalogue(this)
+    PGRTiles.initTileset(this)
 
     const container = phaserCanvas.parentNode
 
@@ -279,16 +208,8 @@ export default class PerspectiveGroundRenderer {
 
     this._skyDiv = null
     this._skyImg = null
-    this._buildSkyImage(container)
-
-    this._lightDiv = document.createElement('div')
-    this._lightDiv.id = 'pgr-light'
-    this._lightDiv.style.cssText = [
-      'position:absolute', 'top:0', 'left:0',
-      `width:${this._sw}px`, `height:${this._sh}px`,
-      'z-index:4', 'pointer-events:none',
-    ].join(';')
-    container.appendChild(this._lightDiv)
+    PGRSky.initSky(this, container)
+    PGRSky.initLight(this, container)
 
     this._lastCamX    = null
     this._lastCamY    = null
@@ -316,168 +237,12 @@ export default class PerspectiveGroundRenderer {
     return c
   }
 
-  _buildSkyImage(container) {
-    const sw = this._sw
-    const sh = this._sh
-    const img = document.createElement('img')
-    img.id  = 'pgr-sky-img'
-    img.src = ''
-    img.style.cssText = [
-      'position:absolute', 'top:0', 'left:0',
-      `width:${sw}px`, `height:${Math.floor(sh * 0.85)}px`,
-      'z-index:0', 'pointer-events:none',
-      'object-fit:cover', 'object-position:center top',
-      'opacity:0',
-    ].join(';')
-    container.appendChild(img)
-    this._skyImg = img
-
-    const mtn = document.createElement('img')
-    mtn.id  = 'pgr-mountain-img'
-    mtn.src = ''
-    const mtnH = Math.floor(sh * (PerspectiveGroundRenderer.HORIZON_Y_FRAC + 0.10))
-    mtn.style.cssText = [
-      'position:absolute', 'left:0',
-      'width:100%',
-      'height:' + (PerspectiveGroundRenderer.HORIZON_Y_FRAC * 100).toFixed(2) + '%',
-      'top:0',
-      'z-index:0', 'pointer-events:none',
-      'object-fit:none', 'object-position:50% 100%',
-      'opacity:0',
-    ].join(';')
-    container.appendChild(mtn)
-    this._mountainImg = mtn
-
-
-
-
-this._resizeHandler = () => {
-  setTimeout(() => {
-  const canvas = this.scene?.game?.canvas
-  if (!canvas) return
-  console.log('[PGR resize]', 'clientW/H:', canvas.clientWidth, canvas.clientHeight, '| backbuffer:', canvas.width, canvas.height, '| dpr:', window.devicePixelRatio)
-  const nw = canvas.clientWidth || canvas.width
-  const nh = canvas.clientHeight || canvas.height
-  if (nw === this._sw && nh === this._sh) return
-  this._sw = nw; this._sh = nh
-
-      const newSkyH   = Math.floor(nh * 0.85)
-      const horizonPx = Math.floor(nh * PerspectiveGroundRenderer.HORIZON_Y_FRAC)
-      const newMtnH   = horizonPx
-      const newMtnTop = horizonPx - Math.floor(newMtnH * 0.35)
-      if (this._skyImg) {
-        this._skyImg.style.width  = nw + 'px'
-        this._skyImg.style.height = newSkyH + 'px'
-      }
-      if (this._mountainImg) {
-        this._mountainImg.style.width  = nw + 'px'
-        this._mountainImg.style.height = newMtnH + 'px'
-        this._mountainImg.style.top    = newMtnTop + 'px'
-      }
-      }, 150)
-    }
-    window.addEventListener('resize', this._resizeHandler)
-    document.addEventListener('fullscreenchange', this._resizeHandler)
-    document.addEventListener('webkitfullscreenchange', this._resizeHandler)
-  }
-
-  setSkyImage(url, position = 'center top') {
-    if (!this._skyImg) return
-    if (url) {
-      if (this._skyImg.src !== url) {
-        this._skyImg.onload = () => this._extractPaletteFromImage(this._skyImg)
-        this._skyImg.src = url
-      }
-      this._skyImg.style.opacity        = '1'
-      this._skyImg.style.objectPosition = position
-    } else {
-      this._skyImg.src           = ''
-      this._skyImg.style.opacity = '0'
-      this.tintManager.setMood('default')
-      this._gcR = null
-    }
-  }
-
-  setMountainImage(url, position) {
-    if (!this._mountainImg) return
-    position = position || '50% 100%'
-    if (url) {
-      if (!this._mountainImg.src.endsWith(url.replace(/^.*\//, ''))) this._mountainImg.src = url
-      this._mountainImg.style.opacity = '1'
-      this._mountainImg.style.objectPosition = position
-    } else {
-      this._mountainImg.src = ''
-      this._mountainImg.style.opacity = '0'
-    }
-  }
-
-  updateMountainParallax(playerLogicalX, playerLogicalY, mapWidth, mapHeight) {
-    if (!this._mountainImg || !this._mountainImg.src) return
-    const baseX = this._mountainBaseX !== undefined ? this._mountainBaseX : 50
-    const baseY = this._mountainBaseY !== undefined ? this._mountainBaseY : 100
-    const ts    = this._tileSize || 48
-    const fracX = mapWidth  > 0 ? playerLogicalX / (mapWidth  * ts) : 0.5
-    const fracY = mapHeight > 0 ? playerLogicalY / (mapHeight * ts) : 0.5
-
-    const easedX = fracX < 0.5
-      ? 2 * fracX * fracX
-      : 1 - Math.pow(-2 * fracX + 2, 2) / 2
-
-    const mtnPx = baseX + (easedX - 0.5) * 8
-    const mtnPy = baseY
-    this._mountainImg.style.objectPosition = mtnPx.toFixed(2) + '% ' + mtnPy.toFixed(2) + '%'
-
-    if (this._skyImg && this._skyImg.src) {
-      this._skyParallaxX = (easedX - 0.5) * 3
-    }
-  }
-
-  _extractPaletteFromImage(imgEl) {
-    try {
-      const c   = document.createElement('canvas')
-      c.width   = 64
-      c.height  = 64
-      const ctx = c.getContext('2d')
-      const imgH = imgEl.naturalHeight || imgEl.height || 1
-      const imgW = imgEl.naturalWidth  || imgEl.width  || 1
-      const srcY = Math.floor(imgH * 0.60)
-      const srcH = Math.floor(imgH * 0.40)
-      ctx.drawImage(imgEl, 0, srcY, imgW, srcH, 0, 0, 64, 64)
-
-      const sky    = this._avgPixels(ctx.getImageData(0, 0,  64, 20))
-      const mid    = this._avgPixels(ctx.getImageData(0, 20, 64, 22))
-      const ground = this._avgPixels(ctx.getImageData(0, 42, 64, 22))
-
-      console.log('[PGR] palette sampled -- sky:', sky, 'mid:', mid, 'ground:', ground)
-
-      this.tintManager.setPaletteFromRGB({ sky, mid, ground })
-
-      const gt = this.tintManager.getTint(733, 0, 0)
-      if (gt) {
-        this._gcR = `hsl(${gt.h},${Math.round(gt.s * 0.7)}%,${Math.max(gt.l - 8, 8)}%)`
-      }
-
-      this._lastCamX = null
-    } catch(e) {
-      console.warn('[PGR] palette extraction failed:', e.message)
-    }
-  }
-
-  _avgPixels(imageData) {
-    const d = imageData.data
-    let r = 0, g = 0, b = 0, count = 0
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 10) continue
-      r += d[i]; g += d[i+1]; b += d[i+2]
-      count++
-    }
-    if (count === 0) return { r: 128, g: 128, b: 128 }
-    return {
-      r: Math.round(r / count),
-      g: Math.round(g / count),
-      b: Math.round(b / count),
-    }
-  }
+  // ── Sky / mountain / light: implementation lives in pgr/pgrSky.js ──
+  // Thin delegates kept so scene-facing call sites (pgr.setSkyImage(...)
+  // etc.) are untouched by the split.
+  setSkyImage(url, position = 'center top') { PGRSky.setSkyImage(this, url, position) }
+  setMountainImage(url, position) { PGRSky.setMountainImage(this, url, position) }
+  updateMountainParallax(px, py, mapW, mapH) { PGRSky.updateMountainParallax(this, px, py, mapW, mapH) }
 
   setMood(mood) {
     this.tintManager.setMood(mood)
@@ -519,70 +284,8 @@ this._resizeHandler = () => {
     this._northNeighbor = data || null
   }
 
-  // Mirrors _vertexH() but reads from the north neighbour's heightMap
-  // instead of the current map's.
-  _neighborVertexH(col, row) {
-    const nb = this._northNeighbor
-    if (!nb?.heightMap) return 0
-    if (col < 0 || row < 0 || col > nb.width || row > nb.height) return 0
-    return nb.heightMap[row]?.[col] ?? 0
-  }
 
-  prewarmBillboardTints(mapData) {
-    if (!mapData?.layers?.[1]) return
-    this._bakedTintCache = new Map()
-    const layer1  = mapData.layers[1]
-    const mapH    = layer1.length
-    const mapW    = layer1[0]?.length ?? 0
-
-    const gids = new Set()
-    for (let y = 0; y < mapH; y++) {
-      for (let x = 0; x < mapW; x++) {
-        const g = layer1[y][x]
-        if (g && (OAK_STAMP_GIDS.has(g) || BOG_STAMP_GIDS.has(g) ||
-                  WITHERED_STAMP_GIDS.has(g) || this._flatGids.has(g))) {
-          gids.add(g)
-        }
-      }
-    }
-
-    if (gids.size === 0) return
-
-    const samplePositions = [
-      [3,3],[7,5],[11,9],[15,13],[19,7],[23,17],[27,11],[31,21]
-    ]
-    const gidArr = [...gids]
-    let gi = 0
-
-    const bakeNext = () => {
-      if (gi >= gidArr.length) {
-        console.log(`[PGR] billboard tint prewarm done — ${this._bakedTintCache.size} variants for ${gidArr.length} GIDs`)
-        return
-      }
-      const gid = gidArr[gi++]
-      const img = this._getTileCanvas(gid)
-      if (img) {
-        samplePositions.forEach(([tx, ty], vi) => {
-          const tint = this.tintManager.getTint(gid, tx, ty)
-          if (tint) this._getBakedTintCanvas(img, tint, tint.alpha, vi)
-        })
-      }
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(bakeNext, { timeout: 500 })
-      } else {
-        setTimeout(bakeNext, 0)
-      }
-    }
-
-    if (this._ready) {
-      bakeNext()
-    } else {
-      const orig = this._tilesetImg
-      const check = setInterval(() => {
-        if (this._ready) { clearInterval(check); bakeNext() }
-      }, 50)
-    }
-  }
+  prewarmBillboardTints(mapData) { PGRTiles.prewarmBillboardTints(this, mapData) }
 
   setPlayerScale(mult, scale) {
     this._playerHeightMult = mult ?? 1.8
@@ -641,205 +344,15 @@ this._resizeHandler = () => {
     )
   }
 
-  setBuildings(list) {
-    this._buildings = []
-    for (const b of (list || [])) {
-      const entry = {
-        ...b,
-        anchorRow:    b.y + b.fh - 1,
-        centerColInt: Math.floor(b.x + b.fw / 2),
-        canvas:       null,
-      }
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        const c   = document.createElement('canvas')
-        c.width   = img.width
-        c.height  = img.height
-        const ctx = c.getContext('2d')
-        ctx.imageSmoothingEnabled = false
-        ctx.filter = 'saturate(70%)'
-        ctx.drawImage(img, 0, 0)
-        ctx.filter = 'none'
-        entry.canvas   = c
-        this._lastCamX = null
-      }
-      img.onerror = e => console.error('[PGR] building image failed:', b.src, e)
-      img.src = '/' + b.src.replace(/^\//, '')
-      this._buildings.push(entry)
-    }
-    console.log('[PGR] buildings registered:', this._buildings.length)
-  }
+  // Building rendering lives in pgr/pgrBuildings.js.
+  setBuildings(list) { PGRBuildings.setBuildings(this, list) }
 
-  registerCustomTile(gid, url) {
-    this._tileCache.set(gid, null)
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const c   = document.createElement('canvas')
-      c.width   = img.width
-      c.height  = img.height
-      const ctx = c.getContext('2d')
-      ctx.imageSmoothingEnabled = false
-      ctx.filter = 'saturate(60%)'
-      ctx.drawImage(img, 0, 0)
-      ctx.filter = 'none'
-      this._tileCache.set(gid, c)
-      this._lastCamX = null
-      console.log(`[PGR] custom tile ${gid} ready — ${img.width}x${img.height} from ${url}`)
-    }
-    img.onerror = e => console.error(`[PGR] custom tile ${gid} failed: ${url}`, e)
-    img.src = url
-  }
+  registerCustomTile(gid, url) { PGRTiles.registerCustomTile(this, gid, url) }
 
-  _drawBuilding(ctx, b, horizonPx, sw) {
-    const frontRow   = b.anchorRow + 1
-    const yBase      = this._rowToScreenY(frontRow)
-    if (yBase === null || yBase < horizonPx) return
-    const os         = b.overscale ?? 1.2
-    const cxTile     = b.x + b.fw / 2
-    const scaleFront = this._scaleAtRow(frontRow)
-    if (!(scaleFront > 0)) return
-    const wFront     = b.fw * scaleFront * os
-    const cxFront    = this._colToScreenX(cxTile, frontRow)
-    if (cxFront + wFront < -sw || cxFront - wFront > sw * 2) return
+  _drawBuilding(ctx, b, horizonPx, sw) { PGRBuildings.drawBuilding(this, ctx, b, horizonPx, sw) }
 
-    const mode = b.mode ?? 'box'
-    let boundary = null
-    ctx.globalAlpha = 1.0
 
-    if (mode === 'decal') {
-      boundary = this._drawBuildingDecal(ctx, b, cxTile, frontRow, os, horizonPx)
-    } else if (mode === 'billboard') {
-      const hB = wFront * (b.canvas.height / b.canvas.width)
-      ctx.drawImage(b.canvas,
-        Math.round(cxFront - wFront / 2), Math.round(yBase - hB),
-        Math.round(wFront), Math.round(hB))
-      boundary = [
-        { x: cxFront - wFront / 2, y: yBase - hB },
-        { x: cxFront + wFront / 2, y: yBase - hB },
-        { x: cxFront + wFront / 2, y: yBase },
-        { x: cxFront - wFront / 2, y: yBase },
-      ]
-    } else {
-      boundary = this._drawBuildingBox(ctx, b, cxTile, cxFront, wFront, yBase, scaleFront)
-    }
 
-    if (boundary && boundary.length) {
-      const bTint = this.tintManager.getTint(b.tintGid ?? 197, b.x, b.y)
-      if (bTint) {
-        ctx.save()
-        ctx.globalCompositeOperation = 'source-atop'
-        ctx.globalAlpha = (bTint.alpha ?? 0.45) * 0.8
-        ctx.fillStyle = `hsl(${bTint.h},${bTint.s}%,${bTint.l}%)`
-        ctx.beginPath()
-        ctx.moveTo(boundary[0].x, boundary[0].y)
-        for (let i = 1; i < boundary.length; i++) ctx.lineTo(boundary[i].x, boundary[i].y)
-        ctx.closePath()
-        ctx.fill()
-        ctx.restore()
-      }
-    }
-  }
-
-  _drawBuildingBox(ctx, b, cxTile, cxFront, wFront, yBase, scaleFront) {
-    const img   = b.canvas
-    const iw    = img.width, ih = img.height
-    const split = Math.min(0.85, Math.max(0.05, b.roofSplit ?? 0.45))
-    const wallSrcY    = ih * split
-    const wallSrcH    = ih - wallSrcY
-    const wallScreenH = wFront * (wallSrcH / iw)
-    const yWallTop    = yBase - wallScreenH
-
-    const backRow = b.y
-    let yBack     = this._rowToScreenY(backRow)
-    let scaleBack = this._scaleAtRow(backRow)
-    if (yBack === null || !(scaleBack > 0)) { yBack = yWallTop; scaleBack = scaleFront }
-    const hTiles    = wallScreenH / scaleFront
-    const wBack     = b.fw * scaleBack * (b.overscale ?? 1.2)
-    const cxBack    = this._colToScreenX(cxTile, backRow)
-    const yRoofBack = yBack - hTiles * scaleBack
-
-    ctx.drawImage(img, 0, wallSrcY, iw, wallSrcH,
-      Math.round(cxFront - wFront / 2), Math.round(yWallTop),
-      Math.round(wFront), Math.round(wallScreenH))
-
-    const TL = { x: cxBack  - wBack  / 2, y: yRoofBack }
-    const TR = { x: cxBack  + wBack  / 2, y: yRoofBack }
-    const BL = { x: cxFront - wFront / 2, y: yWallTop }
-    const BR = { x: cxFront + wFront / 2, y: yWallTop }
-    this._drawAffineTriangle(ctx, img,
-      { u: 0, v: 0 }, { u: iw, v: 0 }, { u: iw, v: wallSrcY }, TL, TR, BR)
-    this._drawAffineTriangle(ctx, img,
-      { u: 0, v: 0 }, { u: iw, v: wallSrcY }, { u: 0, v: wallSrcY }, TL, BR, BL)
-
-    return [
-      { x: cxFront - wFront / 2, y: yBase },
-      { x: cxFront + wFront / 2, y: yBase },
-      BR, TR, TL, BL,
-    ]
-  }
-
-  _drawBuildingDecal(ctx, b, cxTile, frontRow, os, horizonPx) {
-    const img        = b.canvas
-    const iw         = img.width, ih = img.height
-    const widthTiles = b.fw * os
-    const depthTiles = widthTiles * (ih / iw)
-    const STRIPS     = 10
-    let prev = null
-    for (let i = 0; i <= STRIPS; i++) {
-      const f   = i / STRIPS
-      const row = frontRow - depthTiles * (1 - f)
-      const y   = this._rowToScreenY(row)
-      const s   = this._scaleAtRow(row)
-      const cx  = this._colToScreenX(cxTile, row)
-      const cur = (y === null || !(s > 0)) ? null
-        : { y, cx, w: widthTiles * s, v: ih * f }
-      if (prev && cur && cur.y > horizonPx - 4) {
-        const TL = { x: prev.cx - prev.w / 2, y: prev.y }
-        const TR = { x: prev.cx + prev.w / 2, y: prev.y }
-        const BL = { x: cur.cx  - cur.w  / 2, y: cur.y }
-        const BR = { x: cur.cx  + cur.w  / 2, y: cur.y }
-        this._drawAffineTriangle(ctx, img,
-          { u: 0, v: prev.v }, { u: iw, v: prev.v }, { u: iw, v: cur.v }, TL, TR, BR)
-        this._drawAffineTriangle(ctx, img,
-          { u: 0, v: prev.v }, { u: iw, v: cur.v }, { u: 0, v: cur.v }, TL, BR, BL)
-      }
-      prev = cur
-    }
-    const backRowD = frontRow - depthTiles
-    const yF = this._rowToScreenY(frontRow), sF = this._scaleAtRow(frontRow)
-    const yK = this._rowToScreenY(backRowD), sK = this._scaleAtRow(backRowD)
-    if (yF === null || yK === null) return null
-    const cxF = this._colToScreenX(cxTile, frontRow)
-    const cxK = this._colToScreenX(cxTile, backRowD)
-    return [
-      { x: cxK - widthTiles * sK / 2, y: yK },
-      { x: cxK + widthTiles * sK / 2, y: yK },
-      { x: cxF + widthTiles * sF / 2, y: yF },
-      { x: cxF - widthTiles * sF / 2, y: yF },
-    ]
-  }
-
-  _loadCatalogue() {
-    try {
-      const catalogue = this.scene.cache.json.get('oryxCatalogue')
-      if (!catalogue) {
-        console.warn('[PGR] oryxCatalogue not in cache -- all layer 1 tiles will be flat')
-        return
-      }
-      let billboardCount = 0
-      for (const [gidStr, entry] of Object.entries(catalogue)) {
-        if (entry?.flat === false) {
-          this._flatGids.add(parseInt(gidStr))
-          billboardCount++
-        }
-      }
-      console.log(`[PGR] catalogue loaded - ${billboardCount} billboard GIDs, ${Object.keys(catalogue).length - billboardCount} flat GIDs`)
-    } catch(e) {
-      console.warn('[PGR] catalogue load failed:', e.message)
-    }
-  }
 
   _refreshPlayerCanvas() {
     if (!this._player?.sprite) return
@@ -933,26 +446,6 @@ _horizonPx() {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
 
-  _drawBankSide(ctx, xTop, xBot, yTop, yBot, alpha) {
-    if (yBot - yTop < 2) return
-    ctx.save()
-    ctx.globalAlpha = alpha * 0.50
-    try {
-      const _g = ctx.createLinearGradient(0, yTop, 0, yBot)
-      _g.addColorStop(0,    'rgba(42, 30, 14, 0.92)')
-      _g.addColorStop(0.4,  'rgba(60, 44, 20, 0.75)')
-      _g.addColorStop(1,    'rgba(48, 34, 16, 0.30)')
-      ctx.fillStyle = _g
-    } catch(e) { ctx.fillStyle = 'rgba(50, 35, 15, 0.55)' }
-    ctx.beginPath()
-    ctx.moveTo(xTop, yTop)
-    ctx.lineTo(xBot, yTop)
-    ctx.lineTo(xBot, yBot)
-    ctx.lineTo(xTop, yBot)
-    ctx.closePath()
-    ctx.fill()
-    ctx.restore()
-  }
 
   _vertexH(col, row) {
     const hm = this._heightMapSrc
@@ -1003,60 +496,18 @@ _horizonPx() {
     return true
   }
 
-  _srcRect(gid) {
-    const idx = gid - 1
-    const col = idx % PerspectiveGroundRenderer.SHEET_COLS
-    const row = Math.floor(idx / PerspectiveGroundRenderer.SHEET_COLS)
-    const { MG, TW, TH } = PerspectiveGroundRenderer
-    return { sx: MG + col * TW, sy: MG + row * TH, sw: TW, sh: TH }
-  }
+  // Tileset + tile/tint caches live in pgr/pgrTileCache.js.
+  _srcRect(gid) { return PGRTiles.srcRect(this, gid) }
 
-  _getTileCanvas(gid) {
-    if (this._tileCache.has(gid)) return this._tileCache.get(gid)
-    if (!this._tilesetImg) return null
-    const { sx, sy, sw, sh } = this._srcRect(gid)
-    const tc   = document.createElement('canvas')
-    tc.width   = sw; tc.height = sh
-    const tCtx = tc.getContext('2d')
-    tCtx.imageSmoothingEnabled = false
-    tCtx.filter = 'saturate(60%)'
-    tCtx.drawImage(this._tilesetImg, sx, sy, sw, sh, 0, 0, sw, sh)
-    tCtx.filter = 'none'
-    this._tileCache.set(gid, tc)
-    return tc
-  }
+  _getTileCanvas(gid) { return PGRTiles.getTileCanvas(this, gid) }
 
-  // Average RGB of a tile's own pixels (transparent pixels skipped),
-  // computed via getImageData ONCE per GID and cached forever. Used by
-  // the LOD fill path -- see LOD_MIN_TEXTURE_PX. Deliberately does NOT
-  // cache a null result: _getTileCanvas can legitimately return null
-  // while a registerCustomTile image is still loading, and caching that
-  // would lock the GID out of ever getting a real colour.
-  _getTileAvgColor(gid) {
-    if (!this._avgColorCache) this._avgColorCache = new Map()
-    if (this._avgColorCache.has(gid)) return this._avgColorCache.get(gid)
-    const img = this._getTileCanvas(gid)
-    if (!img) return null
-    let avg = null
-    try {
-      const d = img.getContext('2d').getImageData(0, 0, img.width, img.height).data
-      let r = 0, g = 0, b = 0, n = 0
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i + 3] < 10) continue
-        r += d[i]; g += d[i + 1]; b += d[i + 2]
-        n++
-      }
-      if (n > 0) avg = { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) }
-    } catch (e) { /* tainted canvas etc. -- caller falls back to textured draw */ }
-    this._avgColorCache.set(gid, avg)
-    return avg
-  }
+  _getTileAvgColor(gid) { return PGRTiles.getTileAvgColor(this, gid) }
 
   // LOD replacement for _drawTrapezoidTinted: one flat path-fill in the
   // tile's average colour with its tint pre-blended in arithmetic (no
   // clip, no setTransform, no composite pass -- the three expensive
   // parts of the textured path). Only ever called for rows narrower
-  // than LOD_MIN_TEXTURE_PX, where the texture couldn't be seen anyway.
+  // than LOD_MIN_ROW_PX, where the texture couldn't be seen anyway.
   // Returns false (without drawing) if the average colour isn't
   // available yet, so the caller can fall back to the textured draw:
   //   if (!lodRow || !this._lodFillQuad(...)) this._drawTrapezoidTinted(...)
@@ -1066,7 +517,7 @@ _horizonPx() {
     let r = avg.r, g = avg.g, b = avg.b
     if (tint) {
       const ta  = Math.min(1, tint.alpha ?? 0.45)
-      const rgb = _hslToRgb(tint.h, tint.s, tint.l)
+      const rgb = hslToRgb(tint.h, tint.s, tint.l)
       r += (rgb[0] - r) * ta
       g += (rgb[1] - g) * ta
       b += (rgb[2] - b) * ta
@@ -1082,23 +533,7 @@ _horizonPx() {
     return true
   }
 
-  // True only if this GID's computed source rectangle actually falls
-  // within the real, loaded Oryx tileset image. Some GIDs (e.g. building
-  // footprint codes stamped into a village map's own layer0, like
-  // b0's BLDG_THATCH1/BLDG_WALL1 etc.) are numerically far outside the
-  // tileset's real bounds -- they're meant to be intercepted by a
-  // completely separate system (setBuildings/customTiles), never drawn
-  // via this texture lookup at all. _getTileCanvas doesn't validate this
-  // itself (drawImage with an out-of-bounds source rect just silently
-  // produces a blank/transparent result, no error) -- used by the
-  // phantom-tile and north-preview paths to skip such GIDs gracefully
-  // instead of attempting a draw that quietly does nothing, which looked
-  // like a gap in the rendered ground.
-  _isValidTilesetGid(gid) {
-    if (!this._tilesetImg) return false
-    const { sy, sh } = this._srcRect(gid)
-    return (sy + sh) <= this._tilesetImg.height
-  }
+  _isValidTilesetGid(gid) { return PGRTiles.isValidTilesetGid(this, gid) }
 
   _drawAffineTriangle(ctx, img, t0, t1, t2, p0, p1, p2) {
     const { u: u0, v: v0 } = t0, { u: u1, v: v1 } = t1, { u: u2, v: v2 } = t2
@@ -1173,49 +608,12 @@ _horizonPx() {
     const scaledH = scaledTileW * hm
     const dx      = screenX - scaledW / 2
     const dy      = screenY - scaledH
-    const _vi    = _tmHashPGR(tileCol, tileRow) & 7
+    const _vi    = tmHashPGR(tileCol, tileRow) & 7
     const tinted = this._getBakedTintCanvas(img, tintHSL, tintAlpha ?? 0.38, _vi)
     ctx.drawImage(tinted ?? img, dx, dy, scaledW, scaledH)
   }
 
-  _getBakedTintCanvas(img, tintHSL, alpha, variantIndex = 0) {
-    if (!this._bakedTintCache) this._bakedTintCache = new Map()
-    const id  = img.__tintId ?? (img.__tintId = ++PerspectiveGroundRenderer._tintIdSeq)
-    const key = `${id}_${variantIndex}`
-    if (this._bakedTintCache.has(key)) return this._bakedTintCache.get(key)
-
-    const { h, s, l } = tintHSL
-    const w = img.width, he = img.height
-    const tc   = document.createElement('canvas')
-    tc.width   = w; tc.height = he
-    const tCtx = tc.getContext('2d')
-    tCtx.imageSmoothingEnabled = false
-    tCtx.drawImage(img, 0, 0)
-    tCtx.globalCompositeOperation = 'source-atop'
-    tCtx.globalAlpha = alpha
-    tCtx.fillStyle   = `hsl(${h},${s}%,${l}%)`
-    tCtx.fillRect(0, 0, w, he)
-    this._bakedTintCache.set(key, tc)
-    return tc
-  }
-
-  _updateLight(playerScreenX, playerScreenY) {
-    const sw        = this._sw
-    const sh        = this._sh
-    const horizonPx = this._horizonPx()
-    const groundH   = sh - horizonPx
-    const radius    = Math.sqrt(sw * sw + sh * sh) * (this._lightRadius ?? PerspectiveGroundRenderer.LIGHT_RADIUS)
-    const dark      = this._lightDarkness ?? PerspectiveGroundRenderer.LIGHT_DARKNESS
-    const glow      = PerspectiveGroundRenderer.LIGHT_COLOR
-    const relativePlayerY = playerScreenY - horizonPx
-    this._lightDiv.style.top    = `${horizonPx}px`
-    this._lightDiv.style.height = `${groundH}px`
-    this._lightDiv.style.background = [
-      `radial-gradient(ellipse ${radius.toFixed(1)}px ${(radius * 0.6).toFixed(1)}px`,
-      ` at ${playerScreenX.toFixed(1)}px ${relativePlayerY.toFixed(1)}px,`,
-      ` ${glow} 0%, transparent 35%, rgba(0,0,0,${dark}) 100%)`
-    ].join('')
-  }
+  _getBakedTintCanvas(img, tintHSL, alpha, variantIndex = 0) { return PGRTiles.getBakedTintCanvas(this, img, tintHSL, alpha, variantIndex) }
 
   _elevationY(worldRow, elevation) {
     const baseY = this._rowToScreenY(worldRow)
@@ -1224,326 +622,20 @@ _horizonPx() {
     return baseY - elevation * pxPerTile
   }
 
-  _drawNorthCliffFace(ctx, col, row, elev, tileAlpha, yTopClamped, yBotClamped) {
-    const scaledW = this._scaleAtRow(row + 1)
-    const tileH   = scaledW * elev
+  // Cliff/elevation faces live in pgr/pgrCliffFaces.js. All five keep
+  // delegates here because ElevationRenderer (external) may call them.
+  _drawNorthCliffFace(ctx, col, row, elev, tileAlpha, yTopClamped, yBotClamped) { PGRCliffs.drawNorthCliffFace(this, ctx, col, row, elev, tileAlpha, yTopClamped, yBotClamped) }
 
-    const capBot = yTopClamped
-    const capTop = yTopClamped - tileH
+  _drawElevatedFace(ctx, col, row, elev, gid, tileAlpha, yBotHint) { PGRCliffs.drawElevatedFace(this, ctx, col, row, elev, gid, tileAlpha, yBotHint) }
 
-    const horizonPx = this._horizonPx()
-    if (capBot < horizonPx) return
+  _drawElevatedSideFace(ctx, edgeCol, row, elev, gid, tileAlpha) { PGRCliffs.drawElevatedSideFace(this, ctx, edgeCol, row, elev, gid, tileAlpha) }
 
-    const xTL = this._colToScreenX(col,     row)
-    const xTR = this._colToScreenX(col + 1, row)
-    const xBL = this._colToScreenX(col,     row + 1)
-    const xBR = this._colToScreenX(col + 1, row + 1)
+  _drawCliffSide(ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) { PGRCliffs.drawCliffSide(this, ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) }
 
-    ctx.globalAlpha = tileAlpha
-    this._drawTrapezoidTinted(ctx, 839,
-      { x: xTL, y: capTop }, { x: xTR, y: capTop },
-      { x: xBL, y: capBot }, { x: xBR, y: capBot },
-      null)
-    ctx.globalAlpha = 1.0
+  _drawCliffFace(ctx, col, row, elev, tileAlpha) { PGRCliffs.drawCliffFace(this, ctx, col, row, elev, tileAlpha) }
 
-    const faceTop = capBot
-    const faceBot = yBotClamped
-    if (faceBot <= faceTop) return
-
-    const screenX = this._colToScreenX(col + 0.5, row + 1)
-    ctx.save()
-    ctx.globalAlpha = tileAlpha * 0.88
-    ctx.fillStyle = '#2a4020'
-    ctx.fillRect(
-      Math.round(screenX - scaledW / 2),
-      Math.round(faceTop),
-      Math.round(scaledW),
-      Math.round(faceBot - faceTop))
-    ctx.restore()
-  }
-
-  _drawElevatedFace(ctx, col, row, elev, gid, tileAlpha, yBotHint) {
-    const yBot = this._rowToScreenY(row + 1) ?? yBotHint
-    if (yBot === null) return
-    const tileH = this._scaleAtRow(row + 1) || this._scaleAtRow(row)
-    const yTop  = yBot - tileH * elev
-    if (yTop >= yBot) return
-
-    const xBL = this._colToScreenX(col,     row + 1)
-    const xBR = this._colToScreenX(col + 1, row + 1)
-    const xTL = xBL
-    const xTR = xBR
-
-    ctx.globalAlpha = tileAlpha
-    this._drawTrapezoidTinted(ctx, gid,
-      { x: xTL, y: yTop }, { x: xTR, y: yTop },
-      { x: xBL, y: yBot }, { x: xBR, y: yBot },
-      null)
-    ctx.globalAlpha = 1.0
-  }
-
-  _drawElevatedSideFace(ctx, edgeCol, row, elev, gid, tileAlpha) {
-    const yFront = this._rowToScreenY(row + 1)
-    if (yFront === null) return
-    const sFront = this._scaleAtRow(row + 1)
-    if (!(sFront > 0)) return
-
-    const yBack  = this._rowToScreenY(row)
-    const sBack  = this._scaleAtRow(row)
-
-    const xFront = this._colToScreenX(edgeCol, row + 1)
-    const xBack  = this._colToScreenX(edgeCol, row)
-
-    const yFrontTop = yFront - elev * sFront
-    const yBackTop  = yBack  !== null ? yBack  - elev * sBack : yFrontTop
-
-    const tint = this.tintManager.getTint(gid, edgeCol, row)
-    const sideColor = tint
-      ? `hsl(${tint.h},${Math.round(tint.s * 0.55)}%,${Math.max(tint.l - 18, 4)}%)`
-      : 'rgb(52, 38, 28)'
-
-    ctx.save()
-    ctx.globalAlpha = tileAlpha * 0.85
-    ctx.fillStyle = sideColor
-    ctx.beginPath()
-    ctx.moveTo(xBack,  yBackTop)
-    ctx.lineTo(xFront, yFrontTop)
-    ctx.lineTo(xFront, yFront)
-    if (yBack !== null) ctx.lineTo(xBack, yBack)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(20,14,8,0.45)'
-    ctx.lineWidth = 0.8
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  _drawCliffSide(ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) {
-    const edgeCol  = sideDir > 0 ? col + 1 : col
-    const yBotA    = this._rowToScreenY(row + 1)
-    const tileHA   = this._scaleAtRow(row + 1)
-    const yTopA    = yBotA !== null ? yBotA - tileHA * elev : null
-
-    const yBotB    = this._rowToScreenY(neighbourRow + 1)
-    const tileHB   = this._scaleAtRow(neighbourRow + 1)
-    const yTopB    = yBotB !== null ? yBotB - tileHB * elev : null
-
-    if (yTopA === null || yBotA === null || yTopB === null || yBotB === null) return
-    if (yBotA <= yTopA || yBotB <= yTopB) return
-
-    const xA = this._colToScreenX(edgeCol, row + 1)
-    const xB = this._colToScreenX(edgeCol, neighbourRow + 1)
-
-    ctx.save()
-    ctx.globalAlpha = tileAlpha * 0.85
-    ctx.fillStyle = 'rgb(60, 42, 28)'
-    ctx.beginPath()
-    ctx.moveTo(xB, yTopB)
-    ctx.lineTo(xB, yBotB)
-    ctx.lineTo(xA, yBotA)
-    ctx.lineTo(xA, yTopA)
-    ctx.closePath()
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(30,20,10,0.6)'
-    ctx.lineWidth = 1
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  _drawCliffFace(ctx, col, row, elev, tileAlpha) {
-    const yBot = this._rowToScreenY(row + 1)
-    if (yBot === null) return
-
-    const tileScreenH = this._scaleAtRow(row + 1)
-    const yTop        = yBot - tileScreenH * elev
-
-    if (yTop >= yBot) return
-
-    const xBL = this._colToScreenX(col,     row + 1)
-    const xBR = this._colToScreenX(col + 1, row + 1)
-    const xTL = xBL
-    const xTR = xBR
-
-    ctx.globalAlpha = tileAlpha
-    this._drawTrapezoidTinted(ctx,
-      PerspectiveGroundRenderer.CLIFF_FACE_GID,
-      { x: xTL, y: yTop }, { x: xTR, y: yTop },
-      { x: xBL, y: yBot }, { x: xBR, y: yBot },
-      null)
-    ctx.globalAlpha = 1.0
-  }
-
-  /**
-   * Draws one row of the north-neighbour preview -- ground tiles + trees,
-   * faded toward the horizon, no collision/FOV/interactivity of any kind
-   * (the player can't actually reach these rows until the real scene
-   * transition happens). Called from inside update()'s main per-row loop
-   * for any tileRow < 0, INSTEAD of that loop's normal per-tile-row body
-   * (which is written entirely in terms of the CURRENT map's own data and
-   * would need touching in dozens of places to be neighbour-aware --
-   * deliberately not attempted here, since this is a pure visual preview,
-   * not a second playable map).
-   *
-   * @param {number} tileRow       -- negative world row (e.g. -1 is
-   *   immediately north of the current map's own row 0)
-   * @param {number} camCol
-   * @param {number} sw
-   * @param {number} horizonPx
-   * @param {number} playerTileRow -- passed through to ForestEffects.drawTrunk
-   *   for its own (unrelated) south-fade-near-player effect; irrelevant at
-   *   these distances but harmless to pass through.
-   */
-  _drawNorthPreviewRow(tileRow, camCol, sw, horizonPx, playerTileRow) {
-    const nb = this._northNeighbor
-    if (!nb?.layer0) return
-    const neighborH = nb.height
-    const neighborW = nb.width
-    if (!neighborH || !neighborW) return
-
-    // Shift the negative world row into the neighbour's own local row
-    // indexing -- its southmost row (adjacent to our row 0) is world row
-    // -1, so local row = tileRow + neighborH.
-    // If the preview depth (NORTH_PREVIEW_DEPTH) reaches further than the
-    // neighbour's own height, mirror-reflect back into its valid row
-    // range rather than returning nothing -- same technique as the
-    // column mirroring below, and for the same reason: the screen-space
-    // fade doesn't know or care how tall the neighbour actually is, so
-    // without this, rows beyond the neighbour's own size left a real gap
-    // where the fade still expected visible ground.
-    const localRow = _mirrorIndex(tileRow + neighborH, neighborH)
-
-    const yTop = this._rowToScreenY(tileRow)
-    const yBot = this._rowToScreenY(tileRow + 1)
-    if (yBot === null) return
-    if (yTop !== null && yTop > this._sh + 100) return
-    if (yBot < horizonPx - this.tileDisplaySize * 3) return
-
-    const yTopClamped = (yTop === null || yTop < horizonPx - this.tileDisplaySize)
-      ? horizonPx - this.tileDisplaySize : yTop
-    const yBotClamped = Math.min(this._sh + 100, yBot)
-    if (yBotClamped <= yTopClamped) return
-
-    // The fade is driven by SCREEN-SPACE proximity to the horizon line,
-    // NOT world-depth (tileRow) directly. Reasoning: perspective
-    // compresses distant world-rows into an ever-shrinking band of
-    // screen pixels near the horizon -- a fade that's gradual in WORLD
-    // units still ends up looking like an abrupt cutoff on screen,
-    // because most of that "gradual" range only ever occupies a handful
-    // of actual pixels. Tying the fade to how close this row's screen
-    // position is to the horizon line guarantees a visually smooth
-    // dissolve regardless of that compression -- the same principle the
-    // main renderer already uses for its own horizonFade, just with a
-    // much wider band here since this needs to read as genuine
-    // atmospheric distance, not a last-instant fade-in.
-    const groundSpan   = Math.max(1, this._sh - horizonPx)
-    const fadeBandPx   = groundSpan * PerspectiveGroundRenderer.NORTH_FADE_BAND_FRAC
-    const distToHorizonPx = Math.max(0, yBotClamped - horizonPx)
-    const t = Math.min(1, distToHorizonPx / fadeBandPx)   // 0 = at the horizon line, 1 = fadeBandPx+ away from it
-
-    // hazeT: strong atmospheric wash right at the horizon, fading out as
-    // the row's screen position moves away from it.
-    const hazeT = Math.pow(1 - t, 1.3)
-    // edgeAlpha: fully transparent exactly at the horizon, opaque once
-    // far enough from it -- no depth-based cutoff any more, this alone
-    // governs visibility.
-    const edgeAlpha = Math.pow(t, 0.8)
-    if (edgeAlpha <= 0.01) return
-
-    // Outer safety bound only -- caps how many world-rows ever get
-    // iterated per frame, regardless of how the screen-space fade above
-    // plays out. Not itself responsible for the visual fade any more.
-    if (Math.abs(tileRow) > PerspectiveGroundRenderer.NORTH_PREVIEW_DEPTH) return
-
-    const scaleNear = this._scaleAtRow(tileRow + 1)
-    const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : neighborW
-    const colStart  = Math.floor(camCol - halfCols) - PerspectiveGroundRenderer.EDGE_EXTEND
-    const colEnd    = Math.ceil(camCol + halfCols)  + PerspectiveGroundRenderer.EDGE_EXTEND
-
-    // LOD -- see LOD_MIN_TEXTURE_PX. The preview lives entirely in the
-    // horizon band, so in practice almost all of it qualifies: the haze
-    // wash was already pushing tint alpha toward 0.95 (near-total
-    // coverage of the texture) up there, so a flat pre-blended fill is
-    // visually equivalent at a fraction of the cost.
-    const lodRow = yTop === null || (yBot - yTop) < PerspectiveGroundRenderer.LOD_MIN_ROW_PX
-
-    const HAZE_H = PerspectiveGroundRenderer.NORTH_HAZE_H
-    const HAZE_S = PerspectiveGroundRenderer.NORTH_HAZE_S
-    const HAZE_L = PerspectiveGroundRenderer.NORTH_HAZE_L
-
-    for (let tileCol = colStart; tileCol <= colEnd; tileCol++) {
-      // Mirror-reflect columns beyond the NEIGHBOUR's own width, same
-      // technique and reasoning as the main map's own phantom-tile
-      // handling (see the main loop's !inMap block) -- this preview row
-      // needs FAR more columns than the neighbour actually has once
-      // perspective widens near the horizon, and a straight `continue`
-      // left the exact same kind of gap here that fix solved for the
-      // main map's own rows.
-      const mCol = _mirrorIndex(tileCol, neighborW)
-
-      const xTL = this._colToScreenX(tileCol,     tileRow)
-      const xTR = this._colToScreenX(tileCol + 1, tileRow)
-      if (xTR < -10 || xTL > sw + 10) continue
-
-      const gid0raw = nb.layer0[localRow]?.[mCol] ?? 0
-      if (!gid0raw) continue
-      // Skip special-purpose codes (building footprints etc.) that were
-      // never meant to render via the normal tileset lookup -- see
-      // _isValidTilesetGid's own note. Falls back to the base ground
-      // fill (already drawn beneath everything) rather than an
-      // attempted draw that quietly produces nothing.
-      if (!this._isValidTilesetGid(gid0raw)) continue
-      // Static water frame (no phase animation) -- fine for a distant,
-      // already-hazy preview; not worth the extra bookkeeping.
-      const gid0 = (gid0raw === 1625 || gid0raw === 1679) ? 1625 : gid0raw
-
-      const xBL = this._colToScreenX(tileCol,     tileRow + 1)
-      const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
-
-      let tint0
-      if (nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)) {
-        const h00 = this._neighborVertexH(mCol,     localRow)
-        const h10 = this._neighborVertexH(mCol + 1, localRow)
-        const h01 = this._neighborVertexH(mCol,     localRow + 1)
-        const h11 = this._neighborVertexH(mCol + 1, localRow + 1)
-        const pd0 = nb.pathDist?.[localRow]?.[mCol] ?? null
-        tint0 = this.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0)
-      } else {
-        tint0 = this.tintManager.getTint(gid0, mCol, localRow)
-      }
-      // getTint()/getGroundTint() return null for uncategorised GIDs --
-      // fall back to a neutral base so the haze blend still has
-      // something sensible to work from.
-      if (!tint0) tint0 = { h: 90, s: 20, l: 45, alpha: 0.5 }
-
-      // Blend toward the haze colour, AND boost the wash's own opacity
-      // toward near-total coverage as hazeT approaches 1 -- otherwise
-      // the tile's own underlying texture detail would still show
-      // through even at maximum haze, undercutting the "melts into
-      // distance" effect (the tint is a translucent wash over the base
-      // tile, not a full recolour -- see _drawTrapezoidTinted).
-      const hazedTint = {
-        h: tint0.h + (HAZE_H - tint0.h) * hazeT,
-        s: tint0.s + (HAZE_S - tint0.s) * hazeT,
-        l: tint0.l + (HAZE_L - tint0.l) * hazeT,
-        alpha: Math.min(0.95, (tint0.alpha ?? 0.5) + hazeT * 0.4),
-      }
-
-      const _nTL = { x: xTL, y: yTopClamped }, _nTR = { x: xTR, y: yTopClamped }
-      const _nBL = { x: xBL, y: yBotClamped }, _nBR = { x: xBR, y: yBotClamped }
-      this._gCtx.globalAlpha = edgeAlpha
-      if (!lodRow || !this._lodFillQuad(this._gCtx, gid0, hazedTint, edgeAlpha, _nTL, _nTR, _nBL, _nBR)) {
-        this._drawTrapezoidTinted(this._gCtx, gid0, _nTL, _nTR, _nBL, _nBR, hazedTint)
-      }
-    }
-    this._gCtx.globalAlpha = 1.0
-
-    if (this._forestEffects) {
-      const rowTrunks = this._forestEffects.getNorthPreviewTrunksForRow(tileRow)
-      for (const trunk of rowTrunks) {
-        this._forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow, edgeAlpha)
-      }
-    }
-  }
+  // North-neighbour preview lives in pgr/pgrNorthPreview.js.
+  _drawNorthPreviewRow(tileRow, camCol, sw, horizonPx, playerTileRow) { PGRPreview.drawNorthPreviewRow(this, tileRow, camCol, sw, horizonPx, playerTileRow) }
 
   update(fov) {
     if (!this._ready) return
@@ -1560,29 +652,7 @@ _horizonPx() {
     this._sw = _newSw
     this._sh = _newSh
     this._waterPhase = ((this._waterPhase ?? 0) + 0.018) % 256
-    this._cloudDrift = ((this._cloudDrift ?? 0) + 0.0004) % (Math.PI * 2)
-    if (this._skyImg && this._skyImg.src) {
-      const driftX = 50 + Math.sin(this._cloudDrift) * 12 + (this._skyParallaxX ?? 0)
-      const currentPos = this._skyImg.style.objectPosition || '50% 50%'
-      const currentY = currentPos.split(' ')[1] || '50%'
-      this._skyImg.style.objectPosition = driftX.toFixed(3) + '% ' + currentY
-    }
-    if (this._mountainImg && this._mountainImg.src) {
-      const p  = this.scene.player
-      const md = this.scene.mapData
-      if (p && md) this.updateMountainParallax(p.logicalX, p.logicalY, md.width, md.height)
-      const _horizPx = this._horizonPx()
-      if (!this._mtnLogTimer || Date.now() - this._mtnLogTimer > 2000) { this._mtnLogTimer = Date.now(); }
-      const _mtnH    = Math.floor(_horizPx * 3.0)
-      const _mtnTop  = Math.floor(_horizPx * 0.55)
-      this._mountainImg.style.height = _mtnH + 'px'
-      this._mountainImg.style.top    = _mtnTop + 'px'
-      this._mountainImg.style.width  = this._sw + 'px'
-      if (this._skyImg) {
-        this._skyImg.style.height = Math.floor(this._sh * 0.85) + 'px'
-        this._skyImg.style.width  = this._sw + 'px'
-      }
-    }
+    PGRSky.updateSkyAnimation(this)
 
     const cam  = this.scene.cameras.main
     const zoom = this._zoom()
@@ -1820,7 +890,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       const scaleNear = this._scaleAtRow(tileRow + 1)
       const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW
 
-      // Whole-row LOD decision -- see LOD_MIN_TEXTURE_PX. Rows this far
+      // Whole-row LOD decision -- see LOD_MIN_ROW_PX. Rows this far
       // back are exactly the ones whose column counts explode, so this
       // is where the flat-fill path pays for itself.
       const lodRow = yTop === null || (yBot - yTop) < PerspectiveGroundRenderer.LOD_MIN_ROW_PX
@@ -1877,8 +947,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
             // horizon, that's not wasted work to be capped away).
             if (horizonFade < 0.03) { continue }
 
-            const mCol = isPhantomCol ? _mirrorIndex(tileCol, mapW) : tileCol
-            const mRow = isPhantomRow ? _mirrorIndex(tileRow, mapH) : tileRow
+            const mCol = isPhantomCol ? mirrorIndex(tileCol, mapW) : tileCol
+            const mRow = isPhantomRow ? mirrorIndex(tileRow, mapH) : tileRow
 
             const mGidRaw = layer0[mRow]?.[mCol] ?? 0
             if (mGidRaw && this._isValidTilesetGid(mGidRaw)) {
@@ -1997,33 +1067,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
             const _yBL = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol,     tileRow + 1) * _sBot
             const _yBR = _isGroundWater ? yBotClamped                 : yBotClamped                 - this._vertexH(tileCol + 1, tileRow + 1) * _sBot
 
-            // North face: raised terrain with water immediately to north
-            if (!_isGroundWater && inMap) {
-              const _northGid = layer0[tileRow - 1]?.[tileCol] ?? 0
-              const _northIsWater = _northGid === 1625 || _northGid === 1679 || _northGid === 731
-              if (_northIsWater) {
-                const _nbGap = Math.max(_yTL, _yTR) - yTopClamped
-                if (_nbGap > 3) {
-                  this._gCtx.save()
-                  this._gCtx.globalAlpha = tileAlpha * 0.75
-                  try {
-                    const _nbg = this._gCtx.createLinearGradient(0, yTopClamped, 0, Math.max(_yTL, _yTR))
-                    _nbg.addColorStop(0,   'rgba(38, 28, 12, 0.85)')
-                    _nbg.addColorStop(0.5, 'rgba(58, 42, 18, 0.80)')
-                    _nbg.addColorStop(1,   'rgba(68, 50, 22, 0.70)')
-                    this._gCtx.fillStyle = _nbg
-                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.75)' }
-                  this._gCtx.beginPath()
-                  this._gCtx.moveTo(xTL, yTopClamped)
-                  this._gCtx.lineTo(xTR, yTopClamped)
-                  this._gCtx.lineTo(xTR, _yTR)
-                  this._gCtx.lineTo(xTL, _yTL)
-                  this._gCtx.closePath()
-                  this._gCtx.fill()
-                  this._gCtx.restore()
-                }
-              }
-            }
+            PGRBanks.drawNorthWaterFace(this, this._gCtx, layer0, tileCol, tileRow,
+              tileAlpha, yTopClamped, xTL, xTR, _yTL, _yTR, _isGroundWater)
 
             const _qTL = { x: xTL, y: _yTL }, _qTR = { x: xTR, y: _yTR }
             const _qBL = { x: xBL, y: _yBL }, _qBR = { x: xBR, y: _yBR }
@@ -2038,229 +1083,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               && yBotClamped >= horizonPx + 30
               && !(layer3?.[tileRow]?.[tileCol])
 
-            // South bank: ground tile with water to south
-            const _southGid = inMap ? (layer0[tileRow + 1]?.[tileCol] ?? 0) : 0
-            const _southIsWater = _southGid === 1625 || _southGid === 1679 || _southGid === 731
-            if (inMap && _southIsWater && !_isGroundWater && yBotClamped >= horizonPx + 4) {
-              const _bxBL = this._colToScreenX(tileCol,     tileRow + 1)
-              const _bxBR = this._colToScreenX(tileCol + 1, tileRow + 1)
-              // yWater = front edge of the water tile. Draw inline (not deferred) so
-              // grass tiles on the south bank naturally overdraw it in row order.
-              const _bYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
-              const _bankGap = _bYWater - Math.min(_yBL, _yBR)
-              if (_bankGap > 4) {
-                // Inline draw — same gradient as before but drawn now so later rows cover it
-                this._gCtx.save()
-                this._gCtx.globalAlpha = tileAlpha * 0.60
-                const _byTop = Math.min(_yBL, _yBR)
-                try {
-                  const _bg = this._gCtx.createLinearGradient(0, _byTop, 0, _bYWater)
-                  _bg.addColorStop(0,    'rgba(42, 30, 14, 0.95)')
-                  _bg.addColorStop(0.25, 'rgba(58, 42, 18, 0.80)')
-                  _bg.addColorStop(0.60, 'rgba(65, 48, 22, 0.55)')
-                  _bg.addColorStop(1,    'rgba(50, 36, 16, 0.20)')
-                  this._gCtx.fillStyle = _bg
-                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 36, 16, 0.60)' }
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_bxBL, _yBL)
-                this._gCtx.lineTo(_bxBR, _yBR)
-                this._gCtx.lineTo(_bxBR, _bYWater)
-                this._gCtx.lineTo(_bxBL, _bYWater)
-                this._gCtx.closePath()
-                this._gCtx.fill()
-                this._gCtx.globalAlpha = tileAlpha * 0.70
-                this._gCtx.strokeStyle = 'rgba(30, 22, 8, 0.85)'
-                this._gCtx.lineWidth = 1.5
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_bxBL, _yBL); this._gCtx.lineTo(_bxBR, _yBR)
-                this._gCtx.stroke()
-                this._gCtx.restore()
-              }
-
-              // East corner cap: south-bank tile whose east neighbour is water — drawn inline
-              const _eastOfThis = layer0[tileRow]?.[tileCol + 1] ?? 0
-              const _eastCornerIsWater = _eastOfThis === 1625 || _eastOfThis === 1679 || _eastOfThis === 731
-              if (_eastCornerIsWater) {
-                const _eXFront = this._colToScreenX(tileCol + 1, tileRow + 1)
-                const _eXBack  = this._colToScreenX(tileCol + 1, tileRow)
-                const _eYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
-                const _eYTop   = Math.min(_yBR, _yTR)
-                if (_eYWater - _eYTop > 4) {
-                  const _eLtR = _eXBack <= _eXFront
-                  const _exL  = _eLtR ? _eXBack  : _eXFront
-                  const _exR  = _eLtR ? _eXFront : _eXBack
-                  const _eyL  = _eLtR ? _yTR     : _yBR
-                  const _eyR  = _eLtR ? _yBR     : _yTR
-                  this._gCtx.save()
-                  this._gCtx.globalAlpha = tileAlpha * 0.82
-                  try {
-                    const _sg = this._gCtx.createLinearGradient(0, _eYTop, 0, _eYWater)
-                    _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
-                    _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
-                    _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
-                    this._gCtx.fillStyle = _sg
-                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
-                  this._gCtx.beginPath()
-                  this._gCtx.moveTo(_exL, _eyL)
-                  this._gCtx.lineTo(_exR, _eyR)
-                  this._gCtx.lineTo(_exR, _eYWater)
-                  this._gCtx.lineTo(_exL, _eYWater)
-                  this._gCtx.closePath()
-                  this._gCtx.fill()
-                  this._gCtx.globalAlpha = tileAlpha * 0.90
-                  this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
-                  this._gCtx.lineWidth = 1.5
-                  this._gCtx.beginPath()
-                  this._gCtx.moveTo(_exL, _eyL); this._gCtx.lineTo(_exR, _eyR)
-                  this._gCtx.stroke()
-                  this._gCtx.restore()
-                }
-              }
-
-              // West corner cap: south-bank tile whose west neighbour is water — drawn inline
-              const _westOfThis = layer0[tileRow]?.[tileCol - 1] ?? 0
-              const _westCornerIsWater = _westOfThis === 1625 || _westOfThis === 1679 || _westOfThis === 731
-              if (_westCornerIsWater) {
-                const _wXFront = this._colToScreenX(tileCol, tileRow + 1)
-                const _wXBack  = this._colToScreenX(tileCol, tileRow)
-                const _wYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
-                const _wYTop   = Math.min(_yBL, _yTL)
-                if (_wYWater - _wYTop > 4) {
-                  const _wLtR = _wXBack <= _wXFront
-                  const _wxL  = _wLtR ? _wXBack  : _wXFront
-                  const _wxR  = _wLtR ? _wXFront : _wXBack
-                  const _wyL  = _wLtR ? _yTL     : _yBL
-                  const _wyR  = _wLtR ? _yBL     : _yTL
-                  this._gCtx.save()
-                  this._gCtx.globalAlpha = tileAlpha * 0.82
-                  try {
-                    const _sg = this._gCtx.createLinearGradient(0, _wYTop, 0, _wYWater)
-                    _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
-                    _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
-                    _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
-                    this._gCtx.fillStyle = _sg
-                  } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
-                  this._gCtx.beginPath()
-                  this._gCtx.moveTo(_wxL, _wyL)
-                  this._gCtx.lineTo(_wxR, _wyR)
-                  this._gCtx.lineTo(_wxR, _wYWater)
-                  this._gCtx.lineTo(_wxL, _wYWater)
-                  this._gCtx.closePath()
-                  this._gCtx.fill()
-                  this._gCtx.globalAlpha = tileAlpha * 0.90
-                  this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
-                  this._gCtx.lineWidth = 1.5
-                  this._gCtx.beginPath()
-                  this._gCtx.moveTo(_wxL, _wyL); this._gCtx.lineTo(_wxR, _wyR)
-                  this._gCtx.stroke()
-                  this._gCtx.restore()
-                }
-              }
-            }
-
-            // East side face: water to east at same row (north bank) → inline
-            // Guard: skip on corner tiles where _southIsWater — corner cap already handles those
-            const _eastGid  = inMap ? (layer0[tileRow    ]?.[tileCol + 1] ?? 0) : 0
-            const _eastIsWater  = _eastGid  === 1625 || _eastGid  === 1679 || _eastGid  === 731
-            if (inMap && _eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
-              const _eXFront = this._colToScreenX(tileCol + 1, tileRow + 1)
-              const _eXBack  = this._colToScreenX(tileCol + 1, tileRow)
-              const _eYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
-              const _eYTop   = Math.min(_yBR, _yTR)
-              if (_eYWater - _eYTop > 4) {
-                const _eLtR = _eXBack <= _eXFront
-                this._gCtx.save()
-                this._gCtx.globalAlpha = tileAlpha * 0.82
-                try {
-                  const _sg = this._gCtx.createLinearGradient(0, _eYTop, 0, _eYWater)
-                  _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
-                  _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
-                  _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
-                  this._gCtx.fillStyle = _sg
-                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
-                const _exL = _eLtR ? _eXBack : _eXFront
-                const _exR = _eLtR ? _eXFront : _eXBack
-                const _eyL = _eLtR ? _yTR : _yBR
-                const _eyR = _eLtR ? _yBR : _yTR
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_exL, _eyL)
-                this._gCtx.lineTo(_exR, _eyR)
-                this._gCtx.lineTo(_exR, _eYWater)
-                this._gCtx.lineTo(_exL, _eYWater)
-                this._gCtx.closePath()
-                this._gCtx.fill()
-                this._gCtx.globalAlpha = tileAlpha * 0.90
-                this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
-                this._gCtx.lineWidth = 1.5
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_exL, _eyL); this._gCtx.lineTo(_exR, _eyR)
-                this._gCtx.stroke()
-                this._gCtx.restore()
-              }
-            }
-            // East side face: water at row above (south bank) → inline
-            // Only fire for pure north-bank diagonal: tile must NOT itself border south water
-            const _eastGidN = inMap ? (layer0[tileRow - 1]?.[tileCol + 1] ?? 0) : 0
-            const _eastNIsWater = _eastGidN === 1625 || _eastGidN === 1679 || _eastGidN === 731
-            if (inMap && _eastNIsWater && !_eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
-              const _eX0 = this._colToScreenX(tileCol + 1, tileRow + 1)
-              const _eYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
-              if (_eYWater - _yBR > 4) {
-                this._drawBankSide(this._gCtx, _eX0, _eX0, _yBR, _eYWater, tileAlpha)
-              }
-            }
-
-            // West side face: water to west at same row (north bank) → inline
-            // Guard: skip on corner tiles where _southIsWater — corner cap already handles those
-            const _westGid  = inMap ? (layer0[tileRow    ]?.[tileCol - 1] ?? 0) : 0
-            const _westIsWater  = _westGid  === 1625 || _westGid  === 1679 || _westGid  === 731
-            if (inMap && _westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
-              const _wXFront = this._colToScreenX(tileCol, tileRow + 1)
-              const _wXBack  = this._colToScreenX(tileCol, tileRow)
-              const _wYWater = this._rowToScreenY(tileRow + 2) ?? (yBotClamped + this._scaleAtRow(tileRow + 1))
-              const _wYTop   = Math.min(_yBL, _yTL)
-              if (_wYWater - _wYTop > 4) {
-                const _wLtR = _wXBack <= _wXFront
-                this._gCtx.save()
-                this._gCtx.globalAlpha = tileAlpha * 0.82
-                try {
-                  const _sg = this._gCtx.createLinearGradient(0, _wYTop, 0, _wYWater)
-                  _sg.addColorStop(0,   'rgba(52, 38, 16, 0.98)')
-                  _sg.addColorStop(0.4, 'rgba(62, 44, 20, 0.88)')
-                  _sg.addColorStop(1,   'rgba(48, 34, 16, 0.50)')
-                  this._gCtx.fillStyle = _sg
-                } catch(e) { this._gCtx.fillStyle = 'rgba(52, 38, 16, 0.85)' }
-                const _wxL = _wLtR ? _wXBack : _wXFront
-                const _wxR = _wLtR ? _wXFront : _wXBack
-                const _wyL = _wLtR ? _yTL : _yBL
-                const _wyR = _wLtR ? _yBL : _yTL
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_wxL, _wyL)
-                this._gCtx.lineTo(_wxR, _wyR)
-                this._gCtx.lineTo(_wxR, _wYWater)
-                this._gCtx.lineTo(_wxL, _wYWater)
-                this._gCtx.closePath()
-                this._gCtx.fill()
-                this._gCtx.globalAlpha = tileAlpha * 0.90
-                this._gCtx.strokeStyle = 'rgba(28, 20, 8, 0.90)'
-                this._gCtx.lineWidth = 1.5
-                this._gCtx.beginPath()
-                this._gCtx.moveTo(_wxL, _wyL); this._gCtx.lineTo(_wxR, _wyR)
-                this._gCtx.stroke()
-                this._gCtx.restore()
-              }
-            }
-            // West side face: water at row above (south bank) → inline
-            // Only fire for pure north-bank diagonal: tile must NOT itself border south water
-            const _westGidN = inMap ? (layer0[tileRow - 1]?.[tileCol - 1] ?? 0) : 0
-            const _westNIsWater = _westGidN === 1625 || _westGidN === 1679 || _westGidN === 731
-            if (inMap && _westNIsWater && !_westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
-              const _wX0 = this._colToScreenX(tileCol, tileRow + 1)
-              const _wYWater = this._rowToScreenY(tileRow + 2) ?? yBotClamped
-              if (_wYWater - _yBL > 4) {
-                this._drawBankSide(this._gCtx, _wX0, _wX0, _yBL, _wYWater, tileAlpha)
-              }
-            }
+            PGRBanks.drawWaterBanks(this, this._gCtx, layer0, tileCol, tileRow,
+              tileAlpha, horizonPx, yBotClamped, _yTL, _yTR, _yBL, _yBR, _isGroundWater)
 
             if (_hasSouthFace) {
               const _isCliffEdge = PerspectiveGroundRenderer.CLIFF_GIDS.has(
@@ -2292,7 +1116,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               })
             }
 
-          if (inMap && this._exitEdges?.size) {
+            if (inMap && this._exitEdges?.size) {
               const onExit = (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
                 (this._exitEdges.has('east')  && tileCol === mapW - 1) ||
@@ -2701,7 +1525,7 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
     this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()
     this._gCtx.restore()
-    this._updateLight(playerScreenX, playerScreenY)
+    PGRSky.updateLight(this, playerScreenX, playerScreenY)
 
     // Frame profiler report -- rolling stats since the last log, printed
     // every ~3s. "tex" is textured trapezoid draws (the expensive
@@ -2741,16 +1565,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
     }
   }
 
-  loadBoatImage(imgElement) {
-    const c   = document.createElement('canvas')
-    c.width   = imgElement.naturalWidth  || imgElement.width
-    c.height  = imgElement.naturalHeight || imgElement.height
-    const ctx = c.getContext('2d')
-    ctx.imageSmoothingEnabled = false
-    ctx.drawImage(imgElement, 0, 0)
-    this._boatCanvas = c
-    console.log('[PGR] boat canvas ready -', c.width, 'x', c.height)
-  }
+  // Player/boat/weapon rendering lives in pgr/pgrPlayerBoat.js.
+  loadBoatImage(imgElement) { PGRPlayer.loadBoatImage(this, imgElement) }
 destroy() {
     console.log('[PGR v8] destroy() called')
 
@@ -2776,7 +1592,6 @@ destroy() {
 
     this._tileCache?.clear()
     this._bakedTintCache?.clear()
-    this._avgColorCache?.clear()
     this._tilesetImg = null
     this._player = null
     this._playerCanvas = null
@@ -2789,289 +1604,12 @@ destroy() {
 
     console.log('[PGR v8] destroy() complete -- DOM elements removed')
   }
-  setBoatActive(active) {
-    this._boatActive  = !!active
-    this._boatScreenX = null
-    this._boatScreenY = null
-    if (active) {
-      this._boatSinkOverride = 0.32
-    } else {
-      this._boatSinkOverride = 0
-    }
-    this._playerFrameKey = null
-  }
+  setBoatActive(active) { PGRPlayer.setBoatActive(this, active) }
 
-  _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) {
-    const inv = this.scene.player?.inventory
-    if (!inv) return
-    const item = inv.getEquippedItem?.('rightHand')
-    if (!item) return
-    try {
-      let itemImg = null
-      if (item.itemGid && this.scene.itemSheet?.isReady) {
-        itemImg = this.scene.itemSheet.getCanvas(item.itemGid)
-      } else if (item.spriteKey) {
-        const itemTex = this.scene.textures.get(item.spriteKey)
-        if (itemTex && itemTex.key !== '__MISSING') {
-          itemImg = itemTex.getSourceImage()
-        }
-      }
-      if (!itemImg?.width) return
-      const ctx  = this._oCtx
-      const ps   = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
-      const iw   = scaledTileW * 0.9 * ps
-      const ih   = iw * (itemImg.height / itemImg.width)
-      const REST_ANGLE    = (345 * Math.PI) / 180
-      const angle         = aimAngle != null ? aimAngle + (Math.PI / 2) + (135 * Math.PI / 180) : REST_ANGLE
-      const ps2  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
-      const spriteCentreY = playerScreenY - scaledTileW * 1.8 * ps2 * 0.5
-      const offsetX       = scaledTileW * 0.12
-      ctx.save()
-      ctx.translate(playerScreenX + offsetX, spriteCentreY)
-      ctx.rotate(angle)
-      ctx.globalAlpha = 0.95
-      ctx.imageSmoothingEnabled = false
-      ctx.drawImage(itemImg, -iw / 2, -ih / 2, iw, ih)
-      ctx.globalAlpha = 1.0
-      ctx.restore()
-    } catch(e) {
-      // non-fatal
-    }
-  }
+  _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) { PGRPlayer.drawWeaponOverlay(this, playerScreenX, playerScreenY, scaledTileW, aimAngle) }
 
-  _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) {
-    if (!img) return
-    ctx.globalAlpha = this._playerOcclusionAlpha ?? 1
-    const t   = this._animT || 0
-    const p   = this._player
-    const ps  = PerspectiveGroundRenderer.PLAYER_SCALE ?? 1.0
-    const hm  = (heightMult ?? 1.8) * ps
-    const W   = Math.round(scaledTileW * ps)
-    const H   = Math.round(scaledTileW * hm)
-
-    const boatVX = this._boatActive ? (this.scene?.boatSystem?._vx ?? 0) : 0
-    const boatVY = this._boatActive ? (this.scene?.boatSystem?._vy ?? 0) : 0
-    const boatSpd = Math.hypot(boatVX, boatVY)
-if (this._boatActive) {
-  if (boatVX < -4)      this._facingLeft = true
-  else if (boatVX > 4)  this._facingLeft = false
-} else if (p?.isMoving) {
-  if (p.moveDirection.x < 0)      this._facingLeft = true
-  else if (p.moveDirection.x > 0) this._facingLeft = false
-}
-
-if (!this._boatActive && p?.isMoving && (this._lastStepKeyX !== p.startX || this._lastStepKeyY !== p.startY)) {
-  this._lastStepKeyX = p.startX
-  this._lastStepKeyY = p.startY
-  this._stepT    = 0
-  this._moveDir  = p.moveDirection.x !== 0 ? 'ew' : 'ns'
-  this._swaySign = p.moveDirection.x !== 0
-    ? (p.moveDirection.x > 0 ? 1 : -1)
-    : (p.moveDirection.y > 0 ? 1 : -1)
-}
-    const moving = this._boatActive ? boatSpd > 8 : (p?.isMoving ?? false)
-
-    if (this._boatActive) {
-      const joystickActive = (this.scene?.joystick?.force ?? 0) > 10
-      const strokeRate = Math.min(boatSpd / 80, 1.0) * 0.025
-      if (joystickActive && boatSpd > 8) {
-        this._strokeT = Math.min(1.0, (this._strokeT ?? 0) + strokeRate)
-        if (this._strokeT >= 1.0) this._strokeT = 0
-      } else {
-        this._strokeT = Math.max(0, (this._strokeT ?? 0) - 0.015)
-      }
-  } else if (moving) {
-  const _refDuration = 150 // matches Player.baseStepDuration
-  const _stepRate    = 0.09 * (_refDuration / (p?.stepDuration || _refDuration))
-  this._stepT = (this._stepT || 0) + _stepRate
-  if (this._stepT >= 1.0) this._stepT = 1.0
-}
-
-
-const strokeT = this._strokeT ?? 0
-    let rowLean = 0, rowBob = 0, boatTilt = 0
-    if (this._boatActive) {
-      if (strokeT < 0.15) {
-        const k = strokeT / 0.15
-        rowLean = -0.07 * k
-        rowBob  = scaledTileW * 0.01 * k
-      } else if (strokeT < 0.6) {
-        const k = (strokeT - 0.15) / 0.45
-        rowLean = -0.07 + 0.16 * k
-        rowBob  = scaledTileW * 0.01 - scaledTileW * 0.02 * Math.sin(k * Math.PI)
-        boatTilt = -0.04 * Math.sin(k * Math.PI)
-      } else if (strokeT < 0.8) {
-        const k = (strokeT - 0.6) / 0.2
-        rowLean = 0.09 - 0.03 * k
-        rowBob  = -scaledTileW * 0.008
-      } else {
-        const k = (strokeT - 0.8) / 0.2
-        rowLean = 0.06 - 0.06 * k
-        rowBob  = -scaledTileW * 0.008 * (1 - k)
-      }
-    }
-
-    if (this._boatActive) {
-      const waveRenderer = this.scene._waveRenderer
-      if (waveRenderer) {
-        this._wobblePhase = waveRenderer.wavePhaseAtPlayer
-        const waveTargetAmp = waveRenderer.waveAmpAtPlayer / (scaledTileW || 1) * 0.10
-        const boatTargetAmp = boatSpd > 8
-          ? 0.04 + Math.min(boatSpd / 120, 0.10)
-          : 0.012
-        const targetAmp = Math.max(boatTargetAmp, waveTargetAmp)
-        this._wobbleAmp = this._wobbleAmp ?? 0.012
-        this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-        const rideT   = waveRenderer.waveRideT ?? 0
-        const rideAmp = waveRenderer.waveRideAmp ?? 0
-        this._waveRideOffset = this._waveRideOffset ?? 0
-        this._waveRideOffset += (rideT * rideAmp * 0.85 - this._waveRideOffset) * 0.06
-      } else {
-        this._waveRideOffset = 0
-        const wobbleFreq = 1.8 + boatSpd * 0.04
-        this._wobblePhase = ((this._wobblePhase ?? 0) + wobbleFreq * 0.016) % (Math.PI * 2)
-        const targetAmp = boatSpd > 8
-          ? 0.04 + Math.min(boatSpd / 120, 0.10)
-          : 0.012
-        this._wobbleAmp = this._wobbleAmp ?? 0.012
-        this._wobbleAmp += (targetAmp - this._wobbleAmp) * 0.04
-      }
-    } else {
-      this._wobblePhase = 0
-      this._wobbleAmp   = 0
-    }
-
-    const wobbleRoll = this._boatActive
-      ? Math.sin(this._wobblePhase) * (this._wobbleAmp ?? 0)
-      : 0
-
-    const idleBob = this._boatActive
-      ? -Math.abs(Math.sin((this._wobblePhase ?? 0) + Math.PI * 0.5)) * scaledTileW * (this._wobbleAmp ?? 0) * 0.8
-      : 0
-
-    const velTiltX  = this._boatActive ? boatVX * 0.00025 : 0
-    const velTiltY  = this._boatActive ? boatVY * 0.00018 : 0
-
-    const prevVX    = this._prevBoatVX ?? boatVX
-    const accelX    = boatVX - prevVX
-    this._prevBoatVX = boatVX
-    const accelTilt = this._boatActive ? -accelX * 0.005 : 0
-
-    const totalBob  = rowBob + idleBob
-    const totalLean = rowLean + wobbleRoll + velTiltX + accelTilt
-
-    if ((this._boatActive || this._boatDrifting) && this._boatCanvas) {
-      if (this._boatDrifting) {
-        const _dTS = this.tileDisplaySize
-        const _dTX = Math.floor((this._boatWorldX ?? 0) / _dTS)
-        const _dTY = Math.floor((this._boatWorldY ?? 0) / _dTS)
-        const _dGid = this.scene.mapData?.layers?.[0]?.[_dTY]?.[_dTX] ?? 0
-        const _dShore = new Set([1472,1473,1474,1526,1528,1580,1581,1582,1635,1636,1689,1690,1742,1743,1796,1797,1852,1906,1958,1959,1960,2012,2013,731])
-        const _dWater = new Set([1625,1679])
-        const driftPxPerFrame = (_dShore.has(_dGid) || (!_dWater.has(_dGid) && _dGid !== 0)) ? 0 : (this._boatDriftSpeed ?? 18) / 60
-        this._boatWorldX = (this._boatWorldX ?? 0) + driftPxPerFrame
-
-        const driftProj = this._projectLogical(this._boatWorldX, this._boatWorldY ?? screenY, true)
-        if (!driftProj) return
-
-        const driftScreenX = driftProj.screenX
-        const driftScreenY = driftProj.screenY
-        const driftScale   = driftProj.scale * this.tileDisplaySize
-        const bc    = this._boatCanvas
-        const boatW = Math.round(driftScale * 1.6 * ps)
-        const boatH = Math.round(boatW * (bc.height / bc.width))
-        ctx.save()
-        ctx.globalAlpha = 1.0
-        ctx.drawImage(bc, Math.round(driftScreenX - boatW / 2), Math.round(driftScreenY - boatH * 0.8), boatW, boatH)
-        ctx.restore()
-      } else {
-        if (this._boatScreenX == null) {
-          this._boatScreenX = screenX
-          this._boatScreenY = screenY
-        } else {
-          const lerpSpeed = 0.25
-          this._boatScreenX += (screenX - this._boatScreenX) * lerpSpeed
-          this._boatScreenY += (screenY - this._boatScreenY) * lerpSpeed
-        }
-        this._boatLastScreenX = this._boatScreenX
-        this._boatLastScreenY = this._boatScreenY
-        const bx    = this._boatActive ? (this._boatScreenX ?? screenX) : screenX
-        const by    = this._boatActive ? (this._boatScreenY ?? screenY) : screenY
-        const bc    = this._boatCanvas
-        const boatW = Math.round(scaledTileW * 1.6 * ps)
-        const boatH = Math.round(boatW * (bc.height / bc.width))
-        const boatTop = by - boatH * 0.6
-        const _boatRock = wobbleRoll + velTiltX + accelTilt
-        const _boatPitch = velTiltY
-        if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001 || this._facingLeft !== undefined) {
-          ctx.save()
-          ctx.translate(Math.round(bx), Math.round(by + totalBob))
-          ctx.rotate(_boatRock)
-          ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
-          if (!this._facingLeft) ctx.scale(-1, 1)
-          ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
-          ctx.restore()
-        } else {
-          ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
-        }
-      }
-    }
-
-    const _playerFacing = this._boatActive ? !this._facingLeft : this._facingLeft
-    ctx.save()
-    ctx.translate(screenX, screenY + (this._boatActive ? totalBob : idleBob))
-
-    if (moving) {
-      const st     = this._stepT ?? 0
-      const arc    = Math.sin(st * Math.PI)
-      const inWater = !this._boatActive && (p?.terrainSinkOffset ?? 0) > 5
-      const bounce = (this._boatActive || inWater) ? 0 : arc * scaledTileW * 0.18
-      const scaleY = 1.0 + ((this._boatActive || inWater) ? 0 : arc * 0.09)
-      const scaleX = 1.0 - ((this._boatActive || inWater) ? 0 : arc * 0.04)
-      const dir    = this._moveDir ?? 'ew'
-
-      let sway = 0, lean = 0
-      if (dir === 'ew') {
-        sway = (this._boatActive || inWater) ? 0 : (this._swaySign ?? 1) * arc * scaledTileW * 0.055
-        lean = this._boatActive ? 0 : (inWater ? 0 : arc * 0.05 * (this._facingLeft ? 1 : -1))
-        if (this._boatActive) ctx.rotate(totalLean * (this._facingLeft ? -1 : 1))
-      } else {
-        const inWater2 = !this._boatActive && (p?.terrainSinkOffset ?? 0) > 5
-        const nsBounce = (this._boatActive || inWater2) ? 0 : arc * scaledTileW * 0.07
-        ctx.transform(
-          1.0 * (this._facingLeft ? -1 : 1), 0,
-          0, 1.0 + ((this._boatActive || inWater2) ? 0 : arc * 0.04),
-          0, -nsBounce
-        )
-        const _sink0ns = this._boatActive
-          ? H * (this._boatSinkOverride ?? 0)
-          : Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
-        const _cropH0ns = H - _sink0ns
-        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0ns / H), -W/2, -H + _sink0ns, W, _cropH0ns)
-        ctx.restore()
-        ctx.globalAlpha = 1
-        return
-      }
-
-      ctx.transform(scaleX * (_playerFacing ?? this._facingLeft ? -1 : 1), lean, 0, scaleY, sway, -bounce)
-    } else {
-      const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
-      const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018
-      const watch       = Math.sin(t * 2.1 + 0.5) * scaledTileW * 0.007
-      ctx.transform(
-        breathScale * ((_playerFacing ?? this._facingLeft) ? -1 : 1), 0,
-        0, breathScale,
-        shift, watch
-      )
-    }
-
-    const sinkFrac = this._boatActive ? (this._boatSinkOverride ?? 0) : 0
-    const _sinkRaw = (p?.terrainSinkOffset ?? 0)
-    const _sink = this._boatActive ? H * sinkFrac : Math.min(H * 1.1, _sinkRaw * scaledTileW / 48)
-    const _cropH   = H - _sink
-    ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
-    ctx.restore()
-    ctx.globalAlpha = 1
-  }
+  _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) { PGRPlayer.drawPlayerAnimated(this, ctx, img, screenX, screenY, scaledTileW, heightMult) }
 
 }
+
+

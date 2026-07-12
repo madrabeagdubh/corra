@@ -56,8 +56,10 @@ const MANANNAN_LINES = [
 
 export default class D3OpenSea extends RiverScene {
 
-  constructor() { super({ key: 'd3_open_sea' }) }
+  constructor() { super({ key: 'd3_open_sea' }) 
 
+  }
+hasNorthFallback() { return false }
   usesSwallows()           { return false }
   getMapKey()              { return 'd3_open_sea' }
   getAmbient()             { return 0x111a2a }

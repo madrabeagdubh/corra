@@ -96,7 +96,8 @@ hasNorthFallback() { return false }
     document.getElementById('swallow-canvas')?.remove()
 
     await super.create(data)
-
+if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
+     
     // Clear any solid CSS background left by the previous scene.
     if (this.game?.canvas) {
       this.game.canvas.style.background = 'transparent'

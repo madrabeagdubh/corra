@@ -950,7 +950,10 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
             const mCol = isPhantomCol ? mirrorIndex(tileCol, mapW) : tileCol
             const mRow = isPhantomRow ? mirrorIndex(tileRow, mapH) : tileRow
 
-            const mGidRaw = layer0[mRow]?.[mCol] ?? 0
+            const _mGidRealRaw = layer0[mRow]?.[mCol] ?? 0
+            const mGidRaw = (this._phantomOceanOnly && _mGidRealRaw && _mGidRealRaw !== 1625 && _mGidRealRaw !== 1679)
+              ? 1625
+              : _mGidRealRaw
             if (mGidRaw && this._isValidTilesetGid(mGidRaw)) {
               const _isWaterM = mGidRaw === 1625 || mGidRaw === 1679
               const mGid = _isWaterM
@@ -1131,7 +1134,13 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
             }
 
             if (inMap && this._exitEdges?.size) {
-              const onExit = (
+              // Skip the highlight on water tiles -- it was designed for
+              // land-based door/exit corridors and has no water check of
+              // its own, so on maritime maps (river/sea exits at the map
+              // edge) it painted a pulsing minty-green wash directly onto
+              // open water, which read as stray grass tiles out at sea.
+              const _onExitWater = _rawGid0 === 1625 || _rawGid0 === 1679 || _rawGid0 === 731
+              const onExit = !_onExitWater && (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
                 (this._exitEdges.has('east')  && tileCol === mapW - 1) ||
                 (this._exitEdges.has('north') && tileRow === 0) ||

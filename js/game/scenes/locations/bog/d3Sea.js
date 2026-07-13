@@ -32,7 +32,14 @@ hasNorthFallback() { return false }
   }
 
   async create(data) {
+
+
+
     await super.create(data)
+
+
+	  if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
+
     if (this.boatSystem) {
       this.boatSystem._triggerDisembark = () => {}
       this.boatSystem._reboard          = () => {}

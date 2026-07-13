@@ -100,6 +100,13 @@ export default class PerspectiveScene extends BaseLocationScene {
   getSkyPosition()         { return '50% 50%' }
   getMountainImage()       { return null }
   getMountainPosition()    { return '50% 100%' }
+  // Whether to show ANY north-edge preview at all -- both the real
+  // neighbour-map fetch and the synthetic 'beyond the edge' placeholder
+  // (see the north-preview logic in create()). Default true -- current
+  // behaviour for ordinary land maps. Sea/coastal scenes override this
+  // to false: land peeking over open water looks wrong, whether it's a
+  // real neighbouring map's coastline or the synthetic grass fallback.
+  hasNorthFallback()       { return true }
   onEnter()                {}
 
   getElevationConfig() {
@@ -269,7 +276,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     // this silently does nothing and the renderer's existing flat-fill
     // fallback is unaffected.
     const _northDest = this.mapData.exits?.north?.destination
-    if (_northDest) {
+    if (_northDest && this.hasNorthFallback()) {
       fetch(this.getNeighborMapPath(_northDest))
         .then(r => r.ok ? r.json() : null)
         .then(neighborMapData => {
@@ -735,6 +742,15 @@ this._updateCameraTerrainAvoidance()
       const canvasX = (e.clientX - rect.left) * scaleX
       const canvasY = (e.clientY - rect.top)  * scaleY
 
+      // TEMP DEBUG -- unconditional, no side effects (doesn't call
+      // setPath), fires before any early return so it works in boat
+      // mode / with panels open / anywhere else _onTapBeforePath or
+      // the other guards below would normally intercept the tap.
+      if (this.perspectiveGround) {
+        const _dbgTile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
+        console.log('[TAP DEBUG2] tile:', _dbgTile)
+      }
+
       const joyX = this.scale.width / 2, joyY = this._joyY, joyR = 100
       if ((canvasX-joyX)**2 + (canvasY-joyY)**2 < joyR*joyR) return
 
@@ -747,6 +763,7 @@ this._updateCameraTerrainAvoidance()
 
       const tile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
       if (!tile) return
+      console.log(`[TAP DEBUG] tile: (${tile.tx}, ${tile.ty})`)
 
       const fromTX = Math.floor(this.player.logicalX / this.tileSize)
       const fromTY = Math.floor(this.player.logicalY / this.tileSize)

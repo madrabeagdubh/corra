@@ -629,6 +629,7 @@ _horizonPx() {
   _drawElevatedFace(ctx, col, row, elev, gid, tileAlpha, yBotHint) { PGRCliffs.drawElevatedFace(this, ctx, col, row, elev, gid, tileAlpha, yBotHint) }
 
   _drawElevatedSideFace(ctx, edgeCol, row, elev, gid, tileAlpha) { PGRCliffs.drawElevatedSideFace(this, ctx, edgeCol, row, elev, gid, tileAlpha) }
+  _drawElevatedNorthFace(ctx, col, row, elev, gid, tileAlpha) { PGRCliffs.drawElevatedNorthFace(this, ctx, col, row, elev, gid, tileAlpha) }
 
   _drawCliffSide(ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) { PGRCliffs.drawCliffSide(this, ctx, col, row, elev, neighbourRow, sideDir, tileAlpha) }
 
@@ -950,8 +951,39 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
             const mCol = isPhantomCol ? mirrorIndex(tileCol, mapW) : tileCol
             const mRow = isPhantomRow ? mirrorIndex(tileRow, mapH) : tileRow
 
+            // Scene opt-in: on maritime maps (river/sea exits sitting
+            // right at the map edge), the mirrored REAL tile just inside
+            // the border can legitimately be land (a shoreline that
+            // runs close to the edge) -- mirroring it verbatim then
+            // paints that same land past the TRUE edge, into what
+            // should be open sea. this._phantomOceanOnly (set by the
+            // scene, e.g. d3Sea/d3OpenSea's create()) forces any
+            // non-water mirrored tile to water instead.
+            //
+            // Directional: can be `true` (suppress on every edge -- the
+            // original behaviour, appropriate for a map that's open sea
+            // in every direction like d3_open_sea) OR a Set of specific
+            // edge names ('west'/'east'/'south') to suppress only there.
+            // Needed because a single map can have DIFFERENT geography
+            // on different edges -- d3_sea's west edge leads into d3
+            // (a land map, whose shoreline should keep mirroring
+            // naturally past the border for visual continuity), while
+            // its east edge leads into open sea (where stray mirrored
+            // land is wrong). A blanket true/false couldn't represent
+            // that asymmetry and was producing a visible seam on the
+            // west/northwest edge where the real shoreline abruptly cut
+            // to forced water instead of continuing (confirmed via
+            // screenshot -- "spoils the effect of this being a
+            // continuation of the shore").
+            // Undefined/false for every other scene, so this is a no-op
+            // everywhere else.
+            const _phantomDir = isPhantomCol
+              ? (tileCol < 0 ? 'west' : 'east')
+              : 'south'
+            const _oceanOnlyHere = this._phantomOceanOnly === true
+              || (this._phantomOceanOnly && this._phantomOceanOnly.has?.(_phantomDir))
             const _mGidRealRaw = layer0[mRow]?.[mCol] ?? 0
-            const mGidRaw = (this._phantomOceanOnly && _mGidRealRaw && _mGidRealRaw !== 1625 && _mGidRealRaw !== 1679)
+            const mGidRaw = (_oceanOnlyHere && _mGidRealRaw && _mGidRealRaw !== 1625 && _mGidRealRaw !== 1679)
               ? 1625
               : _mGidRealRaw
             if (mGidRaw && this._isValidTilesetGid(mGidRaw)) {
@@ -1133,14 +1165,23 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               })
             }
 
+            // North face: elevation dropping as row DECREASES -- the
+            // case a south-facing landmass (e.g. a headland jutting up
+            // from the south side of a channel) needs on its
+            // channel-facing edge. See drawElevatedNorthFace's own
+            // header note for why this didn't exist before.
+            const _northElev = (tileRow - 1 >= 0)
+              ? (this._elev?.[tileRow - 1]?.[tileCol] ?? 0) : 0
+            if (inMap && tileElev > 0 && _northElev < tileElev
+                && yBotClamped >= horizonPx + 30) {
+              _deferredCliffs.push({
+                col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
+                gid: gid0, yBot: yBotClamped, isCliff: false, faceDir: 'north'
+              })
+            }
+
             if (inMap && this._exitEdges?.size) {
-              // Skip the highlight on water tiles -- it was designed for
-              // land-based door/exit corridors and has no water check of
-              // its own, so on maritime maps (river/sea exits at the map
-              // edge) it painted a pulsing minty-green wash directly onto
-              // open water, which read as stray grass tiles out at sea.
-              const _onExitWater = _rawGid0 === 1625 || _rawGid0 === 1679 || _rawGid0 === 731
-              const onExit = !_onExitWater && (
+              const onExit = (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
                 (this._exitEdges.has('east')  && tileCol === mapW - 1) ||
                 (this._exitEdges.has('north') && tileRow === 0) ||
@@ -1469,6 +1510,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
         this._drawElevatedSideFace(this._gCtx, cf.col + 1, cf.row, cf.elev, cf.gid, cf.alpha)
       } else if (cf.faceDir === 'west') {
         this._drawElevatedSideFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha)
+      } else if (cf.faceDir === 'north') {
+        this._drawElevatedNorthFace(this._gCtx, cf.col, cf.row, cf.elev, cf.gid, cf.alpha)
       } else if (cf.isCliff) {
         this._drawCliffFace(this._gCtx, cf.col, cf.row, cf.elev, cf.alpha)
       } else {
@@ -1634,5 +1677,6 @@ destroy() {
   _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) { PGRPlayer.drawPlayerAnimated(this, ctx, img, screenX, screenY, scaledTileW, heightMult) }
 
 }
+
 
 

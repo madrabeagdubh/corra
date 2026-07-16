@@ -238,10 +238,35 @@ const strokeT = pgr._strokeT ?? 0
           ctx.rotate(_boatRock)
           ctx.transform(1, _boatPitch * 0.3, 0, 1, 0, 0)
           if (!pgr._facingLeft) ctx.scale(-1, 1)
+          // Terrain-occlusion clip -- same raw pixel amount as the
+          // player's own crop (perspectiveScene.js's
+          // _updatePlayerOcclusionFade), since the boat sits at the
+          // SAME world depth/screen position as the player standing in
+          // it: whatever's hidden behind the terrain hides the same
+          // number of screen pixels regardless of which sprite it's
+          // covering. Clipped in this same LOCAL (post-transform)
+          // coordinate space the drawImage call below already uses.
+          const _boatCropPx = Math.min(boatH, pgr._playerOcclusionCropPx ?? 0)
+          if (_boatCropPx > 0) {
+            const _localTop = Math.round(boatTop - by - totalBob)
+            ctx.beginPath()
+            ctx.rect(-boatW, _localTop - 4, boatW * 2, boatH - _boatCropPx + 4)
+            ctx.clip()
+          }
           ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
           ctx.restore()
         } else {
-          ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
+          const _boatCropPx = Math.min(boatH, pgr._playerOcclusionCropPx ?? 0)
+          if (_boatCropPx > 0) {
+            ctx.save()
+            ctx.beginPath()
+            ctx.rect(bx - boatW, Math.round(boatTop + totalBob) - 4, boatW * 2, boatH - _boatCropPx + 4)
+            ctx.clip()
+            ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
+            ctx.restore()
+          } else {
+            ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
+          }
         }
       }
     }
@@ -275,8 +300,32 @@ const strokeT = pgr._strokeT ?? 0
         const _sink0ns = pgr._boatActive
           ? H * (pgr._boatSinkOverride ?? 0)
           : Math.min(H * 1.1, (p?.terrainSinkOffset ?? 0) * scaledTileW / 48)
-        const _cropH0ns = H - _sink0ns
-        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0ns / H), -W/2, -H + _sink0ns, W, _cropH0ns)
+        // Terrain-occlusion crop needs a DIFFERENT anchor than water-sink,
+        // not just a bigger/smaller version of the same thing -- fixed
+        // per direct feedback ("player's head emerging from the land,
+        // instead of from the coast"). Water-sink is correctly BOTTOM-
+        // anchored (the water genuinely IS at the player's own foot
+        // position, so their feet should vanish exactly there, with the
+        // head descending slightly as they sink deeper). But terrain
+        // occlusion was using that SAME bottom-anchored formula, which
+        // keeps the bottom fixed at the player's own feet and lets the
+        // TOP (head) descend as more gets cropped -- meaning the head
+        // visibly sinks toward the ground at the player's own position,
+        // reading as "swallowed by the earth right here" rather than
+        // "hidden behind a ridge that's elsewhere on screen."
+        // Fixed by keeping the head's screen position COMPLETELY FIXED
+        // (top anchor unaffected by occlusion) and letting the BOTTOM of
+        // the visible slice recede upward instead -- so the cutoff edge
+        // tracks the hill's own silhouette line, not the player's feet.
+        // Combined with water-sink as two independent constraints on the
+        // same visible range (intersection), not a single "worse of the
+        // two" value -- each affects a different end of the sprite.
+        const _sinkNsClamped = Math.min(H, _sink0ns)
+        const _occlusionCropNs = Math.min(H, pgr._playerOcclusionCropPx ?? 0)
+        const _topNs    = -H + _sinkNsClamped              // sink affects the TOP
+        const _bottomNs = -_occlusionCropNs                // occlusion affects the BOTTOM
+        const _cropH0ns = Math.max(0, _bottomNs - _topNs)
+        ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH0ns / H), -W/2, _topNs, W, _cropH0ns)
         ctx.restore()
         ctx.globalAlpha = 1
         return
@@ -297,9 +346,18 @@ const strokeT = pgr._strokeT ?? 0
     const sinkFrac = pgr._boatActive ? (pgr._boatSinkOverride ?? 0) : 0
     const _sinkRaw = (p?.terrainSinkOffset ?? 0)
     const _sink = pgr._boatActive ? H * sinkFrac : Math.min(H * 1.1, _sinkRaw * scaledTileW / 48)
-    const _cropH   = H - _sink
-    ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, -H + _sink, W, _cropH)
+    // Same dual-anchor fix as the north-south branch above: sink stays
+    // bottom-anchored, occlusion is now top-anchored (head fixed, visible
+    // bottom recedes upward to the hill's own silhouette line instead of
+    // the player's own feet).
+    const _sinkClamped = Math.min(H, _sink)
+    const _occlusionCrop = Math.min(H, pgr._playerOcclusionCropPx ?? 0)
+    const _top    = -H + _sinkClamped
+    const _bottom = -_occlusionCrop
+    const _cropH  = Math.max(0, _bottom - _top)
+    ctx.drawImage(img, 0, 0, img.width, img.height * (_cropH / H), -W/2, _top, W, _cropH)
     ctx.restore()
     ctx.globalAlpha = 1
   }
+
 

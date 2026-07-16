@@ -5,6 +5,28 @@
 // Draws grey stone texture over unclimbable, CAMERA-FACING slope tiles,
 // without touching PerspectiveGroundRenderer's own draw loop.
 //
+// ── v12: phantom-mirrored columns now patched too ────────────────────────────
+// Every height/steepness lookup here used pgr._tileHeightAt/_vertexH with
+// the raw tile column -- both silently return 0 for any out-of-range
+// coordinate (confirmed in their own implementations). That meant any
+// column west of the true map edge (tx < 0), which PGR's OWN phantom-
+// tile system mirrors real ground data into for visual continuity, read
+// as flat ground here regardless of the real cliff it was supposed to
+// be a continuation of -- so the exact "hollow steep terrain" bug this
+// renderer exists to patch went right on happening there, just with no
+// patch reaching it. Confirmed via screenshot: a real visible gap in an
+// otherwise-continuous cliff, exactly at the phantom boundary.
+// Fixed by mirroring the column (via the SAME mirrorIndex the core
+// renderer's own phantom-tile system uses) before any height lookup,
+// while still using the RAW (possibly negative) column for screen
+// projection -- projection math doesn't care about map bounds, only
+// real-world distance from the camera, so it needs the true position,
+// not the mirrored one.
+// Scoped to the WEST margin specifically (PHANTOM_WEST_MARGIN below) --
+// that's the reported case; east/south already get real cliff geometry
+// suppressed there by _phantomOceanOnly on maps that use it, so there's
+// no comparable steep phantom terrain on those edges to patch.
+//
 // ── v11: fullscreen-toggle fix + occlusion scan removed ──────────────────────
 // 1. Canvas sizing now mirrors PGR's OWN ground canvas (#pgr-ground) --
 //    both backbuffer size AND CSS style size, checked every frame --
@@ -54,6 +76,8 @@
 //   // in shutdown():
 //   if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
 
+import { mirrorIndex } from './pgr/pgrShared.js'
+
 export default class SteepFaceRenderer {
 
   static STONE_TILE_SIZE = 96
@@ -61,6 +85,17 @@ export default class SteepFaceRenderer {
   // Minimum north-over-south edge height difference for a tile to count
   // as camera-facing -- filters out effectively-flat tiles.
   static FACING_EPSILON = 0.01
+  // How many columns west of the true map edge to patch -- see v12
+  // header note. Bumped way up from an initial guess of 10: rows near
+  // the horizon (like the north bank, sitting at rows 0-5) are exactly
+  // where perspective compression means the CORE renderer's own phantom
+  // system needs far more columns of coverage than a near/player-row
+  // view would -- 10 wasn't enough there, leaving a real gap further
+  // out than the patch reached (confirmed via screenshot). Cost is
+  // cheap regardless (bounded per-frame column scan, same reasoning PGR
+  // itself uses for its own EDGE_EXTEND/horizon column counts), so
+  // erring generously large costs little.
+  static PHANTOM_WEST_MARGIN = 80
 
   constructor(scene) {
     this.scene = scene
@@ -137,19 +172,39 @@ export default class SteepFaceRenderer {
     return this.scene?.constructor?.CLIMB_MAX_STEP ?? SteepFaceRenderer.FALLBACK_CLIMB_THRESHOLD
   }
 
+  // Deliberately LOWER than the collision threshold above, and used ONLY
+  // for "does this tile qualify for stone texture" -- never for
+  // gameplay collision, which keeps using _getClimbThreshold() unchanged
+  // everywhere else. A smoothly-generated height field can have narrow
+  // local dips where steepness briefly drops just under the collision
+  // threshold even while flanked by clearly-qualifying steep neighbours
+  // on both sides -- confirmed directly: a real, isolated 3-column dip
+  // (steepness 0.53-0.58 against a 0.6 threshold) produced a visible
+  // "hole" of missing stone in an otherwise continuous cliff. Lowering
+  // the VISUAL bar closes gaps like that without loosening what the
+  // player can actually walk up.
+  _getVisualSteepnessThreshold() {
+    return this._getClimbThreshold() * 0.7
+  }
+
   // Checks all EIGHT neighbours (cardinal + diagonal) -- matches
   // isSlopeBlocked's own collision relationship, movement being
-  // 8-directional.
+  // 8-directional. tx/ty may be OUT OF [0,mapW)/[0,mapH) range (phantom
+  // columns/rows) -- mirrored before every height lookup (see v12 header
+  // note) so phantom coordinates read the real cliff data they're a
+  // continuation of, rather than silently reading as flat (0).
   _tileSteepness(pgr, tx, ty, mapW, mapH) {
-    const thisH = pgr._tileHeightAt(tx, ty)
+    const mtx = mirrorIndex(tx, mapW)
+    const thisH = pgr._tileHeightAt(mtx, ty)
     let maxDiff = 0
     const neighbours = [
       [tx, ty - 1], [tx, ty + 1], [tx - 1, ty], [tx + 1, ty],
       [tx - 1, ty - 1], [tx + 1, ty - 1], [tx - 1, ty + 1], [tx + 1, ty + 1],
     ]
     for (const [nx, ny] of neighbours) {
-      if (nx < 0 || nx >= mapW || ny < 0 || ny >= mapH) continue
-      const diff = Math.abs(thisH - pgr._tileHeightAt(nx, ny))
+      if (ny < 0 || ny >= mapH) continue
+      const mnx = mirrorIndex(nx, mapW)
+      const diff = Math.abs(thisH - pgr._tileHeightAt(mnx, ny))
       if (diff > maxDiff) maxDiff = diff
     }
     return maxDiff
@@ -158,10 +213,12 @@ export default class SteepFaceRenderer {
   // Camera-facing test: the camera looks south-to-north in this
   // projection, so a visible slope is one whose NORTH edge is higher
   // than its SOUTH edge. Far-side (north-descending) slopes face away
-  // and are covered by nearer terrain in PGR's own render.
-  _facesCamera(pgr, tx, ty) {
-    const northEdge = (pgr._vertexH(tx, ty)     + pgr._vertexH(tx + 1, ty))     / 2
-    const southEdge = (pgr._vertexH(tx, ty + 1) + pgr._vertexH(tx + 1, ty + 1)) / 2
+  // and are covered by nearer terrain in PGR's own render. tx mirrored
+  // before lookup, same reasoning as _tileSteepness above.
+  _facesCamera(pgr, tx, ty, mapW) {
+    const mtx = mirrorIndex(tx, mapW)
+    const northEdge = (pgr._vertexH(mtx, ty)     + pgr._vertexH(mtx + 1, ty))     / 2
+    const southEdge = (pgr._vertexH(mtx, ty + 1) + pgr._vertexH(mtx + 1, ty + 1)) / 2
     return northEdge - southEdge > SteepFaceRenderer.FACING_EPSILON
   }
 
@@ -172,13 +229,14 @@ export default class SteepFaceRenderer {
     if (this._frontFaceMask && this._maskHeightMapRef === hm) return this._frontFaceMask
 
     const climbThreshold = this._getClimbThreshold()
+    const visualThreshold = this._getVisualSteepnessThreshold()
     const mask = []
     for (let ty = 0; ty < mapH; ty++) mask.push(new Uint8Array(mapW))
 
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
         const steepness = this._tileSteepness(pgr, tx, ty, mapW, mapH)
-        if (steepness > climbThreshold && this._facesCamera(pgr, tx, ty)) {
+        if (steepness > visualThreshold && this._facesCamera(pgr, tx, ty, mapW)) {
           mask[ty][tx] = 1
         }
       }
@@ -188,6 +246,84 @@ export default class SteepFaceRenderer {
     this._maskHeightMapRef = hm
     console.log('[SteepFaceRenderer] front-face mask (re)computed -- climb threshold:', climbThreshold)
     return mask
+  }
+
+  // Draws one qualifying tile's stone trapezoid + darken overlay. tx is
+  // the RAW (possibly negative, for phantom columns) world column used
+  // for screen projection; mtx is its MIRRORED equivalent used for
+  // height lookups. Factored out of update()'s main loop so the
+  // phantom-column pass (_drawPhantomWestFaces) can reuse it without
+  // duplicating the drawing math.
+  _drawFaceTile(pgr, ctx, tx, mtx, ty, horizonPx, sw, sh, climbThreshold, mapW, mapH) {
+    const h00 = pgr._vertexH(mtx,     ty)
+    const h10 = pgr._vertexH(mtx + 1, ty)
+    const h01 = pgr._vertexH(mtx,     ty + 1)
+    const h11 = pgr._vertexH(mtx + 1, ty + 1)
+
+    const yTopRaw = pgr._rowToScreenY(ty)
+    const yBotRaw = pgr._rowToScreenY(ty + 1)
+    if (yBotRaw == null) return
+    const yTopClamped = (yTopRaw == null || yTopRaw < horizonPx) ? horizonPx : yTopRaw
+    const yBotClamped = Math.min(sh + 50, yBotRaw)
+    if (yBotClamped <= yTopClamped) return
+
+    const xTL = pgr._colToScreenX(tx,     ty)
+    const xTR = pgr._colToScreenX(tx + 1, ty)
+    const xBL = pgr._colToScreenX(tx,     ty + 1)
+    const xBR = pgr._colToScreenX(tx + 1, ty + 1)
+    if (xTL == null) return
+    if (Math.max(xTL, xTR, xBL, xBR) < -20) return
+    if (Math.min(xTL, xTR, xBL, xBR) > sw + 20) return
+
+    const sTop = pgr._scaleAtRow(ty)
+    const sBot = pgr._scaleAtRow(ty + 1)
+    const yTL = yTopClamped - h00 * sTop
+    const yTR = yTopClamped - h10 * sTop
+    const yBL = yBotClamped - h01 * sBot
+    const yBR = yBotClamped - h11 * sBot
+
+    const W = SteepFaceRenderer.STONE_TILE_SIZE
+    const H = SteepFaceRenderer.STONE_TILE_SIZE
+
+    pgr._drawAffineTriangle(ctx, this._stoneTexture,
+      { u: 0, v: 0 }, { u: W, v: 0 }, { u: W, v: H },
+      { x: xTL, y: yTL }, { x: xTR, y: yTR }, { x: xBR, y: yBR })
+    pgr._drawAffineTriangle(ctx, this._stoneTexture,
+      { u: 0, v: 0 }, { u: W, v: H }, { u: 0, v: H },
+      { x: xTL, y: yTL }, { x: xBR, y: yBR }, { x: xBL, y: yBL })
+
+    const steepness = this._tileSteepness(pgr, tx, ty, mapW, mapH)
+    const darkenT = Math.min(1, (steepness - climbThreshold) / (climbThreshold * 1.5 || 1))
+    if (darkenT > 0) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(xTL, yTL); ctx.lineTo(xTR, yTR); ctx.lineTo(xBR, yBR); ctx.lineTo(xBL, yBL)
+      ctx.closePath()
+      ctx.clip()
+      ctx.fillStyle = `rgba(20, 18, 16, ${(darkenT * 0.35).toFixed(3)})`
+      ctx.fillRect(
+        Math.min(xTL, xBL) - 4, Math.min(yTL, yTR) - 4,
+        Math.max(xTR, xBR) - Math.min(xTL, xBL) + 8,
+        Math.max(yBL, yBR) - Math.min(yTL, yTR) + 8
+      )
+      ctx.restore()
+    }
+  }
+
+  // Phantom-west pass: same qualifying test (steep + camera-facing) as
+  // the main mask, computed fresh per-tile rather than cached (a small,
+  // bounded margin -- not worth a second mask structure with negative
+  // indices). See v12 header note for why this exists at all.
+  _drawPhantomWestFaces(pgr, ctx, mapW, mapH, horizonPx, sw, sh, climbThreshold, rowStart, rowEnd) {
+    const margin = SteepFaceRenderer.PHANTOM_WEST_MARGIN
+    const visualThreshold = this._getVisualSteepnessThreshold()
+    for (let ty = rowStart; ty <= rowEnd; ty++) {
+      for (let tx = -margin; tx < 0; tx++) {
+        const mtx = mirrorIndex(tx, mapW)
+        if (!(this._tileSteepness(pgr, tx, ty, mapW, mapH) > visualThreshold && this._facesCamera(pgr, tx, ty, mapW))) continue
+        this._drawFaceTile(pgr, ctx, tx, mtx, ty, horizonPx, sw, sh, climbThreshold, mapW, mapH)
+      }
+    }
   }
 
   update() {
@@ -233,65 +369,14 @@ export default class SteepFaceRenderer {
     const rowStart = Math.max(0, Math.floor(camRow - 40))
     const rowEnd   = Math.min(mapH - 1, Math.floor(camRow) - 1)
 
-    const W = SteepFaceRenderer.STONE_TILE_SIZE
-    const H = SteepFaceRenderer.STONE_TILE_SIZE
-
     for (let ty = rowStart; ty <= rowEnd; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
         if (!mask[ty][tx]) continue
-
-        const h00 = pgr._vertexH(tx,     ty)
-        const h10 = pgr._vertexH(tx + 1, ty)
-        const h01 = pgr._vertexH(tx,     ty + 1)
-        const h11 = pgr._vertexH(tx + 1, ty + 1)
-
-        const yTopRaw = pgr._rowToScreenY(ty)
-        const yBotRaw = pgr._rowToScreenY(ty + 1)
-        if (yBotRaw == null) continue
-        const yTopClamped = (yTopRaw == null || yTopRaw < horizonPx) ? horizonPx : yTopRaw
-        const yBotClamped = Math.min(sh + 50, yBotRaw)
-        if (yBotClamped <= yTopClamped) continue
-
-        const xTL = pgr._colToScreenX(tx,     ty)
-        const xTR = pgr._colToScreenX(tx + 1, ty)
-        const xBL = pgr._colToScreenX(tx,     ty + 1)
-        const xBR = pgr._colToScreenX(tx + 1, ty + 1)
-        if (xTL == null) continue
-        if (Math.max(xTL, xTR, xBL, xBR) < -20) continue
-        if (Math.min(xTL, xTR, xBL, xBR) > sw + 20) continue
-
-        const sTop = pgr._scaleAtRow(ty)
-        const sBot = pgr._scaleAtRow(ty + 1)
-        const yTL = yTopClamped - h00 * sTop
-        const yTR = yTopClamped - h10 * sTop
-        const yBL = yBotClamped - h01 * sBot
-        const yBR = yBotClamped - h11 * sBot
-
-        pgr._drawAffineTriangle(ctx, this._stoneTexture,
-          { u: 0, v: 0 }, { u: W, v: 0 }, { u: W, v: H },
-          { x: xTL, y: yTL }, { x: xTR, y: yTR }, { x: xBR, y: yBR })
-        pgr._drawAffineTriangle(ctx, this._stoneTexture,
-          { u: 0, v: 0 }, { u: W, v: H }, { u: 0, v: H },
-          { x: xTL, y: yTL }, { x: xBR, y: yBR }, { x: xBL, y: yBL })
-
-        const steepness = this._tileSteepness(pgr, tx, ty, mapW, mapH)
-        const darkenT = Math.min(1, (steepness - climbThreshold) / (climbThreshold * 1.5 || 1))
-        if (darkenT > 0) {
-          ctx.save()
-          ctx.beginPath()
-          ctx.moveTo(xTL, yTL); ctx.lineTo(xTR, yTR); ctx.lineTo(xBR, yBR); ctx.lineTo(xBL, yBL)
-          ctx.closePath()
-          ctx.clip()
-          ctx.fillStyle = `rgba(20, 18, 16, ${(darkenT * 0.35).toFixed(3)})`
-          ctx.fillRect(
-            Math.min(xTL, xBL) - 4, Math.min(yTL, yTR) - 4,
-            Math.max(xTR, xBR) - Math.min(xTL, xBL) + 8,
-            Math.max(yBL, yBR) - Math.min(yTL, yTR) + 8
-          )
-          ctx.restore()
-        }
+        this._drawFaceTile(pgr, ctx, tx, tx, ty, horizonPx, sw, sh, climbThreshold, mapW, mapH)
       }
     }
+
+    this._drawPhantomWestFaces(pgr, ctx, mapW, mapH, horizonPx, sw, sh, climbThreshold, rowStart, rowEnd)
   }
 
   destroy() {
@@ -300,3 +385,4 @@ export default class SteepFaceRenderer {
     this._ctx = null
   }
 }
+

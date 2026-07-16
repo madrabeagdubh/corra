@@ -133,6 +133,57 @@ export function drawCliffSide(pgr, ctx, col, row, elev, neighbourRow, sideDir, t
     ctx.restore()
   }
 
+// Solid (untextured, shaded-fill) vertical face for a landmass whose
+// NORTH edge borders lower ground -- e.g. a headland jutting up from
+// the south side of a channel, where the elevation drop happens as row
+// DECREASES rather than increases. Mirrors drawElevatedSideFace's own
+// approach (a plain darkened fill along an edge, not a textured cliff
+// GID) but oriented along a ROW edge (the tile's own north border,
+// spanning col to col+1) instead of a COLUMN edge.
+//
+// Added because no north-facing case existed at all previously: the
+// renderer only drew faces for elevation drops to the south, east, or
+// west. A south-facing landmass's channel-facing edge had NO geometry
+// drawn there whatsoever -- the elevated ground quad just ended in
+// mid-air with nothing filling the vertical gap down to the lower
+// tile beside it, which read as seeing "through" the terrain to
+// whatever sat behind/below it (confirmed via screenshot: the player
+// and boat visible through the cliff). This doesn't need to look like
+// rock -- a plain shaded fill (same treatment east/west faces already
+// use) is enough to make the drop read as solid.
+// Mirrors drawElevatedFace exactly (the working south-facing case),
+// just anchored on the NORTH boundary ('row', the shared edge with
+// row-1) instead of the south boundary ('row+1'). Uses the tile's OWN
+// texture via _drawTrapezoidTinted -- the same bright grass image the
+// plateau's top surface uses -- rather than a flat darkened fill.
+//
+// That darkened-fill approach (mirroring drawElevatedSideFace's east/
+// west style instead) was the actual bug: it made the drop read as a
+// visually DISTINCT dark wall structure, not a continuation of the
+// grass, which is why it looked like "a wall with grass on the ground"
+// instead of the grass itself sloping down to meet it. Using the same
+// texture as the top surface makes the two blend into one continuous
+// grassy drop, exactly matching how the north bank's own (working)
+// south-facing case already looks, and satisfies "no texture needed
+// there" as bare unadorned grass rather than a distinct rock/wall look.
+export function drawElevatedNorthFace(pgr, ctx, col, row, elev, gid, tileAlpha) {
+  const yFront = pgr._rowToScreenY(row)
+  if (yFront === null) return
+  const tileH = pgr._scaleAtRow(row) || pgr._scaleAtRow(row + 1)
+  const yTop  = yFront - tileH * elev
+  if (yTop >= yFront) return
+
+  const xL = pgr._colToScreenX(col,     row)
+  const xR = pgr._colToScreenX(col + 1, row)
+
+  ctx.globalAlpha = tileAlpha
+  pgr._drawTrapezoidTinted(ctx, gid,
+    { x: xL, y: yTop }, { x: xR, y: yTop },
+    { x: xL, y: yFront }, { x: xR, y: yFront },
+    null)
+  ctx.globalAlpha = 1.0
+}
+
 export function drawCliffFace(pgr, ctx, col, row, elev, tileAlpha) {
     const yBot = pgr._rowToScreenY(row + 1)
     if (yBot === null) return
@@ -155,4 +206,5 @@ export function drawCliffFace(pgr, ctx, col, row, elev, tileAlpha) {
       null)
     ctx.globalAlpha = 1.0
   }
+
 

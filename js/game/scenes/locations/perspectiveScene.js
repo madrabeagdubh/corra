@@ -100,13 +100,6 @@ export default class PerspectiveScene extends BaseLocationScene {
   getSkyPosition()         { return '50% 50%' }
   getMountainImage()       { return null }
   getMountainPosition()    { return '50% 100%' }
-  // Whether to show ANY north-edge preview at all -- both the real
-  // neighbour-map fetch and the synthetic 'beyond the edge' placeholder
-  // (see the north-preview logic in create()). Default true -- current
-  // behaviour for ordinary land maps. Sea/coastal scenes override this
-  // to false: land peeking over open water looks wrong, whether it's a
-  // real neighbouring map's coastline or the synthetic grass fallback.
-  hasNorthFallback()       { return true }
   onEnter()                {}
 
   getElevationConfig() {
@@ -276,7 +269,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     // this silently does nothing and the renderer's existing flat-fill
     // fallback is unaffected.
     const _northDest = this.mapData.exits?.north?.destination
-    if (_northDest && this.hasNorthFallback()) {
+    if (_northDest) {
       fetch(this.getNeighborMapPath(_northDest))
         .then(r => r.ok ? r.json() : null)
         .then(neighborMapData => {
@@ -426,7 +419,14 @@ this._updateCameraTerrainAvoidance()
   _updatePlayerOcclusionFade() {
     const pgr = this.perspectiveGround
     if (!pgr) return
-    if (!pgr._heightMapSrc || !this.player) { pgr._playerOcclusionAlpha = 1; return }
+    // Two independent elevation systems can put terrain in front of the
+    // player: _heightMapSrc (continuous vertex heightmap, rolling hills)
+    // and _elev (ElevationRenderer's cliff/plateau grid, e.g. our new
+    // estuary headland). This used to check _heightMapSrc alone, so on
+    // any map using ONLY cliff-based elevation (no heightMap at all --
+    // true for d3_sea), this bailed out immediately and the player never
+    // faded behind cliffs no matter how solid the wall geometry was.
+    if ((!pgr._heightMapSrc && !pgr._elev) || !this.player) { pgr._playerOcclusionAlpha = 1; pgr._playerOcclusionCropPx = 0; return }
 
     const ts = this.tileSize
     const playerCol = Math.floor(this.player.logicalX / ts)
@@ -442,32 +442,162 @@ this._updateCameraTerrainAvoidance()
     const playerScaleAtRow = pgr._scaleAtRow(playerRow + 1)
     const playerHalfWidthPx = (playerScaleAtRow > 0 ? playerScaleAtRow : ts) * 0.65
 
-    let worstOverlapPx = 0
+    let worstHillOverlapPx  = 0   // from _heightMapSrc -- existing continuous fade-to-fully-invisible behaviour, unchanged
+    let worstCliffOverlapPx = 0   // from _elev -- new; capped translucent like trees, see below
     if (playerScreenY != null && playerScreenX != null) {
       const LOOKAHEAD = 14
       const COL_SPREAD = 6   // widened since we now filter properly by real screen X, not relying on this to be tight
       for (let r = playerRow + 1; r < Math.min(camRow, playerRow + 1 + LOOKAHEAD); r++) {
         for (let dc = -COL_SPREAD; dc <= COL_SPREAD; dc++) {
           const col = playerCol + dc
-          const h = pgr._tileHeightAt(col, r)
-          if (h <= 0) continue
+          // Water tiles must read as flat here, matching the core
+          // renderer's own rule (confirmed at its ground-drawing call
+          // site: `_bIsWater ? 0 : this._tileHeightAt(...)`). The
+          // continuous heightmap is a smooth surface that exists
+          // EVERYWHERE, including under water -- water/land is a
+          // separate GID-threshold decision layered on top (see the
+          // map generator), so a water tile can have real nonzero
+          // underlying height despite rendering perfectly flat.
+          // _tileHeightAt itself has no water awareness at all -- it
+          // just averages raw vertices -- so this scan was finding
+          // phantom, invisible elevation under water and triggering
+          // occlusion with nothing visibly there to cause it. Confirmed
+          // directly: "sometimes the player and boat are obscured while
+          // in the water."
+          const _gid0 = this.mapData.tiles?.[r]?.[col]
+          const _isWaterTile = _gid0 === 1625 || _gid0 === 1679 || _gid0 === 731
+          const hHill  = _isWaterTile ? 0 : pgr._tileHeightAt(col, r)
+          const hCliff = _isWaterTile ? 0 : (pgr._elev?.[r]?.[col] ?? 0)
+          if (hHill <= 0 && hCliff <= 0) continue
 
           const occluderScreenX = pgr._colToScreenX(col + 0.5, r + 1)
           if (occluderScreenX == null) continue
           if (Math.abs(occluderScreenX - playerScreenX) > playerHalfWidthPx) continue   // real screen-space filter -- not actually in front of the player
 
-          const baseY = pgr._rowToScreenY(r + 1)
-          const scale = pgr._scaleAtRow(r + 1)
+          // Anchor at the tile's NORTH edge (row r, not r+1) -- the
+          // side facing the player, the side that visually "rises into
+          // view" first as they approach from the channel.
+          //
+          // REVERTED from a fully-flat (zero-height) version tried
+          // here: that broke occlusion completely rather than just
+          // shifting its timing. Proof: a tile south of the player
+          // (r > playerRow) is geometrically closer to the camera, so
+          // its FLAT projection is ALWAYS a larger screen-Y (lower on
+          // screen) than the player's own position -- never smaller.
+          // The only way a south tile can ever visually sit "above" the
+          // player at all is its elevation pushing its projected top
+          // edge upward past the player's position. That upward push
+          // IS the entire mechanism; removing it makes overlapPx
+          // provably negative for every south tile, always, so
+          // worstOverlapPx (initialised to 0) never budges -- confirmed
+          // directly: occlusion stopped happening at all. Restored to
+          // the tile's own north-edge vertex height (smaller than the
+          // tile's south edge or average, but still real) as the
+          // working baseline while a better fix is worked out.
+          const baseY = pgr._rowToScreenY(r)
+          const scale = pgr._scaleAtRow(r)
           if (baseY == null || !(scale > 0)) continue
-          const occluderTopY = baseY - h * scale
-          const overlapPx = playerScreenY - occluderTopY
-          if (overlapPx > worstOverlapPx) worstOverlapPx = overlapPx
+
+          if (hHill > 0) {
+            const northEdgeH = (pgr._vertexH(col, r) + pgr._vertexH(col + 1, r)) / 2
+            const overlapPx = playerScreenY - (baseY - northEdgeH * scale)
+            if (overlapPx > worstHillOverlapPx) worstHillOverlapPx = overlapPx
+          }
+          if (hCliff > 0) {
+            const overlapPx = playerScreenY - (baseY - hCliff * scale)
+            if (overlapPx > worstCliffOverlapPx) worstCliffOverlapPx = overlapPx
+          }
         }
       }
     }
 
-    const severity = Math.max(0, Math.min(1, worstOverlapPx / (this.scale.height * 0.15)))
-    const terrainAlpha = 1 - severity
+    // Terrain occlusion (hills via _heightMapSrc + cliffs via _elev),
+    // now UNIFIED and handled via TRUE PER-PIXEL CROPPING rather than a
+    // whole-sprite alpha fade. The boolean alpha-fade approach (still
+    // used for trees below, unchanged) reads fine once fully hidden,
+    // but while only PARTIALLY behind a rising hill, an all-or-nothing
+    // opacity switch can't show "half behind, half in front" -- it's
+    // either translucent while still geometrically in front (reading as
+    // ghostly, "sailing onto the hilltop") or fully opaque with no
+    // depth cue at all. True cropping removes exactly the portion of
+    // the sprite that's behind the terrain and lets the ALREADY-DRAWN
+    // ground show through underneath -- the SAME technique the existing
+    // water-sink mechanic already uses for wading (see _drawPlayerAnimated's
+    // own _sink/_cropH), just driven by terrain overlap instead of water
+    // depth. Capped short of 100% (TERRAIN_CROP_CAP) so a sliver always
+    // remains once occlusion would otherwise erase the whole sprite --
+    // at that point cropping stops and the translucent whole-sprite
+    // treatment (already confirmed working well for "fully obscured")
+    // takes over instead, so the player never vanishes as a position
+    // marker.
+    const playerH = pgr.playerSpriteH ?? (ts * 2)
+    const EASE = 0.25
+    const rawTerrainOverlapPx = Math.max(worstHillOverlapPx, worstCliffOverlapPx)
+    // Threshold (as a fraction of the player's own sprite height) at
+    // which we stop cropping and switch to the translucent WHOLE-sprite
+    // treatment instead. Per direct feedback ("when fully occluded...
+    // translucent player, included/unoccluded... so user never loses
+    // sight of their avatar for long"): once fully hidden, show the
+    // ENTIRE sprite (crop=0) at reduced alpha, like a ghost seen through
+    // the hill -- NOT a capped sliver of the sprite at reduced alpha,
+    // which was the previous behaviour and was too small/easy to miss
+    // (often just the top of the head) to register as "the player,
+    // translucent" at all.
+    const TERRAIN_CROP_CAP = 0.6
+    const cropCapPx = playerH * TERRAIN_CROP_CAP
+    // REMOVED the grace offset that used to live here. In hindsight, the
+    // original "should look like that, but ~2 tiles later" request was
+    // very likely describing the BOTTOM-ANCHOR bug (head appearing to
+    // sink into the ground at the player's own feet), not a genuine
+    // request to delay when occlusion starts -- the grace offset
+    // "fixed" that symptom by shifting the whole effect later, without
+    // touching the actual cause. Now that the anchor itself is fixed
+    // (head fixed at its normal position, bottom recedes to match the
+    // coastline instead of the player's own feet -- see
+    // pgrPlayerBoat.js), keeping the grace offset on top just adds an
+    // unnecessary extra delay on a bug that no longer exists -- which
+    // is exactly what "sails through the first two tiles, occluded two
+    // tiles too late" describes. Removed so occlusion begins at its
+    // natural trigger point again, matching the ORIGINAL, first request
+    // ("should begin exactly where the edge meets the water") without
+    // an artificial delay stacked on top of it.
+    const terrainOverlapPx = rawTerrainOverlapPx
+    const terrainFullyOccluded = terrainOverlapPx >= cropCapPx
+    const terrainCropPxTarget = terrainFullyOccluded
+      ? 0
+      : Math.min(terrainOverlapPx, cropCapPx)
+    // Ease crop toward its target, but ONLY when the change is a real
+    // discontinuous jump (the fullyOccluded ternary above snapping the
+    // target to exactly 0), not during ordinary continuous tracking.
+    //
+    // Reasoning for the jump-smoothing itself: crop's target has a
+    // genuine discontinuity built in -- until this was added, that jump
+    // was assigned directly/instantly, while alpha eased toward ITS new
+    // target over several frames. That mismatch meant crop snapped to 0
+    // (whole sprite restored) the same frame occlusion began, while
+    // alpha hadn't faded yet -- a visible "pop" back to completely
+    // normal right before fading translucent (and the same mismatch in
+    // reverse exiting full occlusion). Confirmed via frame-by-frame
+    // video review.
+    //
+    // BUT applying that easing UNCONDITIONALLY (every frame, not just at
+    // the jump) turned out to reintroduce a smaller version of the
+    // ORIGINAL lag bug: even a 0.5 rate means each frame only closes
+    // half the gap to a target that's itself moving every frame during
+    // the normal approach, compounding into a real fractional-tile delay
+    // -- confirmed directly: occlusion now "about half a tile later than
+    // it should be." Fixed by only easing when the jump is large enough
+    // to be the actual discontinuity (a full jump to/from 0 happens in a
+    // single frame; ordinary continuous movement, even fast, doesn't
+    // produce anywhere near that big a per-frame change) -- otherwise
+    // the target is tracked directly, with zero added lag.
+    const CROP_EASE = 0.5
+    const JUMP_THRESHOLD = cropCapPx * 0.3
+    const curCropPx = pgr._playerOcclusionCropPx ?? 0
+    const cropDelta = terrainCropPxTarget - curCropPx
+    pgr._playerOcclusionCropPx = Math.abs(cropDelta) > JUMP_THRESHOLD
+      ? curCropPx + cropDelta * CROP_EASE
+      : terrainCropPxTarget
 
     // Trees: precise screen-space overlap test now, matching the terrain
     // check above -- NOT the coarse tile-proximity check this had at
@@ -476,7 +606,11 @@ this._updateCameraTerrainAvoidance()
     // covered the player on screen (confirmed: player was visibly fading
     // with no tree actually overlapping them). getTrunkScreenBounds()
     // mirrors drawTrunk()'s own geometry exactly (shared helper), so this
-    // checks against the tree's REAL rendered silhouette.
+    // checks against the tree's REAL rendered silhouette. Left as a pure
+    // alpha-fade, not cropping -- a trunk is a thin vertical obstruction,
+    // not a flat ground surface the player sinks behind, so a partial
+    // per-pixel crop doesn't read as sensibly here as it does for
+    // terrain; unchanged from before.
     let treeOccluding = false
     if (this.forestEffects) {
       const TREE_LOOKAHEAD = 8   // generous row range -- the screen check itself is the real filter
@@ -493,10 +627,12 @@ this._updateCameraTerrainAvoidance()
       }
     }
 
-    const targetAlpha = treeOccluding ? Math.min(terrainAlpha, 0.5) : terrainAlpha
+    const targetAlpha = Math.min(
+      terrainFullyOccluded ? 0.5 : 1,
+      treeOccluding         ? 0.5 : 1
+    )
 
     const cur = pgr._playerOcclusionAlpha ?? 1
-    const EASE = 0.25
     pgr._playerOcclusionAlpha = cur + (targetAlpha - cur) * EASE
   }
 
@@ -546,7 +682,27 @@ this._updateCameraTerrainAvoidance()
     // needed, 1 = maximum response.
     const CLEARANCE = 0.6   // height units of foreground rise tolerated before reacting
     const RANGE     = 2.0   // rise beyond clearance that maps to full response
-    const severity = Math.max(0, Math.min(1, (maxForegroundH - playerH - CLEARANCE) / RANGE))
+    const foregroundSeverity = Math.max(0, Math.min(1, (maxForegroundH - playerH - CLEARANCE) / RANGE))
+
+    // Second, independent contribution: the PLAYER'S OWN elevation.
+    // The camera follows the player's flat/unelevated world position
+    // (_camProxy.setPosition uses player.logicalX/logicalY directly,
+    // confirmed in baseLocationScene.js -- it has no idea the player
+    // might be standing on a tall hill). The foreground check above
+    // only reacts when terrain AHEAD is taller than the player -- if
+    // the player is standing on elevated ground themselves, looking
+    // down their OWN gentle downslope (foreground height <= playerH),
+    // that check stays at 0 regardless of how high the player actually
+    // stands, and the render row-range cutoff (computed from that same
+    // flat-assumption camera position) can end up clipping the near
+    // portion of the very hill the player is standing on, since it
+    // never gets the extra "room" a standing-elevation would need.
+    // This adds that missing case: react to the player's own height
+    // directly, independent of what's around them.
+    const SELF_ELEV_RANGE = 3.0
+    const selfSeverity = Math.max(0, Math.min(1, (playerH - CLEARANCE) / SELF_ELEV_RANGE))
+
+    const severity = Math.max(foregroundSeverity, selfSeverity)
 
     const HORIZON_MIN    = 0.10
     const CAMOFF_MAX_ADD = 10.0
@@ -742,15 +898,6 @@ this._updateCameraTerrainAvoidance()
       const canvasX = (e.clientX - rect.left) * scaleX
       const canvasY = (e.clientY - rect.top)  * scaleY
 
-      // TEMP DEBUG -- unconditional, no side effects (doesn't call
-      // setPath), fires before any early return so it works in boat
-      // mode / with panels open / anywhere else _onTapBeforePath or
-      // the other guards below would normally intercept the tap.
-      if (this.perspectiveGround) {
-        const _dbgTile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
-        console.log('[TAP DEBUG2] tile:', _dbgTile)
-      }
-
       const joyX = this.scale.width / 2, joyY = this._joyY, joyR = 100
       if ((canvasX-joyX)**2 + (canvasY-joyY)**2 < joyR*joyR) return
 
@@ -763,7 +910,6 @@ this._updateCameraTerrainAvoidance()
 
       const tile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
       if (!tile) return
-      console.log(`[TAP DEBUG] tile: (${tile.tx}, ${tile.ty})`)
 
       const fromTX = Math.floor(this.player.logicalX / this.tileSize)
       const fromTY = Math.floor(this.player.logicalY / this.tileSize)
@@ -1185,4 +1331,5 @@ this._updateCameraTerrainAvoidance()
     }
   }
 }
+
 

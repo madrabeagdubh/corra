@@ -1,4 +1,5 @@
 import RiverScene from '../riverScene.js'
+import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
 export default class BogD3Sea extends RiverScene {
 
@@ -16,15 +17,15 @@ hasNorthFallback() { return false }
   getMountainImage()       { return null }
   getMountainPosition()    { return '50% 100%' }
 
-  getElevationConfig() {
-    return {
-      cliffGids:    new Set([740]),
-      cliffFaceGid: 740,
-      elevatedGids: new Set([839, 840]),
-      cliffSouth:   new Set([731, 1625, 1679]),
-      cliffHeight:  1.0,
-    }
-  }
+  // No getElevationConfig() override -- matches d3.js's own setup
+  // exactly. This map now uses a continuous per-vertex heightMap (same
+  // system d3 itself uses, and d3's cliffs/hills already render and
+  // occlude correctly with it) rather than ElevationRenderer's discrete
+  // GID-adjacency plateau system. Falling back to the base class's
+  // default (returns null unless mapData.elevationConfig is set, which
+  // it isn't) means ElevationRenderer never constructs for this scene,
+  // exactly mirroring d3.js -- despite hasCliffs:true in the map JSON,
+  // same as d3.json itself.
 
   preload() {
     super.preload()
@@ -32,14 +33,18 @@ hasNorthFallback() { return false }
   }
 
   async create(data) {
-
-
-
     await super.create(data)
-
-
-	  if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
-
+    // Prevent the phantom-mirror system (which extends the map visually
+    // past its true edge) from bleeding real shoreline land past the
+    // east/south borders -- those lead to open sea / map boundary, so
+    // anything beyond should be water. The WEST edge is deliberately
+    // excluded: it leads into d3 (a land map), so the shoreline there
+    // should keep mirroring naturally past the border rather than
+    // abruptly cutting to forced water -- an earlier blanket `true`
+    // here created exactly that seam (confirmed via screenshot: the
+    // real cliff ended at the true edge and forced-water began right
+    // beside it, breaking the illusion of one continuous shore).
+    if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = new Set(['east', 'south'])
     if (this.boatSystem) {
       this.boatSystem._triggerDisembark = () => {}
       this.boatSystem._reboard          = () => {}
@@ -68,6 +73,13 @@ hasNorthFallback() { return false }
 
   onEnter() {
     this._exitCooldown = 0
+    // SteepFaceRenderer: renders grey stone texture on camera-facing
+    // steep slopes, catching gaps the raw per-vertex heightmap terrain
+    // can otherwise leave (the "hollow hill" bleed-through where distant
+    // water shows through a foreground rise) -- same system already
+    // proven in elevationMoatTest, now adopted here since this map
+    // switched to the same continuous-heightmap approach d3 itself uses.
+    this.steepFaces = new SteepFaceRenderer(this)
     this.time.delayedCall(50, () => {
       if (!this.boatSystem || !this.perspectiveGround) {
         console.warn('[d3Sea] onEnter: boatSystem or perspectiveGround missing')
@@ -353,7 +365,12 @@ hasNorthFallback() { return false }
     super.checkExits?.()
   }
 
+  onPGRDrawComplete() {
+    if (this.steepFaces) this.steepFaces.update()
+  }
+
   shutdown() {
+    if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
     this._destroyEstuaryWaves()
     if (this._swallows) { this._swallows.stop(); this._swallows = null }
     // Also remove any lingering swallow canvas directly
@@ -362,3 +379,4 @@ hasNorthFallback() { return false }
   }
 
 }
+

@@ -96,8 +96,12 @@ hasNorthFallback() { return false }
     document.getElementById('swallow-canvas')?.remove()
 
     await super.create(data)
-if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
-     
+
+    // Same ocean-only phantom-mirror guard as BogD3Sea -- see PGR's
+    // _phantomOceanOnly note. This map is open sea in every direction,
+    // so nothing beyond the true edge should ever render as land.
+    if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
+
     // Clear any solid CSS background left by the previous scene.
     if (this.game?.canvas) {
       this.game.canvas.style.background = 'transparent'
@@ -1335,4 +1339,5 @@ if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = true
     super.shutdown?.()
   }
 }
+
 

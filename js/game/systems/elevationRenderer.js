@@ -95,12 +95,32 @@ export default class ElevationRenderer {
     // ── Build elevation grid ─────────────────────────────────────────────────
     // Per-GID heights: if gidHeights is provided, look up each tile's GID
     // to determine its individual height. Falls back to cliffHeight.
+    //
+    // Two independent plateau membership tests, both applied here:
+    //   - north plateau (firstCliffRow): a landmass whose south edge
+    //     borders water -- e.g. an ordinary north-of-channel shoreline.
+    //     A tile belongs if it's at or above (r <= ) that column's
+    //     detected cliff row.
+    //   - south plateau (lastCliffRow): a landmass whose NORTH edge
+    //     borders water -- e.g. a headland jutting up from the south
+    //     side of a channel. A tile belongs if it's at or below
+    //     (r >= ) that column's detected cliff row. This was computed
+    //     above but never actually used until now -- previously a
+    //     south-facing landmass could never receive elevation at all,
+    //     regardless of tile placement, since only firstCliffRow fed
+    //     the grid.
+    // A tile can satisfy either test independently; no column is
+    // expected to satisfy both (that would mean two separate cliff
+    // edges stacked in the same column), but OR-ing them costs nothing
+    // and doesn't assume that can't happen.
     this._elev = []
     for (let r = 0; r < mapH; r++) {
       this._elev[r] = new Float32Array(mapW)
       for (let c = 0; c < mapW; c++) {
         if (!this.elevatedGids.has(layer0[r][c])) continue
-        if (firstCliffRow[c] < Infinity && r <= firstCliffRow[c]) {
+        const inNorthPlateau = firstCliffRow[c] < Infinity  && r <= firstCliffRow[c]
+        const inSouthPlateau = lastCliffRow[c]  > -Infinity && r >= lastCliffRow[c]
+        if (inNorthPlateau || inSouthPlateau) {
           const gid = layer0[r][c]
           this._elev[r][c] = this.gidHeights?.[gid] ?? CH
         }
@@ -114,4 +134,5 @@ export default class ElevationRenderer {
       '| gidHeights:', this.gidHeights ? Object.keys(this.gidHeights).length + ' entries' : 'none')
   }
 }
+
 

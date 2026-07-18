@@ -36,7 +36,7 @@ export default class TestForest extends PerspectiveScene {
     const mask = this.mapData?.wallMask
     if (!mask) return false
     if (ty < 0 || ty >= mask.length || tx < 0 || tx >= mask[0].length) return true
-    return mask[ty][tx] === 1
+    return mask[ty][tx] >= 1
   }
 
   // ── Camera: close / over-the-shoulder ─────────────────────────────────────

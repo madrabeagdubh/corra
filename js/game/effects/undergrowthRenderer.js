@@ -234,7 +234,7 @@ export default class UndergrowthRenderer {
 
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
-        if (mask[ty][tx] === 1) continue
+        if (mask[ty][tx] >= 1) continue
 
         const roll = UndergrowthRenderer._hash01(tx, ty, 11)
         if (roll >= UndergrowthRenderer.FLORA_TOTAL_CHANCE) continue
@@ -281,7 +281,7 @@ export default class UndergrowthRenderer {
 
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
-        if (mask[ty][tx] === 1) continue
+        if (mask[ty][tx] >= 1) continue
         if (this._localSlope(tx, ty) < UndergrowthRenderer.ROCK_SLOPE_THRESHOLD) continue
 
         const roll = UndergrowthRenderer._hash01(tx, ty, 71)
@@ -352,7 +352,7 @@ export default class UndergrowthRenderer {
     const candidates = []
     for (let ty = 2; ty < mapH - 2; ty++) {
       for (let tx = 2; tx < mapW - 2; tx++) {
-        if (mask[ty][tx] === 1) continue
+        if (mask[ty][tx] >= 1) continue
         candidates.push({ tx, ty, suitability: UndergrowthRenderer._hash01(tx, ty, 211) })
       }
     }

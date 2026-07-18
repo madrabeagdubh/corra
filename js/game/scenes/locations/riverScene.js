@@ -181,7 +181,7 @@ preload() {
       const g = this.mapData.layers[0]?.[ty]?.[tx]
       return !(WATER_GIDS.has(g) || REED_GIDS.has(g))
     }
-    if (this.mapData?.wallMask?.[ty]?.[tx] === 1) return true
+    if (this.mapData?.wallMask?.[ty]?.[tx] >= 1) return true
     return super.isColliding(x, y)
   }
 

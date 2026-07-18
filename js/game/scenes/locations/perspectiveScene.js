@@ -247,16 +247,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     // sparse wallMask-driven trunks (see tools/map-editor/migrate_oryx_trees.mjs).
     // Guarded on wallMask existing -- unmigrated maps get no ForestEffects
     // instance at all, so this is a pure no-op for them.
-   this.forestEffects = new ForestEffects(this, {
-        trunkKeepChance: 1.0,
-        widthScale:  0.35,
-        heightScale: 0.35,
-        canopyHaze:  false,
-        canopyFacetScale:  0.5,
-        canopyLayerScale:  0.5,
-        canopyRadiusScale: 0.55,
-        branchScale: 0.4,
-      })
+   this.forestEffects = new ForestEffects(this, this.getForestEffectsOptions())
     this.perspectiveGround.setForestEffects(this.forestEffects)
 
     // North-direction map preview (see PerspectiveGroundRenderer's
@@ -982,7 +973,7 @@ this._updateCameraTerrainAvoidance()
     // just RiverScene's override) so BogScene-based land maps also get
     // real tree collision, which they never had with the old decorative
     // Oryx trees.
-    if (this.mapData?.wallMask?.[ty]?.[tx] === 1) return true
+    if (this.mapData?.wallMask?.[ty]?.[tx] >= 1) return true
 
     const extra = this.getExtraUnwalkableGIDs()
     const g0 = this.mapData.layers[0]?.[ty]?.[tx]
@@ -1152,8 +1143,37 @@ this._updateCameraTerrainAvoidance()
     }
   }
 
+  // ── ForestEffects options hook ─────────────────────────────────────────
+  // Default = the small overworld trees used across migrated bog/river maps.
+  // Scenes wanting bigger/denser trees (e.g. the a4-d4 forest-threshold row)
+  // override this and return their own options object.
+  getForestEffectsOptions() {
+    return {
+      trunkKeepChance: 1.0,
+      widthScale:  0.35,
+      heightScale: 0.35,
+      canopyHaze:  false,
+      canopyFacetScale:  0.5,
+      canopyLayerScale:  0.5,
+      canopyRadiusScale: 0.55,
+      branchScale: 0.4,
+    }
+  }
+
   _triggerExit(dir, exitData) {
     if (this._exiting) return
+    // Destination scene not registered yet (e.g. a4's south exit before the
+    // a5-d5 deep-forest maps are built): ignore the exit instead of
+    // scene.start()ing into a crash + stuck black transition overlay.
+    // Warn once per destination, not every frame the player stands there.
+    if (!this.scene.manager.keys[exitData.destination]) {
+      this._warnedMissingExits = this._warnedMissingExits || new Set()
+      if (!this._warnedMissingExits.has(exitData.destination)) {
+        this._warnedMissingExits.add(exitData.destination)
+        console.warn(`[${this.scene.key}] exit destination '${exitData.destination}' is not a registered scene -- ignoring exit (map not built yet?)`)
+      }
+      return
+    }
     this._exiting = true
     if (this.joystick) this.joystick.reset()
     const T = this.tileSize

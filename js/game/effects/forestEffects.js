@@ -199,6 +199,18 @@ export default class ForestEffects {
     this._canopyFacetScale  = options.canopyFacetScale  ?? 1.0
     this._canopyLayerScale  = options.canopyLayerScale  ?? 1.0
     this._canopyRadiusScale = options.canopyRadiusScale ?? 1.0
+
+    // ── Canopy-mass cells (wallMask value 2) ─────────────────────────
+    // Cells marked 2 in the wallMask render as pure trunk-less foliage
+    // mounds sitting on the ground line -- "the forest's canopy seen from
+    // outside": e.g. the a4-d4 threshold band, where what should rise from
+    // the bottom of the screen as the camera nears the forest is masses of
+    // leaves, not a colonnade of trunks. They block movement exactly like
+    // value-1 cells. Radius is tile-based (independent of widthScale) and
+    // clamped to a fraction of the screen height so near-camera masses
+    // stack as mounds instead of whiting out the whole view.
+    this._canopyMassRadiusTiles   = options.canopyMassRadiusTiles   ?? 2.2
+    this._canopyMassMaxScreenFrac = options.canopyMassMaxScreenFrac ?? 0.4
     this._branchScale       = options.branchScale       ?? 1.0
 
     // This canvas is now ONLY used for canopy haze + exit markers --
@@ -266,7 +278,7 @@ export default class ForestEffects {
     }
     const mapH = mask.length
     const mapW = mask[0]?.length ?? 0
-    const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? mask[y][x] === 1 : true
+    const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? mask[y][x] >= 1 : true
 
     const layer0 = this.scene.mapData?.layers?.[0]
     const isWater = (x, y) => {
@@ -291,13 +303,13 @@ export default class ForestEffects {
           !isWall(tx, ty + 1) || !isWall(tx, ty - 1)
         if (!bordersOpen) continue
         if (cellKeepValue(tx, ty) > this._trunkKeepChance) continue
-        positions.push([tx + 0.5, ty + 0.5])
+        positions.push([tx + 0.5, ty + 0.5, mask[ty][tx] === 2])
       }
     }
-    return positions.map(([tx, ty]) => this._buildTrunkShape(tx, ty))
+    return positions.map(([tx, ty, mass]) => this._buildTrunkShape(tx, ty, mass))
   }
 
-  _buildTrunkShape(tx, ty) {
+  _buildTrunkShape(tx, ty, canopyMass = false) {
       let seed = Math.floor(tx * 7919 + ty * 104729) & 0x7fffffff
       const rand = () => {
         seed = (seed * 1103515245 + 12345) & 0x7fffffff
@@ -362,7 +374,7 @@ export default class ForestEffects {
       }
       const capFacets = capLayers.flat()
 
-      return { tx, ty, species, strokes, capFacets, capLayers }
+      return { tx, ty, canopyMass, species, strokes, capFacets, capLayers }
   }
 
   _bakeCanopyPattern() {
@@ -712,8 +724,8 @@ export default class ForestEffects {
 
   // ctx now passed explicitly (was this._ctx) -- PGR calls this with its
   // own _gCtx so the cap draws on the ground canvas alongside cliffs.
-  _drawFoliageCap(ctx, trunk, screenX, topY, widthPx, alpha, pgr) {
-    const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
+  _drawFoliageCap(ctx, trunk, screenX, topY, widthPx, alpha, pgr, radiusOverride = null) {
+    const capRadius = radiusOverride ?? (widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale)
     if (!(capRadius > 0)) return
 
     const loadedCount = this._leafTextures?.filter(t => t != null).length ?? 0
@@ -811,7 +823,7 @@ export default class ForestEffects {
 
     const mapH = wallMask.length
     const mapW = wallMask[0]?.length ?? 0
-    const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? wallMask[y][x] === 1 : true
+    const isWall = (x, y) => (y >= 0 && y < mapH && x >= 0 && x < mapW) ? wallMask[y][x] >= 1 : true
     const cellKeepValue = (x, y) => {
       let h = (x * 374761393 + y * 668265263) | 0
       h = Math.imul(h ^ (h >>> 13), 1274126177)
@@ -829,7 +841,7 @@ export default class ForestEffects {
         if (cellKeepValue(tx, ty) > this._trunkKeepChance) continue
 
         const worldTy = (ty + 0.5) - neighborHeight
-        const trunk = this._buildTrunkShape(tx + 0.5, worldTy)
+        const trunk = this._buildTrunkShape(tx + 0.5, worldTy, wallMask[ty][tx] === 2)
         const row = Math.floor(worldTy)
         if (!this._northPreviewTrunksByRow.has(row)) this._northPreviewTrunksByRow.set(row, [])
         this._northPreviewTrunksByRow.get(row).push(trunk)
@@ -886,6 +898,18 @@ export default class ForestEffects {
     if (!anchor) return null
     const { screenX, screenY, widthPx, heightPx } = anchor
 
+    // Canopy masses: bounds mirror the ground-anchored, clamped-radius cap
+    // drawn by drawTrunk()'s canopyMass branch.
+    if (trunk.canopyMass) {
+      const rawR = anchor.scale * this._canopyMassRadiusTiles
+      const capRadius = Math.min(rawR, this._sh * this._canopyMassMaxScreenFrac)
+      return {
+        screenX, capRadius,
+        topY:  screenY - capRadius * (1 + ForestEffects.CAP_HEIGHT_OFFSET_MUL),
+        footY: screenY,
+      }
+    }
+
     const capRadius = widthPx * ForestEffects.CAP_RADIUS_WIDTH_MUL * this._canopyRadiusScale
     const trunkTopY = screenY - heightPx
     // Canopy extends upward from the trunk top by roughly capRadius,
@@ -927,6 +951,18 @@ export default class ForestEffects {
     alpha *= extraAlpha
 
     ctx.globalAlpha = alpha
+
+    // Canopy-mass cells (wallMask 2): no trunk, no branches -- just the
+    // foliage cap sitting on the ground line, radius tile-based and clamped
+    // so near-camera masses read as stacked mounds of leaves rather than
+    // one full-screen sheet.
+    if (trunk.canopyMass) {
+      const rawR = anchor.scale * this._canopyMassRadiusTiles
+      const capRadius = Math.min(rawR, this._sh * this._canopyMassMaxScreenFrac)
+      this._drawFoliageCap(ctx, trunk, screenX, screenY, 0, alpha, pgr, capRadius)
+      ctx.globalAlpha = 1.0
+      return
+    }
 
     const groundY = screenY + widthPx * ForestEffects.TRUNK_UNDERGROUND_EXTEND_PX_MUL
 

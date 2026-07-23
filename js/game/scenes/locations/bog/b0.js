@@ -1,5 +1,6 @@
 import BogLocationScene from '../bogScene.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
+import { GameState } from '../../../systems/gameState.js'
 
 // b0 -- the village: a working ráth on its hill.
 // Terrain comes entirely from the heightMap written by gen_village_map.mjs
@@ -55,9 +56,80 @@ export default class BogB0 extends BogLocationScene {
     this.steepFaces = new SteepFaceRenderer(this)
   }
 
+  // BogScene's createNPCs() (the shared base every other bog map still uses)
+  // places NPCs as plain Phaser objects positioned once in world space, then
+  // leaves them to Phaser's ordinary linear camera scroll. That's wrong for
+  // any PGR scene: the ground and player are drawn every frame through PGR's
+  // nonlinear perspective projection, so a linearly-scrolled NPC drifts out
+  // of step with the ground as the player walks -- the "floating down the
+  // screen" bug. This override is identical to BogScene.createNPCs() except
+  // it also stashes 'radius' and a 'label' reference on each sprite so
+  // _updateNPCPerspective() below can re-project them every frame. Scoped to
+  // b0 only for now -- other bog maps still use the un-anchored version.
+  createNPCs() {
+    if (!this.mapData.npcs) return
+    this.npcs = []
+    this.mapData.npcs.forEach(npcData => {
+      const stateKey = npcData.stateKey || `${this.getMapKey()}.${npcData.id}`
+      if (npcData.requiresQuest &&
+          !GameState.isQuestActive(npcData.requiresQuest) &&
+          !GameState.isQuestComplete(npcData.requiresQuest)) return
+
+      const pixelX = npcData.x * this.tileSize + this.tileSize / 2
+      const pixelY = npcData.y * this.tileSize + this.tileSize / 2
+      const color  = npcData.visual?.color ? parseInt(npcData.visual.color) : 0x4169e1
+      const radius = npcData.visual?.radius || 16
+
+      const sprite = this.add.circle(pixelX, pixelY, radius, color)
+      sprite.setData('id',            npcData.id)
+      sprite.setData('name',          npcData.name)
+      sprite.setData('dialogues',     npcData.dialogues)
+      sprite.setData('stateKey',      stateKey)
+      sprite.setData('dialogueIndex', GameState.getNPCProgress(stateKey))
+      sprite.setData('isNPC',         true)
+      sprite.setData('logicalX',      pixelX)
+      sprite.setData('logicalY',      pixelY)
+      sprite.setData('radius',        radius)
+      sprite.setDepth(10).setInteractive()
+
+      const label = this.add.text(pixelX, pixelY - radius - 6, npcData.name, {
+        fontSize: '12px', fontFamily: 'Arial',
+        color: '#ffffff', backgroundColor: '#000000',
+        padding: { x: 4, y: 2 }
+      }).setOrigin(0.5, 1).setDepth(11)
+      sprite.setData('label', label)
+
+      sprite.on('pointerdown', () => this.talkToNPC(sprite))
+      this.npcs.push(sprite)
+    })
+    console.log(`[${this.scene.key}] ${this.npcs.length} NPCs loaded (perspective-anchored)`)
+  }
+
+  // Re-project every NPC (and its name label) through PGR's perspective
+  // transform each frame, using the same applyPerspective() helper the
+  // renderer already exposes for exactly this purpose -- it was written
+  // but never actually called anywhere before this.
+  _updateNPCPerspective() {
+    if (!this.npcs?.length || !this.perspectiveGround) return
+    for (const npc of this.npcs) {
+      const radius = npc.getData('radius') || 16
+      const visible = this.perspectiveGround.applyPerspective(
+        npc, npc.getData('logicalX'), npc.getData('logicalY'),
+        this.tileSize, radius * 2)
+      const label = npc.getData('label')
+      if (!label) continue
+      label.setVisible(visible)
+      if (visible) {
+        label.setScale(npc.displayWidth / (radius * 2))
+        label.setPosition(npc.x, npc.y - npc.displayHeight / 2 - 6)
+      }
+    }
+  }
+
   onPGRDrawComplete() {
     super.onPGRDrawComplete?.()
     if (this.steepFaces) this.steepFaces.update()
+    this._updateNPCPerspective()
   }
 
   shutdown() {
@@ -65,4 +137,5 @@ export default class BogB0 extends BogLocationScene {
     super.shutdown()
   }
 }
+
 

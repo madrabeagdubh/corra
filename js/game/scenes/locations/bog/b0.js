@@ -1,5 +1,14 @@
 import BogLocationScene from '../bogScene.js'
+import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
+// b0 -- the village: a working ráth on its hill.
+// Terrain comes entirely from the heightMap written by gen_village_map.mjs
+// (dome, bank, ditch, southern causeway); the old GID-driven elevationConfig
+// is retired. SteepFaceRenderer stone-faces the bank's scarps and the gate
+// cheeks; the palisade is the map's wallMask ring rendered as bare timber
+// poles via the ForestEffects options below (no canopy, no branches).
+// House sites and features live in mapData.houses / mapData.features,
+// awaiting the RoundhouseRenderer phase. NPCs load from /data/bog/b0.js.
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
 
@@ -14,6 +23,7 @@ export default class BogB0 extends BogLocationScene {
     const c = this.game?.canvas?.parentNode
     if (c) c.style.background = ''
   }
+
   getMapKey()      { return 'b0' }
   getAmbient()     { return 0x223322 }
   getPlayerLight() { return { color: 0xfff5dd, intensity: 2.0, radius: 320 } }
@@ -23,24 +33,36 @@ export default class BogB0 extends BogLocationScene {
   getSkyPosition() { return '42% 50%' }
   getMountainPosition() { return '42% 90%' }
 
-  getElevationConfig() {
-    const cfg = this.mapData?.elevationConfig
-    if (!cfg) return null
-    // Register custom building tile images with PGR
-    if (cfg.customTiles && this.perspectiveGround) {
-      for (const [gid, url] of Object.entries(cfg.customTiles))
-        this.perspectiveGround.registerCustomTile(Number(gid), url)
-    }
+  // Palisade: the wallMask ring renders as bare timber poles -- thin, short,
+  // effectively no canopy, no branches. Tune widthScale/heightScale for
+  // post heft; keep the canopy scales near zero or the fence sprouts leaves.
+  getForestEffectsOptions() {
     return {
-      cliffFaceGid: cfg.cliffFaceGid,
-      elevatedGids: new Set(cfg.elevatedGids),
-      cliffSouth:   new Set(cfg.cliffSouth),
-      cliffHeight:  cfg.cliffHeight,
-      gidHeights:   cfg.gidHeights,
+      trunkKeepChance: 1.0,
+      widthScale:  0.18,
+      heightScale: 0.30,
+      canopyHaze:  false,
+      canopyFacetScale:  0.1,
+      canopyLayerScale:  0.1,
+      canopyRadiusScale: 0.06,
+      branchScale: 0.0,
     }
   }
 
-  getExtraUnwalkableGIDs() {
-    return new Set([3001, 3002, 3011, 3012, 3013])
+  // Stone-faced bank scarps + gate cheeks (same wiring as d3Sea).
+  onEnter() {
+    super.onEnter?.()
+    this.steepFaces = new SteepFaceRenderer(this)
+  }
+
+  onPGRDrawComplete() {
+    super.onPGRDrawComplete?.()
+    if (this.steepFaces) this.steepFaces.update()
+  }
+
+  shutdown() {
+    if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
+    super.shutdown()
   }
 }
+

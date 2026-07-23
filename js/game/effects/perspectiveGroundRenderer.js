@@ -77,13 +77,8 @@ import * as PGRPreview from './pgr/pgrNorthPreview.js'
 import * as PGRBanks from './pgr/pgrWaterBanks.js'
 import * as PGRPlayer from './pgr/pgrPlayerBoat.js'
 
-
-// Map GIDs 839/840 are flat single-colour grass (839 has zero pixel
-// variance). They mean "generic grass" -- the renderer picks a textured
-// variant per tile. Authored GIDs 841-848 pass through untouched.
-const GRASS_VARIANTS = [841, 842, 843, 844]
-
 export default class PerspectiveGroundRenderer {
+
   static DEBUG_RECTS   = false
   static _tintIdSeq   = 0
 
@@ -1064,18 +1059,13 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
 
         const tileAlpha = edgeAlpha * horizonFade
 
-        
-const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
+        const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         const _isWater = _rawGid0 === 1625 || _rawGid0 === 1679
-        const _isPlainGrass = _rawGid0 === 839 || _rawGid0 === 840
         const gid0 = _isWater
           ? (((Math.floor(this._waterPhase + tileCol * 0.7 - tileRow * 0.3)) & 1) ? 1625 : 1679)
-          : _isPlainGrass
-            ? GRASS_VARIANTS[tmHashPGR(tileCol * 7 + 3, tileRow * 11 + 5) % GRASS_VARIANTS.length]
-            : _rawGid0
+          : _rawGid0
 
-
-	      if (gid0) {
+        if (gid0) {
           const tileElev  = this._elev?.[tileRow]?.[tileCol]  ?? 0
           const southElev = (tileRow + 1 < mapH)
             ? (this._elev?.[tileRow + 1]?.[tileCol] ?? 0)

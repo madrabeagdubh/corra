@@ -77,8 +77,13 @@ import * as PGRPreview from './pgr/pgrNorthPreview.js'
 import * as PGRBanks from './pgr/pgrWaterBanks.js'
 import * as PGRPlayer from './pgr/pgrPlayerBoat.js'
 
-export default class PerspectiveGroundRenderer {
 
+// Map GIDs 839/840 are flat single-colour grass (839 has zero pixel
+// variance). They mean "generic grass" -- the renderer picks a textured
+// variant per tile. Authored GIDs 841-848 pass through untouched.
+const GRASS_VARIANTS = [841, 842, 843, 844]
+
+export default class PerspectiveGroundRenderer {
   static DEBUG_RECTS   = false
   static _tintIdSeq   = 0
 
@@ -155,6 +160,7 @@ export default class PerspectiveGroundRenderer {
     this._encounterFlags = []
     this._buildings      = []
     this._forestEffects  = null
+    this._structures     = null
     this._northNeighbor  = null
     this._boatActive      = false
     this._boatDrifting    = false
@@ -272,6 +278,17 @@ export default class PerspectiveGroundRenderer {
   // any further update() calls).
   setForestEffects(forestEffects) {
     this._forestEffects = forestEffects || null
+  }
+
+  // Same pattern as setForestEffects above, for procedurally-drawn
+  // buildings (RoundhouseRenderer) that need TRUE per-row interleaving
+  // with trunks/terrain -- not just a same-canvas draw, which alone only
+  // fixes occlusion against the player (a different, always-on-top
+  // canvas) and not against trunks (which live at specific rows in THIS
+  // same per-row loop). provider must implement getEntriesForRow(row) ->
+  // array of { draw(ctx, pgr) } entries.
+  setStructures(provider) {
+    this._structures = provider || null
   }
 
   // North-direction map preview (see _drawNorthPreviewRow below). Scene
@@ -1059,13 +1076,18 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
 
         const tileAlpha = edgeAlpha * horizonFade
 
-        const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
+        
+const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         const _isWater = _rawGid0 === 1625 || _rawGid0 === 1679
+        const _isPlainGrass = _rawGid0 === 839 || _rawGid0 === 840
         const gid0 = _isWater
           ? (((Math.floor(this._waterPhase + tileCol * 0.7 - tileRow * 0.3)) & 1) ? 1625 : 1679)
-          : _rawGid0
+          : _isPlainGrass
+            ? GRASS_VARIANTS[tmHashPGR(tileCol * 7 + 3, tileRow * 11 + 5) % GRASS_VARIANTS.length]
+            : _rawGid0
 
-        if (gid0) {
+
+	      if (gid0) {
           const tileElev  = this._elev?.[tileRow]?.[tileCol]  ?? 0
           const southElev = (tileRow + 1 < mapH)
             ? (this._elev?.[tileRow + 1]?.[tileCol] ?? 0)
@@ -1470,6 +1492,17 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
         }
       }
 
+      // Procedural buildings (RoundhouseRenderer) anchored to THIS row --
+      // same reasoning/canvas as trunks just above: drawn here, per-row,
+      // so a nearer trunk/post drawn on a later row iteration correctly
+      // paints over a building wall from an earlier (farther) row,
+      // instead of buildings winning unconditionally as a separate pass
+      // drawn after this whole loop finishes.
+      if (this._structures) {
+        const rowEntries = this._structures.getEntriesForRow(tileRow)
+        for (const entry of rowEntries) entry.draw(this._gCtx, this)
+      }
+
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
@@ -1665,6 +1698,7 @@ destroy() {
     this._encounterFlags = []
     this._boatCanvas = null
     this._forestEffects = null
+    this._structures = null
 
     this._destroyed = true
 
@@ -1677,6 +1711,7 @@ destroy() {
   _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) { PGRPlayer.drawPlayerAnimated(this, ctx, img, screenX, screenY, scaledTileW, heightMult) }
 
 }
+
 
 
 

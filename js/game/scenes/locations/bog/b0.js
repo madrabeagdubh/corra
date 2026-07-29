@@ -1,15 +1,21 @@
 import BogLocationScene from '../bogScene.js'
-import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
+import RoundhouseRenderer from '../../../effects/roundhouseRenderer.js'
 import { GameState } from '../../../systems/gameState.js'
 
 // b0 -- the village: a working ráth on its hill.
 // Terrain comes entirely from the heightMap written by gen_village_map.mjs
 // (dome, bank, ditch, southern causeway); the old GID-driven elevationConfig
-// is retired. SteepFaceRenderer stone-faces the bank's scarps and the gate
-// cheeks; the palisade is the map's wallMask ring rendered as bare timber
-// poles via the ForestEffects options below (no canopy, no branches).
-// House sites and features live in mapData.houses / mapData.features,
-// awaiting the RoundhouseRenderer phase. NPCs load from /data/bog/b0.js.
+// is retired. The bank/ditch is a smooth earthwork with no genuine vertical
+// cliff anywhere, so it deliberately does NOT use SteepFaceRenderer (its
+// stone-facing threshold is tuned for real GID-cliff maps and kept its
+// visual gate stubbornly under the ring's actual grade however high
+// CLIMB_MAX_STEP was pushed -- simplest, most reliable fix is to just not
+// run it here at all). The palisade is the map's wallMask ring rendered as
+// bare timber poles via the ForestEffects options below (no canopy, no
+// branches). House sites live in mapData.houses (a rectangular longhall +
+// tavern + one dwelling hut) and render via RoundhouseRenderer below;
+// mapData.features (firepit/well/pen) are still recorded but not yet
+// rendered. NPCs load from /data/bog/b0.js.
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
 
@@ -50,10 +56,15 @@ export default class BogB0 extends BogLocationScene {
     }
   }
 
-  // Stone-faced bank scarps + gate cheeks (same wiring as d3Sea).
+  // Roundhouses (longhall / tavern / dwelling) from mapData.houses. Walls
+  // draw via PGR's own per-row loop (setStructures) so they're correctly
+  // interleaved with terrain/trunks and correctly occluded by the player
+  // -- see roundhouseRenderer.js's header for why the old forestEffects.ctx
+  // wiring got both of those wrong.
   onEnter() {
     super.onEnter?.()
-    this.steepFaces = new SteepFaceRenderer(this)
+    this.roundhouses = new RoundhouseRenderer(this.mapData.houses || [])
+    this.perspectiveGround.setStructures(this.roundhouses)
   }
 
   // BogScene's createNPCs() (the shared base every other bog map still uses)
@@ -128,13 +139,45 @@ export default class BogB0 extends BogLocationScene {
 
   onPGRDrawComplete() {
     super.onPGRDrawComplete?.()
-    if (this.steepFaces) this.steepFaces.update()
     this._updateNPCPerspective()
   }
 
+  // Roofs/portico/ornament/ground-shadow are a final overlay pass (they
+  // sit above wall-top height, unlike the walls themselves, which draw
+  // per-row inside PGR's own loop via setStructures). Also on _gCtx, so
+  // must run after super.update() -- which is what actually runs PGR's
+  // per-row loop -- has fully finished for this frame, not mid-loop.
+  update(time, delta) {
+    super.update(time, delta)
+    if (this.roundhouses) this.roundhouses.drawOverlay(this.perspectiveGround, this.forestEffects._sw, this.forestEffects._sh)
+  }
+
   shutdown() {
-    if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
+    if (this.roundhouses) { this.perspectiveGround?.setStructures(null); this.roundhouses.destroy(); this.roundhouses = null }
     super.shutdown()
+  }
+
+  // Buildings were purely visual until now -- RoundhouseRenderer draws
+  // pixels but never registered any collision, so the player could walk
+  // straight through a wall. Approximates each footprint with the same
+  // shape the renderer uses (circle for huts, rectangle for the
+  // longhall); doesn't carve out the doorway gaps, so doors aren't
+  // actually walkable-through yet -- a reasonable first pass, not the
+  // final word on it.
+  isColliding(x, y) {
+    if (super.isColliding(x, y)) return true
+    const tx = x / this.tileSize, ty = y / this.tileSize
+    for (const h of this.mapData.houses || []) {
+      if (h.kind === 'longhall') {
+        const hw = (h.w || 4) / 2, hd = (h.d || 3) / 2
+        if (Math.abs(tx - h.x) < hw && Math.abs(ty - h.y) < hd) return true
+      } else {
+        const r = h.r || 2
+        const dx = tx - h.x, dy = ty - h.y
+        if (dx * dx + dy * dy < r * r) return true
+      }
+    }
+    return false
   }
 }
 

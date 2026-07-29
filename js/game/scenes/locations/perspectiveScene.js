@@ -265,12 +265,33 @@ export default class PerspectiveScene extends BaseLocationScene {
         .then(r => r.ok ? r.json() : null)
         .then(neighborMapData => {
           if (!neighborMapData || !this.perspectiveGround) return
+          // The preview was drawing the neighbour's raw column numbers as
+          // if they lined up with THIS map's own columns -- true only by
+          // coincidence. What actually needs to line up is: standing on
+          // THIS map's own north-exit corridor and looking north should
+          // show the neighbour's actual arrival point (its entries.south)
+          // dead ahead, not whatever its column N happens to contain.
+          // b1's exit corridor is x~17; b0's entries.south.x is 27 -- an
+          // uncorrected 10-column gap, which is exactly "buildings appear
+          // off to the left" when standing at the real crossing point.
+          const exitTiles = this.mapData.exits?.north?.tiles
+          const exitCenterX = exitTiles?.length
+            ? exitTiles.reduce((sum, t) => sum + t[0], 0) / exitTiles.length
+            : 0
+          const neighborEntryX = neighborMapData.entries?.south?.x ?? exitCenterX
+          const columnOffset = neighborEntryX - exitCenterX
+          console.log(`[${this.scene.key}] north neighbour '${_northDest}' loaded --`,
+            neighborMapData.width + 'x' + neighborMapData.height,
+            'heightMap:', !!neighborMapData.heightMap,
+            'columnOffset:', columnOffset)
           this.perspectiveGround.setNorthNeighbor({
             layer0:    neighborMapData.layers?.[0] ?? null,
             heightMap: neighborMapData.heightMap ?? null,
             pathDist:  neighborMapData.pathDist  ?? null,
             width:     neighborMapData.width,
             height:    neighborMapData.height,
+            houses:    neighborMapData.houses ?? [],
+            columnOffset,
           })
           this.forestEffects?.setNorthNeighborWallMask(
             neighborMapData.wallMask ?? null, neighborMapData.height
@@ -279,7 +300,7 @@ export default class PerspectiveScene extends BaseLocationScene {
         .catch(e => console.warn(`[${this.scene.key}] north neighbour preview fetch failed:`, e.message))
     
 
-} else if (this.perspectiveGround && this.hasNorthFallback()) {
+} else if (this.perspectiveGround && (this.hasNorthFallback?.() ?? true)) {
       // No real north neighbour at all (world edge, e.g. a1/c1/d1) --
       // synthesize a plain flat "open fields" placeholder so the edge
       // fades into more world rather than stopping dead. Flattened to
@@ -1351,5 +1372,6 @@ this._updateCameraTerrainAvoidance()
     }
   }
 }
+
 
 

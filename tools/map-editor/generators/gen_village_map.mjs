@@ -31,18 +31,22 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MAPS_DIR = resolve(__dirname, '../../../public/maps/bogMaps')
 
-const W = 36, H = 36
-const CX = 18, CY = 15          // fort centre (crown sits north of map centre
+// Scaled up from the original 36x36/HILL_H=1.2 draft to an actual hillfort:
+// a broader, taller dome (a real climb, not a bump), a bigger-radius crest
+// (real interior room for the house sites below instead of a tight cluster),
+// and a longer flat approach from the b1 border before the slope even starts.
+const W = 56, H = 56
+const CX = 28, CY = 24          // fort centre (crown sits north of map centre
                                 // so the southern approach is long)
-const HILL_H  = 1.2             // dome height (tiles)
-const HILL_R  = 15              // dome radius
-const RING_R  = 10.5            // bank crest radius
-const BANK_H  = 1.5             // bank height above local ground
-const BANK_W  = 1.0             // bank gaussian half-width
-const DITCH_R = 13.2            // ditch centre radius
-const DITCH_D = 0.8             // ditch depth
-const DITCH_W = 1.1
-const GATE_HALF_DEG = 12        // causeway angular half-width (due south)
+const HILL_H  = 3.0             // dome height (tiles) -- a real climb
+const HILL_R  = 22              // dome radius
+const RING_R  = 16              // bank crest radius (fort interior)
+const BANK_H  = 2.0             // bank height above local ground
+const BANK_W  = 1.2             // bank gaussian half-width
+const DITCH_R = 19.5            // ditch centre radius
+const DITCH_D = 1.0             // ditch depth
+const DITCH_W = 1.3
+const GATE_HALF_DEG = 13        // causeway angular half-width (due south)
 const GRASS_GIDS = [839, 840]
 
 const gauss = (d, w) => Math.exp(-(d * d) / (2 * w * w))
@@ -93,16 +97,19 @@ for (let ty = 0; ty < H; ty++)
 
 // ── Layout for phase 2 (recorded, not yet rendered or masked) ───────────────
 const houses = [
-  { id: 'greathall', kind: 'greathall', x: 18, y: 10, r: 3.0 },
-  { id: 'tavern',    kind: 'tavern',    x: 23, y: 14, r: 2.5, door: 'tavern' },
-  { id: 'house_1',   kind: 'dwelling',  x: 13, y: 12, r: 2.0 },
-  { id: 'house_2',   kind: 'dwelling',  x: 13, y: 18, r: 2.0 },
-  { id: 'house_3',   kind: 'dwelling',  x: 22, y: 19, r: 2.0 },
+  // Rectangular, not round -- reads as distinct/prestigious against the
+  // huts by shape alone. Shown lengthwise: w = full length (east-west,
+  // broadside to the southern approach) is the LARGE dimension, d = full
+  // depth (north-south) is short. r kept as a bounding radius for
+  // offscreen culling/sort only.
+  { id: 'longhall', kind: 'longhall', x: 28, y: 18, w: 7.0, d: 3.2, r: 3.9 },
+  { id: 'tavern',   kind: 'tavern',   x: 36, y: 23, r: 2.6, door: 'tavern' },
+  { id: 'house_1',  kind: 'dwelling', x: 20, y: 22, r: 2.4 },
 ]
 const features = [
-  { id: 'firepit', kind: 'firepit', x: 18, y: 15 },
-  { id: 'well',    kind: 'well',    x: 16, y: 18 },
-  { id: 'pen',     kind: 'pen',     x: 24, y: 17 },
+  { id: 'firepit', kind: 'firepit', x: 28, y: 24 },
+  { id: 'well',    kind: 'well',    x: 25, y: 29 },
+  { id: 'pen',     kind: 'pen',     x: 37, y: 27 },
 ]
 
 // ── Layers ───────────────────────────────────────────────────────────────────
@@ -110,12 +117,19 @@ const layer0 = Array.from({ length: H }, (_, y) =>
   Array.from({ length: W }, (_, x) => GRASS_GIDS[hash(x, y, 41) < 0.5 ? 0 : 1]))
 const layer1 = Array.from({ length: H }, () => new Array(W).fill(0))
 
-// ── Preserve links from the pre-village original ─────────────────────────────
+// ── Keep a copy of the pre-village original around (revert safety net) ─────
 const path = resolve(MAPS_DIR, 'b0.json')
 const backup = resolve(MAPS_DIR, 'b0.pre-village.json')
 if (!existsSync(path)) { console.error('b0.json not found'); process.exit(1) }
 if (!existsSync(backup)) writeFileSync(backup, readFileSync(path))
-const orig = JSON.parse(readFileSync(backup, 'utf8'))
+
+// Southern link to b1: now spans the FULL width of the map's south edge --
+// not just a narrow corridor -- since the flat apron between the ring and
+// the edge is already open ground the whole way across; the ring's own
+// single gate is still the only way IN to the ráth itself, this just
+// widens where the b1 threshold crossing can happen along that apron.
+const doorTiles = Array.from({ length: W }, (_, x) => [x, H - 2])
+const openCols   = Array.from({ length: W }, (_, x) => x)
 
 const map = {
   name: 'village-rath-b0',
@@ -123,29 +137,29 @@ const map = {
   layers: [layer0, layer1],
   heightMap: hm,
   wallMask,
-  hasCliffs: true,
+  hasCliffs: false,
   legend: { 839: 'grass', 840: 'grass' },
   houses,
   features,
-  spawns:  orig.spawns  ?? { player: { x: 17, y: 30 } },
-  entries: orig.entries ?? { south: { x: 17, y: 32, yFromSource: false } },
-  exits:   orig.exits   ?? {},
-  border:  orig.border  ?? {},
+  spawns:  { player: { x: CX - 1, y: H - 6 } },
+  entries: { south: { x: CX - 1, y: H - 4, yFromSource: false } },
+  exits:   { south: { tiles: doorTiles, destination: 'b1', entryPoint: 'north' } },
+  border:  { openCols, openRows: [] },
 }
 writeFileSync(path, JSON.stringify(map))
 
 // ── Report ───────────────────────────────────────────────────────────────────
 console.log(`b0: ráth generated | ${posts} palisade posts | ${houses.length} house sites | ${features.length} features | links preserved (${Object.keys(map.exits).join('/') || 'none'})`)
 
-// Gate-line height profile (col x=18, walking north from the south edge):
+// Gate-line height profile (col x=CX, walking north from the south edge):
 const tileH = (x, y) => (hm[y][x] + hm[y][x + 1] + hm[y + 1][x] + hm[y + 1][x + 1]) / 4
 let profile = []
 let maxStep = 0
-for (let y = H - 2; y >= 8; y--) {
-  profile.push(tileH(18, y).toFixed(2))
-  if (y < H - 2) maxStep = Math.max(maxStep, Math.abs(tileH(18, y) - tileH(18, y + 1)))
+for (let y = H - 2; y >= CY; y--) {
+  profile.push(tileH(CX, y).toFixed(2))
+  if (y < H - 2) maxStep = Math.max(maxStep, Math.abs(tileH(CX, y) - tileH(CX, y + 1)))
 }
-console.log('gate approach profile (x=18, south->north):', profile.join(' '))
+console.log(`gate approach profile (x=${CX}, south->north):`, profile.join(' '))
 console.log(`max step on approach: ${maxStep.toFixed(2)} tiles ${maxStep < 0.8 ? '✓ comfortable' : '⚠ steep -- widen GATE_HALF_DEG'}`)
 
 // ASCII: # post, h house site, f feature, E exit, . ground, = ditch, ^ bank

@@ -85,13 +85,46 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
     const distToHorizonPx = Math.max(0, yBotClamped - horizonPx)
     const t = Math.min(1, distToHorizonPx / fadeBandPx)   // 0 = at the horizon line, 1 = fadeBandPx+ away from it
 
+    const scaleNear = pgr._scaleAtRow(tileRow + 1)
+    const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : neighborW
+    const colStart  = Math.floor(camCol - halfCols) - pgr.constructor.EDGE_EXTEND
+    const colEnd    = Math.ceil(camCol + halfCols)  + pgr.constructor.EDGE_EXTEND
+
+    // A tall feature (the ráth's hill, say) can sit at a world row that's
+    // technically very deep in preview territory -- its OWN row is far
+    // from the current map's edge in the neighbour's local coordinates,
+    // even though the height-offset above makes it rise up and read as
+    // large/near on screen. Distance-based t/hazeT alone doesn't know
+    // that: it was tuned for the flat-fields fallback, where nothing
+    // ever had real elevation, so nothing ever needed this.
+    //
+    // Sample several columns across this row's ACTUAL visible span (not
+    // just one guessed point at camCol) and take the tallest -- a single
+    // sample at camCol landed whatever column of the CURRENT map's
+    // camera happened to mirror into the neighbour's width, which has no
+    // reason to be anywhere near the neighbour's own tallest feature
+    // (b0's hill peaks at x=28 of 56; b1's camera column doesn't know or
+    // care about that). Missing the peak meant almost no height boost,
+    // so the fade stayed glassy even with the floor logic in place.
+    let _rowHeight = 0
+    if (nb.heightMap) {
+      const SAMPLES = 9
+      for (let s = 0; s <= SAMPLES; s++) {
+        const sampleCol = Math.round(colStart + (colEnd - colStart) * (s / SAMPLES))
+        const mSample   = mirrorIndex(sampleCol + (nb.columnOffset ?? 0), neighborW)
+        const h = neighborVertexH(pgr, mSample, localRow)
+        if (h > _rowHeight) _rowHeight = h
+      }
+    }
+    const _heightBoost = Math.max(0, Math.min(1, _rowHeight / 2.0))
+
     // hazeT: strong atmospheric wash right at the horizon, fading out as
-    // the row's screen position moves away from it.
-    const hazeT = Math.pow(1 - t, 1.3)
+    // the row's screen position moves away from it -- dampened for tall
+    // terrain, which shouldn't wash out just because it's nominally distant.
+    const hazeT = Math.pow(1 - t, 1.3) * (1 - _heightBoost * 0.9)
     // edgeAlpha: fully transparent exactly at the horizon, opaque once
-    // far enough from it -- no depth-based cutoff any more, this alone
-    // governs visibility.
-    const edgeAlpha = Math.pow(t, 0.8)
+    // far enough from it, floored upward for real elevation.
+    const edgeAlpha = Math.max(Math.pow(t, 0.8), _heightBoost * 0.9)
     if (edgeAlpha <= 0.01) return
 
     // Outer safety bound only -- caps how many world-rows ever get
@@ -99,10 +132,6 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
     // plays out. Not itself responsible for the visual fade any more.
     if (Math.abs(tileRow) > pgr.constructor.NORTH_PREVIEW_DEPTH) return
 
-    const scaleNear = pgr._scaleAtRow(tileRow + 1)
-    const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : neighborW
-    const colStart  = Math.floor(camCol - halfCols) - pgr.constructor.EDGE_EXTEND
-    const colEnd    = Math.ceil(camCol + halfCols)  + pgr.constructor.EDGE_EXTEND
 
     // LOD -- see LOD_MIN_ROW_PX. The preview lives entirely in the
     // horizon band, so in practice almost all of it qualifies: the haze
@@ -123,7 +152,7 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
       // perspective widens near the horizon, and a straight `continue`
       // left the exact same kind of gap here that fix solved for the
       // main map's own rows.
-      const mCol = mirrorIndex(tileCol, neighborW)
+      const mCol = mirrorIndex(tileCol + (nb.columnOffset ?? 0), neighborW)
 
       const xTL = pgr._colToScreenX(tileCol,     tileRow)
       const xTR = pgr._colToScreenX(tileCol + 1, tileRow)
@@ -145,11 +174,13 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
       const xBR = pgr._colToScreenX(tileCol + 1, tileRow + 1)
 
       let tint0
-      if (nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)) {
-        const h00 = neighborVertexH(pgr, mCol,     localRow)
-        const h10 = neighborVertexH(pgr, mCol + 1, localRow)
-        const h01 = neighborVertexH(pgr, mCol,     localRow + 1)
-        const h11 = neighborVertexH(pgr, mCol + 1, localRow + 1)
+      let h00 = 0, h10 = 0, h01 = 0, h11 = 0
+      const isGroundGid = nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)
+      if (isGroundGid) {
+        h00 = neighborVertexH(pgr, mCol,     localRow)
+        h10 = neighborVertexH(pgr, mCol + 1, localRow)
+        h01 = neighborVertexH(pgr, mCol,     localRow + 1)
+        h11 = neighborVertexH(pgr, mCol + 1, localRow + 1)
         const pd0 = nb.pathDist?.[localRow]?.[mCol] ?? null
         tint0 = pgr.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0)
       } else {
@@ -173,8 +204,18 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
         alpha: Math.min(0.95, (tint0.alpha ?? 0.5) + hazeT * 0.4),
       }
 
-      const _nTL = { x: xTL, y: yTopClamped }, _nTR = { x: xTR, y: yTopClamped }
-      const _nBL = { x: xBL, y: yBotClamped }, _nBR = { x: xBR, y: yBotClamped }
+      // Raise each corner by its own real height, same technique (and
+      // same per-row scale source) the main per-row loop already uses
+      // for the CURRENT map's own hills (see the _yTL/_yTR/_yBL/_yBR
+      // lines in the main loop above) -- height was only ever feeding
+      // the tint here before, so a tall hill could never actually rise
+      // above the horizon; it just read as flat, differently-shaded
+      // ground fading into the haze.
+      const sTop = pgr._scaleAtRow(tileRow), sBot = pgr._scaleAtRow(tileRow + 1)
+      const _nTL = { x: xTL, y: yTopClamped - h00 * sTop }
+      const _nTR = { x: xTR, y: yTopClamped - h10 * sTop }
+      const _nBL = { x: xBL, y: yBotClamped - h01 * sBot }
+      const _nBR = { x: xBR, y: yBotClamped - h11 * sBot }
       pgr._gCtx.globalAlpha = edgeAlpha
       if (!lodRow || !pgr._lodFillQuad(pgr._gCtx, gid0, hazedTint, edgeAlpha, _nTL, _nTR, _nBL, _nBR)) {
         pgr._drawTrapezoidTinted(pgr._gCtx, gid0, _nTL, _nTR, _nBL, _nBR, hazedTint)
@@ -188,5 +229,65 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
         pgr._forestEffects.drawTrunk(pgr._gCtx, trunk, this, playerTileRow, edgeAlpha)
       }
     }
+
+    // Building silhouettes -- not the real per-facet RoundhouseRenderer
+    // treatment (not worth the compute at this distance, and it needs a
+    // live PGR of the neighbour's OWN scene to project against, which
+    // doesn't exist here), just a simple flat triangle anchored to each
+    // house's own (x,y), on whichever world row that falls on. Same
+    // height/haze/alpha inputs as the ground this frame so they sit on
+    // the slope and fade into the distance consistently with everything
+    // else in the preview, rather than floating or looking pasted-on.
+    if (nb.houses?.length) {
+      for (const house of nb.houses) {
+        if (Math.round(house.y) - neighborH !== tileRow) continue
+        drawNorthPreviewBuilding(pgr, house, tileRow, localRow, yBotClamped, edgeAlpha, hazeT, nb.columnOffset ?? 0)
+      }
+    }
   }
+
+  const HOUSE_BASE_COLOR    = { h: 32, s: 30, l: 32 }
+  const LONGHALL_BASE_COLOR = { h: 28, s: 34, l: 26 }
+
+  // Anchored to the house's own world row (see the call site above), so
+  // this only ever runs once per house per frame -- no need for its own
+  // onscreen/culling check beyond the row match already done there.
+  function drawNorthPreviewBuilding(pgr, house, tileRow, localRow, yBotClamped, edgeAlpha, hazeT, columnOffset) {
+    const isLonghall = house.kind === 'longhall'
+    const footR = isLonghall ? Math.max(house.w || 6, house.d || 3) / 2 : (house.r || 2)
+    const roofH = isLonghall ? 4.2 : 3.2
+
+    const scale = pgr._scaleAtRow(tileRow)
+    // house.x is in the NEIGHBOUR's own coordinate space -- correct as-is
+    // for sampling the neighbour's OWN heightmap, but needs columnOffset
+    // subtracted before it's usable as a screen-projection column in
+    // THIS map's space (see the fetch-time comment on columnOffset).
+    const h = neighborVertexH(pgr, Math.round(house.x), localRow)
+    const baseY = yBotClamped - h * scale
+
+    const drawX  = house.x - columnOffset
+    const xCenter = pgr._colToScreenX(drawX, tileRow)
+    const xLeft   = pgr._colToScreenX(drawX - footR, tileRow)
+    const xRight  = pgr._colToScreenX(drawX + footR, tileRow)
+    const peakY   = baseY - roofH * scale
+
+    const base = isLonghall ? LONGHALL_BASE_COLOR : HOUSE_BASE_COLOR
+    const HAZE_H = pgr.constructor.NORTH_HAZE_H
+    const HAZE_S = pgr.constructor.NORTH_HAZE_S
+    const HAZE_L = pgr.constructor.NORTH_HAZE_L
+    const hh = base.h + (HAZE_H - base.h) * hazeT
+    const ss = base.s + (HAZE_S - base.s) * hazeT
+    const ll = base.l + (HAZE_L - base.l) * hazeT
+
+    pgr._gCtx.globalAlpha = edgeAlpha
+    pgr._gCtx.fillStyle = `hsl(${hh},${ss}%,${ll}%)`
+    pgr._gCtx.beginPath()
+    pgr._gCtx.moveTo(xCenter, peakY)
+    pgr._gCtx.lineTo(xLeft,  baseY)
+    pgr._gCtx.lineTo(xRight, baseY)
+    pgr._gCtx.closePath()
+    pgr._gCtx.fill()
+    pgr._gCtx.globalAlpha = 1.0
+  }
+
 

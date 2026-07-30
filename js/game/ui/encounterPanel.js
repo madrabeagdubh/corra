@@ -194,12 +194,20 @@ clearNotify() {
   // -- Fixed encounter -------------------------------------------------------
 
   _openFixedEncounter(zone) {
-    this._isOpen = true
+    this._isOpen     = true
+    this._choiceMade = false
     this._hideBadge()
 
     if (this._scene.textPanel?.isVisible) this._scene.textPanel.hide()
     if (this._scene.joystick) this._scene.joystick.reset()
     if (this._scene.player)   this._scene.player.isMoving = false
+
+    // Conversation mode: the d-pad goes away for the duration. Its buttons
+    // sit directly under the card and a mistap walks the player off across
+    // the map mid-sentence. The moon hub stays -- it is the translation
+    // control, and the card is now drawn around it. Same treatment the
+    // harp overlay uses.
+    this._scene.joystick?.hideDirections?.()
 
     const stateKey  = zone.getData('stateKey')
     const dialogues = zone.getData('dialogues') || []
@@ -216,30 +224,99 @@ clearNotify() {
     }
     if (!chosen) { this._onPanelClosed(); return }
 
+    this._showDialogue(chosen, chosenIdx, stateKey, total, zone)
+  }
+
+  /**
+   * Render one dialogue node.
+   *
+   *   { ga, en,
+   *     requires: { note, noteAbsent, quest, questActive, questComplete, questAbsent },
+   *     note, setQuest, completeQuest,     -- effects, applied when the line shows
+   *     hold: true,                        -- stay on this line, do not advance
+   *     options: [ { ga, en, requires, note, setQuest, completeQuest,
+   *                  replyGa, replyEn, hold } ] }
+   */
+  _showDialogue(d, idx, stateKey, total, zone) {
     const bgKey      = this._resolveBgKey()
     const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
 
+    this._applyEffects(d)
+
+    const opts = Array.isArray(d.options)
+      ? d.options.filter(o => this._requiresMet(o.requires))
+      : []
+
+    if (opts.length) {
+      this._scene.textPanel.show({
+        irish:   d.ga || d.irish   || '',
+        english: d.en || d.english || '',
+        type:    'encounter_card',
+        bgKey,
+        graphicKey,
+        options: opts.map(o => ({ ga: o.ga || '', en: o.en || '' })),
+        onChoice: (i) => {
+          this._choiceMade = true
+          SoundBoard.playWeb('ENCOUNTER_CHOICE')
+          this._resolveOption(opts[i], d, idx, stateKey, total, zone)
+        },
+        onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
+      })
+      return
+    }
+
     this._scene.textPanel.show({
-      irish:    chosen.ga || chosen.irish   || '',
-      english:  chosen.en || chosen.english || '',
-      type:     'encounter_card',
+      irish:   d.ga || d.irish   || '',
+      english: d.en || d.english || '',
+      type:    'encounter_card',
       bgKey,
       graphicKey,
-      options:  null,
+      options: null,
       onDismiss: () => {
-        const nextIdx = (chosenIdx + 1) % total
-        GameState.setNPCProgress(stateKey, nextIdx)
+        if (!d.hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
         this._onPanelClosed()
       }
     })
   }
 
+  _resolveOption(opt, d, idx, stateKey, total, zone) {
+    this._applyEffects(opt)
+
+    const hold = (opt.hold !== undefined) ? opt.hold : d.hold
+    if (!hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
+
+    if (opt.replyGa || opt.replyEn) {
+      this._chainShow({
+        irish:      opt.replyGa || '',
+        english:    opt.replyEn || '',
+        type:       'encounter_card',
+        bgKey:      this._resolveBgKey(),
+        graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+        options:    null,
+        onDismiss:  () => this._onPanelClosed(),
+      })
+    } else {
+      this._onPanelClosed()
+    }
+  }
+
+  /** Side effects declared on a dialogue node, option, or outcome. Idempotent. */
+  _applyEffects(src) {
+    if (!src) return
+    if (src.note)          GameState.addNote(src.note)
+    if (src.setQuest)      GameState.setQuest(src.setQuest, 'active')
+    if (src.completeQuest) GameState.setQuest(src.completeQuest, 'complete')
+  }
+
   _requiresMet(requires) {
     if (!requires) return true
     if (requires.note          && !GameState.hasNote(requires.note))                  return false
+    if (requires.noteAbsent    &&  GameState.hasNote(requires.noteAbsent))            return false
     if (requires.quest         && !GameState.isQuestActive(requires.quest)
                                && !GameState.isQuestComplete(requires.quest))         return false
+    if (requires.questActive   && !GameState.isQuestActive(requires.questActive))     return false
     if (requires.questComplete && !GameState.isQuestComplete(requires.questComplete)) return false
+    if (requires.questAbsent   &&  GameState.getQuest(requires.questAbsent) !== 'inactive') return false
     return true
   }
 
@@ -320,6 +397,8 @@ clearNotify() {
 
   _resolveAction(action) {
     const outcome = action?.outcome
+    this._applyEffects(action)
+    this._applyEffects(outcome)
     if (!outcome) { this._finalDismiss(); return }
 
     const card       = this._card
@@ -394,6 +473,10 @@ clearNotify() {
 
   _onPanelClosed() {
     if (this._chainTimer) { clearTimeout(this._chainTimer); this._chainTimer = null }
+    // End of the exchange: give the d-pad back and let the card's persistent
+    // background fade out (it is deliberately kept alive between choices).
+    this._scene?.joystick?.showDirections?.()
+    this._scene?.textPanel?.releaseChrome?.()
     this._isOpen     = false
     this._choiceMade = false
     this._card       = null

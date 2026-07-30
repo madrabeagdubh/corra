@@ -1466,9 +1466,24 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
               if (!proj) continue
               const canvas = this._getTileCanvas(flag.visual.gid)
               if (canvas) {
+                // Terrain lift. perspectiveProject() is purely row/col --
+                // it knows nothing about the heightMap -- so without this a
+                // billboard on high ground is drawn at the sea-level screen
+                // position for its row, which on a headland puts the figure
+                // partway down the cliff face instead of on the crest. Same
+                // correction the player sprite already gets above
+                // (_playerTerrainLift): sample the two SOUTH-edge vertices,
+                // because the billboard's foot sits on the tile's south edge,
+                // and scale by that row's pixels-per-tile.
+                const _fGid = this.scene.mapData?.layers?.[0]?.[flag.tileY]?.[flag.tileX] ?? 0
+                const _fWet = _fGid === 1625 || _fGid === 1679 || _fGid === 731
+                const _fH   = _fWet ? 0
+                  : (this._vertexH(flag.tileX, flag.tileY + 1)
+                   + this._vertexH(flag.tileX + 1, flag.tileY + 1)) * 0.5
+                const _fLift = _fH * this._scaleAtRow(flag.tileY + 1)
                 this._oCtx.globalAlpha = tileAlpha
                 this._drawBillboard(this._oCtx, canvas,
-                  proj.screenX, proj.screenY,
+                  proj.screenX, proj.screenY - _fLift,
                   proj.scale * this.tileDisplaySize, 1.2)
                 this._oCtx.globalAlpha = 1.0
               }

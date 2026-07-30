@@ -1,9 +1,20 @@
 import RiverScene from '../riverScene.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
+// Synthetic GID for Muireann's sprite -- see registerCustomTile() in create().
+// Keep in sync with visual.gid in public/data/bog/d3Sea.js.
+const MUIREANN_GID = 9101
+
 export default class BogD3Sea extends RiverScene {
 
   constructor() { super({ key: 'd3_sea' }) }
+
+  // The estuary is the first thing a new player sees, and it is a boat map:
+  // scattered chest/fire/bush/book cards from the shared forest deck read as
+  // debris here and compete with Muireann for attention. Suppressing the deck
+  // entirely leaves her as the only interactable on the map. (Any layout
+  // already saved to GameState is simply never read -- harmless.)
+  _placeEncounterDeck() {}
 hasNorthFallback() { return false }
   usesSwallows()         { return false }
   getMapKey()              { return 'd3_sea' }
@@ -45,6 +56,16 @@ hasNorthFallback() { return false }
     // real cliff ended at the true edge and forced-water began right
     // beside it, breaking the illusion of one continuous shore).
     if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = new Set(['east', 'south'])
+
+    // Muireann's portrait. registerCustomTile() caches an arbitrary image
+    // under a synthetic GID, so one registration covers all three surfaces
+    // that resolve through _getTileCanvas(): the billboard on the headland,
+    // the badge on the moon, and the portrait on the encounter card.
+    // 9101 is far outside the Oryx tileset's real GID range, so it can
+    // never collide with a map tile.
+    if (this.perspectiveGround) {
+      this.perspectiveGround.registerCustomTile(MUIREANN_GID, '/assets/npcs/muireann.png')
+    }
     if (this.boatSystem) {
       this.boatSystem._triggerDisembark = () => {}
       this.boatSystem._reboard          = () => {}

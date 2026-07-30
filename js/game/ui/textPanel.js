@@ -46,6 +46,9 @@ const CARD_GRAPHIC_SIZE    = 96
 const CARD_GRAPHIC_TOP     = 18      // gap from card top to graphic
 const CARD_BODY_TOP_PAD    = 22      // gap below graphic
 const CARD_BODY_BOTTOM_PAD = 22      // gap above buttons
+const CARD_MOON_CLEARANCE  = 14      // gap between lowest button and moon hub
+const CARD_MOON_PAD        = 18      // card bottom edge, below the moon hub
+const CARD_EDGE_PAD        = 6       // never touch the screen edge
 const CARD_PADDING_X       = 24
 
 export default class TextPanel {
@@ -106,6 +109,13 @@ export default class TextPanel {
     this._onDown            = null
     this._onMove            = null
     this._onUp              = null
+
+    // Encounter-card chrome (background, overlay, border, portrait). Kept
+    // alive across successive show() calls within one conversation so the
+    // card does not blink out and back between choices -- only the body
+    // text and buttons are rebuilt. Released by releaseChrome().
+    this._chrome     = []
+    this._chromeGeom = null
   }
 
   // -- Public --
@@ -128,7 +138,9 @@ export default class TextPanel {
     if (id && this._cooldownId === id) return
     this._lastTriggerId = id
 
-    if (this.isVisible) this._destroyAll()
+    // Card-to-card within one conversation: keep the chrome, swap the body.
+    const _keepChrome = (type === 'encounter_card') && this._chrome.length > 0
+    if (this.isVisible) this._destroyAll(_keepChrome)
 
     this.onDismiss        = onDismiss
     this.isVisible        = true
@@ -149,10 +161,41 @@ export default class TextPanel {
       this._buildArcheryPrompt(irish, english, sw, sh)
     } else if (type === 'encounter_card') {
       this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh)
+      // Mid-conversation card swap: the chrome never moved, so fade the new
+      // words in rather than popping them. First card of an exchange is left
+      // alone -- the whole panel is arriving anyway.
+      if (_keepChrome) this._fadeInBody()
     }
   }
 
-  hide() {
+  /**
+   * Everything that is NOT persistent chrome: body text plus the option
+   * buttons' own game objects. createButton() hands back a plain handle
+   * ({ bg, text, ... }), not a GameObject, so its parts have to be pulled
+   * out by hand before a tween can touch them.
+   */
+  _bodyTargets() {
+    const btnParts = []
+    this._buttons.forEach(b => {
+      if (b?.bg?.active)   btnParts.push(b.bg)
+      if (b?.text?.active) btnParts.push(b.text)
+    })
+    return [...this._objects, ...btnParts]
+  }
+
+  _fadeInBody() {
+    const targets = this._bodyTargets()
+    if (!targets.length) return
+    // English keeps its own opacity from the moon slider -- capture each
+    // object's intended alpha first and tween back to that, not to 1.
+    const goals = targets.map(o => o.alpha)
+    targets.forEach(o => o.setAlpha(0))
+    targets.forEach((o, i) => {
+      this.scene.tweens.add({ targets: o, alpha: goals[i], duration: FADE_MS, ease: 'Linear' })
+    })
+  }
+
+  hide(keepChrome = false) {
     if (!this.isVisible || this.isFading) return
     this.isFading = true
     this._fadeStartTime = performance.now()
@@ -160,7 +203,9 @@ export default class TextPanel {
     this._unbindInput()
     this._startCooldown()
 
-    const targets = [...this._objects]
+    const targets = keepChrome
+      ? this._bodyTargets()
+      : [...this._bodyTargets(), ...this._chrome]
     if (targets.length) {
       this.scene.tweens.add({
         targets,
@@ -169,13 +214,13 @@ export default class TextPanel {
         ease: 'Linear',
         onComplete: () => {
           const cb = this.onDismiss
-          this._destroyAll()
+          this._destroyAll(keepChrome)
           if (cb) cb()
         }
       })
     } else {
       const cb = this.onDismiss
-      this._destroyAll()
+      this._destroyAll(keepChrome)
       if (cb) cb()
     }
   }
@@ -210,60 +255,104 @@ export default class TextPanel {
   // -- Encounter card layout --
 
   _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh) {
-    const panelW   = Math.round(sw * CARD_W_FRAC)
-    const panelH   = Math.round(sh * CARD_H_FRAC)
-    const panelX   = Math.round(sw / 2)
-    const panelTop = Math.round((sh - panelH) / 2)
-    const depth    = 2000
+    const panelW = Math.round(sw * CARD_W_FRAC)
+    const panelX = Math.round(sw / 2)
+    const depth  = 2000
+    const baseH  = Math.round(sh * CARD_H_FRAC)
+
+    // -- Geometry: absorb the moon hub ---------------------------------------
+    // The hub is the English-opacity control, so it must stay reachable while
+    // a card is open -- it cannot be hidden or moved out from under the
+    // player's thumb mid-conversation. Rather than dodge it, the card grows
+    // DOWN past it, so the hub reads as part of the panel's own design
+    // instead of straddling its bottom edge. Option buttons stack upward from
+    // just above the hub. Measured live off the DOM, since the hub scales
+    // with viewport. Frozen into _chromeGeom on the first card of an exchange
+    // so later cards line up exactly with the persistent background.
+    let panelTop  = Math.round((sh - baseH) / 2)
+    let panelH    = baseH
+    let btnBottom = panelTop + panelH - CARD_BODY_BOTTOM_PAD
+
+    if (this._chromeGeom) {
+      panelTop  = this._chromeGeom.panelTop
+      panelH    = this._chromeGeom.panelH
+      btnBottom = this._chromeGeom.btnBottom
+    } else {
+      const hubEl  = document.getElementById('dpad-moon-hub')
+      const canvas = this.scene.game?.canvas
+      if (hubEl && canvas) {
+        const cRect = canvas.getBoundingClientRect()
+        const hRect = hubEl.getBoundingClientRect()
+        if (cRect.height > 0 && hRect.height > 0) {
+          const scale     = sh / cRect.height          // CSS px -> game units
+          const hubTop    = (hRect.top    - cRect.top) * scale
+          const hubBottom = (hRect.bottom - cRect.top) * scale
+          const wantBot   = Math.min(sh - CARD_EDGE_PAD, hubBottom + CARD_MOON_PAD)
+          // Only grow, never shrink below a usable card.
+          if (wantBot > panelTop + baseH * 0.5) {
+            panelH    = Math.round(wantBot - panelTop)
+            btnBottom = Math.round(hubTop - CARD_MOON_CLEARANCE)
+          }
+        }
+      }
+      this._chromeGeom = { panelTop, panelH, btnBottom }
+    }
 
     this._bounds = { x: panelX - panelW/2, y: panelTop, w: panelW, h: panelH }
 
-    // -- Background: image if available, else solid fill --
-    if (bgKey && this.scene.textures.exists(bgKey)) {
-      const bgImg = this.scene.add.image(panelX, panelTop + panelH/2, bgKey)
-        .setDisplaySize(panelW, panelH)
-        .setScrollFactor(0)
-        .setDepth(depth)
-      this._objects.push(bgImg)
+    const hasGraphic = !!(graphicKey && this.scene.textures.exists(graphicKey))
 
-      // Subtle dark overlay so text remains readable on busy bg images
-      const overlay = this.scene.add.graphics().setDepth(depth + 1).setScrollFactor(0)
-      overlay.fillStyle(0x000000, 0.35)
-      overlay.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
-      this._objects.push(overlay)
-    } else {
-      const bg = this.scene.add.graphics().setDepth(depth).setScrollFactor(0)
-      bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
-      bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
-      this._objects.push(bg)
+    // -- Chrome: built once per conversation, then reused ---------------------
+    // Everything below goes into this._chrome rather than this._objects, so
+    // _destroyAll(true) leaves it standing between choices. The result is that
+    // only the words cross-fade; the card itself never blinks.
+    if (!this._chrome.length) {
+      if (bgKey && this.scene.textures.exists(bgKey)) {
+        const bgImg = this.scene.add.image(panelX, panelTop + panelH/2, bgKey)
+          .setDisplaySize(panelW, panelH)
+          .setScrollFactor(0)
+          .setDepth(depth)
+        this._chrome.push(bgImg)
+
+        // Subtle dark overlay so text remains readable on busy bg images
+        const overlay = this.scene.add.graphics().setDepth(depth + 1).setScrollFactor(0)
+        overlay.fillStyle(0x000000, 0.35)
+        overlay.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
+        this._chrome.push(overlay)
+      } else {
+        const bg = this.scene.add.graphics().setDepth(depth).setScrollFactor(0)
+        bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
+        bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
+        this._chrome.push(bg)
+      }
+
+      const border = this.scene.add.graphics().setDepth(depth + 2).setScrollFactor(0)
+      border.lineStyle(BUTTON.borderWidth, COLORS.buttonBorder, 0.85)
+      border.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
+      this._chrome.push(border)
+
+      if (hasGraphic) {
+        const gfx = this.scene.add.image(panelX, panelTop + CARD_GRAPHIC_TOP, graphicKey)
+          .setDisplaySize(CARD_GRAPHIC_SIZE, CARD_GRAPHIC_SIZE)
+          .setOrigin(0.5, 0)
+          .setScrollFactor(0)
+          .setDepth(depth + 3)
+        this._chrome.push(gfx)
+      }
     }
 
-    // -- Border on top of background --
-    const border = this.scene.add.graphics().setDepth(depth + 2).setScrollFactor(0)
-    border.lineStyle(BUTTON.borderWidth, COLORS.buttonBorder, 0.85)
-    border.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
-    this._objects.push(border)
-
-    // -- Graphic banner (top of card, inside panel) --
-    let bodyTop
-    if (graphicKey && this.scene.textures.exists(graphicKey)) {
-      const gfx = this.scene.add.image(panelX, panelTop + CARD_GRAPHIC_TOP, graphicKey)
-        .setDisplaySize(CARD_GRAPHIC_SIZE, CARD_GRAPHIC_SIZE)
-        .setOrigin(0.5, 0)
-        .setScrollFactor(0)
-        .setDepth(depth + 3)
-      this._objects.push(gfx)
-      bodyTop = panelTop + CARD_GRAPHIC_TOP + CARD_GRAPHIC_SIZE + CARD_BODY_TOP_PAD
-    } else {
-      bodyTop = panelTop + CARD_GRAPHIC_TOP + CARD_BODY_TOP_PAD
-    }
+    const bodyTop = hasGraphic
+      ? panelTop + CARD_GRAPHIC_TOP + CARD_GRAPHIC_SIZE + CARD_BODY_TOP_PAD
+      : panelTop + CARD_GRAPHIC_TOP + CARD_BODY_TOP_PAD
 
     // -- Calculate body region --
     const buttonCount  = options?.length || 0
     const buttonsBlock = buttonCount > 0
       ? buttonCount * BUTTON.height + (buttonCount - 1) * BUTTON.gap + CARD_BODY_BOTTOM_PAD
       : 0
-    const bodyBottom = panelTop + panelH - buttonsBlock - CARD_BODY_BOTTOM_PAD
+    // Measured up from btnBottom (just above the moon hub), not from the
+    // panel's true bottom edge -- the card now extends past the hub.
+    const bodyBottom = btnBottom - buttonsBlock - CARD_BODY_BOTTOM_PAD
     const bodyH      = Math.max(60, bodyBottom - bodyTop)
 
     // -- Mask for body region (clips scrolling text) --
@@ -342,7 +431,7 @@ export default class TextPanel {
 
       // Stack from bottom up
       const positions = []
-      let by = panelTop + panelH - CARD_BODY_BOTTOM_PAD - BUTTON.height/2
+      let by = btnBottom - BUTTON.height/2
       for (let i = options.length - 1; i >= 0; i--) {
         positions.unshift(by)
         by -= BUTTON.height + BUTTON.gap
@@ -358,7 +447,9 @@ export default class TextPanel {
           depth: depth + 5,
           opacity: GameSettings.englishOpacity,
           onTap: () => {
-            this.hide()
+            // keepChrome: the reply card (or the next node) reuses this
+            // background, so only the body fades.
+            this.hide(true)
             this.scene.time.delayedCall(60, () => {
               if (onChoice) onChoice(i, opt)
             })
@@ -857,7 +948,31 @@ if (this.currentPanelType === 'encounter_card') {
 
   // -- Cleanup --
 
-  _destroyAll() {
+  /**
+   * Fade out and drop the persistent encounter-card chrome. Called by
+   * EncounterPanel._onPanelClosed() -- i.e. once per conversation, not
+   * once per card. Safe to call when there is no chrome.
+   */
+  releaseChrome() {
+    if (!this._chrome.length) { this._chromeGeom = null; return }
+    const targets = [...this._chrome]
+    this._chrome     = []
+    this._chromeGeom = null
+    this.scene.tweens.add({
+      targets,
+      alpha: 0,
+      duration: FADE_MS,
+      ease: 'Linear',
+      onComplete: () => targets.forEach(o => { if (o?.active) o.destroy() }),
+    })
+  }
+
+  _destroyAll(keepChrome = false) {
+    if (!keepChrome) {
+      this._chrome.forEach(o => { if (o?.active) o.destroy() })
+      this._chrome     = []
+      this._chromeGeom = null
+    }
     this._stopScroll()
     this._unbindInput()
     if (this._maskGfx) { this._maskGfx.destroy(); this._maskGfx = null }

@@ -63,6 +63,10 @@ export default class BogB0 extends BogLocationScene {
   // wiring got both of those wrong.
   onEnter() {
     super.onEnter?.()
+    // Arriving at the rath completes Muireann's errand (q_baile, given on
+    // the headland in d3_sea). Completion is on arrival, not on talking to
+    // anyone -- the reward is that she has new things to say next time.
+    if (GameState.isQuestActive('q_baile')) GameState.setQuest('q_baile', 'complete')
     this.roundhouses = new RoundhouseRenderer(this.mapData.houses || [])
     this.perspectiveGround.setStructures(this.roundhouses)
   }

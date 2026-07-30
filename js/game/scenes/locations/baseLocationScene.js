@@ -448,7 +448,10 @@ if (!this._noDisembarkUI && this.player?.inBoat && this.boatSystem?.active) {
       const objX = obj.getData('logicalX') ?? obj.x;
       const objY = obj.getData('logicalY') ?? obj.y;
       const dist = Phaser.Math.Distance.Between(playerX, playerY, objX, objY);
-      if (dist < FLAG_RADIUS && dist < nearestDist) {
+      // Per-object hail radius (obj.radius, in tiles) -- lets a figure on a
+      // clifftop be hailed from the water without the player landing.
+      const reach = obj.getData('radius') || FLAG_RADIUS;
+      if (dist < reach && dist < nearestDist) {
         nearestDist = dist;
         nearestFlag = obj;
       }

@@ -595,19 +595,25 @@ if (this._root.style.opacity === '0') {
     if (this._base) this._base.style.opacity = '1'
   }
 
+  // All 8 hit areas, not just the 4 cardinals: buttons 4-7 are the
+  // invisible diagonals, and leaving their pointerEvents live meant a tap
+  // aimed at a dialogue button could still walk the player across the map.
+  // The base ring goes too, so the moon is left alone in its hub.
   hideDirections() {
-    // Hide the 4 cardinal buttons (first 4 in _buttons)
-    this._buttons.slice(0, 4).forEach(btn => {
+    this._buttons.forEach(btn => {
       btn.style.opacity = '0'
       btn.style.pointerEvents = 'none'
     })
+    this.hideRing?.()
+    this.reset?.()
   }
 
   showDirections() {
-    this._buttons.slice(0, 4).forEach(btn => {
-      btn.style.opacity = '1'
+    this._buttons.forEach((btn, i) => {
+      btn.style.opacity = (i < 4) ? '1' : '0'   // diagonals stay invisible
       btn.style.pointerEvents = 'all'
     })
+    this.showRing?.()
   }
 
   destroy() {

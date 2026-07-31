@@ -35,6 +35,12 @@ const CHAIN_BUFFER_MS = 60
 
 const CARD_BG_KEY = 'encounterPanelBG'
 
+// Appended to any options list that doesn't declare its own exit, so a
+// conversation that loops can always be left. Override per node by marking
+// one of the node's own options `exit: true` (with whatever wording suits
+// the speaker -- 'Slán agat.', 'Fágfaidh mé thú.', etc.)
+const DEFAULT_EXIT_OPTION = { ga: 'Slán.', en: 'Goodbye.', exit: true }
+
 export class EncounterPanel {
 
   constructor(scene, moonWidget) {
@@ -235,17 +241,22 @@ clearNotify() {
    *     note, setQuest, completeQuest,     -- effects, applied when the line shows
    *     hold: true,                        -- stay on this line, do not advance
    *     options: [ { ga, en, requires, note, setQuest, completeQuest,
-   *                  replyGa, replyEn, hold } ] }
+   *                  replyGa, replyEn, hold, exit } ] }
    */
   _showDialogue(d, idx, stateKey, total, zone) {
     const bgKey      = this._resolveBgKey()
     const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
 
     this._applyEffects(d)
+    this._choiceMade = false
 
     const opts = Array.isArray(d.options)
       ? d.options.filter(o => this._requiresMet(o.requires))
       : []
+
+    // A node with questions loops back to itself after each answer, so it
+    // needs a way out. If the content didn't provide one, add it.
+    if (opts.length && !opts.some(o => o.exit)) opts.push(DEFAULT_EXIT_OPTION)
 
     if (opts.length) {
       this._scene.textPanel.show({
@@ -285,6 +296,17 @@ clearNotify() {
     const hold = (opt.hold !== undefined) ? opt.hold : d.hold
     if (!hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
 
+    // Where the reply's dismissal leads. An explicit exit ends the exchange;
+    // anything else returns to the question list. Note this re-runs node
+    // selection rather than re-showing the same node object: if this option
+    // advanced npcProgress, or set a quest that opens a `requires` gate, the
+    // player comes back to the NEXT node's questions without the panel ever
+    // closing. That is what makes a chain of questions feel like one
+    // conversation instead of several.
+    const after = opt.exit
+      ? () => this._onPanelClosed()
+      : () => this._reopenDialogue(zone)
+
     if (opt.replyGa || opt.replyEn) {
       this._chainShow({
         irish:      opt.replyGa || '',
@@ -293,11 +315,41 @@ clearNotify() {
         bgKey:      this._resolveBgKey(),
         graphicKey: this._resolveGraphicKey(zone.getData('visual')),
         options:    null,
-        onDismiss:  () => this._onPanelClosed(),
+        // Unless this option ends the exchange, the reply is a step on the
+        // way back to the question list -- so its dismissal must not take
+        // the card's background with it.
+        keepChromeOnHide: !opt.exit,
+        onDismiss:  after,
       })
     } else {
-      this._onPanelClosed()
+      after()
     }
+  }
+
+  /**
+   * Re-resolve and re-show whichever dialogue node currently applies, without
+   * closing the panel. The card chrome is still standing (TextPanel keeps it
+   * alive across an exchange), so this reads as the same conversation
+   * continuing, not a new one starting.
+   */
+  _reopenDialogue(zone) {
+    if (!this._isOpen) return
+
+    const stateKey  = zone.getData('stateKey')
+    const dialogues = zone.getData('dialogues') || []
+    if (!dialogues.length) { this._onPanelClosed(); return }
+
+    const baseIndex = GameState.getNPCProgress(stateKey)
+    const total     = dialogues.length
+
+    for (let i = 0; i < total; i++) {
+      const idx = (baseIndex + i) % total
+      if (this._requiresMet(dialogues[idx].requires)) {
+        this._showDialogue(dialogues[idx], idx, stateKey, total, zone)
+        return
+      }
+    }
+    this._onPanelClosed()
   }
 
   /** Side effects declared on a dialogue node, option, or outcome. Idempotent. */

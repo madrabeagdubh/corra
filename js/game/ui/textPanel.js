@@ -49,6 +49,7 @@ const CARD_BODY_BOTTOM_PAD = 22      // gap above buttons
 const CARD_MOON_CLEARANCE  = 14      // gap between lowest button and moon hub
 const CARD_MOON_PAD        = 18      // card bottom edge, below the moon hub
 const CARD_EDGE_PAD        = 6       // never touch the screen edge
+const CARD_TOP_FRAC        = 0.03    // card top edge, as a fraction of screen height
 const CARD_PADDING_X       = 24
 
 export default class TextPanel {
@@ -133,6 +134,10 @@ export default class TextPanel {
       // Encounter card extras:
       bgKey     = null,         // Phaser texture key for background image
       graphicKey= null,         // Phaser texture key for graphic banner
+      // True when this card is a step inside an ongoing exchange rather than
+      // the end of one: dismissing it by gesture should leave the chrome
+      // standing for whatever comes next, not tear the panel down.
+      keepChromeOnHide = false,
     } = config
 
     if (id && this._cooldownId === id) return
@@ -142,7 +147,8 @@ export default class TextPanel {
     const _keepChrome = (type === 'encounter_card') && this._chrome.length > 0
     if (this.isVisible) this._destroyAll(_keepChrome)
 
-    this.onDismiss        = onDismiss
+    this.onDismiss          = onDismiss
+    this._keepChromeOnHide  = keepChromeOnHide
     this.isVisible        = true
     this.isFading         = false
     this.currentPanelType = type
@@ -290,6 +296,13 @@ export default class TextPanel {
           const wantBot   = Math.min(sh - CARD_EDGE_PAD, hubBottom + CARD_MOON_PAD)
           // Only grow, never shrink below a usable card.
           if (wantBot > panelTop + baseH * 0.5) {
+            // Reclaim the top of the screen as well as the bottom. The card
+            // was still being centred on its ORIGINAL height while extending
+            // down past the hub, so it sat low with a dead band above it --
+            // and with four options that band was being paid for out of the
+            // body's text room. Order matters: panelTop moves first, then
+            // panelH is measured from it.
+            panelTop  = Math.round(sh * CARD_TOP_FRAC)
             panelH    = Math.round(wantBot - panelTop)
             btnBottom = Math.round(hubTop - CARD_MOON_CLEARANCE)
           }
@@ -766,7 +779,9 @@ if (this.currentPanelType === 'encounter_card') {
   const hasButtons     = this._buttons.length > 0
   const fullyScrolled  = this._maxScroll <= 0 || this._scrollY >= this._maxScroll
   if (!hasButtons && savedVel < -DISMISS_VEL && fullyScrolled) {
-    this.hide()
+    // This is how a reply card gets dismissed. If the conversation loops
+    // back afterwards, keep the background alive so only the text swaps.
+    this.hide(this._keepChromeOnHide)
     return
   }
   // Feed swipe velocity into the scroll tick for momentum
@@ -968,6 +983,7 @@ if (this.currentPanelType === 'encounter_card') {
   }
 
   _destroyAll(keepChrome = false) {
+    this._keepChromeOnHide = false
     if (!keepChrome) {
       this._chrome.forEach(o => { if (o?.active) o.destroy() })
       this._chrome     = []

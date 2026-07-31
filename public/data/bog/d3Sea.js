@@ -24,14 +24,19 @@ export const d3SeaContent = {
   fixedEncounters: [
     {
       id: 'muireann',
-      // North headland: the SE tip of the high ground, grass at h~1.44, with
-      // waterside (731) immediately east at (14,2) -- so she looks straight
-      // down on the channel the player rows in along. One row in from the
-      // map edge to stay clear of the border/north-preview machinery.
-      x: 13, y: 1,
-      // Hailed from the water: 6 tiles, not the default 1. The player is
-      // in the boat and should never have to land to talk to her.
-      radius: 6,
+      // The summit of the north promontory: heightMap 1.615, the highest
+      // grass on the map (only the waterside tile at 19,0 is fractionally
+      // higher). Her billboard draws on PGR's object canvas, which sits above
+      // the ground canvas, so she was never occluded by the cliff -- she just
+      // projected to a screen position inside the grey face. Standing at the
+      // true summit puts her against the sky instead.
+      // d3Sea sets hasNorthFallback() false, so row 0 has no preview geometry
+      // to collide with.
+      x: 17, y: 0,
+      // Hailed from the water: 8 tiles, not the default 1. The player is in
+      // the boat and should never have to land to talk to her; the summit is
+      // further back from the channel than the crest was.
+      radius: 8,
       // GID 9101 is registered to /assets/muireann.png by d3Sea.js's create()
       // via perspectiveGround.registerCustomTile(). Keep the two in sync.
       visual: { gid: 9101, flat: false },
@@ -45,6 +50,9 @@ export const d3SeaContent = {
           note: 'met_muireann',
           ga: 'Hóra thíos! Ag rámhaíocht atá tú? Is fada ó chonaic mé bád ag teacht aníos an inbhear.',
           en: 'Hey down there! Is it rowing you are? It is long since I saw a boat coming up the estuary.',
+          // No option here is marked `exit`, so EncounterPanel appends a
+          // default "Slán." button. Mark one of your own `exit: true` if you
+          // want different wording.
           options: [
             {
               ga: 'Cé tú féin?',
@@ -91,7 +99,7 @@ export const d3SeaContent = {
               replyGa: 'Cormac an seanóir, agus Mór ag an teach óil. Abair leo gur mise a chuir ann thú.',
               replyEn: 'Cormac the elder, and Mór at the alehouse. Tell them it was I who sent you.',
             },
-            { ga: 'Slán agat.', en: 'Goodbye.' },
+            { ga: 'Slán agat.', en: 'Goodbye.', exit: true },
           ],
         },
 

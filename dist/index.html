@@ -74,10 +74,71 @@
       50% { opacity: 1; }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-CHzaTV6J.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-1aLypQCM.css">
+  <script type="module" crossorigin src="./assets/index-C2Mjpf_Z.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-B0cvaC-p.css">
 </head>
 <body>
+
+
+
+
+
+
+<!-- Paste this into index.html, immediately after the opening <body> tag.
+     It must come BEFORE the game's own <script> so it is listening early.
+
+     Prints any uncaught error and its full stack to the screen, because
+     there are no devtools on the target device. Remove it once the bug
+     is found. -->
+
+<div id="crash-overlay" style="
+  display:none; position:fixed; inset:0; z-index:99999;
+  background:rgba(0,0,0,.94); color:#ffb4b4;
+  font:12px/1.45 monospace; padding:14px;
+  overflow:auto; white-space:pre-wrap; word-break:break-word;
+"></div>
+
+<script>
+(function () {
+  var box = document.getElementById('crash-overlay');
+  var shown = 0;
+
+  function dump(title, err) {
+    if (shown++ > 6) return;                 // don't drown in repeats
+    var stack = (err && err.stack) || String(err);
+    box.style.display = 'block';
+    box.textContent += '=== ' + title + ' ===\n' + stack + '\n\n';
+    // Also log it, in case a remote console is attached after all.
+    console.error(title, err);
+  }
+
+  // Uncaught synchronous errors.
+  window.addEventListener('error', function (e) {
+    dump(e.message || 'error', e.error || (e.filename + ':' + e.lineno + ':' + e.colno));
+  });
+
+  // Rejected promises -- Phaser scene create() is async here, so a throw
+  // inside it surfaces as an unhandled rejection rather than an error event.
+  window.addEventListener('unhandledrejection', function (e) {
+    dump('unhandled rejection', e.reason);
+  });
+
+  // Tap the overlay to dismiss and keep playing.
+  box.addEventListener('click', function () {
+    box.style.display = 'none';
+    box.textContent = '';
+    shown = 0;
+  });
+})();
+</script>
+
+
+
+
+
+
+
+
 
 
 	<div style="font-family: 'Aonchlo'; visibility: hidden; position: absolute;">

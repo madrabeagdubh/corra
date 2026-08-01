@@ -226,7 +226,10 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
     if (pgr._forestEffects) {
       const rowTrunks = pgr._forestEffects.getNorthPreviewTrunksForRow(tileRow)
       for (const trunk of rowTrunks) {
-        pgr._forestEffects.drawTrunk(pgr._gCtx, trunk, this, playerTileRow, edgeAlpha)
+        // `pgr`, not `this` -- this module is plain exported functions, so
+        // `this` is undefined here (ES module strict mode) and drawTrunk()
+        // needs the PGR instance to project rows to screen space.
+        pgr._forestEffects.drawTrunk(pgr._gCtx, trunk, pgr, playerTileRow, edgeAlpha)
       }
     }
 

@@ -860,6 +860,11 @@ export default class ForestEffects {
    * Returns null if the trunk is off-screen or the row can't be projected.
    */
   _computeTrunkAnchor(trunk, pgr) {
+    // A missing pgr should not take the whole render loop down -- the
+    // existing ?. calls below guard the CALLS but not the property reads,
+    // so an undefined pgr still threw. One frame of missing trunks is a
+    // far better failure than a dead scene.
+    if (!pgr || !trunk) return null
     const anchorRow = trunk.ty + ForestEffects.TRUNK_ROW_ANCHOR_OFFSET
 
     const baseScreenY = pgr._rowToScreenY?.(anchorRow)

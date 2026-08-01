@@ -138,6 +138,10 @@ export default class TextPanel {
       // the end of one: dismissing it by gesture should leave the chrome
       // standing for whatever comes next, not tear the panel down.
       keepChromeOnHide = false,
+      // What the player's character just said, shown above the NPC's line
+      // in the speaker colour. Short buttons, long spoken lines.
+      heroGa    = '',
+      heroEn    = '',
     } = config
 
     if (id && this._cooldownId === id) return
@@ -166,7 +170,7 @@ export default class TextPanel {
     } else if (type === 'archery_prompt') {
       this._buildArcheryPrompt(irish, english, sw, sh)
     } else if (type === 'encounter_card') {
-      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh)
+      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn)
       // Mid-conversation card swap: the chrome never moved, so fade the new
       // words in rather than popping them. First card of an exchange is left
       // alone -- the whole panel is arriving anyway.
@@ -260,7 +264,7 @@ export default class TextPanel {
 
   // -- Encounter card layout --
 
-  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh) {
+  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa = '', heroEn = '') {
     const panelW = Math.round(sw * CARD_W_FRAC)
     const panelX = Math.round(sw / 2)
     const depth  = 2000
@@ -386,8 +390,16 @@ export default class TextPanel {
     this._clipBottom   = bodyTop + bodyH
     this._enObjects    = []
 
-    const gaLines = (irish   || '').split('\n')
-    const enLines = (english || '').split('\n')
+    // The hero's own line goes in first, in the speaker colour, followed by
+    // a blank line. Everything after it is the NPC as usual. Tracked by
+    // index rather than a separate render pass so it scrolls, masks, clips
+    // and fades exactly like the rest of the body.
+    const heroGaLines = heroGa ? String(heroGa).split('\n') : []
+    const heroEnLines = heroEn ? String(heroEn).split('\n') : []
+    const heroCount   = Math.max(heroGaLines.length, heroEnLines.length)
+
+    const gaLines = [...heroGaLines, ...(heroCount ? [''] : []), ...(irish   || '').split('\n')]
+    const enLines = [...heroEnLines, ...(heroCount ? [''] : []), ...(english || '').split('\n')]
     const count   = Math.max(gaLines.length, enLines.length)
 
     let cy = 0
@@ -395,13 +407,14 @@ export default class TextPanel {
     for (let i = 0; i < count; i++) {
       const ga = (gaLines[i] || '').trim()
       const en = (enLines[i] || '').trim()
+      const isHero = i < heroCount
       if (!ga && !en) { cy += 12; continue }
 
       if (ga) {
         const el = this.scene.add.text(startX, bodyTop + cy, ga, {
           fontSize:   TYPE.cardBody.size,
           fontFamily: TYPE.cardBody.font,
-          color:      IRISH_COLOR,
+          color:      isHero ? SPEAKER_COLOR : IRISH_COLOR,
           wordWrap:   { width: textW },
           lineSpacing: TYPE.cardBody.lineSpacing,
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)

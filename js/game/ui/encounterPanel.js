@@ -202,6 +202,11 @@ clearNotify() {
   _openFixedEncounter(zone) {
     this._isOpen     = true
     this._choiceMade = false
+    // Which nodes and options this conversation has already used. Per
+    // conversation, not per save -- come back tomorrow and she hails you
+    // properly again.
+    this._seenNodes   = new Set()
+    this._usedOptions = new Set()
     this._hideBadge()
 
     if (this._scene.textPanel?.isVisible) this._scene.textPanel.hide()
@@ -250,8 +255,25 @@ clearNotify() {
     this._applyEffects(d)
     this._choiceMade = false
 
+    // Greeting-ladder nodes build their own options each rung -- but only
+    // auto-start when the node has none of its own. A node that carries BOTH
+    // (opening replies, one of which is enterLadder) must show its options
+    // first; the duel is entered deliberately, not fallen into. Once the
+    // ladder is running, this._ladder keeps us in it.
+    if (d.ladder && (this._ladder || !d.options?.length)) {
+      this._showLadderRung(d, idx, stateKey, total, zone); return
+    }
+
+    // Second time through this node, she does not re-deliver the whole hail.
+    // This is what stops an NPC re-asking a question the player has already
+    // answered every time they loop back for another question.
+    const seen  = this._seenNodes?.has(idx)
+    const line  = (seen && d.again) ? d.again : d
+    if (this._seenNodes) this._seenNodes.add(idx)
+
     const opts = Array.isArray(d.options)
       ? d.options.filter(o => this._requiresMet(o.requires))
+                 .filter(o => !(o.first && this._usedOptions?.has(this._optKey(idx, o))))
       : []
 
     // A node with questions loops back to itself after each answer, so it
@@ -260,8 +282,8 @@ clearNotify() {
 
     if (opts.length) {
       this._scene.textPanel.show({
-        irish:   d.ga || d.irish   || '',
-        english: d.en || d.english || '',
+        irish:   line.ga || line.irish   || '',
+        english: line.en || line.english || '',
         type:    'encounter_card',
         bgKey,
         graphicKey,
@@ -277,8 +299,9 @@ clearNotify() {
     }
 
     this._scene.textPanel.show({
-      irish:   d.ga || d.irish   || '',
-      english: d.en || d.english || '',
+      // again-line applies to option-less nodes too
+      irish:   line.ga || line.irish   || '',
+      english: line.en || line.english || '',
       type:    'encounter_card',
       bgKey,
       graphicKey,
@@ -290,8 +313,136 @@ clearNotify() {
     })
   }
 
+  // -- Greeting ladder --------------------------------------------------------
+
+  /**
+   * One rung. Re-entered after every exchange with depth + 1 until the player
+   * steps out of the form. Because this re-renders the SAME node rather than
+   * walking to a new one, the card chrome stays up throughout and the whole
+   * duel reads as one continuous conversation.
+   */
+  _showLadderRung(d, idx, stateKey, total, zone) {
+    const L     = d.ladder
+    const pool  = L.pool || []
+    // `stack` holds the accumulated fragments. It was missing from this lazy
+    // init (only the enterLadder path built it), so the first frag threw.
+    const st    = this._ladder || (this._ladder = { depth: 0, used: [], stack: [] })
+    if (!st.stack) st.stack = []
+    const depth = st.depth
+
+    // Her line: the node's own ga/en opens the exchange, then `hers` takes
+    // over. Runs out gracefully -- last entry repeats rather than going blank.
+    const herLine = depth === 0
+      ? { ga: d.ga || '', en: d.en || '' }
+      : (L.hers?.[Math.min(depth - 1, (L.hers?.length || 1) - 1)] || { ga: '', en: '' })
+
+    // Candidates: unspent, and preferring this rung's register. Topped up
+    // from neighbouring tiers so a thin pool still fills the card.
+    // Fragments already spoken -- shown so the player can see the chain they
+    // are building before they add to it.
+    const unused = pool.filter(p => !st.used.includes(p.id))
+    const byDist = [...unused].sort((a, b) =>
+      Math.abs((a.tier ?? 0) - depth) - Math.abs((b.tier ?? 0) - depth))
+    const offer  = byDist.slice(0, L.offer || 3)
+
+    // The step out of the form is itself part of the form, so it is written
+    // content, not a bare 'Goodbye'. Marked exitLadder rather than exit: it
+    // ends the DUEL, not the conversation -- she still has to give directions.
+    const exitOpt = { ...(L.exit || { ga: 'Go raibh maith agat.', en: 'Thank you.' }),
+                      exitLadder: true }
+    const opts = [...offer, exitOpt]
+
+    this._scene.textPanel.show({
+      irish:   herLine.ga,
+      english: herLine.en,
+      type:    'encounter_card',
+      bgKey:      this._resolveBgKey(),
+      graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+      options: opts.map(o => ({ ga: o.ga || '', en: o.en || '' })),
+      onChoice: (i) => {
+        this._choiceMade = true
+        SoundBoard.playWeb('ENCOUNTER_CHOICE')
+        this._resolveLadderChoice(opts[i], d, idx, stateKey, total, zone)
+      },
+      onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
+    })
+  }
+
+  /**
+   * The hero re-speaks the whole accumulated chain, the way a real greeting
+   * ladder does -- each rung repeats what came before and adds one:
+   *     Bail na habhann ort
+   *     Bail na habhann is na taoide ort
+   *     Bail na habhann is na taoide is na gcorr réisc ort
+   * Shape comes from the content (stackPrefix / stackJoin / stackSuffix),
+   * not from the code, so a different formula needs no code change.
+   */
+  _ladderSay(L, stack, key) {
+    const frags = stack.map(f => f[key]).filter(Boolean)
+    if (!frags.length) return ''
+    const join   = (key === 'ga' ? L.stackJoin   : L.stackJoinEn)   ?? ' is '
+    const prefix = (key === 'ga' ? L.stackPrefix : L.stackPrefixEn) ?? ''
+    const suffix = (key === 'ga' ? L.stackSuffix : L.stackSuffixEn) ?? ''
+    return [prefix, frags.join(join), suffix].filter(Boolean).join(' ')
+  }
+
+  _resolveLadderChoice(opt, d, idx, stateKey, total, zone) {
+    this._applyEffects(opt)          // pool entries may set notes (invoked_heron)
+
+    if (opt.exitLadder) {
+      // Leave the duel and move to the next node -- typically the one that
+      // actually gives directions. The panel does not close.
+      this._ladder = null
+      if (!d.hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
+      if (opt.replyGa || opt.replyEn) {
+        this._chainShow({
+          irish:   opt.replyGa || '', english: opt.replyEn || '',
+          type:    'encounter_card',
+          bgKey:      this._resolveBgKey(),
+          graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+          options: null,
+          keepChromeOnHide: true,
+          onDismiss: () => this._reopenDialogue(zone),
+        })
+      } else {
+        this._reopenDialogue(zone)
+      }
+      return
+    }
+
+    // Spend the invocation and climb.
+    if (opt.id) this._ladder.used.push(opt.id)
+    if (opt.frag) this._ladder.stack.push(opt.frag)
+    this._ladder.depth += 1
+
+    // An explicit `say` overrides the accumulator, for rungs that break the
+    // pattern on purpose.
+    const L      = d.ladder
+    const heroGa = opt.say   || this._ladderSay(L, this._ladder.stack, 'ga')
+    const heroEn = opt.sayEn || this._ladderSay(L, this._ladder.stack, 'en')
+
+    this._replyCard(opt, zone,
+      () => this._showLadderRung(d, idx, stateKey, total, zone),
+      heroGa, heroEn)
+  }
+
+  /** Stable identity for an option, for the used-once set. */
+  _optKey(idx, opt) { return idx + '|' + (opt.id || opt.ga || opt.en || '') }
+
   _resolveOption(opt, d, idx, stateKey, total, zone) {
     this._applyEffects(opt)
+    this._usedOptions?.add(this._optKey(idx, opt))
+
+    // An option can hand off into the greeting ladder on the same node.
+    if (opt.enterLadder && d.ladder) {
+      this._ladder = { depth: 0, used: [], stack: [] }
+      if (opt.replyGa || opt.replyEn || opt.say) {
+        this._replyCard(opt, zone, () => this._showLadderRung(d, idx, stateKey, total, zone))
+      } else {
+        this._showLadderRung(d, idx, stateKey, total, zone)
+      }
+      return
+    }
 
     const hold = (opt.hold !== undefined) ? opt.hold : d.hold
     if (!hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
@@ -307,10 +458,12 @@ clearNotify() {
       ? () => this._onPanelClosed()
       : () => this._reopenDialogue(zone)
 
-    if (opt.replyGa || opt.replyEn) {
+    if (opt.replyGa || opt.replyEn || opt.say || opt.sayEn) {
       this._chainShow({
         irish:      opt.replyGa || '',
         english:    opt.replyEn || '',
+        heroGa:     opt.say   || '',
+        heroEn:     opt.sayEn || '',
         type:       'encounter_card',
         bgKey:      this._resolveBgKey(),
         graphicKey: this._resolveGraphicKey(zone.getData('visual')),
@@ -350,6 +503,26 @@ clearNotify() {
       }
     }
     this._onPanelClosed()
+  }
+
+  /**
+   * Build the card that follows a choice: the hero's spoken line on top,
+   * the NPC's answer below. `say`/`sayEn` on an option is the full literary
+   * version of whatever the button said in shorthand.
+   */
+  _replyCard(opt, zone, onDismiss, heroGa, heroEn) {
+    this._chainShow({
+      irish:   opt.replyGa || '',
+      english: opt.replyEn || '',
+      heroGa:  heroGa ?? opt.say   ?? '',
+      heroEn:  heroEn ?? opt.sayEn ?? '',
+      type:    'encounter_card',
+      bgKey:      this._resolveBgKey(),
+      graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+      options: null,
+      keepChromeOnHide: true,
+      onDismiss,
+    })
   }
 
   /** Side effects declared on a dialogue node, option, or outcome. Idempotent. */
@@ -525,6 +698,11 @@ clearNotify() {
 
   _onPanelClosed() {
     if (this._chainTimer) { clearTimeout(this._chainTimer); this._chainTimer = null }
+    // Ladder depth is per-conversation, not per-save: the duel is playable
+    // again on a later visit. Notes it set (invoked_heron etc.) persist.
+    this._ladder      = null
+    this._seenNodes   = null
+    this._usedOptions = null
     // End of the exchange: give the d-pad back and let the card's persistent
     // background fade out (it is deliberately kept alive between choices).
     this._scene?.joystick?.showDirections?.()

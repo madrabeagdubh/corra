@@ -1,20 +1,39 @@
 // d3Sea.js -- content for the estuary map (mouth of the Boyne).
 // Location: public/data/bog/d3Sea.js
-// Loaded by BogScene._loadContent() as d3SeaContent (getMapKey 'd3_sea'
-// -> _contentKey 'd3Sea').
 //
-// Muireann: the watcher on the south headland. She is the player's first
-// speaking NPC and the first point of the quest system. Her job is to
-// teach the player that NPCs can be talked to, that questions have
-// answers, and to send them upriver to b0 -- where the tavern, the bard
-// and the harp already live.
+// Muireann: a druid keeping watch on the river mouth. First speaking NPC.
+// Her job is to orient the player, calibrate them (this is what talking to
+// people is like; Irish is safe; guessing costs nothing), and activate them
+// (go west). Everything else is flavour and must not delay those three.
 //
-// She holds her position permanently (hold: true on every node), so she
-// stays available as a clue/rumour source for later mini-quests. Her
-// state advances only through `requires` gates, not through cycling.
+// SHAPE -- three beats and a hub. Each beat asks ONE thing and moves on.
+// Nothing loops until beat 3, where looping is the point.
 //
-// Quest: q_baile  -- reach the ringfort. Completed on entry to b0.
-// Notes: met_muireann, knows_muireann, knows_boyne
+//   0  she hails you            An bhfuil tú ag rámhaíocht?   Tá / Níl
+//   1  she guesses what you are Fear Fianna atá ionat?        Is ea / Ní hea
+//   2  she gives the road       + quest q_baile               (hub: free questions)
+//   3  quest active             short nudge + repeat the road
+//   4  quest complete           permanent rumour post
+//
+// The greeting-duel is GONE. It was a good gag in the wrong place: five
+// rungs of formula before the player knows where they are. The two moments
+// worth keeping from it survive as single exchanges -- Manannán at beat 0
+// (she does not care for the sea-god named lightly at his own river mouth)
+// and the heron at beat 1.
+//
+// CONVENTIONS
+//   say / sayEn   the line the HERO speaks, shown above her answer in the
+//                 speaker colour. Buttons stay short; the character speaks
+//                 in full. A player running high English opacity still sees
+//                 their own character speaking Irish.
+//   again         what she says on RETURN to a node already visited this
+//                 conversation. Without it she re-delivers her whole hail
+//                 every loop and keeps re-asking answered questions.
+//   first: true   option disappears after one use this conversation.
+//   hold: false   this answer moves her on to the next beat.
+//   exit: true    the player is done talking (different from hold).
+//
+// The Irish is FUNCTIONAL PLACEHOLDER -- Ribo to replace.
 
 export const d3SeaContent = {
   npcs: [],
@@ -24,91 +43,179 @@ export const d3SeaContent = {
   fixedEncounters: [
     {
       id: 'muireann',
-      // The summit of the north promontory: heightMap 1.615, the highest
-      // grass on the map (only the waterside tile at 19,0 is fractionally
-      // higher). Her billboard draws on PGR's object canvas, which sits above
-      // the ground canvas, so she was never occluded by the cliff -- she just
-      // projected to a screen position inside the grey face. Standing at the
-      // true summit puts her against the sky instead.
-      // d3Sea sets hasNorthFallback() false, so row 0 has no preview geometry
-      // to collide with.
-      x: 17, y: 0,
-      // Hailed from the water: 8 tiles, not the default 1. The player is in
-      // the boat and should never have to land to talk to her; the summit is
-      // further back from the channel than the crest was.
-      radius: 8,
-      // GID 9101 is registered to /assets/muireann.png by d3Sea.js's create()
-      // via perspectiveGround.registerCustomTile(). Keep the two in sync.
+      x: 13, y: 1,          // north headland, on the crest above the channel
+      radius: 6,            // hailed from the water -- no need to land
       visual: { gid: 9101, flat: false },
 
       dialogues: [
 
-        // ── 0. First contact ────────────────────────────────────────────
+        // ── 0. She hails you ────────────────────────────────────────────
+        // GRAMMAR: 'An bhfuil tú...?' is the plain verbal question, echoed
+        // with TÁ / NÍL. (The fronted cleft 'Ag rámhaíocht atá tú?' is a
+        // copula question and takes IS EA / NÍ HEA -- that pair is taught
+        // one beat later, at her guess, where the copula is correct anyway.
+        // Both are worth teaching; not in the same breath.)
         {
           requires: { questAbsent: 'q_baile' },
-          hold: true,
           note: 'met_muireann',
-          ga: 'Hóra thíos! Ag rámhaíocht atá tú? Is fada ó chonaic mé bád ag teacht aníos an inbhear.',
-          en: 'Hey down there! Is it rowing you are? It is long since I saw a boat coming up the estuary.',
-          // No option here is marked `exit`, so EncounterPanel appends a
-          // default "Slán." button. Mark one of your own `exit: true` if you
-          // want different wording.
+          ga: 'Hóra thíos! An bhfuil tú ag rámhaíocht?',
+          en: 'Hey down there! Are you rowing?',
           options: [
             {
-              ga: 'Cé tú féin?',
-              en: 'Who are you?',
-              note: 'knows_muireann',
-              replyGa: 'Muireann is ainm dom. Coimeádaim súil ar bhéal na habhann.',
-              replyEn: 'Muireann is my name. I keep watch on the mouth of the river.',
-            },
-            {
-              ga: 'Cá bhfuil mé?',
-              en: 'Where am I?',
-              note: 'knows_boyne',
-              replyGa: 'Béal na Bóinne. Tá an fharraige taobh thiar díot. Téann an abhainn siar.',
-              replyEn: 'The mouth of the Boyne. The sea is behind you. The river goes west.',
-            },
-            {
-              // The one option that moves the story. Advances to node 1.
-              ga: 'Cá bhfuil daoine le fáil?',
-              en: 'Where can people be found?',
+              ga: 'Tá', en: 'I am',
               hold: false,
-              setQuest: 'q_baile',
-              replyGa: 'Tá ráth ar an mbruach thuaidh, suas an abhainn siar. Gabh siar agus gheobhaidh tú é.',
-              replyEn: 'There is a ringfort on the north bank, upriver to the west. Go west and you will find it.',
+              say:   'Tá. Ó mhaidin. Tá mo dhroim á rá liom.',
+              sayEn: 'I am. Since morning. My back is telling me so.',
+              replyGa: 'Feicim sin. Tá tú fada ó bhaile, cibé áit as ar tháinig tú.',
+              replyEn: 'I can see that. You are far from home, wherever you came from.',
+            },
+            {
+              // Ironic, not hostile. She takes it as the joke it is.
+              ga: 'Níl', en: 'I am not',
+              hold: false,
+              note: 'muireann_sass',
+              say:   'Níl. Ag foghlaim eitilte atáim, agus níl ag éirí go rómhaith liom.',
+              sayEn: 'I am not. I am learning to fly, and it is not going well.',
+              replyGa: 'Ha! Is fada ó chuala mé freagra mar sin.',
+              replyEn: 'Ha! It is long since I heard an answer like that.',
+            },
+            {
+              // The one moment of seriousness. She does not care for the
+              // sea-god named lightly at the mouth of his own water.
+              ga: 'Dar Manannán, tá!', en: 'By Manannán, I am!',
+              hold: false,
+              note: 'invoked_manannan',
+              say:   'Dar Manannán Mac Lir, tá! Ó dhubh go dubh.',
+              sayEn: 'By Manannán Mac Lir, I am! From dark to dark.',
+              replyGa: 'Fainic. Ná luaigh an t-ainm sin go héadrom ag béal na farraige.',
+              replyEn: 'Careful. Do not name him lightly at the mouth of the sea.',
+            },
+            { ga: 'Slán', en: 'Farewell', exit: true },
+          ],
+        },
+
+        // ── 1. She guesses what you are ─────────────────────────────────
+        // The copula question, so IS EA / NÍ HEA. Also the misreading beat:
+        // she has decided what a young warrior rowing in from the sea is
+        // for, and the player gets to push back before they know what the
+        // game's paths even are. Being misread is what makes someone
+        // define themselves.
+        {
+          ga: 'Fear Fianna atá ionat, is dócha. Ag triall ar Mhóin Almhain, mar a bhíonn siad go léir.',
+          en: 'You are a Fianna man, I suppose. Bound for the Bog of Allen, as they all are.',
+          options: [
+            {
+              ga: 'Is ea', en: 'I am',
+              hold: false,
+              note: 'said_fianna',
+              say:   'Is ea. Tá mé ag dul faoi na trialacha.',
+              sayEn: 'I am. I am going to face the trials.',
+              replyGa: 'Bhí a fhios agam. Sibhse go léir, agus sibh ag ceapadh gurb í an tsleá an freagra ar gach ceist.',
+              replyEn: 'I knew it. The lot of you, thinking the spear is the answer to every question.',
+            },
+            {
+              ga: 'Ní hea', en: 'I am not',
+              hold: false,
+              note: 'denied_fianna',
+              say:   'Ní hea. Nó, ní hea go fóill. Níl a fhios agam fós cad atá romham.',
+              sayEn: 'I am not. Or -- not yet. I do not yet know what is ahead of me.',
+              replyGa: 'Hm. Freagra macánta. Ní chloisim mórán díobh sin ach oiread.',
+              replyEn: 'Hm. An honest answer. I do not hear many of those either.',
+            },
+            {
+              // The heron. A young warrior rowing in to join the Fianna
+              // names a WADING BIRD -- not a spear, not a battle-god. It is
+              // the closing image of his own opening verse (Rachfaidh mé mar
+              // chorra réisc) and it is the game's title. She has already
+              // decided what he is. This says otherwise. She does not remark
+              // on it. She just looks at him properly.
+              ga: 'Mar chorr réisc', en: 'As a heron',
+              hold: false,
+              note: 'invoked_heron',
+              say:   'Rachaidh mé mar chorra réisc. Ciúin agus ar aire.',
+              sayEn: 'I shall go as the heron. Quiet and alert.',
+              replyGa: '...  Abair sin arís uair éigin.',
+              replyEn: '...  Say that again sometime.',
             },
           ],
         },
 
-        // ── 1. Quest active ─────────────────────────────────────────────
+        // ── 2. She gives the road -- and becomes a hub ───────────────────
+        // First real loop in the conversation, and the only one. `again` is
+        // what stops her re-delivering the directions after every question.
         {
-          requires: { questActive: 'q_baile' },
           hold: true,
-          ga: 'An bhfuil tú anseo fós? Siar leat. Tá an ráth ar an mbruach thuaidh.',
-          en: 'Are you still here? Away west with you. The ringfort is on the north bank.',
+          setQuest: 'q_baile',
+          note: 'knows_boyne',
+          ga: 'Béal na Bóinne atá agat. Tá ráth ar an mbruach thuaidh, suas an abhainn siar. Gabh siar agus gheobhaidh tú é.',
+          en: 'It is the mouth of the Boyne you have. There is a ringfort on the north bank, upriver to the west. Go west and you will find it.',
+          again: {
+            ga: 'Bhuel? An bhfuil tuilleadh uait?',
+            en: 'Well? Do you want more?',
+          },
           options: [
             {
-              ga: 'Cén fhad é?',
-              en: 'How far is it?',
-              replyGa: 'Níl sé i bhfad. Lá amháin ag rámhaíocht, ar a mhéad.',
-              replyEn: 'It is not far. One day rowing, at most.',
+              ga: 'Cé tú féin?', en: 'Who are you?',
+              first: true,
+              note: 'knows_muireann',
+              say:   'Agus cé tú féin, a bhean na carraige?',
+              sayEn: 'And who are you yourself, woman of the rock?',
+              replyGa: 'Muireann. Coimeádaim súil ar bhéal na habhann.',
+              replyEn: 'Muireann. I keep watch on the mouth of the river.',
             },
             {
-              ga: 'Cé atá ann?',
-              en: 'Who is there?',
+              ga: 'Cén fhad?', en: 'How far?',
+              replyGa: 'Lá amháin ag rámhaíocht, ar a mhéad. Ní fada.',
+              replyEn: 'One day rowing, at most. It is not far.',
+            },
+            {
+              ga: 'Cé atá ann?', en: 'Who is there?',
               replyGa: 'Cormac an seanóir, agus Mór ag an teach óil. Abair leo gur mise a chuir ann thú.',
               replyEn: 'Cormac the elder, and Mór at the alehouse. Tell them it was I who sent you.',
             },
-            { ga: 'Slán agat.', en: 'Goodbye.', exit: true },
+            {
+              // She refuses. Distraction without portent -- a promise to
+              // keep in chapter 3.
+              ga: 'Cad atá tú ag faire?', en: 'What are you watching for?',
+              first: true,
+              say:   'Tá tú ag breathnú ar an uisce, ní ormsa. Cad atá tú ag faire?',
+              sayEn: 'You are looking at the water, not at me. What are you watching for?',
+              replyGa: 'Ní dhéarfaidh mé. Ní bhaineann sé leat -- go fóill.',
+              replyEn: 'I will not say. It does not concern you -- yet.',
+            },
+            { ga: 'Slán agat', en: 'Goodbye', exit: true, hold: false },
           ],
         },
 
-        // ── 2. Quest complete -- permanent rumour post ──────────────────
+        // ── 3. Quest active ─────────────────────────────────────────────
+        {
+          requires: { questActive: 'q_baile' },
+          hold: true,
+          ga: 'An bhfuil tú anseo fós? Siar leat.',
+          en: 'Are you still here? Away west with you.',
+          again: { ga: 'Bhuel?', en: 'Well?' },
+          options: [
+            {
+              ga: 'Cá bhfuil an ráth?', en: 'Where is the ringfort?',
+              replyGa: 'Ar an mbruach thuaidh, suas an abhainn siar. Lá amháin ag rámhaíocht.',
+              replyEn: 'On the north bank, upriver to the west. One day rowing.',
+            },
+            {
+              ga: 'Cé atá ann?', en: 'Who is there?',
+              replyGa: 'Cormac an seanóir, agus Mór ag an teach óil.',
+              replyEn: 'Cormac the elder, and Mór at the alehouse.',
+            },
+            { ga: 'Slán agat', en: 'Goodbye', exit: true },
+          ],
+        },
+
+        // ── 4. Quest complete -- permanent rumour post ──────────────────
         {
           requires: { questComplete: 'q_baile' },
           hold: true,
-          ga: 'Chonaic tú an ráth, mar sin. Tar ar ais chugam má bhíonn scéala uait. Feicim gach rud ón gcarraig seo.',
-          en: 'So you saw the ringfort. Come back to me if you want news. I see everything from this rock.',
+          ga: 'Chonaic tú an ráth, mar sin. Tar ar ais chugam má bhíonn scéala uait.',
+          en: 'So you saw the ringfort. Come back to me if you want news.',
+          again: { ga: 'Bhuel?', en: 'Well?' },
         },
 
       ],

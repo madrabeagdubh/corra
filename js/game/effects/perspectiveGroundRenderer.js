@@ -1481,10 +1481,24 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
                   : (this._vertexH(flag.tileX, flag.tileY + 1)
                    + this._vertexH(flag.tileX + 1, flag.tileY + 1)) * 0.5
                 const _fLift = _fH * this._scaleAtRow(flag.tileY + 1)
+                // visual.yOffset nudges a figure up (negative) or down, in
+                // billboard heights, for when the tile's south edge is not
+                // quite where they should be standing.
+                const _fW    = proj.scale * this.tileDisplaySize
+                const _fH2   = _fW * 1.2
+                const _fNudge = (flag.visual.yOffset || 0) * _fH2
+                const _fX    = proj.screenX
+                const _fY    = proj.screenY - _fLift + _fNudge
+
                 this._oCtx.globalAlpha = tileAlpha
-                this._drawBillboard(this._oCtx, canvas,
-                  proj.screenX, proj.screenY - _fLift,
-                  proj.scale * this.tileDisplaySize, 1.2)
+                // Hook fired BEFORE the figure is drawn, so anything painted
+                // here sits behind her -- cloaks, shadows, held items. The
+                // rect is the sprite's exact destination box, so callers can
+                // anchor to the body rather than guess from the tile centre.
+                this.scene?.onPGRBeforeFlag?.(this._oCtx, flag, {
+                  x: _fX - _fW / 2, y: _fY - _fH2, w: _fW, h: _fH2,
+                })
+                this._drawBillboard(this._oCtx, canvas, _fX, _fY, _fW, 1.2)
                 this._oCtx.globalAlpha = 1.0
               }
             }

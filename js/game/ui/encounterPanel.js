@@ -41,6 +41,13 @@ const CARD_BG_KEY = 'encounterPanelBG'
 // the speaker -- 'Slán agat.', 'Fágfaidh mé thú.', etc.)
 const DEFAULT_EXIT_OPTION = { ga: 'Slán.', en: 'Goodbye.', exit: true }
 
+// Hard ceiling on buttons per card, INCLUDING the More button. Beyond about
+// four, a choice becomes a list to read, and the stack eats the room the
+// card's text needs. Overflow pages rather than truncating, so a hub node
+// can hold as many questions as the writing wants.
+const MAX_OPTIONS  = 4
+const MORE_OPTION  = { ga: 'Tuilleadh...', en: 'More...', _more: true }
+
 export class EncounterPanel {
 
   constructor(scene, moonWidget) {
@@ -120,7 +127,10 @@ export class EncounterPanel {
   notify(card, zoneObj) {
     if (this._isOpen) return
     if (this._clearTimer) { clearTimeout(this._clearTimer); this._clearTimer = null }
-    if (this._card?.id === card.id) return
+    // Same card AND the badge is actually up -- nothing to do. The
+    // _badgeVisible test matters: without it, a badge that went down while
+    // _card was still set could never come back, because the id matched.
+    if (this._card?.id === card.id && this._badgeVisible) return
     this._card   = card
     this._active = zoneObj
     this._showBadge(card.visual)
@@ -141,6 +151,12 @@ clearNotify() {
 
   _showBadge(visual) {
     const badge = this._badgeEl
+    if (!badge) return
+    // Cancel any fade-out still in flight. Without this, a hide started a
+    // moment ago fires its display:none AFTER this show and the badge
+    // silently vanishes -- the "badge does not appear" bug.
+    if (this._badgeHideTimer) { clearTimeout(this._badgeHideTimer); this._badgeHideTimer = null }
+    this._badgeVisible = true
     badge.style.display = 'block'
 
     if (visual?.gid) {
@@ -160,21 +176,134 @@ clearNotify() {
   }
 
   _hideBadge() {
-    this._badgeEl.style.opacity = '0'
-    setTimeout(() => { this._badgeEl.style.display = 'none' }, BADGE_FADE_MS)
+    const badge = this._badgeEl
+    if (!badge) return
+    this._badgeVisible = false
+    if (this._badgeHideTimer) clearTimeout(this._badgeHideTimer)
+    badge.style.opacity = '0'
+    this._badgeHideTimer = setTimeout(() => {
+      this._badgeHideTimer = null
+      // Re-check: the player may have come back into range during the fade,
+      // in which case _showBadge has already put the badge up again and this
+      // timeout must not pull it down.
+      if (!this._badgeVisible) badge.style.display = 'none'
+    }, BADGE_FADE_MS)
   }
 
   // -- Graphic key resolution -----------------------------------------------
+
+  /**
+   * Bind a raw <canvas> to a Phaser texture key, re-registering if the
+   * canvas object behind that key has changed.
+   *
+   * This matters because Phaser's addCanvas() will NOT overwrite an
+   * existing key -- so a key bound once to the wrong canvas stays wrong for
+   * the rest of the session. And neither of our canvases is stable: custom
+   * tiles load asynchronously (null first, real canvas later, re-registered
+   * on every scene start) and the champion canvas is rebuilt whenever the
+   * frame or armour changes.
+   */
+  _bindCanvasTexture(key, src) {
+    if (!src) return null
+    if (!this._canvasRefs) this._canvasRefs = new Map()
+    if (this._scene.textures.exists(key)) {
+      if (this._canvasRefs.get(key) === src) return key
+      this._scene.textures.remove(key)
+    }
+    this._scene.textures.addCanvas(key, src)
+    this._canvasRefs.set(key, src)
+    // Diagnostic: Muireann's PNG and the champion sprite are different
+    // sizes, so this line identifies any remaining mix-up. Safe to delete.
+    console.log('[EncounterPanel] portrait bound:', key, src.width + 'x' + src.height)
+    return this._scene.textures.exists(key) ? key : null
+  }
+
+  /**
+   * Card portrait from a plain URL, loaded once into this panel's own cache.
+   *
+   * Deliberately NOT routed through PGR's tile cache. That path is for
+   * ground and billboard rendering: it is async with no completion signal,
+   * keyed by synthetic GIDs that must not collide with real tiles, and when
+   * an entry is missing getTileCanvas() falls through to the tileset with an
+   * out-of-bounds source rect -- producing a canvas rather than null, so the
+   * failure is silent and the card shows the wrong picture.
+   *
+   * Returns null until the image has loaded; the card simply renders without
+   * a portrait for those first frames, then picks it up on the next card.
+   */
+  _resolvePortraitKey(url) {
+    if (!url) return null
+    const key = 'enc_portrait_' + url.replace(/[^a-zA-Z0-9]/g, '_')
+    if (this._scene.textures.exists(key)) return key
+
+    if (!this._portraitLoads) this._portraitLoads = new Set()
+    if (this._portraitLoads.has(url)) return null      // in flight
+    this._portraitLoads.add(url)
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const c   = document.createElement('canvas')
+      c.width   = img.width
+      c.height  = img.height
+      const ctx = c.getContext('2d')
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(img, 0, 0)
+      if (!this._scene?.textures) return
+      if (this._scene.textures.exists(key)) this._scene.textures.remove(key)
+      this._scene.textures.addCanvas(key, c)
+      console.log(`[EncounterPanel] portrait loaded: ${url} (${img.width}x${img.height})`)
+      // If a card is already on screen it was built without this portrait.
+      // Rebuild it in place so the face appears rather than waiting for the
+      // next exchange. _lastCardConfig is whatever TextPanel last rendered.
+      const tp = this._scene?.textPanel
+      if (this._isOpen && tp?.isVisible && tp._lastCardConfig) {
+        tp.show({ ...tp._lastCardConfig, graphicKey: key })
+      }
+    }
+    img.onerror = () => {
+      this._portraitLoads.delete(url)
+      console.error(`[EncounterPanel] portrait FAILED to load: ${url}`)
+    }
+    img.src = url
+    return null
+  }
+
+  /**
+   * The portrait for a zone: its own `portrait` URL if it has one, else the
+   * world-sprite tile canvas as before.
+   */
+  _resolveNpcGraphicKey(zone) {
+    // If this encounter declares its own portrait, that is the ONLY source.
+    // Falling back to the GID tile canvas while the PNG is still loading is
+    // what put the champion's sprite on Muireann's first card of a session:
+    // the tile path fails silently and returns a wrong canvas rather than
+    // null. Better no portrait for one card than the wrong one.
+    const url = zone.getData('portrait')
+    if (url) return this._resolvePortraitKey(url)
+    return this._resolveGraphicKey(zone.getData('visual'))
+  }
 
   _resolveGraphicKey(visual) {
     if (!visual?.gid) return null
     const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
     if (!src) return null
-    const key = `enc_graphic_${visual.gid}`
-    if (!this._scene.textures.exists(key)) {
-      this._scene.textures.addCanvas(key, src)
-    }
-    return this._scene.textures.exists(key) ? key : null
+    return this._bindCanvasTexture(`enc_graphic_${visual.gid}`, src)
+  }
+
+  /**
+   * Champion portrait for the card. Reuses PGR's _playerCanvas -- the world
+   * sprite, already cached there and kept in sync with the current frame --
+   * registered as a Phaser canvas texture. Refreshed each call because the
+   * champion can change armour, and the canvas is swapped underneath.
+   *
+   * If a dedicated champion portrait asset arrives later, point this at it
+   * and nothing else in the card code needs to change.
+   */
+  _resolveHeroGraphicKey() {
+    const src = this._scene.perspectiveGround?._playerCanvas
+    if (!src) return null
+    return this._bindCanvasTexture('enc_graphic_hero', src)
   }
 
   _resolveBgKey() {
@@ -207,6 +336,7 @@ clearNotify() {
     // properly again.
     this._seenNodes   = new Set()
     this._usedOptions = new Set()
+    this._optionPage  = new Map()
     this._hideBadge()
 
     if (this._scene.textPanel?.isVisible) this._scene.textPanel.hide()
@@ -250,7 +380,7 @@ clearNotify() {
    */
   _showDialogue(d, idx, stateKey, total, zone) {
     const bgKey      = this._resolveBgKey()
-    const graphicKey = this._resolveGraphicKey(zone.getData('visual'))
+    const graphicKey = this._resolveNpcGraphicKey(zone)
 
     this._applyEffects(d)
     this._choiceMade = false
@@ -280,6 +410,10 @@ clearNotify() {
     // needs a way out. If the content didn't provide one, add it.
     if (opts.length && !opts.some(o => o.exit)) opts.push(DEFAULT_EXIT_OPTION)
 
+    // Paging. `page` is per node, per conversation: leaving and returning
+    // starts at the first page again.
+    const shown = this._pageOptions(opts, idx)
+
     if (opts.length) {
       this._scene.textPanel.show({
         irish:   line.ga || line.irish   || '',
@@ -287,11 +421,19 @@ clearNotify() {
         type:    'encounter_card',
         bgKey,
         graphicKey,
-        options: opts.map(o => ({ ga: o.ga || '', en: o.en || '' })),
+        options: shown.map(o => ({ ga: o.ga || '', en: o.en || '' })),
         onChoice: (i) => {
           this._choiceMade = true
           SoundBoard.playWeb('ENCOUNTER_CHOICE')
-          this._resolveOption(opts[i], d, idx, stateKey, total, zone)
+          const picked = shown[i]
+          // "More" is not a dialogue choice -- it turns the page and
+          // re-renders the same node, costing the player nothing.
+          if (picked?._more) {
+            this._optionPage.set(idx, (this._optionPage.get(idx) || 0) + 1)
+            this._showDialogue(d, idx, stateKey, total, zone)
+            return
+          }
+          this._resolveOption(picked, d, idx, stateKey, total, zone)
         },
         onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
       })
@@ -357,7 +499,7 @@ clearNotify() {
       english: herLine.en,
       type:    'encounter_card',
       bgKey:      this._resolveBgKey(),
-      graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+      graphicKey: this._resolveNpcGraphicKey(zone),
       options: opts.map(o => ({ ga: o.ga || '', en: o.en || '' })),
       onChoice: (i) => {
         this._choiceMade = true
@@ -399,7 +541,7 @@ clearNotify() {
           irish:   opt.replyGa || '', english: opt.replyEn || '',
           type:    'encounter_card',
           bgKey:      this._resolveBgKey(),
-          graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+          graphicKey: this._resolveNpcGraphicKey(zone),
           options: null,
           keepChromeOnHide: true,
           onDismiss: () => this._reopenDialogue(zone),
@@ -424,6 +566,24 @@ clearNotify() {
     this._replyCard(opt, zone,
       () => this._showLadderRung(d, idx, stateKey, total, zone),
       heroGa, heroEn)
+  }
+
+  /**
+   * Slice the option list to one page. Wraps: paging past the end returns
+   * to the first page, so the player can never get stuck on a short last
+   * page with no way back to the option they wanted.
+   */
+  _pageOptions(opts, idx) {
+    if (!this._optionPage) this._optionPage = new Map()
+    if (opts.length <= MAX_OPTIONS) { this._optionPage.delete(idx); return opts }
+
+    const per   = MAX_OPTIONS - 1              // one slot goes to More
+    const pages = Math.ceil(opts.length / per)
+    const page  = (this._optionPage.get(idx) || 0) % pages
+    this._optionPage.set(idx, page)
+
+    const slice = opts.slice(page * per, page * per + per)
+    return [...slice, MORE_OPTION]
   }
 
   /** Stable identity for an option, for the used-once set. */
@@ -458,15 +618,17 @@ clearNotify() {
       ? () => this._onPanelClosed()
       : () => this._reopenDialogue(zone)
 
-    if (opt.replyGa || opt.replyEn || opt.say || opt.sayEn) {
+    const _hero = this._heroLines(opt)
+    if (opt.replyGa || opt.replyEn || _hero.ga || _hero.en) {
       this._chainShow({
         irish:      opt.replyGa || '',
         english:    opt.replyEn || '',
-        heroGa:     opt.say   || '',
-        heroEn:     opt.sayEn || '',
+        heroGa:     this._heroLines(opt).ga,
+        heroEn:     this._heroLines(opt).en,
+        heroGraphicKey: this._resolveHeroGraphicKey(),
         type:       'encounter_card',
         bgKey:      this._resolveBgKey(),
-        graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+        graphicKey: this._resolveNpcGraphicKey(zone),
         options:    null,
         // Unless this option ends the exchange, the reply is a step on the
         // way back to the question list -- so its dismissal must not take
@@ -514,15 +676,36 @@ clearNotify() {
     this._chainShow({
       irish:   opt.replyGa || '',
       english: opt.replyEn || '',
-      heroGa:  heroGa ?? opt.say   ?? '',
-      heroEn:  heroEn ?? opt.sayEn ?? '',
+      heroGa:  heroGa ?? this._heroLines(opt).ga,
+      heroEn:  heroEn ?? this._heroLines(opt).en,
+      heroGraphicKey: this._resolveHeroGraphicKey(),
       type:    'encounter_card',
       bgKey:      this._resolveBgKey(),
-      graphicKey: this._resolveGraphicKey(zone.getData('visual')),
+      graphicKey: this._resolveNpcGraphicKey(zone),
       options: null,
       keepChromeOnHide: true,
       onDismiss,
     })
+  }
+
+  /**
+   * What the hero says when this option is chosen.
+   *
+   * Defaults to the button's own text, so a question the player picked is
+   * actually spoken on the card instead of vanishing with the button. That
+   * matters beyond tidiness: the button gloss may be read in English, but
+   * the spoken line is always in Irish, so defaulting here keeps the Irish
+   * in front of the player.
+   *
+   *   say: 'Agus cé atá ann?'   fuller line than the button
+   *   silent: true              no hero block; the NPC just speaks
+   */
+  _heroLines(opt) {
+    if (!opt || opt.silent) return { ga: '', en: '' }
+    return {
+      ga: opt.say   ?? opt.ga ?? '',
+      en: opt.sayEn ?? opt.en ?? '',
+    }
   }
 
   /** Side effects declared on a dialogue node, option, or outcome. Idempotent. */
@@ -703,6 +886,10 @@ clearNotify() {
     this._ladder      = null
     this._seenNodes   = null
     this._usedOptions = null
+    this._optionPage  = null
+    // Leaving a conversation must not leave a stale card id behind, or the
+    // badge will not re-appear when the player walks back into range.
+    this._badgeVisible = false
     // End of the exchange: give the d-pad back and let the card's persistent
     // background fade out (it is deliberately kept alive between choices).
     this._scene?.joystick?.showDirections?.()

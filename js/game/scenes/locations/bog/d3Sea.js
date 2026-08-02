@@ -1,6 +1,8 @@
 import RiverScene from '../riverScene.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
+import NpcCloak from '../../../effects/npcCloak.js'
+
 // Synthetic GID for Muireann's sprite -- see registerCustomTile() in create().
 // Keep in sync with visual.gid in public/data/bog/d3Sea.js.
 const MUIREANN_GID = 9101
@@ -66,6 +68,27 @@ hasNorthFallback() { return false }
     if (this.perspectiveGround) {
       this.perspectiveGround.registerCustomTile(MUIREANN_GID, '/assets/npcs/muireann.png')
     }
+    // A druid on a headland at the mouth of the sea should have something
+    // moving about her. Wind blows inland (negative x) and slightly down,
+    // matching the original tutorial's setting.
+    this.muireannCloak = new NpcCloak(this, {
+      tileX: 13, tileY: 1,
+      texture: '/assets/cape.png',
+      // Anchor on her: fractions of her sprite's box.
+      shoulderX:  0.4,   // centred
+      shoulderY:  0.30,   // shoulder height
+      // Size: fractions of her sprite's box, NOT the image's aspect ratio.
+      widthFrac:  0.80,
+      heightFrac: 0.55,
+      // Pivot within the cloak: top centre, so it swings from the shoulders.
+      pivotX:     0.50,
+      pivotY:     0.00,
+      // Set true to draw her bounding box and the anchor cross. Makes
+      // positioning a two-minute job; turn it off when happy.
+      debugAnchor: false,
+      wind: { x: -15, y: 5 },
+    })
+
     if (this.boatSystem) {
       this.boatSystem._triggerDisembark = () => {}
       this.boatSystem._reboard          = () => {}
@@ -386,11 +409,21 @@ hasNorthFallback() { return false }
     super.checkExits?.()
   }
 
-  onPGRDrawComplete() {
+  onPGRDrawComplete(ctx) {
     if (this.steepFaces) this.steepFaces.update()
   }
 
+  /**
+   * Fired by PGR immediately before it draws an encounter-flag billboard, so
+   * whatever is painted here ends up BEHIND the figure. `rect` is the
+   * sprite's exact destination box.
+   */
+  onPGRBeforeFlag(ctx, flag, rect) {
+    if (flag?.visual?.gid === MUIREANN_GID) this.muireannCloak?.drawAtRect(ctx, rect)
+  }
+
   shutdown() {
+    if (this.muireannCloak) { this.muireannCloak.destroy(); this.muireannCloak = null }
     if (this.steepFaces) { this.steepFaces.destroy(); this.steepFaces = null }
     this._destroyEstuaryWaves()
     if (this._swallows) { this._swallows.stop(); this._swallows = null }

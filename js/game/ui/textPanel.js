@@ -43,6 +43,9 @@ const ENGLISH_FONT  = FONTS.english
 const CARD_H_FRAC          = 0.78    // taller than dialogue
 const CARD_W_FRAC          = 0.92
 const CARD_GRAPHIC_SIZE    = 96
+const CARD_SPEAKER_SIZE    = 64      // inline speaker portrait (repeats down the card)
+const CARD_SPEAKER_PAD     = 6       // gap below a speaker portrait
+const CARD_SPEAKER_GAP     = 14      // gap above a speaker portrait (block separator)
 const CARD_GRAPHIC_TOP     = 18      // gap from card top to graphic
 const CARD_BODY_TOP_PAD    = 22      // gap below graphic
 const CARD_BODY_BOTTOM_PAD = 22      // gap above buttons
@@ -117,6 +120,7 @@ export default class TextPanel {
     // text and buttons are rebuilt. Released by releaseChrome().
     this._chrome     = []
     this._chromeGeom = null
+    this._lastCardConfig = null
   }
 
   // -- Public --
@@ -142,10 +146,16 @@ export default class TextPanel {
       // in the speaker colour. Short buttons, long spoken lines.
       heroGa    = '',
       heroEn    = '',
+      // Champion portrait, shown beside the NPC's when the hero speaks.
+      heroGraphicKey = null,
     } = config
 
     if (id && this._cooldownId === id) return
     this._lastTriggerId = id
+
+    // Kept so a portrait that finishes loading after the card was built can
+    // re-render it with the same content. Encounter cards only.
+    if (type === 'encounter_card') this._lastCardConfig = { ...config }
 
     // Card-to-card within one conversation: keep the chrome, swap the body.
     const _keepChrome = (type === 'encounter_card') && this._chrome.length > 0
@@ -170,7 +180,7 @@ export default class TextPanel {
     } else if (type === 'archery_prompt') {
       this._buildArcheryPrompt(irish, english, sw, sh)
     } else if (type === 'encounter_card') {
-      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn)
+      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn, heroGraphicKey)
       // Mid-conversation card swap: the chrome never moved, so fade the new
       // words in rather than popping them. First card of an exchange is left
       // alone -- the whole panel is arriving anyway.
@@ -264,7 +274,7 @@ export default class TextPanel {
 
   // -- Encounter card layout --
 
-  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa = '', heroEn = '') {
+  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa = '', heroEn = '', heroGraphicKey = null) {
     const panelW = Math.round(sw * CARD_W_FRAC)
     const panelX = Math.round(sw / 2)
     const depth  = 2000
@@ -317,7 +327,7 @@ export default class TextPanel {
 
     this._bounds = { x: panelX - panelW/2, y: panelTop, w: panelW, h: panelH }
 
-    const hasGraphic = !!(graphicKey && this.scene.textures.exists(graphicKey))
+    // (Portrait presence is now tested per block, in pushBlock() below.)
 
     // -- Chrome: built once per conversation, then reused ---------------------
     // Everything below goes into this._chrome rather than this._objects, so
@@ -348,19 +358,17 @@ export default class TextPanel {
       border.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
       this._chrome.push(border)
 
-      if (hasGraphic) {
-        const gfx = this.scene.add.image(panelX, panelTop + CARD_GRAPHIC_TOP, graphicKey)
-          .setDisplaySize(CARD_GRAPHIC_SIZE, CARD_GRAPHIC_SIZE)
-          .setOrigin(0.5, 0)
-          .setScrollFactor(0)
-          .setDepth(depth + 3)
-        this._chrome.push(gfx)
-      }
     }
 
-    const bodyTop = hasGraphic
-      ? panelTop + CARD_GRAPHIC_TOP + CARD_GRAPHIC_SIZE + CARD_BODY_TOP_PAD
-      : panelTop + CARD_GRAPHIC_TOP + CARD_BODY_TOP_PAD
+    // -- Portraits -----------------------------------------------------------
+    // These live in _objects, not _chrome: the pairing changes from card to
+    // card (she alone when she asks; both when the hero answers), so they
+    // have to be rebuilt and cross-faded with the body rather than standing
+    // still behind it.
+    // No banner portrait any more -- portraits head their own speaker's block
+    // inside the body (see the row builder below), so the body starts at the
+    // top of the card and every speaker gets a face.
+    const bodyTop = panelTop + CARD_GRAPHIC_TOP
 
     // -- Calculate body region --
     const buttonCount  = options?.length || 0
@@ -390,24 +398,56 @@ export default class TextPanel {
     this._clipBottom   = bodyTop + bodyH
     this._enObjects    = []
 
-    // The hero's own line goes in first, in the speaker colour, followed by
-    // a blank line. Everything after it is the NPC as usual. Tracked by
-    // index rather than a separate render pass so it scrolls, masks, clips
-    // and fades exactly like the rest of the body.
-    const heroGaLines = heroGa ? String(heroGa).split('\n') : []
-    const heroEnLines = heroEn ? String(heroEn).split('\n') : []
-    const heroCount   = Math.max(heroGaLines.length, heroEnLines.length)
+    // The card body is a transcript: each speaker's block of text is headed
+    // by that speaker's portrait, centred. Portraits are ordinary content
+    // items, so they scroll, clip, mask and fade exactly like the text they
+    // head -- and a third or fourth block is just another entry in this
+    // list, which is what lets an exchange run long without a card refresh.
+    const rows = []
 
-    const gaLines = [...heroGaLines, ...(heroCount ? [''] : []), ...(irish   || '').split('\n')]
-    const enLines = [...heroEnLines, ...(heroCount ? [''] : []), ...(english || '').split('\n')]
-    const count   = Math.max(gaLines.length, enLines.length)
+    const pushBlock = (gaText, enText, key, isHero) => {
+      const gl = (gaText || '').split('\n')
+      const el = (enText || '').split('\n')
+      const n  = Math.max(gl.length, el.length)
+      if (!n || (!(gaText || '').trim() && !(enText || '').trim())) return
+      if (key && this.scene.textures.exists(key)) rows.push({ portrait: key })
+      for (let i = 0; i < n; i++) rows.push({ ga: gl[i], en: el[i], isHero })
+    }
+
+    // -- DIAGNOSTIC (remove once the wrong-portrait question is settled) ----
+    const _dims = (k) => {
+      if (!k) return 'none'
+      if (!this.scene.textures.exists(k)) return k + ' (MISSING)'
+      const s = this.scene.textures.get(k).getSourceImage()
+      return `${k} (${s?.width}x${s?.height})`
+    }
+    console.log('[card] hero:', _dims(heroGraphicKey),
+                '| heroText:', JSON.stringify((heroEn || '').slice(0, 30)),
+                '| npc:', _dims(graphicKey),
+                '| npcText:', JSON.stringify((english || '').slice(0, 30)))
+    // ----------------------------------------------------------------------
+
+    pushBlock(heroGa, heroEn, heroGraphicKey, true)   // the player's character
+    pushBlock(irish,  english, graphicKey,    false)  // the NPC
 
     let cy = 0
 
-    for (let i = 0; i < count; i++) {
-      const ga = (gaLines[i] || '').trim()
-      const en = (enLines[i] || '').trim()
-      const isHero = i < heroCount
+    for (const row of rows) {
+      if (row.portrait) {
+        // Leading gap, except for the very first block.
+        if (cy > 0) cy += CARD_SPEAKER_GAP
+        const img = this.scene.add.image(panelX, bodyTop + cy, row.portrait)
+          .setDisplaySize(CARD_SPEAKER_SIZE, CARD_SPEAKER_SIZE)
+          .setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        img.setMask(mask)
+        this._objects.push(img)
+        this._contentItems.push({ obj: img, localY: cy, baseAlpha: 1 })
+        cy += CARD_SPEAKER_SIZE + CARD_SPEAKER_PAD
+        continue
+      }
+      const ga = (row.ga || '').trim()
+      const en = (row.en || '').trim()
+      const isHero = row.isHero
       if (!ga && !en) { cy += 12; continue }
 
       if (ga) {

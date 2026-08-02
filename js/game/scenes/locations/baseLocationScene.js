@@ -269,7 +269,19 @@ if (this.textures.exists('heart')) {
 
       // Show disembark badge when boat touches dry land (not reeds)
       
-if (!this._noDisembarkUI && this.player?.inBoat && this.boatSystem?.active) {
+// A conversation outranks a manoeuvre. While an encounter flag is in range
+// the disembark badge must neither claim the badge slot nor clear it: both
+// systems drive the same single UI element, and an NPC standing on a
+// headland is by definition beside land, so without this guard the two
+// alternate every frame and the badge flickers on and off.
+if (this._flagInRange && this._disembarkBadgeShown) {
+  // Hand the slot over cleanly, and forget we were showing it, so the
+  // badge comes back by itself once the flag drops out of range.
+  this._disembarkBadgeShown = false
+  this.joystick?.drawBadgeGlow?.(0)
+}
+
+if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.boatSystem?.active) {
 	
         const _ts    = this.tileSize
         const _pgr   = this.perspectiveGround

@@ -63,6 +63,7 @@ export default class BogScene extends PerspectiveScene {
           y:         enc.y,
           stateKey:  `${mapKey}.${enc.id}`,
           visual:    enc.visual || { gid: 255, flat: false },
+          portrait:  enc.portrait,          // card portrait URL (see encounterPanel)
           radius:    enc.radius,
           dialogues: enc.dialogues || [],
         })
@@ -189,6 +190,13 @@ export default class BogScene extends PerspectiveScene {
       if (obj.type === 'encounter_flag' || obj.type === 'fixed_encounter') {
         zone.setData('flagVisual', obj.visual || { gid: 255, flat: false })
         zone.setData('actions',    obj.actions   || [])
+        if (obj.portrait) {
+          zone.setData('portrait', obj.portrait)
+          // Warm the image now, not on the first card. The loader is async
+          // and returns null until it completes, so a portrait first
+          // requested at conversation time is always absent for card one.
+          this._encounterPanel?._resolvePortraitKey?.(obj.portrait)
+        }
         if (obj.radius) zone.setData('radius', obj.radius * this.tileSize)
         zone.setData('dialogues',  obj.dialogues || [])
         zone.setData('visual',     obj.visual    || {})

@@ -56,15 +56,18 @@ export default class BogScene extends PerspectiveScene {
       // Fixed encounters (always present, not randomised)
       const fixedEncounters = content.fixedEncounters || []
       fixedEncounters.forEach(enc => {
+        // Spread the whole encounter, then override only what has to be
+        // computed. The previous version listed fields explicitly, which
+        // meant every new content property was silently dropped until
+        // someone remembered to add it here -- `radius`, `portrait` and
+        // `walk` were all lost that way in turn. Spreading makes the
+        // default "content passes through", which is the safer direction
+        // for a data-driven format.
         this.mapData.objects.push({
-          id:        enc.id,
+          ...enc,
           type:      'fixed_encounter',
-          x:         enc.x,
-          y:         enc.y,
           stateKey:  `${mapKey}.${enc.id}`,
           visual:    enc.visual || { gid: 255, flat: false },
-          portrait:  enc.portrait,          // card portrait URL (see encounterPanel)
-          radius:    enc.radius,
           dialogues: enc.dialogues || [],
         })
       })
@@ -201,7 +204,32 @@ export default class BogScene extends PerspectiveScene {
         zone.setData('dialogues',  obj.dialogues || [])
         zone.setData('visual',     obj.visual    || {})
         this._pendingFlags = this._pendingFlags || []
-        this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, visual: obj.visual || { gid: 255, flat: false } })
+        const flagRec = { tileX: obj.x, tileY: obj.y, visual: obj.visual || { gid: 255, flat: false } }
+        this._pendingFlags.push(flagRec)
+
+        // A walking encounter. The flag record and the zone are kept as a
+        // pair: PGR draws from the flag, proximity detection reads the
+        // zone, and both must move together or you get a figure you cannot
+        // talk to (or a conversation with empty grass).
+        if (obj.walk?.path?.length) {
+          this._walkers = this._walkers || []
+          this._walkers.push({
+            flag: flagRec,
+            zone,
+            path:   obj.walk.path,
+            stepMs: obj.walk.stepMs ?? 900,
+            loop:   obj.walk.loop   || 'stop',
+            elapsed: -(obj.walk.startDelayMs || 0),
+            i: 0,
+            dir: 1,
+            // Hold at the first tile until the player is this close, in
+            // tiles. Without it a short path completes before the walker is
+            // ever on screen, and the player only ever sees him standing.
+            startWhenNear: obj.walk.startWhenNear ?? 0,
+            started: !(obj.walk.startWhenNear > 0),
+            pauseInDialogue: obj.walk.pauseInDialogue !== false,
+          })
+        }
       }
       this.interactables.push(zone)
     })
@@ -246,6 +274,66 @@ export default class BogScene extends PerspectiveScene {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   /** Converts getMapKey() snake_case to camelCase for content file import */
+  /**
+   * Advance any walking encounters. Called from update().
+   *
+   * Whole-tile steps on purpose -- see the note at the top of
+   * patch_walking_npc.py: PGR indexes the tile layer and heightMap with
+   * these values, and fractional coordinates would return undefined and
+   * drop the figure to sea level.
+   */
+  _updateWalkers(delta) {
+    if (!this._walkers?.length) return
+    const ts = this.tileSize
+
+    // NOT px/py: the loop body below declares its own `const px` for the
+    // zone position, which shadows this for the whole block and puts the
+    // proximity check in a temporal dead zone.
+    const playerX = this.player?.logicalX
+    const playerY = this.player?.logicalY
+
+    for (const w of this._walkers) {
+      // Do not stroll out of range in the middle of a conversation.
+      if (w.pauseInDialogue && this._encounterPanel?._isOpen) continue
+
+      // Wait for the player to be close enough to witness the walk.
+      if (!w.started) {
+        if (playerX == null) continue
+        const d = Phaser.Math.Distance.Between(playerX, playerY, w.zone.x, w.zone.y)
+        if (d > w.startWhenNear * ts) continue
+        w.started = true
+      }
+
+      w.elapsed += delta
+      if (w.elapsed < w.stepMs) continue
+      w.elapsed -= w.stepMs
+
+      let next = w.i + w.dir
+      if (next >= w.path.length || next < 0) {
+        if (w.loop === 'pingpong') { w.dir *= -1; next = w.i + w.dir }
+        else if (w.loop === 'cycle') { next = 0 }
+        else { continue }                      // 'stop': stay put at the end
+      }
+      w.i = next
+
+      const [tx, ty] = w.path[w.i]
+      w.flag.tileX = tx
+      w.flag.tileY = ty
+
+      const px = tx * ts + ts / 2
+      const py = ty * ts + ts / 2
+      w.zone.x = px
+      w.zone.y = py
+      w.zone.setData('logicalX', px)
+      w.zone.setData('logicalY', py)
+    }
+  }
+
+  update(time, delta) {
+    super.update(time, delta)
+    this._updateWalkers(delta)
+  }
+
   _contentKey() {
     return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
   }

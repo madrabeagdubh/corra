@@ -414,20 +414,7 @@ export default class TextPanel {
       for (let i = 0; i < n; i++) rows.push({ ga: gl[i], en: el[i], isHero })
     }
 
-    // -- DIAGNOSTIC (remove once the wrong-portrait question is settled) ----
-    const _dims = (k) => {
-      if (!k) return 'none'
-      if (!this.scene.textures.exists(k)) return k + ' (MISSING)'
-      const s = this.scene.textures.get(k).getSourceImage()
-      return `${k} (${s?.width}x${s?.height})`
-    }
-    console.log('[card] hero:', _dims(heroGraphicKey),
-                '| heroText:', JSON.stringify((heroEn || '').slice(0, 30)),
-                '| npc:', _dims(graphicKey),
-                '| npcText:', JSON.stringify((english || '').slice(0, 30)))
-    // ----------------------------------------------------------------------
-
-    pushBlock(heroGa, heroEn, heroGraphicKey, true)   // the player's character
+     pushBlock(heroGa, heroEn, heroGraphicKey, true)   // the player's character
     pushBlock(irish,  english, graphicKey,    false)  // the NPC
 
     let cy = 0

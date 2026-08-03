@@ -54,15 +54,42 @@ export const d3Content = {
   fixedEncounters: [
     {
       id: 'briugu',
-      // North bank of the river, at the waterside edge (gid 731), two tiles
-      // off the channel the player rows down. Walking EAST -- away from the
-      // ráth, against the player's direction of travel.
-      x: 19, y: 11,
+      // Starting tile, inland and north-west -- the direction of the ráth.
+      // He does not stay here; see `walk` below.
+      x: 12, y: 5,
       radius: 3,
-      // Placeholder Oryx figure. Wants its own sprite eventually, and a
-      // portrait asset (see d3Sea.js: `portrait` loads by URL and fails
-      // loudly, where the GID path fails silently).
-      visual: { gid: 473, flat: false },
+
+      // He is WALKING, and walking SOUTH-EAST: out of the village, down
+      // toward the river, across the line the player is rowing. That is the
+      // whole characterisation -- the first person met on this road is
+      // leaving the place the player is going to.
+      //
+      // Path verified against the tile layer: (12,5)-(18,11) are grass,
+      // (19,12) is the waterside strip where the bank meets the channel.
+      // He stops there, at the water's edge, which is both where the player
+      // can reach him and a reasonable place for a man on foot to halt.
+      //
+      // stepMs 1100 is a trudge. loop 'stop' means he stays at the last
+      // tile: a dawdling player can still catch him, and he never absurdly
+      // turns round and walks back toward the village.
+      // startWhenNear: he holds at the top of the path until the player is
+      // within 14 tiles, THEN sets off. Without it, an eight-tile walk at
+      // 1100ms a tile finishes in under nine seconds -- less time than it
+      // takes to row in from the map edge -- so the player only ever finds
+      // him already arrived and standing still.
+      walk: {
+        path: [[12,5],[13,6],[14,7],[15,8],[16,9],[17,10],[18,11],[19,12]],
+        stepMs: 1100,
+        loop: 'stop',
+        startWhenNear: 14,
+      },
+
+      // GID 9102 is registered to an image file by d3.js's create() (gid 473
+      // was a stock Oryx tile that turned out to be a skull). Placeholder art
+      // for now -- he is borrowing Muireann's image until he has his own.
+      // Keep this GID in sync with BRIUGU_GID in the scene file.
+      visual:   { gid: 9102, flat: false },
+      portrait: '/assets/npcs/muireann.png',
 
       dialogues: [
 

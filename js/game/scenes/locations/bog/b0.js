@@ -16,6 +16,12 @@ import { GameState } from '../../../systems/gameState.js'
 // tavern + one dwelling hut) and render via RoundhouseRenderer below;
 // mapData.features (firepit/well/pen) are still recorded but not yet
 // rendered. NPCs load from /data/bog/b0.js.
+// Synthetic GID for Mór's sprite, registered in create() below. Must not
+// collide with real tileset GIDs or with the others in use:
+// 9001 harp, 9101 Muireann (d3Sea), 9102 briugu (d3).
+// Keep in sync with visual.gid in public/data/bog/b0.js.
+const MOR_GID = 9103
+
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
 
@@ -30,6 +36,11 @@ export default class BogB0 extends BogLocationScene {
     const c = this.game?.canvas?.parentNode
     if (c) c.style.background = ''
   }
+
+  // The shared forest deck strews a chest, a fire and the rest across the
+  // map. Inside a working ráth they read as litter and compete with the
+  // people, who are the point of this scene. Same override d3Sea and d3 use.
+  _placeEncounterDeck() {}
 
   getMapKey()      { return 'b0' }
   getAmbient()     { return 0x223322 }
@@ -63,6 +74,18 @@ export default class BogB0 extends BogLocationScene {
   // wiring got both of those wrong.
   onEnter() {
     super.onEnter?.()
+    // Registered HERE and not in create(): BogScene's create() is async, and
+    // this class overrides it as a plain method that does not await super.
+    // Anything touching this.perspectiveGround in there runs before the
+    // renderer exists, and the optional-chaining swallows it silently.
+    // onEnter already uses perspectiveGround (setStructures, below), so it
+    // is guaranteed to be there.
+    //
+    // Placeholder art until Mór has her own sprite. Swap the URL here for
+    // the world figure, and `portrait` in public/data/bog/b0.js for the
+    // dialogue card -- deliberately separate paths, because the tile path
+    // fails silently and the portrait path fails loudly.
+    this.perspectiveGround?.registerCustomTile?.(MOR_GID, '/assets/npcs/muireann.png')
     // Arriving at the rath completes Muireann's errand (q_baile, given on
     // the headland in d3_sea). Completion is on arrival, not on talking to
     // anyone -- the reward is that she has new things to say next time.

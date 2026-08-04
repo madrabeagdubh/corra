@@ -11,6 +11,13 @@ import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
 import { StoryVisuals } from '../../../effects/storyVisuals.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import { TYPE } from '../../../systems/gameTypography.js'
+// Bard mode -- the Táin recitation, voice synth, vignette and gated note
+// budget -- is held back for a later chapter. With this false the harp still
+// opens and still sounds, so the player can sit and pluck a few notes, but
+// the narrative sequence does not fire. Nothing is deleted; set it true to
+// restore the whole thing.
+const TAVERN_BARD_MODE = false
+
 const BARD_LINE_NOTE_TARGET = 3
 const BARD_FLOW_DELAY = 250
 
@@ -201,6 +208,12 @@ export default class TavernScene extends VillageScene {
   // to the poem recitation with gold strings lit and waiting for input.
   _openHarpOverlay() {
     super._openHarpOverlay()
+    if (!TAVERN_BARD_MODE) {
+      // Free play: strings lit, no recitation, no gate. The player can sit
+      // at the harp and sound a few notes, which is all this evening needs.
+      console.log('[tavern] bard mode held back (TAVERN_BARD_MODE = false)')
+      return
+    }
     this._fetchTainPoem()
     this._corraHarp?.on('ready', () => {
       this._startBardAccompaniment()
@@ -615,6 +628,7 @@ _buildBardEnglishSlotEl() {
   }
 
   async _startBardAccompaniment() {
+    if (!TAVERN_BARD_MODE) return          // belt and braces
     const harp = this._corraHarp
     if (!harp) return
 

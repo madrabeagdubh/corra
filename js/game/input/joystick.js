@@ -31,6 +31,11 @@ export default class Joystick {
     this._onLongPress         = config.onLongPress          ?? null
     this._onLongPressProgress = config.onLongPressProgress  ?? null
     this._onLongPressCancel   = config.onLongPressCancel    ?? null
+    // Fires on every press end, whether or not the long press completed.
+    // _onLongPressCancel deliberately does NOT fire after a completed long
+    // press -- right for a cancellation, but it leaves anything driven by press
+    // PROGRESS with no way to know the finger has lifted.
+    this._onPressEnd          = config.onPressEnd            ?? null
     this._onSwipe             = config.onSwipe              ?? null
 
     const R = this.radius
@@ -358,6 +363,7 @@ if (this._root.style.opacity === '0') {
       } else if (!this._longPressFired) {
         if (this._onLongPressCancel) this._onLongPressCancel()
       }
+      if (this._onPressEnd) this._onPressEnd()
 
       this._hubDragging    = false
       this._longPressFired = false
@@ -367,6 +373,7 @@ if (this._root.style.opacity === '0') {
       if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
       if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
       if (this._onLongPressCancel) this._onLongPressCancel()
+      if (this._onPressEnd) this._onPressEnd()
       this._hubDragging    = false
       this._longPressFired = false
     })

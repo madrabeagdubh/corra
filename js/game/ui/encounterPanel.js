@@ -28,6 +28,9 @@
 import { GameSettings } from '../settings/gameSettings.js'
 import { GameState }    from '../systems/gameState.js'
 import { SoundBoard }   from '../systems/soundBoard.js'
+import { DialogueHarp } from '../systems/music/dialogueHarp.js'
+import { Bodhran }      from '../systems/music/bodhran.js'
+import { MoonPeek }     from '../systems/moonPeek.js'
 
 const BADGE_FADE_MS   = 400
 const CLEAR_DELAY_MS  = 800
@@ -53,6 +56,9 @@ export class EncounterPanel {
   constructor(scene, moonWidget) {
     this._scene      = scene
     this._moonWidget = moonWidget
+    // The peek needs the widget and a way to reach the text panel; the panel
+    // itself is looked up lazily, since it may not exist yet.
+    try { MoonPeek.attach(moonWidget, scene) } catch (e) {}
     this._active     = null
     this._card       = null
     this._isOpen     = false
@@ -280,6 +286,18 @@ clearNotify() {
     // the tile path fails silently and returns a wrong canvas rather than
     // null. Better no portrait for one card than the wrong one.
     const url = zone.getData('portrait')
+
+    // The harp's NPC identity is set here rather than at open time, because
+    // _openPanel is a slot that scenes reassign at runtime -- anything hung
+    // off it silently doesn't run for doors and village triggers. This runs on
+    // the card-building path every encounter takes. The URL is available
+    // immediately even though the texture it names loads asynchronously, which
+    // is the other reason the earlier attempts came up empty.
+    const npcId = url || (zone.getData('visual')?.gid
+      ? 'gid:' + zone.getData('visual').gid
+      : null)
+    if (npcId) { try { DialogueHarp.setNpc(npcId) } catch (e) {} }
+
     if (url) return this._resolvePortraitKey(url)
     return this._resolveGraphicKey(zone.getData('visual'))
   }
@@ -313,11 +331,26 @@ clearNotify() {
   // -- Open panel ------------------------------------------------------------
 
   _openPanel() {
-    SoundBoard.playWeb('ENCOUNTER_OPEN')
     if (!this._card || this._isOpen) return
 
     const zone = this._active
     const type = zone?.getData('type')
+
+    // The tune's home note instead of the old synth buzz: it sets the key for
+    // the fragments that follow, and costs nothing from the pointer.
+    //
+    // The NPC identity comes from the zone's portrait URL, not from the loaded
+    // texture key: portraits load asynchronously and the key is still null on
+    // the first card, which is why the NPC's tune never used to take. The URL
+    // is in the map data and is there from the start. Random encounters have
+    // no portrait, so they fall back to the card id and still get a voice of
+    // their own rather than doubling the champion's.
+    DialogueHarp.open(
+      this._scene?.registry?.get('selectedChampion') ||
+      window.selectedChampion || null,
+      this._scene,
+      zone?.getData('portrait') || this._card?.id || null
+    )
 
     if (type === 'fixed_encounter') {
       this._openFixedEncounter(zone)
@@ -424,7 +457,7 @@ clearNotify() {
         options: shown.map(o => ({ ga: o.ga || '', en: o.en || '' })),
         onChoice: (i) => {
           this._choiceMade = true
-          SoundBoard.playWeb('ENCOUNTER_CHOICE')
+          Bodhran.choose(DialogueHarp.unitMs())
           const picked = shown[i]
           // "More" is not a dialogue choice -- it turns the page and
           // re-renders the same node, costing the player nothing.
@@ -503,7 +536,7 @@ clearNotify() {
       options: opts.map(o => ({ ga: o.ga || '', en: o.en || '' })),
       onChoice: (i) => {
         this._choiceMade = true
-        SoundBoard.playWeb('ENCOUNTER_CHOICE')
+        Bodhran.choose(DialogueHarp.unitMs())
         this._resolveLadderChoice(opts[i], d, idx, stateKey, total, zone)
       },
       onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
@@ -619,7 +652,12 @@ clearNotify() {
       : () => this._reopenDialogue(zone)
 
     const _hero = this._heroLines(opt)
-    if (opt.replyGa || opt.replyEn || _hero.ga || _hero.en) {
+    // EXIT_REPLY -- an exit option closes the window on the press, the way
+    // Tuilleadh always did. The only reason slán behaved differently was that
+    // it happened to carry reply text, which chained one more card and made
+    // leaving feel like another turn of conversation rather than the end of
+    // one. Drop `&& !opt.exit` to show exit replies again.
+    if (!opt.exit && (opt.replyGa || opt.replyEn || _hero.ga || _hero.en)) {
       this._chainShow({
         irish:      opt.replyGa || '',
         english:    opt.replyEn || '',
@@ -761,7 +799,7 @@ clearNotify() {
         options,
         onChoice:  (i) => {
           this._choiceMade = true
-          SoundBoard.playWeb('ENCOUNTER_CHOICE')
+          Bodhran.choose(DialogueHarp.unitMs())
           this._resolveAction(card.actions[i])
         },
         onDismiss: () => { if (!this._choiceMade) this._onPanelClosed() },
@@ -856,7 +894,9 @@ clearNotify() {
   // -- Dismiss helpers -------------------------------------------------------
 
   _finalDismiss() {
-    SoundBoard.playWeb('ENCOUNTER_DISMISS')
+    // No sound here. textPanel.hide() sounds the harp cadence when the
+    // conversation earned one, and a dismiss tone stacked on top fought it.
+    // An unearned ending closes in silence, which says the right thing.
     const obj      = this._active
     const stateKey = obj?.getData('stateKey')
 
@@ -880,6 +920,18 @@ clearNotify() {
   }
 
   _onPanelClosed() {
+    // The conversation is over here, whether or not a card is still on screen.
+    // This releases the chrome rather than calling textPanel.hide(), so the
+    // sign-off in hide() never ran on the exit-button path -- it only fired
+    // when the player dismissed a card themselves. cadence() guards against
+    // firing twice.
+    try {
+      DialogueHarp.cadence()
+      DialogueHarp.endConversation()
+    } catch (e) {}
+    // Restore the moon's ordinary long press. Idempotent, so it doesn't matter
+    // whether this or textPanel.hide() gets here first.
+    try { MoonPeek.exit() } catch (e) {}
     if (this._chainTimer) { clearTimeout(this._chainTimer); this._chainTimer = null }
     // Ladder depth is per-conversation, not per-save: the duel is playable
     // again on a later visit. Notes it set (invoked_heron etc.) persist.

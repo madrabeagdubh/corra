@@ -13,6 +13,9 @@
 
 import Phaser from 'phaser'
 import { GameSettings } from '../settings/gameSettings.js'
+import { DialogueHarp } from '../systems/music/dialogueHarp.js'
+import { Bodhran }      from '../systems/music/bodhran.js'
+import { MoonPeek }     from '../systems/moonPeek.js'
 import {
   COLORS, FONTS, SIZES, TYPE, BUTTON,
   textStyle, createButton, pickLanguage,
@@ -46,6 +49,94 @@ const CARD_GRAPHIC_SIZE    = 96
 const CARD_SPEAKER_SIZE    = 64      // inline speaker portrait (repeats down the card)
 const CARD_SPEAKER_PAD     = 6       // gap below a speaker portrait
 const CARD_SPEAKER_GAP     = 14      // gap above a speaker portrait (block separator)
+
+// Staged reveal. A card used to be assembled whole and faded in as one piece,
+// which put the NPC's reply on screen before the player's own line had a beat
+// to land -- flattening a turn-by-turn exchange into a wall. Blocks now arrive
+// one at a time, a beat apart.
+const CARD_REVEAL_FADE_MS  = 240     // how long a single block takes to arrive
+
+// How long a block is left to be read before the next one arrives. A fluent
+// reader found a flat beat too fast on long lines and needlessly slow on short
+// ones, so the pause is sized by the text rather than fixed. Tap-to-skip means
+// erring long costs nothing: anyone who has finished reading can move on.
+// A held beat before the first block of a card arrives, so the harp gesture
+// that just fired -- the opening flourish, or the touch on a choice -- rings
+// into an empty card instead of being stepped on by the tune. Visual as well as
+// audible: the card stops repopulating the instant you tap it.
+// Syllables, counted as maximal vowel runs. An Irish syllable is one vowel
+// nucleus, and the broad/slender digraphs (ai, ea, eoi, aoi...) are contiguous,
+// so each collapses to a single run -- which makes this crude rule accurate
+// here in a way it would never be in English.
+const GA_VOWEL_RUN = /[aeiouáéíóúAEIOUÁÉÍÓÚ]+/g
+function syllablesGa(s) {
+  if (!s) return 0
+  const m = String(s).match(GA_VOWEL_RUN)
+  return m ? m.length : 0
+}
+
+// Counted in the harp's beats rather than milliseconds, so they stay in
+// proportion if the tempo moves -- and so a pause is a rest in the music
+// instead of a gap beside it. These were 950ms and 340ms, which did the job of
+// keeping the flourish from being stepped on and then overstayed: a full
+// second at the head of a conversation reads as the game hesitating.
+const CARD_OPEN_LEAD_BEATS   = 4     // after the opening flourish
+const CARD_CHOICE_LEAD_BEATS = 1     // after a choice stroke
+
+const CARD_READ_MIN_MS     = 340     // the whole of a portrait-only beat
+
+// How long a block is held: a syllable of Irish worth of reading time each.
+// The harp no longer plays one note per syllable -- that was a metronome -- but
+// sizing the PAUSE this way is what stopped the hurrying, so it stays.
+//
+// Ordinary Irish speech runs 4-5 syllables a second. This is deliberately
+// slower -- it's a reading pace, not a talking one.
+const SYLLABLE_MS          = 380     // ~2.6 syllables a second
+// A breath after each block. Set back when blocks were carrying a metronome
+// and never revisited once they weren't -- lengthened because reaching the
+// answering dialogue felt hurried, without giving a piece time to settle.
+// Per block, so it accumulates across an exchange without stretching any one
+// line much.
+const CARD_READ_TAIL_BEATS = 2       // breath after the last note of a block
+// The player's own line is held for exactly one motif plus this, rather than
+// for a share of its reading time. They've already read it -- it was the button
+// they pressed -- so what decides the length is how long its accompaniment
+// takes, not how long the words take to read.
+//
+// Derived from the tune's metre, so it fits whatever is playing instead of
+// being a weight that happens to work out.
+const CARD_READ_HERO_TAIL_BEATS = 1
+const CARD_BTN_ROLL_MS     = 110     // (superseded: the drum sets the spacing)
+// How far into the last block's reading time the options appear. Waiting out
+// the whole of it meant that on a long line the melody finished and then
+// seconds passed with nothing happening. Far enough in that the phrase has
+// played; near enough that the silence doesn't stretch.
+// The options used to arrive at a fraction of the block's reading time, which
+// had nothing to do with when the music stopped -- so on a long line the motif
+// ended at ~2.2s and the buttons came at 4.5s, the gap growing with the length
+// of the speech for no reason the player could hear.
+//
+// They're timed off the melody now: a motif, then a couple of beats, then the
+// drum picks it up. A fixed musical relationship that doesn't stretch.
+// How long after a card appears before tap-to-skip will listen. The gesture
+// that OPENS a card -- the badge tap, or the swipe back to the options -- is
+// often still in flight when the listener arms, and without this guard the card
+// instantly skips itself: the drum fires, the harp timers are cancelled, and
+// the line arrives in silence. A skip is a deliberate second gesture, and no
+// such intention can exist before the first word is on screen.
+const CARD_SKIP_ARM_MS     = 350
+
+const CARD_BTN_GAP_BEATS   = 2
+const CARD_BTN_MIN_MS      = 700
+const CARD_READ_MAX_MS     = 9000    // ceiling, so one huge speech can't stall the card
+// English is the support text, read faster and only when shown -- this is
+// scaled by GameSettings.englishOpacity at count time, so a dark moon buys no
+// time for text that isn't on screen.
+const CARD_READ_EN_WEIGHT  = 0.6
+// Blocks wrap narrower than the body so the two speakers' columns are visibly
+// different shapes, not just different colours -- colour is the first cue lost
+// on a dim screen outdoors.
+const CARD_BLOCK_W_FRAC    = 0.86
 const CARD_GRAPHIC_TOP     = 18      // gap from card top to graphic
 const CARD_BODY_TOP_PAD    = 22      // gap below graphic
 const CARD_BODY_BOTTOM_PAD = 22      // gap above buttons
@@ -159,6 +250,39 @@ export default class TextPanel {
 
     // Card-to-card within one conversation: keep the chrome, swap the body.
     const _keepChrome = (type === 'encounter_card') && this._chrome.length > 0
+
+    // First card of an exchange: rewind the champion's theme to its opening.
+    // Resetting per conversation is what makes depth audible -- see
+    // dialogueHarp.js.
+    // Which lead-in this card gets: the long one at the head of a conversation,
+    // the short one after a choice.
+    //
+    // Deliberately NOT `!_keepChrome`. Cards are rebuilt when the portrait
+    // finishes loading, and on that rebuild the chrome is kept -- so the
+    // opening card lost its lead a few hundred milliseconds after gaining it,
+    // and the melody started underneath the flourish. What actually matters is
+    // whether any melody has played yet, which no amount of rebuilding changes.
+    if (type === 'encounter_card') {
+      this._cardIsFirst = !DialogueHarp.hasSounded()
+    }
+
+    if (type === 'encounter_card' && !_keepChrome) {
+      const champ = this.scene.registry?.get('selectedChampion') ||
+                    window.selectedChampion || null
+      // The scene goes with it: plucks borrow the Phaser AudioContext rather
+      // than opening one of their own.
+      // Fallback only. encounterPanel starts the conversation and supplies the
+      // NPC identity from the zone; this catches any path that shows an
+      // encounter card without going through it. Guarding on isStarted()
+      // matters: without it this ran a moment after open() and reset the NPC's
+      // voice back to empty.
+      // The moon becomes the English dial for the length of the conversation.
+      try { MoonPeek.enter() } catch (e) {}
+
+      if (!DialogueHarp.isStarted()) {
+        DialogueHarp.begin(champ, this.scene, graphicKey || null)
+      }
+    }
     if (this.isVisible) this._destroyAll(_keepChrome)
 
     this.onDismiss          = onDismiss
@@ -181,10 +305,10 @@ export default class TextPanel {
       this._buildArcheryPrompt(irish, english, sw, sh)
     } else if (type === 'encounter_card') {
       this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn, heroGraphicKey)
-      // Mid-conversation card swap: the chrome never moved, so fade the new
-      // words in rather than popping them. First card of an exchange is left
-      // alone -- the whole panel is arriving anyway.
-      if (_keepChrome) this._fadeInBody()
+      // Mid-conversation card swap used to call _fadeInBody() here to stop the
+      // new words popping. The staged reveal in _beginScroll() now covers that
+      // for every card, first or not -- running both would double-fade, and
+      // _fadeInBody's blanket alpha write would flatten the beats.
     }
   }
 
@@ -215,9 +339,74 @@ export default class TextPanel {
     })
   }
 
+  /**
+   * Stop any in-flight block reveal. Without this a card dismissed mid-reveal
+   * leaves tweens still pushing `reveal` upward while hide() tweens alpha
+   * down, and the two fight over the same objects.
+   */
+  _killRevealTweens() {
+    if (this._revealTweens) {
+      this._revealTweens.forEach(t => { if (t?.remove) t.remove() })
+      this._revealTweens = []
+    }
+    if (this._revealTimer) {
+      this._revealTimer.remove(false)
+      this._revealTimer = null
+    }
+    if (this._revealSkip) {
+      this.scene.input.off('pointerdown', this._revealSkip)
+      this._revealSkip = null
+    }
+    // Pending plucks are cancelled rather than rushed: a skipped block doesn't
+    // advance the theme. Reading gets you more of your tune, skipping doesn't.
+    if (this._revealSounds) {
+      this._revealSounds.forEach(t => { if (t?.remove) t.remove(false) })
+      this._revealSounds = []
+    }
+    if (this._soloTimer) {
+      this._soloTimer.remove(false)
+      this._soloTimer = null
+    }
+  }
+
+  /**
+   * Bring the whole pending exchange in at once and hand the player their
+   * choices. Called by the skip gesture; safe to call at any point, including
+   * before the first block has arrived or after the last.
+   */
+  _completeReveal() {
+    if (this.currentPanelType !== 'encounter_card') return
+    // Grab the solo before the kill, then play it: the options are arriving
+    // right now, so its moment is now rather than never.
+    const solo = (!this._soloDone && this._soloFn) ? this._soloFn : null
+    this._killRevealTweens()
+    if (solo) solo()
+    if (this._contentItems) {
+      this._contentItems.forEach(item => { item.reveal = 1 })
+    }
+    this._buttons.forEach(b => {
+      if (b?.bg?.active)   b.bg.setAlpha(1)
+      if (b?.text?.active) b.text.setAlpha(1)
+      if (b?.bg?.active && b.bg.input) b.bg.input.enabled = true
+    })
+    this._applyScroll()
+  }
+
   hide(keepChrome = false) {
     if (!this.isVisible || this.isFading) return
     this.isFading = true
+    const _wasCard = (this.currentPanelType === 'encounter_card')
+    this._killRevealTweens()
+    // The panel is coming down for good, so the conversation is over. The
+    // cadence checks for itself whether it got far enough in to be earned.
+    if (_wasCard && !keepChrome) {
+      try {
+        DialogueHarp.cadence()
+        DialogueHarp.endConversation()
+      } catch (e) {}
+      // Give the moon its ordinary long press back.
+      try { MoonPeek.exit() } catch (e) {}
+    }
     this._fadeStartTime = performance.now()
     this._stopScroll()
     this._unbindInput()
@@ -405,17 +594,58 @@ export default class TextPanel {
     // list, which is what lets an exchange run long without a card refresh.
     const rows = []
 
-    const pushBlock = (gaText, enText, key, isHero) => {
+    // Each row declares which reveal beat it belongs to. The hero's portrait
+    // and words share a beat -- the player just tapped that line, they don't
+    // need it doled out -- while the NPC's face arrives one beat ahead of her
+    // words, so there's a moment of "she's about to speak" before she does.
+    const pushBlock = (gaText, enText, key, isHero, portraitGroup, textGroup) => {
       const gl = (gaText || '').split('\n')
       const el = (enText || '').split('\n')
       const n  = Math.max(gl.length, el.length)
       if (!n || (!(gaText || '').trim() && !(enText || '').trim())) return
-      if (key && this.scene.textures.exists(key)) rows.push({ portrait: key })
-      for (let i = 0; i < n; i++) rows.push({ ga: gl[i], en: el[i], isHero })
+      if (key && this.scene.textures.exists(key)) {
+        rows.push({ portrait: key, isHero, group: portraitGroup })
+      }
+      for (let i = 0; i < n; i++) {
+        rows.push({ ga: gl[i], en: el[i], isHero, group: textGroup })
+      }
     }
 
-     pushBlock(heroGa, heroEn, heroGraphicKey, true)   // the player's character
-    pushBlock(irish,  english, graphicKey,    false)  // the NPC
+     pushBlock(heroGa, heroEn, heroGraphicKey, true,  0, 0)   // the player's character
+    pushBlock(irish,  english, graphicKey,    false, 1, 2)   // the NPC
+
+    // Groups are declared with gaps in them, because the hero's block is
+    // absent on the first card of an exchange. Compact them so the beats
+    // always run 0,1,2... -- otherwise an opening card would sit blank for a
+    // beat waiting on a hero block that never comes.
+    const _present = [...new Set(rows.map(r => r.group))].sort((a, b) => a - b)
+    const _beatOf  = new Map(_present.map((g, i) => [g, i]))
+    rows.forEach(r => { r.group = _beatOf.get(r.group) })
+    this._revealBeats = _present.length
+
+    // How much there is to read in each beat, which is what sizes the pause
+    // AFTER it. Portrait rows contribute nothing, so a portrait beat comes out
+    // at the floor -- a breath before she speaks, not a stall.
+    const _enW = CARD_READ_EN_WEIGHT * (GameSettings.englishOpacity ?? 1)
+    const _chars = new Array(_present.length).fill(0)
+    const _hero  = new Array(_present.length).fill(false)
+    const _syll  = new Array(_present.length).fill(0)
+    rows.forEach(r => {
+      if (r.portrait) return
+      const n = (r.ga || '').trim().length + (r.en || '').trim().length * _enW
+      _chars[r.group] += n
+      // Only the Irish is counted: the tune follows the language the game is
+      // for, and since the tune now sets the pace, so does the Irish. A block
+      // is held for as long as its own melody takes.
+      _syll[r.group] += syllablesGa(r.ga)
+      if (r.isHero) _hero[r.group] = true
+    })
+    this._revealChars = _chars
+    this._revealHero  = _hero
+    this._revealSyll  = _syll
+
+    // Narrower than the body: see CARD_BLOCK_W_FRAC.
+    const blockW = Math.round(textW * CARD_BLOCK_W_FRAC)
 
     let cy = 0
 
@@ -423,12 +653,19 @@ export default class TextPanel {
       if (row.portrait) {
         // Leading gap, except for the very first block.
         if (cy > 0) cy += CARD_SPEAKER_GAP
-        const img = this.scene.add.image(panelX, bodyTop + cy, row.portrait)
+        // Each speaker's face sits at their own outer edge, so who is talking
+        // reads from the shape of the card before a word is parsed.
+        const px = row.isHero
+          ? startX + textW - CARD_SPEAKER_SIZE / 2
+          : startX + CARD_SPEAKER_SIZE / 2
+        const img = this.scene.add.image(px, bodyTop + cy, row.portrait)
           .setDisplaySize(CARD_SPEAKER_SIZE, CARD_SPEAKER_SIZE)
           .setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
         img.setMask(mask)
         this._objects.push(img)
-        this._contentItems.push({ obj: img, localY: cy, baseAlpha: 1 })
+        this._contentItems.push({
+          obj: img, localY: cy, baseAlpha: 1, group: row.group, reveal: 0,
+        })
         cy += CARD_SPEAKER_SIZE + CARD_SPEAKER_PAD
         continue
       }
@@ -437,29 +674,40 @@ export default class TextPanel {
       const isHero = row.isHero
       if (!ga && !en) { cy += 12; continue }
 
+      // The hero's words run down the right, the NPC's down the left. Origin
+      // and align have to agree: origin alone would move the box while the
+      // short lines inside it stayed left-ragged.
+      const rowX     = isHero ? startX + textW : startX
+      const rowOx    = isHero ? 1 : 0
+      const rowAlign = isHero ? 'right' : 'left'
+
       if (ga) {
-        const el = this.scene.add.text(startX, bodyTop + cy, ga, {
+        const el = this.scene.add.text(rowX, bodyTop + cy, ga, {
           fontSize:   TYPE.cardBody.size,
           fontFamily: TYPE.cardBody.font,
           color:      isHero ? SPEAKER_COLOR : IRISH_COLOR,
-          wordWrap:   { width: textW },
+          wordWrap:   { width: blockW },
+          align:      rowAlign,
           lineSpacing: TYPE.cardBody.lineSpacing,
-        }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        }).setOrigin(rowOx, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
         el.setMask(mask)
         this._objects.push(el)
-        this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
+        this._contentItems.push({
+          obj: el, localY: cy, baseAlpha: 1, group: row.group, reveal: 0,
+        })
         if (!this.irishTextObject) this.irishTextObject = el
         cy += el.height + 4
       }
 
       if (en) {
-        const el = this.scene.add.text(startX, bodyTop + cy, en, {
+        const el = this.scene.add.text(rowX, bodyTop + cy, en, {
           fontSize:   TYPE.cardBodyEn.size,
           fontFamily: TYPE.cardBodyEn.font,
           color:      ENGLISH_COLOR,
-          wordWrap:   { width: textW },
+          wordWrap:   { width: blockW },
+          align:      rowAlign,
           lineSpacing: TYPE.cardBodyEn.lineSpacing,
-        }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        }).setOrigin(rowOx, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
         el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)
@@ -467,6 +715,9 @@ export default class TextPanel {
           obj: el,
           localY: cy,
           baseAlpha: GameSettings.englishOpacity,
+          group: row.group,
+          reveal: 0,
+          isEn: true,          // lifted while the moon is held -- see setEnglishPeek
         })
         if (!this.englishTextObject) this.englishTextObject = el
         cy += el.height + 14
@@ -637,19 +888,46 @@ export default class TextPanel {
 
   // -- Scroll logic --
 
+  /**
+   * How far the English is lifted, 0 to 1, while the moon is held. Deliberately
+   * NOT written to GameSettings: this is a display multiplier over the player's
+   * own setting, so a peek can't quietly undo the difficulty they chose.
+   *
+   * The buttons follow too. Somebody stuck on a line is just as likely to be
+   * stuck on the choices under it.
+   */
+  setEnglishPeek(p) {
+    const v = Math.max(0, Math.min(1, p || 0))
+    if (v === this._enPeek) return
+    this._enPeek = v
+
+    const base = GameSettings.englishOpacity ?? 0
+    const eff  = base + (1 - base) * v
+    this._buttons?.forEach(b => { try { b?.updateOpacity?.(eff) } catch (e) {} })
+
+    this._applyScroll()
+  }
+
   _applyScroll() {
     if (!this._contentItems) return
     const clipTop    = this._clipTop    || 0
     const clipBottom = this._clipBottom || 9999
     const fadeZone   = 24
 
-    this._contentItems.forEach(({ obj, localY, baseAlpha }) => {
+    this._contentItems.forEach((item) => {
+      const { obj, localY, baseAlpha } = item
       if (!obj?.active) return
       const y = this._contentBaseY + localY - this._scrollY
       obj.y = y
 
       const bottom = y + (obj.height || 20)
-      let a = baseAlpha
+      // Four inputs, one owner: the item's own intended alpha (which for
+      // English is the moon slider), the peek lifting English while the moon is
+      // held, how far its block has been revealed, and the clip fade at the
+      // body's edges.
+      const peek = item.isEn ? (this._enPeek || 0) : 0
+      const base = peek > 0 ? baseAlpha + (1 - baseAlpha) * peek : baseAlpha
+      let a = base * (item.reveal ?? 1)
       if (y < clipTop) {
         a = Math.max(0, Math.min(a, (y - (clipTop - fadeZone)) / fadeZone))
       }
@@ -669,17 +947,188 @@ export default class TextPanel {
     this._scrolling = true
     this._applyScroll()
 
-    // For encounter cards: don't auto-scroll; just fade content in
+    // For encounter cards: don't auto-scroll; reveal the exchange block by
+    // block. Nothing here tweens obj.alpha directly -- alpha belongs to
+    // _applyScroll, so each block's arrival is a tween on its `reveal`
+    // multiplier with _applyScroll called on update.
     if (this.currentPanelType === 'encounter_card') {
-      this._contentItems.forEach(({ obj, baseAlpha }) => {
-        if (!obj?.active) return
-        this.scene.tweens.add({
-          targets: obj,
-          alpha: baseAlpha,
-          duration: 320,
+      this._killRevealTweens()
+      // Both lists are created here, before anything can push to either. The
+      // roll under the options registers timers further up this function than
+      // the per-beat harp does, so creating the list at first use put it after
+      // its first writer.
+      this._revealTweens = []
+      this._revealSounds = []
+
+      // Each beat's start is the previous beat's start plus however long the
+      // previous beat's text takes to read. Cumulative, so a card of short
+      // lines stays brisk and a card of long ones doesn't rush.
+      // A block lasts as long as its melody: one note per syllable, plus a
+      // breath. A portrait beat has no syllables and gets the floor.
+      //
+      // Then it's rounded to a whole number of the harp's beats. Without that,
+      // every block started at an arbitrary offset from the last one and each
+      // motif began wherever it happened to land -- which is most of why the
+      // pauses felt disruptive rather than merely long. On the grid, the gap
+      // between two lines is a rest in the music instead of a hole in it.
+      const unit   = DialogueHarp.unitMs() || 180
+      // Metre of the tune actually playing -- 6 to a bar for a jig, 8 for a
+      // reel. Hoisted because the drum fill, the option timing and the solo
+      // all need it.
+      const bar    = DialogueHarp.barUnits() || 8
+      const motif  = bar * 2 * unit          // PHRASE_BARS worth, i.e. one motif
+      const tail   = CARD_READ_TAIL_BEATS * unit
+      const syll   = this._revealSyll || []
+      const hero   = this._revealHero || []
+      const readMs = (g) => {
+        // The player's line lasts as long as its music, not as long as its
+        // words: they read it when they chose it.
+        if (hero[g]) {
+          return motif + CARD_READ_HERO_TAIL_BEATS * unit
+        }
+        const s   = syll[g] || 0
+        const raw = (s <= 0)
+          ? CARD_READ_MIN_MS
+          : Math.min(CARD_READ_MAX_MS, s * SYLLABLE_MS + tail)
+        return Math.max(unit, Math.round(raw / unit) * unit)
+      }
+      const beats  = Math.max(1, this._revealBeats ?? 1)
+      const chars  = this._revealChars || []
+      const lead   = unit * (this._cardIsFirst
+        ? CARD_OPEN_LEAD_BEATS
+        : CARD_CHOICE_LEAD_BEATS)
+      const starts = [lead]
+      for (let g = 1; g < beats; g++) starts[g] = starts[g - 1] + readMs(g - 1)
+
+      this._contentItems.forEach((item) => {
+        if (!item.obj?.active) return
+        const beat = item.group ?? 0
+        item.reveal = 0
+        this._revealTweens.push(this.scene.tweens.add({
+          targets: item,
+          reveal: 1,
+          delay: starts[beat] ?? 0,
+          duration: CARD_REVEAL_FADE_MS,
           ease: 'Linear',
-        })
+          onUpdate: () => this._applyScroll(),
+        }))
       })
+
+      // Options wait for the words: the last block's own reading time has to
+      // pass before a choice is offered, with input off until they're up -- an
+      // invisible button is still a tappable one, and a stray tap would skip a
+      // line unread.
+      const btnBeat = starts[beats - 1] + Math.max(
+        CARD_BTN_MIN_MS,
+        motif + CARD_BTN_GAP_BEATS * unit
+      )
+      const btnParts = []
+      this._buttons.forEach(b => {
+        if (b?.bg?.active)   btnParts.push(b.bg)
+        if (b?.text?.active) btnParts.push(b.text)
+        if (b?.bg?.input)    b.bg.input.enabled = false
+      })
+      if (btnParts.length) {
+        // Options arrive one at a time on a bodhrán roll rather than all at
+        // once. The old version left a gap with a sliver of text in it; this
+        // carries the moment across instead of leaving a hole in it.
+        Bodhran.setScene(this.scene)
+        const goals = btnParts.map(o => o.alpha)
+        btnParts.forEach(o => o.setAlpha(0))
+        // The drum decides when the buttons land. soloBeats() returns the same
+        // offsets the solo plays its accents on, so the options appear ON the
+        // beat instead of merely while the drum is going -- and the two can't
+        // drift, because it's one set of numbers driving both.
+        // `bar` is hoisted above -- the buttons land on the downbeats of the
+        // tune's own metre.
+        const marks = Bodhran.soloBeats(
+          Math.ceil(btnParts.length / 2), unit, bar
+        )
+        btnParts.forEach((o, i) => {
+          // Two parts per button (background and label) share a beat.
+          const step = marks[Math.floor(i / 2)] ?? 0
+          this._revealTweens.push(this.scene.tweens.add({
+            targets: o,
+            alpha: goals[i],
+            delay: btnBeat + step,
+            duration: CARD_REVEAL_FADE_MS,
+            ease: 'Linear',
+          }))
+        })
+        const taps = Math.ceil(btnParts.length / 2)
+        // Held apart from the harp timers on purpose. Skipping cancels the
+        // harp -- that's reading music, and a skip means the reading is done --
+        // but it must FIRE the drum rather than cancel it, because a skip means
+        // "show me the options now" and the drum is part of them arriving.
+        // Cancelling it here is why the solo kept going missing on any card the
+        // player tapped ahead on.
+        this._soloDone = false
+        this._soloFn = () => {
+          this._soloDone = true
+          try { Bodhran.solo(taps, unit, bar) } catch (e) {}
+        }
+        this._soloTimer = this.scene.time.delayedCall(btnBeat, () => this._soloFn())
+        this._revealTimer = this.scene.time.delayedCall(
+          btnBeat + (marks[taps - 1] ?? 0) + CARD_REVEAL_FADE_MS,
+          () => {
+            this._buttons.forEach(b => {
+              if (b?.bg?.active && b.bg.input) b.bg.input.enabled = true
+            })
+          }
+        )
+      }
+
+      // One fragment of the champion's theme per beat that carries words. A
+      // portrait beat is silent -- it's a face arriving, not a line.
+      for (let g = 0; g < beats; g++) {
+        if (!(chars[g] > 0)) continue
+        const isHero = !!(this._revealHero && this._revealHero[g])
+        // Both speakers get the harp. The player's lines sound an octave above
+        // the NPC's -- same tune, two registers -- which is what makes the
+        // turn-taking audible.
+        //
+        // An earlier version dropped the harp here because the block was too
+        // short to hold a motif. That solved the collision by removing the
+        // music; the block is now sized from the motif instead, which solves it
+        // by making room. The bodhrán fill that stood in for it is gone: it
+        // merged with the `choose` stroke into one short burst and left the
+        // rest of the block silent, which is what read as a missing melody.
+        // How long this fragment has before the next block lands. The harp
+        // fills it and stops -- so the amount of music is proportional to the
+        // amount of Irish, line by line as well as across the conversation.
+        // The harp gets the length of the block and plays a phrase into the
+        // front of it, then stops. It doesn't track the syllables -- pinning
+        // notes to syllables made a metronome, and a metronome fights the eye.
+        // The block is still SIZED by syllables, which is what gives the
+        // reader room; the silence after the phrase is that room.
+        const blockMs = readMs(g)
+        const fire = () => {
+          try { DialogueHarp.phrase({ isHero, blockMs }) } catch (e) {}
+        }
+        if (starts[g] <= 0) {
+          fire()
+        } else {
+          this._revealSounds.push(this.scene.time.delayedCall(starts[g], fire))
+        }
+      }
+
+      // Tap-to-skip. Anywhere on screen, any pointer, while blocks are still
+      // pending: the rest arrive at once. Not a gate -- a short exchange never
+      // overflows, so there'd be nothing to drag, and a tap per line would turn
+      // reading into clicking. This is what makes a long pause safe to ship.
+      if (btnBeat > 0) {
+        // Guarded by timestamp rather than by registering late: an early tap is
+        // then ignored on purpose rather than falling into a window where no
+        // listener exists at all. Matters if the arm time is ever raised.
+        const armAt = performance.now() + CARD_SKIP_ARM_MS
+        this._revealSkip = () => {
+          if (performance.now() < armAt) return
+          this._completeReveal()
+        }
+        this.scene.input.on('pointerdown', this._revealSkip)
+      }
+
+      this._applyScroll()
       // Still run a light tick so drag-to-scroll works when content overflows
       this._rafId = requestAnimationFrame(this._tick.bind(this))
       return

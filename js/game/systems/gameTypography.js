@@ -273,6 +273,25 @@ export function createButton(scene, cfg) {
     bg.setFillStyle(COLORS.buttonFillActive, 1)
     bg.setStrokeStyle(BUTTON.borderWidth + 1, COLORS.buttonBorderActive)
     if (text.active) text.setColor(COLORS.buttonTextActive)
+
+    // A dip, so a press is something that happens rather than only a change of
+    // palette. Existing tweens are killed first: without that, a fast double
+    // tap can leave a button stuck small when the second press starts before
+    // the first has sprung back.
+    const pressed = [bg, text].filter(o => o?.active)
+    if (pressed.length) {
+      scene.tweens.killTweensOf(pressed)
+      scene.tweens.add({
+        targets: pressed,
+        scaleX: 0.94, scaleY: 0.94,
+        duration: Math.round(BUTTON.flashMs * 0.35),
+        yoyo: true,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          pressed.forEach(o => { if (o.active) o.setScale(1) })
+        },
+      })
+    }
     scene.time.delayedCall(BUTTON.flashMs, () => {
       if (bg.active)   bg.setFillStyle(COLORS.buttonFill, COLORS.buttonAlpha)
                          .setStrokeStyle(BUTTON.borderWidth, COLORS.buttonBorder)

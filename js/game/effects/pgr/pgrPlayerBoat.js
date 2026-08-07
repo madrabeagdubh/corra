@@ -232,6 +232,45 @@ const strokeT = pgr._strokeT ?? 0
         const boatTop = by - boatH * 0.6
         const _boatRock = wobbleRoll + velTiltX + accelTilt
         const _boatPitch = velTiltY
+
+        // ── Oars ────────────────────────────────────────────────────────
+        // Hoisted ABOVE the branch below on purpose. These used to be defined
+        // inside the transformed branch, which is only taken once the boat has
+        // rocked or _facingLeft has been set -- and _facingLeft stays undefined
+        // until the boat first moves horizontally. So a stationary or moored
+        // boat took the other branch, where no oar code existed, and the oars
+        // simply never appeared.
+        //
+        // cx/cy are the boat's centre in whatever space the caller is in:
+        // local (0, top) inside the transform, absolute outside it.
+        const OAR_LOCK_Y    = 0.30   // oarlock height, fraction of boat height
+        const OAR_HANDLE_IN = 0.10   // handle reach inboard, fraction of width
+        const OAR_HANDLE_UP = 0.14   // ... and how far above the lock
+        const OAR_REACH     = 0.8   // blade reach along the hull
+        const OAR_DIP       = 0.7   // blade drop below the lock
+        const OAR_W         = Math.max(1, Math.round(boatW * 0.030))
+        // Blade forward on the recovery, aft through the drive: always the
+        // opposite end of the stroke from the rower. From rowLean rather than
+        // strokeT, so retuning the stroke can't put them out of phase.
+        const _oarDir = rowLean < 0 ? 1 : -1
+
+        const _drawBoatOars = (cx, cy, far) => {
+          const reach = OAR_REACH * (far ? 0.82 : 1)
+          const lift  = far ? -boatH * 0.05 : 0
+          const lockY = cy + boatH * OAR_LOCK_Y + lift
+          ctx.save()
+          ctx.lineCap = 'round'
+          ctx.lineWidth = far ? Math.max(1, OAR_W - 1) : OAR_W
+          ctx.strokeStyle = far
+            ? 'rgba(58, 44, 30, 0.55)'
+            : 'rgba(48, 36, 24, 0.95)'
+          ctx.beginPath()
+          ctx.moveTo(cx - _oarDir * boatW * OAR_HANDLE_IN,
+                     lockY - boatH * OAR_HANDLE_UP)
+          ctx.lineTo(cx + _oarDir * boatW * reach, lockY + boatH * OAR_DIP)
+          ctx.stroke()
+          ctx.restore()
+        }
         if (Math.abs(_boatRock) > 0.001 || Math.abs(_boatPitch) > 0.001 || pgr._facingLeft !== undefined) {
           ctx.save()
           ctx.translate(Math.round(bx), Math.round(by + totalBob))
@@ -253,7 +292,10 @@ const strokeT = pgr._strokeT ?? 0
             ctx.rect(-boatW, _localTop - 4, boatW * 2, boatH - _boatCropPx + 4)
             ctx.clip()
           }
+
+          _drawBoatOars(0, Math.round(boatTop - by - totalBob), true)
           ctx.drawImage(bc, -Math.round(boatW / 2), Math.round(boatTop - by - totalBob), boatW, boatH)
+          _drawBoatOars(0, Math.round(boatTop - by - totalBob), false)
           ctx.restore()
         } else {
           const _boatCropPx = Math.min(boatH, pgr._playerOcclusionCropPx ?? 0)
@@ -262,10 +304,14 @@ const strokeT = pgr._strokeT ?? 0
             ctx.beginPath()
             ctx.rect(bx - boatW, Math.round(boatTop + totalBob) - 4, boatW * 2, boatH - _boatCropPx + 4)
             ctx.clip()
+            _drawBoatOars(bx, Math.round(boatTop + totalBob), true)
             ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
+            _drawBoatOars(bx, Math.round(boatTop + totalBob), false)
             ctx.restore()
           } else {
+            _drawBoatOars(bx, Math.round(boatTop + totalBob), true)
             ctx.drawImage(bc, Math.round(bx - boatW / 2), Math.round(boatTop + totalBob), boatW, boatH)
+            _drawBoatOars(bx, Math.round(boatTop + totalBob), false)
           }
         }
       }

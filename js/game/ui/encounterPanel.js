@@ -657,7 +657,19 @@ clearNotify() {
     // it happened to carry reply text, which chained one more card and made
     // leaving feel like another turn of conversation rather than the end of
     // one. Drop `&& !opt.exit` to show exit replies again.
-    if (!opt.exit && (opt.replyGa || opt.replyEn || _hero.ga || _hero.en)) {
+    // A card is chained only when the NPC actually REPLIES.
+    //
+    // This used to accept a hero line on its own, which built a card with no
+    // NPC text and no options: the player's line, her portrait, silence, and no
+    // way out but a swipe -- on a card showing nothing that would suggest
+    // swiping. An option that speaks and gets no answer now goes straight back
+    // to the question list, which is where it was headed anyway.
+    //
+    // The hero's `say` line for such an option is not shown. That is a content
+    // gap rather than a rendering one: tools/dialogue/map.mjs flags every
+    // option that speaks and gets no answer, and the fix is to write the reply.
+    // This only ensures a missing reply can't become a dead end.
+    if (!opt.exit && (opt.replyGa || opt.replyEn)) {
       this._chainShow({
         irish:      opt.replyGa || '',
         english:    opt.replyEn || '',

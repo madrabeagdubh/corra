@@ -296,6 +296,17 @@ for (const file of dataFiles()) {
         if (opts.length && !opts.some(o => o.exit)) {
           addWarn('no way out — options but no exit', at)
         }
+        opts.forEach((o, j) => {
+          // An option carrying a player line but no reply used to render a
+          // blank card that had to be swiped away. encounterPanel now skips
+          // straight past it -- which means the player's line is never seen at
+          // all, so these want a reply written rather than leaving.
+          const speaks   = !!(o.say || o.sayEn)
+          const answered = !!(o.replyGa || o.replyEn)
+          if (speaks && !answered && !o.exit) {
+            addWarn('speaks but gets no answer', `${at}.opt[${j}]`)
+          }
+        })
       })
 
       if (!entries) {

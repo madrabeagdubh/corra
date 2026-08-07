@@ -2,7 +2,6 @@
 
 import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
-import { VoiceSynth, championVoice, championTuneKey } from './game/systems/voice/voiceSynth.js';
 import { allTunes } from './game/systems/music/allTunes.js';
 
 function ensureFontsLoaded(callback) {
@@ -393,68 +392,20 @@ export async function showCharacterModal(champion) {
         const mp       = heroSelect.getMusicPlayer?.();
         const audioCtx = mp?.audioContext ?? null;
 
-        // ── Duck the music ─────────────────────────────────────────────────
+        // No duck. With the voice gone this ramped the music down to 12% over
+        // 1.2s and straight back up over 1.8s -- a dip with nothing in the gap,
+        // because the voice was what the gap was for. Track gains are no longer
+        // touched by this modal at all.
         const _preDuckGains = []
-        if (mp?.tracks && audioCtx) {
-            const t0 = audioCtx.currentTime
-            mp.tracks.forEach((tr, i) => {
-                if (!tr?.gain) return
-                const current = tr.gain.gain.value
-                _preDuckGains[i] = current
-                tr.gain.gain.setValueAtTime(current, t0)
-                tr.gain.gain.linearRampToValueAtTime(current * 0.12, t0 + 1.2)
-            })
-        }
+        const _unduckMusic = () => {}
 
-        const _unduckMusic = () => {
-            if (!mp?.tracks || !audioCtx) return
-            const t0 = audioCtx.currentTime
-            mp.tracks.forEach((tr, i) => {
-                if (!tr?.gain) return
-                const target = _preDuckGains[i] ?? 0.5
-                tr.gain.gain.setValueAtTime(tr.gain.gain.value, t0)
-                tr.gain.gain.linearRampToValueAtTime(target, t0 + 1.8)
-            })
-        }
-
-        // ── Voice ──────────────────────────────────────────────────────────
-        let voiceSynth = null;
-        try {
-            const voice   = championVoice(champion);
-            const tuneKey = championTuneKey(champion, allTunes);
-            voiceSynth = new VoiceSynth({
-                audioContext: audioCtx ?? undefined,
-                volume: 0.78,
-            });
-            console.log(`[characterModal] voice=${voice} tuneKey=${tuneKey} champion=${champion.nameEn}`);
-
-            const irishBio = champion.charBioGa || '';
-            if (irishBio) {
-                setTimeout(() => {
-                    if (!voiceSynth) return
-                    voiceSynth.speak(irishBio, {
-                        voice,
-                        tuneKey,
-                        onDone: () => { _unduckMusic() },
-                    });
-                }, 800);
-            }
-        } catch(e) {
-            console.warn('[characterModal] VoiceSynth failed:', e);
-            voiceSynth = null;
-        }
+        // ── No voice ───────────────────────────────────────────────────────
+        // The synth read charBioGa aloud 800ms after the modal opened. It never
+        // sat right: a bio is something you read at your own pace, and having
+        // it spoken at you turns a reference panel into a cutscene.
 
         // ── Close logic ────────────────────────────────────────────────────
         const closeModal = async () => {
-            // Stop voice
-            if (voiceSynth) {
-                try { voiceSynth.fadeOut(400) } catch(e) {}
-                setTimeout(() => {
-                    try { voiceSynth.destroy() } catch(e) {}
-                    voiceSynth = null
-                }, 500)
-            }
-
             // Restore music to pre-duck volume
             _unduckMusic()
 

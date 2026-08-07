@@ -4,7 +4,6 @@ import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
 import { FONTS, SPACING, TYPE, createDomButton } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
-import { VoiceSynth, championVoice, championTuneKey } from '../systems/voice/voiceSynth.js';
 import { allTunes } from '../systems/music/allTunes.js';
 
 const BOAT_PIXELS = [
@@ -302,10 +301,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             const g = ac.createGain(); osc.connect(lp); lp.connect(g); g.connect(masterOut);
             g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.06); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
             osc.start(now); osc.stop(now + dur + 0.1);
-            // Trigger a distress interjection on the ominous creak — adds to atmosphere
-            if (voiceSynth && Math.random() < 0.4) {
-                voiceSynth.interject('distress', { voice: _voiceId, tuneKey: _voiceTuneKey })
-            }
         }
     }
 
@@ -317,30 +312,26 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         if (!inStroke && now - lastOminous > 12000 && Math.random() < 0.0004) { lastOminous = now; playOminousCreak(); }
     }
 
-    // ── Voice synthesis ────────────────────────────────────────────────────────
-    // Shares boatAC — one AudioContext for the whole scene.
-    // Created lazily on first ensureAudio() call, same as boat sounds.
+    // ── Harp ───────────────────────────────────────────────────────────────────
+    // The champion's own theme, a motif at a time, one per line of text as it
+    // becomes readable. Same instrument and same phrasing as the dialogue
+    // system, so the crossing sounds of a piece with the rest of the game.
+    //
+    // Shares boatAC rather than opening a context of its own: SoundBoard.ctx()
+    // accepts a raw AudioContext as well as a scene, and the browser cap on
+    // concurrent contexts is what silenced the harp the first time it was
+    // built elsewhere.
 
-    let voiceSynth    = null;
-    let _voiceId      = null;
-    let _voiceTuneKey = null;
+    // No music of its own. The crossing plays under the theme fading out of
+    // tutorialOrAdventure, and that is enough -- a voice synth read the lines
+    // here and didn't fit, and neither did a harp line per line of text: it put
+    // a second piece of music in conversation with the first.
+    //
+    // _spokenLines stays because the text player's line fade depends on it, and
+    // initVoice() stays as a no-op because it is called from the render loop.
     const _spokenLines = new Set();
 
-    function initVoice() {
-        if (voiceSynth || !boatAC) return;
-        try {
-            _voiceId      = championVoice(champion);
-            _voiceTuneKey = championTuneKey(champion, allTunes);
-            voiceSynth    = new VoiceSynth({
-                audioContext: boatAC,
-                masterGain:   masterOut,
-                volume:       0.78,
-            });
-            console.log(`[dawnCrossing] voice=${_voiceId} tuneKey=${_voiceTuneKey}`);
-        } catch(e) {
-            console.warn('[dawnCrossing] VoiceSynth init failed:', e);
-        }
-    }
+    function initVoice() {}
 
     // ── Scene text ─────────────────────────────────────────────────────────────
 
@@ -427,18 +418,8 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                     
 if (!_spokenLines.has(i) && alpha >= 0.75) {
                         _spokenLines.add(i);
-                        initVoice();
-                        if (voiceSynth) {
-                            const line = this._lines[i];
-                            setTimeout(() => {
-                                if (voiceSynth && !sceneDone) {
-                                    voiceSynth.speak(line.ga, {
-                                        voice:   _voiceId,
-                                        tuneKey: _voiceTuneKey,
-                                    });
-                                }
-                            }, 300);
-                        }
+                        // Nothing sounds per line any more. The guard stays
+                        // because it is what stops a line being counted twice.
                     }
                 }
             };
@@ -512,11 +493,6 @@ if (!_spokenLines.has(i) && alpha >= 0.75) {
         fontOverride.remove();
         moonWidget.destroy();
 
-        // Fade out and destroy voice synth
-        if (voiceSynth) {
-            voiceSynth.fadeOut(2000);
-            setTimeout(() => { try { voiceSynth.destroy(); } catch(e){} voiceSynth = null; }, 2200);
-        }
 
         if (boatAC) {
             try {

@@ -97,7 +97,16 @@ const SYLLABLE_MS          = 380     // ~2.6 syllables a second
 // answering dialogue felt hurried, without giving a piece time to settle.
 // Per block, so it accumulates across an exchange without stretching any one
 // line much.
-const CARD_READ_TAIL_BEATS = 2       // breath after the last note of a block
+// Harp notes ring for one to two and a half seconds after they're struck, so a
+// motif is still sounding well past its final note. Blocks sized flush to the
+// motif put the next phrase on top of the last one's tail.
+const CARD_READ_TAIL_BEATS = 3       // breath after the last note of a block
+
+// The portrait dances while its owner's tune plays -- after championBoogie in
+// heroSelect.js, but pinned to the tune's own dance beat rather than a fixed
+// interval, so a jig NPC bounces quicker than a reel one.
+const CARD_DANCE_HOP_PX    = 9
+const CARD_DANCE_TILT      = 0.05    // radians at the top of a hop
 // The player's own line is held for exactly one motif plus this, rather than
 // for a share of its reading time. They've already read it -- it was the button
 // they pressed -- so what decides the length is how long its accompaniment
@@ -105,7 +114,7 @@ const CARD_READ_TAIL_BEATS = 2       // breath after the last note of a block
 //
 // Derived from the tune's metre, so it fits whatever is playing instead of
 // being a weight that happens to work out.
-const CARD_READ_HERO_TAIL_BEATS = 1
+const CARD_READ_HERO_TAIL_BEATS = 3
 const CARD_BTN_ROLL_MS     = 110     // (superseded: the drum sets the spacing)
 // How far into the last block's reading time the options appear. Waiting out
 // the whole of it meant that on a long line the melody finished and then
@@ -665,6 +674,7 @@ export default class TextPanel {
         this._objects.push(img)
         this._contentItems.push({
           obj: img, localY: cy, baseAlpha: 1, group: row.group, reveal: 0,
+          isPortrait: true, isHero: !!row.isHero, bob: 0,
         })
         cy += CARD_SPEAKER_SIZE + CARD_SPEAKER_PAD
         continue
@@ -889,6 +899,51 @@ export default class TextPanel {
   // -- Scroll logic --
 
   /**
+   * Make a speaker's portrait dance for `durationMs`, hopping once per
+   * `stepMs`. Hop, flip, hop, flip -- championBoogie's shape, at the tempo of
+   * whatever tune is playing.
+   *
+   * Tweens `bob` rather than `y` for the reason given in _applyScroll.
+   */
+  _dance(isHero, durationMs, stepMs) {
+    if (!this._contentItems || !(stepMs > 0)) return
+    const item = this._contentItems.find(
+      it => it.isPortrait && !!it.isHero === !!isHero
+    )
+    if (!item?.obj?.active) return
+
+    const hops = Math.max(1, Math.round(durationMs / stepMs))
+    item.bob = 0
+    this._revealTweens.push(this.scene.tweens.add({
+      targets: item,
+      bob: CARD_DANCE_HOP_PX,
+      duration: Math.round(stepMs / 2),
+      yoyo: true,
+      repeat: hops - 1,
+      ease: 'Quad.easeOut',
+      onUpdate: () => this._applyScroll(),
+      onYoyo: () => {
+        // The flip is what makes it read as a dance rather than a bounce.
+        if (item.obj?.active) item.obj.toggleFlipX()
+      },
+      onComplete: () => {
+        item.bob = 0
+        if (item.obj?.active) { item.obj.setFlipX(false); item.obj.rotation = 0 }
+        this._applyScroll()
+      },
+    }))
+
+    this._revealTweens.push(this.scene.tweens.add({
+      targets: item.obj,
+      rotation: { from: -CARD_DANCE_TILT, to: CARD_DANCE_TILT },
+      duration: Math.round(stepMs / 2),
+      yoyo: true,
+      repeat: hops - 1,
+      ease: 'Sine.easeInOut',
+    }))
+  }
+
+  /**
    * How far the English is lifted, 0 to 1, while the moon is held. Deliberately
    * NOT written to GameSettings: this is a display multiplier over the player's
    * own setting, so a peek can't quietly undo the difficulty they chose.
@@ -917,7 +972,10 @@ export default class TextPanel {
     this._contentItems.forEach((item) => {
       const { obj, localY, baseAlpha } = item
       if (!obj?.active) return
-      const y = this._contentBaseY + localY - this._scrollY
+      // The dance contributes here rather than writing obj.y itself: this
+      // function rewrites the position every tick, so a tween on obj.y would
+      // be undone the instant the player touched the card.
+      const y = this._contentBaseY + localY - this._scrollY - (item.bob || 0)
       obj.y = y
 
       const bottom = y + (obj.height || 20)
@@ -1102,8 +1160,12 @@ export default class TextPanel {
         // The block is still SIZED by syllables, which is what gives the
         // reader room; the silence after the phrase is that room.
         const blockMs = readMs(g)
+        // The hop lands on the tune's dance beat -- three units under a jig,
+        // four under a reel -- which is the same span the bodhrán phrases on.
+        const step = (bar === 6 || bar === 9 ? 3 : 4) * unit
         const fire = () => {
           try { DialogueHarp.phrase({ isHero, blockMs }) } catch (e) {}
+          try { this._dance(isHero, motif, step) } catch (e) {}
         }
         if (starts[g] <= 0) {
           fire()

@@ -14,6 +14,7 @@
 //
 // AUDIO CONTEXT: this creates none of its own. The project already builds
 // AudioContexts in a dozen modules and browsers cap how many can exist at once,
+// 
 // so this borrows the Phaser one via SoundBoard.ctx() -- which is already
 // unlocked by normal play, and therefore actually audible.
 
@@ -31,7 +32,11 @@ const NPC_LEADS = true
 // listed gets a tune by hash -- see npcTuneKeyFor(). Promote tunes you like
 // into here.
 const NPC_TUNES = {
-  // 'muireann': 'theButterfly',
+
+  '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
+  //'/assets/npcs/muireann.png': 'swallowtailThe',
+  //'/assets/npcs/muireann.png': 'outOnTheOcean',
+
 }
 import { getTuneKeyForChampion } from './championTuneMapping.js'
 import { parseAbcToNotes } from './abcToPhrase.js'

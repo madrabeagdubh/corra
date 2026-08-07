@@ -1,0 +1,381 @@
+# d3Sea — dialogue draft
+#
+#
+#   node tools/dialogue/compile.mjs tools/dialogue/drafts/d3Sea.dlg --check
+#   node tools/dialogue/compile.mjs tools/dialogue/drafts/d3Sea.dlg
+#
+# ── SYMBOLS ───────────────────────────────────────────────────────────────
+#
+#   =  a node. What the NPC says when this point is reached. The name after
+#      it is only a label for you; it is not used by the game.
+#
+#   *  an option. The text is what appears ON THE BUTTON.
+#
+#   >  what the PLAYER says after choosing that option.
+#
+#   <  what the NPC says back.
+#
+#   %  the Irish for the line directly above it. A bare % is a placeholder
+#      for Irish not yet written, and is ignored. English alone is a
+#      perfectly valid draft — that is the point of working this way.
+#
+#   @  a directive. See below.
+#
+#   #  a comment. Ignored.
+#
+# Every > < = * line may be repeated to make several lines on screen. Each
+# one gets its own % beneath it if it has Irish. Irish and English are paired
+# BY POSITION, so a missing or extra line silently shifts every translation
+# after it out of step — which reads as a mistranslation rather than a
+# formatting slip. The compiler refuses to build if the counts disagree.
+#
+# ── DIRECTIVES ────────────────────────────────────────────────────────────
+#
+#   @file NAME          which data file to write into  (required, once)
+#   @encounter N        index into fixedEncounters     (default 0)
+#
+#   @when quest X       only if quest X is running
+#   @when !quest X      only if quest X has not started
+#   @when done X        only if quest X is finished
+#   @when note X        only if the player has note X
+#   @when !note X       only if they do not
+#
+#   @note X             set note X
+#   @quest X            start quest X
+#   @done X             finish quest X
+#   @hold               keep the card open rather than closing after this
+#   @first              (options) offer this only once
+#   @exit               (options) this one ends the conversation
+#   @silent             (options) no reply card
+#   @again EN / GA      the nudge line when the player lingers
+#
+# A node with options MUST have one marked @exit: cards with buttons cannot
+# be dismissed by swiping, so without it the player is trapped.
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+
+@file       d3Sea
+@encounter  0
+
+= node 0
+@when !quest q_baile
+@note met_muireann
+@again Well? Speak. / Bhuel? Labhair.
+May the stone of the shore greet you, man of the sea.
+% 
+May the current that guided you here honour you.
+% 
+
+* May the wind greet you
+% 
+@note gave_greeting
+> May the wind that carried me greet you.
+% 
+> May the sea that bore me greet you.
+% 
+< What the sea has brought us,
+% 
+< let the land receive well.
+% 
+< What the sea has carried,
+% 
+< the land may trust.
+% 
+
+* Who are you?
+% 
+> Who are you, woman of the stones,
+% 
+> who speaks to me so?
+% 
+< One who is here.
+% 
+< One who watches.
+% 
+< That is all the answer you get yet, and it is enough.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 1
+@again Well? From where? / Bhuel? Cad as?
+From where were you blown to us?
+% 
+It is a long road for your little boat
+% 
+from wherever it was built, I think.
+% 
+
+* From Skye
+% 
+@note answered_plain
+> From the grey shore of Skye I have come.
+% 
+> Long rowing,
+% 
+> and the sea rising every day of it.
+% 
+< That is no small thing.
+% 
+< Your back is telling you so, I expect,
+% 
+< and it will not stop telling you tonight or tomorrow.
+% 
+
+* From where the hound lost the scent
+% 
+@note answered_careful
+> From where the hound lost the scent
+% 
+> and the hawk lost the wind beneath her wing.
+% 
+> From where the fire was that is not now burning.
+% 
+< So, so.
+% 
+< That is a careful answer.
+% 
+< You would not be so careful were there no reason for it.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 2
+@when !note knows_boyne
+Attend to me now.
+% 
+You have beached your little boat
+% 
+at the mouth of Bóinn the bright and winding,
+% 
+and this shore belongs to her before anyone.
+% 
+
+* Whose shore is it, then?
+% 
+> Whose shore is it I have been blown upon, then?
+% 
+< It belongs first and last to Bóinn.
+% 
+< Do not forget that while you are drinking from the river.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 3
+@note knows_boyne
+@quest q_baile
+@hold
+@again Well? Do you want more? / Bhuel? An bhfuil tuilleadh uait?
+As for the chieftain:
+% 
+you have put your prow upon the shore of Fionnbarra mac Dubhloingse,
+% 
+chieftain of this grey headland
+% 
+and of the three valleys that run from it like fingers from a hand.
+% 
+
+* What kind of man is he?
+% 
+@first
+> What kind of man is this Fionnbarra?
+% 
+< A hand often raised in anger,
+% 
+< and raised as often in welcome.
+% 
+< A man of temper and of patience in the one body,
+% 
+< and his hounds are many.
+% 
+
+* Is he a just man?
+% 
+@first
+> Is he a just man,
+% 
+> this man whose land I am walking?
+% 
+< He is not unjust,
+% 
+< and that is more than I would say for every one of his line.
+% 
+< His grandfather's grandfather gave oaths to the Tuatha
+% 
+< that were not entirely kept,
+% 
+< and they gave in return a curse upon his cattle
+% 
+< that was not entirely lifted.
+% 
+< The milk of this place has tasted of broken promises ever since --
+% 
+< or of the wild garlic in the lower pastures, depending who you ask.
+% 
+
+* Where is the ringfort?
+% 
+@note knows_road_west
+> Where is the ringfort from here? The day is going.
+% 
+< Half a morning's walk northwest along the track.
+% 
+< You will not miss it.
+% 
+< You will find a fire there, and a full bowl, and dry ground.
+% 
+
+* Who are you?
+% 
+@note knows_muireann
+@first
+> And who are you yourself, woman of the rock,
+% 
+> watching the water?
+% 
+< Muireann.
+% 
+< I keep watch on the mouth of the river, as my mother did before me.
+% 
+< Tell Mór at the ringfort it was I who sent you.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 4
+@hold
+@again Well? / Bhuel?
+The toll-man will meet you at the river ford,
+% 
+for the ravens have already carried word of your coming,
+% 
+and he is a man who rises early to meet opportunity.
+% 
+
+* What will I say to him?
+% 
+@note has_druid_word
+@first
+> And what will I say to that man
+% 
+> when he stands in front of me?
+% 
+< Say to him that the Druid of the Cliff-Mouth knows your name.
+% 
+< You need say no more than that.
+% 
+< And say no more.
+% 
+
+* What kind of man is he?
+% 
+@first
+> What kind of man is this toll-man?
+% 
+< He has a face like a stone that has been disappointed.
+% 
+< He is not a loveable man and does not wish to be.
+% 
+< A chieftain needs such a man all the same.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 5
+@when note answered_careful
+@hold
+@again Well? / Bhuel?
+One more thing, since you are a careful sort.
+% 
+Fionnbarra has a brother,
+% 
+and I will not shout his name from a clifftop
+% 
+as a fool shouts the name of a wolf into a dark wood.
+% 
+
+* A brother?
+% 
+@note knows_cathan
+@first
+> A brother? What name is on him, and what is his portion?
+% 
+< Cathán.
+% 
+< He holds the southern wood, and three fishing-rights on the tributary,
+% 
+< and an opinion of himself that would shame the sun for brightness.
+% 
+
+* And if I meet him?
+% 
+@first
+> If I meet him at a ford or a gate or a fire,
+% 
+> what should I do?
+% 
+< Do not look at what is shown to you.
+% 
+< That which speaks may not be him,
+% 
+< and that which smiles is not his smile.
+% 
+< Know the man by what he will not do.
+% 
+
+* What is the danger?
+% 
+@first
+> What danger is in it for me, and I going west?
+% 
+< Thin enough.
+% 
+< As thin as first ice on the stream,
+% 
+< as thin as smoke on a summer wind.
+% 
+< Go your road and miss his road.
+% 
+
+* Farewell
+% 
+@exit
+@silent
+
+= node 6
+@when quest q_baile
+@again Away west with you. / Siar leat.
+May the Boyne remember your name to the sea.
+% 
+May the sea speak your name to the deep places.
+% 
+May the deep places hold you,
+% 
+neither too long nor too short.
+% 
+
+= node 7
+@when done q_baile
+@hold
+@again Well? / Bhuel?
+So you saw the ringfort.
+% 
+Come back to me if you want news.
+% 

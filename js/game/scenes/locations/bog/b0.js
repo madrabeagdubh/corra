@@ -176,7 +176,13 @@ export default class BogB0 extends BogLocationScene {
   // per-row loop -- has fully finished for this frame, not mid-loop.
   update(time, delta) {
     super.update(time, delta)
-    if (this.roundhouses) this.roundhouses.drawOverlay(this.perspectiveGround, this.forestEffects._sw, this.forestEffects._sh)
+    // Only when PGR actually redrew this frame -- it skips entirely
+    // (clearRect included) after 8s idle with a static camera, and
+    // painting a 0.30-alpha ground shadow onto an uncleared canvas
+    // composites it toward solid black in a fraction of a second.
+    if (this.roundhouses && this.perspectiveGround?._drewThisFrame) {
+      this.roundhouses.drawOverlay(this.perspectiveGround, this.forestEffects._sw, this.forestEffects._sh)
+    }
   }
 
   shutdown() {

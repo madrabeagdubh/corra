@@ -36,7 +36,9 @@
 // wall is the dominant face, with a small entrance portico on it.
 //
 // ── Thatch tiling ─────────────────────────────────────────────────────────────
-// thatch1/2.png are small (~110px) swatches, meant to repeat. _drawTiledQuad
+// Swatches come from thatchTexture.js, generated seamless at
+// construction. They REPLACED thatch1/2.png, which were roof stamps
+// with baked-in outlines, not tileable swatches. _drawTiledQuad
 // subdivides a projected quad into a grid sized from its real tile-space
 // extent and draws the full swatch into each cell via PGR's own
 // _drawAffineTriangle (same primitive SteepFaceRenderer uses for stone).
@@ -49,17 +51,28 @@
 //   this.roundhouses.drawOverlay(this.perspectiveGround, sw, sh)   // roofs/portico/shadow
 //   // in shutdown(): this.perspectiveGround.setStructures(null)
 
-const THATCH_SRCS = ['assets/buildings/thatch1.png', 'assets/buildings/thatch2.png']
+import { makeThatchCanvas, THATCH_VARIANTS } from './thatchTexture.js'
+
 const TILE_TARGET = 1.3   // roughly how many tile-lengths one texture repeat should span
 
-const KIND_STYLE = {
+export const KIND_STYLE = {
   longhall: {
-    wallH: 2.2, roofH: 2.3,
-    wallLight: 'rgba(188,168,132,0.97)', wallDark: 'rgba(118,102,74,0.97)',
+    wallH: 2.9, roofH: 2.3,
+    // How far the thatch projects past the wall on every side. It
+    // continues down the ridge->eave slope, so the wall top still
+    // sits exactly on the roof plane. 0 restores the old flush eave.
+    eaveOverhang: 0.45,
+    wallLight: 'rgba(188,168,132,1)', wallDark: 'rgba(118,102,74,1)',
     trim: 'rgba(54,40,26,0.95)',
+    // Overrides the Math.min(1.3, wallH * 0.7) default below: the
+    // hall's door should read as grander than a dwelling's, and the
+    // 1.3 cap otherwise made every door in the village the same
+    // height regardless of the wall it sits in.
+    doorH: 1.7,
+    postW: 0.17,
   },
-  tavern:   { wallH: 2.1, roofH: 2.0, wallLight: 'rgba(192,174,138,0.96)', wallDark: 'rgba(126,110,80,0.96)' },
-  dwelling: { wallH: 1.8, roofH: 1.7, wallLight: 'rgba(188,170,134,0.96)', wallDark: 'rgba(120,104,76,0.96)' },
+  tavern:   { wallH: 2.1, roofH: 2.0, wallLight: 'rgba(192,174,138,1)', wallDark: 'rgba(126,110,80,1)' },
+  dwelling: { wallH: 1.8, roofH: 1.7, wallLight: 'rgba(188,170,134,1)', wallDark: 'rgba(120,104,76,1)' },
 }
 const DOOR_COLOR      = 'rgba(24,20,16,0.9)'
 const SHADOW_COLOR    = 'rgba(18,16,12,0.30)'
@@ -71,7 +84,10 @@ export default class RoundhouseRenderer {
   // houses: mapData.houses entries -- round huts are { id, kind, x, y, r };
   // the longhall is { id, kind:'longhall', x, y, w, d, r }.
   constructor(houses) {
-    this._thatch = THATCH_SRCS.map(src => this._loadTexture(src))
+    // Same { canvas } entry shape _loadTexture returned, so every
+    // `if (thatch.canvas)` call site below is untouched -- but built
+    // synchronously, so there is no null-canvas window on frame one.
+    this._thatch = THATCH_VARIANTS.map(v => ({ canvas: makeThatchCanvas(v) }))
     this._houses = (houses || []).map(h => ({
       ...h,
       style: KIND_STYLE[h.kind] || KIND_STYLE.dwelling,
@@ -80,23 +96,6 @@ export default class RoundhouseRenderer {
       frontOffset: h.kind === 'longhall' ? (h.d || 3) / 2 + 1.2 : (h.r || 2),
     }))
     console.log('[RoundhouseRenderer] constructed --', this._houses.length, 'buildings')
-  }
-
-  _loadTexture(src) {
-    const entry = { canvas: null }
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const c = document.createElement('canvas')
-      c.width = img.width; c.height = img.height
-      const cx = c.getContext('2d')
-      cx.imageSmoothingEnabled = false
-      cx.drawImage(img, 0, 0)
-      entry.canvas = c
-    }
-    img.onerror = e => console.error('[RoundhouseRenderer] thatch texture failed:', src, e)
-    img.src = '/' + src.replace(/^\//, '')
-    return entry
   }
 
   _hashStr(s) {
@@ -148,23 +147,41 @@ export default class RoundhouseRenderer {
         },
       })
     }
-    this._collectDoorway(house, tileRow, entries, cx, cy, r, style)
+    this._collectDoorway(house, tileRow, entries, cx, cy + r * 0.96, Math.min(0.6, r * 0.28), style)
   }
 
-  _collectDoorway(house, tileRow, entries, cx, cy, r, style) {
-    const doorY = cy + r * 0.96
+  // Callers pass the FINAL doorY and half-width. This used to derive both
+  // from a centre and radius, which silently broke the longhall: it
+  // handed in y1 - 0.001 and w * 0.15, so doorY landed on row 21 while
+  // the call itself only ever ran on row 20, and the guard below rejected
+  // it every frame.
+  _collectDoorway(house, tileRow, entries, cx, doorY, doorHalf, style) {
     if (Math.round(doorY) !== tileRow) return
-    const doorHalf = Math.min(0.6, r * 0.28)
     entries.push({
       draw: (ctx, pgr) => {
         const gB0 = this._projectGround(pgr, cx - doorHalf, doorY)
         const gB1 = this._projectGround(pgr, cx + doorHalf, doorY)
         if (!gB0 || !gB1) return
         const scale = pgr._scaleAtRow?.(doorY) ?? 0
-        const doorH = Math.min(1.3, style.wallH * 0.7)
+        const doorH = style.doorH ?? Math.min(1.3, style.wallH * 0.7)
         const gT0 = { x: gB0.x, y: gB0.y - doorH * scale }
         const gT1 = { x: gB1.x, y: gB1.y - doorH * scale }
         this._fillQuad(ctx, gT0, gT1, gB1, gB0, DOOR_COLOR)
+        // Lintel beam. Gated on style.trim, which only the longhall
+        // defines -- the dwellings keep their plain openings.
+        if (style.trim) {
+          const lintelHalf = doorHalf * 1.15, lintelH = 0.20
+          const lB0 = this._projectGround(pgr, cx - lintelHalf, doorY)
+          const lB1 = this._projectGround(pgr, cx + lintelHalf, doorY)
+          if (lB0 && lB1) {
+            this._fillQuad(ctx,
+              { x: lB0.x, y: lB0.y - (doorH + lintelH) * scale },
+              { x: lB1.x, y: lB1.y - (doorH + lintelH) * scale },
+              { x: lB1.x, y: lB1.y - doorH * scale },
+              { x: lB0.x, y: lB0.y - doorH * scale },
+              style.trim)
+          }
+        }
       },
     })
   }
@@ -178,11 +195,14 @@ export default class RoundhouseRenderer {
     const x0 = cx - w / 2, x1 = cx + w / 2
     const y0 = cy - d / 2, y1 = cy + d / 2
 
-    // West gable wall (x=x0, spans y0..y1) -- this row's strip, if any.
-    this._pushVerticalWallStrip(x0, y0, y1, tileRow, style.wallH, style.wallDark, entries)
-    // East gable wall (x=x1) -- lighter tone, matches original shading choice.
+    // Gable ends are back-face culled: you can only genuinely see the west
+    // end from west of it, and the east end from east of it. Both were
+    // drawn unconditionally, so standing square in front of the hall
+    // showed the INSIDE of both ends splayed out either side. The round
+    // huts have always culled this way -- see midSin in _collectHutRow.
+    this._pushVerticalWallStrip(x0, y0, y1, tileRow, style.wallH, style.wallDark, entries, 'west')
     this._pushVerticalWallStrip(x1, y0, y1, tileRow, style.wallH,
-      this._blend(style.wallDark, style.wallLight, 0.7), entries)
+      this._blend(style.wallDark, style.wallLight, 0.7), entries, 'east')
 
     // Long south (front) wall -- one row, at y1.
     if (Math.round(y1) === tileRow) {
@@ -197,15 +217,25 @@ export default class RoundhouseRenderer {
           this._fillQuad(ctx, tSW, tSE, gSE, gSW, color)
         },
       })
-      this._collectDoorway(house, tileRow, entries, cx, y1 - 0.001, w * 0.15, style)
+      this._collectDoorway(house, tileRow, entries, cx, y1 - 0.001, Math.min(0.75, w * 0.11), style)
     }
   }
 
-  _pushVerticalWallStrip(x, y0, y1, tileRow, wallH, color, entries) {
+  // cullSide: 'west' | 'east' | undefined. Tested inside draw(), not here,
+  // because the camera can move between collection and draw.
+  static gableVisible(pgr, x, cullSide) {
+    if (!cullSide) return true
+    const camCol = pgr._perspCamCol?.()
+    if (camCol == null) return true
+    return cullSide === 'west' ? camCol < x : camCol > x
+  }
+
+  _pushVerticalWallStrip(x, y0, y1, tileRow, wallH, color, entries, cullSide) {
     const segY0 = Math.max(y0, tileRow), segY1 = Math.min(y1, tileRow + 1)
     if (segY1 <= segY0) return
     entries.push({
       draw: (ctx, pgr) => {
+        if (!RoundhouseRenderer.gableVisible(pgr, x, cullSide)) return
         const gA = this._projectGround(pgr, x, segY0), gB = this._projectGround(pgr, x, segY1)
         if (!gA || !gB) return
         const sA = pgr._scaleAtRow?.(segY0) ?? 0, sB = pgr._scaleAtRow?.(segY1) ?? 0
@@ -266,23 +296,37 @@ export default class RoundhouseRenderer {
 
     this._drawBoxShadow(pgr, ctx, x0 - 0.4, x1 + 0.4, y0 - 0.3, y1 + 0.6)
 
-    const gNW = this._projectGround(pgr, x0, y0), gNE = this._projectGround(pgr, x1, y0)
-    const gSW = this._projectGround(pgr, x0, y1), gSE = this._projectGround(pgr, x1, y1)
-    if (!gNW || !gNE || !gSW || !gSE) return
-    const sNorth = pgr._scaleAtRow?.(y0) ?? 0, sSouth = pgr._scaleAtRow?.(y1) ?? 0
-    const tNW = { x: gNW.x, y: gNW.y - style.wallH * sNorth }
-    const tNE = { x: gNE.x, y: gNE.y - style.wallH * sNorth }
-    const tSW = { x: gSW.x, y: gSW.y - style.wallH * sSouth }
-    const tSE = { x: gSE.x, y: gSE.y - style.wallH * sSouth }
+    // Roof corners sit OUTSIDE the wall by `ov` on all four sides, at the
+    // height the ridge->eave slope (roofH over d/2) has fallen to by
+    // then. Because that is the same line the wall top already lay on,
+    // the wall top still meets the roof plane exactly and the gable
+    // triangles below still cover the gable ends seamlessly -- they just
+    // reach further out and further down.
+    const ov     = style.eaveOverhang ?? 0
+    const halfD  = d / 2
+    const eaveH  = style.wallH - (halfD > 0 ? ov * (style.roofH / halfD) : 0)
+    const ex0 = x0 - ov, ex1 = x1 + ov
+    const ey0 = y0 - ov, ey1 = y1 + ov
 
-    const gRidgeW = this._projectGround(pgr, x0, cy), gRidgeE = this._projectGround(pgr, x1, cy)
+    const gNW = this._projectGround(pgr, ex0, ey0), gNE = this._projectGround(pgr, ex1, ey0)
+    const gSW = this._projectGround(pgr, ex0, ey1), gSE = this._projectGround(pgr, ex1, ey1)
+    if (!gNW || !gNE || !gSW || !gSE) return
+    const sNorth = pgr._scaleAtRow?.(ey0) ?? 0, sSouth = pgr._scaleAtRow?.(ey1) ?? 0
+    const tNW = { x: gNW.x, y: gNW.y - eaveH * sNorth }
+    const tNE = { x: gNE.x, y: gNE.y - eaveH * sNorth }
+    const tSW = { x: gSW.x, y: gSW.y - eaveH * sSouth }
+    const tSE = { x: gSE.x, y: gSE.y - eaveH * sSouth }
+
+    const gRidgeW = this._projectGround(pgr, ex0, cy), gRidgeE = this._projectGround(pgr, ex1, cy)
     if (!gRidgeW || !gRidgeE) return
     const sMid = pgr._scaleAtRow?.(cy) ?? 0
     const ridgeW = { x: gRidgeW.x, y: gRidgeW.y - (style.wallH + style.roofH) * sMid }
     const ridgeE = { x: gRidgeE.x, y: gRidgeE.y - (style.wallH + style.roofH) * sMid }
 
     const repU = Math.max(1, Math.round(w / TILE_TARGET))
-    const repV = Math.max(1, Math.round((d / 2) / TILE_TARGET))
+    // Slope is longer than d/2 once it overhangs -- repeat count
+    // follows it, or the thatch courses stretch near the eave.
+    const repV = Math.max(1, Math.round((halfD + ov) / TILE_TARGET))
 
     if (thatch.canvas) this._drawTiledQuad(pgr, ctx, thatch.canvas, ridgeW, ridgeE, tSW, tSE, repU, repV)
     else                this._fillQuad(ctx, ridgeW, ridgeE, tSE, tSW, style.wallDark)
@@ -292,12 +336,16 @@ export default class RoundhouseRenderer {
     else                this._fillQuad(ctx, ridgeW, ridgeE, tNE, tNW, style.wallDark)
     this._fillQuad(ctx, ridgeW, ridgeE, tNE, tNW, ROOF_SHADE_DARK)
 
-    this._fillTri(ctx, tNW, tSW, ridgeW, this._blend(style.wallDark, style.wallLight, 0.85))
-    this._fillTri(ctx, tNE, tSE, ridgeE, this._blend(style.wallDark, style.wallLight, 0.7))
+    // Same back-face rule as the gable walls. Dropping the far end leaves
+    // no hole: the two slope quads above still meet along the ridge.
+    if (RoundhouseRenderer.gableVisible(pgr, ex0, 'west'))
+      this._fillTri(ctx, tNW, tSW, ridgeW, this._blend(style.wallDark, style.wallLight, 0.85))
+    if (RoundhouseRenderer.gableVisible(pgr, ex1, 'east'))
+      this._fillTri(ctx, tNE, tSE, ridgeE, this._blend(style.wallDark, style.wallLight, 0.7))
 
     this._drawGableOrnament(ctx, ridgeW, sMid, style)
     this._drawGableOrnament(ctx, ridgeE, sMid, style)
-    this._drawPortico(pgr, ctx, house, style, sSouth)
+    this._drawPortico(pgr, ctx, house, style, pgr._scaleAtRow?.(y1) ?? sSouth)
   }
 
   _drawGableOrnament(ctx, ridgePeak, scale, style) {
@@ -315,24 +363,37 @@ export default class RoundhouseRenderer {
   _drawPortico(pgr, ctx, house, style, sSouth) {
     const { x: cx, y: cy, w, d } = house
     const y1 = cy + d / 2
-    const pw = Math.min(2.6, w * 0.3), pd = 1.2
+    const pw = Math.min(2.6, w * 0.3)
     const px0 = cx - pw / 2, px1 = cx + pw / 2
-    const py  = y1 + pd
-    const ph  = style.wallH * 0.68
+    // Posts stand at the eave TIP and rise to exactly the eave height
+    // there, so they carry the overhanging thatch. They used to stand
+    // 1.2 out and hold up a horizontal canopy at 2.05 -- which the eave
+    // then hung into, 0.28 above it, and the two read as one cheap slab.
+    const ov       = style.eaveOverhang ?? 0
+    const porchOut = ov > 0 ? ov : 0.35
+    const halfD    = d / 2
+    const py = y1 + porchOut
+    // Never shorter than the doorway it shelters. A fixed second
+    // constant drifted out of step with doorH the moment doorH was
+    // raised for the hall; this cannot.
+    const doorH = style.doorH ?? Math.min(1.3, style.wallH * 0.7)
+    // The eave height at the post row: the roof plane falls
+    // roofH/(d/2) per row past the wall. Bounded below by the doorhead so
+    // a large eaveOverhang can never bury the doorway -- past roughly
+    // 0.78 here the plane would drop below the 1.9 lintel top.
+    const ph  = Math.max(doorH + 0.25,
+      style.wallH - (halfD > 0 ? porchOut * (style.roofH / halfD) : 0))
 
-    const attachL = this._projectGround(pgr, px0, y1), attachR = this._projectGround(pgr, px1, y1)
-    const postL   = this._projectGround(pgr, px0, py),  postR   = this._projectGround(pgr, px1, py)
-    if (!attachL || !attachR || !postL || !postR) return
+    const postL = this._projectGround(pgr, px0, py), postR = this._projectGround(pgr, px1, py)
+    if (!postL || !postR) return
     const sPost = pgr._scaleAtRow?.(py) ?? sSouth
 
-    const attachLTop = { x: attachL.x, y: attachL.y - ph * sSouth }
-    const attachRTop = { x: attachR.x, y: attachR.y - ph * sSouth }
-    const postLTop   = { x: postL.x,   y: postL.y   - ph * sPost }
-    const postRTop   = { x: postR.x,   y: postR.y   - ph * sPost }
+    const postLTop = { x: postL.x, y: postL.y - ph * sPost }
+    const postRTop = { x: postR.x, y: postR.y - ph * sPost }
 
-    this._fillQuad(ctx, attachLTop, attachRTop, postRTop, postLTop, style.wallDark)
-
-    const postW = 0.12
+    // No canopy quad -- see this patch's header. The thatch overhang IS
+    // the porch roof now; these two only carry it.
+    const postW = style.postW ?? 0.12
     this._fillQuad(ctx,
       { x: postLTop.x - postW * sPost, y: postLTop.y }, { x: postLTop.x + postW * sPost, y: postLTop.y },
       { x: postL.x + postW * sPost, y: postL.y }, { x: postL.x - postW * sPost, y: postL.y },

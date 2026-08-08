@@ -694,10 +694,18 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     if (cam.scrollX === this._lastCamX &&
         cam.scrollY === this._lastCamY &&
         zoom        === this._lastCamZoom &&
-        !bowAiming) return
+        !bowAiming) { this._drewThisFrame = false; return }
   }
 }
 
+
+    // Read by scenes that draw their own overlay pass AFTER
+    // super.update() returns (b0's roundhouse roofs/shadows). Those
+    // run outside this function, so unlike onPGRDrawComplete they get
+    // no signal that the redraw -- and its clearRect -- was skipped,
+    // and painted translucent shadows onto an uncleared canvas until
+    // they went solid black.
+    this._drewThisFrame = true
 
     if (this._player?.isMoving) this._lastMoveTime = now
 
@@ -850,6 +858,11 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     this._gCtx.beginPath()
     this._gCtx.rect(0, horizonPx, sw, sh - horizonPx)
     this._gCtx.clip()
+
+    // Reset per frame: closures capture this frame's geometry, so a
+    // stale queue would repaint last frame's silhouettes.
+    if (this._northPreviewSky) this._northPreviewSky.length = 0
+    else this._northPreviewSky = []
 
     const p = this._player
     let playerTileRow = -1
@@ -1653,6 +1666,24 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
     this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()
     this._gCtx.restore()
+
+    // North-preview building silhouettes, sky half. The row loop above
+    // runs entirely inside a clip to below the horizon, so a tall
+    // neighbour building on high ground had its roof discarded outright.
+    // A clip can only be narrowed, never widened, so the buildings queue
+    // their above-horizon pass here instead, re-clipped to the sky band.
+    // Safe to draw last: nothing exists above the horizon to occlude it,
+    // and this band is complementary to the one they already drew in, so
+    // no pixel is painted twice.
+    if (this._northPreviewSky?.length) {
+      this._gCtx.save()
+      this._gCtx.beginPath()
+      this._gCtx.rect(0, 0, sw, horizonPx)
+      this._gCtx.clip()
+      for (const paint of this._northPreviewSky) paint()
+      this._gCtx.restore()
+      this._northPreviewSky.length = 0
+    }
     PGRSky.updateLight(this, playerScreenX, playerScreenY)
 
     // Frame profiler report -- rolling stats since the last log, printed

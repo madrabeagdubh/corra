@@ -8,6 +8,7 @@
 // works untouched. Class statics are reached via pgr.constructor.
 
 import { GID_CATEGORIES_GROUND, mirrorIndex } from './pgrShared.js'
+import { KIND_STYLE } from '../roundhouseRenderer.js'
 
   // Mirrors _vertexH() but reads from the north neighbour's heightMap
   // instead of the current map's.
@@ -249,16 +250,32 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
     }
   }
 
-  const HOUSE_BASE_COLOR    = { h: 32, s: 30, l: 32 }
-  const LONGHALL_BASE_COLOR = { h: 28, s: 34, l: 26 }
+  // Daub wall and thatch roof, as flat silhouettes. Pulled from the
+  // rgba wall colours in roundhouseRenderer's KIND_STYLE so the two
+  // read as the same buildings; converted to HSL here because the haze
+  // blend below interpolates in HSL.
+  const WALL_BASE_COLOR = { h: 40, s: 29, l: 63 }
+  const ROOF_BASE_COLOR = { h: 32, s: 30, l: 32 }
+
+  // The roof oversails the wall a little, as thatch does -- without it
+  // the silhouette reads as a box with a hat balanced on top.
+  const EAVE_OVERHANG = 1.12
 
   // Anchored to the house's own world row (see the call site above), so
   // this only ever runs once per house per frame -- no need for its own
   // onscreen/culling check beyond the row match already done there.
+  //
+  // Heights come from KIND_STYLE, the SAME table RoundhouseRenderer uses
+  // for the real geometry. They were hardcoded here as a single roofH of
+  // 4.2/3.2 measured from the ground, which drew no wall at all and made
+  // a cone taller than b0's whole hill (peak 3.03).
   function drawNorthPreviewBuilding(pgr, house, tileRow, localRow, yBotClamped, edgeAlpha, hazeT, columnOffset) {
+    const style = KIND_STYLE[house.kind] ?? KIND_STYLE.dwelling
     const isLonghall = house.kind === 'longhall'
-    const footR = isLonghall ? Math.max(house.w || 6, house.d || 3) / 2 : (house.r || 2)
-    const roofH = isLonghall ? 4.2 : 3.2
+    // Longhall is a rectangle seen broadside from the south, so its
+    // WIDTH is what shows; the round kinds use their radius.
+    const footR = isLonghall ? (house.w ?? 6) / 2 : (house.r ?? 2)
+    const eaveR = footR * EAVE_OVERHANG
 
     const scale = pgr._scaleAtRow(tileRow)
     // house.x is in the NEIGHBOUR's own coordinate space -- correct as-is
@@ -268,29 +285,69 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
     const h = neighborVertexH(pgr, Math.round(house.x), localRow)
     const baseY = yBotClamped - h * scale
 
-    const drawX  = house.x - columnOffset
+    const drawX   = house.x - columnOffset
     const xCenter = pgr._colToScreenX(drawX, tileRow)
     const xLeft   = pgr._colToScreenX(drawX - footR, tileRow)
     const xRight  = pgr._colToScreenX(drawX + footR, tileRow)
-    const peakY   = baseY - roofH * scale
+    const xEaveL  = pgr._colToScreenX(drawX - eaveR, tileRow)
+    const xEaveR  = pgr._colToScreenX(drawX + eaveR, tileRow)
 
-    const base = isLonghall ? LONGHALL_BASE_COLOR : HOUSE_BASE_COLOR
+    const eaveY = baseY - style.wallH * scale
+    const peakY = baseY - (style.wallH + style.roofH) * scale
+
     const HAZE_H = pgr.constructor.NORTH_HAZE_H
     const HAZE_S = pgr.constructor.NORTH_HAZE_S
     const HAZE_L = pgr.constructor.NORTH_HAZE_L
-    const hh = base.h + (HAZE_H - base.h) * hazeT
-    const ss = base.s + (HAZE_S - base.s) * hazeT
-    const ll = base.l + (HAZE_L - base.l) * hazeT
+    const hazed = (c) => `hsl(${c.h + (HAZE_H - c.h) * hazeT},` +
+                         `${c.s + (HAZE_S - c.s) * hazeT}%,` +
+                         `${c.l + (HAZE_L - c.l) * hazeT}%)`
 
-    pgr._gCtx.globalAlpha = edgeAlpha
-    pgr._gCtx.fillStyle = `hsl(${hh},${ss}%,${ll}%)`
-    pgr._gCtx.beginPath()
-    pgr._gCtx.moveTo(xCenter, peakY)
-    pgr._gCtx.lineTo(xLeft,  baseY)
-    pgr._gCtx.lineTo(xRight, baseY)
-    pgr._gCtx.closePath()
-    pgr._gCtx.fill()
-    pgr._gCtx.globalAlpha = 1.0
+    const ctx = pgr._gCtx
+
+    // Painted twice: once here (clipped to below the horizon by the row
+    // loop, preserving occlusion against nearer terrain) and once after
+    // the loop restores, clipped to the sky band. See
+    // patch_preview_sky_clip.py -- a clip cannot be widened from inside.
+    const paint = () => {
+    ctx.globalAlpha = edgeAlpha
+
+    // Wall first, roof over it -- the roof's overhang should cover the
+    // wall's top corners, not the other way round.
+    ctx.fillStyle = hazed(WALL_BASE_COLOR)
+    ctx.beginPath()
+    ctx.moveTo(xLeft,  baseY)
+    ctx.lineTo(xRight, baseY)
+    ctx.lineTo(xRight, eaveY)
+    ctx.lineTo(xLeft,  eaveY)
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.fillStyle = hazed(ROOF_BASE_COLOR)
+    ctx.beginPath()
+    if (isLonghall) {
+      // Hipped ridge rather than a point -- a rectangular hall read as a
+      // cone otherwise, which is what made it hard to tell apart from
+      // the roundhouses at this distance.
+      const ridgeR  = footR * 0.34
+      const xRidgeL = pgr._colToScreenX(drawX - ridgeR, tileRow)
+      const xRidgeR = pgr._colToScreenX(drawX + ridgeR, tileRow)
+      ctx.moveTo(xEaveL,  eaveY)
+      ctx.lineTo(xRidgeL, peakY)
+      ctx.lineTo(xRidgeR, peakY)
+      ctx.lineTo(xEaveR,  eaveY)
+    } else {
+      ctx.moveTo(xEaveL,  eaveY)
+      ctx.lineTo(xCenter, peakY)
+      ctx.lineTo(xEaveR,  eaveY)
+    }
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.globalAlpha = 1.0
+    }
+
+    paint()
+    ;(pgr._northPreviewSky ??= []).push(paint)
   }
 
 

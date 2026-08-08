@@ -293,8 +293,16 @@ export default class PerspectiveScene extends BaseLocationScene {
             houses:    neighborMapData.houses ?? [],
             columnOffset,
           })
+          // A neighbour whose wallMask is NOT trees (b0's is its palisade
+          // ring) opts out with previewTrunks: false in its map JSON.
+          // Trunks are baked with THIS scene's ForestEffects options, not
+          // the neighbour's, so b0's bare-post overrides never applied and
+          // the palisade came through as a ring of full oaks.
           this.forestEffects?.setNorthNeighborWallMask(
-            neighborMapData.wallMask ?? null, neighborMapData.height
+            neighborMapData.previewTrunks === false
+              ? null
+              : (neighborMapData.wallMask ?? null),
+            neighborMapData.height
           )
         })
         .catch(e => console.warn(`[${this.scene.key}] north neighbour preview fetch failed:`, e.message))

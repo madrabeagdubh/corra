@@ -49,11 +49,15 @@ export const b0Content = {
     {
       id: 'mor',
       name: 'Mór',
-      // BESIDE the tavern door, not on it. Door proximity takes precedence
+      // BESIDE the hall door, not on it. Door proximity takes precedence
       // over encounter proximity (checkProximityInteractions returns early
       // when a door is in range), so an NPC sharing the door's tile can
       // never be spoken to -- the door badge wins every frame.
-      x: 34, y: 26,
+      // HOLDING POSITION. She was at (34,26), beside the old
+      // hut door at (36,26), which no longer exists. She
+      // belongs inside the hall greeting on entry -- this is just
+      // somewhere reachable until that mechanism is built.
+      x: 30, y: 23,
       radius: 3,
       // Placeholder art -- she wants her own. `portrait` loads by URL and
       // fails loudly; the GID tile path fails silently, so always set both.
@@ -225,7 +229,11 @@ export const b0Content = {
     {
       id: 'cormac',
       name: 'Cormac',
-      x: 28, y: 21,
+      // Was (28,21) -- which became the hall's door tile exactly,
+      // so the door badge won every frame and he could never be
+      // spoken to. See the note on Mór above about door proximity
+      // taking precedence. DOOR_RADIUS_TILES is 2.0.
+      x: 24, y: 25,
       visual: { color: '0x8b5a2b', radius: 16 },
       dialogues: [
         { ga: 'Is fada ó tháinig aoi chugainn. Fáilte go dtí an ráth.',

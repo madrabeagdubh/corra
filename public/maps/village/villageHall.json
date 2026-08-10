@@ -1,5 +1,5 @@
 {
-  "name": "tavern",
+  "name": "villageHall",
   "width": 16,
   "height": 14,
   "layers": [
@@ -833,7 +833,7 @@
       "x": 2,
       "y": 3,
       "text": {
-        "ga": "Cláirseach",
+        "ga": "Cl\u00e1irseach",
         "en": "A harp"
       },
       "visual": {
@@ -851,11 +851,11 @@
       "sprite": "poet",
       "dialogues": [
         {
-          "ga": "Suigh síos. Éist. Tá scéal agam.",
+          "ga": "Suigh s\u00edos. \u00c9ist. T\u00e1 sc\u00e9al agam.",
           "en": "Sit down. Listen. I have a story."
         },
         {
-          "ga": "An gcloiseann tú an chláirseach? Tá sí ag fanacht leat.",
+          "ga": "An gcloiseann t\u00fa an chl\u00e1irseach? T\u00e1 s\u00ed ag fanacht leat.",
           "en": "Do you hear the harp? It is waiting for you."
         }
       ]
@@ -868,7 +868,7 @@
       "sprite": "fearghus",
       "dialogues": [
         {
-          "ga": "Oíche fhuar atá ann.",
+          "ga": "O\u00edche fhuar at\u00e1 ann.",
           "en": "It is a cold night."
         }
       ]
@@ -890,11 +890,11 @@
   ],
   "doors": [
     {
-      "id": "tavern_exit",
+      "id": "hall_exit",
       "x": 6,
       "y": 9,
       "destination": "b0",
-      "entryEdge": "fromTavern",
+      "entryEdge": "fromVillageHall",
       "ga": "Amach",
       "en": "Outside",
       "visual": {

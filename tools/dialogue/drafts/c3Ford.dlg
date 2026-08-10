@@ -1,0 +1,338 @@
+# c3Ford — Odhrán at the ford
+#
+#   node tools/dialogue/compile.mjs tools/dialogue/drafts/c3Ford.dlg --check
+#   node tools/dialogue/compile.mjs tools/dialogue/drafts/c3Ford.dlg
+#
+# ── WHAT THIS IS ──────────────────────────────────────────────────────────
+#
+# The toll-man Muireann warns about at d3Sea node 4. Cut down hard from the
+# prose draft: that ran ~50 lines, which at staged reveal and syllable-timed
+# pacing is 15+ cards on the mainline. Here the mainline is FOUR cards --
+# arrive, learn there is no toll today, ask one thing, leave -- and
+# everything else is dug for. Each layer costs an option and sets a note
+# that opens the next node.
+#
+#   node 0   the rope is down. He does not get up.
+#   node 1   he cannot reckon the toll            (asked_odhran_why)
+#   node 2   the feast, the bard, the satire      (knows_odhran_shame)
+#   node 3   the binding, the cave, the rope      (knows_odhran_binding)
+#   node 4   afterwards
+#
+# ── THE BYPASS IS THE TRAP ────────────────────────────────────────────────
+#
+# has_druid_word (set at d3Sea node 4) puts a one-tap exit on node 0. Use it
+# and you are across in two cards, free, and you never learn any of this --
+# which is exactly what Muireann told you to do: "You need say no more than
+# that. And say no more." The efficient player loses the scene and never
+# finds out. It costs nothing to leave in, and it is the first branch the
+# player can feel they chose.
+#
+# It is only offered @first, so it does not sit there nagging on later
+# visits once the conversation has been opened.
+#
+# ── OPEN QUESTIONS FOR RIBO ───────────────────────────────────────────────
+#
+#   @file  is a GUESS. The river runs a3/b3/c3/d3 and c3 sits between the
+#          estuary and the turn north to the ráth, so the ford is probably
+#          there. Change it if the ford lives elsewhere.
+#
+#   NAMES  Muireann puts the ráth on Fionnbarra's land and Odhrán is
+#          Fionnbarra's man -- but the chapter arc has Ruadhán mac Colla as
+#          the chief being extorted by Séadna. One man, two names, or two
+#          chiefs? I have used Fionnbarra throughout to match d3Sea, and
+#          named the bard Séadna at node 2, which is the point where the
+#          player could connect him to the ráth. Both are one-word changes.
+#
+#   RIDDLE No answer is required here. The arithmetic riddle is spoken at
+#          node 3 and left standing. If you do want the division-by-zero
+#          solve later, the hook is that he cannot name one honest man --
+#          the Éasca input would slot in as an option on node 3 and set a
+#          note. Nothing here depends on it either way.
+#
+#   Cnoc Maol, not Croc Mael.
+#
+# ── REGISTER ──────────────────────────────────────────────────────────────
+#
+# Odhrán is plain throughout -- the thou/thee of the prose draft read
+# Malory rather than saga. The heightened voice belongs only to the satire
+# itself at node 2, because that is verse and quoted, and the contrast is
+# the point: the bard's words are the only ornamented thing in the scene,
+# and they are what broke him.
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+
+@file       c3Ford
+@encounter  0
+
+
+= node 0 — the rope is down
+@when !note met_odhran
+@note met_odhran
+@again The rope is down. Go across. / 
+He does not get up.
+% 
+The rope is down. The ford is open.
+% 
+Go across, if you are going.
+% 
+
+* Say the druid's word
+% 
+@when note has_druid_word
+@first
+@exit
+@note used_druid_word
+> The Druid of the Cliff-Mouth knows my name.
+% 
+< Then he knows more than I do these days.
+% 
+< Go on across. There is no toll on you.
+% 
+
+* What toll is this place keeping?
+% 
+> What toll is this place keeping?
+% 
+< That is the question, right enough.
+% 
+< I have been at it since the moon turned and I am no nearer.
+% 
+
+* Are you hurt?
+% 
+@note asked_wound
+> Are you hurt, man? Have you taken a wound?
+% 
+< A wound. That is the word for it.
+% 
+< I was struck, and struck hard, and there is no blood on me at all.
+% 
+< That is the worst of it. There is nothing to show.
+% 
+
+* Walk on
+% 
+@exit
+@silent
+
+
+= node 1 — he cannot reckon
+@hold
+@again Well? / 
+Name your toll and be done, you are thinking.
+% 
+I cannot name it.
+% 
+
+* You cannot name your own toll?
+% 
+@first
+@note asked_odhran_why
+> You are a toll-keeper at a ford and you cannot name a toll?
+% 
+< I was Odhrán, toll-keeper to Fionnbarra of the three rivers.
+% 
+< I held this ford and the three crossings north to Druim Caillí.
+% 
+< I took his portion from merchant and pilgrim and swineherd alike,
+% 
+< and I was never once bested at it. Ask anyone on this water.
+% 
+
+* What is it you are counting?
+% 
+@first
+> What is it you are counting, then?
+% 
+< Fourteen ox-loads of salt fish, and half again of what is left
+% 
+< after the church takes its tithe, against the weight of a hull
+% 
+< in dry timber and the same hull in green.
+% 
+< Every road I take through it comes out at a place that cannot be.
+% 
+
+* I have seen tribute reckoned before
+% 
+@first
+> I have seen tribute reckoned, and hostage-prices, and silver weighed.
+% 
+> None of them wore this shape.
+% 
+< None of them were made in shame.
+% 
+
+* Leave him to it
+% 
+@exit
+@silent
+
+
+= node 2 — the feast
+@when note asked_odhran_why
+@hold
+@again It was very well made. / 
+I went up to the hall as a man of position goes.
+% 
+My tally-rod, my good wool cloak, my belt of tooled leather.
+% 
+I sat near the fire, which is a good place, with meat on my bone.
+% 
+The chief said my name aloud before his warriors. That is no small thing.
+% 
+
+* What happened at the hall?
+% 
+@first
+@note knows_odhran_shame
+> And what happened to you there?
+% 
+< There was a bard. A lean one, sharp in the mouth, black clever eyes.
+% 
+< Séadna, they called him. He made a satire.
+% 
+< Upon me.
+% 
+
+* What did he say?
+% 
+@when note knows_odhran_shame
+@first
+> What did he say of you?
+% 
+< That my heart was a stone in a locked chest, and the chest sunk in a bog.
+% 
+< That Fionnbarra's hound took meat from a hand with more grace
+% 
+< than I took toll. That I had grown so round from the taking of it
+% 
+< that sitting on my rock a man could not tell which was which,
+% 
+< except that the rock did not smack its lips.
+% 
+< He rhymed it all. It was very well made. That is the thing of it.
+% 
+
+* Was there more?
+% 
+@when note knows_odhran_shame
+@first
+@note knows_odhran_binding
+> Was that the end of it?
+% 
+< He said I was known from Dún Bolg to the northern stones
+% 
+< as the man who took the last dry heel of bread out of a widow's basket
+% 
+< and weighed it before he gave her back the half.
+% 
+< And then he bound a reckoning into it, and that is what will not come out.
+% 
+
+* Leave him to it
+% 
+@exit
+@silent
+
+
+= node 3 — the binding
+@when note knows_odhran_binding
+@hold
+@again I cannot find the end of it. / 
+A bard's scorn, when he means it, is not insult.
+% 
+It is a thing with weight, and it does what it says.
+% 
+
+* What did he bind on you?
+% 
+@first
+> What was it he bound on you?
+% 
+< He spoke it before all of them, and it went thus:
+% 
+< "No peace to you, Odhrán, no quiet night, no easy morning,
+% 
+< no still hour between one bell and the next, until you reckon this:
+% 
+< take the number of your years; divide it by the number of honest men
+% 
+< you have known in all your life; multiply what is left
+% 
+< by the number of times you were glad of your own company.
+% 
+< Speak that sum aloud at your own ford, and you are free."
+% 
+
+* Have you brought it to anyone?
+% 
+@first
+> Has no one been able to work it?
+% 
+< The monks at the black abbey turned it over and said
+% 
+< it was not their manner of reckoning.
+% 
+< The old woman on the hill who counts in knots laughed till she wept.
+% 
+< Fionnbarra sent three wise men to this bridge. Three went away again
+% 
+< rubbing their beards and saying nothing of any use.
+% 
+
+* What will you do?
+% 
+@first
+@note knows_odhran_cave
+> And what will you do, if it will not come free?
+% 
+< There is a cave above Cnoc Maol where a man could sit very quietly
+% 
+< and not take toll off anyone ever again.
+% 
+< The monks go into caves. They sit in the dark and reckon nothing
+% 
+< and nobody mocks them for it. It is thought holy.
+% 
+
+* Ask for the rope
+% 
+@when note knows_odhran_cave
+@first
+@note has_toll_rope
+> I have a long road west. I could use a rope.
+% 
+< Take it. Take it freely, there is no toll on you.
+% 
+< It goes across the ford when there is traffic and comes up when there is none.
+% 
+< It is a good rope. It was always a good rope.
+% 
+
+* Leave him to it
+% 
+@exit
+@silent
+
+
+= node 4 — afterwards
+@hold
+@again The ford is open. / 
+The ford is open. It costs you nothing.
+% 
+
+* Is there any change in it?
+% 
+> Is there any change in the reckoning?
+% 
+< None. But it is a thing that can be carried, I find,
+% 
+< so long as somebody knows it is there.
+% 
+
+* Farewell
+% 
+@exit
+@silent

@@ -531,5 +531,5 @@ export function buildTimedPhraseFromDurations(stringIndices, durations, opts = {
 // parallel no-orb implementation. The earlier no-orb version was a
 // mistake: it made demo mode look broken — "the orbs disappear" — rather
 // than showing the player what correct play actually looks like. See
-// tavern.js's _startDemoPlayback for the new usage.)
+// villageHall.js's _startDemoPlayback for the new usage.)
 

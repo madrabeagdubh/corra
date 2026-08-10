@@ -15,7 +15,7 @@
 //
 // LAYOUT (recorded in map JSON for phase 2's RoundhouseRenderer; footprints
 // are left unmasked and walkable until houses actually render):
-//   mapData.houses   -- great hall at the crown, tavern-house, dwellings
+//   mapData.houses   -- great hall at the crown, kitchen, forge
 //   mapData.features -- fire pit, well, hurdle pen
 //
 // PRESERVED: exits / entries / border / spawns are carried over from
@@ -103,7 +103,7 @@ const houses = [
   // depth (north-south) is short. r kept as a bounding radius for
   // offscreen culling/sort only.
   { id: 'longhall', kind: 'longhall', x: 28, y: 18, w: 7.0, d: 3.2, r: 3.9 },
-  { id: 'tavern',   kind: 'tavern',   x: 36, y: 23, r: 2.6, door: 'tavern' },
+  { id: 'kitchen',  kind: 'roundhouse', x: 36, y: 23, r: 2.0 },
   { id: 'house_1',  kind: 'dwelling', x: 20, y: 22, r: 2.4 },
 ]
 const features = [

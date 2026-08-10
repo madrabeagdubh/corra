@@ -21,7 +21,7 @@ import BogD2 from './game/scenes/locations/bog/d2.js'
 import BogD3 from './game/scenes/locations/bog/d3.js'
 import BogD4 from './game/scenes/locations/bog/d4.js'
 import BogD3Sea from './game/scenes/locations/bog/d3Sea.js'
-import Tavern from './game/scenes/locations/village/tavern.js'
+import VillageHall from './game/scenes/locations/village/villageHall.js'
 import TestForest from './game/scenes/locations/forest/testForest.js'
 import ElevationTest  from './game/scenes/locations/forest/elevationTest.js'
 import ElevationMoatTest  from './game/scenes/locations/forest/elevationMoatTest.js'
@@ -77,7 +77,7 @@ function _createGame(selectedChampion, options) {
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
             BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
-            Tavern,TestForest,Grove,ElevationTest,ElevationMoatTest
+            VillageHall,TestForest,Grove,ElevationTest,ElevationMoatTest
         ],
         autoStart: false,
         scale: {

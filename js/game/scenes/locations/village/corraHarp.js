@@ -50,7 +50,7 @@
 // direction-button presses while strumming, per explicit design call.
 //
 // Swiping the moon changes GameSettings.englishOpacity (see
-// perspectiveScene.js). In tavern.js this still drives the opacity of
+// perspectiveScene.js). In villageHall.js this still drives the opacity of
 // the bard mode's English subtitles. It no longer drives string
 // dimming — that was tried (see _ambientAlpha below) and found not to
 // improve the experience, so _ambientAlpha currently just returns each
@@ -318,7 +318,7 @@ class HarpScene extends Phaser.Scene {
   }
 
   _bg() {
-    // Transparent — tavern scene shows through the overlay.
+    // Transparent — village hall scene shows through the overlay.
     // Just a subtle dark vignette at edges to help strings read against
     // complex backgrounds.
     const { width: W, height: H } = this.scale

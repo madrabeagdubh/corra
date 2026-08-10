@@ -13133,17 +13133,17 @@
       "w": 9.5,
       "d": 3.6,
       "r": 3.9,
-      "door": "tavern"
+      "door": "villageHall"
     },
     {
-      "id": "tavern",
-      "kind": "tavern",
+      "id": "kitchen",
+      "kind": "roundhouse",
       "x": 36,
       "y": 23,
       "r": 2.0
     },
     {
-      "id": "house_1",
+      "id": "forge",
       "kind": "dwelling",
       "x": 20,
       "y": 22,
@@ -13151,12 +13151,6 @@
     }
   ],
   "features": [
-    {
-      "id": "firepit",
-      "kind": "firepit",
-      "x": 28,
-      "y": 24
-    },
     {
       "id": "well",
       "kind": "well",
@@ -13182,7 +13176,7 @@
       "y": 52,
       "yFromSource": false
     },
-    "fromTavern": {
+    "fromVillageHall": {
       "x": 28,
       "y": 22,
       "yFromSource": false
@@ -13483,10 +13477,10 @@
   },
   "doors": [
     {
-      "id": "tavern_door",
+      "id": "hall_door",
       "x": 28,
       "y": 21,
-      "destination": "tavern",
+      "destination": "villageHall",
       "entryEdge": "south",
       "ga": "Isteach sa halla",
       "en": "Into the hall",

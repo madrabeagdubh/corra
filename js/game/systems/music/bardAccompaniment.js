@@ -98,7 +98,7 @@ export class BardAccompaniment {
   // `opts.gateLighting`: if true, the engine does NOT light a newly-
   //   current group (nor treat its strings as live) until the caller
   //   calls readyForNextGroup(). This lets the caller hold the harp's
-  //   prompt back until something external finishes — in the tavern,
+  //   prompt back until something external finishes — in the village hall,
   //   that's the line's typewriter reveal plus a short reading beat, so
   //   a fast player can't pluck ahead into a line they haven't had a
   //   chance to read (a single text line can span 2-3 plucks before it
@@ -194,7 +194,7 @@ export class BardAccompaniment {
     group?.strings.forEach(idx => this._harp.highlightString(idx, false))
   }
 
-  // Called by the caller (e.g. tavern.js, once the current line's
+  // Called by the caller (e.g. villageHall.js, once the current line's
   // typewriter reveal + reading beat has finished) to release a gated
   // group: lights it and makes its strings live. No-op if nothing is
   // pending (gating disabled, or already released) or if stopped, so

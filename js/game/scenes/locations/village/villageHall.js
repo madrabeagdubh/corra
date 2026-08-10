@@ -1,5 +1,5 @@
-// tavern.js
-// Location: js/game/scenes/locations/village/tavern.js
+// villageHall.js
+// Location: js/game/scenes/locations/village/villageHall.js
 
 import VillageScene from '../villageScene.js'
 import { HarpPhrasePlayer, buildTimedPhraseFromDurations } from '../../../systems/music/harpPhrasePlayer.js'
@@ -16,7 +16,7 @@ import { TYPE } from '../../../systems/gameTypography.js'
 // opens and still sounds, so the player can sit and pluck a few notes, but
 // the narrative sequence does not fire. Nothing is deleted; set it true to
 // restore the whole thing.
-const TAVERN_BARD_MODE = false
+const HALL_BARD_MODE = false
 
 const BARD_LINE_NOTE_TARGET = 3
 const BARD_FLOW_DELAY = 250
@@ -67,10 +67,10 @@ gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/G2-|G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3-|A2A/B/||
 cc/d/ e/f/|gg/e/ d/B/|A/B/G2-|G2A/B/|cc/d/ e/f/|gc'>b|a3-|a>a b/a/|
 gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/^G2-|^G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3|A2||`
 
-export default class TavernScene extends VillageScene {
-  constructor() { super({ key: 'tavern' }) }
+export default class VillageHallScene extends VillageScene {
+  constructor() { super({ key: 'villageHall' }) }
 
-  getMapKey()      { return 'tavern' }
+  getMapKey()      { return 'villageHall' }
   getAmbient()     { return 0x1a0e08 }
   getPlayerLight() { return { color: 0xffcc88, intensity: 2.2, radius: 280 } }
   getMusicTrack()  { return 'village_slow' }
@@ -99,7 +99,7 @@ export default class TavernScene extends VillageScene {
     if (this._hearthAnchor !== undefined) return this._hearthAnchor
     const b = (this.mapData?.buildings || []).find(x => x.id === 'hearth')
     if (!b) { this._hearthAnchor = null; return null }
-    const F = TavernScene.HEARTH_FLAME
+    const F = VillageHallScene.HEARTH_FLAME
     this._hearthAnchor = {
       x: (b.x + (b.fw ?? 2) / 2) * this.tileSize,
       y: (b.y + F.ROW_OFFSET) * this.tileSize,
@@ -115,7 +115,7 @@ export default class TavernScene extends VillageScene {
     const proj = pgr._projectLogical(anchor.x, anchor.y)
     if (!proj) return
     const { screenX, screenY, scale } = proj
-    const F = TavernScene.HEARTH_FLAME
+    const F = VillageHallScene.HEARTH_FLAME
     const now = performance.now()
     const dt = Math.min(now - (this._flameLastT || now), 64)
     this._flameLastT = now
@@ -208,10 +208,10 @@ export default class TavernScene extends VillageScene {
   // to the poem recitation with gold strings lit and waiting for input.
   _openHarpOverlay() {
     super._openHarpOverlay()
-    if (!TAVERN_BARD_MODE) {
+    if (!HALL_BARD_MODE) {
       // Free play: strings lit, no recitation, no gate. The player can sit
       // at the harp and sound a few notes, which is all this evening needs.
-      console.log('[tavern] bard mode held back (TAVERN_BARD_MODE = false)')
+      console.log('[villageHall] bard mode held back (HALL_BARD_MODE = false)')
       return
     }
     this._fetchTainPoem()
@@ -628,7 +628,7 @@ _buildBardEnglishSlotEl() {
   }
 
   async _startBardAccompaniment() {
-    if (!TAVERN_BARD_MODE) return          // belt and braces
+    if (!HALL_BARD_MODE) return          // belt and braces
     const harp = this._corraHarp
     if (!harp) return
 

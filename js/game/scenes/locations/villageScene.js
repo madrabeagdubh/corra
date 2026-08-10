@@ -17,7 +17,7 @@ export default class VillageScene extends PerspectiveScene {
   usesSwallows()       { return false }
 
   // ── Interior defaults ─────────────────────────────────────────────────────
-  getMapKey()      { return 'tavern' }
+  getMapKey()      { return 'villageHall' }
   getMapPath()     { return `/maps/village/${this.getMapKey()}.json?v=${Date.now()}` }
   getAmbient()     { return 0x3a2218 }
   getPlayerLight() { return { color: 0xffcc88, intensity: 1.6, radius: 220 } }

@@ -30,7 +30,7 @@
 //
 // This file does NOT know anything about poem text, illustrations, or
 // reveal payloads — it only builds the musical Group.strings/sharps/
-// ordered shape. The caller (e.g. tavern.js) is expected to zip the
+// ordered shape. The caller (e.g. villageHall.js) is expected to zip the
 // resulting groups together with whatever narrative content accompanies
 // each one (see buildBardSequenceWithText below for a convenience that
 // does exactly that zipping).

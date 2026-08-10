@@ -57,7 +57,7 @@ export default class BaseLocationScene extends Phaser.Scene {
   // update() entirely for that frame. This silently froze anything that
   // needs to keep animating regardless of player/camera movement --
   // confirmed across multiple unrelated systems: water tile animation
-  // (_waterPhase, advanced inside PGR's own update()), the tavern's
+  // (_waterPhase, advanced inside PGR's own update()), the hall's
   // hearth fire particles, and ForestEffects' canopy sway -- all stopped
   // dead whenever the player stood still for 8+ seconds.
   //

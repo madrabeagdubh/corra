@@ -27,7 +27,7 @@
 // currently show the bug.
 //
 // ── Shape families ───────────────────────────────────────────────────────────
-// Round huts (tavern/dwelling): N-gon wall + N-gon cone roof. Camera
+// Round huts (roundhouse/dwelling): N-gon wall + N-gon cone roof. Camera
 // faces north, so wall segments facing north (away) are skipped -- same
 // simplification DolmenRenderer uses for its stones' hidden back face.
 // Longhall: rectangular, gabled, shown LENGTHWISE (long axis east-west,
@@ -71,7 +71,7 @@ export const KIND_STYLE = {
     doorH: 1.7,
     postW: 0.17,
   },
-  tavern:   { wallH: 2.1, roofH: 2.0, wallLight: 'rgba(192,174,138,1)', wallDark: 'rgba(126,110,80,1)' },
+  roundhouse: { wallH: 2.1, roofH: 2.0, wallLight: 'rgba(192,174,138,1)', wallDark: 'rgba(126,110,80,1)' },
   dwelling: { wallH: 1.8, roofH: 1.7, wallLight: 'rgba(188,170,134,1)', wallDark: 'rgba(120,104,76,1)' },
 }
 const DOOR_COLOR      = 'rgba(24,20,16,0.9)'

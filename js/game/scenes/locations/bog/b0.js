@@ -13,7 +13,7 @@ import { GameState } from '../../../systems/gameState.js'
 // run it here at all). The palisade is the map's wallMask ring rendered as
 // bare timber poles via the ForestEffects options below (no canopy, no
 // branches). House sites live in mapData.houses (a rectangular longhall +
-// tavern + one dwelling hut) and render via RoundhouseRenderer below;
+// kitchen + one forge hut) and render via RoundhouseRenderer below;
 // mapData.features (firepit/well/pen) are still recorded but not yet
 // rendered. NPCs load from /data/bog/b0.js.
 // Synthetic GID for Mór's sprite, registered in create() below. Must not
@@ -25,8 +25,8 @@ const MOR_GID = 9103
 export default class BogB0 extends BogLocationScene {
   constructor() { super({ key: 'b0' }) }
 
-  // Defensive: the tavern's interior overlay (#pgr-ceiling gradient +
-  // #pgr-blackmask) is raw DOM that the tavern is meant to tear down on exit.
+  // Defensive: the hall's interior overlay (#pgr-ceiling gradient +
+  // #pgr-blackmask) is raw DOM that the hall is meant to tear down on exit.
   // If that teardown is missed on the door-exit path it would leave the village
   // dark, so strip any leftovers here -- the exterior never creates them itself.
   create() {
@@ -67,7 +67,7 @@ export default class BogB0 extends BogLocationScene {
     }
   }
 
-  // Roundhouses (longhall / tavern / dwelling) from mapData.houses. Walls
+  // Roundhouses (longhall / roundhouse / dwelling) from mapData.houses. Walls
   // draw via PGR's own per-row loop (setStructures) so they're correctly
   // interleaved with terrain/trunks and correctly occluded by the player
   // -- see roundhouseRenderer.js's header for why the old forestEffects.ctx

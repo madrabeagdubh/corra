@@ -48,8 +48,8 @@ export class StoryVisuals {
     this._vignetteEl = document.createElement('div')
     this._vignetteEl.style.cssText = [
       'position:fixed;inset:0;pointer-events:none;',
-      // Above the tavern scene itself but BELOW the existing text slots
-      // and harp strings — see tavern.js's z-index:2000001 for the text
+      // Above the village hall scene itself but BELOW the existing text slots
+      // and harp strings — see villageHall.js's z-index:2000001 for the text
       // container and corraHarp.js's overlay at z-index:2000000.
       
 'z-index:499999;',
@@ -69,13 +69,13 @@ export class StoryVisuals {
 
   // Triggers the one-time fade-in. Idempotent — calling again after the
   // first time is a no-op, so callers don't need to track "did this
-  // already happen" themselves (e.g. tavern.js can call this on every
+  // already happen" themselves (e.g. villageHall.js can call this on every
   // line advance and it'll simply do nothing after the first call).
   start() {
     if (!this._mounted || this._started) return
     this._started = true
     // Double rAF flush, same race-avoidance technique used throughout
-    // tavern.js's own fades — a single rAF was not reliably its own
+    // villageHall.js's own fades — a single rAF was not reliably its own
     // frame boundary in earlier testing elsewhere in this project.
     void this._vignetteEl.offsetHeight
     requestAnimationFrame(() => {
@@ -86,7 +86,7 @@ export class StoryVisuals {
   // "Lights come back up" — fades the vignette back out at end-of-tale,
   // WITHOUT removing its DOM (that's destroy()'s job). Call this first,
   // then destroy() once the fade (and whatever else is wrapping up
-  // alongside it, e.g. the text fade-out in tavern.js) has finished. A
+  // alongside it, e.g. the text fade-out in villageHall.js) has finished. A
   // no-op if not mounted or the fade-in never actually ran.
   fadeOut() {
     if (!this._mounted || !this._started) return

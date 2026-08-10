@@ -476,7 +476,7 @@ const INTERJECTIONS = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VOICES = {
-    // The tavern bard — a deep, gravelly storyteller in the register of
+    // The hall bard — a deep, gravelly storyteller in the register of
     // Ronnie Drew: low pitch + a big dark resonating cavity + heavy rasp.
     // (Formerly two presets, 'ronnie' and a separate deep 'bard'; merged
     // into one since this voice is only used for the bard now.) The four

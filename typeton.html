@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Typing</title>
+<style>
+  :root {
+    --bg:        #15171c;
+    --keycap:    #272b34;
+    --keycap-lip:#1b1e25;
+    --chalk:     #e9ecf2;
+    --dim:       #6d7480;
+    --gold:      #d9a441;
+    --gold-soft: rgba(217,164,65,0.30);
+    --green:     #4ec26a;
+    --orange:    #e8873a;
+
+    --gap: 4px;
+    --key: min(9.2vw, 54px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--chalk);
+    font-family: "Roboto", "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body { display: flex; flex-direction: column; }
+
+  /* ---- level badge ----------------------------------------------------- */
+  #bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    font-size: 14px; letter-spacing: 0.12em; color: var(--dim);
+    z-index: 4;
+  }
+  #badge { color: var(--gold); font-weight: 700; }
+  #dots { display: flex; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #303540; }
+  .dot.done { background: var(--gold); }
+
+  #picker {
+    position: absolute; top: 36px; left: 14px;
+    display: none; flex-wrap: wrap; gap: 6px; max-width: 240px;
+    padding: 10px; border-radius: 8px;
+    background: #1e222a; box-shadow: 0 6px 24px #0008;
+    z-index: 6;
+  }
+  #picker.open { display: flex; }
+  #picker button {
+    font: inherit; font-size: 13px; color: var(--chalk);
+    background: var(--keycap); border: 0; border-radius: 5px;
+    padding: 7px 10px; cursor: pointer;
+  }
+  #picker button.on { background: var(--gold); color: #201703; font-weight: 700; }
+
+  /* ---- cheer strip, kept clear of the text ----------------------------- */
+  #banner {
+    position: absolute; left: 0; right: 0; top: 4.5vh;
+    text-align: center; font-size: min(7vw, 5.2vh); font-weight: 800;
+    color: var(--gold); letter-spacing: 0.08em;
+    opacity: 0; pointer-events: none; z-index: 5;
+    text-shadow: 0 0 24px rgba(217,164,65,0.5);
+  }
+  #banner.go { animation: bannerpop 1500ms ease-out; }
+  @keyframes bannerpop {
+    0%   { opacity: 0; transform: translateY(-16px) scale(0.85); }
+    18%  { opacity: 1; transform: translateY(0) scale(1.08); }
+    30%  { transform: scale(1); }
+    78%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ---- the target ------------------------------------------------------ */
+  #stage {
+    height: 42vh; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12vh 16px 6px;
+  }
+
+  #target {
+    display: flex; flex-wrap: wrap;
+    align-items: center; justify-content: center;
+    gap: 0 calc(var(--size) * 0.34);
+    font-weight: 800; line-height: 1.15;
+    font-size: var(--size);
+    letter-spacing: 0.02em;
+  }
+  .word { display: flex; }
+
+  .ch {
+    color: transparent;
+    -webkit-text-stroke: var(--stroke) var(--dim);
+    transition: color 110ms ease, -webkit-text-stroke-color 110ms ease;
+  }
+  .ch.done   { color: var(--chalk); -webkit-text-stroke-color: var(--chalk); }
+  .ch.cursor { -webkit-text-stroke-color: var(--gold); }
+  .ch.win    { color: var(--green); -webkit-text-stroke-color: var(--green); }
+
+  /* ---- celebration ----------------------------------------------------- */
+  .spark {
+    position: absolute; left: 50%; top: 50%;
+    pointer-events: none;
+    animation: fly var(--life) cubic-bezier(.15,.6,.3,1) forwards;
+  }
+  @keyframes fly {
+    from { transform: translate(-50%,-50%) translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+    to   { transform: translate(-50%,-50%) translate(var(--dx), var(--dy))
+                      rotate(var(--spin)) scale(0.15); opacity: 0; }
+  }
+
+  #flash {
+    position: absolute; inset: 0; pointer-events: none;
+    background: var(--green); opacity: 0;
+  }
+
+  /* ---- mashing ---------------------------------------------------------- */
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 70px 14px rgba(226,64,48,0.95);
+    transition: opacity 260ms ease;
+  }
+  #stage.shake { animation: shake 300ms ease; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    18% { transform: translateX(-9px); }  38% { transform: translateX(9px); }
+    58% { transform: translateX(-6px); }  78% { transform: translateX(4px); }
+  }
+
+  #cooldown {
+    position: absolute; inset: 0; z-index: 6;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 6px;
+    background: rgba(34,7,5,0.9); text-align: center; padding: 0 20px;
+  }
+  #cooldown.on { display: flex; }
+  #cooldown .msg {
+    font-size: min(5.5vw, 4.2vh); font-weight: 800;
+    letter-spacing: 0.1em; color: #ffab9c;
+  }
+  #cooldown .num {
+    font-size: min(20vw, 15vh); font-weight: 800; color: #fff; line-height: 1;
+  }
+  #flash.go { animation: flashfade 520ms ease-out; }
+  @keyframes flashfade { from { opacity: 0.24; } to { opacity: 0; } }
+
+  /* ---- keyboard, just below halfway ------------------------------------ */
+  #keyboard {
+    height: 34vh; margin-top: 8vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start; gap: var(--gap);
+  }
+  .row { display: flex; gap: var(--gap); }
+  .row.mid { margin-left: calc(var(--key) * 0.5); }
+  .row.low { margin-left: calc(var(--key) * 1.5); }
+
+  .key {
+    position: relative;
+    width: var(--key); height: var(--key);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--keycap);
+    border-bottom: 2px solid var(--keycap-lip);
+    border-radius: 6px;
+    font-size: calc(var(--key) * 0.46); font-weight: 600;
+    color: var(--dim);
+    transition: background 90ms ease, color 90ms ease, opacity 200ms ease;
+  }
+  .key.wide { width: calc(var(--key) * 5 + var(--gap) * 4); }
+  .key.off  { opacity: 0.3; }
+
+  /* resting keys in gold: A S D  K L quiet, F and J the anchors */
+  .key.home   { box-shadow: inset 0 0 0 2px var(--gold-soft); color: #98a0ac; }
+  .key.anchor { box-shadow: inset 0 0 0 2px var(--gold); color: var(--chalk); }
+  .key.anchor::after {
+    content: ""; position: absolute; bottom: 14%;
+    width: 38%; height: 2px; background: var(--gold); border-radius: 2px;
+  }
+
+  /* the nudge, in white so it never reads as a home key */
+  .key::before {
+    content: ""; position: absolute; inset: 0; border-radius: 6px;
+    opacity: 0; pointer-events: none;
+    box-shadow: inset 0 0 0 3px #ffffff, 0 0 16px 2px rgba(255,255,255,0.45);
+  }
+  .key.hint::before { animation: nudge 1400ms ease-in-out infinite; }
+  @keyframes nudge {
+    0%   { opacity: 0; }
+    45%  { opacity: 0.95; }
+    100% { opacity: 0; }
+  }
+
+  .key.hit  { background: var(--green);  color: #10230f; opacity: 1; }
+  .key.miss { background: var(--orange); color: #2a1405; opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ch, .key { transition: none; }
+    .spark, #flash, #banner { animation-duration: 1ms; }
+    .key.hint::before { animation: none; opacity: 0.8; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="bar">
+    <span id="badge">1-1</span>
+    <span id="label">letters</span>
+    <span id="dots"></span>
+  </div>
+  <div id="picker"></div>
+  <div id="banner"></div>
+
+  <div id="stage">
+    <div id="flash"></div>
+    <div id="target"></div>
+    <div id="vignette"></div>
+    <div id="cooldown">
+      <div class="msg">SLOW DOWN</div>
+      <div class="num">3</div>
+      <div class="msg">FIND THE KEY FIRST</div>
+    </div>
+  </div>
+
+  <div id="keyboard"></div>
+
+<script>
+/* =====================================================================
+   Typing tutor.
+   stage-part:  stage = which letters are in play
+                part 1 = letters, 2 = words, 3 = sentences
+   Stage 4 is a story: sentences come in order, not shuffled.
+   ===================================================================== */
+
+const S1 = "ASDFGHJKLEI";                  // home row plus the two easy reaches
+const S2 = "ASDFGHJKLEIQWRTYUOPNM";        // everything except Z X C V B
+const S3 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/* Each stage runs 0 to 3:
+     x-0  one letter at a time, new letter alternating with its anchor
+     x-1  short clusters, the same pattern joined up
+     x-2  words
+     x-3  sentences                                                     */
+
+const LEVELS = [
+  { id: "1-0", mode: "letter", label: "letters", keys: S1, rounds: 24,
+    items: ["F","J","F","J", "D","K","D","K", "S","L","S","L",
+            "A","S","A","L", "F","G","J","H", "D","E","K","I"] },
+
+  { id: "1-1", mode: "letter", label: "drills", keys: S1, rounds: 17,
+    items: ["FAF","JAJ","FJFJ", "DAD","DKDK", "SAS","LAL","SLSL",
+            "ASDF","JKL", "GAG","HAH", "DED","KIK", "FIGS","SALAD"] },
+
+  { id: "1-2", mode: "word", keys: S1, rounds: 8,
+    items: ["GAG", "HAH", "FAD", "SIGH", "GAGS", "ALGAE", "FLEAS",
+            "LADIES", "GIGGLE", "FIDDLE", "SHIELD", "JELLIES"] },
+
+  { id: "1-3", mode: "sentence", keys: S1, rounds: 4,
+    items: ["DAD HAS FLEAS", "SHE LIKES ALGAE", "A HAG DID A SIGH",
+            "GILL LIKED A FISH", "HIS LEGS SHAKE", "HE KISSED HIS SHIELD",
+            "SAD LADIES GIGGLE", "A LIKED FLEA DIED"] },
+
+  { id: "2-0", mode: "letter", label: "letters", keys: S2, rounds: 24,
+    items: ["F","R","F","R", "J","U","J","U", "F","T","J","Y",
+            "S","W","L","O", "A","Q","O","P", "J","N","J","M"] },
+
+  { id: "2-1", mode: "letter", label: "drills", keys: S2, rounds: 16,
+    items: ["FRF","JUJ","RUR", "FTF","JYJ","TYT", "SWS","LOL","WOW",
+            "AQA","OPO","QPQ", "JNJ","JMJ","NMN", "TURNIP"] },
+
+  { id: "2-2", mode: "word", keys: S2, rounds: 10,
+    items: ["TOOT", "SPUD", "GOOP", "SHREK", "PUSS", "TURD", "WARTHOG",
+            "TROLL", "YETI", "SQUID", "GHOUL", "FLUSH", "DEATHSTAR", "SLUDGE",
+            "TOWER", "LASER", "DROID", "SWORD", "LUIGI", "YOSHI", "PANTS"] },
+
+  { id: "2-3", mode: "sentence", keys: S2, rounds: 5,
+    items: ["LUIGI FELL IN GOOP", "SHREK ATE A HAIRY SPUD", "YOUR DROID IS ANNOYING",
+            "YOSHI LIKES WARM YODAS SWAMP", "THE YETI STOLE MY PANTS",
+            "A SQUID ATE THE TOWER", "THE TROLL DID A LOUD FART",
+            "SHOOT THE SQUID", "MY DROID SMELLS FUNNY"] },
+
+  { id: "3-0", mode: "letter", label: "letters", keys: S3, rounds: 20,
+    items: ["F","V","F","V", "F","B","F","B", "D","C","D","C",
+            "S","X","S","X", "A","Z","A","Z"] },
+
+  { id: "3-1", mode: "letter", label: "drills", keys: S3, rounds: 14,
+    items: ["FVF","FBF","VBV", "DCD","CVC","XOX", "AZA","ZXZ",
+            "ZXCV", "CAB","VAN","BOX", "BUZZY"] },
+
+  { id: "3-2", mode: "word", keys: S3, rounds: 10,
+    items: ["BOWSER", "BURP", "BUTT", "ZOMBIE", "CHUMP", "GOOMBA",
+            "SLIME", "CHICKEN", "BLASTER", "SNOT", "NINJA", "VAMPIRE",
+            "WIZARD", "CHOMP", "PUNCH", "GOBLIN", "WALUIGI", "MUSHROOM"] },
+
+  { id: "3-3", mode: "sentence", keys: S3, rounds: 5,
+    items: ["BOWSER SAT ON MY PIZZA", "WALUIGI LICKED THE SCREEN",
+            "LIZ LEMON LIKES STARWARS", "MY LIGHT SABRE IS GREEN",
+            "A ZOMBIE STOLE MY LUNCH", "THE GOOMBA HAS THREE BUTTS",
+            "CHICKENS CANNOT DRIVE CARS", "DARTH VADER SNIFFS SOCKS",
+            "MY NINJA IS AFRAID OF DOGS", "DO NOT FEED THE SLIME CHEESE",
+            "PUSS IN BOOTS LOST HIS PANTS", "THE WIZARD BLEW UP A CAKE"] },
+
+  /* --- stage 4: one story, told in order ---------------------------- */
+  { id: "4-1", mode: "story", keys: S3, rounds: 12,
+    items: ["KING WALUIGI HAD A VERY ITCHY NOSE",
+            "HE SNEEZED AND BLEW THE CASTLE ROOF OFF",
+            "A GIANT FLYING TOAD LANDED IN HIS SOUP",
+            "THE TOAD SAID I AM YOUR NEW UNCLE",
+            "THE UNCLE DEMANDED FORTY EIGHT PANCAKES",
+            "BOWSER TRIED TO EAT THEM ALL AT ONCE",
+            "BOWSER EXPLODED INTO A PILE OF SLIME",
+            "MARIO CAME TO HELP BUT SLIPPED ON A BANANA",
+            "EVERYONE LAUGHED SO HARD THE TOWER CRACKED",
+            "THE UNCLE TOAD BECAME THE NEW PRESIDENT",
+            "HE MADE A LAW THAT TUESDAY IS PAJAMA DAY",
+            "NOW EVERYONE SNORES IN THE THRONE ROOM"] }
+];
+
+const HOME   = "ASDKL";     // quiet resting keys
+const ANCHOR = "FJ";        // the two with the bumps
+const HOLD_CORRECT = 300;
+const HINT_DELAY   = 3000;  // ms of hesitation before the key is nudged
+const MASH_WARN    = 3;     // wrong keys in a row before the screen complains
+const MASH_LOCK    = 6;     // wrong keys in a row before a forced pause
+const COOLDOWN_BASE= 3;     // seconds of pause, growing with repeat offences
+
+const SIZES = {
+  letter:   ["min(10.5vw, 11vh)", "3px"],
+  word:     ["min(16vw, 13vh)", "3px"],
+  sentence: ["min(7.5vw, 7.5vh)", "2px"],
+  story:    ["min(7.5vw, 7.5vh)", "2px"]
+};
+const LABELS = { letter:"drills", word:"words", sentence:"sentences", story:"a story" };
+
+/* ---- keyboard --------------------------------------------------------- */
+const ROWS = [["top","QWERTYUIOP"], ["mid","ASDFGHJKL"], ["low","ZXCVBNM"]];
+const keyboard = document.getElementById("keyboard");
+const keys = {};
+
+for (const [rowClass, letters] of ROWS) {
+  const row = document.createElement("div");
+  row.className = "row " + rowClass;
+  for (const ch of letters) {
+    const key = document.createElement("div");
+    key.className = "key";
+    key.textContent = ch;
+    if (HOME.includes(ch))   key.classList.add("home");
+    if (ANCHOR.includes(ch)) key.classList.add("anchor");
+    keys[ch] = key;
+    row.appendChild(key);
+  }
+  keyboard.appendChild(row);
+}
+const spaceRow = document.createElement("div");
+spaceRow.className = "row";
+const spaceKey = document.createElement("div");
+spaceKey.className = "key wide";
+keys[" "] = spaceKey;
+spaceRow.appendChild(spaceKey);
+keyboard.appendChild(spaceRow);
+
+/* ---- sound ------------------------------------------------------------ */
+let actx = null;
+function audio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume();
+  return actx;
+}
+const PENT = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+const step = n => 330 * Math.pow(2, n / 12);
+
+function tone(freq, dur, { type = "triangle", gain = 0.16, at = 0 } = {}) {
+  const ac = audio();
+  const t0 = ac.currentTime + at;
+  const osc = ac.createOscillator();
+  const amp = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  amp.gain.setValueAtTime(0.0001, t0);
+  amp.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
+  amp.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(amp).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
+function sfxHit(i) { tone(step(PENT[i % PENT.length]), 0.16); }
+/* the wrong-key buzz sinks and sours the more he mashes */
+function sfxMiss(n) {
+  const f = 108 - Math.min(n, 6) * 11;
+  const d = 0.13 + Math.min(n, 6) * 0.035;
+  tone(f, d, { type: "sawtooth", gain: 0.10 + Math.min(n, 6) * 0.011 });
+  if (n >= 3) tone(f * 1.06, d, { type: "square", gain: 0.05 });   // sour beating
+  if (n >= 5) tone(f * 0.50, d, { type: "square", gain: 0.06 });
+}
+function sfxAlarm() {
+  for (let i = 0; i < 3; i++) {
+    tone(466, 0.17, { type: "square", gain: 0.11, at: i * 0.36 });
+    tone(349, 0.17, { type: "square", gain: 0.11, at: i * 0.36 + 0.18 });
+  }
+}
+
+/* the fanfare grows with the tier: longer run, then bass, shimmer, a chord */
+function fanfare(tier) {
+  const notes = 3 + tier;
+  for (let i = 0; i < notes; i++) {
+    tone(step(PENT[i % PENT.length] + 12), 0.26, { at: i * 0.068 });
+  }
+  const tail = notes * 0.068;
+  if (tier >= 2) tone(step(-12), 0.7, { type: "sine", gain: 0.13, at: 0 });
+  if (tier >= 3) [0,7,12].forEach((n,i) =>
+    tone(step(n + 24), 0.45, { type: "sine", gain: 0.07, at: tail + i * 0.05 }));
+  if (tier >= 4) [0,4,7,12].forEach(n =>
+    tone(step(n + 12), 0.9, { type: "triangle", gain: 0.09, at: tail + 0.22 }));
+  if (tier >= 5) for (let i = 0; i < 8; i++)
+    tone(step(PENT[(7 - i + 12) % PENT.length] + 24), 0.14,
+         { type: "sine", gain: 0.06, at: tail + 0.34 + i * 0.045 });
+  if (tier >= 6) [0,4,7,12,16].forEach(n =>
+    tone(step(n + 24), 1.3, { type: "triangle", gain: 0.075, at: tail + 0.7 }));
+}
+
+/* ---- celebration ------------------------------------------------------ */
+const stage    = document.getElementById("stage");
+const flashEl  = document.getElementById("flash");
+const bannerEl = document.getElementById("banner");
+const COLOURS  = ["#4ec26a", "#d9a441", "#e9ecf2", "#5ec8d8", "#e8873a", "#c56ee0"];
+const CHEERS   = ["MAITH THÚ", "GO HIONTACH", "SÁR-MHAITH", "LAOCH"];
+
+function sparks(count, spread, size, life) {
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement("div");
+    s.className = "spark";
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = spread * (0.35 + Math.random() * 0.65);
+    const w     = size * (0.6 + Math.random() * 0.8);
+    s.style.width = s.style.height = w + "px";
+    s.style.borderRadius = Math.random() < 0.5 ? "50%" : "2px";
+    s.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+    s.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+    s.style.setProperty("--spin", (Math.random() * 720 - 360) + "deg");
+    s.style.setProperty("--life", life + "ms");
+    s.style.background = COLOURS[Math.floor(Math.random() * COLOURS.length)];
+    s.style.animationDelay = (Math.random() * 140) + "ms";
+    stage.appendChild(s);
+    setTimeout(() => s.remove(), life + 300);
+  }
+}
+function banner(text) {
+  bannerEl.textContent = text;
+  bannerEl.classList.remove("go");
+  void bannerEl.offsetWidth;
+  bannerEl.classList.add("go");
+}
+function screenFlash() {
+  flashEl.classList.remove("go");
+  void flashEl.offsetWidth;
+  flashEl.classList.add("go");
+}
+
+/* how big a party this one deserves: stage + mode + how far into the level */
+function tierFor() {
+  const stageNum = Number(level.id[0]) - 1;
+  const modeBase = { letter: 0, word: 1, sentence: 3, story: 3 }[level.mode];
+  const progress = Math.floor((cleared / level.rounds) * 2);
+  const floor = text.length > 1 ? 1 : 0;      // a single letter stays quiet
+  return Math.max(floor, Math.min(6, modeBase + stageNum + progress));
+}
+
+function celebrate(tier) {
+  fanfare(tier);
+  sparks(8 + tier * 12, 110 + tier * 55, 8 + tier * 2, 700 + tier * 130);
+  if (tier >= 3) screenFlash();
+  if (tier >= 4) banner(CHEERS[Math.min(CHEERS.length - 1, tier - 4)]);
+  if (tier >= 5) setTimeout(() => sparks(24, 260, 12, 900), 260);
+  if (tier >= 6) setTimeout(() => sparks(36, 380, 14, 1100), 520);
+  return 700 + tier * 220;
+}
+
+/* ---- mash escalation --------------------------------------------------- */
+const vignetteEl = document.getElementById("vignette");
+const coolEl     = document.getElementById("cooldown");
+const coolNum    = coolEl.querySelector(".num");
+let coolTimer = null;
+
+function calmDown() {
+  vignetteEl.style.opacity = 0;
+  coolEl.classList.remove("on");
+  clearInterval(coolTimer);
+}
+
+/* a rising red glow and a shake once he is clearly just hitting keys */
+function complain(n) {
+  vignetteEl.style.opacity = Math.min(0.85, (n - MASH_WARN + 1) * 0.22);
+  stage.classList.remove("shake");
+  void stage.offsetWidth;
+  stage.classList.add("shake");
+}
+
+/* the forced pause: input is dead, the right key is shown, a clock runs down */
+function cooldown() {
+  locked = true;
+  sfxAlarm();
+  clearHint();
+  const wanted = keys[text[pos]];
+  if (wanted) wanted.classList.add("hint");
+
+  let left = Math.min(6, COOLDOWN_BASE + offences);
+  offences++;
+  coolNum.textContent = left;
+  coolEl.classList.add("on");
+
+  clearInterval(coolTimer);
+  coolTimer = setInterval(() => {
+    left--;
+    coolNum.textContent = left;
+    if (left <= 0) {
+      clearInterval(coolTimer);
+      coolEl.classList.remove("on");
+      vignetteEl.style.opacity = 0;
+      misses = 0;
+      locked = false;
+    } else {
+      tone(392, 0.08, { type: "sine", gain: 0.05 });
+    }
+  }, 1000);
+}
+
+/* ---- state ------------------------------------------------------------ */
+const targetEl = document.getElementById("target");
+const badgeEl  = document.getElementById("badge");
+const labelEl  = document.getElementById("label");
+const dotsEl   = document.getElementById("dots");
+
+let levelIndex = 0;
+let level = LEVELS[0];
+let text = "";
+let pos = 0;
+let cleared = 0;
+let locked = false;
+let spans = [];
+let hintTimer = null;
+let misses = 0;             // wrong keys in a row
+let offences = 0;           // cooldowns served this level
+
+function loadLevel(i) {
+  levelIndex = Math.max(0, Math.min(LEVELS.length - 1, i));
+  level = LEVELS[levelIndex];
+  cleared = 0;
+  offences = 0;
+  calmDown();
+  badgeEl.textContent = level.id;
+  labelEl.textContent = level.label || LABELS[level.mode];
+
+
+  dotsEl.innerHTML = "";
+  if (level.rounds <= 14) {
+    for (let d = 0; d < level.rounds; d++) {
+      const dot = document.createElement("div");
+      dot.className = "dot";
+      dotsEl.appendChild(dot);
+    }
+  }
+
+  const needsSpace = level.mode === "sentence" || level.mode === "story";
+  for (const [ch, el] of Object.entries(keys)) {
+    if (ch === " ") { el.classList.toggle("off", !needsSpace); continue; }
+    el.classList.toggle("off", !level.keys.includes(ch));
+  }
+
+  markDots();
+  buildPicker();
+  nextItem();
+}
+
+function markDots() {
+  if (level.rounds <= 14) {
+    [...dotsEl.children].forEach((d, i) => d.classList.toggle("done", i < cleared));
+  } else {
+    dotsEl.textContent = cleared + " / " + level.rounds;
+  }
+}
+
+function nextItem() {
+  if (level.mode === "story" || level.mode === "letter") {
+    text = level.items[cleared % level.items.length];   // in order, easiest first
+  } else {
+    let pick;
+    do { pick = level.items[Math.floor(Math.random() * level.items.length)]; }
+    while (pick === text && level.items.length > 1);
+    text = pick;
+  }
+
+  const [size, stroke] =
+      level.mode !== "letter" ? SIZES[level.mode]
+    : text.length === 1       ? ["min(34vw, 24vh)", "4px"]
+    : text.length <= 4        ? ["min(20vw, 16vh)", "4px"]
+    :                           ["min(12vw, 12vh)", "3px"];
+  targetEl.style.setProperty("--size", size);
+  targetEl.style.setProperty("--stroke", stroke);
+
+  pos = 0;
+  spans = [];
+  misses = 0;
+  calmDown();
+  targetEl.innerHTML = "";
+
+  for (const word of text.split(" ")) {
+    const wrap = document.createElement("span");
+    wrap.className = "word";
+    for (const ch of word) {
+      const s = document.createElement("span");
+      s.className = "ch";
+      s.textContent = ch;
+      wrap.appendChild(s);
+      spans.push(s);
+    }
+    targetEl.appendChild(wrap);
+    spans.push(null);
+  }
+  spans.pop();
+  updateCursor();
+}
+
+function clearHint() {
+  clearTimeout(hintTimer);
+  for (const el of Object.values(keys)) el.classList.remove("hint");
+}
+
+function updateCursor() {
+  spans.forEach(s => s && s.classList.remove("cursor"));
+  if (spans[pos]) spans[pos].classList.add("cursor");
+
+  clearHint();
+  const wanted = keys[text[pos]];
+  if (wanted) hintTimer = setTimeout(() => wanted.classList.add("hint"), HINT_DELAY);
+}
+
+function flashKey(ch, cls, ms) {
+  const key = keys[ch];
+  if (!key) return;
+  key.classList.add(cls);
+  setTimeout(() => key.classList.remove(cls), ms);
+}
+
+/* ---- input ------------------------------------------------------------ */
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const pressed = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  if (!/^[A-Z ]$/.test(pressed)) return;
+  e.preventDefault();
+  audio();                        // first press unlocks sound on mobile
+  if (locked) return;
+
+  if (pressed !== text[pos]) {
+    misses++;
+    sfxMiss(misses);
+    flashKey(pressed, "miss", 200);
+    if (misses >= MASH_WARN) complain(misses);
+    if (misses >= MASH_LOCK) cooldown();
+    return;
+  }
+
+  misses = 0;
+  vignetteEl.style.opacity = 0;
+  sfxHit(pos);
+  flashKey(pressed, "hit", 200);
+  if (spans[pos]) { spans[pos].classList.remove("cursor"); spans[pos].classList.add("done"); }
+  pos++;
+
+  if (pos < text.length) { updateCursor(); return; }
+
+  /* ---- finished ---- */
+  locked = true;
+  cleared++;
+  markDots();
+  clearHint();
+  spans.forEach(s => { if (s) { s.classList.remove("done"); s.classList.add("win"); } });
+
+  const tier = tierFor();
+  const wait = tier === 0 ? HOLD_CORRECT : celebrate(tier);
+
+  setTimeout(() => {
+    locked = false;
+    if (cleared >= level.rounds && levelIndex < LEVELS.length - 1) {
+      loadLevel(levelIndex + 1);
+      banner("LEVEL " + level.id);
+      fanfare(4);
+    } else {
+      if (cleared >= level.rounds) { cleared = 0; markDots(); }
+      nextItem();
+    }
+  }, wait);
+});
+
+/* ---- level picker ----------------------------------------------------- */
+const picker = document.getElementById("picker");
+function buildPicker() {
+  picker.innerHTML = "";
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement("button");
+    b.textContent = lv.id;
+    if (i === levelIndex) b.classList.add("on");
+    b.addEventListener("click", () => {
+      picker.classList.remove("open");
+      locked = false;
+      loadLevel(i);
+    });
+    picker.appendChild(b);
+  });
+}
+document.getElementById("bar").addEventListener("click", () => {
+  picker.classList.toggle("open");
+});
+
+loadLevel(0);
+</script>
+</body>
+</html>
+

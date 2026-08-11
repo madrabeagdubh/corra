@@ -15,6 +15,26 @@ import Phaser from 'phaser'
 import { GameSettings } from '../settings/gameSettings.js'
 import { DialogueHarp } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
+
+// A line made only of dots is SILENCE, not speech. The card still holds its
+// beat -- the pause is the point -- but no harp fragment is played over it.
+// Without this, "..." scores three characters, reads as speech to the harp
+// scheduler, and gets a phrase of the champion's theme laid over a character
+// who is pointedly refusing to answer.
+//
+// Matches "...", "…", ". . ." in either language. The empty string matches
+// too, which is what lets a row with Irish still blank count as silent when
+// its English is dots.
+const SILENCE_RE = /^[.\u2026\s]*$/
+
+// True only when there IS something there and all of it is dots. A row with
+// nothing in either language is not a beat of silence, it is an empty row.
+function rowIsSilence(r) {
+  const ga = (r.ga || '').trim()
+  const en = (r.en || '').trim()
+  if (!ga && !en) return false
+  return SILENCE_RE.test(ga) && SILENCE_RE.test(en)
+}
 import { MoonPeek }     from '../systems/moonPeek.js'
 import {
   COLORS, FONTS, SIZES, TYPE, BUTTON,
@@ -639,6 +659,10 @@ export default class TextPanel {
     const _chars = new Array(_present.length).fill(0)
     const _hero  = new Array(_present.length).fill(false)
     const _syll  = new Array(_present.length).fill(0)
+    // Starts true and is cleared by the first row carrying real words, so a
+    // beat is silent only if EVERYTHING in it is. A card mixing "..." with a
+    // spoken line still gets its music.
+    const _silent = new Array(_present.length).fill(true)
     rows.forEach(r => {
       if (r.portrait) return
       const n = (r.ga || '').trim().length + (r.en || '').trim().length * _enW
@@ -648,8 +672,10 @@ export default class TextPanel {
       // is held for as long as its own melody takes.
       _syll[r.group] += syllablesGa(r.ga)
       if (r.isHero) _hero[r.group] = true
+      if (!rowIsSilence(r)) _silent[r.group] = false
     })
     this._revealChars = _chars
+    this._revealSilent = _silent
     this._revealHero  = _hero
     this._revealSyll  = _syll
 
@@ -1140,6 +1166,10 @@ export default class TextPanel {
       // portrait beat is silent -- it's a face arriving, not a line.
       for (let g = 0; g < beats; g++) {
         if (!(chars[g] > 0)) continue
+        // Silence gets no melody. Note this skips the harp ONLY -- the beat
+        // keeps the full length _revealChars gave it, so the pause is still
+        // felt. Muting and shortening are different things.
+        if (this._revealSilent?.[g]) continue
         const isHero = !!(this._revealHero && this._revealHero[g])
         // Both speakers get the harp. The player's lines sound an octave above
         // the NPC's -- same tune, two registers -- which is what makes the

@@ -651,6 +651,27 @@ clearNotify() {
       ? () => this._onPanelClosed()
       : () => this._reopenDialogue(zone)
 
+    // A scripted back-and-forth: one card holding every turn, which the
+    // transcript renderer stages block by block. The single say/reply pair
+    // below is the one-turn case of this.
+    if (!opt.exit && Array.isArray(opt.exchange) && opt.exchange.length) {
+      this._chainShow({
+        exchange:   opt.exchange,
+        irish:      '',
+        english:    '',
+        heroGa:     this._heroLines(opt).ga,
+        heroEn:     this._heroLines(opt).en,
+        heroGraphicKey: this._resolveHeroGraphicKey(),
+        type:       'encounter_card',
+        bgKey:      this._resolveBgKey(),
+        graphicKey: this._resolveNpcGraphicKey(zone),
+        options:    null,
+        keepChromeOnHide: true,
+        onDismiss:  after,
+      })
+      return
+    }
+
     const _hero = this._heroLines(opt)
     // EXIT_REPLY -- an exit option closes the window on the press, the way
     // Tuilleadh always did. The only reason slán behaved differently was that

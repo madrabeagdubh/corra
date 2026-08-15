@@ -1,41 +1,8 @@
-# d3 — Odhrán at the ford
-#
-#   node tools/dialogue/compile.mjs tools/dialogue/drafts/d3.dlg
-#
-# ONE HELD NODE. @hold is a node directive, so it applies to every option
-# in the node — there is no way to hold some options and advance on others.
-# So position does no work here and notes do all of it: the hails show
-# while !met_odhran, the topics show once met_odhran, sub-asks gate on the
-# topic that reveals them, and the four crossings @exit.
-#
-# Silence is an ellipsis reply, not @silent. textPanel treats a line of
-# dots as silence rather than speech, and the card holds — whereas an
-# option with no reply at all skips the card and re-runs node selection,
-# which can close the panel.
-#
-# Every line is one line with a % beneath. A block is either fully
-# translated or not translated at all — mixing the two is an error.
-
 @file d3
-
-# ── FACTS OUT ─────────────────────────────────────────────────────────────
-#   met_odhran, knows_odhran_cannot_reckon, knows_fionnbarra,
-#   knows_satire_harms, knows_seadna_name, heard_odhran_riddle,
-#   knows_odhran_cave, has_toll_rope, freed_odhran
-# ── FACTS IN ──────────────────────────────────────────────────────────────
-#   has_druid_word  (from Muireann)
-#
-# Return visit is scene work, not dialogue: he is gone, the rope is on the
-# rock as a pickup granting has_toll_rope.
-
-
 = node 0 — the ford
 @hold
-@again [[ short line — he has not moved ]] / 
-
-# ── the hails ─────────────────────────────────────────────────────────────
-# He is on his back and does not answer the office, only the man.
-
+@again ... / ...
+...
 * Ho, the bank!
 % Hóra, a bhruach!
 @when !note met_odhran
@@ -44,35 +11,8 @@
 < ...
 % ...
 
-* What toll is this place keeping?
-% Cén dola atá á thógáil san áit seo?
-@when !note met_odhran
-> What toll is this place keeping?
-% Cén dola atá á thógáil san áit seo?
-< ...
-% ...
-
-* Are you hale? Have you taken a wound?
-% An bhfuil tú slán? Ar buaileadh créacht ort?
-@when !note met_odhran
-@note met_odhran
-> Are you hale? Have you taken a wound?
-% An bhfuil tú slán? Ar buaileadh créacht ort?
-< A wound, aye. That would be the word for it. I have been struck most grievously.
-% Créacht, muise. Sin é an focal air. Buaileadh go trom mé.
-> I see no blood.
-% Ní fheicim fuil ar bith.
-< Nay. I have been struck by words.
-% Ní hea. Is le briathra a buaileadh mé.
-< I am Odhrán, toll-keeper to Chief Fionnbarra, who holds this ford
-% Is mise Odhrán, maor dola don Taoiseach Fionnbarra, ar leis an t-áth seo
-< and the three crossings north to Druim Caillí.
-% agus na trí áth ó thuaidh go Druim Caillí.
-
-# ── the topics ────────────────────────────────────────────────────────────
-
-* Then name your toll
-% Ainmnigh do dhola, mar sin
+* Name your toll
+% Ainmnigh do dhola
 @when note met_odhran
 @note knows_odhran_cannot_reckon
 > Then name your toll and I will pay it or dispute it as God and custom allow.
@@ -84,162 +24,120 @@
 < Cannot. I am in woe.
 % Ní féidir. Tá mé i ndólás.
 
-* Your chief
-% Do thaoiseach
+* Are you hurt?
+% An bhfuil tú gortaithe?
+@when !note met_odhran
+@note met_odhran
+> Are you hale? Have you been wounded?
+% An bhfuil tú slán? Ar gortíodh thú?
+< A wound, aye. I have been struck most grievously.
+% Gortíodh mé, muise. Tá mé créachtaithe.
+> I see no blood.
+% Ní fheicim fuil.
+< With words was I wounded.
+% Le briathra a gortíodh mé.
+
+* What happened?
+% Cad a tharla?
 @when note met_odhran
 @note knows_fionnbarra
-# The old toll-point question is folded in here — it is a Fionnbarra
-# question, not a hail. The feast, his own good place by the fire, the
-# chief speaking his name before the warriors, and the silence since.
-> [[ is this the toll-point of Fionnbarra's reach? ]]
-% [[ an é seo an t-áth dola atá faoi réim Fhionnbarra? ]]
-< [[ it is, and these three crossings north ]]
-% [[ is é, agus na trí áth seo ó thuaidh ]]
-< [[ the feast, and my own good place by the fire ]]
-% [[ an fhleá, agus mo dhea-áit féin cois tine ]]
-< [[ he spoke my name aloud before the warriors ]]
-% [[ labhair sé m'ainm os ard os comhair na laochra ]]
-< [[ he has not sent for me since ]]
-% [[ níor chuir sé fios orm ó shin ]]
+@note heard_of_satire
+> What happened to you?
+% Cad a tharla dhuit?
+< I am Odhrán, toll-keeper to Fionnbarra, who holds this ford
+% Is mise Odhrán, maor dola Fionnbarra, ar leis an t-áth seo
+< Chief from here to Druim Caillí.
+% Taoiseach ó seo go Druim Caillí.
+> Is that so.
+% Ab ea.
+< It was.
+% b'ea.
+< You see, there was a feast, at Fionnbarra's hall.
+% bhfuel a dtuigeann tú, bhí féasta, tí Fionnbharra.
 
-* The one who struck you
-% An té a bhuail thú
-@when note met_odhran
+< I had a good place, by the fire.
+% Bhí áit maith agam, chois tinne.
+< The chief had said my name aloud before his warriors.
+% Bhí m'ainm ráite ós árd ag an Taoiseach, ós comhair na laoch
+< which is no small thing. I was pleased.
+% Ní beag san. Bhí áthas orm.
+< But there was a poet there, that night.
+% Ach bhí file ánn an oiche sin.
+< A lean, sharp-tongued creature with clever black eyes.
+% Craythur thanaí le súile dubha glic
+
+< Did my happiness offend him? I think so.
+% Ar mhastlaigh mo áthas é? Ceapaim gur mhastlaigh.
+
+> And?
+% Agus?
+
+< He made a satire.
+% Agus chum sé aoir
+
+> Upon whom?
+% Ar?
+
+< Upon me.
+% Orm
+
+* What did he say?
+% Cad a dúirt sé?
+
+@when note heard_of_satire
 @note knows_satire_harms
-> [[ ask what was said ]]
-% [[ fiafraigh cad a dúradh ]]
-< [[ there was a file there — lean, sharp-tongued, clever black eyes ]]
-% [[ bhí file ann — seang, géartheangach, súile dubha glice ]]
+
+> What kind of satire?
+% Cén saighs Aoir?
+
 < He said that I was known from Dún Bolg to the northern stones as the man
 % Dúirt sé go raibh aithne orm ó Dhún Bolg go dtí na clocha thuaidh mar an fear
 < who had taken the last dry heel of bread from a widow's basket
 % a thóg an tsáil dheireanach aráin thirim as ciseán baintrí
-< and weighed it before returning half. He rhymed it all. It was very well made.
-% agus a mheáigh í sular thug sé leath ar ais. Chuir sé i rím ar fad é. Bhí sé déanta go han-mhaith.
+< and weighed it before returning half.
+% agus a mheá-ig é, sular leath-ig é.
 > That is hard.
 % Is crua sin.
 < He was not finished.
 % Ní raibh sé críochnaithe.
+> Ah.
+% Ah.
 < He said that I had grown so round in the belly from the taking of tolls
-% Dúirt sé go raibh mé éirithe chomh cruinn sa bholg ó bheith ag tógáil dola
+% Dúirt sé go raibh mé éirithe chomh cruinn sa bho-lg ó na dol-ig
 < that when I sat upon my rock I could not be told from it,
-% nach bhféadfaí mé a aithint thar an gcarraig nuair a shuínn uirthi,
-< and that the difference between Odhrán and the rock
-% agus gurbh í an difríocht idir Odhrán agus an charraig
-< was that the rock at least did not smack its lips.
-% ná nach ndéanadh an charraig smailc lena béal, ar a laghad.
-
-* What will you do now?
-% Cad a dhéanfaidh tú anois?
+% nach bhféadfaí mé a aithint ón gcarraig ar a shuí mé
+< And that the rock at least did not smack its lips.
+% Agus nach tugann an charraig smeachadh a béil, ar a laghad.
+* What will you do?
+% Cad a dhéanfaidh tú?
 @when note met_odhran
 @note knows_odhran_cave
-> [[ ask what becomes of him ]]
-% [[ fiafraigh cad atá i ndán dó ]]
+> What will you do now?
+% Cad a dhéanfaidh tú anois?
 < I heard there is a cave above Cnoc Maol
 % Chuala mé go bhfuil uaimh os cionn Chnoc Maol
 < where a man might sit very quietly
-% mar a bhféadfadh fear suí go han-chiúin
+% áit a bhféadfadh fear suí go han-chiúin
 < and not collect tolls from anyone ever again.
 % gan dola a bhailiú ó dhuine ar bith go deo arís.
 < I could leave my toll-rope and go in with the monks.
-% D'fhéadfainn mo théad dola a fhágáil agus dul isteach leis na manaigh.
+% D'fhéadfainn mo rópa dola a fhágáil agus dul isteach leis na manaigh.
 < They sit in the dark and they reckon nothing,
 % Suíonn siad sa dorchadas agus ní áiríonn siad faic,
-< and no one mocks them for it. It is considered holy.
-% agus ní dhéanann duine ar bith fonóid fúthu dá bharr. Meastar gur rud naofa é.
+< No one mocks them for it. It is considered holy.
+% agus ní dhéanann duine ar bith magadh fúthu. Nós naofa é.
 
-# ── the sub-asks ──────────────────────────────────────────────────────────
-
-* Has he a name?
-% An bhfuil ainm air?
-@when note knows_satire_harms
-@note knows_seadna_name
-> Has he a name?
-% An bhfuil ainm air?
-< Séadna.
-% Séadna.
-< [[ and where he is now, or where he was going ]]
-% [[ agus cá bhfuil sé anois, nó cá raibh a thriall ]]
-
-* Was that the worst of it?
-% An é sin an chuid ba mheasa?
-@when note knows_satire_harms
-@note heard_odhran_riddle
-> Was that the worst of it?
-% An é sin an chuid ba mheasa?
-< That was not the worst. The worst was the riddle he bound into his mocking.
-% Níorbh é sin an chuid ba mheasa. Ba é an tomhas a cheangail sé isteach ina aor an chuid ba mheasa.
-< He turned upon me his full craft, before all, and he spoke thus:
-% Dhírigh sé a cheird ar fad orm, os comhair cách, agus labhair sé mar seo:
-< "Odhrán! Odhrán! Thou great and mighty counter of small coins!
-% "A Odhráin! A Odhráin! A áiritheoir mhóir na mbonn beag!
-< Thou shalt have no peace, until thou hast reckoned truly this:
-% Ní bheidh suaimhneas agat go dtí go mbeidh seo áirithe go fírinneach agat:
-< The number of thy years divided by the number of honest men thou hast known.
-% Líon do bhlianta roinnte ar líon na bhfear ionraic ar chuir tú aithne orthu.
-< Add what the dead owe the living,
-% Cuir leis an méid atá ag na mairbh ar na beo,
-< less the worth of mercy shown but never asked for.
-% lúide luach na trócaire a tugadh gan iarraidh.
-< Multiply what the wren sings at morning
-% Iolraigh a gcanann an dreoilín ar maidin
-< by the silence of the stone at midnight.
-% faoi thost na cloiche i lár na hoíche.
-< Pay this to the man who wronged thee.
-% Íoc é seo leis an té a rinne éagóir ort.
-< Keep nothing. Owe nothing. Be free."
-% Ná coinnigh faic. Ná bíodh fiacha ort. Bí saor."
-< I do not know what a dead man owes the living. I do not know how to subtract mercy.
-% Níl a fhios agam cad atá ag fear marbh ar na beo. Níl a fhios agam conas trócaire a dhealú.
-< I cannot find the man I wronged. I cannot find the man who wronged me.
-% Ní féidir liom an té a ndearna mé éagóir air a aimsiú. Ní féidir liom an té a rinne éagóir orm a aimsiú.
-< And since that night I cannot reckon.
-% Agus ón oíche sin i leith ní thig liom áireamh a dhéanamh.
-
-* Your rope, then
-% Do théad, mar sin
+* Toll rope?
+% Rópa dola?
 @when note knows_odhran_cave
 @note has_toll_rope
-> [[ ask for the rope ]]
-% [[ iarr an téad ]]
-< I did stretch it across the ford when I had traffic.
-% Shín mé trasna an átha í nuair a bhí trácht agam.
-< It is a good rope. Take it. Take it freely. No toll.
-% Is maith an téad í. Tóg leat í. Tóg saor in aisce í. Gan dola.
+> What about the rope?
+% Cad faoi an rópa?
+< I did stretch it across the river when I had traffic.
+% Shínfainn é trasna an abhainn nuair a bhí trácht agam.
+< It is a good rope. Take it. Take it for free. No toll.
+% Is rópa maith é. Tóg é. Tóg saor in aisce é. Gan dola.
 
-# ── the crossings ─────────────────────────────────────────────────────────
-# All four @exit. Crossing ends the conversation, which is what crossing
-# should do. Boast leaves him exactly as he was; custom passes you free by
-# failing; the druid word passes you as one under protection; only the
-# riddle changes anything for him.
-
-* [[ boast label ]]
-@when note met_odhran
-@exit
-> [[ you are who you are, and the rope is a rope ]]
-< [[ he stands aside — not moved, only outmatched ]]
-
-* [[ custom label ]]
-@when note met_odhran
-@exit
-> [[ then I have named it and you have not, so I pass ]]
-< [[ he cannot answer it, and does not enjoy losing this way ]]
-
-* [[ druid word label ]]
-@when note has_druid_word
-@exit
-> [[ Muireann's word ]]
-< [[ pass, as one under protection ]]
-< [[ but what did it mean? ]]
-
-* [[ riddle answer label ]]
-@when note heard_odhran_riddle
-@note freed_odhran
-@exit
-> [[ the sum is nothing — keep nothing, owe nothing, be free ]]
-< [[ he does not thank you. he sits up. ]]
-
-# ── always ────────────────────────────────────────────────────────────────
 
 * Walk on
 % Siúil leat

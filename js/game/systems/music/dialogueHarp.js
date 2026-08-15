@@ -33,9 +33,9 @@ const NPC_LEADS = true
 // into here.
 const NPC_TUNES = {
 
-  '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
+ // '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
   //'/assets/npcs/muireann.png': 'swallowtailThe',
-  //'/assets/npcs/muireann.png': 'outOnTheOcean',
+  '/assets/npcs/muireann.png': 'outOnTheOcean',
 
 }
 import { getTuneKeyForChampion } from './championTuneMapping.js'

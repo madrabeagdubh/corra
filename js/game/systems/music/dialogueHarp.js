@@ -77,6 +77,11 @@ const CADENCE_NOTES = 8      // most of the champion's theme quoted at the close
 // tune rather than a reply to it.
 const CADENCE_LEAD_MS = 420
 
+// Most notes of tune the reading may bank ahead of the harp. Past this, a
+// fast scroll simply doesn't earn more -- otherwise the music plays on long
+// after the reader has stopped, which is the opposite of responsive.
+const SUSTAIN_MAX_CREDIT = 14
+
 // Gestures that are OF the tune but don't consume it -- see the note in
 // open()/touch(). The pointer only ever moves on text actually revealed.
 // Shortened from 2.4: at that length the flourish was still ringing when the
@@ -407,6 +412,142 @@ class DialogueHarpImpl {
   }
 
   /**
+   * Grant the harp some tune to play.
+   *
+   * The difference from phrase() is what owns the rhythm. phrase() lays out a
+   * whole motif on the clock the moment it is called, so two calls close
+   * together collide and a call at reading pace restarts the melody every
+   * line. This adds to a running total instead: the harp is always either
+   * playing in strict time or waiting, and reading tops it up.
+   *
+   * `notes` is roughly how much of the tune this line has earned. Credit is
+   * capped, so a fast scroll can't bank a minute of music that then plays on
+   * over a silent screen.
+   */
+  sustain({ isHero = false, notes = 4 } = {}) {
+    if (!this.on) return
+    const ctx = this._ctx()
+    if (!ctx || !this.notes.length) return
+
+    if (!this._credit) this._credit = []
+    const pending = this._credit.reduce((a, c) => a + c.n, 0)
+    const room    = Math.max(0, SUSTAIN_MAX_CREDIT - pending)
+    const n       = Math.min(Math.max(1, Math.round(notes)), room)
+    if (n <= 0) return
+
+    this._credit.push({ n, isHero })
+    if (!this._sustaining) this._runSustain()
+  }
+
+  /**
+   * One note, then a timer for the next at that note's own duration. The
+   * chain stops when credit runs out -- but only at a bar line, so it comes
+   * to rest on the tune's own terms rather than stopping mid-figure.
+   */
+  _runSustain() {
+    const c = this._credit && this._credit[0]
+    if (!c) { this._sustaining = false; return }
+
+    const ctx = this._ctx()
+    if (!ctx) { this._sustaining = false; return }
+
+    const v = this._voice()
+    if (!v.notes.length) { this._sustaining = false; return }
+    if (v.baseBar === null) {
+      v.baseBar = (v.notes.baseBar !== undefined)
+        ? v.notes.baseBar
+        : (v.notes[0].barIndex ?? 0)
+    }
+
+    this._sustaining = true
+
+    const note = v.notes[v.idx % v.notes.length]
+    v.idx++
+    this._saveVoice(v)
+
+    const midi = note.midi + (c.isHero ? HERO_SHIFT : 0)
+    if (note.roll) {
+      this._pluck(ctx, midi,     VEL * 0.8, 0)
+      this._pluck(ctx, midi + 2, VEL * 0.5, ORNAMENT_MS)
+      this._pluck(ctx, midi,     VEL,       ORNAMENT_MS * 2)
+    } else if (note.grace) {
+      this._pluck(ctx, midi + 2, VEL * 0.45, 0)
+      this._pluck(ctx, midi,     VEL,        ORNAMENT_MS)
+    } else {
+      this._pluck(ctx, midi, VEL * 0.9, 0)
+    }
+    this.played += 1
+
+    c.n -= 1
+    if (c.n <= 0) {
+      this._credit.shift()
+      // Nothing owed and mid-bar: play on to the bar line rather than
+      // stopping inside a figure. This is the whole difference between the
+      // music pausing and the music breaking.
+      if (!this._credit.length) {
+        const nxt = v.notes[v.idx % v.notes.length]
+        const midBar = nxt && note.barIndex !== undefined &&
+                       nxt.barIndex === note.barIndex
+        if (midBar) this._credit.push({ n: 1, isHero: c.isHero })
+      }
+    }
+
+    if (!this._credit.length) { this._sustaining = false; return }
+
+    const d  = Number.isFinite(note.duration) && note.duration > 0 ? note.duration : 1
+    const ms = d * MS_PER_UNIT
+    clearTimeout(this._sustainTimer)
+    this._sustainTimer = setTimeout(() => this._runSustain(), ms)
+  }
+
+  /**
+   * Take exactly one note of the tune and sound it now.
+   *
+   * phrase() hands a whole motif to the clock and lets it play out; this
+   * hands one note to whoever asked. That difference is the whole point --
+   * the caller can spend the tune at the pace of a gesture, so the reader
+   * is playing the harp rather than setting it off.
+   *
+   * Advances the same pointer phrase() uses, so a conversation read by
+   * dragging gets as far into the tune as one read by waiting.
+   *
+   * Returns false when there is nothing to sound, which lets the caller make
+   * a different noise instead.
+   */
+  note({ isHero = false } = {}) {
+    if (!this.on) return false
+    const ctx = this._ctx()
+    if (!ctx || !this.notes.length) return false
+
+    const v = this._voice()
+    if (!v.notes.length) return false
+    if (v.baseBar === null) {
+      v.baseBar = (v.notes.baseBar !== undefined)
+        ? v.notes.baseBar
+        : (v.notes[0].barIndex ?? 0)
+    }
+
+    const n = v.notes[v.idx % v.notes.length]
+    v.idx++
+    this._saveVoice(v)
+
+    const midi = n.midi + (isHero ? HERO_SHIFT : 0)
+    if (n.roll) {
+      this._pluck(ctx, midi,     VEL * 0.8, 0)
+      this._pluck(ctx, midi + 2, VEL * 0.5, ORNAMENT_MS)
+      this._pluck(ctx, midi,     VEL,       ORNAMENT_MS * 2)
+    } else if (n.grace) {
+      this._pluck(ctx, midi + 2, VEL * 0.45, 0)
+      this._pluck(ctx, midi,     VEL,        ORNAMENT_MS)
+    } else {
+      this._pluck(ctx, midi, VEL, 0)
+    }
+
+    this.played += 1
+    return true
+  }
+
+  /**
    * The tune's home note. Approximated as its first note, which is right for
    * the modal tunes in allTunes (Drowsy Maggie opens on its own E) and close
    * enough elsewhere that nothing sounds wrong.
@@ -502,6 +643,10 @@ class DialogueHarpImpl {
    * wasn't earned, and the conversation still ended.
    */
   endConversation() {
+    clearTimeout(this._sustainTimer)
+    this._sustainTimer = null
+    this._sustaining   = false
+    this._credit       = []
     this._started = false
     this._npcId   = null
     this.npc      = { notes: [], idx: 0, baseBar: null, shift: 0 }

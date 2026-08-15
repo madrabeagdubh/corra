@@ -13,6 +13,7 @@
 
 import Phaser from 'phaser'
 import { GameSettings } from '../settings/gameSettings.js'
+import { SoundBoard } from '../systems/soundBoard.js'
 import { DialogueHarp } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
 
@@ -82,6 +83,18 @@ const CARD_SCROLL_REVEAL_MARGIN = 48
 // How far behind the reading a queued phrase may fall before it is
 // abandoned. Roughly two lines' worth.
 const CARD_HARP_QUEUE_MAX_MS = 2400
+// Pixels of forward drag that buy one note of the tune. Smaller is busier.
+// This is the number that decides whether reading feels like playing.
+const CARD_SCROLL_PX_PER_NOTE = 26
+// Most notes one frame may sound, so a fling doesn't fire a chord.
+const CARD_SCROLL_NOTES_PER_TICK = 3
+// The mechanical tick for scrolling over ground already read. Set this to
+// whatever key moonWidget uses for its click:
+//   grep -n "playWeb\|SoundBoard" js/game/ui/moonWidget.js
+// A key SoundBoard doesn't know is silent rather than fatal.
+const CARD_SCROLL_TICK_KEY = 'MOON_SWIPE'
+// Floor on the gap between ticks, whatever the thumb is doing.
+const CARD_SCROLL_TICK_MIN_MS = 70
 
 // How long a block is left to be read before the next one arrives. A fluent
 // reader found a flat beat too fast on long lines and needlessly slow on short
@@ -1075,6 +1088,7 @@ export default class TextPanel {
     })
 
     this._checkScrollReveal()
+    this._scrollNotes()
   }
 
   /**
@@ -1142,6 +1156,69 @@ export default class TextPanel {
     this._revealSounds?.push(t)
   }
 
+  /**
+   * Which speaker the reading line is currently sitting in, so the note comes
+   * out in their register. The nearest block whose top has already passed the
+   * line -- i.e. the one being read, not the one arriving.
+   */
+  _speakerAtLine() {
+    const line = (this._clipBottom || 0) - CARD_SCROLL_REVEAL_MARGIN
+    const tops = this._groupTopLocalY || []
+    let best = 0, bestD = Infinity
+    for (let g = 0; g < tops.length; g++) {
+      if (tops[g] == null) continue
+      const y = this._contentBaseY + tops[g] - this._scrollY
+      if (y > line) continue
+      const d = line - y
+      if (d < bestD) { bestD = d; best = g }
+    }
+    return !!(this._revealHero && this._revealHero[best])
+  }
+
+  /**
+   * Spend the tune by distance dragged. Forward movement accumulates; every
+   * CARD_SCROLL_PX_PER_NOTE of it takes one note. Dragging back up banks
+   * nothing and sounds nothing -- a line already heard stays heard.
+   *
+   * Once everything is revealed there is no more tune to spend, and the drag
+   * ticks instead: the difference between playing an instrument and moving a
+   * piece of paper.
+   */
+  _scrollNotes() {
+    if (this.currentPanelType !== 'encounter_card') return
+
+    const y = this._scrollY || 0
+    if (this._noteScrollY === undefined) { this._noteScrollY = y; return }
+    const moved = y - this._noteScrollY
+    this._noteScrollY = y
+    if (moved <= 0) return
+
+    this._noteDebt = (this._noteDebt || 0) + moved
+
+    // Text still arriving is the harp's business -- each line grants it credit
+    // as it appears. This only sounds the ratchet, and only over ground the
+    // player has already read, where there is no music left to make.
+    const producing = !!(this._scrollReveal && this._scrollReveal.size)
+    let fired = 0
+    while (this._noteDebt >= CARD_SCROLL_PX_PER_NOTE &&
+           fired < CARD_SCROLL_NOTES_PER_TICK) {
+      this._noteDebt -= CARD_SCROLL_PX_PER_NOTE
+      fired++
+      if (!producing) this._scrollTick()
+    }
+    // A fling shouldn't leave a debt that pays out for seconds afterwards.
+    if (fired >= CARD_SCROLL_NOTES_PER_TICK) this._noteDebt = 0
+  }
+
+  _scrollTick() {
+    // MOON_SWIPE was written for one discrete gesture. Fired per interval
+    // rather than per pixel it reads as a ratchet; fired freely it rattles.
+    const now = this.scene?.time?.now ?? 0
+    if (now - (this._lastTickAt || 0) < CARD_SCROLL_TICK_MIN_MS) return
+    this._lastTickAt = now
+    try { SoundBoard.playWeb(CARD_SCROLL_TICK_KEY, this.scene?.sound?.context) } catch (e) {}
+  }
+
   _beginScroll() {
     this._stopScroll()
     this._scrollY   = 0
@@ -1164,6 +1241,8 @@ export default class TextPanel {
       this._revealTweens = []
       this._revealSounds = []
       this._harpFreeAt   = 0
+      this._noteScrollY  = undefined
+      this._noteDebt     = 0
 
       // Each beat's start is the previous beat's start plus however long the
       // previous beat's text takes to read. Cumulative, so a card of short
@@ -1335,16 +1414,18 @@ export default class TextPanel {
         // The hop lands on the tune's dance beat -- three units under a jig,
         // four under a reel -- which is the same span the bodhrán phrases on.
         const step = (bar === 6 || bar === 9 ? 3 : 4) * unit
+        // How much tune this line has earned. Sized from the Irish, so a long
+        // line keeps the harp going longer than a short one -- but the harp
+        // decides when the notes fall, not this.
+        const _credit = Math.max(2, Math.min(8, Math.round((syll[g] || 0) / 2)))
         const fire = () => {
-          // The hop goes with the line appearing, so it is never queued --
-          // a portrait bobbing late reads as a glitch rather than a beat.
           try { this._dance(isHero, motif, step) } catch (e) {}
-          this._queuePhrase(blockMs, () => {
-            try { DialogueHarp.phrase({ isHero, blockMs }) } catch (e) {}
-          })
+          try { DialogueHarp.sustain({ isHero, notes: _credit }) } catch (e) {}
         }
         if (this._scrollReveal?.has(g)) {
-          // Below the fold: this phrase belongs to the drag, not the clock.
+          // Below the fold: same grant, made when the player pulls the line
+          // up rather than on a timer. The tune carries on from wherever the
+          // last line left it.
           this._revealFire[g] = fire
         } else if (starts[g] <= 0) {
           fire()

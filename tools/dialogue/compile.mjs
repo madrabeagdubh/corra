@@ -216,6 +216,10 @@ if (EXPORT) {
       if (o.first)  L.push('@first')
       if (o.exit)   L.push('@exit')
       if (o.silent) L.push('@silent')
+      ;(o.exchange || []).forEach(tn => {
+        if (tn.sayEn)   pair(tn.sayEn, tn.say, '> ')
+        if (tn.replyEn) pair(tn.replyEn, tn.replyGa, '< ')
+      })
       if (o.sayEn)   pair(o.sayEn, o.say, '> ')
       if (o.replyEn) pair(o.replyEn, o.replyGa, '< ')
       L.push('')
@@ -290,6 +294,18 @@ const addLine = (obj, key, text) => {
   obj[key] = obj[key] ? obj[key] + '\n' + text : text
 }
 
+// One turn is one hero line and one NPC answer. A `>` arriving after a `<`
+// has already landed starts a NEW turn -- which is what lets an exchange
+// alternate on screen instead of stacking all the player's lines above all
+// the NPC's. Options that never alternate collect a single turn and are
+// flattened back to say/reply below, so nothing existing changes.
+const currentTurn = (o, isHero) => {
+  o.__turns = o.__turns || []
+  let t = o.__turns[o.__turns.length - 1]
+  if (!t || (isHero && (t.replyEn || t.replyGa))) { t = {}; o.__turns.push(t) }
+  return t
+}
+
 raw.forEach((line, i) => {
   const ln = i + 1
   const t  = line.trim()
@@ -344,16 +360,18 @@ raw.forEach((line, i) => {
   // ---- player line
   if (t.startsWith('>')) {
     if (!opt) { fail(ln, '> player line outside an option'); return }
-    addLine(opt, 'sayEn', t.slice(1).trim())
-    last = { obj: opt, key: 'say' }
+    const turn = currentTurn(opt, true)
+    addLine(turn, 'sayEn', t.slice(1).trim())
+    last = { obj: turn, key: 'say' }
     return
   }
 
   // ---- npc reply
   if (t.startsWith('<')) {
     if (!opt) { fail(ln, '< reply line outside an option'); return }
-    addLine(opt, 'replyEn', t.slice(1).trim())
-    last = { obj: opt, key: 'replyGa' }
+    const turn = currentTurn(opt, false)
+    addLine(turn, 'replyEn', t.slice(1).trim())
+    last = { obj: turn, key: 'replyGa' }
     return
   }
 
@@ -363,6 +381,18 @@ raw.forEach((line, i) => {
   addLine(node, 'en', t)
   last = { obj: node, key: 'ga' }
 })
+
+// One turn is the ordinary case and stays flat, so every draft written
+// before exchanges existed compiles byte-for-byte as it did. More than one
+// becomes an exchange the panel walks card by card.
+for (const n of nodes) {
+  for (const o of n.options) {
+    const turns = o.__turns || []
+    delete o.__turns
+    if (turns.length === 1) Object.assign(o, turns[0])
+    else if (turns.length > 1) o.exchange = turns
+  }
+}
 
 if (!header.file) errors.push('no @file directive — which data file should this write to?')
 
@@ -383,6 +413,10 @@ for (const [i, n] of nodes.entries()) {
     check(o, 'ga', 'en', `node ${i} option ${j}`)
     check(o, 'say', 'sayEn', `node ${i} option ${j} (player line)`)
     check(o, 'replyGa', 'replyEn', `node ${i} option ${j} (reply)`)
+    ;(o.exchange || []).forEach((tn, k) => {
+      check(tn, 'say', 'sayEn', `node ${i} option ${j} turn ${k} (player line)`)
+      check(tn, 'replyGa', 'replyEn', `node ${i} option ${j} turn ${k} (reply)`)
+    })
   })
   if (n.options.length && !n.options.some(o => o.exit)) {
     errors.push(`node ${i} (${n.__name}): has options but none marked @exit — ` +
@@ -405,7 +439,8 @@ const q = s => "'" + String(s).replace(/\\/g, '\\\\')
 
 const KEY_ORDER = [
   'requires', 'note', 'setQuest', 'completeQuest', 'hold', 'first',
-  'exit', 'silent', 'ga', 'en', 'say', 'sayEn', 'replyGa', 'replyEn', 'again',
+  'exit', 'silent', 'ga', 'en', 'say', 'sayEn', 'replyGa', 'replyEn',
+  'exchange', 'again',
 ]
 
 function emitObj(obj, indent) {
@@ -417,6 +452,14 @@ function emitObj(obj, indent) {
     if (k === 'requires') {
       out.push(`${pad}requires: { ` +
         Object.entries(v).map(([a, b]) => `${a}: ${q(b)}`).join(', ') + ' },')
+    } else if (k === 'exchange') {
+      out.push(`${pad}exchange: [`)
+      for (const tn of v) {
+        out.push(`${pad}  {`)
+        out.push(...emitObj(tn, indent + 4))
+        out.push(`${pad}  },`)
+      }
+      out.push(`${pad}],`)
     } else if (k === 'again') {
       const bits = []
       if (v.ga) bits.push(`ga: ${q(v.ga)}`)

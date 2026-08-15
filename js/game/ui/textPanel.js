@@ -264,6 +264,7 @@ export default class TextPanel {
       keepChromeOnHide = false,
       // What the player's character just said, shown above the NPC's line
       // in the speaker colour. Short buttons, long spoken lines.
+      exchange  = null,
       heroGa    = '',
       heroEn    = '',
       // Champion portrait, shown beside the NPC's when the hero speaks.
@@ -333,7 +334,7 @@ export default class TextPanel {
     } else if (type === 'archery_prompt') {
       this._buildArcheryPrompt(irish, english, sw, sh)
     } else if (type === 'encounter_card') {
-      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn, heroGraphicKey)
+      this._buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa, heroEn, heroGraphicKey, exchange)
       // Mid-conversation card swap used to call _fadeInBody() here to stop the
       // new words popping. The staged reveal in _beginScroll() now covers that
       // for every card, first or not -- running both would double-fade, and
@@ -492,7 +493,7 @@ export default class TextPanel {
 
   // -- Encounter card layout --
 
-  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa = '', heroEn = '', heroGraphicKey = null) {
+  _buildEncounterCard(irish, english, options, onChoice, bgKey, graphicKey, sw, sh, heroGa = '', heroEn = '', heroGraphicKey = null, exchange = null) {
     const panelW = Math.round(sw * CARD_W_FRAC)
     const panelX = Math.round(sw / 2)
     const depth  = 2000
@@ -640,8 +641,23 @@ export default class TextPanel {
       }
     }
 
-     pushBlock(heroGa, heroEn, heroGraphicKey, true,  0, 0)   // the player's character
-    pushBlock(irish,  english, graphicKey,    false, 1, 2)   // the NPC
+     if (Array.isArray(exchange) && exchange.length) {
+      // A scripted exchange is one card, not a run of them. Every turn adds
+      // another pair of blocks to the same transcript, so the whole thing
+      // scrolls as one -- forward at the reader's pace, and back over
+      // anything they want to read again. Three beats per turn: the hero
+      // speaks, the NPC's face arrives, the NPC answers.
+      exchange.forEach((turn, k) => {
+        const g = k * 3
+        pushBlock(turn.say   ?? (k === 0 ? heroGa : ''),
+                  turn.sayEn ?? (k === 0 ? heroEn : ''),
+                  heroGraphicKey, true,  g,     g)
+        pushBlock(turn.replyGa, turn.replyEn, graphicKey, false, g + 1, g + 2)
+      })
+    } else {
+      pushBlock(heroGa, heroEn, heroGraphicKey, true,  0, 0)   // the player's character
+      pushBlock(irish,  english, graphicKey,    false, 1, 2)   // the NPC
+    }
 
     // Groups are declared with gaps in them, because the hero's block is
     // absent on the first card of an exchange. Compact them so the beats

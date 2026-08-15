@@ -75,6 +75,13 @@ const CARD_SPEAKER_GAP     = 14      // gap above a speaker portrait (block sepa
 // to land -- flattening a turn-by-turn exchange into a wall. Blocks now arrive
 // one at a time, a beat apart.
 const CARD_REVEAL_FADE_MS  = 240     // how long a single block takes to arrive
+// How far above the body's lower edge a block's top must come before it
+// sounds. Not zero: firing the instant a line's first pixel appears puts
+// the phrase under text the reader can't read yet.
+const CARD_SCROLL_REVEAL_MARGIN = 48
+// How far behind the reading a queued phrase may fall before it is
+// abandoned. Roughly two lines' worth.
+const CARD_HARP_QUEUE_MAX_MS = 2400
 
 // How long a block is left to be read before the next one arrives. A fluent
 // reader found a flat beat too fast on long lines and needlessly slow on short
@@ -663,10 +670,40 @@ export default class TextPanel {
     // absent on the first card of an exchange. Compact them so the beats
     // always run 0,1,2... -- otherwise an opening card would sit blank for a
     // beat waiting on a hero block that never comes.
-    const _present = [...new Set(rows.map(r => r.group))].sort((a, b) => a - b)
-    const _beatOf  = new Map(_present.map((g, i) => [g, i]))
-    rows.forEach(r => { r.group = _beatOf.get(r.group) })
-    this._revealBeats = _present.length
+    // Beats are assigned by walking the rows in order, which both compacts
+    // them (no gaps when a hero block is absent) and splits the NPC a line
+    // at a time.
+    //
+    //   hero portrait + all the hero's lines   one beat
+    //   NPC portrait                           one beat
+    //   each NPC line                          a beat of its own
+    //
+    // The asymmetry is the point. The player's line is already known to
+    // them, while the NPC's is being told -- so hers arrives at the pace of
+    // speech and keeps the harp going for as long as she is speaking.
+    let _beat    = -1
+    let _heroRun = false
+    rows.forEach((r) => {
+      if (r.portrait) {
+        _beat += 1
+        r.group  = _beat
+        _heroRun = !!r.isHero        // a hero portrait shares with its words
+        return
+      }
+      const _empty = !((r.ga || '').trim() || (r.en || '').trim())
+      if (_empty) { r.group = Math.max(0, _beat); return }
+      if (r.isHero) {
+        if (!_heroRun) { _beat += 1; _heroRun = true }
+        r.group = _beat
+        return
+      }
+      _heroRun = false
+      _beat   += 1
+      r.group  = _beat
+    })
+    this._revealBeats = Math.max(1, _beat + 1)
+    // Only its length is used, by the per-beat arrays built just below.
+    const _present = new Array(this._revealBeats)
 
     // How much there is to read in each beat, which is what sizes the pause
     // AFTER it. Portrait rows contribute nothing, so a portrait beat comes out
@@ -1036,6 +1073,73 @@ export default class TextPanel {
       }
       obj.setAlpha(Math.max(0, a))
     })
+
+    this._checkScrollReveal()
+  }
+
+  /**
+   * Blocks below the fold sound when the player drags them into view, rather
+   * than on a timer: the harp phrase and the portrait's hop arrive with the
+   * line, under the thumb. Fires once per block, on the way down only.
+   */
+  _checkScrollReveal() {
+    const pending = this._scrollReveal
+    if (!pending || !pending.size) return
+    // The reveal tween calls _applyScroll on update, which lands back here.
+    if (this._inScrollReveal) return
+    this._inScrollReveal = true
+
+    const line = (this._clipBottom || 0) - CARD_SCROLL_REVEAL_MARGIN
+
+    for (const g of [...pending]) {
+      const top = this._groupTopLocalY?.[g]
+      if (top == null) { pending.delete(g); continue }
+      const y = this._contentBaseY + top - this._scrollY
+      if (y > line) continue
+
+      pending.delete(g)
+
+      const items = this._itemsByGroup?.get(g) || []
+      items.forEach((item) => {
+        if (!item.obj?.active) return
+        this._revealTweens?.push(this.scene.tweens.add({
+          targets:  item,
+          reveal:   1,
+          duration: CARD_REVEAL_FADE_MS,
+          ease:     'Linear',
+          onUpdate: () => this._applyScroll(),
+        }))
+      })
+
+      const fn = this._revealFire?.[g]
+      if (fn) { this._revealFire[g] = null; try { fn() } catch (e) {} }
+    }
+
+    this._inScrollReveal = false
+  }
+
+  /**
+   * Phrases take their turn rather than piling up. Each one claims the span
+   * it was sized for; the next starts when that span is done. Scrolling fast
+   * therefore plays the exchange as fast as the harp can say it, rather than
+   * as a chord of everything at once.
+   *
+   * A phrase that would start more than CARD_HARP_QUEUE_MAX_MS behind is
+   * dropped instead of played, so the music can never lag the reading by
+   * more than a line or so.
+   */
+  _queuePhrase(blockMs, fn) {
+    const now  = this.scene?.time?.now ?? 0
+    const free = this._harpFreeAt || 0
+    const wait = Math.max(0, free - now)
+
+    if (wait > CARD_HARP_QUEUE_MAX_MS) return
+
+    this._harpFreeAt = Math.max(now, free) + (blockMs || 0)
+
+    if (wait <= 0) { fn(); return }
+    const t = this.scene.time.delayedCall(wait, fn)
+    this._revealSounds?.push(t)
   }
 
   _beginScroll() {
@@ -1059,6 +1163,7 @@ export default class TextPanel {
       // its first writer.
       this._revealTweens = []
       this._revealSounds = []
+      this._harpFreeAt   = 0
 
       // Each beat's start is the previous beat's start plus however long the
       // previous beat's text takes to read. Cumulative, so a card of short
@@ -1100,10 +1205,31 @@ export default class TextPanel {
       const starts = [lead]
       for (let g = 1; g < beats; g++) starts[g] = starts[g - 1] + readMs(g - 1)
 
+      // Which blocks fit on the card, and which the player has to pull up.
+      // A group's top is the smallest localY of anything in it; if that sits
+      // past the body's height it starts below the fold and is left for
+      // _checkScrollReveal.
+      const _foldH    = (this._clipBottom || 0) - (this._clipTop || 0)
+      const _groupTop = []
+      this._itemsByGroup = new Map()
+      this._contentItems.forEach((it) => {
+        const g = it.group ?? 0
+        if (_groupTop[g] === undefined || it.localY < _groupTop[g]) _groupTop[g] = it.localY
+        if (!this._itemsByGroup.has(g)) this._itemsByGroup.set(g, [])
+        this._itemsByGroup.get(g).push(it)
+      })
+      this._groupTopLocalY = _groupTop
+      this._revealFire     = []
+      this._scrollReveal   = new Set()
+      for (let g = 0; g < beats; g++) {
+        if ((_groupTop[g] ?? 0) >= _foldH) this._scrollReveal.add(g)
+      }
+
       this._contentItems.forEach((item) => {
         if (!item.obj?.active) return
         const beat = item.group ?? 0
         item.reveal = 0
+        if (this._scrollReveal.has(beat)) return
         this._revealTweens.push(this.scene.tweens.add({
           targets: item,
           reveal: 1,
@@ -1210,10 +1336,17 @@ export default class TextPanel {
         // four under a reel -- which is the same span the bodhrán phrases on.
         const step = (bar === 6 || bar === 9 ? 3 : 4) * unit
         const fire = () => {
-          try { DialogueHarp.phrase({ isHero, blockMs }) } catch (e) {}
+          // The hop goes with the line appearing, so it is never queued --
+          // a portrait bobbing late reads as a glitch rather than a beat.
           try { this._dance(isHero, motif, step) } catch (e) {}
+          this._queuePhrase(blockMs, () => {
+            try { DialogueHarp.phrase({ isHero, blockMs }) } catch (e) {}
+          })
         }
-        if (starts[g] <= 0) {
+        if (this._scrollReveal?.has(g)) {
+          // Below the fold: this phrase belongs to the drag, not the clock.
+          this._revealFire[g] = fire
+        } else if (starts[g] <= 0) {
           fire()
         } else {
           this._revealSounds.push(this.scene.time.delayedCall(starts[g], fire))

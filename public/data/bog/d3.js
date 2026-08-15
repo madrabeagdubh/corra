@@ -98,264 +98,143 @@ export const d3Content = {
 
       dialogues: [
 
-        // ── node 0 — the hails ────────────────────────────────────
+        // ── node 0 — the ford ─────────────────────────────────────
         {
-          requires: { noteAbsent: 'met_odhran' },
-          note: 'met_odhran',
-          en: 'He is lying on the bank where the grass gives out to the water.\nThe toll-rope is slack in the channel beside him.\nHe does not get up.',
-          again: { en: 'He does not answer.' },
+          hold: true,
+          again: { en: '[[ short line — he has not moved ]]' },
           options: [
             {
-              requires: { note: 'has_druid_word' },
-              note: 'used_druid_word',
-              first: true,
-              en: 'Say the druid\'s word',
-              sayEn: 'The Druid of the Cliff-Mouth knows my name.',
-              replyEn: 'Then he knows more than I do.\nRow on. There is no toll on you today.',
-            },
-            {
+              requires: { noteAbsent: 'met_odhran' },
+              ga: 'Hóra, a bhruach!',
               en: 'Ho, the bank!',
+              say: 'Hóra, a bhruach!',
               sayEn: 'Ho, the bank!',
+              replyGa: '...',
               replyEn: '...',
             },
             {
+              requires: { noteAbsent: 'met_odhran' },
+              ga: 'Cén dola atá á thógáil san áit seo?',
               en: 'What toll is this place keeping?',
+              say: 'Cén dola atá á thógáil san áit seo?',
               sayEn: 'What toll is this place keeping?',
+              replyGa: '...',
               replyEn: '...',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 1 — are you hale ─────────────────────────────────
-        {
-          en: '...',
-          again: { en: 'He has not moved.' },
-          options: [
-            {
-              en: 'Is this the toll-point of Fionnbarra\'s reach?',
-              sayEn: 'Is this the toll-point of Fionnbarra\'s reach?',
-              replyEn: '...',
+              requires: { noteAbsent: 'met_odhran' },
+              note: 'met_odhran',
+              ga: 'An bhfuil tú slán? Ar buaileadh créacht ort?',
+              en: 'Are you hale? Have you taken a wound?',
+              say: 'An bhfuil tú slán? Ar buaileadh créacht ort?\nNí fheicim fuil ar bith.',
+              sayEn: 'Are you hale? Have you taken a wound?\nI see no blood.',
+              replyGa: 'Créacht, muise. Sin é an focal air. Buaileadh go trom mé.\nNí hea. Is le briathra a buaileadh mé.\nIs mise Odhrán, maor dola don Taoiseach Fionnbarra, ar leis an t-áth seo\nagus na trí áth ó thuaidh go Druim Caillí.',
+              replyEn: 'A wound, aye. That would be the word for it. I have been struck most grievously.\nNay. I have been struck by words.\nI am Odhrán, toll-keeper to Chief Fionnbarra, who holds this ford\nand the three crossings north to Druim Caillí.',
             },
             {
-              note: 'asked_wound',
-              en: 'Are you hale?',
-              sayEn: 'Are you hale? Have you taken a wound?',
-              replyEn: 'A wound. Aye. That would be the word for it.\nI have been struck most grievously.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 2 — struck by words ──────────────────────────────
-        {
-          en: '...',
-          again: { en: 'Well?' },
-          options: [
-            {
-              en: 'I see no blood',
-              sayEn: 'I see no blood.',
-              replyEn: 'Nay. I have been struck by words.\nI am Odhrán, toll-keeper to Chief Fionnbarra,\nChieftain from this reach to three crossings north of Druim Caillí.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 3 — name your toll ───────────────────────────────
-        {
-          en: 'So. You will be wanting to pass.',
-          again: { en: 'Name it, you are thinking. I cannot.' },
-          options: [
-            {
-              note: 'asked_odhran_toll',
+              requires: { note: 'met_odhran' },
+              note: 'knows_odhran_cannot_reckon',
+              ga: 'Ainmnigh do dhola, mar sin',
               en: 'Then name your toll',
-              sayEn: 'Then name your toll, and I will pay it\nor dispute it as God and custom allow.',
-              replyEn: 'I cannot name it.',
+              say: 'Ainmnigh do dhola agus íocfaidh mé é nó cuirfidh mé ina choinne, mar a cheadaíonn Dia agus nós.\nNí féidir?',
+              sayEn: 'Then name your toll and I will pay it or dispute it as God and custom allow.\nCannot?',
+              replyGa: 'Ní féidir liom é a ainmniú.\nNí féidir. Tá mé i ndólás.',
+              replyEn: 'I cannot name it.\nCannot. I am in woe.',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 4 — the feast ────────────────────────────────────
-        {
-          en: 'Cannot. I am in woe.\nThere was a feast at Fionnbarra\'s hall.\nI sat in my place, which is a good place, near the fire,\nwith meat on my bone and mead in my cup.\nThe chief had said my name aloud before his warriors,\nwhich is no small thing.\nBut there was a bard there. A lean, sharp-tongued creature\nwith clever black eyes.',
-          again: { en: 'I am in woe.' },
-          options: [
-            {
-              en: 'And?',
-              sayEn: 'And?',
-              replyEn: 'He made a satire.',
+              requires: { note: 'met_odhran' },
+              note: 'knows_fionnbarra',
+              ga: 'Do thaoiseach',
+              en: 'Your chief',
+              say: '[[ an é seo an t-áth dola atá faoi réim Fhionnbarra? ]]',
+              sayEn: '[[ is this the toll-point of Fionnbarra\'s reach? ]]',
+              replyGa: '[[ is é, agus na trí áth seo ó thuaidh ]]\n[[ an fhleá, agus mo dhea-áit féin cois tine ]]\n[[ labhair sé m\'ainm os ard os comhair na laochra ]]\n[[ níor chuir sé fios orm ó shin ]]',
+              replyEn: '[[ it is, and these three crossings north ]]\n[[ the feast, and my own good place by the fire ]]\n[[ he spoke my name aloud before the warriors ]]\n[[ he has not sent for me since ]]',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 5 — upon whom ────────────────────────────────────
-        {
-          en: 'A satire. In the hall. Before them all.',
-          again: { en: 'Upon me.' },
-          options: [
-            {
-              note: 'knows_odhran_shame',
-              en: 'Upon whom?',
-              sayEn: 'Upon whom?',
-              replyEn: 'Upon me.',
+              requires: { note: 'met_odhran' },
+              note: 'knows_satire_harms',
+              ga: 'An té a bhuail thú',
+              en: 'The one who struck you',
+              say: '[[ fiafraigh cad a dúradh ]]\nIs crua sin.',
+              sayEn: '[[ ask what was said ]]\nThat is hard.',
+              replyGa: '[[ bhí file ann — seang, géartheangach, súile dubha glice ]]\nDúirt sé go raibh aithne orm ó Dhún Bolg go dtí na clocha thuaidh mar an fear\na thóg an tsáil dheireanach aráin thirim as ciseán baintrí\nagus a mheáigh í sular thug sé leath ar ais. Chuir sé i rím ar fad é. Bhí sé déanta go han-mhaith.\nNí raibh sé críochnaithe.\nDúirt sé go raibh mé éirithe chomh cruinn sa bholg ó bheith ag tógáil dola\nnach bhféadfaí mé a aithint thar an gcarraig nuair a shuínn uirthi,\nagus gurbh í an difríocht idir Odhrán agus an charraig\nná nach ndéanadh an charraig smailc lena béal, ar a laghad.',
+              replyEn: '[[ there was a file there — lean, sharp-tongued, clever black eyes ]]\nHe said that I was known from Dún Bolg to the northern stones as the man\nwho had taken the last dry heel of bread from a widow\'s basket\nand weighed it before returning half. He rhymed it all. It was very well made.\nHe was not finished.\nHe said that I had grown so round in the belly from the taking of tolls\nthat when I sat upon my rock I could not be told from it,\nand that the difference between Odhrán and the rock\nwas that the rock at least did not smack its lips.',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 6 — the widow's bread ────────────────────────────
-        {
-          en: 'You will be wanting to know what he said.',
-          again: { en: 'It was very well made.' },
-          options: [
-            {
-              en: 'What did he say?',
-              sayEn: 'What did he say?',
-              replyEn: 'He said I was known from Dún Bolg to the northern stones\nas the man who took the last dry heel of bread\nfrom a widow\'s basket, and weighed it before returning half.\nHe rhymed it all. It was very well made.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 7 — the rock ─────────────────────────────────────
-        {
-          en: 'That is hard, you are thinking.\nHe was not finished.',
-          again: { en: 'He was not finished.' },
-          options: [
-            {
-              en: 'Ah',
-              sayEn: 'Ah.',
-              replyEn: 'He said I was a man grown so round in the belly\nfrom the taking of tolls that when I sat upon my rock\nI could not be told from it,\nand that the difference between Odhrán and the rock\nwas that the rock at least did not smack its lips.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 8 — the binding ──────────────────────────────────
-        {
-          en: 'That was not the worst of it.\nThe worst was the riddle he bound into his mocking.\nHe turned his full craft upon me, before all, and spoke thus:',
-          again: { en: 'I cannot find the end of it.' },
-          options: [
-            {
-              note: 'knows_odhran_binding',
-              en: 'What was it he bound on you?',
-              sayEn: 'What was it he bound on you?',
-              replyEn: '"Odhrán! Odhrán! Thou great and mighty counter of small coins!\nThou shalt have no peace until thou hast reckoned truly this:\nthe number of thy years, divided by the number of honest men\nthou hast known. Add what the dead owe the living,\nless the worth of mercy shown but never asked for.\nMultiply what the wren sings at morning\nby the silence of the stone at midnight.\nPay this to the man who wronged thee.\nKeep nothing. Owe nothing. Be free."',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 9 — what am I now ────────────────────────────────
-        {
-          en: 'I do not know what a dead man owes the living.\nI do not know how to subtract mercy.\nI cannot find the man I wronged. I cannot find the man who wronged me.',
-          again: { en: 'What am I now?' },
-          options: [
-            {
-              en: 'And since that night you cannot reckon',
-              sayEn: 'And since that night you cannot reckon the tolls.',
-              replyEn: 'Since that night I cannot reckon.\nI was Chief Fionnbarra\'s right hand of the river.\nNever bested by fisherman nor lord nor holy wanderer.\nWhat am I now? A man satirised truly in the hall of his chief,\nbefore warriors and dogs.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 10 — the cave and the rope ───────────────────────
-        {
-          en: 'I heard there is a cave above Cnoc Maol\nwhere a man might sit very quietly\nand not collect tolls from anyone ever again.',
-          again: { en: 'It is a good rope.' },
-          options: [
-            {
+              requires: { note: 'met_odhran' },
               note: 'knows_odhran_cave',
-              en: 'A cave?',
-              sayEn: 'A cave.',
-              replyEn: 'I could leave my toll-rope and go in with the monks.\nThey sit in the dark and they reckon nothing,\nand no one mocks them for it. It is considered holy.',
+              ga: 'Cad a dhéanfaidh tú anois?',
+              en: 'What will you do now?',
+              say: '[[ fiafraigh cad atá i ndán dó ]]',
+              sayEn: '[[ ask what becomes of him ]]',
+              replyGa: 'Chuala mé go bhfuil uaimh os cionn Chnoc Maol\nmar a bhféadfadh fear suí go han-chiúin\ngan dola a bhailiú ó dhuine ar bith go deo arís.\nD\'fhéadfainn mo théad dola a fhágáil agus dul isteach leis na manaigh.\nSuíonn siad sa dorchadas agus ní áiríonn siad faic,\nagus ní dhéanann duine ar bith fonóid fúthu dá bharr. Meastar gur rud naofa é.',
+              replyEn: 'I heard there is a cave above Cnoc Maol\nwhere a man might sit very quietly\nand not collect tolls from anyone ever again.\nI could leave my toll-rope and go in with the monks.\nThey sit in the dark and they reckon nothing,\nand no one mocks them for it. It is considered holy.',
+            },
+            {
+              requires: { note: 'knows_satire_harms' },
+              note: 'knows_seadna_name',
+              ga: 'An bhfuil ainm air?',
+              en: 'Has he a name?',
+              say: 'An bhfuil ainm air?',
+              sayEn: 'Has he a name?',
+              replyGa: 'Séadna.\n[[ agus cá bhfuil sé anois, nó cá raibh a thriall ]]',
+              replyEn: 'Séadna.\n[[ and where he is now, or where he was going ]]',
+            },
+            {
+              requires: { note: 'knows_satire_harms' },
+              note: 'heard_odhran_riddle',
+              ga: 'An é sin an chuid ba mheasa?',
+              en: 'Was that the worst of it?',
+              say: 'An é sin an chuid ba mheasa?',
+              sayEn: 'Was that the worst of it?',
+              replyGa: 'Níorbh é sin an chuid ba mheasa. Ba é an tomhas a cheangail sé isteach ina aor an chuid ba mheasa.\nDhírigh sé a cheird ar fad orm, os comhair cách, agus labhair sé mar seo:\n"A Odhráin! A Odhráin! A áiritheoir mhóir na mbonn beag!\nNí bheidh suaimhneas agat go dtí go mbeidh seo áirithe go fírinneach agat:\nLíon do bhlianta roinnte ar líon na bhfear ionraic ar chuir tú aithne orthu.\nCuir leis an méid atá ag na mairbh ar na beo,\nlúide luach na trócaire a tugadh gan iarraidh.\nIolraigh a gcanann an dreoilín ar maidin\nfaoi thost na cloiche i lár na hoíche.\nÍoc é seo leis an té a rinne éagóir ort.\nNá coinnigh faic. Ná bíodh fiacha ort. Bí saor."\nNíl a fhios agam cad atá ag fear marbh ar na beo. Níl a fhios agam conas trócaire a dhealú.\nNí féidir liom an té a ndearna mé éagóir air a aimsiú. Ní féidir liom an té a rinne éagóir orm a aimsiú.\nAgus ón oíche sin i leith ní thig liom áireamh a dhéanamh.',
+              replyEn: 'That was not the worst. The worst was the riddle he bound into his mocking.\nHe turned upon me his full craft, before all, and he spoke thus:\n"Odhrán! Odhrán! Thou great and mighty counter of small coins!\nThou shalt have no peace, until thou hast reckoned truly this:\nThe number of thy years divided by the number of honest men thou hast known.\nAdd what the dead owe the living,\nless the worth of mercy shown but never asked for.\nMultiply what the wren sings at morning\nby the silence of the stone at midnight.\nPay this to the man who wronged thee.\nKeep nothing. Owe nothing. Be free."\nI do not know what a dead man owes the living. I do not know how to subtract mercy.\nI cannot find the man I wronged. I cannot find the man who wronged me.\nAnd since that night I cannot reckon.',
             },
             {
               requires: { note: 'knows_odhran_cave' },
               note: 'has_toll_rope',
-              en: 'The toll-rope?',
-              sayEn: 'The toll-rope?',
-              replyEn: 'I did stretch it across the water when I had traffic.\nIt is a good rope. Take it. Take it freely. No toll.',
+              ga: 'Do théad, mar sin',
+              en: 'Your rope, then',
+              say: '[[ iarr an téad ]]',
+              sayEn: '[[ ask for the rope ]]',
+              replyGa: 'Shín mé trasna an átha í nuair a bhí trácht agam.\nIs maith an téad í. Tóg leat í. Tóg saor in aisce í. Gan dola.',
+              replyEn: 'I did stretch it across the ford when I had traffic.\nIt is a good rope. Take it. Take it freely. No toll.',
+            },
+            {
+              requires: { note: 'met_odhran' },
+              exit: true,
+              en: '[[ boast label ]]',
+              sayEn: '[[ you are who you are, and the rope is a rope ]]',
+              replyEn: '[[ he stands aside — not moved, only outmatched ]]',
+            },
+            {
+              requires: { note: 'met_odhran' },
+              exit: true,
+              en: '[[ custom label ]]',
+              sayEn: '[[ then I have named it and you have not, so I pass ]]',
+              replyEn: '[[ he cannot answer it, and does not enjoy losing this way ]]',
+            },
+            {
+              requires: { note: 'has_druid_word' },
+              exit: true,
+              en: '[[ druid word label ]]',
+              sayEn: '[[ Muireann\'s word ]]',
+              replyEn: '[[ pass, as one under protection ]]\n[[ but what did it mean? ]]',
+            },
+            {
+              requires: { note: 'heard_odhran_riddle' },
+              note: 'freed_odhran',
+              exit: true,
+              en: '[[ riddle answer label ]]',
+              sayEn: '[[ the sum is nothing — keep nothing, owe nothing, be free ]]',
+              replyEn: '[[ he does not thank you. he sits up. ]]',
             },
             {
               exit: true,
               silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 11 — let me help ─────────────────────────────────
-        {
-          en: 'Take it and go. There is nothing here for you.',
-          again: { en: 'I shall enquire.' },
-          options: [
-            {
-              note: 'offered_odhran_help',
-              en: 'Let me help',
-              sayEn: 'Odhrán, a bard\'s satire is a sharp thing.\nIt cuts to the bone, and the bone-cut aches long after.\nI am going west to the ráth. I shall enquire.',
-              replyEn: '...\nDo that.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Say nothing',
-            },
-          ],
-        },
-
-        // ── node 12 — afterwards ──────────────────────────────────
-        {
-          en: 'The water is open. It costs you nothing.',
-          again: { en: 'The water is open.' },
-          options: [
-            {
-              exit: true,
-              silent: true,
-              en: 'Farewell',
+              ga: 'Siúil leat',
+              en: 'Walk on',
             },
           ],
         },

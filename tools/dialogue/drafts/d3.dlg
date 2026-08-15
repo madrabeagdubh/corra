@@ -1,483 +1,247 @@
-# d3 — Odhrán on the river bank
+# d3 — Odhrán at the ford
 #
-#   node tools/dialogue/compile.mjs tools/dialogue/drafts/d3.dlg --check
 #   node tools/dialogue/compile.mjs tools/dialogue/drafts/d3.dlg
 #
-# Built from the SHORT draft. The earlier long version is in the git history
-# at 753e9f7 as tools/dialogue/drafts/c3Ford.dlg, along with its skeleton at
-# public/data/bog/c3.js. Both are removed by this change: the encounter lives
-# on d3 now, and c3 is free again.
+# ONE HELD NODE. @hold is a node directive, so it applies to every option
+# in the node — there is no way to hold some options and advance on others.
+# So position does no work here and notes do all of it: the hails show
+# while !met_odhran, the topics show once met_odhran, sub-asks gate on the
+# topic that reveals them, and the four crossings @exit.
 #
-# ── STRUCTURE ─────────────────────────────────────────────────────────────
+# Silence is an ellipsis reply, not @silent. textPanel treats a line of
+# dots as silence rather than speech, and the card holds — whereas an
+# option with no reply at all skips the card and re-runs node selection,
+# which can close the panel.
 #
-# A LINEAR chain, not a hub. Every node advances on any non-exit option.
-# This is deliberate: hold:true never advances npcProgress (encounterPanel
-# 485/571/641), so a held node is TERMINAL -- the player stays on it and
-# nothing after it is ever reachable. The hub shape only works if the held
-# node's own @when eventually fails. This conversation is one unbroken
-# thread, so a chain is both simpler and safe.
+# Every line is one line with a % beneath. A block is either fully
+# translated or not translated at all — mixing the two is an error.
+
+@file d3
+
+# ── FACTS OUT ─────────────────────────────────────────────────────────────
+#   met_odhran, knows_odhran_cannot_reckon, knows_fionnbarra,
+#   knows_satire_harms, knows_seadna_name, heard_odhran_riddle,
+#   knows_odhran_cave, has_toll_rope, freed_odhran
+# ── FACTS IN ──────────────────────────────────────────────────────────────
+#   has_druid_word  (from Muireann)
 #
-#   0  three hails, no answer      7  the rock
-#   1  are you hale                8  the binding
-#   2  struck by words             9  what am I now
-#   3  name your toll             10  the rope
-#   4  the feast, and a bard      11  let me help
-#   5  upon whom                  12  afterwards
-#   6  the widow's bread
-#
-# Every node carries an exit, so the player can leave at any depth.
-#
-# ── PLACEMENT ─────────────────────────────────────────────────────────────
-#
-# (19,12) -- the LAST tile of the briugu's old walk path. The previous d3.js
-# header recorded it as verified against the tile layer: (12,5)-(18,11)
-# grass, (19,12) the waterside strip where bank meets channel. Already
-# proven reachable from the boat, which is why it is worth reusing rather
-# than picking a fresh tile.
-#
-# He is LYING DOWN and does not get up. If the sprite ends up standing, node
-# 0 reads wrong -- the whole opening beat is that the toll-man does not rise.
-#
-# He is on a river the player is ROWING, not a ford they wade, so the rope
-# goes across the CHANNEL. That works harder here than it did at a crossing:
-# a rope across the water is the thing that would actually stop a boat.
-#
-# ── WHAT THIS REPLACED ────────────────────────────────────────────────────
-#
-# The walking briugu. His full text, Irish intact, is parked at
-# tools/dialogue/drafts/d3Briugu.dlg -- 12 translated lines, which were the
-# only finished Irish in the whole cold open. Nothing loads that file.
-#
-# TWO THINGS THE SWAP COSTS, both worth weighing before this is called done:
-#
-# 1. met_briugu IS NOW DEAD. Only the briugu ever set it, and b0 still gates
-#    Mór's road line on it -- "I saw a man on the road, going east. He would
-#    not say why." The linter reports it as "required but never set". It does
-#    NOT transfer as written: Odhrán is stationary, tells everyone
-#    everything, and keeps a toll rather than a house. Re-gating it on
-#    met_odhran needs both of Mór's lines rewritten, and that is Irish, so it
-#    is yours. Something like "I saw a man by the water who could not name
-#    his own toll" would keep her "..." doing the same work.
-#
-# 2. THE PACING ARGUMENT. The old d3.js header held that this beat's job was
-#    PACING and its encounter should be "deliberately thin" -- because if the
-#    thing after Muireann is another conversation, the game reads as a
-#    dialogue tree with scenery between the nodes. Odhrán is now the longest
-#    encounter in the project. His MAINLINE is short (three hails, a wound,
-#    and away) and all the depth is opt-in, which is the defence. But the
-#    argument was a good one.
-#
-# What DOES survive the swap is the briugu's other job: establishing an NPC
-# who does not want to talk, so the villagers' evasiveness later reads as
-# character rather than the game withholding. Odhrán's opening silence does
-# that harder than the briugu's terseness did.
-#
-# ── THE SILENCE ───────────────────────────────────────────────────────────
-#
-# Node 0's hails each get "..." as the reply rather than no reply at all.
-# An empty reply trips the linter's "speaks but gets no answer" -- and more
-# to the point, a card containing only "..." IS the beat. The player is made
-# to sit in the silence rather than have it skipped past.
-#
-# ── THE BYPASS ────────────────────────────────────────────────────────────
-#
-# has_druid_word (d3Sea node 4) opens the bypass on node 0: passage granted,
-# free, having learned none of this -- exactly what Muireann told them to do,
-# "You need say no more than that. And say no more." @first, so it does not
-# nag on later visits.
-#
-# It is deliberately NOT an @exit option. encounterPanel line 672 reads
-#   if (!opt.exit && (opt.replyGa || opt.replyEn))
-# so an exit option's reply is never rendered -- marking this @exit silently
-# threw away "Then he knows more than I do", which is the whole tell that his
-# certainty is gone. Without @exit the reply shows and the card advances to
-# node 1, where he has fallen silent again and one tap on "Row on" leaves.
-# One extra tap, and the silence after he grants passage is worth it.
-#
-# ── OPEN QUESTIONS ────────────────────────────────────────────────────────
-#
-#   ENDING  Your last line stops mid-sentence: "I am going to . I shall
-#           enquire." Node 11 carries legible filler marked INVENTED.
-#           Replace it -- I did not want to guess where he is sent.
-#
-#   NAMES   Fionnbarra throughout, matching d3Sea -- but your arc has
-#           Ruadhán mac Colla as the chief Séadna is bleeding. One man or
-#           two? The bard is UNNAMED, as in your draft, which is stronger if
-#           the player meets him later and only then realises.
-#
-#   Cnoc Maol, not Croc Mael.
-#
-# ── REGISTER ──────────────────────────────────────────────────────────────
-#
-# Odhrán stays plain. The thou/thee appears only inside the quoted satire,
-# where it belongs -- the bard's verse is the one ornamented thing in the
-# scene, which is the point, since it is also what broke him.
-#
-# ──────────────────────────────────────────────────────────────────────────
+# Return visit is scene work, not dialogue: he is gone, the rope is on the
+# rock as a pickup granting has_toll_rope.
 
 
-@file       d3
-@encounter  0
+= node 0 — the ford
+@hold
+@again [[ short line — he has not moved ]] / 
 
-
-= node 0 — the hails
-@when !note met_odhran
-@note met_odhran
-@again He does not answer. / 
-He is lying on the bank where the grass gives out to the water.
-% 
-The toll-rope is slack in the channel beside him.
-% 
-He does not get up.
-% 
-
-* Say the druid's word
-% 
-@when note has_druid_word
-@first
-@note used_druid_word
-> The Druid of the Cliff-Mouth knows my name.
-% 
-< Then he knows more than I do.
-% 
-< Row on. There is no toll on you today.
-% 
+# ── the hails ─────────────────────────────────────────────────────────────
+# He is on his back and does not answer the office, only the man.
 
 * Ho, the bank!
-% 
+% Hóra, a bhruach!
+@when !note met_odhran
 > Ho, the bank!
-% 
+% Hóra, a bhruach!
 < ...
-% 
+% ...
 
 * What toll is this place keeping?
-% 
+% Cén dola atá á thógáil san áit seo?
+@when !note met_odhran
 > What toll is this place keeping?
-% 
+% Cén dola atá á thógáil san áit seo?
 < ...
-% 
+% ...
 
-* Row on
-% 
-@exit
-@silent
-
-
-= node 1 — are you hale
-@again He has not moved. / 
-...
-% 
-
-* Is this the toll-point of Fionnbarra's reach?
-% 
-> Is this the toll-point of Fionnbarra's reach?
-% 
-< ...
-% 
-
-* Are you hale?
-% 
-@note asked_wound
+* Are you hale? Have you taken a wound?
+% An bhfuil tú slán? Ar buaileadh créacht ort?
+@when !note met_odhran
+@note met_odhran
 > Are you hale? Have you taken a wound?
-% 
-< A wound. Aye. That would be the word for it.
-% 
-< I have been struck most grievously.
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 2 — struck by words
-@again Well? / 
-...
-% 
-
-* I see no blood
-% 
+% An bhfuil tú slán? Ar buaileadh créacht ort?
+< A wound, aye. That would be the word for it. I have been struck most grievously.
+% Créacht, muise. Sin é an focal air. Buaileadh go trom mé.
 > I see no blood.
-% 
+% Ní fheicim fuil ar bith.
 < Nay. I have been struck by words.
-% 
-< I am Odhrán, toll-keeper to Chief Fionnbarra,
-% 
-< Chieftain from this reach to three crossings north of Druim Caillí.
-% 
+% Ní hea. Is le briathra a buaileadh mé.
+< I am Odhrán, toll-keeper to Chief Fionnbarra, who holds this ford
+% Is mise Odhrán, maor dola don Taoiseach Fionnbarra, ar leis an t-áth seo
+< and the three crossings north to Druim Caillí.
+% agus na trí áth ó thuaidh go Druim Caillí.
 
-* Row on
-% 
-@exit
-@silent
-
-
-= node 3 — name your toll
-@again Name it, you are thinking. I cannot. / 
-So. You will be wanting to pass.
-% 
+# ── the topics ────────────────────────────────────────────────────────────
 
 * Then name your toll
-% 
-@note asked_odhran_toll
-> Then name your toll, and I will pay it
-% 
-> or dispute it as God and custom allow.
-% 
+% Ainmnigh do dhola, mar sin
+@when note met_odhran
+@note knows_odhran_cannot_reckon
+> Then name your toll and I will pay it or dispute it as God and custom allow.
+% Ainmnigh do dhola agus íocfaidh mé é nó cuirfidh mé ina choinne, mar a cheadaíonn Dia agus nós.
 < I cannot name it.
-% 
+% Ní féidir liom é a ainmniú.
+> Cannot?
+% Ní féidir?
+< Cannot. I am in woe.
+% Ní féidir. Tá mé i ndólás.
 
-* Row on
-% 
-@exit
-@silent
+* Your chief
+% Do thaoiseach
+@when note met_odhran
+@note knows_fionnbarra
+# The old toll-point question is folded in here — it is a Fionnbarra
+# question, not a hail. The feast, his own good place by the fire, the
+# chief speaking his name before the warriors, and the silence since.
+> [[ is this the toll-point of Fionnbarra's reach? ]]
+% [[ an é seo an t-áth dola atá faoi réim Fhionnbarra? ]]
+< [[ it is, and these three crossings north ]]
+% [[ is é, agus na trí áth seo ó thuaidh ]]
+< [[ the feast, and my own good place by the fire ]]
+% [[ an fhleá, agus mo dhea-áit féin cois tine ]]
+< [[ he spoke my name aloud before the warriors ]]
+% [[ labhair sé m'ainm os ard os comhair na laochra ]]
+< [[ he has not sent for me since ]]
+% [[ níor chuir sé fios orm ó shin ]]
 
-
-= node 4 — the feast
-@again I am in woe. / 
-Cannot. I am in woe.
-% 
-There was a feast at Fionnbarra's hall.
-% 
-I sat in my place, which is a good place, near the fire,
-% 
-with meat on my bone and mead in my cup.
-% 
-The chief had said my name aloud before his warriors,
-% 
-which is no small thing.
-% 
-But there was a bard there. A lean, sharp-tongued creature
-% 
-with clever black eyes.
-% 
-
-* And?
-% 
-> And?
-% 
-< He made a satire.
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 5 — upon whom
-@again Upon me. / 
-A satire. In the hall. Before them all.
-% 
-
-* Upon whom?
-% 
-@note knows_odhran_shame
-> Upon whom?
-% 
-< Upon me.
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 6 — the widow's bread
-@again It was very well made. / 
-You will be wanting to know what he said.
-% 
-
-* What did he say?
-% 
-> What did he say?
-% 
-< He said I was known from Dún Bolg to the northern stones
-% 
-< as the man who took the last dry heel of bread
-% 
-< from a widow's basket, and weighed it before returning half.
-% 
-< He rhymed it all. It was very well made.
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 7 — the rock
-@again He was not finished. / 
-That is hard, you are thinking.
-% 
-He was not finished.
-% 
-
-* Ah
-% 
-> Ah.
-% 
-< He said I was a man grown so round in the belly
-% 
-< from the taking of tolls that when I sat upon my rock
-% 
-< I could not be told from it,
-% 
+* The one who struck you
+% An té a bhuail thú
+@when note met_odhran
+@note knows_satire_harms
+> [[ ask what was said ]]
+% [[ fiafraigh cad a dúradh ]]
+< [[ there was a file there — lean, sharp-tongued, clever black eyes ]]
+% [[ bhí file ann — seang, géartheangach, súile dubha glice ]]
+< He said that I was known from Dún Bolg to the northern stones as the man
+% Dúirt sé go raibh aithne orm ó Dhún Bolg go dtí na clocha thuaidh mar an fear
+< who had taken the last dry heel of bread from a widow's basket
+% a thóg an tsáil dheireanach aráin thirim as ciseán baintrí
+< and weighed it before returning half. He rhymed it all. It was very well made.
+% agus a mheáigh í sular thug sé leath ar ais. Chuir sé i rím ar fad é. Bhí sé déanta go han-mhaith.
+> That is hard.
+% Is crua sin.
+< He was not finished.
+% Ní raibh sé críochnaithe.
+< He said that I had grown so round in the belly from the taking of tolls
+% Dúirt sé go raibh mé éirithe chomh cruinn sa bholg ó bheith ag tógáil dola
+< that when I sat upon my rock I could not be told from it,
+% nach bhféadfaí mé a aithint thar an gcarraig nuair a shuínn uirthi,
 < and that the difference between Odhrán and the rock
-% 
+% agus gurbh í an difríocht idir Odhrán agus an charraig
 < was that the rock at least did not smack its lips.
-% 
+% ná nach ndéanadh an charraig smailc lena béal, ar a laghad.
 
-* Row on
-% 
-@exit
-@silent
-
-
-= node 8 — the binding
-@again I cannot find the end of it. / 
-That was not the worst of it.
-% 
-The worst was the riddle he bound into his mocking.
-% 
-He turned his full craft upon me, before all, and spoke thus:
-% 
-
-* What was it he bound on you?
-% 
-@note knows_odhran_binding
-> What was it he bound on you?
-% 
-< "Odhrán! Odhrán! Thou great and mighty counter of small coins!
-% 
-< Thou shalt have no peace until thou hast reckoned truly this:
-% 
-< the number of thy years, divided by the number of honest men
-% 
-< thou hast known. Add what the dead owe the living,
-% 
-< less the worth of mercy shown but never asked for.
-% 
-< Multiply what the wren sings at morning
-% 
-< by the silence of the stone at midnight.
-% 
-< Pay this to the man who wronged thee.
-% 
-< Keep nothing. Owe nothing. Be free."
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 9 — what am I now
-@again What am I now? / 
-I do not know what a dead man owes the living.
-% 
-I do not know how to subtract mercy.
-% 
-I cannot find the man I wronged. I cannot find the man who wronged me.
-% 
-
-* And since that night you cannot reckon
-% 
-> And since that night you cannot reckon the tolls.
-% 
-< Since that night I cannot reckon.
-% 
-< I was Chief Fionnbarra's right hand of the river.
-% 
-< Never bested by fisherman nor lord nor holy wanderer.
-% 
-< What am I now? A man satirised truly in the hall of his chief,
-% 
-< before warriors and dogs.
-% 
-
-* Row on
-% 
-@exit
-@silent
-
-
-= node 10 — the cave and the rope
-@again It is a good rope. / 
-I heard there is a cave above Cnoc Maol
-% 
-where a man might sit very quietly
-% 
-and not collect tolls from anyone ever again.
-% 
-
-* A cave?
-% 
+* What will you do now?
+% Cad a dhéanfaidh tú anois?
+@when note met_odhran
 @note knows_odhran_cave
-> A cave.
-% 
+> [[ ask what becomes of him ]]
+% [[ fiafraigh cad atá i ndán dó ]]
+< I heard there is a cave above Cnoc Maol
+% Chuala mé go bhfuil uaimh os cionn Chnoc Maol
+< where a man might sit very quietly
+% mar a bhféadfadh fear suí go han-chiúin
+< and not collect tolls from anyone ever again.
+% gan dola a bhailiú ó dhuine ar bith go deo arís.
 < I could leave my toll-rope and go in with the monks.
-% 
+% D'fhéadfainn mo théad dola a fhágáil agus dul isteach leis na manaigh.
 < They sit in the dark and they reckon nothing,
-% 
+% Suíonn siad sa dorchadas agus ní áiríonn siad faic,
 < and no one mocks them for it. It is considered holy.
-% 
+% agus ní dhéanann duine ar bith fonóid fúthu dá bharr. Meastar gur rud naofa é.
 
-* The toll-rope?
-% 
+# ── the sub-asks ──────────────────────────────────────────────────────────
+
+* Has he a name?
+% An bhfuil ainm air?
+@when note knows_satire_harms
+@note knows_seadna_name
+> Has he a name?
+% An bhfuil ainm air?
+< Séadna.
+% Séadna.
+< [[ and where he is now, or where he was going ]]
+% [[ agus cá bhfuil sé anois, nó cá raibh a thriall ]]
+
+* Was that the worst of it?
+% An é sin an chuid ba mheasa?
+@when note knows_satire_harms
+@note heard_odhran_riddle
+> Was that the worst of it?
+% An é sin an chuid ba mheasa?
+< That was not the worst. The worst was the riddle he bound into his mocking.
+% Níorbh é sin an chuid ba mheasa. Ba é an tomhas a cheangail sé isteach ina aor an chuid ba mheasa.
+< He turned upon me his full craft, before all, and he spoke thus:
+% Dhírigh sé a cheird ar fad orm, os comhair cách, agus labhair sé mar seo:
+< "Odhrán! Odhrán! Thou great and mighty counter of small coins!
+% "A Odhráin! A Odhráin! A áiritheoir mhóir na mbonn beag!
+< Thou shalt have no peace, until thou hast reckoned truly this:
+% Ní bheidh suaimhneas agat go dtí go mbeidh seo áirithe go fírinneach agat:
+< The number of thy years divided by the number of honest men thou hast known.
+% Líon do bhlianta roinnte ar líon na bhfear ionraic ar chuir tú aithne orthu.
+< Add what the dead owe the living,
+% Cuir leis an méid atá ag na mairbh ar na beo,
+< less the worth of mercy shown but never asked for.
+% lúide luach na trócaire a tugadh gan iarraidh.
+< Multiply what the wren sings at morning
+% Iolraigh a gcanann an dreoilín ar maidin
+< by the silence of the stone at midnight.
+% faoi thost na cloiche i lár na hoíche.
+< Pay this to the man who wronged thee.
+% Íoc é seo leis an té a rinne éagóir ort.
+< Keep nothing. Owe nothing. Be free."
+% Ná coinnigh faic. Ná bíodh fiacha ort. Bí saor."
+< I do not know what a dead man owes the living. I do not know how to subtract mercy.
+% Níl a fhios agam cad atá ag fear marbh ar na beo. Níl a fhios agam conas trócaire a dhealú.
+< I cannot find the man I wronged. I cannot find the man who wronged me.
+% Ní féidir liom an té a ndearna mé éagóir air a aimsiú. Ní féidir liom an té a rinne éagóir orm a aimsiú.
+< And since that night I cannot reckon.
+% Agus ón oíche sin i leith ní thig liom áireamh a dhéanamh.
+
+* Your rope, then
+% Do théad, mar sin
 @when note knows_odhran_cave
 @note has_toll_rope
-> The toll-rope?
-% 
-< I did stretch it across the water when I had traffic.
-% 
+> [[ ask for the rope ]]
+% [[ iarr an téad ]]
+< I did stretch it across the ford when I had traffic.
+% Shín mé trasna an átha í nuair a bhí trácht agam.
 < It is a good rope. Take it. Take it freely. No toll.
-% 
+% Is maith an téad í. Tóg leat í. Tóg saor in aisce í. Gan dola.
 
-* Row on
-% 
+# ── the crossings ─────────────────────────────────────────────────────────
+# All four @exit. Crossing ends the conversation, which is what crossing
+# should do. Boast leaves him exactly as he was; custom passes you free by
+# failing; the druid word passes you as one under protection; only the
+# riddle changes anything for him.
+
+* [[ boast label ]]
+@when note met_odhran
 @exit
-@silent
+> [[ you are who you are, and the rope is a rope ]]
+< [[ he stands aside — not moved, only outmatched ]]
 
-
-= node 11 — let me help
-@again I shall enquire. / 
-Take it and go. There is nothing here for you.
-% 
-
-* Let me help
-% 
-@note offered_odhran_help
-> Odhrán, a bard's satire is a sharp thing.
-% 
-> It cuts to the bone, and the bone-cut aches long after.
-% 
-# INVENTED FILLER -- your draft breaks off at "I am going to . I shall
-# enquire." Replace the next line; I did not want to guess where he is sent
-# or paper over the gap without saying so.
-> I am going west to the ráth. I shall enquire.
-% 
-< ...
-% 
-< Do that.
-% 
-
-* Say nothing
-% 
+* [[ custom label ]]
+@when note met_odhran
 @exit
-@silent
+> [[ then I have named it and you have not, so I pass ]]
+< [[ he cannot answer it, and does not enjoy losing this way ]]
 
+* [[ druid word label ]]
+@when note has_druid_word
+@exit
+> [[ Muireann's word ]]
+< [[ pass, as one under protection ]]
+< [[ but what did it mean? ]]
 
-= node 12 — afterwards
-@again The water is open. / 
-The water is open. It costs you nothing.
-% 
+* [[ riddle answer label ]]
+@when note heard_odhran_riddle
+@note freed_odhran
+@exit
+> [[ the sum is nothing — keep nothing, owe nothing, be free ]]
+< [[ he does not thank you. he sits up. ]]
 
-* Farewell
-% 
+# ── always ────────────────────────────────────────────────────────────────
+
+* Walk on
+% Siúil leat
 @exit
 @silent

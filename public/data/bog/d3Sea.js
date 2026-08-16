@@ -37,190 +37,200 @@ export const d3SeaContent = {
 
       dialogues: [
 
-        // ── node 0 ────────────────────────────────────────────────
+        // ── node 0 — the hail ─────────────────────────────────────
         {
-          requires: { questAbsent: 'q_baile' },
-          note: 'met_muireann',
-          en: 'May the stone of the shore greet you, man of the sea.\nMay the current that guided you here honour you.',
-          again: { ga: 'Bhuel? Labhair.', en: 'Well? Speak.' },
+          en: 'Who art thou that rows so bold\ntowards the Boyne\'s wide, bitter mouth?',
           options: [
             {
-              note: 'gave_greeting',
-              en: 'May the wind greet you',
-              sayEn: 'May the wind that carried me greet you.\nMay the sea that bore me greet you.',
-              replyEn: 'What the sea has brought us,\nlet the land receive well.\nWhat the sea has carried,\nthe land may trust.',
+              note: 'met_muireann',
+              en: 'Return her greeting',
+              sayEn: 'Wind that carried me greet thee.',
+              replyEn: 'Stone of the shore greet thee.',
             },
             {
-              en: 'Who are you?',
-              sayEn: 'Who are you, woman of the stones,\nwho speaks to me so?',
-              replyEn: 'One who is here.\nOne who watches.\nThat is all the answer you get yet, and it is enough.',
+              note: 'met_muireann',
+              en: 'Say nothing',
+              sayEn: '[[ the player says nothing, or something graceless ]]',
+              replyEn: '[[ she notes it. not offended — a druid is not offended by a stranger\'s ignorance — but something has been learned about him. ]]',
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 1 ────────────────────────────────────────────────
+        // ── node 1 — the name ─────────────────────────────────────
         {
-          en: 'From where were you blown to us?\nIt is a long road for your little boat\nfrom wherever it was built, I think.',
-          again: { ga: 'Bhuel? Cad as?', en: 'Well? From where?' },
+          en: '[[ short. she is waiting. ]]',
           options: [
             {
-              note: 'answered_plain',
-              en: 'From Skye',
-              sayEn: 'From the grey shore of Skye I have come.\nLong rowing,\nand the sea rising every day of it.',
-              replyEn: 'That is no small thing.\nYour back is telling you so, I expect,\nand it will not stop telling you tonight or tomorrow.',
+              note: 'gave_name',
+              en: 'Give your name',
+              sayEn: '[[ EASCA — the player types the name they chose. ]]',
+              replyEn: '[[ she repeats it back. once, plainly, and does not comment on it. ]]',
             },
             {
-              note: 'answered_careful',
-              en: 'From where the hound lost the scent',
-              sayEn: 'From where the hound lost the scent\nand the hawk lost the wind beneath her wing.\nFrom where the fire was that is not now burning.',
-              replyEn: 'So, so.\nThat is a careful answer.\nYou would not be so careful were there no reason for it.',
+              note: 'withheld_name',
+              en: 'Refuse it',
+              sayEn: 'No ill thing have I in mind. No man\'s kin, no man\'s kine.\nMy quarrel is with my own name, too small yet for any song.',
+              replyEn: '[[ she lets it stand. she does not ask twice. ]]',
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 2 ────────────────────────────────────────────────
+        // ── node 2 — whose shore ──────────────────────────────────
         {
-          requires: { noteAbsent: 'knows_boyne' },
-          en: 'Attend to me now.\nYou have beached your little boat\nat the mouth of Bóinn the bright and winding,\nand this shore belongs to her before anyone.',
+          en: '[[ short, or nothing. ]]',
           options: [
             {
-              en: 'Whose shore is it, then?',
-              sayEn: 'Whose shore is it I have been blown upon, then?',
-              replyEn: 'It belongs first and last to Bóinn.\nDo not forget that while you are drinking from the river.',
+              note: 'knows_fionnbarra',
+              en: 'What chieftain\'s shore is this?',
+              sayEn: 'What chieftain\'s shore is this?',
+              replyEn: 'Thy little boat has reached the mouth of Bóinn the bright and winding.\nThis shore belongs first to her.\nFionnbarra mac Dubhloingse is Chief of this grey headland\nand of the three valleys that run north.',
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 3 ────────────────────────────────────────────────
+        // ── node 3 — the chief ────────────────────────────────────
         {
-          note: 'knows_boyne',
-          setQuest: 'q_baile',
-          hold: true,
-          en: 'As for the chieftain:\nyou have put your prow upon the shore of Fionnbarra mac Dubhloingse,\nchieftain of this grey headland\nand of the three valleys that run from it like fingers from a hand.',
-          again: { ga: 'Bhuel? An bhfuil tuilleadh uait?', en: 'Well? Do you want more?' },
+          en: '[[ short. ]]',
           options: [
             {
-              first: true,
-              en: 'What kind of man is he?',
-              sayEn: 'What kind of man is this Fionnbarra?',
-              replyEn: 'A hand often raised in anger,\nand raised as often in welcome.\nA man of temper and of patience in the one body,\nand his hounds are many.',
-            },
-            {
-              first: true,
-              en: 'Is he a just man?',
-              sayEn: 'Is he a just man,\nthis man whose land I am walking?',
-              replyEn: 'He is not unjust,\nand that is more than I would say for every one of his line.\nHis grandfather\'s grandfather gave oaths to the Tuatha\nthat were not entirely kept,\nand they gave in return a curse upon his cattle\nthat was not entirely lifted.\nThe milk of this place has tasted of broken promises ever since --\nor of the wild garlic in the lower pastures, depending who you ask.',
-            },
-            {
-              note: 'knows_road_west',
-              en: 'Where is the ringfort?',
-              sayEn: 'Where is the ringfort from here? The day is going.',
-              replyEn: 'Half a morning\'s walk northwest along the track.\nYou will not miss it.\nYou will find a fire there, and a full bowl, and dry ground.',
-            },
-            {
-              note: 'knows_muireann',
-              first: true,
-              en: 'Who are you?',
-              sayEn: 'And who are you yourself, woman of the rock,\nwatching the water?',
-              replyEn: 'Muireann.\nI keep watch on the mouth of the river, as my mother did before me.\nTell Mór at the ringfort it was I who sent you.',
+              en: 'What kind of man is Fionnbarra?',
+              sayEn: 'What kind of man is Chief Fionnbarra?',
+              replyEn: 'Fionnbarra is not an unjust man.\nHis hounds are many.\nBut his toll-man waits at the river with a face like an angry stone.',
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 4 ────────────────────────────────────────────────
+        // ── node 4 — the toll-man ─────────────────────────────────
         {
-          hold: true,
-          en: 'The toll-man will meet you at the river ford,\nfor the ravens have already carried word of your coming,\nand he is a man who rises early to meet opportunity.',
-          again: { ga: 'Bhuel?', en: 'Well?' },
+          en: '[[ short. ]]',
           options: [
             {
               note: 'has_druid_word',
-              first: true,
-              en: 'What will I say to him?',
-              sayEn: 'And what will I say to that man\nwhen he stands in front of me?',
-              replyEn: 'Say to him that the Druid of the Cliff-Mouth knows your name.\nYou need say no more than that.\nAnd say no more.',
-            },
-            {
-              first: true,
-              en: 'What kind of man is he?',
-              sayEn: 'What kind of man is this toll-man?',
-              replyEn: 'He has a face like a stone that has been disappointed.\nHe is not a loveable man and does not wish to be.\nA chieftain needs such a man all the same.',
+              en: 'His toll-man?',
+              sayEn: 'His toll-man?',
+              replyEn: 'If Fionnbarra\'s toll-man should meet thee at the strand,\nthou art to say that Muireann the Druid knows thy name.',
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 5 ────────────────────────────────────────────────
+        // ── node 5 — where art thou bound ─────────────────────────
         {
-          requires: { note: 'answered_careful' },
-          hold: true,
-          en: 'One more thing, since you are a careful sort.\nFionnbarra has a brother,\nand I will not shout his name from a clifftop\nas a fool shouts the name of a wolf into a dark wood.',
-          again: { ga: 'Bhuel?', en: 'Well?' },
+          en: 'And where now does the curragh turn its nose?\nWhat draws thee south along this shore?',
           options: [
             {
-              note: 'knows_cathan',
-              first: true,
-              en: 'A brother?',
-              sayEn: 'A brother? What name is on him, and what is his portion?',
-              replyEn: 'Cathán.\nHe holds the southern wood, and three fishing-rights on the tributary,\nand an opinion of himself that would shame the sun for brightness.',
+              note: 'told_muireann_truth',
+              en: 'Tell her plainly',
+              sayEn: 'From the grey isle that lies where sky meets the cold sea-wind.\nLong the crossing, hard the oar.\nTo the bog that drinks men whole, Allen\'s dark and sunken ground.\nThere the Fianna test their own. There I mean to prove my worth.',
+              replyEn: '[[ she takes this in. no ceremony about it. ]]',
             },
             {
-              first: true,
-              en: 'And if I meet him?',
-              sayEn: 'If I meet him at a ford or a gate or a fire,\nwhat should I do?',
-              replyEn: 'Do not look at what is shown to you.\nThat which speaks may not be him,\nand that which smiles is not his smile.\nKnow the man by what he will not do.',
-            },
-            {
-              first: true,
-              en: 'What is the danger?',
-              sayEn: 'What danger is in it for me, and I going west?',
-              replyEn: 'Thin enough.\nAs thin as first ice on the stream,\nas thin as smoke on a summer wind.\nGo your road and miss his road.',
+              note: 'evaded_muireann',
+              en: 'Tell her less',
+              exchange: [
+                {
+                  sayEn: 'Ask the heron of the fen. He will know my road before me.',
+                  replyEn: 'Speak plain. What business brings a stranger to these lands?',
+                },
+                {
+                  sayEn: 'I have come from where the hound lost the scent\nand the hawk lost the wind beneath her wing.\nFrom where the fire was, that is not now burning.\nThe sea is a poor keeper of roads.',
+                  replyEn: 'So. So.\nThou art careful in thy answer.',
+                },
+              ],
             },
             {
               exit: true,
               silent: true,
-              en: 'Farewell',
+              en: 'Row on',
             },
           ],
         },
 
-        // ── node 6 ────────────────────────────────────────────────
+        // ── node 6 — she answers the plain answer ─────────────────
         {
-          requires: { questActive: 'q_baile' },
-          en: 'May the Boyne remember your name to the sea.\nMay the sea speak your name to the deep places.\nMay the deep places hold you,\nneither too long nor too short.',
-          again: { ga: 'Siar leat.', en: 'Away west with you.' },
+          requires: { note: 'told_muireann_truth' },
+          en: '[[ short. ]]',
+          options: [
+            {
+              en: 'Fionn will teach me',
+              sayEn: 'Fionn I have heard of. Fionn the great one.\nFionn, they say, shall teach me more.',
+              replyEn: 'Fionn keeps poetry before the sword.\n[[ said flatly, as a fact about Fionn rather than as advice — it should be possible to miss entirely. ]]',
+            },
+            {
+              exit: true,
+              silent: true,
+              en: 'Row on',
+            },
+          ],
         },
 
-        // ── node 7 ────────────────────────────────────────────────
+        // ── node 7 — she answers the careful answer ───────────────
         {
-          requires: { questComplete: 'q_baile' },
-          hold: true,
-          en: 'So you saw the ringfort.\nCome back to me if you want news.',
-          again: { ga: 'Bhuel?', en: 'Well?' },
+          requires: { note: 'evaded_muireann' },
+          en: 'Where then art thou bound?',
+          options: [
+            {
+              en: 'Say even less',
+              sayEn: 'There is a thing that waits for finding, and it is not yet found.\nI cannot tell thee the name of the house before I have stood within it.',
+              replyEn: 'Go then. Go where thou art not going.\nArrive where thou art not bound.\n[[ she is amused rather than obstructed. this is a form she knows. ]]',
+            },
+            {
+              exit: true,
+              silent: true,
+              en: 'Row on',
+            },
+          ],
+        },
+
+        // ── node 8 — the road ─────────────────────────────────────
+        {
+          en: 'Some purpose drives thee, I think.',
+          options: [
+            {
+              note: 'knows_rath',
+              en: 'Which way, then?',
+              exchange: [
+                {
+                  sayEn: 'Which way, then?',
+                  replyEn: 'Half a morning\'s walk northwest along the track. Thou canst not miss the ringfort.\nThou wilt find a fire, a full bowl, and dry ground there.',
+                },
+                {
+                  sayEn: 'And after?',
+                  replyEn: 'That great dark place, with its waters the colour of old bronze.\nIt is not far. Two days west, two days south. Keep the hills to thy left hand.\nTravel well.',
+                },
+              ],
+            },
+            {
+              exit: true,
+              en: 'Slán agat',
+              sayEn: '[[ the parting. ]]',
+              replyEn: 'Go not by night.\nAnd if thou hear the sound of pipes where no man stands,\nthou hast heard nothing. Walk on.\nMay the Boyne remember thy name to the sea.\nMay the sea speak thy name to the deep places.',
+            },
+          ],
         },
 
       ],

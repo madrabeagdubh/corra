@@ -19,7 +19,7 @@ class Easca3 {
 
     // ── Palette ───────────────────────────────────────────────────────────────
     this.C = {
-      keyBg:         0x0d1a2e,
+      keyBg:         0x1b3454,
       keyStroke:     0x3a5a8a,
       keyPressed:    0x4fc3f7,
       accentBg:      0x1a1040,
@@ -101,7 +101,7 @@ class Easca3 {
     this.keySize     = Math.min(this.keySpacing * 0.94, 68);
 
     const vPad        = H * 0.025;
-    const controlRowY = H - vPad - this.keySize / 2;
+    const controlRowY = H - vPad - this.keySize / 2 - (this.bottomInset || 0);
     this.controlRowY  = controlRowY;
     this.rowYPositions = [
       controlRowY - this.keySpacing * 3,

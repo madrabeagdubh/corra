@@ -622,7 +622,40 @@ clearNotify() {
   /** Stable identity for an option, for the used-once set. */
   _optKey(idx, opt) { return idx + '|' + (opt.id || opt.ga || opt.en || '') }
 
+  /**
+   * Substitute {key} with whatever is in the registry under that key, so a
+   * reply can use a word the player typed. An unknown key is left alone
+   * rather than blanked -- a visible {name} in a card is a bug you can see,
+   * where a silent gap is one you can't.
+   */
+  _fill(text) {
+    if (!text || String(text).indexOf('{') < 0) return text
+    return String(text).replace(/\{(\w+)\}/g, (m, k) => {
+      try {
+        const v = this._scene?.registry?.get(k)
+        if (v) return v
+      } catch (e) {}
+      return m
+    })
+  }
+
   _resolveOption(opt, d, idx, stateKey, total, zone) {
+    // The keyboard comes up BEFORE any of this option's effects land, so a
+    // player who backs out hasn't already set its notes. Re-entered once the
+    // player is done, with the flag stopping it prompting a second time.
+    if (opt.easca && !this._eascaDone && this._scene?.promptEasca) {
+      this._scene.promptEasca((text) => {
+        if (!this._isOpen) return
+        if (text) {
+          try { this._scene.registry?.set(opt.easca, String(text).trim()) } catch (e) {}
+        }
+        this._eascaDone = true
+        try { this._resolveOption(opt, d, idx, stateKey, total, zone) }
+        finally { this._eascaDone = false }
+      })
+      return
+    }
+
     this._applyEffects(opt)
     this._usedOptions?.add(this._optKey(idx, opt))
 
@@ -656,7 +689,12 @@ clearNotify() {
     // below is the one-turn case of this.
     if (!opt.exit && Array.isArray(opt.exchange) && opt.exchange.length) {
       this._chainShow({
-        exchange:   opt.exchange,
+        exchange:   opt.exchange.map(t => ({
+          say:      this._fill(t.say),
+          sayEn:    this._fill(t.sayEn),
+          replyGa:  this._fill(t.replyGa),
+          replyEn:  this._fill(t.replyEn),
+        })),
         irish:      '',
         english:    '',
         heroGa:     this._heroLines(opt).ga,
@@ -692,10 +730,10 @@ clearNotify() {
     // This only ensures a missing reply can't become a dead end.
     if (!opt.exit && (opt.replyGa || opt.replyEn)) {
       this._chainShow({
-        irish:      opt.replyGa || '',
-        english:    opt.replyEn || '',
-        heroGa:     this._heroLines(opt).ga,
-        heroEn:     this._heroLines(opt).en,
+        irish:      this._fill(opt.replyGa || ''),
+        english:    this._fill(opt.replyEn || ''),
+        heroGa:     this._fill(this._heroLines(opt).ga),
+        heroEn:     this._fill(this._heroLines(opt).en),
         heroGraphicKey: this._resolveHeroGraphicKey(),
         type:       'encounter_card',
         bgKey:      this._resolveBgKey(),
@@ -969,6 +1007,7 @@ clearNotify() {
     // Ladder depth is per-conversation, not per-save: the duel is playable
     // again on a later visit. Notes it set (invoked_heron etc.) persist.
     this._ladder      = null
+    this._eascaDone   = false
     this._seenNodes   = null
     this._usedOptions = null
     this._optionPage  = null

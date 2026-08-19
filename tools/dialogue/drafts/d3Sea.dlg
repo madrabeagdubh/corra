@@ -68,9 +68,10 @@ towards the Boyne's wide, bitter mouth?
 # it costs you the Easca beat, so the two pull against each other.
 
 * Give your name
+@easca playerName
 @note gave_name
-> [[ EASCA — the player types the name they chose. ]]
-< [[ she repeats it back. once, plainly, and does not comment on it. ]]
+> [[ she is asking; the keyboard opens and the player types it ]]
+< [[ she repeats it back — once, plainly, without comment ]] {playerName}
 
 * Refuse it
 @note withheld_name
@@ -118,12 +119,28 @@ towards the Boyne's wide, bitter mouth?
 
 # This is the load-bearing one. has_druid_word is the fourth way across
 # Odhrán's ford, and the only one that costs him nothing to grant.
+#
+# The password is "Muireann the Druid knows thy name" — so a player who
+# withheld their name cannot be given it, because the sentence would be
+# false. Nothing has to be invented to make the refusal make sense.
+#
+# This is not a punishment. Three other crossings work, and the player who
+# refused a druid their name is exactly the player who would rather boast
+# their way past a toll-man anyway.
 
 * His toll-man?
+@when note gave_name
 @note has_druid_word
 > His toll-man?
 < If Fionnbarra's toll-man should meet thee at the strand,
 < thou art to say that Muireann the Druid knows thy name.
+
+* His toll-man?
+@when note withheld_name
+> His toll-man?
+< I would send a word with thee for him.
+< [[ but the word is that I know thy name, and I do not. ]]
+< [[ she does not press. she has already declined to ask twice. ]]
 
 * Row on
 @exit

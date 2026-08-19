@@ -68,10 +68,9 @@ towards the Boyne's wide, bitter mouth?
 # it costs you the Easca beat, so the two pull against each other.
 
 * Give your name
-@easca playerName
 @note gave_name
-> [[ she is asking; the keyboard opens and the player types it ]]
-< [[ she repeats it back — once, plainly, without comment ]] {playerName}
+> [[ EASCA — the player types the name they chose. ]]
+< [[ she repeats it back. once, plainly, and does not comment on it. ]]
 
 * Refuse it
 @note withheld_name

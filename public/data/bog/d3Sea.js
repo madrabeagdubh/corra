@@ -67,9 +67,10 @@ export const d3SeaContent = {
           options: [
             {
               note: 'gave_name',
+              easca: 'playerName',
               en: 'Give your name',
-              sayEn: '[[ EASCA — the player types the name they chose. ]]',
-              replyEn: '[[ she repeats it back. once, plainly, and does not comment on it. ]]',
+              sayEn: '[[ she is asking; the keyboard opens and the player types it ]]',
+              replyEn: '[[ she repeats it back — once, plainly, without comment ]] {playerName}',
             },
             {
               note: 'withheld_name',
@@ -125,10 +126,17 @@ export const d3SeaContent = {
           en: '[[ short. ]]',
           options: [
             {
+              requires: { note: 'gave_name' },
               note: 'has_druid_word',
               en: 'His toll-man?',
               sayEn: 'His toll-man?',
               replyEn: 'If Fionnbarra\'s toll-man should meet thee at the strand,\nthou art to say that Muireann the Druid knows thy name.',
+            },
+            {
+              requires: { note: 'withheld_name' },
+              en: 'His toll-man?',
+              sayEn: 'His toll-man?',
+              replyEn: 'I would send a word with thee for him.\n[[ but the word is that I know thy name, and I do not. ]]\n[[ she does not press. she has already declined to ask twice. ]]',
             },
             {
               exit: true,

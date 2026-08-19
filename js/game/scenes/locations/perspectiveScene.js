@@ -71,6 +71,9 @@ import Easca3                from '../../ui/easca3.js'
 import Joystick              from '../../input/joystick.js'
 import ForestEffects         from '../../effects/forestEffects.js'
 
+// Above the conversation card, which sits around 2000.
+const PROMPT_EASCA_DEPTH = 100000
+
 window.GameState = GameState
 
 const TW = 24, TH = 24, MG = 24, SHEET_COLS = 54, SCALE = 2
@@ -787,8 +790,117 @@ this._updateCameraTerrainAvoidance()
     if (super.shutdown) super.shutdown()
   }
 
+  /**
+   * Ask the player to type something, and call back with it once.
+   *
+   * `onDone` receives the string, or null if they closed the keyboard
+   * without sending. Only one prompt can be outstanding; a second replaces
+   * the first, which is the right behaviour for a UI where the only way to
+   * ask twice is to have lost track of the first ask.
+   */
+  promptEasca(onDone) {
+    if (!this._easca) { onDone?.(null); return }
+
+    this._eascaPending = (text) => {
+      this._eascaPending = null
+      this._eascaRestoreDepth()
+      onDone?.(text)
+    }
+   
+
+
+
+try { this.joystick?.reset?.(); if (this.player) { this._eascaCanMove = this.player.canMove; this.player.canMove = false; this.player.isMoving = false; this.player.setPath?.([]) } } catch (e) {}
+    this._easca.bottomInset = 102
+    this._easca.showKeyboard()
+    this._eascaLiftDepth()
+
+
+
+
+	  // sendMessage() hides the keyboard itself, so `visible` going false with
+    // a prompt still outstanding means the player backed out.
+    this._eascaWatch?.remove()
+    this._eascaWatch = this.time.addEvent({
+      delay: 200,
+      loop:  true,
+      callback: () => {
+        if (!this._eascaPending) { this._eascaWatch?.remove(); this._eascaWatch = null; return }
+        if (this._easca?.visible) return
+        const done = this._eascaPending
+        this._eascaWatch?.remove(); this._eascaWatch = null
+        done(null)
+      },
+    })
+  }
+
+  /** Every object Easca draws, so depth can be moved as a set. */
+  _eascaObjects() {
+    const e = this._easca
+    if (!e) return []
+    return [
+      e.bgPanel, e.textZoneBg, e.textDisplay,
+      ...(e.controlObjects || []),
+      ...(e.letterObjects  || []),
+    ].filter(Boolean)
+  }
+
+  _eascaLiftDepth() {
+    if (this._eascaDepths) return                 // already lifted
+    this._eascaDepths = new Map()
+    // ADD to each object's depth rather than setting it. Flattening them to
+    // one value threw away Easca's own layering -- panel, keys, text zone
+    // and accent menu all became coplanar and fell back to insertion order,
+    // which is why the keys went dark on dark.
+    this._eascaObjects().forEach((o) => {
+      try {
+        const d = o.depth ?? 0
+        this._eascaDepths.set(o, d)
+        o.setDepth(d + PROMPT_EASCA_DEPTH)
+      } catch (e) {}
+    })
+// The accent menu is built on demand, long after this runs, at
+    // this.DEPTH + 4/5. Raising the base carries it up too.
+    try {
+      this._eascaBaseDepth = this._easca.DEPTH
+      this._easca.DEPTH = (this._easca.DEPTH ?? 0) + PROMPT_EASCA_DEPTH
+    } catch (e) {}
+    // The moon hub is DOM, at a z-index no canvas object can reach. Hide it
+    // rather than fight it -- the same reason the d-pad goes away for a
+    // conversation, and nothing needs translating while typing a name.
+    try {
+      const hub = document.getElementById('dpad-moon-hub')
+      if (hub) {
+        this._eascaHubDisplay = hub.style.display
+        hub.style.display = 'none'
+      }
+    } catch (e) {}
+  }
+
+  _eascaRestoreDepth() {
+    if (this._eascaDepths) {
+      this._eascaDepths.forEach((d, o) => { try { o.setDepth(d) } catch (e) {} })
+      this._eascaDepths = null
+    }
+    try {
+      const hub = document.getElementById('dpad-moon-hub')
+      if (hub) hub.style.display = this._eascaHubDisplay ?? ''
+      this._eascaHubDisplay = undefined
+    } catch (e) {}
+try {
+      if (this._eascaBaseDepth !== undefined) {
+        this._easca.DEPTH = this._eascaBaseDepth
+        this._eascaBaseDepth = undefined
+      }
+    } catch (e) {}
+	  try { if (this._easca) this._easca.bottomInset = 0 } catch (e) {}
+    try { if (this.player && this._eascaCanMove !== undefined) { this.player.canMove = this._eascaCanMove; this._eascaCanMove = undefined } } catch (e) {}
+  }
+
   _createInputUI() {
     this._easca = new Easca3(this, (text) => {
+      // A prompt is waiting for this one; the Labhair tab is not.
+      if (this._eascaPending) { this._eascaPending(text); return }
       console.log('[Labhair] Player said:', text)
     })
 
@@ -925,6 +1037,7 @@ this._updateCameraTerrainAvoidance()
       if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return
       if (!this.perspectiveGround)                          return
       if (this._bowAiming)                                  return
+      if (this._eascaPending)                               return
 
       if (this._onTapBeforePath?.(canvasX, canvasY) === false) return
 

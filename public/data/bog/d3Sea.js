@@ -39,42 +39,18 @@ export const d3SeaContent = {
 
         // ── node 0 — the hail ─────────────────────────────────────
         {
-          en: 'Who art thou that rows so bold\ntowards the Boyne\'s wide, bitter mouth?',
+          en: 'Who art thou that rows so bold\ntowards the Boyne\'s surging mouth?\nName thyself.',
           options: [
             {
               note: 'met_muireann',
-              en: 'Return her greeting',
-              sayEn: 'Wind that carried me greet thee.',
-              replyEn: 'Stone of the shore greet thee.',
-            },
-            {
-              note: 'met_muireann',
-              en: 'Say nothing',
-              sayEn: '[[ the player says nothing, or something graceless ]]',
-              replyEn: '[[ she notes it. not offended — a druid is not offended by a stranger\'s ignorance — but something has been learned about him. ]]',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 1 — the name ─────────────────────────────────────
-        {
-          en: '[[ short. she is waiting. ]]',
-          options: [
-            {
-              note: 'gave_name',
               easca: 'playerName',
-              en: 'Give your name',
-              sayEn: '[[ she is asking; the keyboard opens and the player types it ]]',
-              replyEn: '[[ she repeats it back — once, plainly, without comment ]] {playerName}',
+              en: 'Name yourself',
+              sayEn: 'I am {playerName}.\nWind that carried me greet thee.',
+              replyEn: 'Stone of the shore greet thee, {playerName}.\nI am Muireann.',
             },
             {
               note: 'withheld_name',
-              en: 'Refuse it',
+              en: 'Give no name',
               sayEn: 'No ill thing have I in mind. No man\'s kin, no man\'s kine.\nMy quarrel is with my own name, too small yet for any song.',
               replyEn: '[[ she lets it stand. she does not ask twice. ]]',
             },
@@ -86,7 +62,7 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 2 — whose shore ──────────────────────────────────
+        // ── node 1 — whose shore ──────────────────────────────────
         {
           en: '[[ short, or nothing. ]]',
           options: [
@@ -104,12 +80,12 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 3 — the chief ────────────────────────────────────
+        // ── node 2 — the chief ────────────────────────────────────
         {
           en: '[[ short. ]]',
           options: [
             {
-              en: 'What kind of man is Fionnbarra?',
+              en: 'Who is Fionnbarra?',
               sayEn: 'What kind of man is Chief Fionnbarra?',
               replyEn: 'Fionnbarra is not an unjust man.\nHis hounds are many.\nBut his toll-man waits at the river with a face like an angry stone.',
             },
@@ -121,12 +97,12 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 4 — the toll-man ─────────────────────────────────
+        // ── node 3 — the toll-man ─────────────────────────────────
         {
           en: '[[ short. ]]',
           options: [
             {
-              requires: { note: 'gave_name' },
+              requires: { note: 'met_muireann' },
               note: 'has_druid_word',
               en: 'His toll-man?',
               sayEn: 'His toll-man?',
@@ -136,7 +112,7 @@ export const d3SeaContent = {
               requires: { note: 'withheld_name' },
               en: 'His toll-man?',
               sayEn: 'His toll-man?',
-              replyEn: 'I would send a word with thee for him.\n[[ but the word is that I know thy name, and I do not. ]]\n[[ she does not press. she has already declined to ask twice. ]]',
+              replyEn: 'Such is how he deals with men:\nwhom he robs not, he delays.',
             },
             {
               exit: true,
@@ -146,14 +122,14 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 5 — where art thou bound ─────────────────────────
+        // ── node 4 — where art thou bound ─────────────────────────
         {
-          en: 'And where now does the curragh turn its nose?\nWhat draws thee south along this shore?',
+          en: 'And where now does the curragh turn its nose?',
           options: [
             {
               note: 'told_muireann_truth',
               en: 'Tell her plainly',
-              sayEn: 'From the grey isle that lies where sky meets the cold sea-wind.\nLong the crossing, hard the oar.\nTo the bog that drinks men whole, Allen\'s dark and sunken ground.\nThere the Fianna test their own. There I mean to prove my worth.',
+              sayEn: 'To the bog that drinks men whole, Allen\'s dark and sunken ground.\nThere the Fianna test their own. There I mean to prove my worth.',
               replyEn: '[[ she takes this in. no ceremony about it. ]]',
             },
             {
@@ -161,12 +137,12 @@ export const d3SeaContent = {
               en: 'Tell her less',
               exchange: [
                 {
-                  sayEn: 'Ask the heron of the fen. He will know my road before me.',
-                  replyEn: 'Speak plain. What business brings a stranger to these lands?',
+                  sayEn: 'Ask the heron of the fen. She will know my road.',
+                  replyEn: 'Speak plainly. What business brings a stranger to these lands?',
                 },
                 {
-                  sayEn: 'I have come from where the hound lost the scent\nand the hawk lost the wind beneath her wing.\nFrom where the fire was, that is not now burning.\nThe sea is a poor keeper of roads.',
-                  replyEn: 'So. So.\nThou art careful in thy answer.',
+                  sayEn: 'I cannot tell thee the name of the house before I have stood within it.',
+                  replyEn: 'Some purpose drives thee, I think.',
                 },
               ],
             },
@@ -178,15 +154,15 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 6 — she answers the plain answer ─────────────────
+        // ── node 5 — she answers the plain answer ─────────────────
         {
           requires: { note: 'told_muireann_truth' },
-          en: '[[ short. ]]',
+          en: 'Thou hast mastered the spear?',
           options: [
             {
               en: 'Fionn will teach me',
               sayEn: 'Fionn I have heard of. Fionn the great one.\nFionn, they say, shall teach me more.',
-              replyEn: 'Fionn keeps poetry before the sword.\n[[ said flatly, as a fact about Fionn rather than as advice — it should be possible to miss entirely. ]]',
+              replyEn: 'Fionn keeps poetry before the sword.',
             },
             {
               exit: true,
@@ -196,15 +172,15 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 7 — she answers the careful answer ───────────────
+        // ── node 6 — she answers the careful answer ───────────────
         {
           requires: { note: 'evaded_muireann' },
           en: 'Where then art thou bound?',
           options: [
             {
               en: 'Say even less',
-              sayEn: 'There is a thing that waits for finding, and it is not yet found.\nI cannot tell thee the name of the house before I have stood within it.',
-              replyEn: 'Go then. Go where thou art not going.\nArrive where thou art not bound.\n[[ she is amused rather than obstructed. this is a form she knows. ]]',
+              sayEn: 'There is a thing that waits for finding, and it is not yet found.',
+              replyEn: 'Go then. Go where thou art not going.\nArrive where thou art not bound.',
             },
             {
               exit: true,
@@ -214,9 +190,9 @@ export const d3SeaContent = {
           ],
         },
 
-        // ── node 8 — the road ─────────────────────────────────────
+        // ── node 7 — the road ─────────────────────────────────────
         {
-          en: 'Some purpose drives thee, I think.',
+          en: '[[ short. ]]',
           options: [
             {
               note: 'knows_rath',
@@ -224,21 +200,25 @@ export const d3SeaContent = {
               exchange: [
                 {
                   sayEn: 'Which way, then?',
-                  replyEn: 'Half a morning\'s walk northwest along the track. Thou canst not miss the ringfort.\nThou wilt find a fire, a full bowl, and dry ground there.',
+                  replyEn: 'Half a morning\'s walk northwest along the track. Thou canst not miss the ringfort.\nThou wilt find food, shelter, the hospitality of Fionnbarra.',
                 },
                 {
                   sayEn: 'And after?',
-                  replyEn: 'That great dark place, with its waters the colour of old bronze.\nIt is not far. Two days west, two days south. Keep the hills to thy left hand.\nTravel well.',
+                  replyEn: 'That great dark place, with water the colour of old bronze.\nIt is not far. Two days west, two days south. Keep the hills to thy left hand.\nTravel well.',
                 },
               ],
             },
             {
               exit: true,
-              en: 'Slán agat',
-              sayEn: '[[ the parting. ]]',
-              replyEn: 'Go not by night.\nAnd if thou hear the sound of pipes where no man stands,\nthou hast heard nothing. Walk on.\nMay the Boyne remember thy name to the sea.\nMay the sea speak thy name to the deep places.',
+              silent: true,
+              en: 'Row on',
             },
           ],
+        },
+
+        // ── node 8 — the parting ──────────────────────────────────
+        {
+          en: 'Go not by night.\nAnd if thou hear the sound of pipes where no one stands,\nthou hast heard nothing. Walk on.\nMay the Boyne remember thy name to the sea.\nMay the sea speak thy name to the deep places.',
         },
 
       ],

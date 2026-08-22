@@ -37,7 +37,7 @@ export default class BogD3 extends RiverScene {
     // Placeholder art: he is using Muireann's image until he has his own.
     // Swap the URL here and the sprite changes; swap `portrait` in
     // public/data/bog/d3.js and the dialogue card changes.
-    this.perspectiveGround?.registerCustomTile?.(BRIUGU_GID, '/assets/npcs/muireann.png')
+    this.perspectiveGround?.registerCustomTile?.(BRIUGU_GID, '/assets/npcs/othran.png')
   }
 
   onEnter() {

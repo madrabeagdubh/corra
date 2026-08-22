@@ -94,7 +94,7 @@ export const d3Content = {
       // PLACEHOLDER art -- he wants his own, lying down. `portrait` loads by
       // URL and fails loudly; the GID tile path fails silently, so set both.
       visual:   { gid: 9102, flat: false },
-      portrait: '/assets/npcs/muireann.png',
+      portrait: '/assets/npcs/othran.png',
 
       dialogues: [
 

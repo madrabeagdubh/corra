@@ -34,7 +34,7 @@ const NPC_LEADS = true
 const NPC_TUNES = {
 
  // '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
-  //'/assets/npcs/muireann.png': 'swallowtailThe',
+  //'/assets/npcs/othran.png': 'swallowtailThe',
   '/assets/npcs/muireann.png': 'outOnTheOcean',
 
 }

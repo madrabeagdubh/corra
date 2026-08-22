@@ -37,188 +37,174 @@ export const d3SeaContent = {
 
       dialogues: [
 
-        // ── node 0 — the hail ─────────────────────────────────────
+        // ── node 0 — the meeting ──────────────────────────────────
         {
-          en: 'Who art thou that rows so bold\ntowards the Boyne\'s surging mouth?\nName thyself.',
+          requires: { noteAbsent: 'met_muireann' },
+          ga: 'Cé thú féin atá ag rámhíocht go cróga\ni dtreo béal na Bóinne?',
+          en: 'Who art thou that rows so bold\ntowards the mouth of the Boyne?',
           options: [
             {
               note: 'met_muireann',
               easca: 'playerName',
-              en: 'Name yourself',
-              sayEn: 'I am {playerName}.\nWind that carried me greet thee.',
-              replyEn: 'Stone of the shore greet thee, {playerName}.\nI am Muireann.',
+              ga: 'Is mise...',
+              en: 'I am...',
+              say: 'Is mise {playerName}\nBeannacht na gaoithe ort.',
+              sayEn: 'I am {playerName}\nBlessing of the wind to you.',
+              replyGa: 'Beannacht an claddach ort, a {playerName}.\nMuireann is ainm dom.\nAgus cá bhfuil do thríal?',
+              replyEn: 'Blessing of the shore to you, {playerName}.\nMuireann is my name.\nAnd where are you going?',
             },
             {
               note: 'withheld_name',
+              ga: 'Ná tabhair ainm',
               en: 'Give no name',
-              sayEn: 'No ill thing have I in mind. No man\'s kin, no man\'s kine.\nMy quarrel is with my own name, too small yet for any song.',
-              replyEn: '[[ she lets it stand. she does not ask twice. ]]',
+              say: 'Is le m\'ainm féin mo chomhrac; níor thug beart de mo chuid brí dó.',
+              sayEn: 'My quarrel is with my own name, no deed of mine has given it meaning.',
+              replyGa: 'Ab ea.\nFreagair seo dom mar sin.\nAgus cá bhfuil do thríall?',
+              replyEn: 'Is that so.\nThen answer me this instead.\nwhere are you going?',
             },
             {
               exit: true,
               silent: true,
-              en: 'Row on',
+              ga: 'fág',
+              en: 'leave',
             },
           ],
         },
 
-        // ── node 1 — whose shore ──────────────────────────────────
+        // ── node 1 — the hub ──────────────────────────────────────
         {
-          en: '[[ short, or nothing. ]]',
+          hold: true,
+          ga: '...',
+          en: '...',
+          again: { ga: 'Agus?', en: 'And?' },
           options: [
             {
-              note: 'knows_fionnbarra',
-              en: 'What chieftain\'s shore is this?',
-              sayEn: 'What chieftain\'s shore is this?',
-              replyEn: 'Thy little boat has reached the mouth of Bóinn the bright and winding.\nThis shore belongs first to her.\nFionnbarra mac Dubhloingse is Chief of this grey headland\nand of the three valleys that run north.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 2 — the chief ────────────────────────────────────
-        {
-          en: '[[ short. ]]',
-          options: [
-            {
-              en: 'Who is Fionnbarra?',
-              sayEn: 'What kind of man is Chief Fionnbarra?',
-              replyEn: 'Fionnbarra is not an unjust man.\nHis hounds are many.\nBut his toll-man waits at the river with a face like an angry stone.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 3 — the toll-man ─────────────────────────────────
-        {
-          en: '[[ short. ]]',
-          options: [
-            {
-              requires: { note: 'met_muireann' },
-              note: 'has_druid_word',
-              en: 'His toll-man?',
-              sayEn: 'His toll-man?',
-              replyEn: 'If Fionnbarra\'s toll-man should meet thee at the strand,\nthou art to say that Muireann the Druid knows thy name.',
-            },
-            {
-              requires: { note: 'withheld_name' },
-              en: 'His toll-man?',
-              sayEn: 'His toll-man?',
-              replyEn: 'Such is how he deals with men:\nwhom he robs not, he delays.',
-            },
-            {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 4 — where art thou bound ─────────────────────────
-        {
-          en: 'And where now does the curragh turn its nose?',
-          options: [
-            {
+              requires: { noteAbsent: 'evaded_muireann' },
               note: 'told_muireann_truth',
-              en: 'Tell her plainly',
-              sayEn: 'To the bog that drinks men whole, Allen\'s dark and sunken ground.\nThere the Fianna test their own. There I mean to prove my worth.',
-              replyEn: '[[ she takes this in. no ceremony about it. ]]',
+              first: true,
+              ga: 'Abair lei',
+              en: 'Tell her',
+              say: 'Chun na móna ina chailtear fir, chuig talamh báite Almhain.\nÁit a thriailfar na Fhian.',
+              sayEn: 'To the bog that drinks men whole, to Allen\'s sunken ground.\nWhere the Fianna test their own.',
+              replyGa: 'Cuirfidh an mhóin dúthlán ort.\nAn bhfuil an gha fhoghlamaíthe agat?',
+              replyEn: 'The bog will challenge thee.\nHast thou mastered the spear?',
             },
             {
+              requires: { noteAbsent: 'told_muireann_truth' },
               note: 'evaded_muireann',
-              en: 'Tell her less',
+              first: true,
+              ga: 'Inis leath fhírinne',
+              en: 'Tell half truth',
               exchange: [
                 {
-                  sayEn: 'Ask the heron of the fen. She will know my road.',
+                  say: 'Íarr ar chorr na móna. Is aici a bheidh mo scéal.',
+                  sayEn: 'Ask the heron of the fen. She will know my story.',
+                  replyGa: 'Freagair go díreach mé. Cén gnó a thóg chuig na tailte seo thú?',
                   replyEn: 'Speak plainly. What business brings a stranger to these lands?',
                 },
                 {
-                  sayEn: 'I cannot tell thee the name of the house before I have stood within it.',
+                  say: 'Ní mhíníonn an ghaoth í féin don ghallán.',
+                  sayEn: 'The wind does not explain itself to the standing stone.',
+                  replyGa: 'Tá rún i do chroí dod brú ar aghaidh, sílim.',
                   replyEn: 'Some purpose drives thee, I think.',
                 },
               ],
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 5 — she answers the plain answer ─────────────────
-        {
-          requires: { note: 'told_muireann_truth' },
-          en: 'Thou hast mastered the spear?',
-          options: [
-            {
-              en: 'Fionn will teach me',
-              sayEn: 'Fionn I have heard of. Fionn the great one.\nFionn, they say, shall teach me more.',
-              replyEn: 'Fionn keeps poetry before the sword.',
+              requires: { note: 'told_muireann_truth' },
+              first: true,
+              ga: 'Foghlaimoidh mé ó Fhionn',
+              en: 'I will learn from Fionn',
+              say: 'Múinfidh Fionn dom an rud nach múineann an mhóin.',
+              sayEn: 'Fionn will teach me what the bog does not.',
+              replyGa: 'Tá aithne agam ar Fionn \\n an gaiscíoch mór.\nIs uaisle le Fionn an fhilíocht ná an slea.',
+              replyEn: 'I know Fionn. Fionn the great one.\nFionn keeps poetry before the blade.',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
-            },
-          ],
-        },
-
-        // ── node 6 — she answers the careful answer ───────────────
-        {
-          requires: { note: 'evaded_muireann' },
-          en: 'Where then art thou bound?',
-          options: [
-            {
-              en: 'Say even less',
-              sayEn: 'There is a thing that waits for finding, and it is not yet found.',
-              replyEn: 'Go then. Go where thou art not going.\nArrive where thou art not bound.',
+              requires: { note: 'evaded_muireann' },
+              first: true,
+              ga: 'Ná habair murán',
+              en: 'Say little',
+              say: 'Tá rud ag feitheamh orm, nach bhfuil feicthe fós.',
+              sayEn: 'There is a thing that waits, and it is not yet found.',
+              replyGa: 'Imigh leat mar sin.',
+              replyEn: 'Go then.',
             },
             {
-              exit: true,
-              silent: true,
-              en: 'Row on',
+              requires: { noteAbsent: 'knows_fionnbarra' },
+              note: 'knows_fionnbarra',
+              ga: 'Cá bhfuil mé?',
+              en: 'Where am I?',
+              say: 'Cé leis an trá seo?',
+              sayEn: 'Whose shore is this?',
+              replyGa: 'Tháinig do bháidín go béal na Bóinne ghlé ghroí.\nIs léisí an trá seo ar dtús.\nIs é Fionnbarra mac Dubhloingse Taoiseach an gleann seo.',
+              replyEn: 'Thy little boat has reached the mouth of Bóinn the bright and winding.\nThis shore belongs first to her.\nFionnbarra mac Dubhloingse is Chief of this valley',
             },
-          ],
-        },
-
-        // ── node 7 — the road ─────────────────────────────────────
-        {
-          en: '[[ short. ]]',
-          options: [
+            {
+              requires: { note: 'knows_fionnbarra', noteAbsent: 'knows_of_tollman' },
+              note: 'knows_of_tollman',
+              ga: 'Fionnbarra?',
+              en: 'Fionnbarra?',
+              say: 'Cén cineál duine é Fionnbarra?',
+              sayEn: 'What kind of man is Fionnbarra?',
+              replyGa: 'Ní fear héagórach é Fionnbarra.\nIs iomaí cú atá aige.\nAch tá a fhear cána ag feitheamh ag an abhainn agus aghaidh mar carraig crosta aige.',
+              replyEn: 'Fionnbarra is not an unjust man.\nHis hounds are many.\nBut his toll-man waits at the river and his face like an angry stone.',
+            },
+            {
+              requires: { note: 'knows_of_tollman', noteAbsent: 'asked_hounds' },
+              note: 'asked_hounds',
+              ga: 'A chuid con?',
+              en: 'His hounds?',
+              say: 'Inis dom faoina madraí.',
+              sayEn: 'Tell me of his hounds.',
+              replyGa: 'Brocán agus Dorchán,\nagus an ceann liath ar a dtugtar Scáthán.\nIs baolach an fhiosracht é.\nNá smaoinigh orthu,\nar eagla go gcloisfidís an smaoineamh i do chloigeann\nagus go dtiocfaidís ort sa dorchadas.',
+              replyEn: 'Brocán and Dorchán,\nand the grey one they call Scáthán.\nIt is a dangerous curiosity.\nDo not think of them,\nlest they hear the thought in thy skull\nand come for thee in the darkness.',
+            },
+            {
+              requires: { note: 'knows_of_tollman', noteAbsent: 'withheld_name' },
+              note: 'has_druid_word',
+              ga: 'A fhear cána?',
+              en: 'His toll-man?',
+              say: 'A fhear cána?',
+              sayEn: 'His toll-man?',
+              replyGa: 'Mar seo a dhéanann sé gnó:\nan té nach ngoidfidh sé uaidh, cuirfidh sé moill air.\nMá chasann fear cána Fhionnbarra ort ar an gcladach,\nabair leis go bhfuil d\'ainm ag Muireann an Draoi.',
+              replyEn: 'Such is how he does business:\nwhom he robs not, he delays.\nIf Fionnbarra\'s toll-man should meet thee at the strand,\nthou art to say that Muireann the Druid knows thy name.',
+            },
+            {
+              requires: { note: 'knows_of_tollman', noteAbsent: 'met_muireann' },
+              ga: 'A fhear cána?',
+              en: 'His toll-man?',
+              say: 'A fhear cána?',
+              sayEn: 'His toll-man?',
+              replyGa: 'Mar seo a dhéanann sé gnó:\nan té nach ngoidfidh sé uaidh, cuirfidh sé moill air.',
+              replyEn: 'Such is how he does business:\nwhom he robs not, he delays.',
+            },
             {
               note: 'knows_rath',
-              en: 'Which way, then?',
+              ga: 'Cén treo?',
+              en: 'Which way?',
               exchange: [
                 {
+                  say: 'Cén treo, mar sin?',
                   sayEn: 'Which way, then?',
-                  replyEn: 'Half a morning\'s walk northwest along the track. Thou canst not miss the ringfort.\nThou wilt find food, shelter, the hospitality of Fionnbarra.',
+                  replyGa: 'Siúil siar ó thuaidh feadh an bhealaigh leath na maidine. Feicfidh tú an ráth.\nGheobhaidh tú bia, dídean, agus fáilte Fhionnbarra ann.',
+                  replyEn: 'Half a morning\'s walk northwest along the track. Thou wilt see the ringfort.\nThou wilt find food, shelter, the hospitality of Fionnbarra.',
                 },
                 {
+                  say: 'Agus ina dhiaidh sin?',
                   sayEn: 'And after?',
-                  replyEn: 'That great dark place, with water the colour of old bronze.\nIt is not far. Two days west, two days south. Keep the hills to thy left hand.\nTravel well.',
+                  replyGa: 'An áit mhór dhorcha sin, agus uisce uirthi ar dhath an tsean-chré-umha.\nNíl sé i bhfad. Dhá lá siar, dhá lá ó dheas. Coinnigh na cnoic ar do láimh chlé.\nNá téigh is d\'oíche.\nAgus má chloiseann tú ceol na bpíob gan seinnteoir,\nníor chuala tú faic. Lean ort.\nGo n-éirí an bóthar leat.',
+                  replyEn: 'That great dark place, with water the colour of old bronze.\nIt is not far. Two days west, two days south. Keep the hills to thy left hand.\nGo not by night.\nAnd if thou hear the sound of pipes where no one stands,\nthou hast heard nothing. Walk on.\nMay thy journey succeed.',
                 },
               ],
             },
             {
               exit: true,
               silent: true,
+              ga: 'Fág',
               en: 'Row on',
             },
           ],
-        },
-
-        // ── node 8 — the parting ──────────────────────────────────
-        {
-          en: 'Go not by night.\nAnd if thou hear the sound of pipes where no one stands,\nthou hast heard nothing. Walk on.\nMay the Boyne remember thy name to the sea.\nMay the sea speak thy name to the deep places.',
         },
 
       ],

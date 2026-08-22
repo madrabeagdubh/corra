@@ -45,6 +45,10 @@
 //   @exit                           this option closes the conversation
 //   @silent                         no reply card
 //   @easca playerName               (options) type a word; {playerName}
+//   @eascaMatch knows_own_name      (options) set this note only if
+//                                   what they typed matches their
+//                                   champion's nameGa. On a match
+//                                   {playerVoc} is available too.
 //                                   in any reply is replaced with it
 //   @first                          only offered once
 //   > Who are you, woman of stone?  what the PLAYER says
@@ -219,6 +223,7 @@ if (EXPORT) {
       if (o.exit)   L.push('@exit')
       if (o.silent) L.push('@silent')
       if (o.easca)  L.push('@easca ' + o.easca)
+      if (o.eascaMatch) L.push('@eascaMatch ' + o.eascaMatch)
       ;(o.exchange || []).forEach(tn => {
         if (tn.sayEn)   pair(tn.sayEn, tn.say, '> ')
         if (tn.replyEn) pair(tn.replyEn, tn.replyGa, '< ')
@@ -285,6 +290,7 @@ const setDirective = (target, word, rest, ln) => {
     case 'exit':   target.exit = true; return
     case 'silent': target.silent = true; return
     case 'easca':  target.easca = rest || 'playerName'; return
+    case 'eascaMatch': target.eascaMatch = rest; return
     case 'again': {
       const [en, ga] = rest.split('/').map(s => s.trim())
       target.again = ga ? { ga, en } : { en }
@@ -443,7 +449,8 @@ const q = s => "'" + String(s).replace(/\\/g, '\\\\')
 
 const KEY_ORDER = [
   'requires', 'note', 'setQuest', 'completeQuest', 'hold', 'first',
-  'exit', 'silent', 'easca', 'ga', 'en', 'say', 'sayEn', 'replyGa', 'replyEn',
+  'exit', 'silent', 'easca', 'eascaMatch', 'ga', 'en', 'say', 'sayEn',
+  'replyGa', 'replyEn',
   'exchange', 'again',
 ]
 

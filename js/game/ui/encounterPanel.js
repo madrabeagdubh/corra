@@ -639,6 +639,43 @@ clearNotify() {
     })
   }
 
+  /**
+   * The champion the player chose, as a roster entry.
+   *
+   * Looked up rather than cached, because the champion can change between
+   * conversations and a stale name would be worse than none.
+   */
+  _champion() {
+    const c = this._scene?.registry?.get('selectedChampion') ||
+              window.selectedChampion || null
+    if (!c) return null
+    if (typeof c === 'object') return c
+    // A bare name or key: find it in the roster if one is reachable.
+    const roster = window.champions || null
+    if (!Array.isArray(roster)) return null
+    return roster.find(x => x && (x.nameGa === c || x.spriteKey === c)) || null
+  }
+
+  /**
+   * Did they type their own champion's name?
+   *
+   * Case is ignored. Fadas are NOT: Tomas is not Tomás, and the keyboard
+   * offers the long press that supplies the difference. Making it matter
+   * is the whole reason the player is typing rather than confirming.
+   */
+  _nameMatchesChampion(typed) {
+    const champ = this._champion()
+    const name  = champ?.nameGa
+    if (!name || !typed) return false
+    return String(typed).trim().toLowerCase() === String(name).trim().toLowerCase()
+  }
+
+  /** The champion's vocative, or null if the roster has none for them. */
+  _championVocative() {
+    const champ = this._champion()
+    return champ?.vocativeGa || null
+  }
+
   _resolveOption(opt, d, idx, stateKey, total, zone) {
     // The keyboard comes up BEFORE any of this option's effects land, so a
     // player who backs out hasn't already set its notes. Re-entered once the
@@ -647,7 +684,13 @@ clearNotify() {
       this._scene.promptEasca((text) => {
         if (!this._isOpen) return
         if (text) {
-          try { this._scene.registry?.set(opt.easca, String(text).trim()) } catch (e) {}
+          const typed = String(text).trim()
+          try { this._scene.registry?.set(opt.easca, typed) } catch (e) {}
+          if (this._nameMatchesChampion(typed)) {
+            const voc = this._championVocative()
+            if (voc) { try { this._scene.registry?.set('playerVoc', voc) } catch (e) {} }
+            if (opt.eascaMatch) GameState.addNote(opt.eascaMatch)
+          }
         }
         this._eascaDone = true
         try { this._resolveOption(opt, d, idx, stateKey, total, zone) }

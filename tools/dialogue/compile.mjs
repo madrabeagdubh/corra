@@ -45,6 +45,10 @@
 //   @exit                           this option closes the conversation
 //   @silent                         no reply card
 //   @easca playerName               (options) type a word; {playerName}
+//   @continue                       (nodes, no options) flow into the
+//                                   next node rather than closing
+//   @easca playerName               ON A NODE: open the keyboard when
+//                                   the card is dismissed
 //   @eascaMatch knows_own_name      (options) set this note only if
 //                                   what they typed matches their
 //                                   champion's nameGa. On a match
@@ -211,6 +215,9 @@ if (EXPORT) {
     if (n.setQuest)      L.push('@quest ' + n.setQuest)
     if (n.completeQuest) L.push('@done ' + n.completeQuest)
     if (n.hold)          L.push('@hold')
+    if (n.continue)      L.push('@continue')
+    if (n.easca)         L.push('@easca ' + n.easca)
+    if (n.eascaMatch)    L.push('@eascaMatch ' + n.eascaMatch)
     if (n.again)         L.push('@again ' + (n.again.en || '') +
                                 (n.again.ga ? ' / ' + n.again.ga : ''))
     pair(n.en, n.ga, '')
@@ -291,6 +298,7 @@ const setDirective = (target, word, rest, ln) => {
     case 'silent': target.silent = true; return
     case 'easca':  target.easca = rest || 'playerName'; return
     case 'eascaMatch': target.eascaMatch = rest; return
+    case 'continue': target.continue = true; return
     case 'again': {
       const [en, ga] = rest.split('/').map(s => s.trim())
       target.again = ga ? { ga, en } : { en }
@@ -449,7 +457,8 @@ const q = s => "'" + String(s).replace(/\\/g, '\\\\')
 
 const KEY_ORDER = [
   'requires', 'note', 'setQuest', 'completeQuest', 'hold', 'first',
-  'exit', 'silent', 'easca', 'eascaMatch', 'ga', 'en', 'say', 'sayEn',
+  'exit', 'silent', 'easca', 'eascaMatch', 'continue', 'ga', 'en',
+  'say', 'sayEn',
   'replyGa', 'replyEn',
   'exchange', 'again',
 ]

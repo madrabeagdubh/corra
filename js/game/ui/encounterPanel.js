@@ -449,12 +449,12 @@ clearNotify() {
 
     if (opts.length) {
       this._scene.textPanel.show({
-        irish:   line.ga || line.irish   || '',
-        english: line.en || line.english || '',
+        irish:   this._fill(line.ga || line.irish   || ''),
+        english: this._fill(line.en || line.english || ''),
         type:    'encounter_card',
         bgKey,
         graphicKey,
-        options: shown.map(o => ({ ga: o.ga || '', en: o.en || '' })),
+        options: shown.map(o => ({ ga: this._fill(o.ga || ''), en: this._fill(o.en || '') })),
         onChoice: (i) => {
           this._choiceMade = true
           Bodhran.choose(DialogueHarp.unitMs())
@@ -475,15 +475,43 @@ clearNotify() {
 
     this._scene.textPanel.show({
       // again-line applies to option-less nodes too
-      irish:   line.ga || line.irish   || '',
-      english: line.en || line.english || '',
+      irish:   this._fill(line.ga || line.irish   || ''),
+      english: this._fill(line.en || line.english || ''),
       type:    'encounter_card',
       bgKey,
       graphicKey,
       options: null,
       onDismiss: () => {
-        if (!d.hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
-        this._onPanelClosed()
+        // Where an option-less node leads. @continue flows into the next
+        // node with the panel still standing, so a run of them reads as one
+        // person speaking rather than as several separate encounters.
+        const go = () => {
+          if (!d.hold) GameState.setNPCProgress(stateKey, (idx + 1) % total)
+          if (d.continue) this._reopenDialogue(zone)
+          else            this._onPanelClosed()
+        }
+
+        // A node can carry @easca itself, which opens the keyboard once the
+        // player has read the card. That is what lets her ask a question and
+        // be answered directly, with no button in between.
+        if (d.easca && this._scene?.promptEasca) {
+          this._scene.promptEasca((text) => {
+            if (!this._isOpen) return
+            if (text) {
+              const typed = String(text).trim()
+              try { this._scene.registry?.set(d.easca, typed) } catch (e) {}
+              if (this._nameMatchesChampion(typed)) {
+                const voc = this._championVocative()
+                if (voc) { try { this._scene.registry?.set('playerVoc', voc) } catch (e) {} }
+                if (d.eascaMatch) GameState.addNote(d.eascaMatch)
+              }
+            }
+            go()
+          })
+          return
+        }
+
+        go()
       }
     })
   }

@@ -1,144 +1,146 @@
 # d3Sea — Muireann on the north headland
 #
-#   node 0  THE MEETING   @when !note met_muireann — seen once
-#   node 1  THE HUB       @hold — where she lives for the rest of the game
+# BUTTONS ONLY WHERE THERE IS A CHOICE
+#   The opening is pure dialogue: her question, the keyboard, her answer,
+#   her name. No "I am..." button, because the card already asks. Nodes
+#   0-2 carry @continue, so they flow one into the next with the panel
+#   standing rather than ending the encounter each time.
 #
-# WHY HER QUESTION IS IN NODE 0
-#   A hub node's text is shown on arrival and then replaced by @again, so
-#   it cannot hold a question the player answers later — the answers would
-#   sit in the list with nothing to attach to. Her question therefore ends
-#   the MEETING, inside a real exchange, and hangs over the hub until the
-#   player gets to it. Both meeting paths ask it, so both open the answers.
+#   From the hub on, never more than two real options at once. The runtime
+#   appends its own exit to any node with buttons, so a third is always
+#   there — that is deliberate and cannot be gated away: a card with
+#   buttons can't be swiped off, so without an exit the player is trapped.
+#
+# SILENCE AND LIES ARE INPUT, NOT BUTTONS
+#   Refusing is typing nothing and closing the keyboard. Lying is typing
+#   something else. Neither needs an option, and neither sets
+#   knows_own_name — so the vocative is never invented for a name the
+#   roster cannot inflect.
 #
 # GATING CONSTRAINT
-#   requires holds ONE positive note and ONE negative note per option. A
-#   second @when note X overwrites the first. Questions that need two
-#   things to have happened are chained instead:
+#   requires holds ONE positive note and ONE negative note per option.
+#   Chains, never pairs of positives.
 #
-#     met_muireann      -> her question has been asked; answers available
-#     knows_fionnbarra  -> opens "Who is Fionnbarra?"
-#     knows_of_tollman  -> opens "His toll-man?" and "His hounds?"
+#     knows_own_name    -> she can say the name properly; opens the password
+#     answered_muireann -> her question is behind us; opens the shore
+#     knows_fionnbarra  -> opens "Fionnbarra?"
+#     knows_of_tollman  -> opens "His hounds?" and "His toll-man?"
+#     asked_hounds      -> opens "Which way?"
 #
-# OTHER RULES
-#   One @note per option. @silent = no reply card, never on an answer.
-#   An @exit option's reply is never shown. One line is one line.
+# {playerVoc} ALREADY CARRIES THE PARTICLE. Never write "a {playerVoc}".
 
 @file d3Sea
 
 
 # ══════════════════════════════════════════════════════════════════════
+# No options. The card is her question; dismissing it opens the keyboard.
 = node 0 — the meeting
-@when !note met_muireann
-Who art thou that rows so bold
-% Cé thú féin atá ag rámhíocht go cróga
+@easca playerName
+@eascaMatch knows_own_name
+@continue
+Who is it that is rowing bravely
+% Cé atá ag rámhaíocht go cróga
 towards the mouth of the Boyne?
 % i dtreo béal na Bóinne?
 
-* I am...
-% Is mise...
-@easca playerName
-@note met_muireann
-> I am {playerName} 
-% Is mise {playerName}
-> Blessing of the wind to you.
-% Beannacht na gaoithe ort.
-< Blessing of the shore to you, {playerName}.
-% Beannacht an claddach ort, a {playerName}.
-< Muireann is my name.
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — she answers, knowing the name
+@when note knows_own_name
+@continue
+Blessing of the shore to you, {playerVoc}.
+% Beannacht an chladaigh chugat, {playerVoc}.
+Muireann is my name.
 % Muireann is ainm dom.
-< And where are you going?
-% Agus cá bhfuil do thríal?
-
-* Give no name
-% Ná tabhair ainm
-@note withheld_name
-> My quarrel is with my own name, no deed of mine has given it meaning.
-% Is le m'ainm féin mo chomhrac; níor thug beart de mo chuid brí dó.
-
-< Is that so.
-% Ab ea.
-< Then answer me this instead.
-% Freagair seo dom mar sin.
-< where are you going?
-% Agus cá bhfuil do thríall?
-
-* leave
-% fág
-@exit
-@silent
+And where are you bound?
+% Agus cá bhfuil do thriall?
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 1 — the hub
+# A name she cannot place, or none at all. She does not remark on it.
+= node 2 — she answers, not knowing the name
+@continue
+Is that so.
+% Ab ea.
+Muireann is my name.
+% Muireann is ainm dom.
+And where are you bound?
+% Agus cá bhfuil do thriall?
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 3 — the hub
 @hold
-@again And? / Agus?
-...
-% ...
+@again 
 
-# ── answering her ─────────────────────────────────────────────────────
-# She asked at the meeting and has not been answered. These sit at the
-# top of the list until one is chosen; each then hides the other for good.
 
-* Tell her
-% Abair lei
+
+# ── her question — TWO OPTIONS ────────────────────────────────────────
+
+* Answer plainly
+% Freagair go díreach
 @when !note evaded_muireann
 @first
 @note told_muireann_truth
 > To the bog that drinks men whole, to Allen's sunken ground.
-% Chun na móna ina chailtear fir, chuig talamh báite Almhain.
+% Chun na móna ina gcailltear fir, chuig talamh báite Almhain.
 > Where the Fianna test their own.
-% Áit a thriailfar na Fhian.
-< The bog will challenge thee.
-% Cuirfidh an mhóin dúthlán ort.
+% Áit a dtriailtear na Fianna.
+
+I’ve seen the bog of Allen,
+Who ever saw what I have seen?
+I’ve seen the mists that shroud its heart,
+How drear and mournful the memory.            
+Here, {playerVoc}, the wraiths of the forgotten   
+cry out for vengeance amidst the murk and mire.                                            
 < Hast thou mastered the spear?
-% An bhfuil an gha fhoghlamaíthe agat?
+% An bhfuil an tsleá foghlamtha agat?
 
-
-* Tell half truth
-% Inis leath fhírinne
+* Parry 
+% Sraon
 @when !note told_muireann_truth
 @first
 @note evaded_muireann
 > Ask the heron of the fen. She will know my story.
-% Íarr ar chorr na móna. Is aici a bheidh mo scéal.
+% Iarr ar chorr na móna. Is aici a bheidh mo scéal.
 < Speak plainly. What business brings a stranger to these lands?
 % Freagair go díreach mé. Cén gnó a thóg chuig na tailte seo thú?
 > The wind does not explain itself to the standing stone.
 % Ní mhíníonn an ghaoth í féin don ghallán.
 < Some purpose drives thee, I think.
-% Tá rún i do chroí dod brú ar aghaidh, sílim.
+% Tá rún i do chroí dod bhrú ar aghaidh, sílim.
 
-# Each answers what she said above it, so both stay contextual.
+# this isanswering in the negative, truthfully, with a positive spin. There  should be another option. Maybe bragodocious/dishonest; or another parry. 
 
-* I will learn from Fionn 
-% Foghlaimoidh mé ó Fhionn
+* Fionn will teach me
+% Múinfidh Fionn dom
 @when note told_muireann_truth
 @first
-
-
+@note answered_muireann
 > Fionn will teach me what the bog does not.
 % Múinfidh Fionn dom an rud nach múineann an mhóin.
-< I know Fionn. Fionn the great one.
-% Tá aithne agam ar Fionn \n an gaiscíoch mór.
+< I know Fionn, the great one.
+% Tá aithne agam ar Fionn, an gaiscíoch mór.
+< Fionn keeps poetry before the blade.
+% Is uaisle le Fionn an fhilíocht ná an tsleá.
 
-<Fionn keeps poetry before the blade.
-% Is uaisle le Fionn an fhilíocht ná an slea.
-
-* Say little
-% Ná habair murán
+* parry
+% sraoin
 @when note evaded_muireann
 @first
+@note answered_muireann
 > There is a thing that waits, and it is not yet found.
-% Tá rud ag feitheamh orm, nach bhfuil feicthe fós.
+% Tá rud ag feitheamh orm nach bhfuil feicthe fós.
 < Go then.
 % Imigh leat mar sin.
+< Go where thou art not going.
+% Téigh san áit nach bhfuil tú ag dul.
 
-
-# ── what she knows ────────────────────────────────────────────────────
-# Chained, so nothing can be asked about before it has been mentioned.
+# ── what she knows — ONE, then ONE, then TWO ──────────────────────────
 
 * Where am I?
 % Cá bhfuil mé?
+@when note answered_muireann
 @when !note knows_fionnbarra
 @note knows_fionnbarra
 > Whose shore is this?
@@ -146,10 +148,9 @@ towards the mouth of the Boyne?
 < Thy little boat has reached the mouth of Bóinn the bright and winding.
 % Tháinig do bháidín go béal na Bóinne ghlé ghroí.
 < This shore belongs first to her.
-% Is léisí an trá seo ar dtús.
-< Fionnbarra mac Dubhloingse is Chief of this valley
-% Is é Fionnbarra mac Dubhloingse Taoiseach an gleann seo.
-
+% Is léi féin an trá seo ar dtús.
+< Fionnbarra mac Dubhloingse is Chief of this valley.
+% Is é Fionnbarra mac Dubhloingse Taoiseach an ghleanna seo.
 
 * Fionnbarra?
 % Fionnbarra?
@@ -159,11 +160,11 @@ towards the mouth of the Boyne?
 > What kind of man is Fionnbarra?
 % Cén cineál duine é Fionnbarra?
 < Fionnbarra is not an unjust man.
-% Ní fear héagórach é Fionnbarra.
+% Ní fear éagórach é Fionnbarra.
 < His hounds are many.
 % Is iomaí cú atá aige.
-< But his toll-man waits at the river and his face like an angry stone.
-% Ach tá a fhear cána ag feitheamh ag an abhainn agus aghaidh mar carraig crosta aige.
+< But his toll-man waits at the river with a face like an angry stone.
+% Ach tá a fhear dola ag feitheamh ag an abhainn agus aghaidh mar charraig chrosta air.
 
 * His hounds?
 % A chuid con?
@@ -171,14 +172,13 @@ towards the mouth of the Boyne?
 @when !note asked_hounds
 @note asked_hounds
 > Tell me of his hounds.
-% Inis dom faoina madraí.
+% Inis dom faoina chuid con.
 < Brocán and Dorchán,
 % Brocán agus Dorchán,
 < and the grey one they call Scáthán.
 % agus an ceann liath ar a dtugtar Scáthán.
-
 < It is a dangerous curiosity.
-% Is baolach an fhiosracht é.
+% Is baolach an fhiosracht í.
 < Do not think of them,
 % Ná smaoinigh orthu,
 < lest they hear the thought in thy skull
@@ -186,40 +186,44 @@ towards the mouth of the Boyne?
 < and come for thee in the darkness.
 % agus go dtiocfaidís ort sa dorchadas.
 
+# The password is "Muireann the Druid knows thy name", so it cannot be
+# given to someone whose name she does not have. knows_own_name is the
+# honest gate: it means she can say it.
+
 * His toll-man?
-% A fhear cána?
-@when note knows_of_tollman
-@when !note withheld_name
+% A fhear dola?
+@when note knows_own_name
+@when !note has_druid_word
 @note has_druid_word
 > His toll-man?
-% A fhear cána?
+% A fhear dola?
 < Such is how he does business:
 % Mar seo a dhéanann sé gnó:
 < whom he robs not, he delays.
 % an té nach ngoidfidh sé uaidh, cuirfidh sé moill air.
 < If Fionnbarra's toll-man should meet thee at the strand,
-% Má chasann fear cána Fhionnbarra ort ar an gcladach,
+% Má chasann fear dola Fhionnbarra ort ar an gcladach,
 < thou art to say that Muireann the Druid knows thy name.
 % abair leis go bhfuil d'ainm ag Muireann an Draoi.
 
 * His toll-man?
-% A fhear cána?
+% A fhear dola?
 @when note knows_of_tollman
-@when !note met_muireann
+@when !note knows_own_name
 > His toll-man?
-% A fhear cána?
+% A fhear dola?
 < Such is how he does business:
 % Mar seo a dhéanann sé gnó:
 < whom he robs not, he delays.
 % an té nach ngoidfidh sé uaidh, cuirfidh sé moill air.
 
 # ── the road ──────────────────────────────────────────────────────────
-# Never gated away: a player who has forgotten the way must be able to ask
-# again. The pipes warning lives here because it is travel advice, and
-# because an @exit option's reply would never be shown.
+# Never gated away: a player who has forgotten the way must be able to
+# ask again.
 
 * Which way?
 % Cén treo?
+@when note asked_hounds
 @note knows_rath
 > Which way, then?
 % Cén treo, mar sin?
@@ -234,7 +238,7 @@ towards the mouth of the Boyne?
 < It is not far. Two days west, two days south. Keep the hills to thy left hand.
 % Níl sé i bhfad. Dhá lá siar, dhá lá ó dheas. Coinnigh na cnoic ar do láimh chlé.
 < Go not by night.
-% Ná téigh is d'oíche.
+% Ná téigh de shiúl oíche.
 < And if thou hear the sound of pipes where no one stands,
 % Agus má chloiseann tú ceol na bpíob gan seinnteoir,
 < thou hast heard nothing. Walk on.
@@ -242,7 +246,7 @@ towards the mouth of the Boyne?
 < May thy journey succeed.
 % Go n-éirí an bóthar leat.
 
-* Row on
+* Leave
 % Fág
 @exit
 @silent

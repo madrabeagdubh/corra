@@ -105,6 +105,7 @@ function ksBuffer(ctx, freq, vel, secs) {
   // for the two gestures that want a different envelope: the long open ring
   // and the damped tap.
   const dur = secs ?? (1.1 + vel * 1.4)
+  ksBuffer._lastDur = dur   // read by _pluck right after the call, see below
   const tot = Math.floor(sr * dur)
   const buf = ctx.createBuffer(1, tot, sr)
   const out = buf.getChannelData(0)
@@ -291,11 +292,35 @@ class DialogueHarpImpl {
       const v    = Math.max(0.08, vel)
       const src  = ctx.createBufferSource()
       src.buffer = ksBuffer(ctx, freq, v, secs)
+      const dur  = ksBuffer._lastDur ?? 1.5
       const g = ctx.createGain()
       g.gain.setValueAtTime(GAIN_BASE + v * GAIN_VEL, when)
       src.connect(g); g.connect(ctx.destination)
       src.start(when)
+      // Tracked so pause() can silence this if it's still ringing when a
+      // conversation is interrupted -- a Karplus-Strong pluck otherwise
+      // decays on its own schedule no matter what's called afterward.
+      this._activeGains = this._activeGains || []
+      this._activeGains.push({ gain: g, endAt: when + dur })
+      const now = ctx.currentTime
+      this._activeGains = this._activeGains.filter(e => e.endAt > now - 0.5)
     } catch (e) { /* audio is a nicety; never let it break a conversation */ }
+  }
+
+  /** Ramp anything still ringing down to silence over 50ms. */
+  _silenceRinging() {
+    const ctx = this._ctx()
+    if (!ctx || !this._activeGains) return
+    const now = ctx.currentTime
+    this._activeGains.forEach(({ gain, endAt }) => {
+      if (endAt <= now) return
+      try {
+        gain.gain.cancelScheduledValues(now)
+        gain.gain.setValueAtTime(gain.gain.value, now)
+        gain.gain.linearRampToValueAtTime(0.0001, now + 0.05)
+      } catch (e) {}
+    })
+    this._activeGains = []
   }
 
   /**
@@ -424,6 +449,23 @@ class DialogueHarpImpl {
    * capped, so a fast scroll can't bank a minute of music that then plays on
    * over a silent screen.
    */
+  /**
+   * Stop the sustain chain where it stands, without losing what it was
+   * owed. The card that was funding it is gone -- typing a name is not
+   * reading -- so the tune should stop with the card, not run on under
+   * something else. resume() picks the same credit back up.
+   */
+  pause() {
+    clearTimeout(this._sustainTimer)
+    this._sustainTimer = null
+    this._sustaining = false
+    this._silenceRinging()
+  }
+
+  resume() {
+    if (this._credit && this._credit.length && !this._sustaining) this._runSustain()
+  }
+
   sustain({ isHero = false, notes = 4 } = {}) {
     if (!this.on) return
     const ctx = this._ctx()
@@ -445,6 +487,7 @@ class DialogueHarpImpl {
    * to rest on the tune's own terms rather than stopping mid-figure.
    */
   _runSustain() {
+    if (!this.on) { this._sustaining = false; return }   // paused: stop here, credit intact
     const c = this._credit && this._credit[0]
     if (!c) { this._sustaining = false; return }
 

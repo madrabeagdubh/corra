@@ -19,20 +19,23 @@ class Easca3 {
 
     // ── Palette ───────────────────────────────────────────────────────────────
     this.C = {
-      keyBg:         0x1b3454,
-      keyStroke:     0x3a5a8a,
-      keyPressed:    0x4fc3f7,
-      accentBg:      0x1a1040,
-      accentStroke:  0x7b5ea7,
-      accentPressed: 0x9c6fff,
-      sendBg:        0x0a2a1a,
+      // Matched to the encounter card: warm near-black fill, gold accent
+      // (COLORS.queen), parchment text -- so the keyboard reads as the same
+      // object opening rather than a different app layered on top.
+      keyBg:         0x1c1712,   // warm charcoal, not navy
+      keyStroke:     0x6b5a3a,   // dim gold-brown, echoes panelStroke below
+      keyPressed:    0xd4af37,   // COLORS.queen -- full gold on press
+      accentBg:      0x241c14,
+      accentStroke:  0x8a6a2a,
+      accentPressed: 0xd4af37,
+      sendBg:        0x0a2a1a,   // left as a functional colour: go
       sendStroke:    0x2e9e6a,
       sendPressed:   0x3ddc84,
-      bsBg:          0x2a1000,   // orange-tinted backspace
+      bsBg:          0x2a1000,   // left as a functional colour: undo
       bsStroke:      0x8a4a00,
       bsPressed:     0xff8c00,
-      panelBg:       0x04090f,
-      panelStroke:   0x1e3a5a,
+      panelBg:       0x111a11,   // COLORS.panelFill
+      panelStroke:   0xd4af37,   // COLORS.queen -- the visible card border
     };
 
     // ── Irish layout ──────────────────────────────────────────────────────────

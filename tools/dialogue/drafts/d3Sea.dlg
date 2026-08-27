@@ -2,30 +2,28 @@
 #
 # BUTTONS ONLY WHERE THERE IS A CHOICE
 #   The opening is pure dialogue: her question, the keyboard, her answer,
-#   her name. No "I am..." button, because the card already asks. Nodes
-#   0-2 carry @continue, so they flow one into the next with the panel
-#   standing rather than ending the encounter each time.
+#   her name. Nodes 0-2 carry @continue, so they flow one into the next
+#   with the panel standing rather than ending the encounter each time.
 #
-#   From the hub on, never more than two real options at once. The runtime
-#   appends its own exit to any node with buttons, so a third is always
-#   there — that is deliberate and cannot be gated away: a card with
-#   buttons can't be swiped off, so without an exit the player is trapped.
-#
-# SILENCE AND LIES ARE INPUT, NOT BUTTONS
-#   Refusing is typing nothing and closing the keyboard. Lying is typing
-#   something else. Neither needs an option, and neither sets
-#   knows_own_name — so the vocative is never invented for a name the
-#   roster cannot inflect.
+# WHY THE QUESTION LIVES ON NODE 3, NOT ON NODE 1/2
+#   Node text shows ALONGSIDE the first set of buttons that follow it. A
+#   line on the node BEFORE the buttons is already gone by the time they
+#   appear — that was the blank-card-with-buttons problem. So "And where
+#   are you bound?" belongs to the hub's own arrival text, not to the
+#   identity exchange that precedes it. @again is a shorter line for
+#   re-openings of the hub later in the same conversation.
 #
 # GATING CONSTRAINT
 #   requires holds ONE positive note and ONE negative note per option.
 #   Chains, never pairs of positives.
 #
 #     knows_own_name    -> she can say the name properly; opens the password
-#     answered_muireann -> her question is behind us; opens the shore
+#     answered_muireann -> her question is behind us; opens the shore AND
+#                           the Goll errand, regardless of which lie got there
 #     knows_fionnbarra  -> opens "Fionnbarra?"
 #     knows_of_tollman  -> opens "His hounds?" and "His toll-man?"
 #     asked_hounds      -> opens "Which way?"
+#     knows_goll        -> the errand to the smith at the ráth
 #
 # {playerVoc} ALREADY CARRIES THE PARTICLE. Never write "a {playerVoc}".
 
@@ -33,7 +31,6 @@
 
 
 # ══════════════════════════════════════════════════════════════════════
-# No options. The card is her question; dismissing it opens the keyboard.
 = node 0 — the meeting
 @easca playerName
 @eascaMatch knows_own_name
@@ -52,28 +49,24 @@ Blessing of the shore to you, {playerVoc}.
 % Beannacht an chladaigh chugat, {playerVoc}.
 Muireann is my name.
 % Muireann is ainm dom.
-And where are you bound?
-% Agus cá bhfuil do thriall?
 
 
 # ══════════════════════════════════════════════════════════════════════
-# A name she cannot place, or none at all. She does not remark on it.
 = node 2 — she answers, not knowing the name
+@when !note knows_own_name
 @continue
 Is that so.
 % Ab ea.
 Muireann is my name.
 % Muireann is ainm dom.
-And where are you bound?
-% Agus cá bhfuil do thriall?
 
 
 # ══════════════════════════════════════════════════════════════════════
 = node 3 — the hub
 @hold
-@again 
-
-
+@again Well? / Bhuel?
+And where are you bound?
+% Agus cá bhfuil do thriall?
 
 # ── her question — TWO OPTIONS ────────────────────────────────────────
 
@@ -83,49 +76,88 @@ And where are you bound?
 @first
 @note told_muireann_truth
 > To the bog that drinks men whole, to Allen's sunken ground.
-% Chun na móna ina gcailltear fir, chuig talamh báite Almhain.
+% Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.
 > Where the Fianna test their own.
 % Áit a dtriailtear na Fianna.
 
-I’ve seen the bog of Allen,
-Who ever saw what I have seen?
-I’ve seen the mists that shroud its heart,
-How drear and mournful the memory.            
-Here, {playerVoc}, the wraiths of the forgotten   
-cry out for vengeance amidst the murk and mire.                                            
-< Hast thou mastered the spear?
-% An bhfuil an tsleá foghlamtha agat?
+< I have seen the bog of Allen.
+% Tá Móin Almhain feicthe agam.
 
-* Parry 
+< Who ever saw what I have seen?
+% Cé a chonaic riamh an rud a chonaic mé?
+
+< I have seen the mists that shroud its heart,
+% Tá na ceoite a bhrataíonn an croí feicaithe agam,
+
+< how drear and mournful the memory.
+% mo lean, is duairc an chuimhne í.
+
+< There are horrors in that dark country
+% Tá aibhisigh sa tír dhorcha sin
+
+< that yield to nothing save the spear,
+% nach ngéillfidh ach don gha,
+
+< driven with dire intent.
+% sáite le rún an uafáis.
+
+< Hast thou had any training at all?
+% An bhfuil oiliúint ar bith ort?
+
+* Parry
 % Sraon
 @when !note told_muireann_truth
 @first
 @note evaded_muireann
+
 > Ask the heron of the fen. She will know my story.
 % Iarr ar chorr na móna. Is aici a bheidh mo scéal.
-< Speak plainly. What business brings a stranger to these lands?
+
+< Speak plainly. What business brings you to these lands?
 % Freagair go díreach mé. Cén gnó a thóg chuig na tailte seo thú?
+
 > The wind does not explain itself to the standing stone.
 % Ní mhíníonn an ghaoth í féin don ghallán.
 < Some purpose drives thee, I think.
 % Tá rún i do chroí dod bhrú ar aghaidh, sílim.
 
-# this isanswering in the negative, truthfully, with a positive spin. There  should be another option. Maybe bragodocious/dishonest; or another parry. 
+# ── her question about training — TWO OPTIONS ─────────────────────────
+# Both branches set answered_muireann and stay silent on Goll: the errand
+# lives in its own option below so either lie reaches it the same way.
 
-* Fionn will teach me
-% Múinfidh Fionn dom
+* I learned from Scáthach
+% D'fhoghlaim mé ó Scáthach
 @when note told_muireann_truth
 @first
 @note answered_muireann
-> Fionn will teach me what the bog does not.
-% Múinfidh Fionn dom an rud nach múineann an mhóin.
-< I know Fionn, the great one.
-% Tá aithne agam ar Fionn, an gaiscíoch mór.
+
+> I learned from Scáthach of Skye.
+% D'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.
+< Scáthach.
+% Scáthach.
+> Scáthach herself.
+% Scáthach í féin.
+< And she sent thee.
+% Agus sheol sí anseo thú.
+< O Scáthach, daughter of excellence and terror,
+% A Scáthach, a iníon barr feabhais agus uafáis 
+< thy purpose is dark to me.
+% ní thuigim do chúis.
+
+* Fionn will arm me
+% Cuirfidh Fionn faoi arm mé
+@when note told_muireann_truth
+@first
+@note answered_muireann
+> I have none. Fionn will arm me when I stand before him.
+% Níl ceann agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.
 < Fionn keeps poetry before the blade.
 % Is uaisle le Fionn an fhilíocht ná an tsleá.
+< A spear is not the first thing he will ask of thee.
+% Ní ga an chéad rud a iarrfaidh sé ort.
 
-* parry
-% sraoin
+* Parry again
+% Sraon arís
 @when note evaded_muireann
 @first
 @note answered_muireann
@@ -135,6 +167,28 @@ cry out for vengeance amidst the murk and mire.
 % Imigh leat mar sin.
 < Go where thou art not going.
 % Téigh san áit nach bhfuil tú ag dul.
+
+# ── the errand — reachable from ANY of the three branches above ───────
+
+* Advise me
+% Cuir comhairle orm
+@when note answered_muireann
+@when !note knows_goll
+@note knows_goll
+> What am I to do, then?
+% Cad atá le déanamh agam, mar sin?
+< But hear me now, {playerVoc}.
+% Ach éist liom anois, {playerVoc}.
+< Thou wilt need iron before the bog is done with thee.
+% Beidh iarann uait sula mbeidh an mhóin thart leat.
+< Go to the dún of Fionnbarra.
+% Téigh go dún Fhionnbarra.
+< Seek out his smith, Goll who does not sleep.
+% Lorg a ghabha, Goll nach gcodlaíonn.
+< Tell him where thou art bound.
+% Inis dó cá bhfuil do thriall.
+< He will know what is required.
+% Beidh a fhios aige cad atá le déanamh.
 
 # ── what she knows — ONE, then ONE, then TWO ──────────────────────────
 
@@ -187,8 +241,7 @@ cry out for vengeance amidst the murk and mire.
 % agus go dtiocfaidís ort sa dorchadas.
 
 # The password is "Muireann the Druid knows thy name", so it cannot be
-# given to someone whose name she does not have. knows_own_name is the
-# honest gate: it means she can say it.
+# given to someone whose name she does not have.
 
 * His toll-man?
 % A fhear dola?
@@ -218,8 +271,6 @@ cry out for vengeance amidst the murk and mire.
 % an té nach ngoidfidh sé uaidh, cuirfidh sé moill air.
 
 # ── the road ──────────────────────────────────────────────────────────
-# Never gated away: a player who has forgotten the way must be able to
-# ask again.
 
 * Which way?
 % Cén treo?

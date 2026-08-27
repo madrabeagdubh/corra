@@ -120,7 +120,7 @@ function syllablesGa(s) {
 // instead of a gap beside it. These were 950ms and 340ms, which did the job of
 // keeping the flourish from being stepped on and then overstayed: a full
 // second at the head of a conversation reads as the game hesitating.
-const CARD_OPEN_LEAD_BEATS   = 4     // after the opening flourish
+const CARD_OPEN_LEAD_BEATS   = 2     // after the opening flourish
 const CARD_CHOICE_LEAD_BEATS = 1     // after a choice stroke
 
 const CARD_READ_MIN_MS     = 340     // the whole of a portrait-only beat
@@ -140,12 +140,15 @@ const SYLLABLE_MS          = 380     // ~2.6 syllables a second
 // Harp notes ring for one to two and a half seconds after they're struck, so a
 // motif is still sounding well past its final note. Blocks sized flush to the
 // motif put the next phrase on top of the last one's tail.
-const CARD_READ_TAIL_BEATS = 3       // breath after the last note of a block
+const CARD_READ_TAIL_BEATS = 1       // breath after the last note of a block
 
 // The portrait dances while its owner's tune plays -- after championBoogie in
 // heroSelect.js, but pinned to the tune's own dance beat rather than a fixed
 // interval, so a jig NPC bounces quicker than a reel one.
 const CARD_DANCE_HOP_PX    = 9
+// Gap between rows that share one merged beat. Smaller than a full
+// beat's own spacing -- this is a breath, not a pause.
+const CARD_INTRA_BEAT_STAGGER_MS = 220
 const CARD_DANCE_TILT      = 0.05    // radians at the top of a hop
 // The player's own line is held for exactly one motif plus this, rather than
 // for a share of its reading time. They've already read it -- it was the button
@@ -683,37 +686,53 @@ export default class TextPanel {
     // absent on the first card of an exchange. Compact them so the beats
     // always run 0,1,2... -- otherwise an opening card would sit blank for a
     // beat waiting on a hero block that never comes.
-    // Beats are assigned by walking the rows in order, which both compacts
-    // them (no gaps when a hero block is absent) and splits the NPC a line
-    // at a time.
+    // Beats are assigned per RUN -- a portrait and the lines that follow it,
+    // up to the next portrait.
     //
-    //   hero portrait + all the hero's lines   one beat
-    //   NPC portrait                           one beat
-    //   each NPC line                          a beat of its own
+    //   hero run                  portrait + all lines share ONE beat
+    //   NPC run, short            portrait gets a beat, then its few lines
+    //                             share ONE beat together (one sentence,
+    //                             however it wrapped, is one pause)
+    //   NPC run, long             portrait, then one beat PER LINE -- a
+    //                             real monologue, which is what keeps the
+    //                             tune moving through a long speech
     //
-    // The asymmetry is the point. The player's line is already known to
-    // them, while the NPC's is being told -- so hers arrives at the pace of
-    // speech and keeps the harp going for as long as she is speaking.
-    let _beat    = -1
-    let _heroRun = false
-    rows.forEach((r) => {
-      if (r.portrait) {
+    // NPC_MERGE_MAX is the line count where "short" becomes "long".
+    const NPC_MERGE_MAX = 2
+    let _beat = -1
+    let _ri = 0
+    while (_ri < rows.length) {
+      const r = rows[_ri]
+      if (!r.portrait) {              // no leading portrait: stand alone
         _beat += 1
-        r.group  = _beat
-        _heroRun = !!r.isHero        // a hero portrait shares with its words
-        return
-      }
-      const _empty = !((r.ga || '').trim() || (r.en || '').trim())
-      if (_empty) { r.group = Math.max(0, _beat); return }
-      if (r.isHero) {
-        if (!_heroRun) { _beat += 1; _heroRun = true }
         r.group = _beat
-        return
+        _ri += 1
+        continue
       }
-      _heroRun = false
-      _beat   += 1
-      r.group  = _beat
-    })
+      _beat += 1
+      r.group = _beat
+      const isHeroRun = !!r.isHero
+      let _rj = _ri + 1
+      while (_rj < rows.length && !rows[_rj].portrait) _rj += 1
+      const run = rows.slice(_ri + 1, _rj)
+      if (isHeroRun) {
+        run.forEach(rr => { rr.group = _beat })
+      } else {
+        const nonEmpty = run.filter(rr => (rr.ga || '').trim() || (rr.en || '').trim())
+        if (nonEmpty.length <= NPC_MERGE_MAX) {
+          _beat += 1
+          run.forEach(rr => { rr.group = _beat })
+        } else {
+          run.forEach(rr => {
+            const empty = !((rr.ga || '').trim() || (rr.en || '').trim())
+            if (empty) { rr.group = Math.max(0, _beat); return }
+            _beat += 1
+            rr.group = _beat
+          })
+        }
+      }
+      _ri = _rj
+    }
     this._revealBeats = Math.max(1, _beat + 1)
     // Only its length is used, by the per-beat arrays built just below.
     const _present = new Array(this._revealBeats)
@@ -748,7 +767,10 @@ export default class TextPanel {
     // Narrower than the body: see CARD_BLOCK_W_FRAC.
     const blockW = Math.round(textW * CARD_BLOCK_W_FRAC)
 
-    let cy = 0
+    // Headroom equal to the dance hop's own amplitude. Without it, a
+    // portrait hopping at the very top of the body rises above the clip
+    // mask at its peak and the head is cut off mid-hop.
+    let cy = CARD_DANCE_HOP_PX
 
     for (const row of rows) {
       if (row.portrait) {
@@ -1304,15 +1326,22 @@ export default class TextPanel {
         if ((_groupTop[g] ?? 0) >= _foldH) this._scrollReveal.add(g)
       }
 
+      // Rows sharing a beat (a short run merged into one pause) still get
+      // a small stagger between them, so "one breath" doesn't mean "one
+      // instant" -- only full beats are spaced far enough apart to need
+      // their own delay; this is the space WITHIN one.
+      const _groupSeen = {}
       this._contentItems.forEach((item) => {
         if (!item.obj?.active) return
         const beat = item.group ?? 0
         item.reveal = 0
         if (this._scrollReveal.has(beat)) return
+        const within = item.isPortrait ? 0
+          : (_groupSeen[beat] = (_groupSeen[beat] || 0) + 1) - 1
         this._revealTweens.push(this.scene.tweens.add({
           targets: item,
           reveal: 1,
-          delay: starts[beat] ?? 0,
+          delay: (starts[beat] ?? 0) + within * CARD_INTRA_BEAT_STAGGER_MS,
           duration: CARD_REVEAL_FADE_MS,
           ease: 'Linear',
           onUpdate: () => this._applyScroll(),

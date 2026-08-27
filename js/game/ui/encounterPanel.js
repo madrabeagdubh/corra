@@ -454,6 +454,7 @@ clearNotify() {
         type:    'encounter_card',
         bgKey,
         graphicKey,
+        keepChromeOnHide: true,
         options: shown.map(o => ({ ga: this._fill(o.ga || ''), en: this._fill(o.en || '') })),
         onChoice: (i) => {
           this._choiceMade = true
@@ -480,6 +481,7 @@ clearNotify() {
       type:    'encounter_card',
       bgKey,
       graphicKey,
+      keepChromeOnHide: true,
       options: null,
       onDismiss: () => {
         // Where an option-less node leads. @continue flows into the next
@@ -495,7 +497,9 @@ clearNotify() {
         // player has read the card. That is what lets her ask a question and
         // be answered directly, with no button in between.
         if (d.easca && this._scene?.promptEasca) {
+          try { DialogueHarp.pause() } catch (e) {}
           this._scene.promptEasca((text) => {
+            try { DialogueHarp.resume() } catch (e) {}
             if (!this._isOpen) return
             if (text) {
               const typed = String(text).trim()
@@ -663,6 +667,11 @@ clearNotify() {
         const v = this._scene?.registry?.get(k)
         if (v) return v
       } catch (e) {}
+      // {playerVoc} with nothing to fill it: a name that wasn't given, or
+      // was given but didn't match, or matched a roster entry with no
+      // vocative worked out yet. "a chara" is unisex and always correct --
+      // never a guess at a form the data doesn't have.
+      if (k === 'playerVoc') return 'a chara'
       return m
     })
   }
@@ -709,7 +718,9 @@ clearNotify() {
     // player who backs out hasn't already set its notes. Re-entered once the
     // player is done, with the flag stopping it prompting a second time.
     if (opt.easca && !this._eascaDone && this._scene?.promptEasca) {
+      try { DialogueHarp.pause() } catch (e) {}
       this._scene.promptEasca((text) => {
+        try { DialogueHarp.resume() } catch (e) {}
         if (!this._isOpen) return
         if (text) {
           const typed = String(text).trim()

@@ -6,6 +6,8 @@ import { SoundBoard } from '../systems/soundBoard.js'
 
 import { FONTS, COLORS } from '../systems/gameTypography.js';
 import { GameSettings }  from '../settings/gameSettings.js';
+import { GameState }     from '../systems/gameState.js';
+import { QUEST_REGISTRY } from '../systems/quests.js';
 
 const PANELS = [
     { key: 'inventory', ga: 'Stóras',  en: 'Inventory', icon: '/assets/icons/backpack.png',    iconFallback: '🎒' },
@@ -147,6 +149,8 @@ export function createGameMenuHub({
 
         if (panel.key === 'about') {
             _buildAboutPanel(el)
+        } else if (panel.key === 'log') {
+            _buildLogPanel(el)
         } else {
             const title = document.createElement('div');
             title.style.cssText = `font-size:1.4rem;color:${COLORS.speaker};font-family:${FONTS.irish};`;
@@ -194,6 +198,74 @@ export function createGameMenuHub({
             container.appendChild(block)
         })
         container._updateLanguage = () => Array.from(container.children).forEach(c => c._update?.())
+    }
+
+    function _buildLogPanel(container) {
+        container.style.cssText += 'padding:1.2rem;gap:0.9rem;justify-content:flex-start;'
+
+        const heading = document.createElement('div')
+        heading.style.cssText = [
+            `font-family:${FONTS.irish};font-size:1.4rem;`,
+            `color:${COLORS.speaker};text-align:center;`,
+            'padding-bottom:0.4rem;width:100%;',
+            `border-bottom:1px solid ${GOLD_BORDER};`,
+        ].join('')
+        heading.textContent = 'Dialann'
+        container.appendChild(heading)
+
+        const list = document.createElement('div')
+        list.style.cssText = 'width:100%;display:flex;flex-direction:column;gap:0.8rem;'
+        container.appendChild(list)
+
+        container._refresh = () => {
+            list.innerHTML = ''
+            const useEn = GameSettings.englishOpacity >= 0.5
+            const entries = Object.entries(QUEST_REGISTRY)
+                .map(([id, text]) => ({ id, text, status: GameState.getQuest(id) }))
+                .filter(q => q.status !== 'inactive')
+
+            if (!entries.length) {
+                const empty = document.createElement('div')
+                empty.style.cssText = `font-family:${FONTS.english};font-size:0.8rem;color:${COLORS.uiDim};text-align:center;`
+                empty.textContent = useEn ? 'No quests yet.' : 'Níl aon mhisean agat fós.'
+                list.appendChild(empty)
+                return
+            }
+
+            entries.forEach(({ text, status }) => {
+                const row = document.createElement('div')
+                row.style.cssText = 'width:100%;'
+
+                const titleRow = document.createElement('div')
+                titleRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;'
+
+                const title = document.createElement('div')
+                title.style.cssText = `font-family:${FONTS.irish};font-size:0.95rem;color:${COLORS.speaker};`
+                title.textContent = useEn ? text.titleEn : text.titleGa
+                titleRow.appendChild(title)
+
+                const badge = document.createElement('div')
+                badge.style.cssText = [
+                    `font-family:${FONTS.ui};font-size:0.65rem;`,
+                    `color:${status === 'complete' ? GOLD_FULL : COLORS.english};`,
+                    'white-space:nowrap;',
+                ].join('')
+                badge.textContent = status === 'complete'
+                    ? (useEn ? 'Complete' : 'Críochnaithe')
+                    : (useEn ? 'In Progress' : 'Ar Siúl')
+                titleRow.appendChild(badge)
+
+                row.appendChild(titleRow)
+
+                const desc = document.createElement('div')
+                desc.style.cssText = `font-family:${FONTS.english};font-size:0.75rem;color:${COLORS.uiDim};line-height:1.4;margin-top:0.15rem;`
+                desc.textContent = useEn ? text.descEn : text.descGa
+                row.appendChild(desc)
+
+                list.appendChild(row)
+            })
+        }
+        container._refresh()
     }
 
     let swipeStartX = 0, swipeStartT = 0, swiping = false;
@@ -253,6 +325,7 @@ export function createGameMenuHub({
     window.addEventListener('englishOpacityChange', () => {
         _updateTabs()
         domPanels['about']?._updateLanguage?.()
+        domPanels['log']?._refresh?.()
     })
 
     function _open() {
@@ -262,6 +335,7 @@ export function createGameMenuHub({
         SoundBoard.playWeb('MENU_OPEN')
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
+        domPanels['log']?._refresh?.()
         _goTo(curIdx, false);
         requestAnimationFrame(() => { root.style.opacity = '1'; });
     }

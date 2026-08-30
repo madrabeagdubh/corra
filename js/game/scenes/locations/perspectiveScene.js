@@ -1473,11 +1473,25 @@ try {
       const entry = this.narrativeQueue.shift()
       this.textPanel.show({
         irish: entry.ga || entry.irish || '', english: entry.en || entry.english || '',
-        type: 'dialogue',
+        type: 'narrative',
         onDismiss: () => this.time.delayedCall(300, showNext)
       })
     }
-    showNext()
+    // Urchlo is a custom @font-face; Phaser bakes text into a canvas
+    // texture using whatever font is actually loaded at the instant
+    // add.text() runs, and never re-bakes it once the real font finishes
+    // downloading. showIntroNarrative() fires the moment the scene loads --
+    // the worst-case timing for that race -- so unlike dialogue opened
+    // later by a tap, it usually loses it. Same pattern as the (unawaited)
+    // load call in introModal.js, but actually waited on here.
+    if (document.fonts && document.fonts.ready) {
+      Promise.all([
+        document.fonts.load('16px Urchlo'),
+        document.fonts.load('16px Aonchlo'),
+      ]).catch(() => {}).then(showNext)
+    } else {
+      showNext()
+    }
   }
 
   _drawExitDebug() {

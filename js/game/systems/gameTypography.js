@@ -42,6 +42,15 @@ export const TYPE = {
   cardBody:   { size: '26px', font: FONTS.irish,   lineSpacing: 7  },
   cardBodyEn: { size: '22px', font: FONTS.english, lineSpacing: 5  },
 
+  // First-visit area narrative (showIntroNarrative / textPanel type
+  // 'narrative') -- deliberately separate from body/bodyEn so this can be
+  // tuned to feel distinct from spoken NPC dialogue without touching
+  // regular conversation styling. Starts identical to body/bodyEn; change
+  // these two (and COLORS.narrative/narrativeEn below) to give it its own
+  // look.
+  narrative:   { size: '25px', font: FONTS.irish,   lineSpacing: 6  },
+  narrativeEn: { size: '22px', font: FONTS.english, lineSpacing: 4  },
+
   // Button labels (single-language, large enough to tap confidently)
   button:     { size: '20px', font: FONTS.irish,   lineSpacing: 0  },
   buttonEn:   { size: '22px', font: FONTS.english, lineSpacing: 0  },
@@ -68,6 +77,12 @@ export const COLORS = {
   irish:        '#e8dfc0',    // warm parchment -- Irish lines
   english:      '#a0c8a0',    // muted sage -- English lines
   hint:         '#445544',    // dim hint text
+
+  // First-visit area narrative text (see TYPE.narrative/narrativeEn above).
+  // Starts identical to irish/english -- change these to give the
+  // scrolling arrival text its own colour, separate from spoken dialogue.
+  narrative:    '#e8dfc0',
+  narrativeEn:  '#a0c8a0',
 
   // Speakers
   hero:         '#e8dfc0',

@@ -242,12 +242,15 @@ And where are you bound?
 < and come for thee in the darkness.
 % agus go dtiocfaidís ort sa dorchadas.
 
-# The password is "Muireann the Druid knows thy name", so it cannot be
-# given to someone whose name she does not have.
+# The password is "Muireann the Druid knows thy name", given regardless of
+# whether she actually knows it -- simplified from an earlier two-branch
+# version gated on knows_own_name. The only remaining gate is having asked
+# "Fionnbarra?" (knows_of_tollman) -- what matters is that the toll-man's
+# been raised at all, not what she calls you.
 
 * His toll-man?
 % A fhear dola?
-@when note knows_own_name
+@when note knows_of_tollman
 @when !note has_druid_word
 @note has_druid_word
 > His toll-man?
@@ -260,17 +263,6 @@ And where are you bound?
 % Má chasann fear dola Fhionnbarra ort ar an gcladach,
 < thou art to say that Muireann the Druid knows thy name.
 % abair leis go bhfuil d'ainm ag Muireann an Draoi.
-
-* His toll-man?
-% A fhear dola?
-@when note knows_of_tollman
-@when !note knows_own_name
-> His toll-man?
-% A fhear dola?
-< Such is how he does business:
-% Mar seo a dhéanann sé gnó:
-< whom he robs not, he delays.
-% an té nach ngoidfidh sé uaidh, cuirfidh sé moill air.
 
 # ── the road ──────────────────────────────────────────────────────────
 

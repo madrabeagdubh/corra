@@ -4,6 +4,11 @@
  * Panel types:
  *   dialogue        -- scrolls, holds at top for HOLD_MS, then auto-dismisses
  *   examine         -- scrolls, holds at top INDEFINITELY, dismisses only on swipe-up
+ *   narrative       -- same scroll/hold/dismiss behaviour as dialogue, but
+ *                       styled from TYPE.narrative[En]/COLORS.narrative[En]
+ *                       instead of the regular Irish/English tokens, so
+ *                       showIntroNarrative() can look distinct from spoken
+ *                       NPC dialogue
  *   notification    -- short auto-dismiss banner
  *   chat_options    -- legacy buttons panel (kept for back-compat)
  *   archery_prompt  -- top banner, persistent
@@ -348,8 +353,8 @@ export default class TextPanel {
     const sw = this.scene.scale.width
     const sh = this.scene.scale.height
 
-    if (type === 'dialogue' || type === 'examine') {
-      this._buildScrollPanel(irish, english, speaker, sw, sh)
+    if (type === 'dialogue' || type === 'examine' || type === 'narrative') {
+      this._buildScrollPanel(irish, english, speaker, sw, sh, type === 'narrative')
     } else if (type === 'notification') {
       this._buildNotification(irish, english, sw, sh)
     } else if (type === 'chat_options') {
@@ -904,7 +909,20 @@ export default class TextPanel {
 
   // -- Scroll panel (dialogue/examine) --
 
-  _buildScrollPanel(irish, english, speaker, sw, sh) {
+  _buildScrollPanel(irish, english, speaker, sw, sh, isNarrative = false) {
+    // Narrative gets its own font/size/colour tokens (TYPE.narrative[En],
+    // COLORS.narrative[En] in gameTypography.js) so it can look distinct
+    // from spoken NPC dialogue -- both start identical to the regular
+    // Irish/English tokens, so this is a no-op until those are edited.
+    const gaSize    = isNarrative ? TYPE.narrative.size   : IRISH_SIZE
+    const gaFont    = isNarrative ? TYPE.narrative.font   : IRISH_FONT
+    const gaColor   = isNarrative ? COLORS.narrative      : IRISH_COLOR
+    const gaSpacing = isNarrative ? (TYPE.narrative.lineSpacing   ?? 4) : 4
+    const enSize    = isNarrative ? TYPE.narrativeEn.size : ENGLISH_SIZE
+    const enFont    = isNarrative ? TYPE.narrativeEn.font : ENGLISH_FONT
+    const enColor   = isNarrative ? COLORS.narrativeEn    : ENGLISH_COLOR
+    const enSpacing = isNarrative ? (TYPE.narrativeEn.lineSpacing ?? 3) : 3
+
     const panelW   = Math.round(sw * 0.92)
     const panelH   = Math.round(sh * PANEL_H_FRAC)
     const panelX   = Math.round(sw / 2)
@@ -976,9 +994,9 @@ export default class TextPanel {
 
       if (ga) {
         const el = this.scene.add.text(startX, centreY + cy, ga, {
-          fontSize: IRISH_SIZE, fontFamily: IRISH_FONT,
-          color: IRISH_COLOR,
-          wordWrap: { width: textW }, lineSpacing: 4
+          fontSize: gaSize, fontFamily: gaFont,
+          color: gaColor,
+          wordWrap: { width: textW }, lineSpacing: gaSpacing
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
         el.setMask(mask)
         this._objects.push(el)
@@ -989,9 +1007,9 @@ export default class TextPanel {
 
       if (en) {
         const el = this.scene.add.text(startX, centreY + cy, en, {
-          fontSize: ENGLISH_SIZE, fontFamily: ENGLISH_FONT,
-          color: ENGLISH_COLOR,
-          wordWrap: { width: textW }, lineSpacing: 3
+          fontSize: enSize, fontFamily: enFont,
+          color: enColor,
+          wordWrap: { width: textW }, lineSpacing: enSpacing
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
         el.setMask(mask)
         this._objects.push(el)

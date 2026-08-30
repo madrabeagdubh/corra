@@ -25,9 +25,10 @@
  * Voice synthesis: stripped — to be reconnected via voiceSynth.js later.
  */
 
-import { GameSettings } from '../settings/gameSettings.js'
-import { GameState }    from '../systems/gameState.js'
-import { SoundBoard }   from '../systems/soundBoard.js'
+import { GameSettings }  from '../settings/gameSettings.js'
+import { GameState }     from '../systems/gameState.js'
+import { SoundBoard }    from '../systems/soundBoard.js'
+import { announceQuest } from '../systems/quests.js'
 import { DialogueHarp } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
 import { MoonPeek }     from '../systems/moonPeek.js'
@@ -902,9 +903,15 @@ clearNotify() {
   /** Side effects declared on a dialogue node, option, or outcome. Idempotent. */
   _applyEffects(src) {
     if (!src) return
-    if (src.note)          GameState.addNote(src.note)
-    if (src.setQuest)      GameState.setQuest(src.setQuest, 'active')
-    if (src.completeQuest) GameState.setQuest(src.completeQuest, 'complete')
+    if (src.note) GameState.addNote(src.note)
+    if (src.setQuest && GameState.getQuest(src.setQuest) === 'inactive') {
+      GameState.setQuest(src.setQuest, 'active')
+      announceQuest(src.setQuest, 'active', this._scene)
+    }
+    if (src.completeQuest && GameState.getQuest(src.completeQuest) !== 'complete') {
+      GameState.setQuest(src.completeQuest, 'complete')
+      announceQuest(src.completeQuest, 'complete', this._scene)
+    }
   }
 
   _requiresMet(requires) {

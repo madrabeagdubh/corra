@@ -1,6 +1,7 @@
 import BogLocationScene from '../bogScene.js'
 import RoundhouseRenderer from '../../../effects/roundhouseRenderer.js'
 import { GameState } from '../../../systems/gameState.js'
+import { announceQuest } from '../../../systems/quests.js'
 
 // b0 -- the village: a working ráth on its hill.
 // Terrain comes entirely from the heightMap written by gen_village_map.mjs
@@ -89,7 +90,10 @@ export default class BogB0 extends BogLocationScene {
     // Arriving at the rath completes Muireann's errand (q_baile, given on
     // the headland in d3_sea). Completion is on arrival, not on talking to
     // anyone -- the reward is that she has new things to say next time.
-    if (GameState.isQuestActive('q_baile')) GameState.setQuest('q_baile', 'complete')
+    if (GameState.isQuestActive('q_baile')) {
+      GameState.setQuest('q_baile', 'complete')
+      announceQuest('q_baile', 'complete', this)
+    }
     this.roundhouses = new RoundhouseRenderer(this.mapData.houses || [])
     this.perspectiveGround.setStructures(this.roundhouses)
   }

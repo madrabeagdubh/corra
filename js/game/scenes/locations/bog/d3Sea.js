@@ -138,21 +138,6 @@ hasNorthFallback() { return false }
       document.getElementById('swallow-canvas')?.remove()
       this.boatSystem.activate()
       this._initEstuaryWaves()
-
-
-
-      const champion = this.registry.get('selectedChampion')
-      const seenKey  = `d3_sea_estuary_${champion?.id}`
-      if (!localStorage.getItem(seenKey)) {
-        localStorage.setItem(seenKey, 'true')
-        this.time.delayedCall(800, () => {
-          this.textPanel?.show({
-            ga: 'An fharraige. Ag breathnu siar ar Albain den uair dheireanach.',
-            en: 'The sea. Looking back at Scotland for the last time.',
-            type: 'notification',
-          })
-        })
-      }
     })
   }
 

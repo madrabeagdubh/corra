@@ -203,8 +203,8 @@ export const b0Content = {
               first: true,
               say:   'Cé hé an taoiseach anseo? Cé leis an talamh seo?',
               sayEn: 'Who is the chieftain here? Whose land is this?',
-              replyGa: 'Ruadhán mac Colla. Bíonn sé sa halla níos mó anois ná mar a bhíodh.',
-              replyEn: 'Ruadhán mac Colla. He is in the hall more now than he used to be.',
+              replyGa: 'Fionnbarra. Bíonn sé sa halla níos mó anois ná mar a bhíodh.',
+              replyEn: 'Fionnbarra. He is in the hall more now than he used to be.',
             },
             {
               ga: 'Chonaic mé fear ar an mbóthar', en: 'I saw a man on the road',

@@ -92,6 +92,7 @@ And where are you bound?
 < how drear and mournful the memory.
 % mo lean, is duairc an chuimhne í.
 
+
 < There are horrors in that dark country
 % Tá aibhisigh sa tír dhorcha sin
 
@@ -113,7 +114,7 @@ And where are you bound?
 > Ask the heron of the fen. She will know my story.
 % Iarr ar chorr na móna. Is aici a bheidh mo scéal.
 
-< Speak plainly. What business brings you to these lands?
+< Speak plainly. What business brings a stranger to these lands?
 % Freagair go díreach mé. Cén gnó a thóg chuig na tailte seo thú?
 
 > The wind does not explain itself to the standing stone.
@@ -125,22 +126,22 @@ And where are you bound?
 # Both branches set answered_muireann and stay silent on Goll: the errand
 # lives in its own option below so either lie reaches it the same way.
 
-* I learned from Scáthach
+* I trained beneath Scáthach
 % D'fhoghlaim mé ó Scáthach
 @when note told_muireann_truth
 @first
 @note answered_muireann
 
-> I learned from Scáthach of Skye.
+> I trained beneath Scáthach of Skye.
 % D'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.
 < Scáthach.
 % Scáthach.
-> Scáthach herself.
+< Scáthach herself.
 % Scáthach í féin.
-< And she sent thee.
-% Agus sheol sí anseo thú.
+< And she sent thee thus.
+% Agus chuir sí mar seo thú.
 < O Scáthach, daughter of excellence and terror,
-% A Scáthach, a iníon barr feabhais agus uafáis 
+% A Scáthach, a iníon an uafáis agus barr feabhais,
 < thy purpose is dark to me.
 % ní thuigim do chúis.
 
@@ -175,14 +176,15 @@ And where are you bound?
 @when note answered_muireann
 @when !note knows_goll
 @note knows_goll
+@quest q_baile
 > What am I to do, then?
 % Cad atá le déanamh agam, mar sin?
 < But hear me now, {playerVoc}.
 % Ach éist liom anois, {playerVoc}.
 < Thou wilt need iron before the bog is done with thee.
 % Beidh iarann uait sula mbeidh an mhóin thart leat.
-< Go to the dún of Fionnbarra.
-% Téigh go dún Fhionnbarra.
+< Go to the ráth of Fionnbarra.
+% Téigh go ráth Fhionnbarra.
 < Seek out his smith, Goll who does not sleep.
 % Lorg a ghabha, Goll nach gcodlaíonn.
 < Tell him where thou art bound.

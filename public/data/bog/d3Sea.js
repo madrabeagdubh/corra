@@ -9,8 +9,12 @@
 export const d3SeaContent = {
   npcs: [],
   objects: [],
-  introNarrative: [],
-
+introNarrative: [
+  {
+    ga: 'Ábhar sealadach. Cuir Gaeilge cheart anseo.',
+    en: 'The boat noses out of the last channel and the estuary opens ahead, the sea beyond it.'
+  }
+],
   fixedEncounters: [
     {
       id: 'muireann',
@@ -75,10 +79,10 @@ export const d3SeaContent = {
               first: true,
               ga: 'Freagair go díreach',
               en: 'Answer plainly',
-              say: 'Chun na móna ina gcailltear fir, chuig talamh báite Almhain.\nÁit a dtriailtear na Fianna.',
+              say: 'Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.\nÁit a dtriailtear na Fianna.',
               sayEn: 'To the bog that drinks men whole, to Allen\'s sunken ground.\nWhere the Fianna test their own.',
-              replyGa: 'Tá Móin Almhain feicthe agam.\nCé a chonaic riamh an rud a chonaic mé?\nChonaic mé na ceoite a bhrataíonn a croí,\nmo lean, is duairc an chuimhne í.\nAnsin, {playerVoc}, screadann taibhsí na ndaoine a ligeadh i ndearmad\nar dhíoltas sa chaorán is sa tsalachar.\nTá aibhisigh sa tír dhorcha sin\nnach ngéillfidh ach don gha,\nsáite le rún an uafáis.\nAn bhfuil oiliúint ar bith ort?',
-              replyEn: 'I have seen the bog of Allen.\nWho ever saw what I have seen?\nI have seen the mists that shroud its heart,\nhow drear and mournful the memory.\nThere, {playerVoc}, the wraiths of the forgotten\ncry out for vengeance amidst the murk and the mire.\nThere are horrors in that dark country\nthat yield to nothing save the spear,\ndriven with dire intent.\nHast thou had any training at all?',
+              replyGa: 'Tá Móin Almhain feicthe agam.\nCé a chonaic riamh an rud a chonaic mé?\nTá na ceoite a bhrataíonn an croí feicaithe agam,\nmo lean, is duairc an chuimhne í.\nTá aibhisigh sa tír dhorcha sin\nnach ngéillfidh ach don gha,\nsáite le rún an uafáis.\nAn bhfuil oiliúint ar bith ort?',
+              replyEn: 'I have seen the bog of Allen.\nWho ever saw what I have seen?\nI have seen the mists that shroud its heart,\nhow drear and mournful the memory.\nThere are horrors in that dark country\nthat yield to nothing save the spear,\ndriven with dire intent.\nHast thou had any training at all?',
             },
             {
               requires: { noteAbsent: 'told_muireann_truth' },
@@ -137,12 +141,13 @@ export const d3SeaContent = {
             {
               requires: { note: 'answered_muireann', noteAbsent: 'knows_goll' },
               note: 'knows_goll',
+              setQuest: 'q_baile',
               ga: 'Cuir comhairle orm',
               en: 'Advise me',
               say: 'Cad atá le déanamh agam, mar sin?',
               sayEn: 'What am I to do, then?',
-              replyGa: 'Ach éist liom anois, {playerVoc}.\nBeidh iarann uait sula mbeidh an mhóin thart leat.\nTéigh go dún Fhionnbarra.\nLorg a ghabha, Goll nach gcodlaíonn.\nInis dó cá bhfuil do thriall.\nBeidh a fhios aige cad atá le déanamh.',
-              replyEn: 'But hear me now, {playerVoc}.\nThou wilt need iron before the bog is done with thee.\nGo to the dún of Fionnbarra.\nSeek out his smith, Goll who does not sleep.\nTell him where thou art bound.\nHe will know what is required.',
+              replyGa: 'Ach éist liom anois, {playerVoc}.\nBeidh iarann uait sula mbeidh an mhóin thart leat.\nTéigh go ráth Fhionnbarra.\nLorg a ghabha, Goll nach gcodlaíonn.\nInis dó cá bhfuil do thriall.\nBeidh a fhios aige cad atá le déanamh.',
+              replyEn: 'But hear me now, {playerVoc}.\nThou wilt need iron before the bog is done with thee.\nGo to the ráth of Fionnbarra.\nSeek out his smith, Goll who does not sleep.\nTell him where thou art bound.\nHe will know what is required.',
             },
             {
               requires: { note: 'answered_muireann', noteAbsent: 'knows_fionnbarra' },

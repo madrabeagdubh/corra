@@ -11,8 +11,11 @@ export const d3SeaContent = {
   objects: [],
 introNarrative: [
   {
-    ga: 'Ábhar sealadach. Cuir Gaeilge cheart anseo.',
-    en: 'The boat noses out of the last channel and the estuary opens ahead, the sea beyond it.'
+
+
+   ga: 'Seacht lá.\n\nSeacht lá óna dfág mé oileán an Cheo,\nsíos caolas caol Mhaol an tSnoachta\náit a raibh na fallaí carraige ag claonadh isteach go naimhdach.\n\ ansin Trasna Mhuir Mhaoil \náit ar éirigh mo ghéaga chomh trom le luaidhe\na ghiorraigh m\'orthaí i gcoinne an tsrutha.\n\nThar Latharna.\n\nThar scornach fhairsing Loch Cuan\nthar guaillí dorcha Chairlinn.\n\nAgus timpeall ar Chuailnge a ghobann amach sa mhuir\ncosúl le smig thaoisigh uasail nach géilleann,\nisteach san uisce níos socaire.\n\nAn é seo an áit?\n\nTá boladh milis air faoin sáile.\n\nTá éanlaith chladaigh ag piocadh ar na himeallacha, réchúiseach, manach ciúin.\n\nD\'fhéadfadh gur í an Bhóinn í.\n\nD\'fhéadfadh gur í an Bhóinn í.',
+	  en: 'Seven days.\n\nSeven days from the grey of Skye,\ndown the narrow Sound of Mull\nwhere rock-walls leaned close as enemies.\n\nThen across the Sea of Moyle\nwhere my arms became leaden\nand my charms became terse against the current.\n\nPast Larne.\n\nPast the wide throat of Strangford\npast Carlingford\'s dark shoulders.\n\nAnd round Cooley where the land juts into the sea\nlike a chieftain\'s chin, proud and unyielding,\ninto calmer water.\n\nIs this the place?\n\nThe smell of it is sweet beneath the salt.\n\nWading birds pick at the margins, unhurried, silent as monks.\n\nIt may be the Boyne.\n\nIt may be the Boyne.'
+
   }
 ],
   fixedEncounters: [
@@ -180,7 +183,7 @@ introNarrative: [
               replyEn: 'Brocán and Dorchán,\nand the grey one they call Scáthán.\nIt is a dangerous curiosity.\nDo not think of them,\nlest they hear the thought in thy skull\nand come for thee in the darkness.',
             },
             {
-              requires: { note: 'knows_own_name', noteAbsent: 'has_druid_word' },
+              requires: { note: 'knows_of_tollman', noteAbsent: 'has_druid_word' },
               note: 'has_druid_word',
               ga: 'A fhear dola?',
               en: 'His toll-man?',
@@ -188,15 +191,6 @@ introNarrative: [
               sayEn: 'His toll-man?',
               replyGa: 'Mar seo a dhéanann sé gnó:\nan té nach ngoidfidh sé uaidh, cuirfidh sé moill air.\nMá chasann fear dola Fhionnbarra ort ar an gcladach,\nabair leis go bhfuil d\'ainm ag Muireann an Draoi.',
               replyEn: 'Such is how he does business:\nwhom he robs not, he delays.\nIf Fionnbarra\'s toll-man should meet thee at the strand,\nthou art to say that Muireann the Druid knows thy name.',
-            },
-            {
-              requires: { note: 'knows_of_tollman', noteAbsent: 'knows_own_name' },
-              ga: 'A fhear dola?',
-              en: 'His toll-man?',
-              say: 'A fhear dola?',
-              sayEn: 'His toll-man?',
-              replyGa: 'Mar seo a dhéanann sé gnó:\nan té nach ngoidfidh sé uaidh, cuirfidh sé moill air.',
-              replyEn: 'Such is how he does business:\nwhom he robs not, he delays.',
             },
             {
               requires: { note: 'asked_hounds' },

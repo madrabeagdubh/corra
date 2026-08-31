@@ -82,8 +82,24 @@ export function drawPlayerAnimated(pgr, ctx, img, screenX, screenY, scaledTileW,
     const boatVY = pgr._boatActive ? (pgr.scene?.boatSystem?._vy ?? 0) : 0
     const boatSpd = Math.hypot(boatVX, boatVY)
 if (pgr._boatActive) {
-  if (boatVX < -4)      pgr._facingLeft = true
-  else if (boatVX > 4)  pgr._facingLeft = false
+  // Idle drift (boatSystem.js's east current) plus joystick noise near its
+  // own deadzone can push boatVX back and forth across a narrow threshold
+  // many times a second while the boat isn't actually being paddled --
+  // each crossing used to flip the sprite, causing a visible left/right
+  // twitch at rest. Real paddling moves the boat at 80-160 px/s, an order
+  // of magnitude above this, so widening the deadzone costs nothing there.
+  // Requiring the new direction to hold for several consecutive frames
+  // before committing filters out any remaining single-frame noise.
+  const FLIP_THRESHOLD    = 15
+  const FLIP_HOLD_FRAMES  = 30
+  const joystickActive = (pgr.scene?.joystick?.force ?? 0) > 10
+  const pathActive     = (pgr.scene?.boatSystem?._pathForce ?? 0) > 10
+  if (joystickActive || pathActive) {
+    if (boatVX < -4)      pgr._facingLeft = true
+    else if (boatVX > 4)  pgr._facingLeft = false
+  } else {
+    pgr._facingLeft = true   // fixed idle orientation
+  }
 } else if (p?.isMoving) {
   if (p.moveDirection.x < 0)      pgr._facingLeft = true
   else if (p.moveDirection.x > 0) pgr._facingLeft = false
@@ -378,6 +394,13 @@ const strokeT = pgr._strokeT ?? 0
       }
 
       ctx.transform(scaleX * (_playerFacing ?? pgr._facingLeft ? -1 : 1), lean, 0, scaleY, sway, -bounce)
+    } else if (pgr._boatActive) {
+      // Idle sway/breathing (breathScale/shift/watch below) looks right for
+      // a person standing on land but reads as unwanted twitch for a
+      // seated figure in a boat -- disabled here per request. The boat's
+      // own wobble/rock animation already provides idle motion in this
+      // context, so this is just the facing flip with no added sway.
+      ctx.transform((_playerFacing ?? pgr._facingLeft) ? -1 : 1, 0, 0, 1, 0, 0)
     } else {
       const breathScale = 1.0 + Math.sin(t * 1.1) * 0.014
       const shift       = Math.sin(t * 0.6) * scaledTileW * 0.018

@@ -48,7 +48,7 @@ const MANANNAN_LINES = [
   { ga: 'i nglas ar maide oclánach',                                     en: 'locked upon a groaning oar',                             speaker: 'manannan' },
   { ga: 'Agus feicim ionait cíanta bhfúr ndícheall',                     en: 'And I see in you the ages of mortal striving',           speaker: 'manannan' },
   { ga: 'Is mór an t-iontas liom é!',                                    en: 'At which I marvel greatly!',                             speaker: 'manannan' },
-  { ga: 'A leanbh baoth faoi mhóid bheith saor',                         en: 'O reckless child of defiant vow',                        speaker: 'manannan' },
+  { ga: 'A leanbh baoth faoi mhóid bheith saor',                         en: 'O reckless child of the defiant vow',                        speaker: 'manannan' },
   { ga: "Fill ar d'oileán glas",                                         en: 'Go back to thy green island',                            speaker: 'manannan' },
   { ga: 'Scaoileann an fharraige saor tú...',                            en: 'The sea releases thee...',                               speaker: 'manannan' },
   { ga: 'an uair seo.',                                                   en: 'this time.',                                             speaker: 'manannan' },

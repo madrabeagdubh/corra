@@ -36,8 +36,8 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'A thiomáineann an bád beag ar aghaidh, agus ar aghaidh...',
-            en: 'That drives the small boat ever on...',
+            ga: 'a thiomáineann an bád beag ar aghaidh, agus ar aghaidh...',
+            en: 'that drives the small boat ever on...',
             speaker: 'hero',
         },
               {

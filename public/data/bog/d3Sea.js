@@ -13,8 +13,8 @@ introNarrative: [
   {
 
 
-   ga: 'Seacht lá.\n\nSeacht lá óna dfág mé oileán an Cheo,\nsíos caolas caol Mhaol an tSnoachta\náit a raibh na fallaí carraige ag claonadh isteach go naimhdach.\n\ ansin Trasna Mhuir Mhaoil \náit ar éirigh mo ghéaga chomh trom le luaidhe\na ghiorraigh m\'orthaí i gcoinne an tsrutha.\n\nThar Latharna.\n\nThar scornach fhairsing Loch Cuan\nthar guaillí dorcha Chairlinn.\n\nAgus timpeall ar Chuailnge a ghobann amach sa mhuir\ncosúl le smig thaoisigh uasail nach géilleann,\nisteach san uisce níos socaire.\n\nAn é seo an áit?\n\nTá boladh milis air faoin sáile.\n\nTá éanlaith chladaigh ag piocadh ar na himeallacha, réchúiseach, manach ciúin.\n\nD\'fhéadfadh gur í an Bhóinn í.\n\nD\'fhéadfadh gur í an Bhóinn í.',
-	  en: 'Seven days.\n\nSeven days from the grey of Skye,\ndown the narrow Sound of Mull\nwhere rock-walls leaned close as enemies.\n\nThen across the Sea of Moyle\nwhere my arms became leaden\nand my charms became terse against the current.\n\nPast Larne.\n\nPast the wide throat of Strangford\npast Carlingford\'s dark shoulders.\n\nAnd round Cooley where the land juts into the sea\nlike a chieftain\'s chin, proud and unyielding,\ninto calmer water.\n\nIs this the place?\n\nThe smell of it is sweet beneath the salt.\n\nWading birds pick at the margins, unhurried, silent as monks.\n\nIt may be the Boyne.\n\nIt may be the Boyne.'
+	  ga: 'Seacht lá\n\nSeacht lá óna d\'fhág mé \n\nOileán an Cheo\n\nsíos Caol Muile\n\nlena fhallaí carraigracha \n\na chlaonann isteach go naimhdreach\n\nansin trasna Mhuir Mhaoil\n\nThar Latharna\n\nThar scornach fhairsing Loch Cuan\n\nthar ghuaillí dorcha Chairlinn\n\nTimpeall ar Chuailnge:\n\nsmig thaoisigh uasail\n\nag ghoba amach sa mhuir\n\ngan ghealladh\n\nisteach liom ar dheireadh\n\nuiscí níos socaire\n\nAn é seo an áit?\n\nD\'fhéadfadh gur í an Bhóinn í\n\nD\'fhéadfadh gur í an Bhóinn í',
+	  en: 'Seven days\n\nSeven days since I left \n\nthe isle of Skye\n\ndown the narrow Sound of Mull\n\nwith it\'s rocky walls \n\nleaning close as enemies\n\nThen across the Sea of Moyle\n\nPast Larne\n\nPast the wide throat of Strangford\n\npast Carlingford\'s dark shoulders\n\nAnd round Cooley:\n\nthe chin of a noble chieftain\n\njutting out into the sea\n\nwithout surrender\n\nat last I enter\n\ncalmer waters\n\nIs this the place?\n\nIt may be the Boyne\n\nIt may be the Boyne'
 
   }
 ],
@@ -49,8 +49,8 @@ introNarrative: [
           easca: 'playerName',
           eascaMatch: 'knows_own_name',
           continue: true,
-          ga: 'Cé atá ag rámhaíocht go cróga\ni dtreo béal na Bóinne?',
-          en: 'Who is it that is rowing bravely\ntowards the mouth of the Boyne?',
+          ga: 'Cóir an aghaidh ar mhuir na srutha!\nGlé an éadan ós cionn na maidí!\nCé atá ag rámhaíocht go cróga\ni dtreo béal na Bóinne?',
+          en: 'Fair the face that rides the current!\nBright the brow above the oars!\nWho is it that\'s rowing bravely\ntowards the mouth of the Boyne?',
         },
 
         // ── node 1 — she answers, knowing the name ────────────────
@@ -80,8 +80,8 @@ introNarrative: [
               requires: { noteAbsent: 'evaded_muireann' },
               note: 'told_muireann_truth',
               first: true,
-              ga: 'Freagair go díreach',
-              en: 'Answer plainly',
+              ga: 'Freagair an cheist',
+              en: 'Answer the question',
               say: 'Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.\nÁit a dtriailtear na Fianna.',
               sayEn: 'To the bog that drinks men whole, to Allen\'s sunken ground.\nWhere the Fianna test their own.',
               replyGa: 'Tá Móin Almhain feicthe agam.\nCé a chonaic riamh an rud a chonaic mé?\nTá na ceoite a bhrataíonn an croí feicaithe agam,\nmo lean, is duairc an chuimhne í.\nTá aibhisigh sa tír dhorcha sin\nnach ngéillfidh ach don gha,\nsáite le rún an uafáis.\nAn bhfuil oiliúint ar bith ort?',
@@ -91,8 +91,8 @@ introNarrative: [
               requires: { noteAbsent: 'told_muireann_truth' },
               note: 'evaded_muireann',
               first: true,
-              ga: 'Sraon',
-              en: 'Parry',
+              ga: 'Sraon an cheist',
+              en: 'Parry the question',
               exchange: [
                 {
                   say: 'Iarr ar chorr na móna. Is aici a bheidh mo scéal.',
@@ -114,10 +114,20 @@ introNarrative: [
               first: true,
               ga: 'D\'fhoghlaim mé ó Scáthach',
               en: 'I trained beneath Scáthach',
-              say: 'D\'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.',
-              sayEn: 'I trained beneath Scáthach of Skye.',
-              replyGa: 'Scáthach.\nScáthach í féin.\nAgus chuir sí mar seo thú.\nA Scáthach, a iníon an uafáis agus barr feabhais,\nní thuigim do chúis.',
-              replyEn: 'Scáthach.\nScáthach herself.\nAnd she sent thee thus.\nO Scáthach, daughter of excellence and terror,\nthy purpose is dark to me.',
+              exchange: [
+                {
+                  say: 'D\'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.',
+                  sayEn: 'I trained beneath Scáthach of Skye.',
+                  replyGa: 'Scáthach.',
+                  replyEn: 'Scáthach.',
+                },
+                {
+                  say: 'Scáthach í féin.',
+                  sayEn: 'Scáthach herself.',
+                  replyGa: 'Agus chuir sí mar seo thú, gan slea.\nA Scáthach, a iníon an uafáis agus barr feabhais,\nní thuigim do chúis.',
+                  replyEn: 'And she sent thee thus, without a spear.\nO Scáthach, daughter of excellence and terror,\nthy purpose is dark to me.',
+                },
+              ],
             },
             {
               requires: { note: 'told_muireann_truth' },
@@ -125,8 +135,8 @@ introNarrative: [
               first: true,
               ga: 'Cuirfidh Fionn faoi arm mé',
               en: 'Fionn will arm me',
-              say: 'Níl ceann agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.',
-              sayEn: 'I have none. Fionn will arm me when I stand before him.',
+              say: 'Níl sleá agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.',
+              sayEn: 'I have no spear. Fionn will arm me when I stand before him.',
               replyGa: 'Is uaisle le Fionn an fhilíocht ná an tsleá.\nNí ga an chéad rud a iarrfaidh sé ort.',
               replyEn: 'Fionn keeps poetry before the blade.\nA spear is not the first thing he will ask of thee.',
             },
@@ -138,8 +148,8 @@ introNarrative: [
               en: 'Parry again',
               say: 'Tá rud ag feitheamh orm nach bhfuil feicthe fós.',
               sayEn: 'There is a thing that waits, and it is not yet found.',
-              replyGa: 'Imigh leat mar sin.\nTéigh san áit nach bhfuil tú ag dul.',
-              replyEn: 'Go then.\nGo where thou art not going.',
+              replyGa: 'Imigh leat mar sin.',
+              replyEn: 'Go then.',
             },
             {
               requires: { note: 'answered_muireann', noteAbsent: 'knows_goll' },
@@ -149,18 +159,18 @@ introNarrative: [
               en: 'Advise me',
               say: 'Cad atá le déanamh agam, mar sin?',
               sayEn: 'What am I to do, then?',
-              replyGa: 'Ach éist liom anois, {playerVoc}.\nBeidh iarann uait sula mbeidh an mhóin thart leat.\nTéigh go ráth Fhionnbarra.\nLorg a ghabha, Goll nach gcodlaíonn.\nInis dó cá bhfuil do thriall.\nBeidh a fhios aige cad atá le déanamh.',
-              replyEn: 'But hear me now, {playerVoc}.\nThou wilt need iron before the bog is done with thee.\nGo to the ráth of Fionnbarra.\nSeek out his smith, Goll who does not sleep.\nTell him where thou art bound.\nHe will know what is required.',
+              replyGa: 'Éist liom anois, {playerVoc}.\nBeidh iarann uait sula mbeidh an mhóin bhainnte amach agat.\nTéigh go ráth Fhionnbarra.\nLorg a ghabha, Goll nach gcodlaíonn.\nInis dó cá bhfuil do thriall.\nBeidh a fhios aige cad atá le déanamh.',
+              replyEn: 'Hear me now, {playerVoc}.\nThou wilt need iron before entering the bog.\nGo to the ráth of Fionnbarra.\nSeek out his smith, Goll who does not sleep.\nTell him where thou art bound.\nHe will know what is required.',
             },
             {
               requires: { note: 'answered_muireann', noteAbsent: 'knows_fionnbarra' },
               note: 'knows_fionnbarra',
               ga: 'Cá bhfuil mé?',
               en: 'Where am I?',
-              say: 'Cé leis an trá seo?',
-              sayEn: 'Whose shore is this?',
-              replyGa: 'Tháinig do bháidín go béal na Bóinne ghlé ghroí.\nIs léi féin an trá seo ar dtús.\nIs é Fionnbarra mac Dubhloingse Taoiseach an ghleanna seo.',
-              replyEn: 'Thy little boat has reached the mouth of Bóinn the bright and winding.\nThis shore belongs first to her.\nFionnbarra mac Dubhloingse is Chief of this valley.',
+              say: 'Cá bhfuil mé?',
+              sayEn: 'Where am I?',
+              replyGa: 'Tháinig do bháidín go béal na Bóinne ghlé lúbach.\nIs léi féin an trá seo ar dtús.\nIs é Fionnbarra mac Dubhloingse Taoiseach an ghleann.',
+              replyEn: 'Thy little boat has reached the mouth of Bóinn the bright and winding.\nThis shore belongs first to her.\nFionnbarra mac Dubhloingse is Chief of the valley.',
             },
             {
               requires: { note: 'knows_fionnbarra', noteAbsent: 'knows_of_tollman' },
@@ -169,13 +179,13 @@ introNarrative: [
               en: 'Fionnbarra?',
               say: 'Cén cineál duine é Fionnbarra?',
               sayEn: 'What kind of man is Fionnbarra?',
-              replyGa: 'Ní fear éagórach é Fionnbarra.\nIs iomaí cú atá aige.\nAch tá a fhear dola ag feitheamh ag an abhainn agus aghaidh mar charraig chrosta air.',
+              replyGa: 'Ní fear éagórach é Fionnbarra.\nIs iomaí cú atá aige.\nAch tá a fhear dola ag feitheamh ag an abhainn agus aghaidh mar charraig chrosta aige.',
               replyEn: 'Fionnbarra is not an unjust man.\nHis hounds are many.\nBut his toll-man waits at the river with a face like an angry stone.',
             },
             {
               requires: { note: 'knows_of_tollman', noteAbsent: 'asked_hounds' },
               note: 'asked_hounds',
-              ga: 'A chuid con?',
+              ga: 'A con?',
               en: 'His hounds?',
               say: 'Inis dom faoina chuid con.',
               sayEn: 'Tell me of his hounds.',

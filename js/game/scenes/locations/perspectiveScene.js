@@ -1453,7 +1453,13 @@ try {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     if (!champion) return
     const seenKey = `${this.scene.key}_intro_${champion.id}`
-    if (localStorage.getItem(seenKey)) return
+    // ?resetIntro=1 in the URL bypasses the once-per-champion check for this
+    // load only -- doesn't touch localStorage, so a normal reload afterward
+    // goes back to its usual seen/unseen state. For recording/testing this
+    // without needing incognito (which blocks screen recording on some
+    // devices).
+    const forceReplay = new URLSearchParams(window.location.search).get('resetIntro') === '1'
+    if (localStorage.getItem(seenKey) && !forceReplay) return
     const narrative = this.mapData.introNarrative
     if (!narrative?.length) return
     this.narrativeInProgress = true

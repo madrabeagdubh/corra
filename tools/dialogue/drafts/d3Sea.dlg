@@ -35,8 +35,15 @@
 @easca playerName
 @eascaMatch knows_own_name
 @continue
-Who is it that is rowing bravely
+Bright the brow above the oars
+% Geal an éadan os cionn na maidí
+
+A hero's light upon the brow   
+% Solas gaiscígh ar an éadan
+
+Who is it that's rowing bravely
 % Cé atá ag rámhaíocht go cróga
+
 towards the mouth of the Boyne?
 % i dtreo béal na Bóinne?
 
@@ -70,8 +77,8 @@ And where are you bound?
 
 # ── her question — TWO OPTIONS ────────────────────────────────────────
 
-* Answer plainly
-% Freagair go díreach
+* Answer the question
+% Freagair an cheist
 @when !note evaded_muireann
 @first
 @note told_muireann_truth
@@ -105,8 +112,8 @@ And where are you bound?
 < Hast thou had any training at all?
 % An bhfuil oiliúint ar bith ort?
 
-* Parry
-% Sraon
+* Parry the question
+% Sraon an cheist
 @when !note told_muireann_truth
 @first
 @note evaded_muireann
@@ -136,10 +143,10 @@ And where are you bound?
 % D'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.
 < Scáthach.
 % Scáthach.
-< Scáthach herself.
+> Scáthach herself.
 % Scáthach í féin.
-< And she sent thee thus.
-% Agus chuir sí mar seo thú.
+< And she sent thee thus, without a spear.
+% Agus chuir sí mar seo thú, gan slea.
 < O Scáthach, daughter of excellence and terror,
 % A Scáthach, a iníon an uafáis agus barr feabhais,
 < thy purpose is dark to me.
@@ -150,8 +157,8 @@ And where are you bound?
 @when note told_muireann_truth
 @first
 @note answered_muireann
-> I have none. Fionn will arm me when I stand before him.
-% Níl ceann agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.
+> I have no spear. Fionn will arm me when I stand before him.
+% Níl sleá agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.
 < Fionn keeps poetry before the blade.
 % Is uaisle le Fionn an fhilíocht ná an tsleá.
 < A spear is not the first thing he will ask of thee.
@@ -166,8 +173,7 @@ And where are you bound?
 % Tá rud ag feitheamh orm nach bhfuil feicthe fós.
 < Go then.
 % Imigh leat mar sin.
-< Go where thou art not going.
-% Téigh san áit nach bhfuil tú ag dul.
+
 
 # ── the errand — reachable from ANY of the three branches above ───────
 
@@ -179,10 +185,10 @@ And where are you bound?
 @quest q_baile
 > What am I to do, then?
 % Cad atá le déanamh agam, mar sin?
-< But hear me now, {playerVoc}.
-% Ach éist liom anois, {playerVoc}.
-< Thou wilt need iron before the bog is done with thee.
-% Beidh iarann uait sula mbeidh an mhóin thart leat.
+< Hear me now, {playerVoc}.
+% Éist liom anois, {playerVoc}.
+< Thou wilt need iron before entering the bog.
+% Beidh iarann uait sula mbeidh an mhóin bhainnte amach agat.
 < Go to the ráth of Fionnbarra.
 % Téigh go ráth Fhionnbarra.
 < Seek out his smith, Goll who does not sleep.
@@ -199,14 +205,14 @@ And where are you bound?
 @when note answered_muireann
 @when !note knows_fionnbarra
 @note knows_fionnbarra
-> Whose shore is this?
-% Cé leis an trá seo?
+> Where am I?
+% Cá bhfuil mé?
 < Thy little boat has reached the mouth of Bóinn the bright and winding.
-% Tháinig do bháidín go béal na Bóinne ghlé ghroí.
+% Tháinig do bháidín go béal na Bóinne ghlé lúbach.
 < This shore belongs first to her.
 % Is léi féin an trá seo ar dtús.
-< Fionnbarra mac Dubhloingse is Chief of this valley.
-% Is é Fionnbarra mac Dubhloingse Taoiseach an ghleanna seo.
+< Fionnbarra mac Dubhloingse is Chief of the valley.
+% Is é Fionnbarra mac Dubhloingse Taoiseach an ghleann.
 
 * Fionnbarra?
 % Fionnbarra?
@@ -220,10 +226,10 @@ And where are you bound?
 < His hounds are many.
 % Is iomaí cú atá aige.
 < But his toll-man waits at the river with a face like an angry stone.
-% Ach tá a fhear dola ag feitheamh ag an abhainn agus aghaidh mar charraig chrosta air.
+% Ach tá a fhear dola ag feitheamh ag an abhainn agus aghaidh mar charraig chrosta aige.
 
 * His hounds?
-% A chuid con?
+% A con?
 @when note knows_of_tollman
 @when !note asked_hounds
 @note asked_hounds
@@ -241,12 +247,6 @@ And where are you bound?
 % ar eagla go gcloisfidís an smaoineamh i do chloigeann
 < and come for thee in the darkness.
 % agus go dtiocfaidís ort sa dorchadas.
-
-# The password is "Muireann the Druid knows thy name", given regardless of
-# whether she actually knows it -- simplified from an earlier two-branch
-# version gated on knows_own_name. The only remaining gate is having asked
-# "Fionnbarra?" (knows_of_tollman) -- what matters is that the toll-man's
-# been raised at all, not what she calls you.
 
 * His toll-man?
 % A fhear dola?

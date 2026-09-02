@@ -10,25 +10,21 @@ export const returnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'go n-iompróidh an naomhóg abhaile mé',
-            en: 'that the curragh carry me home',
+            ga: 'go n-iompróidh an naomhóg mé',
+            en: 'that the curragh carry me',
             speaker: 'hero',
         },
         {
-            ga: 'Leagfaidh mé chos amárach',
-            en: 'I shall set foot tomorrow',
+            ga: 'go portach gan tóin',
+            en: 'to a bottomless fen',
             speaker: 'hero',
         },
-        {
-            ga: 'i bportach gan tóin',
-            en: 'in a bottomless fen',
+         {
+            ga: 'Cuireann Móin Almhain faitíos orm',
+            en: 'The Bog of Allen frightens me',
             speaker: 'hero',
         },
-       {
-            ga: 'Tá fíachla sa dorchadas sin',
-            en: 'There are teeth in that darkness',
-            speaker: 'hero',
-        },
+
         {
             ga: 'Agus cad chuige an turas?',
             en: 'And what is the purpose of the journey?',
@@ -43,27 +39,12 @@ export const returnCrossingTexts = {
             ga: 'An bhfuil dallamullóg orm?',
             en: 'Am I blinded by foolishness?',
             speaker: 'hero',
-        },
-         {
-            ga: 'Cuireann Móin Almhain faitíos orm',
-            en: 'The Bog of Allen frightens me',
-            speaker: 'hero',
-        },
-        {
+        },        {
             ga: 'ach is leoir sin de dol smaointe',
             en: 'Enough. Such thoughts are snares',
             speaker: 'hero',
         },
-        {
-            ga: 'Ní dhéanfainn léirscrios le maíomh',
-            en: 'I won\'t let boastfullness cause havoc',
-            speaker: 'hero',
-        },
-        {
-            ga: 'ná ní creachfaidh mheirt mhisneach.',
-            en: 'nor will meekness plunder courage',
-            speaker: 'hero',
-        },
+       
         {
             ga: 'Rachfaidh mé mar chorra réisc',
             en: 'I shall go as the heron',

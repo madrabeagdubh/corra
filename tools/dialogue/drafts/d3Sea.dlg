@@ -38,9 +38,6 @@
 Bright the brow above the oars
 % Geal an éadan os cionn na maidí
 
-A hero's light upon the brow   
-% Solas gaiscígh ar an éadan
-
 Who is it that's rowing bravely
 % Cé atá ag rámhaíocht go cróga
 
@@ -84,33 +81,19 @@ And where are you bound?
 @note told_muireann_truth
 > To the bog that drinks men whole, to Allen's sunken ground.
 % Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.
-> Where the Fianna test their own.
-% Áit a dtriailtear na Fianna.
 
-< I have seen the bog of Allen.
-% Tá Móin Almhain feicthe agam.
+< I have seen the bog of Allen!
+% Tá Móin Almhain feicthe agam!
 
-< Who ever saw what I have seen?
-% Cé a chonaic riamh an rud a chonaic mé?
+< Who has seen what I have seen?
+% Cé a bhfacadh a leithéad?
 
-< I have seen the mists that shroud its heart,
-% Tá na ceoite a bhrataíonn an croí feicaithe agam,
+< I have seen mists that shroud the heart
+% Tá  ceoite feicaithe agam,a bhrataíonn an croí
 
 < how drear and mournful the memory.
 % mo lean, is duairc an chuimhne í.
 
-
-< There are horrors in that dark country
-% Tá aibhisigh sa tír dhorcha sin
-
-< that yield to nothing save the spear,
-% nach ngéillfidh ach don gha,
-
-< driven with dire intent.
-% sáite le rún an uafáis.
-
-< Hast thou had any training at all?
-% An bhfuil oiliúint ar bith ort?
 
 * Parry the question
 % Sraon an cheist
@@ -118,11 +101,6 @@ And where are you bound?
 @first
 @note evaded_muireann
 
-> Ask the heron of the fen. She will know my story.
-% Iarr ar chorr na móna. Is aici a bheidh mo scéal.
-
-< Speak plainly. What business brings a stranger to these lands?
-% Freagair go díreach mé. Cén gnó a thóg chuig na tailte seo thú?
 
 > The wind does not explain itself to the standing stone.
 % Ní mhíníonn an ghaoth í féin don ghallán.
@@ -133,38 +111,6 @@ And where are you bound?
 # Both branches set answered_muireann and stay silent on Goll: the errand
 # lives in its own option below so either lie reaches it the same way.
 
-* I trained beneath Scáthach
-% D'fhoghlaim mé ó Scáthach
-@when note told_muireann_truth
-@first
-@note answered_muireann
-
-> I trained beneath Scáthach of Skye.
-% D'fhoghlaim mé ó Scáthach, ar Oileán an Cheo.
-< Scáthach.
-% Scáthach.
-> Scáthach herself.
-% Scáthach í féin.
-< And she sent thee thus, without a spear.
-% Agus chuir sí mar seo thú, gan slea.
-< O Scáthach, daughter of excellence and terror,
-% A Scáthach, a iníon an uafáis agus barr feabhais,
-< thy purpose is dark to me.
-% ní thuigim do chúis.
-
-* Fionn will arm me
-% Cuirfidh Fionn faoi arm mé
-@when note told_muireann_truth
-@first
-@note answered_muireann
-> I have no spear. Fionn will arm me when I stand before him.
-% Níl sleá agam. Cuirfidh Fionn faoi arm mé nuair a sheasfaidh mé os a chomhair.
-< Fionn keeps poetry before the blade.
-% Is uaisle le Fionn an fhilíocht ná an tsleá.
-< A spear is not the first thing he will ask of thee.
-% Ní ga an chéad rud a iarrfaidh sé ort.
-
-* Parry again
 % Sraon arís
 @when note evaded_muireann
 @first

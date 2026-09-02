@@ -1070,8 +1070,25 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
               // beyond the map edge), so the flat-fill path matters most
               // here. Falls back to the textured draw if the average
               // colour isn't ready yet.
-              if (!lodRow || !this._lodFillQuad(this._gCtx, mGid, mTint, horizonFade, _pTL, _pTR, _pBL, _pBR)) {
-                this._drawTrapezoidTinted(this._gCtx, mGid, _pTL, _pTR, _pBL, _pBR, mTint)
+              //
+              // gid 731 ("waterside" sloping bank) gets its own, much
+              // higher threshold: its source texture is a fine per-pixel
+              // dither blend (confirmed by inspecting the tileset image
+              // directly) rather than the coarser blocky colour regions
+              // most tiles use, so nearest-neighbour minification aliases
+              // it into a visible checkerboard well before it's small
+              // enough to trip the general LOD_MIN_ROW_PX cutoff -- the
+              // "hollow"-looking terrain reported at a distance. A flat
+              // average-colour fill is visually equivalent to this tile's
+              // intended soft blend look, so flattening it sooner costs
+              // nothing.
+              {
+                const _rowPxHere = yBotClamped - yTopClamped
+                const _lodMinHere = mGid === 731 ? 40 : PerspectiveGroundRenderer.LOD_MIN_ROW_PX
+                const _lodRowHere = lodRow || _rowPxHere < _lodMinHere
+                if (!_lodRowHere || !this._lodFillQuad(this._gCtx, mGid, mTint, horizonFade, _pTL, _pTR, _pBL, _pBR)) {
+                  this._drawTrapezoidTinted(this._gCtx, mGid, _pTL, _pTR, _pBL, _pBR, mTint)
+                }
               }
               this._gCtx.globalAlpha = 1.0
             }
@@ -1159,7 +1176,17 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
             // LOD: same corner coords either way, so terrain contours
             // and elevation offsets are preserved -- only the interior
             // texture (invisible at this size) is replaced.
-            if (!lodRow || !this._lodFillQuad(this._gCtx, gid0, tint0, tileAlpha, _qTL, _qTR, _qBL, _qBR)) {
+            //
+            // gid 731 ("waterside" sloping bank) gets its own, much
+            // higher threshold -- see the matching comment in the
+            // phantom-tile branch above for why: its source texture is a
+            // fine per-pixel dither that aliases into a visible
+            // checkerboard ("hollow" terrain) at a distance well before
+            // it's small enough to trip the general LOD cutoff.
+            const _rowPxHere2 = yBotClamped - yTopClamped
+            const _lodMinHere2 = gid0 === 731 ? 40 : PerspectiveGroundRenderer.LOD_MIN_ROW_PX
+            const _lodRowHere2 = lodRow || _rowPxHere2 < _lodMinHere2
+            if (!_lodRowHere2 || !this._lodFillQuad(this._gCtx, gid0, tint0, tileAlpha, _qTL, _qTR, _qBL, _qBR)) {
               this._drawTrapezoidTinted(this._gCtx, gid0, _qTL, _qTR, _qBL, _qBR, tint0)
             }
 

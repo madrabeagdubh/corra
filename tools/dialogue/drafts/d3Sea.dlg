@@ -1,29 +1,14 @@
 # d3Sea — Muireann on the north headland
 #
-# BUTTONS ONLY WHERE THERE IS A CHOICE
-#   The opening is pure dialogue: her question, the keyboard, her answer,
-#   her name. Nodes 0-2 carry @continue, so they flow one into the next
-#   with the panel standing rather than ending the encounter each time.
+# Minimal version: establishes NPC talk + branching choice only.
+# Name exchange, then ONE hub question with two short paths that both
+# converge on the same closing beat (ráth + smith + tollman), then exit.
 #
-# WHY THE QUESTION LIVES ON NODE 3, NOT ON NODE 1/2
-#   Node text shows ALONGSIDE the first set of buttons that follow it. A
-#   line on the node BEFORE the buttons is already gone by the time they
-#   appear — that was the blank-card-with-buttons problem. So "And where
-#   are you bound?" belongs to the hub's own arrival text, not to the
-#   identity exchange that precedes it. @again is a shorter line for
-#   re-openings of the hub later in the same conversation.
-#
-# GATING CONSTRAINT
-#   requires holds ONE positive note and ONE negative note per option.
-#   Chains, never pairs of positives.
-#
-#     knows_own_name    -> she can say the name properly; opens the password
-#     answered_muireann -> her question is behind us; opens the shore AND
-#                           the Goll errand, regardless of which lie got there
-#     knows_fionnbarra  -> opens "Fionnbarra?"
-#     knows_of_tollman  -> opens "His hounds?" and "His toll-man?"
-#     asked_hounds      -> opens "Which way?"
-#     knows_goll        -> the errand to the smith at the ráth
+# NOTES USED
+#   knows_own_name    -> she can say the name properly
+#   answered_muireann -> either path taken; opens the closing beat
+#   knows_goll        -> she named the smith
+#   has_druid_word    -> she gave the tollman password
 #
 # {playerVoc} ALREADY CARRIES THE PARTICLE. Never write "a {playerVoc}".
 
@@ -72,79 +57,46 @@ Muireann is my name.
 And where are you bound?
 % Agus cá bhfuil do thriall?
 
-# ── her question — TWO OPTIONS ────────────────────────────────────────
-
 * Answer the question
 % Freagair an cheist
-@when !note evaded_muireann
+@when !note answered_muireann
 @first
-@note told_muireann_truth
+@note answered_muireann
 > To the bog that drinks men whole, to Allen's sunken ground.
 % Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.
-
-< I have seen the bog of Allen!
-% Tá Móin Almhain feicthe agam!
-
-< Who has seen what I have seen?
-% Cé a bhfacadh a leithéad?
-
-< I have seen mists that shroud the heart
-% Tá  ceoite feicaithe agam,a bhrataíonn an croí
-
-< how drear and mournful the memory.
-% mo lean, is duairc an chuimhne í.
-
+< I’ve seen the bog of Allen!  
+% Tá Móin Alúine feicthe agam
+< Who ever saw what I have seen?
+% Cé a chonaic riamh an rud atá feicthe agamsa?
+< A vast and mournful sea of brown and green,           %Farraige bhrónach de dhonn agus ghlas,                                                                    
+< Where forgotten wraiths cry vengeance amidst the mire.
+% Óna nglaonn samhailtí dearmadta dhíoltas ón láib
+< I’ve seen the bog of Allen.  
+% Tá Móin Alúine feicthe agam
 
 * Parry the question
 % Sraon an cheist
-@when !note told_muireann_truth
+@when !note answered_muireann
 @first
-@note evaded_muireann
-
-
+@note answered_muireann
 > The wind does not explain itself to the standing stone.
 % Ní mhíníonn an ghaoth í féin don ghallán.
 < Some purpose drives thee, I think.
 % Tá rún i do chroí dod bhrú ar aghaidh, sílim.
-
-# ── her question about training — TWO OPTIONS ─────────────────────────
-# Both branches set answered_muireann and stay silent on Goll: the errand
-# lives in its own option below so either lie reaches it the same way.
-
-% Sraon arís
-@when note evaded_muireann
-@first
-@note answered_muireann
-> There is a thing that waits, and it is not yet found.
-% Tá rud ag feitheamh orm nach bhfuil feicthe fós.
-< Go then.
-% Imigh leat mar sin.
-
-
-# ── the errand — reachable from ANY of the three branches above ───────
 
 * Advise me
 % Cuir comhairle orm
 @when note answered_muireann
 @when !note knows_goll
 @note knows_goll
+@note has_druid_word
 @quest q_baile
 > What am I to do, then?
 % Cad atá le déanamh agam, mar sin?
-< Hear me now, {playerVoc}.
-% Éist liom anois, {playerVoc}.
-< Thou wilt need iron before entering the bog.
-% Beidh iarann uait sula mbeidh an mhóin bhainnte amach agat.
-< Go to the ráth of Fionnbarra.
-% Téigh go ráth Fhionnbarra.
-< Seek out his smith, Goll who does not sleep.
-% Lorg a ghabha, Goll nach gcodlaíonn.
-< Tell him where thou art bound.
-% Inis dó cá bhfuil do thriall.
-< He will know what is required.
-% Beidh a fhios aige cad atá le déanamh.
-
-# ── what she knows — ONE, then ONE, then TWO ──────────────────────────
+< I would go north to the ráth of Fionnbarra, and rest there.
+% Rachfainn ó thuaidh go ráth Fhionnbarra, agus ligfainn do scíth.
+< If his toll-man should meet thee at the strand, say that Muireann the Druid knows thy name.
+% Má chasann an fear dola ort ar an gcladach, abair go bhfuil d'ainm ag Muireann an Draoi.
 
 * Where am I?
 % Cá bhfuil mé?
@@ -209,34 +161,6 @@ And where are you bound?
 % Má chasann fear dola Fhionnbarra ort ar an gcladach,
 < thou art to say that Muireann the Druid knows thy name.
 % abair leis go bhfuil d'ainm ag Muireann an Draoi.
-
-# ── the road ──────────────────────────────────────────────────────────
-
-* Which way?
-% Cén treo?
-@when note asked_hounds
-@note knows_rath
-> Which way, then?
-% Cén treo, mar sin?
-< Half a morning's walk northwest along the track. Thou wilt see the ringfort.
-% Siúil siar ó thuaidh feadh an bhealaigh leath na maidine. Feicfidh tú an ráth.
-< Thou wilt find food, shelter, the hospitality of Fionnbarra.
-% Gheobhaidh tú bia, dídean, agus fáilte Fhionnbarra ann.
-> And after?
-% Agus ina dhiaidh sin?
-< That great dark place, with water the colour of old bronze.
-% An áit mhór dhorcha sin, agus uisce uirthi ar dhath an tsean-chré-umha.
-< It is not far. Two days west, two days south. Keep the hills to thy left hand.
-% Níl sé i bhfad. Dhá lá siar, dhá lá ó dheas. Coinnigh na cnoic ar do láimh chlé.
-< Go not by night.
-% Ná téigh de shiúl oíche.
-< And if thou hear the sound of pipes where no one stands,
-% Agus má chloiseann tú ceol na bpíob gan seinnteoir,
-< thou hast heard nothing. Walk on.
-% níor chuala tú faic. Lean ort.
-< May thy journey succeed.
-% Go n-éirí an bóthar leat.
-
 * Leave
 % Fág
 @exit

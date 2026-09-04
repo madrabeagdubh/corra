@@ -171,10 +171,44 @@ export default class VillageScene extends PerspectiveScene {
   }
 
   // ── No encounter deck ─────────────────────────────────────────────────────
+  // ── Content loading ───────────────────────────────────────────────────────
+  // Mirrors BogScene's dynamic-import pattern (public/data/village/ instead
+  // of public/data/bog/) -- village scenes previously had no content-loading
+  // system at all, just this stub defaulting everything to empty arrays.
+  _contentKey() {
+    return this.getMapKey().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+  }
+
   async _loadContent() {
-    this.mapData.objects        = this.mapData.objects        || []
-    this.mapData.npcs           = this.mapData.npcs           || []
-    this.mapData.introNarrative = this.mapData.introNarrative || []
+    const jsKey  = this._contentKey()
+    const mapKey = this.getMapKey()
+
+    try {
+      const module  = await import(/* @vite-ignore */ `/data/village/${jsKey}.js`)
+      const content = module[jsKey + 'Content'] || {}
+
+      this.mapData.objects        = content.objects        || []
+      this.mapData.npcs           = content.npcs           || []
+      this.mapData.introNarrative = content.introNarrative || []
+
+      const fixedEncounters = content.fixedEncounters || []
+      fixedEncounters.forEach(enc => {
+        this.mapData.objects.push({
+          ...enc,
+          type:      'fixed_encounter',
+          stateKey:  `${mapKey}.${enc.id}`,
+          visual:    enc.visual || { gid: 255, flat: false },
+          dialogues: enc.dialogues || [],
+        })
+      })
+
+      console.log(`[${this.scene.key}] content loaded -- ${this.mapData.objects.length} objects, ${this.mapData.npcs.length} npcs`)
+    } catch(e) {
+      console.warn(`[${this.scene.key}] content not found for ${jsKey}:`, e.message)
+      this.mapData.objects        = this.mapData.objects        || []
+      this.mapData.npcs           = this.mapData.npcs           || []
+      this.mapData.introNarrative = this.mapData.introNarrative || []
+    }
   }
 
   // ── createObjects ─────────────────────────────────────────────────────────

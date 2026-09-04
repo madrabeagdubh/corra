@@ -1,31 +1,84 @@
+# d3 — Odhrán at the ford
+#
+# NOTES USED
+#   tried_to_sneak            -> player tried slipping past before engaging
+#   hailed_1/2/3              -> escalating, unanswered hails; used only to
+#                                 gate the next rung and to unlock "Are you
+#                                 hurt?" -- never read anywhere else
+#   met_odhran                -> he's actually responded (via "Are you hurt?")
+#   knows_odhran_is_tollman   -> learned via "What happened?" that he's the
+#                                 toll-keeper; gates "Name your toll"
+#   knows_fionnbarra          -> learned via the same reply that Fionnbarra
+#                                 is chief here
+#   heard_of_satire           -> knows a satire happened at all
+#   knows_satire_harms        -> knows what the satire actually said
+#   knows_odhran_cave         -> knows his plan to quit and hide in a cave
+#   has_toll_rope             -> been given the rope
+#
+# OPENING STRUCTURE
+#   Two ways in: hail him properly (a short escalating joke -- he doesn't
+#   answer generic greetings) or try to slip past (fails outright, but
+#   plants the toll-rope early so its later mention lands as a callback
+#   rather than a surprise). Either way, noticing something's off ("Are
+#   you hurt?") is what actually gets him talking -- unlocks after the
+#   first failed hail, so the joke is optional, not a gate to sit through.
+#
+# @note IS CUMULATIVE per node/option (compile.mjs @note accumulates into
+# an array rather than overwriting) -- @when is NOT: still exactly one
+# positive + one negative per @when.
+
 @file d3
+
+
+# ══════════════════════════════════════════════════════════════════════
 = node 0 — the ford
 @hold
 @again ... / ...
 ...
-* Ho, the bank!
-% Hóra, a bhruach!
+
+* Try to slip past
+% Iarracht dul thart go ciúin
 @when !note met_odhran
+@note tried_to_sneak
+> [Slip along the near bank, quiet as the reeds.]
+% [Sleamhnaigh cois na habhann, chomh ciúin leis na giolcacha.]
+< The toll-rope catches you sharp across the shin.
+% Beireann an rópa dola ort go tobann trasna na loirgne.
+< There will be no crossing here unseen.
+% Ní bheidh dul trasna anseo gan fhios dó.
+
+* Hail the bank
+% Beannaigh an bruach
+@when !note hailed_1
+@note hailed_1
 > Ho, the bank!
 % Hóra, a bhruach!
 < ...
 % ...
 
-* Name your toll
-% Ainmnigh do dhola
-@when note met_odhran
-@note knows_odhran_cannot_reckon
-> Then name your toll and I will pay it or dispute it as God and custom allow.
-% Ainmnigh do dhola agus íocfaidh mé é nó cuirfidh mé ina choinne, mar a cheadaíonn Dia agus nós.
-< I cannot name it.
-% Ní féidir liom é a ainmniú.
-> Cannot?
-% Ní féidir?
-< Cannot. I am in woe.
-% Ní féidir. Tá mé i ndólás.
+* Hail the bank again
+% Beannaigh arís
+@when note hailed_1
+@when !note hailed_2
+@note hailed_2
+> Hoy! Is there a soul on that bank at all?
+% Hóigh! An bhfuil anam ar bith ar an mbruach sin?
+< Only the river answers.
+% Ní fhreagraíonn ach an abhainn.
+
+* One more try
+% Iarracht amháin eile
+@when note hailed_2
+@when !note hailed_3
+@note hailed_3
+> I SAID -- ho, the bank!
+% DÚIRT MÉ -- hóra, a bhruach!
+< A shoulder twitches. That is something, at least.
+% Bogann gualainn beagán. Sin rud éigin, ar a laghad.
 
 * Are you hurt?
 % An bhfuil tú gortaithe?
+@when note hailed_1
 @when !note met_odhran
 @note met_odhran
 > Are you hale? Have you been wounded?
@@ -37,11 +90,25 @@
 < With words was I wounded.
 % Le briathra a gortíodh mé.
 
+* Name your toll
+% Ainmnigh do dhola
+@when note knows_odhran_is_tollman
+@note knows_odhran_cannot_reckon
+> Then name your toll and I will pay it or dispute it as God and custom allow.
+% Ainmnigh do dhola agus íocfaidh mé é nó cuirfidh mé ina choinne, mar a cheadaíonn Dia agus nós.
+< I cannot name it.
+% Ní féidir liom é a ainmniú.
+> Cannot?
+% Ní féidir?
+< Cannot. I am in woe.
+% Ní féidir. Tá mé i ndólás.
+
 * What happened?
 % Cad a tharla?
 @when note met_odhran
 @note knows_fionnbarra
 @note heard_of_satire
+@note knows_odhran_is_tollman
 > What happened to you?
 % Cad a tharla dhuit?
 < I am Odhrán, toll-keeper to Fionnbarra, who holds this ford
@@ -110,7 +177,7 @@
 % Agus nach tugann an charraig smeachadh a béil, ar a laghad.
 * What will you do?
 % Cad a dhéanfaidh tú?
-@when note met_odhran
+@when note knows_satire_harms
 @note knows_odhran_cave
 > What will you do now?
 % Cad a dhéanfaidh tú anois?

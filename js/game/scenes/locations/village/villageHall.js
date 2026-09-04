@@ -11,6 +11,8 @@ import { VoiceSynth, syllableCount } from '../../../systems/voice/voiceSynth.js'
 import { StoryVisuals } from '../../../effects/storyVisuals.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import { TYPE } from '../../../systems/gameTypography.js'
+import { GameState } from '../../../systems/gameState.js'
+import { transitionOut } from '../../../ui/sceneTransition.js'
 // Bard mode -- the Táin recitation, voice synth, vignette and gated note
 // budget -- is held back for a later chapter. With this false the harp still
 // opens and still sounds, so the player can sit and pluck a few notes, but
@@ -168,13 +170,40 @@ export default class VillageHallScene extends VillageScene {
   }
 
   onEnter() {
-    this.time.delayedCall(800, () => {
-      this.textPanel?.show({
-        ga: 'Tá teas ann. Tá fuaim ann. Tá daoine ann.',
-        en: 'There is warmth. There is sound. There are people.',
-        type: 'notification',
-      })
-    })
+    // Was 'There is warmth. There is sound. There are people.' -- wrong
+    // mood entirely now that the hall is meant to read as dim and nearly
+    // empty (Órlaith alone at the hearth), and had the same ga/en vs
+    // irish/english key bug found and fixed in d3Sea.js's estuary
+    // notification -- textPanel.show() only reads irish/english, so this
+    // was rendering as a blank box the whole time regardless of wording.
+    // Migrated to introNarrative (villageHallContent, see
+    // public/data/village/villageHall.js) rather than fixed in place,
+    // matching the established once-per-champion pattern used everywhere
+    // else instead of this scene's own one-off notification.
+    this._checkRestTransition()
+  }
+
+  // Watches for has_brat (set by Órlaith's "Rest by the fire" option) and
+  // fades the screen out once -- deliberately just a fade with nothing
+  // after it. The dream sequence and the thunder/wake-into-the-crowded-
+  // hall beat are chapter 2, held back on purpose; this is where chapter
+  // 1's content ends, not a bug or a missing scene.
+  //
+  // Called from onEnter() (catches it if already true on load, though
+  // that shouldn't happen mid-conversation) AND from update() every frame
+  // (catches it the moment the "Rest by the fire" option actually sets it,
+  // which happens well after onEnter() has already run once) -- the
+  // _restTransitionDone guard makes calling it from both harmless.
+  _checkRestTransition() {
+    if (this._restTransitionDone) return
+    if (!GameState.hasNote('has_brat')) return
+    this._restTransitionDone = true
+    this.time.delayedCall(600, () => transitionOut(1200))
+  }
+
+  update(time, delta) {
+    super.update?.(time, delta)
+    this._checkRestTransition()
   }
 
   _onJoystickTap() {

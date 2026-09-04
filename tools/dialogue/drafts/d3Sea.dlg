@@ -64,14 +64,15 @@ And where are you bound?
 @note answered_muireann
 > To the bog that drinks men whole, to Allen's sunken ground.
 % Chuig an móna ina gcailltear fir, chuig talamh báite Almhain.
-< I’ve seen the bog of Allen!  
+< I've seen the bog of Allen!
 % Tá Móin Alúine feicthe agam
 < Who ever saw what I have seen?
 % Cé a chonaic riamh an rud atá feicthe agamsa?
-< A vast and mournful sea of brown and green,           %Farraige bhrónach de dhonn agus ghlas,                                                                    
+< A vast and mournful sea of brown and green,
+% Farraige bhrónach de dhonn agus ghlas,
 < Where forgotten wraiths cry vengeance amidst the mire.
 % Óna nglaonn samhailtí dearmadta dhíoltas ón láib
-< I’ve seen the bog of Allen.  
+< I've seen the bog of Allen.
 % Tá Móin Alúine feicthe agam
 
 * Parry the question
@@ -89,14 +90,11 @@ And where are you bound?
 @when note answered_muireann
 @when !note knows_goll
 @note knows_goll
-@note has_druid_word
 @quest q_baile
 > What am I to do, then?
 % Cad atá le déanamh agam, mar sin?
-< I would go north to the ráth of Fionnbarra, and rest there.
-% Rachfainn ó thuaidh go ráth Fhionnbarra, agus ligfainn do scíth.
-< If his toll-man should meet thee at the strand, say that Muireann the Druid knows thy name.
-% Má chasann an fear dola ort ar an gcladach, abair go bhfuil d'ainm ag Muireann an Draoi.
+< I would go north to the ráth, and rest there.
+% Rachfainn ó thuaidh go dtí an ráth, agus ligfainn do scíth.
 
 * Where am I?
 % Cá bhfuil mé?
@@ -161,6 +159,7 @@ And where are you bound?
 % Má chasann fear dola Fhionnbarra ort ar an gcladach,
 < thou art to say that Muireann the Druid knows thy name.
 % abair leis go bhfuil d'ainm ag Muireann an Draoi.
+
 * Leave
 % Fág
 @exit

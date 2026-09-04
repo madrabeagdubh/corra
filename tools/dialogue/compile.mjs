@@ -515,7 +515,16 @@ body.push('')
 
 // ------------------------------------------------------------- writing
 
-const target = path.join(ROOT, 'public', 'data', 'bog', header.file + '.js')
+// header.file can be a bare name ("d3Sea", writes to public/data/bog/) or
+// carry a subdirectory ("village/villageHall", writes to
+// public/data/village/). Bare names default to bog/ for backward
+// compatibility -- every existing draft has always meant "the bog folder"
+// without saying so, and this keeps them compiling to the exact same
+// place with zero changes needed.
+const fileSlash = header.file.lastIndexOf('/')
+const fileDir   = fileSlash >= 0 ? header.file.slice(0, fileSlash)     : 'bog'
+const fileName  = fileSlash >= 0 ? header.file.slice(fileSlash + 1)   : header.file
+const target = path.join(ROOT, 'public', 'data', fileDir, fileName + '.js')
 if (!fs.existsSync(target)) {
   console.error('No such data file: ' + path.relative(ROOT, target))
   process.exit(1)

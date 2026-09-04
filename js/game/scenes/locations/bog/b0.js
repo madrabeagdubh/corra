@@ -87,13 +87,10 @@ export default class BogB0 extends BogLocationScene {
     // dialogue card -- deliberately separate paths, because the tile path
     // fails silently and the portrait path fails loudly.
     this.perspectiveGround?.registerCustomTile?.(MOR_GID, '/assets/npcs/muireann.png')
-    // Arriving at the rath completes Muireann's errand (q_baile, given on
-    // the headland in d3_sea). Completion is on arrival, not on talking to
-    // anyone -- the reward is that she has new things to say next time.
-    if (GameState.isQuestActive('q_baile')) {
-      GameState.setQuest('q_baile', 'complete')
-      announceQuest('q_baile', 'complete', this)
-    }
+    // Arriving at the rath itself no longer completes q_baile -- moved
+    // inside the hall (villageHall.js, on resting by the fire), since
+    // reaching the outer yard isn't really "arrived" in any way that
+    // means something. The quest stays active through this exterior map.
     this.roundhouses = new RoundhouseRenderer(this.mapData.houses || [])
     this.perspectiveGround.setStructures(this.roundhouses)
   }

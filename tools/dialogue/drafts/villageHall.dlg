@@ -1,0 +1,102 @@
+# villageHall — Órlaith at the hearth
+#
+# First speaking part inside the chieftain's hall. Deliberately short and
+# mostly linear -- this is a mood-setting/transition beat, not a branching
+# interrogation like Muireann or Odhrán. The three side-questions are
+# optional flavour; "Rest by the fire" is the one that matters and is
+# always available, so a player who wants to move straight through can.
+#
+# Fionnbarra is NOT present -- explicit design call. Órlaith is a
+# reachtaire (household steward, real historical term: "controller of a
+# royal household, administrator"), running the hall in his absence.
+#
+# q_baile completes HERE (resting by the fire), not on arriving at the
+# outer rath -- moved from b0.js per discussion.
+#
+# has_brat: the note representing the mantle she drapes over the player.
+# Same pattern as has_toll_rope in d3.dlg (a note standing in for an
+# item, not a full inventory system, since none exists yet).
+#
+# WHAT HAPPENS AFTER "Rest by the fire" IS DELIBERATE, HERE: the JS side
+# (villageHall.js) watches for has_brat and fades the screen to black once
+# it's set -- no dream content, no wake-up beat. That's chapter 2, held
+# back on purpose. This is the end of chapter 1's content, not a bug.
+
+@file village/villageHall
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the greeting
+@continue
+Ah -- another one, blown in off the river.
+% Á, ceann eile, séidte isteach ón abhainn.
+
+Well. Come to the fire. Custom asks nothing of a guest,
+% Bhuel. Tar chun na tine. Ní iarrann an nós faic ar aoi,
+
+so I'll ask nothing either -- for now.
+% mar sin ní iarrfaidh mise faic ort -- go fóill.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — the hearth
+@hold
+@again Sit when you're ready. / Suigh nuair is mian leat.
+Sit, if the legs will let you.
+% Suigh, más féidir le do chosa é.
+
+There's little enough company here tonight to mind you sitting.
+% Is beag an chuideachta atá anseo anocht le do shuí a thabhairt faoi deara.
+
+* Who are you?
+% Cé thusa?
+@when !note knows_orlaith
+@note knows_orlaith
+> Who are you?
+% Cé thusa?
+< Órlaith, reachtaire of this house.
+% Órlaith, reachtaire an tí seo.
+< I keep it when himself does not -- which, of late, is most nights.
+% Coinním é nuair nach ndéanann sé féin -- rud, le déanaí, is mó ná a mhalairt.
+
+* Where is everyone?
+% Cá bhfuil chuile dhuine?
+@when !note heard_hall_is_quiet
+@note heard_hall_is_quiet
+> Where is everyone?
+% Cá bhfuil chuile dhuine?
+< Sour word came ahead of you.
+% Tháinig scéal searbh romhat.
+< Folk keep to their own hearths till the air clears.
+% Coinníonn daoine lena dteallach féin go nglanann an t-aer.
+
+* Is the chieftain here?
+% An bhfuil an Taoiseach anseo?
+@when !note knows_fionnbarra_absent
+@note knows_fionnbarra_absent
+> Is the chieftain here?
+% An bhfuil an Taoiseach anseo?
+< He is not.
+% Níl.
+< Nor will he be, tonight.
+% Ná ní bheidh, anocht.
+
+* Rest by the fire
+% Lig do scíth cois na tine
+@done q_baile
+@note has_brat
+> I'll rest, if I may.
+% Ligfidh mé mo scíth, más é do thoil é.
+< Seven days you've been on that river, by the look of you.
+% Seacht lá atá caite agat ar an abhainn sin, de réir do chuma.
+< Rest the limbs. You're not where you meant to be, but you're safe.
+% Lig do do ghéaga. Níl tú san áit a raibh tú ag dul, ach tá tú slán.
+< The fire is warm, and the pot smells better than it looks.
+% Tá an tine te, agus tá boladh níos fearr ón bpota ná mar a fheictear air.
+< Someone drapes a heavy brat over your shoulders as your eyes close.
+% Sínítear brat trom thar do ghuaillí agus do shúile ag dúnadh.
+
+* Leave
+% Fág
+@exit
+@silent

@@ -1,102 +1,201 @@
-# villageHall — Órlaith at the hearth
+# villageHall — Mór at the hearth
 #
-# First speaking part inside the chieftain's hall. Deliberately short and
-# mostly linear -- this is a mood-setting/transition beat, not a branching
-# interrogation like Muireann or Odhrán. The three side-questions are
-# optional flavour; "Rest by the fire" is the one that matters and is
-# always available, so a player who wants to move straight through can.
+# Mór was originally written in b0.js (the exterior ráth) as a placeholder
+# "somewhere reachable" NPC, with her own comment saying she belonged
+# inside the hall once the content-loading mechanism existed. That
+# mechanism now exists (villageScene.js _loadContent), so she's moved
+# here, content otherwise UNCHANGED from the original -- same notes, same
+# gating, same voice. Converted from hand-authored JS into .dlg source so
+# she's editable through the normal workflow from now on.
 #
-# Fionnbarra is NOT present -- explicit design call. Órlaith is a
-# reachtaire (household steward, real historical term: "controller of a
-# royal household, administrator"), running the hall in his absence.
+# Removed from b0.js entirely -- her old exterior "holding position" at
+# (30,23) sat close enough to the hall's own door-proximity radius that
+# door-proximity (which takes precedence over NPC-proximity every frame)
+# would sometimes suppress her badge entirely, so tapping to talk to her
+# could walk the player through the door instead. Moving her inside
+# removes the collision outright rather than just repositioning her again.
 #
-# q_baile completes HERE (resting by the fire), not on arriving at the
-# outer rath -- moved from b0.js per discussion.
+# NEW: the final hub gets one additional option, "I think I'll sleep" --
+# the settle-by-the-fire beat, completing q_baile and setting has_brat.
+# Mór's own ending was previously just a plain goodbye with nothing
+# further; this is the only genuinely new content in this file.
 #
-# has_brat: the note representing the mantle she drapes over the player.
-# Same pattern as has_toll_rope in d3.dlg (a note standing in for an
-# item, not a full inventory system, since none exists yet).
-#
-# WHAT HAPPENS AFTER "Rest by the fire" IS DELIBERATE, HERE: the JS side
-# (villageHall.js) watches for has_brat and fades the screen to black once
-# it's set -- no dream content, no wake-up beat. That's chapter 2, held
-# back on purpose. This is the end of chapter 1's content, not a bug.
+# NOTES SET HERE (all pre-existing except has_brat)
+#   met_mor              -- she exists
+#   mor_knows_muireann   -- cross-scene payoff from knows_muireann
+#   at_the_fire          -- accepted the seat by the fire
+#   knows_seadna_coming  -- told there is a bard in the hall tonight
+#   has_brat             -- NEW. mirrors has_toll_rope's pattern: a note
+#                           standing in for an item, no inventory system
+#   quest q_baile        -- NEW here: q_baile COMPLETES on "I think I'll
+#                           sleep" (@done, not @quest -- it was already
+#                           started back at Muireann's "Advise me")
 
 @file village/villageHall
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 0 — the greeting
-@continue
-Ah -- another one, blown in off the river.
-% Á, ceann eile, séidte isteach ón abhainn.
+= node 0 — arrival
+@hold
+@again Well? / Bhuel?
+@note met_mor
+Come in out of the rain. You are wet to the skin.
+% Tar isteach as an bhfearthainn. Tá tú fliuch go craiceann.
 
-Well. Come to the fire. Custom asks nothing of a guest,
-% Bhuel. Tar chun na tine. Ní iarrann an nós faic ar aoi,
+* Muireann sent me
+% Muireann a chuir anseo mé
+@when note knows_muireann
+@note mor_knows_muireann
+> Muireann sent me. The woman on the rock at the mouth of the river.
+% Muireann a chuir anseo mé. An bhean ar an gcarraig ag béal na habhann.
+< Ah. She is still on that rock, so. Sit down.
+% Á. Tá sí ar an gcarraig sin fós, mar sin. Suigh síos.
 
-so I'll ask nothing either -- for now.
-% mar sin ní iarrfaidh mise faic ort -- go fóill.
+* I am travelling
+% Tá mé ag taisteal
+@when !note knows_muireann
+> I am travelling west. I have never been here before.
+% Tá mé ag taisteal siar. Ní raibh mé anseo riamh cheana.
+< People do be going west. Sit down.
+% Bíonn daoine ag dul siar. Suigh síos.
+
+* Who are you?
+% Cé tú féin?
+@first
+< Mór. This house is mine -- or it is mine when the chieftain is not in it, and he seldom is.
+% Mór. Is liomsa an teach seo -- nó is liom é nuair nach mbíonn an taoiseach ann, agus is annamh a bhíonn.
+
+* Farewell
+% Slán
+@exit
+@silent
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 1 — the hearth
+= node 1 — food
+There is soup, and bread. Eat.
+% Tá anraith ann, agus arán. Ith.
+
+* Thank you
+% Go raibh maith agat
+> Thank you. I have not had so much as a heel of bread these two days.
+% Go raibh maith agat. Ní raibh oiread agus sáil aráin agam le dhá lá.
+< Do not mention it. That is how it is here.
+% Ná habair é. Sin mar a bhíonn sé anseo.
+
+* What do I owe?
+% Cad atá le díol agam?
+> What do I owe? I will work for it if needs be.
+% Cad atá le díol agam? Oibreoidh mé ar a shon, más gá.
+< You will work, is it? In my house? Eat your food.
+% Oibreoidh tú, an ea? I dteach s'agamsa? Ith do chuid.
+
+* Not now
+% Ní anois
+@exit
+@silent
+
+
+# ══════════════════════════════════════════════════════════════════════
+# The teacht drill (nodes 2-4): one verb, four forms, meaning never in
+# doubt -- a conjugation drill wearing a joke. USE ONCE, never repeat the
+# device elsewhere.
+
+= node 2 — the fire, I
+Will you come to the fire?
+% An dtiocfaidh tú chun na tine?
+
+* I will come
+% Tiocfaidh
+> I will come to the fire.
+% Tiocfaidh mé chun na tine.
+
+* Not now
+% Ní anois
+@exit
+@silent
+
+
+= node 3 — the fire, II
+Come, then.
+% Tar, mar sin.
+
+* I am coming
+% Táim ag teacht
+> I am coming.
+% Táim ag teacht.
+
+* Not now
+% Ní anois
+@exit
+@silent
+
+
+= node 4 — the fire, III
+@note at_the_fire
+I see that you are.
+% Feicim go bhfuil.
+
+* There is no need to narrate it
+% Ní gá é a insint
+< Ha! Sit down, stranger, and be quiet.
+% Ha! Suigh síos, a stróinséir, agus bí i do thost.
+
+* Not now
+% Ní anois
+@exit
+@silent
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 5 — the hub
 @hold
-@again Sit when you're ready. / Suigh nuair is mian leat.
-Sit, if the legs will let you.
-% Suigh, más féidir le do chosa é.
+@again Well? / Bhuel?
+You have the fire, and your belly is full. Do not be stirring.
+% Tá an tine agat, agus do bholg lán. Ná bí ag corraí.
 
-There's little enough company here tonight to mind you sitting.
-% Is beag an chuideachta atá anseo anocht le do shuí a thabhairt faoi deara.
+* Is there news?
+% An bhfuil scéal ann?
+@first
+@note knows_seadna_coming
+> Is there any news in this house?
+% An bhfuil scéal ar bith sa teach seo?
+< We have a poet these three weeks. He will be singing tonight. Wait until you hear him.
+% Tá file againn le trí seachtaine. Beidh sé ag gabháil fhoinn anocht. Fan go gcloisfidh tú é.
 
-* Who are you?
-% Cé thusa?
-@when !note knows_orlaith
-@note knows_orlaith
-> Who are you?
-% Cé thusa?
-< Órlaith, reachtaire of this house.
-% Órlaith, reachtaire an tí seo.
-< I keep it when himself does not -- which, of late, is most nights.
-% Coinním é nuair nach ndéanann sé féin -- rud, le déanaí, is mó ná a mhalairt.
+* Who is the chieftain?
+% Cé hé an taoiseach?
+@first
+> Who is the chieftain here? Whose land is this?
+% Cé hé an taoiseach anseo? Cé leis an talamh seo?
+< Fionnbarra. He is in the hall more now than he used to be.
+% Fionnbarra. Bíonn sé sa halla níos mó anois ná mar a bhíodh.
 
-* Where is everyone?
-% Cá bhfuil chuile dhuine?
-@when !note heard_hall_is_quiet
-@note heard_hall_is_quiet
-> Where is everyone?
-% Cá bhfuil chuile dhuine?
-< Sour word came ahead of you.
-% Tháinig scéal searbh romhat.
-< Folk keep to their own hearths till the air clears.
-% Coinníonn daoine lena dteallach féin go nglanann an t-aer.
+* I saw a man on the road
+% Chonaic mé fear ar an mbóthar
+@when note met_briugu
+@first
+> I saw a man on the road, going east. He would not say why.
+% Chonaic mé fear ar an mbóthar, agus é ag imeacht soir. Ní déarfadh sé cad chuige.
+< ...  He had a house. Eat your food now.
+% ...  Bhí teach aige. Ith do chuid anois.
 
-* Is the chieftain here?
-% An bhfuil an Taoiseach anseo?
-@when !note knows_fionnbarra_absent
-@note knows_fionnbarra_absent
-> Is the chieftain here?
-% An bhfuil an Taoiseach anseo?
-< He is not.
-% Níl.
-< Nor will he be, tonight.
-% Ná ní bheidh, anocht.
-
-* Rest by the fire
-% Lig do scíth cois na tine
-@done q_baile
+* I think I'll sleep
+% Sílim go luífidh mé
 @note has_brat
-> I'll rest, if I may.
-% Ligfidh mé mo scíth, más é do thoil é.
+@done q_baile
+> I have had enough of tonight, I think. I'll sleep, if I may.
+% Sílim go bhfuil mo dhóthain agam den oíche seo. Luífidh mé, más é do thoil é.
 < Seven days you've been on that river, by the look of you.
 % Seacht lá atá caite agat ar an abhainn sin, de réir do chuma.
-< Rest the limbs. You're not where you meant to be, but you're safe.
+< Rest the limbs. You are not where you meant to be, but you are safe.
 % Lig do do ghéaga. Níl tú san áit a raibh tú ag dul, ach tá tú slán.
 < The fire is warm, and the pot smells better than it looks.
 % Tá an tine te, agus tá boladh níos fearr ón bpota ná mar a fheictear air.
 < Someone drapes a heavy brat over your shoulders as your eyes close.
 % Sínítear brat trom thar do ghuaillí agus do shúile ag dúnadh.
 
-* Leave
-% Fág
+* Goodbye for now
+% Slán go fóill
 @exit
 @silent

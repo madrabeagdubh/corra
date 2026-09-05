@@ -2,21 +2,19 @@
 // Location: public/data/village/villageHall.js
 //
 // ============================================================================
-// The reachtaire (household steward) -- first speaking part inside the hall.
+// MÓR -- moved here from b0.js (the exterior ráth), where she was always
+// meant to end up. See tools/dialogue/drafts/villageHall.dlg for the full
+// history/reasoning.
 // ============================================================================
 //
 // PLACEMENT/VISUAL ARE PLACEHOLDERS. villageHall.json's player spawn is
 // (7,7); this puts her a few tiles further in, roughly where a hearth-side
-// greeter might stand, but I can't see the rendered room from here --
+// figure might stand, but I can't see the rendered room from here --
 // reposition once you can see it in-game.
 //
-// PORTRAIT: no art exists for her yet. The other two files sitting in
-// /assets/npcs/ (sorcha.png, fearghus.png) turned out to be champion
-// select portraits reused from champions.js, not spare NPC art -- using
-// either here would make an unrelated background character look identical
-// to a hero a player might have picked for themselves. Needs real art (or
-// a temporary stand-in of your choosing) before this ships; the path
-// below is a placeholder that will 404 until then.
+// PORTRAIT: still points at muireann.png, the same placeholder b0.js used
+// for her (its own comment already flagged this as needing real art).
+// Not a new problem, just carried over.
 
 export const villageHallContent = {
   npcs: [],
@@ -34,73 +32,200 @@ export const villageHallContent = {
 
   fixedEncounters: [
     {
-      id: 'reachtaire',
+      id: 'mor',
+      name: 'Mór',
       x: 7, y: 5,
       radius: 3,
       visual:   { gid: 255, flat: false },
-      portrait: '/assets/npcs/reachtaire.png',
+      portrait: '/assets/npcs/muireann.png',
 
       dialogues: [
 
-        // ── node 0 — the greeting ─────────────────────────────────
+        // ── node 0 — arrival ──────────────────────────────────────
         {
-          continue: true,
-          ga: 'Á, ceann eile, séidte isteach ón abhainn.\nBhuel. Tar chun na tine. Ní iarrann an nós faic ar aoi,\nmar sin ní iarrfaidh mise faic ort -- go fóill.',
-          en: 'Ah -- another one, blown in off the river.\nWell. Come to the fire. Custom asks nothing of a guest,\nso I\'ll ask nothing either -- for now.',
-        },
-
-        // ── node 1 — the hearth ───────────────────────────────────
-        {
+          note: 'met_mor',
           hold: true,
-          ga: 'Suigh, más féidir le do chosa é.\nIs beag an chuideachta atá anseo anocht le do shuí a thabhairt faoi deara.',
-          en: 'Sit, if the legs will let you.\nThere\'s little enough company here tonight to mind you sitting.',
-          again: { ga: 'Suigh nuair is mian leat.', en: 'Sit when you\'re ready.' },
+          ga: 'Tar isteach as an bhfearthainn. Tá tú fliuch go craiceann.',
+          en: 'Come in out of the rain. You are wet to the skin.',
+          again: { ga: 'Bhuel?', en: 'Well?' },
           options: [
             {
-              requires: { noteAbsent: 'knows_orlaith' },
-              note: 'knows_orlaith',
-              ga: 'Cé thusa?',
+              requires: { note: 'knows_muireann' },
+              note: 'mor_knows_muireann',
+              ga: 'Muireann a chuir anseo mé',
+              en: 'Muireann sent me',
+              say: 'Muireann a chuir anseo mé. An bhean ar an gcarraig ag béal na habhann.',
+              sayEn: 'Muireann sent me. The woman on the rock at the mouth of the river.',
+              replyGa: 'Á. Tá sí ar an gcarraig sin fós, mar sin. Suigh síos.',
+              replyEn: 'Ah. She is still on that rock, so. Sit down.',
+            },
+            {
+              requires: { noteAbsent: 'knows_muireann' },
+              ga: 'Tá mé ag taisteal',
+              en: 'I am travelling',
+              say: 'Tá mé ag taisteal siar. Ní raibh mé anseo riamh cheana.',
+              sayEn: 'I am travelling west. I have never been here before.',
+              replyGa: 'Bíonn daoine ag dul siar. Suigh síos.',
+              replyEn: 'People do be going west. Sit down.',
+            },
+            {
+              first: true,
+              ga: 'Cé tú féin?',
               en: 'Who are you?',
-              say: 'Cé thusa?',
-              sayEn: 'Who are you?',
-              replyGa: 'Órlaith, reachtaire an tí seo.\nCoinním é nuair nach ndéanann sé féin -- rud, le déanaí, is mó ná a mhalairt.',
-              replyEn: 'Órlaith, reachtaire of this house.\nI keep it when himself does not -- which, of late, is most nights.',
-            },
-            {
-              requires: { noteAbsent: 'heard_hall_is_quiet' },
-              note: 'heard_hall_is_quiet',
-              ga: 'Cá bhfuil chuile dhuine?',
-              en: 'Where is everyone?',
-              say: 'Cá bhfuil chuile dhuine?',
-              sayEn: 'Where is everyone?',
-              replyGa: 'Tháinig scéal searbh romhat.\nCoinníonn daoine lena dteallach féin go nglanann an t-aer.',
-              replyEn: 'Sour word came ahead of you.\nFolk keep to their own hearths till the air clears.',
-            },
-            {
-              requires: { noteAbsent: 'knows_fionnbarra_absent' },
-              note: 'knows_fionnbarra_absent',
-              ga: 'An bhfuil an Taoiseach anseo?',
-              en: 'Is the chieftain here?',
-              say: 'An bhfuil an Taoiseach anseo?',
-              sayEn: 'Is the chieftain here?',
-              replyGa: 'Níl.\nNá ní bheidh, anocht.',
-              replyEn: 'He is not.\nNor will he be, tonight.',
-            },
-            {
-              note: 'has_brat',
-              completeQuest: 'q_baile',
-              ga: 'Lig do scíth cois na tine',
-              en: 'Rest by the fire',
-              say: 'Ligfidh mé mo scíth, más é do thoil é.',
-              sayEn: 'I\'ll rest, if I may.',
-              replyGa: 'Seacht lá atá caite agat ar an abhainn sin, de réir do chuma.\nLig do do ghéaga. Níl tú san áit a raibh tú ag dul, ach tá tú slán.\nTá an tine te, agus tá boladh níos fearr ón bpota ná mar a fheictear air.\nSínítear brat trom thar do ghuaillí agus do shúile ag dúnadh.',
-              replyEn: 'Seven days you\'ve been on that river, by the look of you.\nRest the limbs. You\'re not where you meant to be, but you\'re safe.\nThe fire is warm, and the pot smells better than it looks.\nSomeone drapes a heavy brat over your shoulders as your eyes close.',
+              replyGa: 'Mór. Is liomsa an teach seo -- nó is liom é nuair nach mbíonn an taoiseach ann, agus is annamh a bhíonn.',
+              replyEn: 'Mór. This house is mine -- or it is mine when the chieftain is not in it, and he seldom is.',
             },
             {
               exit: true,
               silent: true,
-              ga: 'Fág',
-              en: 'Leave',
+              ga: 'Slán',
+              en: 'Farewell',
+            },
+          ],
+        },
+
+        // ── node 1 — food ─────────────────────────────────────────
+        {
+          ga: 'Tá anraith ann, agus arán. Ith.',
+          en: 'There is soup, and bread. Eat.',
+          options: [
+            {
+              ga: 'Go raibh maith agat',
+              en: 'Thank you',
+              say: 'Go raibh maith agat. Ní raibh oiread agus sáil aráin agam le dhá lá.',
+              sayEn: 'Thank you. I have not had so much as a heel of bread these two days.',
+              replyGa: 'Ná habair é. Sin mar a bhíonn sé anseo.',
+              replyEn: 'Do not mention it. That is how it is here.',
+            },
+            {
+              ga: 'Cad atá le díol agam?',
+              en: 'What do I owe?',
+              say: 'Cad atá le díol agam? Oibreoidh mé ar a shon, más gá.',
+              sayEn: 'What do I owe? I will work for it if needs be.',
+              replyGa: 'Oibreoidh tú, an ea? I dteach s\'agamsa? Ith do chuid.',
+              replyEn: 'You will work, is it? In my house? Eat your food.',
+            },
+            {
+              exit: true,
+              silent: true,
+              ga: 'Ní anois',
+              en: 'Not now',
+            },
+          ],
+        },
+
+        // ── node 2 — the fire, I ──────────────────────────────────
+        {
+          ga: 'An dtiocfaidh tú chun na tine?',
+          en: 'Will you come to the fire?',
+          options: [
+            {
+              ga: 'Tiocfaidh',
+              en: 'I will come',
+              say: 'Tiocfaidh mé chun na tine.',
+              sayEn: 'I will come to the fire.',
+            },
+            {
+              exit: true,
+              silent: true,
+              ga: 'Ní anois',
+              en: 'Not now',
+            },
+          ],
+        },
+
+        // ── node 3 — the fire, II ─────────────────────────────────
+        {
+          ga: 'Tar, mar sin.',
+          en: 'Come, then.',
+          options: [
+            {
+              ga: 'Táim ag teacht',
+              en: 'I am coming',
+              say: 'Táim ag teacht.',
+              sayEn: 'I am coming.',
+            },
+            {
+              exit: true,
+              silent: true,
+              ga: 'Ní anois',
+              en: 'Not now',
+            },
+          ],
+        },
+
+        // ── node 4 — the fire, III ────────────────────────────────
+        {
+          note: 'at_the_fire',
+          ga: 'Feicim go bhfuil.',
+          en: 'I see that you are.',
+          options: [
+            {
+              ga: 'Ní gá é a insint',
+              en: 'There is no need to narrate it',
+              replyGa: 'Ha! Suigh síos, a stróinséir, agus bí i do thost.',
+              replyEn: 'Ha! Sit down, stranger, and be quiet.',
+            },
+            {
+              exit: true,
+              silent: true,
+              ga: 'Ní anois',
+              en: 'Not now',
+            },
+          ],
+        },
+
+        // ── node 5 — the hub ──────────────────────────────────────
+        {
+          hold: true,
+          ga: 'Tá an tine agat, agus do bholg lán. Ná bí ag corraí.',
+          en: 'You have the fire, and your belly is full. Do not be stirring.',
+          again: { ga: 'Bhuel?', en: 'Well?' },
+          options: [
+            {
+              note: 'knows_seadna_coming',
+              first: true,
+              ga: 'An bhfuil scéal ann?',
+              en: 'Is there news?',
+              say: 'An bhfuil scéal ar bith sa teach seo?',
+              sayEn: 'Is there any news in this house?',
+              replyGa: 'Tá file againn le trí seachtaine. Beidh sé ag gabháil fhoinn anocht. Fan go gcloisfidh tú é.',
+              replyEn: 'We have a poet these three weeks. He will be singing tonight. Wait until you hear him.',
+            },
+            {
+              first: true,
+              ga: 'Cé hé an taoiseach?',
+              en: 'Who is the chieftain?',
+              say: 'Cé hé an taoiseach anseo? Cé leis an talamh seo?',
+              sayEn: 'Who is the chieftain here? Whose land is this?',
+              replyGa: 'Fionnbarra. Bíonn sé sa halla níos mó anois ná mar a bhíodh.',
+              replyEn: 'Fionnbarra. He is in the hall more now than he used to be.',
+            },
+            {
+              requires: { note: 'met_briugu' },
+              first: true,
+              ga: 'Chonaic mé fear ar an mbóthar',
+              en: 'I saw a man on the road',
+              say: 'Chonaic mé fear ar an mbóthar, agus é ag imeacht soir. Ní déarfadh sé cad chuige.',
+              sayEn: 'I saw a man on the road, going east. He would not say why.',
+              replyGa: '...  Bhí teach aige. Ith do chuid anois.',
+              replyEn: '...  He had a house. Eat your food now.',
+            },
+            {
+              note: 'has_brat',
+              completeQuest: 'q_baile',
+              ga: 'Sílim go luífidh mé',
+              en: 'I think I\'ll sleep',
+              say: 'Sílim go bhfuil mo dhóthain agam den oíche seo. Luífidh mé, más é do thoil é.',
+              sayEn: 'I have had enough of tonight, I think. I\'ll sleep, if I may.',
+              replyGa: 'Seacht lá atá caite agat ar an abhainn sin, de réir do chuma.\nLig do do ghéaga. Níl tú san áit a raibh tú ag dul, ach tá tú slán.\nTá an tine te, agus tá boladh níos fearr ón bpota ná mar a fheictear air.\nSínítear brat trom thar do ghuaillí agus do shúile ag dúnadh.',
+              replyEn: 'Seven days you\'ve been on that river, by the look of you.\nRest the limbs. You are not where you meant to be, but you are safe.\nThe fire is warm, and the pot smells better than it looks.\nSomeone drapes a heavy brat over your shoulders as your eyes close.',
+            },
+            {
+              exit: true,
+              silent: true,
+              ga: 'Slán go fóill',
+              en: 'Goodbye for now',
             },
           ],
         },

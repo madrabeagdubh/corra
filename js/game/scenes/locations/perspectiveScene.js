@@ -70,6 +70,7 @@ import { createStatusBar }   from '../../ui/statusBar.js'
 import Easca3                from '../../ui/easca3.js'
 import Joystick              from '../../input/joystick.js'
 import ForestEffects         from '../../effects/forestEffects.js'
+import { TiltShift }         from '../../effects/tiltShift.js'
 
 // Above the conversation card, which sits around 2000.
 const PROMPT_EASCA_DEPTH = 100000
@@ -354,6 +355,7 @@ export default class PerspectiveScene extends BaseLocationScene {
 
 
 if (this.perspectiveGround) this.perspectiveGround.update()
+    if (this.tiltShift) this.tiltShift.update(this.perspectiveGround)
 if (this.forestEffects) this.forestEffects.update()
 
 this._updatePlayerOcclusionFade()
@@ -766,6 +768,7 @@ this._updateCameraTerrainAvoidance()
     if (this.elevationRenderer) { this.elevationRenderer.destroy();     this.elevationRenderer = null }
     if (this.perspectiveGround) { this.perspectiveGround.destroy();     this.perspectiveGround = null }
     if (this.forestEffects)     { this.forestEffects.destroy();         this.forestEffects    = null }
+    if (this.tiltShift)         { this.tiltShift.destroy();             this.tiltShift        = null }
     if (this.fogRenderer)       { this.fogRenderer.destroy();           this.fogRenderer      = null }
     if (this.itemSheet)         { this.itemSheet.clear();               this.itemSheet        = null }
     if (this.bowMechanics)      { this.bowMechanics.destroy();          this.bowMechanics     = null }
@@ -1224,6 +1227,39 @@ try {
         this.perspectiveGround._tileSize      = this.tileSize
         this.perspectiveGround.setMountainImage(mtnUrl, mtnPos)
       }
+
+      // Tilt-shift overlays sit at z:5-6 -- above every PGR world canvas
+      // (sky z:0, ground z:2, objects z:3, light z:4) and below the Phaser
+      // canvas at z:10, so the UI is never blurred.
+      if (this.tiltShift) { this.tiltShift.destroy(); this.tiltShift = null }
+      const tsOpts = this.getTiltShift?.()
+      if (tsOpts) {
+        this.tiltShift = new TiltShift(this, {
+          pgr: this.perspectiveGround,
+          ...tsOpts
+        })
+      }
+    }
+  }
+
+  // Tilt-shift / depth-of-field. On by default for every perspective map.
+  // Full option list in effects/tiltShift.js.
+  //
+  // A map turns it off with:      getTiltShift() { return false }
+  // A map tweaks it with:         getTiltShift() { return { ...super.getTiltShift(), farBlur: 7 } }
+  //
+  // Enclosed maps (forest interiors, indoor scenes) have little real distance
+  // for the haze to describe -- if it reads as a flat wash there, override
+  // hazeAmount down or return false.
+  getTiltShift() {
+    return {
+      focusY:      0.62,
+      focusHeight: 0.20,
+      farBlur:     4,
+      nearBlur:    2,
+      hazeAmount:  0.16,
+      hazeColor:   '#9fb2c4',
+      vignette:    0.22
     }
   }
 

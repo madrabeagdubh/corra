@@ -864,6 +864,10 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     if (this._northPreviewSky) this._northPreviewSky.length = 0
     else this._northPreviewSky = []
 
+    // Screen extents of buildings drawn this frame, consumed by TiltShift so
+    // it can keep near buildings out of the distance blur. Cleared each frame.
+    this._tsSpans = []
+
     const p = this._player
     let playerTileRow = -1
     let playerScreenX = sw / 2

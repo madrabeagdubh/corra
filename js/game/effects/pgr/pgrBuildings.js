@@ -71,6 +71,14 @@ export function drawBuilding(pgr, ctx, b, horizonPx, sw) {
     }
 
     if (boundary && boundary.length) {
+      // Screen extent for TiltShift. `top` is the roofline, `base` the
+      // footprint row -- distance is judged by base, sharpness applied to top.
+      let _tsTop = Infinity
+      for (let _i = 0; _i < boundary.length; _i++) {
+        if (boundary[_i].y < _tsTop) _tsTop = boundary[_i].y
+      }
+      if (pgr._tsSpans) pgr._tsSpans.push({ top: _tsTop, base: yBase })
+
       const bTint = pgr.tintManager.getTint(b.tintGid ?? 197, b.x, b.y)
       if (bTint) {
         ctx.save()

@@ -71,6 +71,9 @@ import Easca3                from '../../ui/easca3.js'
 import Joystick              from '../../input/joystick.js'
 import ForestEffects         from '../../effects/forestEffects.js'
 import { TiltShift }         from '../../effects/tiltShift.js'
+import { wind }              from '../../effects/wind.js'
+import { CloudShadows }      from '../../effects/cloudShadows.js'
+import { Vegetation }        from '../../effects/vegetation.js'
 
 // Above the conversation card, which sits around 2000.
 const PROMPT_EASCA_DEPTH = 100000
@@ -356,6 +359,8 @@ export default class PerspectiveScene extends BaseLocationScene {
 
 if (this.perspectiveGround) this.perspectiveGround.update()
     if (this.tiltShift) this.tiltShift.update(this.perspectiveGround)
+    wind.update(delta)
+    if (this.cloudShadows) this.cloudShadows.update(delta)
 if (this.forestEffects) this.forestEffects.update()
 
 this._updatePlayerOcclusionFade()
@@ -769,6 +774,8 @@ this._updateCameraTerrainAvoidance()
     if (this.perspectiveGround) { this.perspectiveGround.destroy();     this.perspectiveGround = null }
     if (this.forestEffects)     { this.forestEffects.destroy();         this.forestEffects    = null }
     if (this.tiltShift)         { this.tiltShift.destroy();             this.tiltShift        = null }
+    if (this.cloudShadows)      { this.cloudShadows.destroy();          this.cloudShadows     = null }
+    if (this.vegetation)        { this.vegetation.destroy();            this.vegetation       = null }
     if (this.fogRenderer)       { this.fogRenderer.destroy();           this.fogRenderer      = null }
     if (this.itemSheet)         { this.itemSheet.clear();               this.itemSheet        = null }
     if (this.bowMechanics)      { this.bowMechanics.destroy();          this.bowMechanics     = null }
@@ -1239,6 +1246,27 @@ try {
           ...tsOpts
         })
       }
+
+      // Cloud shadows sit at z:5 -- above the world canvases, below the
+      // tilt-shift layers, so distant shadows are blurred and hazed with the
+      // ground they fall on.
+      if (this.cloudShadows) { this.cloudShadows.destroy(); this.cloudShadows = null }
+      const csOpts = this.getCloudShadows?.()
+      if (csOpts) {
+        this.cloudShadows = new CloudShadows(this, {
+          pgr: this.perspectiveGround,
+          ...csOpts
+        })
+      }
+
+      if (this.vegetation) { this.vegetation.destroy(); this.vegetation = null }
+      const vegOpts = this.getVegetation?.()
+      if (vegOpts) {
+        this.vegetation = new Vegetation(this, {
+          pgr: this.perspectiveGround,
+          ...vegOpts
+        })
+      }
     }
   }
 
@@ -1261,6 +1289,105 @@ try {
       hazeColor:   '#9fb2c4',
       vignette:    0.22
     }
+  }
+
+  // ── Cloud shadows ─────────────────────────────────────────────────────────
+  // Broken overcast with patches of sun travelling across the ground.
+  // This block is the control surface -- edit and reload, no console needed.
+  //
+  //   intensity   0.25..0.55  darkness of full shadow
+  //   cover       0.3..0.97   fraction of ground under cloud. Above ~0.85 the
+  //                           reading inverts: shadow is the default state and
+  //                           the GAPS become the event.
+  //   softness    0.3..1.4    edge hardness
+  //
+  //   NOTE: cover and softness pull against each other. softness widens the
+  //   ramp either side of the coverage threshold, which pushes the whole
+  //   distribution down -- so raising softness silently REDUCES how much
+  //   ground is shaded. Soft edges need a HIGHER cover to stay overcast.
+  //   Rough pairings that hold an overcast reading:
+  //       softness 0.5 -> cover 0.86      crisp-edged cloud
+  //       softness 0.9 -> cover 0.93      soft, this default
+  //       softness 1.3 -> cover 0.96      very diffuse, high cloud
+  //   Raise them together or the sky opens up.
+  //   warp        0..0.6      curls the cloud edges; 0 gives smooth blobs
+  //   cloudTiles  15..40      world tiles per cloud; scale of the weather
+  //   speed       0.5..4      drift in tiles/sec at full wind
+  //
+  //   sunAmount   0..0.2      warm tint on LIT ground. Shadowed ground goes
+  //                           cool, lit ground warm -- the crossover is what
+  //                           makes a sun patch read as light rather than as a
+  //                           hole in a filter. Costs nothing: baked into the
+  //                           same texture as the shadow.
+  //   sunColor                warm end of that crossover
+  //
+  //   bandRatio   0.90..0.98  perspective step; raise if seams appear
+  //   minScale    6..20       stop drawing below this many px per tile
+  //   fadeScale   20..50      shadows fade in between minScale and this
+  //
+  //   debug       true        paint shadows red to confirm placement
+  //
+  // NOTE: only bandRatio/minScale/fadeScale affect performance -- they set how
+  // many fills happen. Everything else is baked once or is arithmetic.
+  //
+  // A map opts out with:  getCloudShadows() { return false }
+  // A map tweaks with:    getCloudShadows() { return { ...super.getCloudShadows(), cover: 0.5 } }
+  //
+  // Indoor and forest-interior maps have no open sky and should return false.
+  getCloudShadows() {
+    return {
+
+cloudTiles:     24,
+speed:          0.3,
+intensity:      0.24,
+shiftPerHeight: 1.7,
+
+
+      cover:      0.93,
+      softness:   1.3,
+      warp:       0.35,
+
+      sunAmount:  0.10,
+      sunColor:   '#ffd9a0',
+
+      heightProbe:    0,
+perTile:        true,
+      sunDirX:       -0.80,
+      sunDirY:        0.60,
+
+      bandRatio:  0.96,
+      minScale:   10,
+      fadeScale:  34,
+
+      debug:      false
+    }
+  }
+
+  // ── Ground flora ──────────────────────────────────────────────────────────
+  // OFF by default. This draft has no water test, so on a map with open water
+  // plants will grow on the sea. Opt a map in by overriding this.
+  //
+  //   density     0.15..0.6   chance a suitable tile grows something
+  //   clumpBias   0.4..0.7    higher = sparser overall, tighter clumps
+  //   minScale    16..30      stop drawing below this many px per tile
+  //   heightTiles 0.6..1.2    overall plant scale
+  //   isWater     (col,row) => bool   REQUIRED near open water
+  //
+  // Species are gated on a terrain-wetness proxy, so bog cotton finds the wet
+  // hollows and gorse the dry rises without any authoring.
+  getVegetation() { return false }
+
+  // The PGR stops redrawing after 8s of the player standing still, to save
+  // battery. Cloud shadows drift and plants sway regardless of the player, so
+  // both must opt out or they freeze until the player moves again.
+  //
+  // Deliberately central rather than per-map: anything added to the
+  // environmental effects system gets this for free instead of having to
+  // remember. Still calls super so BaseLocationScene's water auto-detection
+  // keeps working. Cheap -- two property checks, called every frame.
+  hasContinuousAnimation() {
+    if (this.cloudShadows || this.vegetation) return true
+    return super.hasContinuousAnimation?.() ?? false
   }
 
   applyEntryPosition() {

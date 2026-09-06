@@ -1246,6 +1246,18 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
               })
             }
 
+            // Cloud shadow, sampled at this tile's WORLD position. Doing it
+            // here rather than in screen space is what makes it immune to
+            // elevation: a tile raised onto a rampart carries the same shadow
+            // it would have at ground level, instead of being assigned to
+            // whatever distance band its lifted screen position fell into.
+            if (inMap) {
+              this.scene?.cloudShadows?.tintTile(
+                this._gCtx, tileCol, tileRow,
+                xTL, _yTL, xTR, _yTR, xBR, _yBR, xBL, _yBL, tileAlpha,
+                (this._tileHeightAt(tileCol, tileRow) || tileElev))
+            }
+
             if (inMap && this._exitEdges?.size) {
               const onExit = (
                 (this._exitEdges.has('west')  && tileCol === 0) ||
@@ -1605,6 +1617,11 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         playerDrawn = true
       }
 
+      // Ground flora. Drawn here, inside the row loop, so plants interleave
+      // with trees, buildings and NPCs by depth. Drawing them after the loop
+      // would put every plant in front of every trunk.
+      this.scene?.vegetation?.renderRow(this, this._oCtx, tileRow)
+
     } // tileRow
 
     // Deferred cliff faces + sides
@@ -1697,6 +1714,12 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
     this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()
     this._gCtx.restore()
+
+    // Cloud shadows. Composited here, at the end of the ground pass, using
+    // source-atop -- which paints only where the terrain already painted, so
+    // the shadows cannot spill into the sky and have no edges of their own.
+    // Objects (trees, buildings) are on _oCtx and stay unshadowed.
+    this.scene?.cloudShadows?.renderTo(this, this._gCtx)
 
     // North-preview building silhouettes, sky half. The row loop above
     // runs entirely inside a clip to below the horizon, so a tall

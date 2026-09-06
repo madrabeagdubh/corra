@@ -34,10 +34,10 @@
 // recorded. On forest maps prefer a low farBlur over trying to extend this.
 //
 // ── Layers created ───────────────────────────────────────────────────────────
-//   pgr-ts-far     z:5  backdrop blur, top of screen, masked to fade into focus
-//   pgr-ts-near    z:5  backdrop blur, bottom of screen, weaker
-//   pgr-ts-haze    z:5  aerial perspective tint, horizon downward
-//   pgr-ts-vig     z:6  vignette
+//   pgr-ts-far     z:6  backdrop blur, top of screen, masked to fade into focus
+//   pgr-ts-near    z:6  backdrop blur, bottom of screen, weaker
+//   pgr-ts-haze    z:6  aerial perspective tint, horizon downward
+//   pgr-ts-vig     z:7  vignette
 //
 // ── Usage ────────────────────────────────────────────────────────────────────
 //   Wired by PerspectiveScene. A map opts out with getTiltShift() { return false }
@@ -81,6 +81,9 @@ export const TILT_SHIFT_DEFAULTS = {
   hazeColor: '#9fb2c4',
   // Where haze begins. Defaults to the PGR horizon so the sky is left alone.
   hazeTop: null,
+  // % of the haze band spent ramping in from transparent. 0 gives a hard
+  // line at the horizon; ~20 blends into the sky.
+  hazeRampPct: 20,
 
   // ── Vignette ──────────────────────────────────────────────────────────────
   vignette: 0.22,
@@ -158,10 +161,10 @@ export class TiltShift {
   }
 
   _build() {
-    this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 5, true)  : null
-    this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 5, true) : null
-    this.haze = this._makeDiv('pgr-ts-haze', 5, true)
-    this.vig  = this._makeDiv('pgr-ts-vig', 6, false)
+    this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 6, true)  : null
+    this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 6, true) : null
+    this.haze = this._makeDiv('pgr-ts-haze', 6, true)
+    this.vig  = this._makeDiv('pgr-ts-vig', 7, false)
   }
 
   configure(opts = {}) {
@@ -281,7 +284,9 @@ export class TiltShift {
         top: (horizon * 100) + '%',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.hazeAmount <= 0) ? 'none' : 'block',
-        background: `linear-gradient(to bottom, ${rgba(c.hazeColor, c.hazeAmount)} 0%, ${rgba(c.hazeColor, 0)} 100%)`,
+        // Ramp IN from transparent. Starting at full strength put a hard
+        // edge across the screen exactly at the horizon.
+        background: `linear-gradient(to bottom, ${rgba(c.hazeColor, 0)} 0%, ${rgba(c.hazeColor, c.hazeAmount)} ${Math.round(c.hazeRampPct ?? 20)}%, ${rgba(c.hazeColor, 0)} 100%)`,
       })
     }
 

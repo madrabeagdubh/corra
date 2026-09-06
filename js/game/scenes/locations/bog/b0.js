@@ -24,6 +24,18 @@ import { announceQuest } from '../../../systems/quests.js'
 const MOR_GID = 9103
 
 export default class BogB0 extends BogLocationScene {
+
+  // Ground flora. Dry rises round the ráth, so gorse and ragwort dominate;
+  // any damp hollow will pick up meadowsweet on its own.
+  getVegetation() {
+    return {
+      density:     0.34,
+      clumpBias:   0.55,
+      minScale:    22,
+      heightTiles: 0.9
+    }
+  }
+
   constructor() { super({ key: 'b0' }) }
 
   // Defensive: the hall's interior overlay (#pgr-ceiling gradient +

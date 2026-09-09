@@ -34,10 +34,10 @@
 // recorded. On forest maps prefer a low farBlur over trying to extend this.
 //
 // ── Layers created ───────────────────────────────────────────────────────────
-//   pgr-ts-far     z:6  backdrop blur, top of screen, masked to fade into focus
-//   pgr-ts-near    z:6  backdrop blur, bottom of screen, weaker
-//   pgr-ts-haze    z:6  aerial perspective tint, horizon downward
-//   pgr-ts-vig     z:7  vignette
+//   pgr-ts-far     z:5  backdrop blur, top of screen, masked to fade into focus
+//   pgr-ts-near    z:5  backdrop blur, bottom of screen, weaker
+//   pgr-ts-haze    z:5  aerial perspective tint, horizon downward
+//   pgr-ts-vig     z:6  vignette
 //
 // ── Usage ────────────────────────────────────────────────────────────────────
 //   Wired by PerspectiveScene. A map opts out with getTiltShift() { return false }
@@ -81,9 +81,54 @@ export const TILT_SHIFT_DEFAULTS = {
   hazeColor: '#9fb2c4',
   // Where haze begins. Defaults to the PGR horizon so the sky is left alone.
   hazeTop: null,
-  // % of the haze band spent ramping in from transparent. 0 gives a hard
-  // line at the horizon; ~20 blends into the sky.
-  hazeRampPct: 20,
+
+  // ── Dialogue mode ─────────────────────────────────────────────────────────
+  // Applied while a text panel is up, restored when it closes. Pushing the
+  // blur right up and collapsing the sharp band throws the whole world out of
+  // focus so the text is the only legible thing on screen.
+  //
+  // farHold/nearHold go to 1 deliberately: with focusHeight at 0 the two blur
+  // bands meet at focusY, and if their masks still faded out at that edge you
+  // would get a sharp horizontal strip across the middle of the screen.
+  //
+  // follow goes off so the band cannot drift mid-conversation.
+  // focusHeight goes NARROW, not to zero. Zero collapses the band and blurs
+  // every pixel equally — which is just a gaussian blur, and throws away the
+  // one property that makes tilt-shift interesting.
+  //
+  // Tilt-shift reads as MINIATURISATION: a macro lens on a small object has a
+  // razor-thin plane of focus, and the brain infers "this is tiny and close"
+  // from the falloff alone. So a conversation should INTENSIFY the effect —
+  // narrower band, harder falloff — not replace it with a uniform smear.
+  //
+  // follow stays ON so the sharp sliver tracks the speaker rather than sitting
+  // at a fixed screen height.
+  dialogue: {
+    focusHeight: 0.10,
+    farBlur: 10,
+    nearBlur: 8,
+    farHold: 0.7,
+    nearHold: 0.7,
+    vignette: 0.42,
+    dim: 0.30,
+    saturate: 1.18,
+    follow: true,
+  },
+
+  // Saturation applied alongside the blur in the same backdrop-filter. Free,
+  // and it pushes toward the miniature look — a macro shot of a small bright
+  // thing is more saturated than a landscape, and the eye reads that as scale.
+  saturate: 1.0,
+  // How long the blur takes to ramp in and out.
+  dialogueEase: '0.45s ease',
+
+  // ── Dim ───────────────────────────────────────────────────────────────────
+  // Full-screen darkening, feathered by the vignette layer it shares. The film
+  // approach to titles over footage: darken the picture, don't box the words.
+  // Guarantees contrast over sky, grass or water alike with no hard edges,
+  // and unlike a panel it cannot look like chrome.
+  dim: 0,
+  dimColor: '#000000',
 
   // ── Vignette ──────────────────────────────────────────────────────────────
   vignette: 0.22,
@@ -152,19 +197,25 @@ export class TiltShift {
       'position:absolute', 'left:0', 'width:100%',
       `z-index:${zIndex}`, 'pointer-events:none',
     ]
+    // backdrop-filter is always transitioned, even when follow is off, so
+    // dialogue mode ramps the blur instead of snapping it.
+    const parts = []
     if (eased && this.cfg.follow) {
-      css.push(`transition:top ${this.cfg.followEase},height ${this.cfg.followEase}`)
+      parts.push(`top ${this.cfg.followEase}`, `height ${this.cfg.followEase}`)
     }
+    parts.push(`backdrop-filter ${this.cfg.dialogueEase}`,
+               `-webkit-backdrop-filter ${this.cfg.dialogueEase}`)
+    css.push(`transition:${parts.join(',')}`)
     d.style.cssText = css.join(';')
     this.container.appendChild(d)
     return d
   }
 
   _build() {
-    this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 6, true)  : null
-    this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 6, true) : null
-    this.haze = this._makeDiv('pgr-ts-haze', 6, true)
-    this.vig  = this._makeDiv('pgr-ts-vig', 7, false)
+    this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 5, true)  : null
+    this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 5, true) : null
+    this.haze = this._makeDiv('pgr-ts-haze', 5, true)
+    this.vig  = this._makeDiv('pgr-ts-vig', 6, false)
   }
 
   configure(opts = {}) {
@@ -187,6 +238,53 @@ export class TiltShift {
   }
 
   /**
+   * Blur the world right up while text is on screen, and restore on close.
+   * Called by TextPanel.show()/hide().
+   *
+   * Idempotent — repeated true calls during a multi-turn exchange will not
+   * stack, and will not lose the pre-dialogue settings.
+   */
+  /**
+   * Rack focus onto a specific screen fraction (0 top, 1 bottom) — used to
+   * hold the sharp sliver on whoever is speaking rather than on the player.
+   * Pass null to go back to tracking the player.
+   */
+  setFocusTarget(y) {
+    this._focusTarget = (y == null) ? null : Math.max(0, Math.min(1, y))
+    return this.apply()
+  }
+
+  setDialogueMode(on, focusY) {
+    on = !!on
+    if (on === this._dialogueMode) {
+      if (on && focusY != null) this.setFocusTarget(focusY)
+      return this
+    }
+    this._dialogueMode = on
+    if (!on) this._focusTarget = null
+    else if (focusY != null) this._focusTarget = Math.max(0, Math.min(1, focusY))
+
+    if (on) {
+      this._preDialogue = {
+        focusHeight: this.cfg.focusHeight,
+        farBlur:     this.cfg.farBlur,
+        nearBlur:    this.cfg.nearBlur,
+        farHold:     this.cfg.farHold,
+        nearHold:    this.cfg.nearHold,
+        vignette:    this.cfg.vignette,
+        dim:         this.cfg.dim,
+        saturate:    this.cfg.saturate,
+        follow:      this.cfg.follow,
+      }
+      Object.assign(this.cfg, this.cfg.dialogue || {})
+    } else if (this._preDialogue) {
+      Object.assign(this.cfg, this._preDialogue)
+      this._preDialogue = null
+    }
+    return this.apply()
+  }
+
+  /**
    * Per-frame. Cheap: computes two numbers and returns without touching the
    * DOM unless the band actually moved past followThreshold.
    * Called by PerspectiveScene.update() after perspectiveGround.update().
@@ -200,8 +298,10 @@ export class TiltShift {
     const py = g.playerScreenY
     if (!h || py == null) return
 
+    // An explicit rack-focus target wins over following the player.
+    const raw = (this._focusTarget != null) ? this._focusTarget : (py / h)
     const focusY = Math.max(this.cfg.followMin,
-                            Math.min(this.cfg.followMax, py / h))
+                            Math.min(this.cfg.followMax, raw))
 
     // Far band normally ends at the top of the sharp band...
     let farBottom = clamp01(focusY - this.cfg.focusHeight * 0.5)
@@ -251,8 +351,8 @@ export class TiltShift {
         top: '0',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.farBlur <= 0) ? 'none' : 'block',
-        backdropFilter: `blur(${c.farBlur}px)`,
-        WebkitBackdropFilter: `blur(${c.farBlur}px)`,
+        backdropFilter: `blur(${c.farBlur}px) saturate(${c.saturate ?? 1})`,
+        WebkitBackdropFilter: `blur(${c.farBlur}px) saturate(${c.saturate ?? 1})`,
         maskImage: mask,
         WebkitMaskImage: mask,
       })
@@ -267,8 +367,8 @@ export class TiltShift {
         top: (focusBottom * 100) + '%',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.nearBlur <= 0) ? 'none' : 'block',
-        backdropFilter: `blur(${c.nearBlur}px)`,
-        WebkitBackdropFilter: `blur(${c.nearBlur}px)`,
+        backdropFilter: `blur(${c.nearBlur}px) saturate(${c.saturate ?? 1})`,
+        WebkitBackdropFilter: `blur(${c.nearBlur}px) saturate(${c.saturate ?? 1})`,
         maskImage: mask,
         WebkitMaskImage: mask,
       })
@@ -284,9 +384,7 @@ export class TiltShift {
         top: (horizon * 100) + '%',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.hazeAmount <= 0) ? 'none' : 'block',
-        // Ramp IN from transparent. Starting at full strength put a hard
-        // edge across the screen exactly at the horizon.
-        background: `linear-gradient(to bottom, ${rgba(c.hazeColor, 0)} 0%, ${rgba(c.hazeColor, c.hazeAmount)} ${Math.round(c.hazeRampPct ?? 20)}%, ${rgba(c.hazeColor, 0)} 100%)`,
+        background: `linear-gradient(to bottom, ${rgba(c.hazeColor, c.hazeAmount)} 0%, ${rgba(c.hazeColor, 0)} 100%)`,
       })
     }
 
@@ -295,8 +393,10 @@ export class TiltShift {
       this._style(this.vig, {
         top: '0',
         height: '100%',
-        display: (off || c.vignette <= 0) ? 'none' : 'block',
-        background: `radial-gradient(ellipse at center, ${rgba(c.vignetteColor, 0)} 45%, ${rgba(c.vignetteColor, c.vignette)} 100%)`,
+        display: (off || (c.vignette <= 0 && !(c.dim > 0))) ? 'none' : 'block',
+        // The dim rides on the vignette layer rather than adding an element:
+        // a flat wash underneath, the vignette ramp over it.
+        background: `radial-gradient(ellipse at center, ${rgba(c.vignetteColor, c.dim || 0)} 45%, ${rgba(c.vignetteColor, Math.min(1, (c.dim || 0) + c.vignette))} 100%)`,
       })
     }
 

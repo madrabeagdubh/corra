@@ -63,6 +63,29 @@ const SPEAKER_COLOR = COLORS.speaker
 const PANEL_FILL    = COLORS.panelFill
 const PANEL_BORDER  = COLORS.panelBorder
 const PANEL_ALPHA   = COLORS.panelAlpha
+
+// Dialogue panels draw with no background, so the text sits directly on the
+// world -- which TextPanel.show() blurs right down via tiltShift.setDialogueMode.
+// Restore by setting these to COLORS.panelAlpha and 0.5, or try 0.2 / 0.2 for
+// a hint of backing that still guarantees contrast under the text.
+const DIALOGUE_BG_ALPHA     = 0
+const DIALOGUE_BORDER_ALPHA = 0
+
+// Panel types that take over input while they are up: long press dials English
+// opacity instead of opening menus. Everything that holds the screen belongs
+// here; only conversation furniture (harp, portraits) stays card-specific.
+const TEXT_MODE_TYPES = new Set(['encounter_card', 'dialogue', 'narrative', 'examine'])
+
+// false skips the encounter card's bgKey background IMAGE and its 0.35 dark
+// overlay, so the card falls through to the (now transparent) graphics branch
+// and the text sits on the blurred world. Set true to bring the art back.
+const DIALOGUE_USE_BG_IMAGE = false
+
+// Drop shadow on dialogue text. With no panel behind it, this is the only
+// thing guaranteeing contrast -- the same job CSS text-shadow does for
+// scrollingTextPlayer, which is why that system reads well with no background.
+// Raise the blur if text over pale sky is still hard to read.
+const TEXT_SHADOW = { x: 0, y: 2, color: '#000000', blur: 8, fill: true }
 const IRISH_SIZE    = SIZES.irish
 const ENGLISH_SIZE  = SIZES.english
 const IRISH_FONT    = FONTS.irish
@@ -274,6 +297,10 @@ export default class TextPanel {
   // -- Public --
 
   show(config) {
+    // Throw the world out of focus so the text is the only sharp thing.
+    // Safe if the scene has no tilt-shift; safe to call repeatedly.
+    this.scene?.tiltShift?.setDialogueMode(true)
+
     const {
       irish     = '',
       english   = '',
@@ -334,9 +361,6 @@ export default class TextPanel {
       // encounter card without going through it. Guarding on isStarted()
       // matters: without it this ran a moment after open() and reset the NPC's
       // voice back to empty.
-      // The moon becomes the English dial for the length of the conversation.
-      try { MoonPeek.enter() } catch (e) {}
-
       if (!DialogueHarp.isStarted()) {
         DialogueHarp.begin(champ, this.scene, graphicKey || null)
       }
@@ -348,6 +372,20 @@ export default class TextPanel {
     this.isVisible        = true
     this.isFading         = false
     this.currentPanelType = type
+
+    // Text is on screen, whatever kind. The moon becomes the English dial and
+    // the long press stops opening menus.
+    //
+    // Deliberately NOT limited to encounter cards: that was the old behaviour,
+    // and it meant holding during a scene intro opened the inventory
+    // mid-sentence -- the exact thing MoonPeek exists to prevent. Conversation
+    // furniture (harp, portrait, cadence) stays card-only; input behaviour
+    // belongs to any text that holds the screen.
+    //
+    // MoonPeek.enter() is idempotent, so exchange rebuilds are safe.
+    if (TEXT_MODE_TYPES.has(type)) {
+      try { MoonPeek.enter() } catch (e) {}
+    }
     this._isExamine       = (type === 'examine' || type === 'encounter_card')
 
     const sw = this.scene.scale.width
@@ -452,6 +490,9 @@ export default class TextPanel {
 
   hide(keepChrome = false) {
     if (!this.isVisible || this.isFading) return
+    // Restore focus. Placed after the early return on purpose: a
+    // no-op hide() must not un-blur a panel that is still up.
+    this.scene?.tiltShift?.setDialogueMode(false)
     this.isFading = true
     const _wasCard = (this.currentPanelType === 'encounter_card')
     this._killRevealTweens()
@@ -462,9 +503,12 @@ export default class TextPanel {
         DialogueHarp.cadence()
         DialogueHarp.endConversation()
       } catch (e) {}
-      // Give the moon its ordinary long press back.
-      try { MoonPeek.exit() } catch (e) {}
     }
+
+    // Ungated from _wasCard: narrative panels now enter text mode too, and a
+    // narrative that never exited would leave the long press swallowed for the
+    // rest of the session. exit() is idempotent, so calling it always is safe.
+    try { MoonPeek.exit() } catch (e) {}
     this._fadeStartTime = performance.now()
     this._stopScroll()
     this._unbindInput()
@@ -581,7 +625,7 @@ export default class TextPanel {
     // _destroyAll(true) leaves it standing between choices. The result is that
     // only the words cross-fade; the card itself never blinks.
     if (!this._chrome.length) {
-      if (bgKey && this.scene.textures.exists(bgKey)) {
+      if (DIALOGUE_USE_BG_IMAGE && bgKey && this.scene.textures.exists(bgKey)) {
         const bgImg = this.scene.add.image(panelX, panelTop + panelH/2, bgKey)
           .setDisplaySize(panelW, panelH)
           .setScrollFactor(0)
@@ -595,13 +639,15 @@ export default class TextPanel {
         this._chrome.push(overlay)
       } else {
         const bg = this.scene.add.graphics().setDepth(depth).setScrollFactor(0)
-        bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
+        bg.fillStyle(PANEL_FILL, DIALOGUE_BG_ALPHA)
         bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
         this._chrome.push(bg)
       }
 
       const border = this.scene.add.graphics().setDepth(depth + 2).setScrollFactor(0)
-      border.lineStyle(BUTTON.borderWidth, COLORS.buttonBorder, 0.85)
+      // Separate graphics object, drawn after the fill -- zeroing the
+      // panel fill never touched it.
+      border.lineStyle(BUTTON.borderWidth, COLORS.buttonBorder, DIALOGUE_BORDER_ALPHA)
       border.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
       this._chrome.push(border)
 
@@ -629,6 +675,11 @@ export default class TextPanel {
 
     // -- Mask for body region (clips scrolling text) --
     const maskGfx = this.scene.add.graphics().setScrollFactor(0).setDepth(depth - 1)
+      // Geometry masks need the SHAPE, not the rendering. Left visible,
+      // this solid white rect draws behind the text -- invisible while a
+      // panel covered it, and the mystery white background once the
+      // panel was removed.
+      .setVisible(false)
     maskGfx.fillStyle(0xffffff)
     maskGfx.fillRect(panelX - panelW/2 + CARD_PADDING_X, bodyTop, panelW - CARD_PADDING_X * 2, bodyH)
     this._maskGfx = maskGfx
@@ -819,6 +870,7 @@ export default class TextPanel {
           align:      rowAlign,
           lineSpacing: TYPE.cardBody.lineSpacing,
         }).setOrigin(rowOx, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._contentItems.push({
@@ -837,6 +889,7 @@ export default class TextPanel {
           align:      rowAlign,
           lineSpacing: TYPE.cardBodyEn.lineSpacing,
         }).setOrigin(rowOx, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)
@@ -934,26 +987,33 @@ export default class TextPanel {
     this._bounds = { x: panelX - panelW/2, y: panelTop, w: panelW, h: panelH }
 
     const bg = this.scene.add.graphics().setDepth(depth).setScrollFactor(0)
-    bg.fillStyle(PANEL_FILL, PANEL_ALPHA)
+    bg.fillStyle(PANEL_FILL, DIALOGUE_BG_ALPHA)
     bg.fillRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
-    bg.lineStyle(2, PANEL_BORDER, 0.5)
+    bg.lineStyle(2, PANEL_BORDER, DIALOGUE_BORDER_ALPHA)
     bg.strokeRoundedRect(panelX - panelW/2, panelTop, panelW, panelH, 10)
     this._objects.push(bg)
 
     const fadeH = Math.round(panelH * 0.35)
     const fadeY = panelTop + panelH - fadeH
     const fade = this.scene.add.graphics().setDepth(depth + 3).setScrollFactor(0)
+    // Scroll fade. Was a "more text below" cue reading down into the panel
+    // fill; with no panel it became a white wash over the world.
     fade.fillGradientStyle(PANEL_FILL, PANEL_FILL, PANEL_FILL, PANEL_FILL,
-      0, 0, PANEL_ALPHA, PANEL_ALPHA)
+      0, 0, DIALOGUE_BG_ALPHA, DIALOGUE_BG_ALPHA)
     fade.fillRect(panelX - panelW/2, fadeY, panelW, fadeH)
     this._objects.push(fade)
 
     const hint = this.scene.add.text(panelX, panelTop + panelH - 6, '↑ swipe up to dismiss', {
       fontSize: SIZES.hint, fontFamily: FONTS.english, color: COLORS.hint
-    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 2).setAlpha(0.4)
+    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 2).setAlpha(0.15)
     this._objects.push(hint)
 
     const maskGfx = this.scene.add.graphics().setScrollFactor(0).setDepth(depth - 1)
+      // Geometry masks need the SHAPE, not the rendering. Left visible,
+      // this solid white rect draws behind the text -- invisible while a
+      // panel covered it, and the mystery white background once the
+      // panel was removed.
+      .setVisible(false)
     maskGfx.fillStyle(0xffffff)
     maskGfx.fillRect(panelX - panelW/2, panelTop, panelW, panelH)
     this._maskGfx = maskGfx
@@ -981,6 +1041,7 @@ export default class TextPanel {
         color: SPEAKER_COLOR, fontStyle: 'bold',
         wordWrap: { width: textW }
       }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+      el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
       el.setMask(mask)
       this._objects.push(el)
       this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
@@ -998,6 +1059,7 @@ export default class TextPanel {
           color: gaColor,
           wordWrap: { width: textW }, lineSpacing: gaSpacing
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._contentItems.push({ obj: el, localY: cy, baseAlpha: 1 })
@@ -1011,6 +1073,7 @@ export default class TextPanel {
           color: enColor,
           wordWrap: { width: textW }, lineSpacing: enSpacing
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
+        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)

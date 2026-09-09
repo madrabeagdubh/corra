@@ -113,7 +113,7 @@ function _requestFullscreen() {
 
 var _sceneInitialized = false;
 
-export function initConstellationScene(onComplete) {
+export function initConstellationScene(onComplete, startPhase) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
     _fullscreenDone = false;
@@ -127,6 +127,7 @@ export function initConstellationScene(onComplete) {
         input: { touch: true },
     });
     game.registry.set('onComplete', onComplete);
+    game.registry.set('startPhase', startPhase);
     return game;
 }
 
@@ -262,6 +263,16 @@ export class ConstellationScene extends Phaser.Scene {
     create() {
         this.initAudio();
         this._onComplete = this.registry.get('onComplete') || null;
+        // Seeded by the ogham dial when it has run: the player already set this,
+        // and starting from 0.05 would silently undo their choice.
+        // Read HERE and not in the constructor — this.registry does not exist
+        // until the scene has been added to the manager.
+        const _seed = this.registry.get('startPhase');
+        if (typeof _seed === 'number') this.moonPhase = _seed;
+        // The dial ran, so it has already shown the poem, taken the first
+        // touch (unlocking audio) and left its moon at the widget's rest
+        // position. This scene must not replay the opening.
+        this._dialRan = (typeof _seed === 'number');
         this._frozenAmerginLine = null;
         this.cameras.main.setBackgroundColor('#00060f');
         const wSize = 5000;
@@ -374,6 +385,8 @@ export class ConstellationScene extends Phaser.Scene {
         overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;pointer-events:none;';
         this.moonOverlay = overlay;
 
+        // The dial's poem has replaced the looping Amergin line. Kept behind
+        // the flag so the scene still stands alone without the dial.
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
         let line              = AMERGIN_LINES[currentLyricIndex];
         this._frozenAmerginLine = line;
@@ -403,6 +416,7 @@ export class ConstellationScene extends Phaser.Scene {
 
         this._lyricInterval = setInterval(() => {
             if (this._moonSwipeDone) return;
+            if (this._dialRan) return;
             currentLyricIndex = (currentLyricIndex + 1) % AMERGIN_LINES.length;
             line = AMERGIN_LINES[currentLyricIndex];
             this._frozenAmerginLine = line;
@@ -427,7 +441,7 @@ export class ConstellationScene extends Phaser.Scene {
                 this.moonPhase = phase;
                 enEl.style.opacity = String(phase);
 
-                if (!this._moonSwipeDone && phase > 0.5) {
+                if (!this._moonSwipeDone && !this._dialRan && phase > 0.5) {
                     this._moonSwipeDone = true;
                     clearInterval(this._lyricInterval);
                     _requestFullscreen();
@@ -458,7 +472,11 @@ if (wrapper) {
             this._moonFinalTopPx = H - wrapperH - MOON_REST_FROM_BOTTOM;
 
             wrapper.style.bottom    = 'auto';
-            wrapper.style.top       = Math.round(H * 0.35) + 'px';
+            // With the dial, the moon is ALREADY at rest — its pull-back landed
+            // on this exact spot. Starting at 35vh and drifting down would move
+            // a moon the player has just watched arrive.
+            wrapper.style.top       = (this._dialRan ? this._moonFinalTopPx
+                                                     : Math.round(H * 0.35)) + 'px';
             wrapper.style.left      = '50%';
             wrapper.style.transform = 'translateX(-50%)';
             wrapper.style.transition = 'none';

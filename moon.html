@@ -1,0 +1,794 @@
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Ogham dial v4</title>
+<style>
+  html,body{margin:0;height:100%;background:#070b0a;overflow:hidden;
+    font-family:ui-serif,Georgia,serif;color:#cfe0d8;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+  .layer{position:fixed;inset:0;pointer-events:none;background-repeat:no-repeat}
+  #sky{z-index:0;background-size:cover;background-position:50% 50%}
+  #dial{z-index:2;display:grid;place-items:center}
+  #headland{z-index:3;background-size:cover;background-position:50% 100%}
+  #figures{z-index:4}
+  svg{width:104vmin;height:104vmin;max-width:none}
+
+  /* One word at a time, large. Two stacked elements crossfading — swapping
+     the text on a single element makes it blink; overlapping a fade-out with
+     a fade-in reads as one word becoming the next. */
+  #read{position:fixed;left:0;right:0;top:0;height:30vh;z-index:7;
+    display:grid;place-items:center;padding:0 6vw;box-sizing:border-box;
+    pointer-events:none}
+  /* Words SLIDE: up as the spell advances, down as you wind it back. A pure
+     crossfade gave no sense of direction, so rewinding felt identical to
+     going forward. Motion is the only cue that says which way time is going. */
+  /* The words are a COLUMN that scrolls, not a slot that swaps. Discrete
+     swaps could not be tied to the wheel — they jumped a whole word at a time
+     while the ogham turned smoothly. Here the column's offset is a direct
+     function of the ring's angle, so the two cannot drift apart, and winding
+     the ring back scrolls the words back down with it. */
+  #read{overflow:hidden;
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 26%,#000 74%,transparent 100%);
+    mask-image:linear-gradient(to bottom,transparent 0,#000 26%,#000 74%,transparent 100%)}
+  .col{position:absolute;left:0;right:0;top:0;will-change:transform}
+  /* A whole line at a time, not a word. Single words arriving one after
+     another read as a drip — the eye kept waiting instead of reading. A line
+     is the natural unit of the verse anyway, and it is what the ogham pauses
+     are already divided into. */
+  .col .w{position:absolute;left:0;right:0;text-align:center;
+    font-size:clamp(21px,6.2vw,34px);line-height:1.28;letter-spacing:.004em;
+    padding:0 4vw;box-sizing:border-box;
+    text-shadow:0 3px 18px rgba(0,0,0,.95),0 0 40px rgba(0,0,0,.75);
+    transform:translateY(-50%)}
+  .col .w.q{font-style:italic}
+  #read .w.q{font-style:italic}
+  #head{position:fixed;left:0;right:0;top:30vh;height:2px;z-index:6;
+    background:linear-gradient(90deg,transparent,rgba(214,178,94,.26) 36%,rgba(214,178,94,.26) 64%,transparent);
+    pointer-events:none}
+
+  #tilt{z-index:5}
+  #tilt .band{position:absolute;left:0;width:100%;
+    backdrop-filter:blur(6px) saturate(.8);-webkit-backdrop-filter:blur(6px) saturate(.8)}
+  #tilt .top{top:0;height:27%;
+    -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 54%,transparent 100%);
+    mask-image:linear-gradient(to bottom,#000 0,#000 54%,transparent 100%)}
+  #tilt .bot{bottom:0;height:29%;
+    -webkit-mask-image:linear-gradient(to top,#000 0,#000 48%,transparent 100%);
+    mask-image:linear-gradient(to top,#000 0,#000 48%,transparent 100%)}
+  #grade{z-index:6;background:radial-gradient(ellipse at 50% 66%,rgba(26,44,40,0) 30%,rgba(4,8,7,.92) 100%)}
+
+  #hud{position:fixed;left:0;right:0;bottom:11px;text-align:center;z-index:8;
+    font-size:12px;letter-spacing:.09em;color:#5f7d72;pointer-events:none}
+  #panel{position:fixed;top:2px;left:6px;z-index:9;font-size:11px;opacity:.5;color:#8fb4a4}
+  #panel button{background:#12201d;color:#9dc0b2;border:1px solid #2c463f;
+    border-radius:4px;padding:4px 7px;font:inherit;margin-right:3px}
+  #done{position:fixed;inset:0;z-index:20;display:none;place-items:center;
+    background:#050908;color:#8fb4a4;font-size:16px;letter-spacing:.12em}
+</style>
+
+<div class="layer" id="sky"></div>
+<div class="layer" id="stars"></div>
+<div id="world">
+<div class="layer" id="dial">
+  <svg id="svg" viewBox="-330 -400 660 660">
+    <defs>
+      <radialGradient id="moonG" cx="42%" cy="38%">
+        <stop offset="0%" stop-color="#f7f3e4"/><stop offset="70%" stop-color="#e0e7d8"/>
+        <stop offset="100%" stop-color="#bdccc0"/>
+      </radialGradient>
+      <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="10" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <circle id="halo" r="98" fill="#9dc4b0" opacity=".07" filter="url(#glow)"/>
+    <circle r="94" fill="#0e1614"/>
+    <g transform="scale(-1,1)"><path id="moon" d="" fill="url(#moonG)"/></g>
+    <g id="rotor"></g>
+  </svg>
+</div>
+<div class="layer" id="headland"></div>
+<div class="layer" id="figures">
+  <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%">
+    <g id="figG"></g></svg>
+</div>
+</div>
+<div class="layer" id="tilt"><div class="band top"></div><div class="band bot"></div></div>
+<div class="layer" id="grade"></div>
+<div id="read"><div id="cols"></div></div>
+<div id="head"></div>
+<div id="hud">drag →</div>
+<div id="panel">
+  <button id="mode">ring: rotating</button><button id="lang">ogham: EN</button>
+  <button id="reset">reset</button><span id="stat"></span>
+</div>
+<div id="done">the stars —</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   OGHAM DIAL v4
+
+   One verse = ONE continuous ring of ogham. It turns slowly; whatever crosses
+   the apex lights gold; the English arrives word by word in step, so it reads
+   as a translation being ACTIVATED rather than a subtitle being displayed.
+
+   Two things this had to get right, neither obvious:
+
+   1. WORD-FOR-WORD DOES NOT MAP. Irish and English will never share a word
+      count, so pairing word k to word k drifts and then breaks. Instead the
+      two are anchored at LINE boundaries — a line's English completes exactly
+      as its ogham clears the apex — and words are spread proportionally
+      within each line. It stays in step, always lands together, and survives
+      you rewriting either language.
+
+   2. THE APEX NEEDS A WINDOW, NOT A POINT. At a readable rotation speed each
+      letter crosses the top in a fraction of a second; lighting only the exact
+      apex flickers. An arc of about +/-12 degrees keeps four or five letters
+      cresting at once, which also looks more like speech than like a cursor.
+
+   Phase still gates English brightness. At a dark moon you see the gold
+   cresting round the ring and no words at all — the spell plainly working and
+   you locked out of it. That is the lesson the scene exists to teach.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SVG='http://www.w3.org/2000/svg', $=id=>document.getElementById(id);
+
+/* ── ASSETS: swap for introSequence's filepath system ──────────────────── */
+const ASSETS = { sky:null, headland:null, druid:null, queen:null };
+const FIG = { druid:{x:22,y:78,h:30}, queen:{x:76,y:76,h:27} };
+
+/* ── Text ─────────────────────────────────────────────────────────────── */
+/* ── Text ─────────────────────────────────────────────────────────────────
+   297 ogham letters — about five full rings — so this is grouped into SIX
+   verses rather than crowded onto fewer. Each lands inside one ring, and the
+   moon now moves through six states rather than three.
+
+   Grouping is by sense: the address, the sleeping brightness, the child, the
+   beasts that read her, the unveiling, the poets. Regroup freely — the only
+   constraint is that a verse's ogham fits one ring, and the corner readout
+   warns you if it does not.                                                 */
+/* Three moon phases, each carrying its verse on TWO concentric rings.
+   Measured: one ring at r=206 holds 62 letters at a legible 4.6px stroke gap,
+   a second at r=166 adds 50 — 112 a phase, 336 in total, against the poem's
+   297. So the long unveiling passage stays one unbroken string of ogham
+   instead of being cut across a phase change. */
+const REGISTERS = [
+  { key:'slender', lines:[
+    {v:'d', ga:'Éist liom Ríon chaol stua na spéire', en:'Hear me O slender Queen of the high vault'},
+    {v:'d', ga:'úr múscailte, gan milleán',           en:'No blame to thee thou art but wakened'},
+    {v:'d', ga:'Chodhlaíonn solas mór ionat',         en:'In thee sleeps a great brightness'},
+    {v:'d', ga:'Seacht n-uaire de sholas laochra',    en:'Seven times the brightness of a hero\u2019s light'},
+  ]},
+  { key:'middle', lines:[
+    {v:'d', ga:'Laistigh den leanbh faitíoch tá misneach taoisigh', en:'within the frightened child a chieftain\u2019s courage'},
+    {v:'d', ga:'Glaoim air',                          en:'I call it forth'},
+    {v:'d', ga:'Léann an t-ultchabhán tú',            en:'The owl reads thee'},
+    {v:'d', ga:'Léann an mac tíre tú',                en:'the wolf reads thee'},
+  ]},
+  { key:'full', lines:[
+    {v:'d', ga:'Sín siar do chlóca dorcha',           en:'Draw back thy dark cloak'},
+    {v:'d', ga:'Agus lig do do shoilse titim',        en:'and let fall thy brightness'},
+    {v:'d', ga:'don chine éigse seo',                 en:'That this race of poets'},
+    {v:'d', ga:'do mhórchiall a léamh',               en:'may also read thy great meaning'},
+    {v:'d', ga:'Ar leabhar dorcha na bhflaitheas',    en:'upon the dark book of heaven'},
+  ]},
+];
+
+const RADII     = [206,166];   // text flows outer ring first, then inner
+const RING_R    = RADII[0];
+const REV_SECS  = 26;   // a verse is longer now     // one revolution. Set by READING SPEED, not taste:
+                          // ~15 English words needs 12-20s to be comfortable.
+const APEX_ARC  = 0.21;   // ~12 degrees either side of the top
+/* A silent arc after the last line. Two jobs: the final word had nowhere to
+   live (the wrap fired the instant arc reached the last word's position, so
+   'road.' never appeared — that was the truncation), and it gives a reader a
+   quiet moment at the end of a verse in which to move the moon on. */
+const VERSE_GAP = 0.62;
+/* Silent arc between lines. The single word-gap that separated them was about
+   0.15s at reading speed — far too short to read as a break, so the verse ran
+   together as one long sentence. This is a real breath. */
+const LINE_PAUSE = 0.34;
+const FIT       = 0.90;   // fraction of the ring the carving occupies
+const MIN_GAP_PX= 3.2;
+const TARGET_GAP_PX = 4.6;
+const TOP       = -Math.PI/2;
+
+/* ── Ogham ────────────────────────────────────────────────────────────── */
+/* Four aicmí of five, plus one forfid. Family 4 is Ifín (P) — classical ogham
+   had no P at all, and folding it to B was carving `spéire` as SBEIRE. The
+   forfeda were added in the manuscript period for exactly this gap, so using
+   one is a later borrowing rather than an invention.
+
+   Still lost, unavoidably: the síneadh fada. Ogham has no long marks, so the
+   carving is not reversible back to the spelling. That is authentic. */
+const OGHAM={B:[1,0],L:[2,0],F:[3,0],S:[4,0],N:[5,0],
+             H:[1,1],D:[2,1],T:[3,1],C:[4,1],Q:[5,1],
+             M:[1,2],G:[2,2],NG:[3,2],Z:[4,2],R:[5,2],
+             A:[1,3],O:[2,3],U:[3,3],E:[4,3],I:[5,3],
+             P:[1,4]};
+const FOLD={'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U',K:'C',V:'F',W:'F',X:'C',Y:'I',J:'I'};
+function toOgham(t){
+  const s=t.toUpperCase().replace(/[^A-ZÁÉÍÓÚ ]/g,' ').replace(/\s+/g,' ').trim(),o=[];
+  for(let i=0;i<s.length;i++){
+    if(s[i]===' '){o.push(null);continue}
+    if(s[i]==='N'&&s[i+1]==='G'){o.push('NG');i++;continue}
+    const c=FOLD[s[i]]||s[i]; if(OGHAM[c])o.push(c);
+  }
+  return o;
+}
+const cost=(L,sg)=>L==='PAUSE'?LINE_PAUSE:L===null?sg*3.1:(OGHAM[L][0]-1)*sg+sg*2.15;
+function solveGap(seq){
+  const letters=seq.filter(x=>x&&x!=='PAUSE').length || 1;
+  const capacity=RADII.length*Math.PI*2*FIT;
+  // Comfortable spacing if it fits; tighter only when the verse demands it.
+  const want=TARGET_GAP_PX/RADII[0];
+  const need=(capacity-LINE_PAUSE*4)/(letters*4.05);
+  return Math.max(MIN_GAP_PX/RADII[0], Math.min(want, need));
+}
+const smooth=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+
+/* ── Build one ring per verse ─────────────────────────────────────────────
+   The whole verse is ONE continuous run of ogham, with a word gap between
+   lines, so the ring reads as a single incantation rather than three arcs.
+   Each line's angular span is recorded, and that is what the English is
+   anchored to.                                                             */
+const rotor=$('rotor');
+let useIrish=false;   // carve the English for now; toggle in the corner
+
+function buildRings(){
+  rotor.textContent='';
+
+  /* One reading rate for the WHOLE poem. Solving each verse separately left
+     verse 2 running at 63px a word and verse 1 at 44 — the poem changed pace
+     every time the moon crossed a phase. K is radians per English word, set
+     by whichever verse is tightest against its ring capacity, so every word
+     everywhere occupies the same arc and the same distance on screen. */
+  const cap = RADII.length*Math.PI*2*FIT;
+  let K = Infinity;
+  REGISTERS.forEach(reg=>{
+    const words = reg.lines.reduce((a,l)=>a+l.en.split(/\s+/).length,0);
+    const avail = cap - LINE_PAUSE*(reg.lines.length-1);
+    K = Math.min(K, avail/words);
+  });
+
+  REGISTERS.forEach(reg=>{
+    // flatten the verse, remembering where each line starts and ends
+    const seq=[], owner=[];
+    reg.lines.forEach((l,li)=>{
+      if(li) { seq.push('PAUSE'); owner.push(li); }     // a breath between lines
+      for(const L of toOgham(useIrish?l.ga:l.en)){ seq.push(L); owner.push(li); }
+    });
+
+    const sg0=solveGap(seq);
+
+    /* Word spacing was uneven because each line's English was spread across
+       that line's OGHAM arc — a line with many English words over a short
+       Irish line packed them tight, and vice versa. So instead of one gap for
+       the verse, each line gets its own, chosen so its arc is proportional to
+       its ENGLISH word count. Words then land at a constant rate across the
+       whole verse while still staying anchored to their own line.
+       cost() is exactly linear in the gap, so this solves directly. */
+    const unitArc=L=>L.reduce((a,x)=>a+cost(x,1),0);
+    const lineSeqs=reg.lines.map(l=>toOgham(useIrish?l.ga:l.en));
+    const units=lineSeqs.map(unitArc);
+    const enW=reg.lines.map(l=>l.en.split(/\s+/).length);
+    const totalW=enW.reduce((a,b)=>a+b,0);
+    const perLineSg=units.map((u,i)=>
+      Math.max(MIN_GAP_PX/RADII[0], (enW[i]*K)/u));
+
+    const g=document.createElementNS(SVG,'g');
+    g.setAttribute('opacity','0');
+    g.style.transition='opacity .55s ease-in-out';
+
+    /* Flow onto the next ring inward when this one is full. Each ring gets its
+       own <g> and its own rotation, offset by where the text crossed onto it,
+       so the reading position runs continuously across both — one string of
+       ogham that happens to be wound on two circles. */
+    const RING_CAP=Math.PI*2*FIT;
+    const LEN=Math.max(9,Math.min(13,sg0*RADII[0]*3.2));
+    const rings=[]; let ri=-1, local=0;
+    const openRing=(startArc)=>{
+      ri++;
+      const R=RADII[Math.min(ri,RADII.length-1)];
+      const rg=document.createElementNS(SVG,'g');
+      const stem=document.createElementNS(SVG,'circle');
+      stem.setAttribute('r',R); stem.setAttribute('fill','none');
+      stem.setAttribute('stroke','#5c7d70'); stem.setAttribute('stroke-width','1');
+      stem.setAttribute('opacity',(0.20-ri*0.05).toFixed(2));
+      rg.appendChild(stem);
+      g.appendChild(rg);
+      rings.push({g:rg,R,startArc});
+      local=0;
+    };
+
+    const glyphs=[];
+    const spans=reg.lines.map(()=>({a:Infinity,b:-Infinity}));
+    let th=0;
+    openRing(0);
+
+    seq.forEach((L,i)=>{
+      const sg=perLineSg[owner[i]] ?? sg0;
+      const w=cost(L,sg);
+      if(local+w>RING_CAP && ri<RADII.length-1) openRing(th);
+      const cur=rings[ri];
+      const mid=th+w/2, li=owner[i];
+      if(L!==null && L!=='PAUSE'){
+        spans[li].a=Math.min(spans[li].a,th);
+        spans[li].b=Math.max(spans[li].b,th+w);
+        const gg=document.createElementNS(SVG,'g');
+        const [n,fam]=OGHAM[L];
+        const s0=local+(w-(n-1)*sg)/2;
+        for(let k=0;k<n;k++){
+          const ang=TOP+s0+k*sg, R=cur.R;
+          let r0,r1,t0,t1;
+          if(fam===0){r0=R;r1=R+LEN;t0=t1=ang}
+          else if(fam===1){r0=R-LEN;r1=R;t0=t1=ang}
+          else if(fam===2){r0=R-LEN;r1=R+LEN;t0=ang-sg*0.6;t1=ang+sg*0.6}
+          else if(fam===3){r0=R-LEN;r1=R+LEN;t0=t1=ang}
+          else {r0=R-LEN;r1=R+LEN;t0=ang-sg*0.7;t1=ang+sg*0.7}
+          const ln=document.createElementNS(SVG,'line');
+          ln.setAttribute('x1',(Math.cos(t0)*r0).toFixed(2));
+          ln.setAttribute('y1',(Math.sin(t0)*r0).toFixed(2));
+          ln.setAttribute('x2',(Math.cos(t1)*r1).toFixed(2));
+          ln.setAttribute('y2',(Math.sin(t1)*r1).toFixed(2));
+          ln.setAttribute('stroke','#8fb3a2');
+          ln.setAttribute('stroke-width',(2.2*cur.R/RADII[0]).toFixed(2));
+          ln.setAttribute('stroke-linecap','round');
+          gg.appendChild(ln);
+          if(fam===4){
+            const x=document.createElementNS(SVG,'line');
+            x.setAttribute('x1',(Math.cos(ang+sg*0.7)*(R-LEN)).toFixed(2));
+            x.setAttribute('y1',(Math.sin(ang+sg*0.7)*(R-LEN)).toFixed(2));
+            x.setAttribute('x2',(Math.cos(ang-sg*0.7)*(R+LEN)).toFixed(2));
+            x.setAttribute('y2',(Math.sin(ang-sg*0.7)*(R+LEN)).toFixed(2));
+            x.setAttribute('stroke','#8fb3a2'); x.setAttribute('stroke-width','2.2');
+            x.setAttribute('stroke-linecap','round');
+            gg.appendChild(x);
+          }
+        }
+        gg.dataset.ring=ri;
+        cur.g.appendChild(gg);
+        glyphs.push({at:mid,node:gg,line:li});
+      }
+      th+=w; local+=w;
+    });
+
+    reg.rings=rings;
+    reg.g=g; reg.glyphs=glyphs; reg.spans=spans;
+    reg.total=th; reg.cycle=th+VERSE_GAP; reg.sg=Math.min(...perLineSg);
+    rotor.appendChild(g);
+  });
+
+  buildWords(); solveScale(); buildColumns();
+  const worst=Math.min(...REGISTERS.map(r=>r.sg*RING_R));
+  const CAP=Math.PI*2*RADII.length;
+  const over=REGISTERS.filter(r=>r.total>CAP);
+  $('stat').textContent=' gap '+worst.toFixed(1)+'px'+
+    (over.length?('  ⚠ '+over.map(r=>r.key+' '+Math.round(r.total/CAP*100)+'%').join(' ')):'  fits '+REGISTERS.map(r=>Math.round(r.total/CAP*100)+'%').join('/'));
+}
+
+/* ── English, anchored to line spans ──────────────────────────────────── */
+function buildWords(){
+  REGISTERS.forEach(reg=>{
+    // Always open on a blank, so the first word arriving reads as a beginning
+    // rather than as something already in progress.
+    reg.words=[{ text:'', line:0, v:'d', at:0 }];
+    reg.lines.forEach((l,li)=>{
+      const sp=reg.spans[li];
+      if(li) reg.words.push({ text:'', line:li, v:l.v, at: sp.a - LINE_PAUSE*0.55 });
+      // Merge lone punctuation into the preceding word. Split on whitespace
+      // alone, an em dash becomes its own token — and one word at a time at
+      // this size means a whole screen filled with a dash.
+      const ws=[];
+      for(const t of l.en.split(/\s+/)){
+        if(/^[\u2014\u2013\-—,;:.!?]+$/.test(t) && ws.length) ws[ws.length-1]+=' '+t;
+        else ws.push(t);
+      }
+      ws.forEach((w,wi)=>{
+        // Proportional within the line, so the last word lands exactly as the
+        // line's ogham clears the apex.
+        reg.words.push({ text:w, line:li, v:l.v,
+                         at: sp.a + (sp.b-sp.a)*((wi+1)/ws.length) });
+      });
+    });
+  });
+}
+
+
+/* Pixels per radian for the word column. Solved from the tightest word
+   spacing in any verse so neighbours never collide, then clamped — too small
+   and the column crawls, too large and it races. */
+let PX_PER_RAD = 150;
+function solveScale(){
+  // Now solved from LINE spacing: enough room for a wrapped line plus air.
+  let minGap = Infinity;
+  REGISTERS.forEach(reg=>{
+    const pos=reg.spans.map(sp=>sp.a+(sp.b-sp.a)*0.35);
+    for(let i=1;i<pos.length;i++) minGap=Math.min(minGap, pos[i]-pos[i-1]);
+  });
+  // 40px, not 62: the words sit closer so the one before and the one after are
+  // in frame. One still dominates, via the focus falloff below — a single word
+  // alone on screen read as. one. word. at. a. time.
+  if(isFinite(minGap) && minGap>0) PX_PER_RAD = Math.max(70, Math.min(200, 118/minGap));
+}
+
+/* One column per verse, each word pinned at its own angle * PX_PER_RAD.
+   Blanks are simply empty space, which is what makes the breaths read. */
+function buildColumns(){
+  const host=$('cols'); host.textContent='';
+  REGISTERS.forEach(reg=>{
+    const col=document.createElement('div');
+    col.className='col';
+    col.style.opacity='0';
+    col.style.transition='opacity .55s ease-in-out';
+    reg.lineNodes=[];
+    reg.lines.forEach((l,li)=>{
+      const sp=reg.spans[li];
+      const d=document.createElement('div');
+      d.className='w'+(l.v==='q'?' q':'');
+      d.textContent=l.en;
+      // Sit each line a little into its own arc, so it is readable while its
+      // carving is still passing rather than only once it has gone by.
+      d.style.top=((sp.a+(sp.b-sp.a)*0.35)*PX_PER_RAD).toFixed(1)+'px';
+      col.appendChild(d);
+      reg.lineNodes.push(d);
+    });
+    reg.col=col;
+    host.appendChild(col);
+  });
+}
+
+/* ── Moon ─────────────────────────────────────────────────────────────── */
+const R=94;
+const moonPath=p=>{
+  const rx=R*Math.cos(p*Math.PI), sw=rx>0?0:1;
+  return `M 0 ${-R} A ${R} ${R} 0 0 1 0 ${R} A ${Math.abs(rx).toFixed(2)} ${R} 0 0 ${sw} 0 ${-R} Z`;
+};
+
+/* ── State ────────────────────────────────────────────────────────────── */
+let phase=0, arc=0, curReg=-1, started=false, finished=false, audioCtx=null;
+let rotating=true;
+
+const regFor=p=>Math.min(REGISTERS.length-1,Math.floor(Math.max(0,Math.min(0.999,p))*REGISTERS.length));
+const lumFor=p=>smooth((p-0.02)/0.30);
+
+let flare=0;
+
+/* Continue rather than restart: the ring keeps turning through the change, so
+   a reader who reaches the end of a verse and moves the moon on lands in the
+   next one without a jolt. The arc is carried across (wrapped into the new
+   verse's length) and a brief flare marks the change, so the swap is legible
+   as an event rather than looking like a glitch. */
+let fading=null;
+function switchTo(ri){
+  const first = curReg<0;
+  const back  = !first && ri < curReg;
+  const prev  = curReg, prevArc = arc;
+  curReg=ri;
+  const reg=REGISTERS[ri];
+  /* Forward into a verse starts at its beginning; backward drops in at its
+     END. So sliding the moon on at the right moment carries you through the
+     poem unbroken in either direction, instead of always restarting. */
+  /* Land on the LAST WORD, not the last radian: sitting a hair short of the
+     cycle end meant the automatic turn wrapped it back to zero on the very
+     next frame, and going backwards looked identical to going forwards. */
+  const lastWord = [...(reg.words||[])].reverse().find(w=>w.text);
+  arc = back ? (lastWord ? lastWord.at : reg.total*0.9) : 0;
+  spinVel = 0;
+  if(!first) flare=1;
+  /* Cross-fade rather than swap. The jump was not the rotation — it was the
+     instant opacity change: one ring vanished mid-turn and another appeared
+     already somewhere else.
+
+     THE TRADE-OFF, since it is real: the new verse must start with its first
+     glyph at the apex, and that is almost never the angle the old ring was
+     at. So either the ring visibly spins to reposition, or the two angles
+     simply differ. Fading through hides the difference — during the half
+     second neither ring is solid, and the eye accepts the new angle as where
+     the dial always was. Spinning to it would be honest but reads as a rewind.
+
+     The outgoing ring keeps turning while it fades, so it dies in motion
+     rather than freezing on screen. */
+  REGISTERS.forEach((r,k)=>{
+    if(r.g) r.g.setAttribute('opacity',k===ri?'1':'0');
+    if(r.col) r.col.style.opacity = k===ri ? '1' : '0';
+  });
+  if(!first && REGISTERS[prev]) fading={reg:REGISTERS[prev], arc:prevArc, t:0.55};
+}
+
+function frame(dt){
+  const ri=regFor(phase);
+  if(ri!==curReg) switchTo(ri);
+  const reg=REGISTERS[curReg];
+  if(!reg||!reg.glyphs) return;
+
+  if(spinVel!==0){                       // flick inertia, easing back to drift
+    scrub(spinVel*dt);
+    spinVel *= Math.pow(0.12, dt);
+    if(Math.abs(spinVel)<0.05) spinVel=0;
+    scrubHold=0.5;
+  } else if(scrubHold>0) {
+    scrubHold=Math.max(0,scrubHold-dt);
+  } else {
+    arc += (Math.PI*2/REV_SECS)*dt;
+    if(arc>=reg.cycle) arc-=reg.cycle;                  // the spell repeats
+  }
+
+  // Rotating: the ring turns and the apex is fixed at the top — the lit
+  // glyphs stay directly under the English, which is the point.
+  // Fixed: the ring is still and the light travels round it, which reads more
+  // like a carved stone being illuminated. Toggle and see.
+  if(fading){
+    fading.t-=dt;
+    fading.arc+=(Math.PI*2/REV_SECS)*dt;
+    if(fading.reg.rings) fading.reg.rings.forEach(r=>
+      r.g.setAttribute('transform',`rotate(${(-(fading.arc-r.startArc)*180/Math.PI).toFixed(2)})`));
+    if(fading.t<=0) fading=null;
+  }
+  if(reg.rings) reg.rings.forEach(r=>
+    r.g.setAttribute('transform', rotating
+      ? `rotate(${(-(arc-r.startArc)*180/Math.PI).toFixed(2)})` : 'rotate(0)'));
+
+  if(flare>0) flare=Math.max(0,flare-dt*1.6);
+  const fl=smooth(flare);
+
+  /* The apex only lights once the moon does. At full dark the incantation is
+     there and turning, but nothing is picked out — there is nothing yet to
+     read, so nothing should be pointed at. */
+  const litness=lumFor(phase);
+
+  /* Fade the carving out and back in across the loop point.
+
+     The wrap turns every ring by exactly `cycle` radians, which is invisible
+     only if cycle is a whole number of turns. It is not — the text spans two
+     rings, so the verses land at 1.75, 1.27 and 1.57 turns, giving jumps of
+     88, 97 and 153 degrees. Forcing whole turns would mean stretching each
+     verse by -23% to +29%, which would put word spacing back to a 25% spread
+     — worse than what we just fixed.
+
+     So the jump stays and is hidden instead. It happens inside the verse gap,
+     where no words are showing anyway, so a brief dip there costs nothing. */
+  const WRAP_FADE=0.40;
+  let dip=1;
+  if(arc < WRAP_FADE)                 dip=smooth(arc/WRAP_FADE);
+  else if(arc > reg.cycle-WRAP_FADE)  dip=smooth((reg.cycle-arc)/WRAP_FADE);
+  reg.glyphs.forEach(gl=>{
+    let d=gl.at-arc;
+    while(d>reg.cycle/2) d-=reg.cycle;
+    while(d<-reg.cycle/2) d+=reg.cycle;
+    const hot=Math.max(0,1-Math.abs(d)/APEX_ARC);
+    const e=Math.max(smooth(hot)*litness, fl*0.85);
+    for(const ln of gl.node.children){
+      ln.setAttribute('stroke', e>0.35?'#e8c56d':'#8fb3a2');
+      ln.setAttribute('opacity',((0.42+e*0.56)*dip).toFixed(2));
+      ln.setAttribute('stroke-width',(2.1+e*1.8).toFixed(1));
+    }
+  });
+
+  // The column offset is a pure function of the ring angle: no jumps, and the
+  // words cannot drift out of step with the carving.
+  const readH=$('read').clientHeight;
+  if(reg.col){
+    reg.col.style.transform=`translateY(${(readH*0.5 - arc*PX_PER_RAD).toFixed(1)}px)`;
+  }
+
+  const lum=lumFor(phase);
+  const col=`rgb(${Math.round(152+88*phase)},${Math.round(144+86*phase)},${Math.round(114+90*phase)})`;
+  /* Brightness comes from the MOON and nothing else — the same thing the moon
+     tile does in the game. Fading each word up as it reached the centre and
+     down as it left forced a stop. start. reading. style; the eye kept waiting
+     for the next word to arrive rather than reading a moving line.
+
+     The column is masked at its top and bottom edges in CSS instead, so words
+     enter and leave softly without any of them pulsing. */
+  (reg.lineNodes||[]).forEach(n=>{
+    n.style.opacity=lum.toFixed(3);
+    n.style.color=col;
+  });
+}
+
+function setPhase(p){
+  phase=Math.max(0,Math.min(1,p));
+  $('moon').setAttribute('d',moonPath(phase));
+  $('halo').setAttribute('opacity',(0.07+phase*0.36).toFixed(3));
+  $('hud').textContent = phase>=0.995?'flick → to go on':(started?'turn the ring':'drag →');
+}
+
+/* ── Placeholders ─────────────────────────────────────────────────────── */
+function paintPlaceholders(){
+  $('sky').style.background = ASSETS.sky ? `url(${ASSETS.sky}) 50%/cover no-repeat`
+    : 'linear-gradient(#0d1a18 0%,#16292400 38%,#1d322c 62%,#0b1412 100%),radial-gradient(ellipse at 50% 64%,#2a423a,#0a1211 72%)';
+  if(ASSETS.headland) $('headland').style.background=`url(${ASSETS.headland}) 50% 100%/cover no-repeat`;
+  else $('headland').innerHTML=
+    `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%">
+       <path d="M0 100 L0 84 C 14 78, 26 88, 40 84 C 56 79, 68 90, 82 86 C 90 84, 96 88, 100 86 L100 100 Z" fill="#060c0b"/>
+     </svg>`;
+  const fg=$('figG'); fg.textContent='';
+  for(const [k,c] of Object.entries(FIG)){
+    if(ASSETS[k]){
+      const im=document.createElementNS(SVG,'image');
+      im.setAttribute('href',ASSETS[k]); im.setAttribute('x',c.x-6);
+      im.setAttribute('y',c.y-c.h); im.setAttribute('width',12);
+      im.setAttribute('height',c.h); im.setAttribute('preserveAspectRatio','xMidYMax meet');
+      fg.appendChild(im);
+    } else {
+      const s=c.h/30, p=document.createElementNS(SVG,'path');
+      p.setAttribute('d', k==='druid'
+        ? `M ${c.x} ${c.y} l ${-3*s} ${-18*s} l ${2*s} ${-5*s} l ${3*s} 0 l ${2*s} ${5*s} l ${-3*s} ${18*s} z`
+        : `M ${c.x} ${c.y} l ${-4*s} ${-16*s} l ${1.5*s} ${-6*s} l ${4*s} 0 l ${1.5*s} ${6*s} l ${-4*s} ${16*s} z`);
+      p.setAttribute('fill','#040807'); fg.appendChild(p);
+      const a=document.createElementNS(SVG,'path');
+      a.setAttribute('d', k==='druid' ? `M ${c.x-s} ${c.y-22*s} l ${9*s} ${-7*s}`
+                                      : `M ${c.x-s} ${c.y-19*s} l ${-5*s} ${3*s}`);
+      a.setAttribute('stroke','#040807'); a.setAttribute('stroke-width',1.6*s);
+      a.setAttribute('stroke-linecap','round'); a.setAttribute('fill','none');
+      fg.appendChild(a);
+    }
+  }
+}
+
+/* ── Drag: two zones, not two axes ────────────────────────────────────────
+   Touch the MOON and drag sideways -> phase, the gesture the scene teaches.
+   Touch the RING and drag -> the ring turns under your finger like a dial.
+
+   Zones rather than axes because the ring is a physical thing on screen: you
+   should be able to take hold of it anywhere along its circumference and turn
+   it in whichever direction your hand goes. An axis lock would mean grabbing
+   the ring at the top and dragging sideways did nothing sensible.
+
+   The moon zone is generous (everything inside the ring), so the tutorial
+   gesture cannot be stolen by a stray touch near the rim.                    */
+const RING_GRAB_SVG = 140;      // beyond this radius, in SVG units, is ring
+const VIEW_W = 660, VIEW_CY = -70;   // viewBox is "-330 -400 660 660": SVG (0,0)
+                                     // sits 70 units below the element centre
+
+let dragging=false,lastX=0,lastT=0,vel=0;
+let zone=null, lastAng=0, angVel=0, spinVel=0, scrubHold=0;
+
+function dialCentre(){
+  const r=$('svg').getBoundingClientRect();
+  const k=r.width/VIEW_W;
+  return { cx:r.left+r.width/2, cy:r.top+r.height/2 - VIEW_CY*k, k };
+}
+function svgRadius(px,py){
+  const {cx,cy,k}=dialCentre();
+  return Math.hypot(px-cx,py-cy)/k;
+}
+function angleAt(px,py){
+  const {cx,cy}=dialCentre();
+  return Math.atan2(py-cy,px-cx);
+}
+const wrapPi=a=>{ while(a>Math.PI)a-=Math.PI*2; while(a<-Math.PI)a+=Math.PI*2; return a };
+
+function down(e){
+  const t=(e.touches?e.touches[0]:e);
+  dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0;
+  zone = svgRadius(t.clientX,t.clientY) > RING_GRAB_SVG ? 'ring' : 'moon';
+  lastAng = angleAt(t.clientX,t.clientY);
+  angVel = 0; spinVel = 0;
+  if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(x){} }
+  if(!started){ started=true;
+    if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
+    tone(174,.09,1.8); }
+}
+
+function move(e){
+  if(!dragging) return;
+  const p=(e.touches?e.touches[0]:e);
+  const t=performance.now(), dt=Math.max(1,t-lastT);
+
+  if(zone==='ring'){
+    const a=angleAt(p.clientX,p.clientY);
+    const d=wrapPi(a-lastAng);
+    lastAng=a;
+    // The rotor is drawn at rotate(-arc), so turning the finger clockwise
+    // (+d, since screen y points down) must DECREASE arc for the ring to
+    // follow the hand.
+    scrub(-d);
+    angVel = angVel*0.6 + (-d/(dt/1000))*0.4;
+    scrubHold = 0.9;
+  } else {
+    const dx=p.clientX-lastX;
+    vel=vel*0.7+(dx/dt)*0.3;
+    setPhase(phase+dx/(window.innerWidth*0.80));
+  }
+  lastX=p.clientX; lastT=t;
+  e.preventDefault();
+}
+
+/* Move the incantation by hand. Words un-reveal on the way back because the
+   current word is derived from the arc rather than latched. */
+function scrub(d){
+  const reg=REGISTERS[curReg]; if(!reg) return;
+  arc += d;
+  while(arc >= reg.cycle) arc -= reg.cycle;
+  while(arc < 0) arc += reg.cycle;
+}
+
+function up(){
+  if(!dragging) return;
+  dragging=false;
+  if(zone==='moon' && vel>1.6 && phase>0.66) finish();
+  // A flick leaves the ring spinning, then it eases back to its own slow turn.
+  if(zone==='ring' && Math.abs(angVel)>0.35) spinVel=Math.max(-6,Math.min(6,angVel));
+  zone=null;
+}
+addEventListener('mousedown',down); addEventListener('touchstart',down,{passive:true});
+addEventListener('mousemove',move); addEventListener('touchmove',move,{passive:false});
+addEventListener('mouseup',up); addEventListener('touchend',up);
+
+function tone(f,g,d){
+  if(!audioCtx||!started) return;
+  const o=audioCtx.createOscillator(),v=audioCtx.createGain();
+  o.type='triangle'; o.frequency.value=f; v.gain.value=g;
+  v.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+d);
+  o.connect(v); v.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d);
+}
+/* ── The pull-back ────────────────────────────────────────────────────────
+   The problem: get a moon that fills the screen down to a corner widget
+   WITHOUT it reading as "the moon shrank". The moon is effectively at
+   infinity — nothing can make it smaller except a wider lens.
+
+   So the whole composition scales together: moon, rings, headland, figures,
+   all at the same rate, about the point where the moon tile will end up.
+   Everything shrinking at once reads as the frame widening, not as one object
+   deflating — the eye needs a companion that shrinks with it, and here it gets
+   the entire foreground.
+
+   Meanwhile the starfield rises into the space that is vacated. That is the
+   other half: a pull-back is only legible if something arrives to fill the
+   frame. Shrinking into emptiness just looks like an object receding.        */
+const MOON_TILE = { x:0.50, y:0.88, scale:0.105 };   // where the widget lives
+
+function finish(){
+  if(finished) return; finished=true;
+  tone(392,.07,2.4);
+
+  // The spell completes and lets go before the camera moves.
+  REGISTERS.forEach(r=>{ if(r.g){ r.g.style.transition='opacity .9s ease-out'; r.g.setAttribute('opacity','0') } });
+  REGISTERS.forEach(r=>{ if(r.col){ r.col.style.transition='opacity .7s ease-out'; r.col.style.opacity='0' } });
+
+  const {cx,cy}=dialCentre();
+  const tx = window.innerWidth*MOON_TILE.x - cx;
+  const ty = window.innerHeight*MOON_TILE.y - cy;
+  const w = $('world');
+  w.style.transformOrigin = `${cx}px ${cy}px`;
+
+  setTimeout(()=>{
+    $('stars').style.opacity='1';
+    w.style.transition='transform 2.4s cubic-bezier(.32,.02,.2,1)';
+    w.style.transform = `translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${MOON_TILE.scale})`;
+    // The vignette opens as the frame widens.
+    $('grade').style.transition='opacity 2.4s ease-out';
+    $('grade').style.opacity='0.35';
+  }, 700);
+
+  setTimeout(()=>$('done').style.display='grid', 3600);
+}
+
+setInterval(()=>{
+  if(started||dragging) return;
+  const t0=performance.now();
+  const a=setInterval(()=>{
+    const k=(performance.now()-t0)/1600;
+    if(k>=1){clearInterval(a); setPhase(0); return}
+    setPhase(Math.sin(k*Math.PI)*0.10);
+  },16);
+},6500);
+
+/* ── Loop: started AFTER the build, never as an IIFE ──────────────────── */
+let last=0, running=false;
+function startLoop(){
+  if(running) return; running=true; last=performance.now();
+  (function l(){ const n=performance.now(); frame(Math.min(0.05,(n-last)/1000)); last=n;
+    requestAnimationFrame(l) })();
+}
+
+$('mode').onclick=()=>{ rotating=!rotating;
+  $('mode').textContent='ring: '+(rotating?'rotating':'fixed') };
+$('lang').onclick=()=>{ useIrish=!useIrish;
+  $('lang').textContent='ogham: '+(useIrish?'GA':'EN'); buildRings(); curReg=-1 };
+$('reset').onclick=()=>{ phase=0;arc=0;spinVel=0;curReg=-1;started=false;finished=false;
+  $('done').style.display='none'; setPhase(0) };
+
+paintPlaceholders(); buildRings(); setPhase(0); startLoop();
+</script>
+

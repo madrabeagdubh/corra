@@ -10,6 +10,7 @@ import { triggerMurmuration } from './game/effects/murmuration.js';
 import { ScrollingTextPlayer } from './game/ui/scrollingTextPlayer.js';
 import { constellationTexts } from '../data/constellationTexts.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
+import { runOghamDial } from './introOghamDial.js';
 import { createDomButton } from './game/systems/gameTypography.js';
 
 
@@ -261,13 +262,37 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     create() {
+        /* The dial runs first, then the scene builds. create() decides; _build()
+           constructs.
+
+           This used to call this.scene.restart() once the poem finished, which
+           was far too blunt: a restart re-runs preload(), so the image loader
+           tripped over keys it already had ("Failed to process file: naomhog"),
+           and update() had already been running against a scene that create()
+           had returned from without building anything. All that was wanted was
+           to defer the second half of create(). */
+        if (!this.registry.get('dialSeen')) {
+            this.registry.set('dialSeen', true);
+            runOghamDial({ parent: 'gameContainer' })
+                .then(phase => { this._dialPhase = phase; this._build(); })
+                .catch(() => this._build());     // never strand the player
+            return;
+        }
+        this._build();
+    }
+
+    _build() {
+        this._built = true;
         this.initAudio();
         this._onComplete = this.registry.get('onComplete') || null;
         // Seeded by the ogham dial when it has run: the player already set this,
         // and starting from 0.05 would silently undo their choice.
         // Read HERE and not in the constructor — this.registry does not exist
         // until the scene has been added to the manager.
-        const _seed = this.registry.get('startPhase');
+        // From the dial we just awaited, or from the registry if the scene
+        // was started with one.
+        const _seed = (typeof this._dialPhase === 'number')
+            ? this._dialPhase : this.registry.get('startPhase');
         if (typeof _seed === 'number') this.moonPhase = _seed;
         // The dial ran, so it has already shown the poem, taken the first
         // touch (unlocking audio) and left its moon at the widget's rest
@@ -388,7 +413,10 @@ export class ConstellationScene extends Phaser.Scene {
         // The dial's poem has replaced the looping Amergin line. Kept behind
         // the flag so the scene still stands alone without the dial.
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
-        let line              = AMERGIN_LINES[currentLyricIndex];
+        // The dial's poem has replaced the looping Amergin line. With the dial,
+        // the overlay starts empty and is reused by the constellation texts.
+        let line = this._dialRan ? { ga: '', en: '' }
+                                 : AMERGIN_LINES[currentLyricIndex];
         this._frozenAmerginLine = line;
 
         const irishEl = document.createElement('div');
@@ -463,6 +491,14 @@ if (wrapper) {
     };
     wrapper.addEventListener('pointerdown', earlyUnlock, { passive: true });
 }
+        /* The dial has said the poem, taken the first touch and left its moon at
+           rest. Everything the swipe used to do still has to happen — it was
+           the only caller of settleMoon(), which pans the camera and then runs
+           _startPostSettleSequence(): the druid's speech and the constellation
+           texts. Skipping the branch skipped the trigger too, which is why the
+           scene sat on the Amergin line. */
+        if (this._dialRan) this._beginAfterDial();
+
         if (wrapper) {
             const moonD    = this._moonWidget.moonD;
             const pad      = 18;
@@ -528,6 +564,20 @@ if (wrapper) {
         el.style.bottom     = MOON_REST_FROM_BOTTOM + 'px';
     }, 2600);
 } 
+
+    /* What the moon swipe used to do, minus what the dial already did.
+
+       No _driftMoonToBottom(): the moon is already at its rest position,
+       placed there by the dial's pull-back. Drifting it again would move a
+       moon the player has just watched arrive. */
+    _beginAfterDial() {
+        if (this._afterDialDone) return;
+        this._afterDialDone = true;
+        this._moonSwipeDone = true;
+        if (this._lyricInterval) { clearInterval(this._lyricInterval); this._lyricInterval = null; }
+        // One frame's grace so the moon widget is laid out before the pan.
+        setTimeout(() => this.settleMoon(), 0);
+    }
 
     // ── settleMoon ────────────────────────────────────────────────────────────
     settleMoon() {
@@ -1198,6 +1248,11 @@ if (wrapper) {
         this.worldG.fillStyle(0xffffff,alpha); this.worldG.fillCircle(wx,wy,coreR);
     }
 
-    update(time, delta) { this.updateSpin(delta); this.drawScene(); }
+    update(time, delta) {
+        // Phaser drives update() from the moment the scene is active, which
+        // includes the whole time the dial is up and nothing has been built.
+        if (!this._built) return;
+        this.updateSpin(delta); this.drawScene();
+    }
 }
 

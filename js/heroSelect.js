@@ -9,7 +9,6 @@ import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.
 import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
-import { runOghamDial }      from './introOghamDial.js';
 
 console.log('[HeroSelect] MODULE LOADED - heroSelect.js is executing');
 
@@ -331,14 +330,6 @@ export function initHeroSelect() {
     console.log('[HeroSelect] initHeroSelect called, initialized:', initialized);
     if (initialized) return;
     initialized = true;
-
-    // The dial teaches the moon before the stars are asked for. Its final
-    // phase seeds ConstellationScene.moonPhase, so the control the player
-    // just learned carries straight on rather than resetting to 0.05.
-    //
-    // Deliberately not awaited with the roster load: introModal's preload
-    // started at import time and keeps running underneath this.
-    runOghamDial().then(startPhase => {
     initConstellationScene(async (sliderValue, amerginLine) => {
         console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
         initialSliderValue = sliderValue;
@@ -346,7 +337,6 @@ export function initHeroSelect() {
         GameSettings.setEnglishOpacity(sliderValue);
         await waitForHeroAssets();
         initMainHeroSelect();
-    }, startPhase);
     });
 }
 

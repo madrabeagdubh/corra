@@ -45,10 +45,21 @@ const STYLE = `
   #ogd-col .ga,#ogd-col .en{position:absolute;left:0;right:0;text-align:center;
     padding:0 5vw;box-sizing:border-box;
     text-shadow:0 3px 18px rgba(0,0,0,.95),0 0 40px rgba(0,0,0,.75)}
-  #ogd-col .ga{font-family:Urchlo,Aonchlo,ui-serif,Georgia,serif;
-    font-size:clamp(22px,6.4vw,36px);line-height:1.2;color:#ece5cb;opacity:0;
+  /* Matched to TYPE.domBody / TYPE.domBodyEn in js/game/systems/gameTypography.js
+     (1.8rem Urchlo, 1.7rem Courier). Hardcoded rather than imported because this
+     module is deliberately self-contained — if you retune the type scale there,
+     retune these two rules with it. .en previously had no font-family at all and
+     inherited the root serif, so the poem and the scene it hands off to were set
+     in different faces. */
+  /* TYPE.domBody / TYPE.domBodyEn and speakerColor('druid') /
+     speakerColorEn('druid') from js/game/systems/gameTypography.js. Sizes are
+     the flat rem values, not clamps: the vw term used to win on a phone and
+     shrink both against the scene the poem hands off to. */
+  #ogd-col .ga{font-family:Urchlo,Aonchlo,serif;
+    font-size:1.8rem;line-height:1.2;color:#a0a0b8;opacity:0;
     transition:opacity 1.1s ease-out}
-  #ogd-col .en{font-size:clamp(16px,4.7vw,26px);line-height:1.24;color:#a9b8a6}
+  #ogd-col .en{font-family:"Courier New",monospace;
+    font-size:1.7rem;line-height:1.24;color:#9b8dbd}
 
   #ogd-tilt{z-index:5}
   #ogd-tilt .band{position:absolute;left:0;width:100%;
@@ -115,9 +126,12 @@ export function runOghamDial(opts = {}) {
 
     const root = document.createElement('div');
     root.id = 'ogd-root';
+    /* showThrough: the caller has already put a starfield behind us and the
+       dial must not be a lid over it. Inline beats the #ogd-root rule in STYLE. */
     root.style.cssText = 'position:fixed;inset:0;z-index:60;overflow:hidden;' +
       'font-family:ui-serif,Georgia,serif;color:#cfe0d8;' +
-      '-webkit-user-select:none;user-select:none;touch-action:none;background:#070b0a';
+      '-webkit-user-select:none;user-select:none;touch-action:none;' +
+      (opts.showThrough ? 'background:transparent' : 'background:#070b0a');
     root.innerHTML = MARKUP;
     parent.appendChild(root);
 
@@ -356,6 +370,19 @@ export function runOghamDial(opts = {}) {
       
       /* ── State ───────────────────────────────────────────────────────────── */
       let arc=0, phase=0, revealed=false, started=false, finished=false, audioCtx=null;
+      /* Where the WHEEL is, as opposed to where the poem is. See the easing
+         in the frame loop below. */
+      let ringArc=0;
+      /* How much of the carving is showing. Dropped to hide a re-seat, then
+         brought back up. 1 is fully present. */
+      let ringVeil=1;
+      /* The dolly rides the poem. CREEP_CAP is how much of the whole camera
+         move happens while reading: 1 all of it, 0 none of it and the old
+         behaviour of a static shot with a pull at the end. The target scale is
+         measured, not guessed — see creepTarget(). */
+      const CREEP_CAP=1;
+      let creepU=0, creepScale=1, creepW=0, creepH=0, lastCreepReport=-1;
+      let creepEnd=null, creepCx=0, creepCy=0, creepK0=1, creepDx=0, creepDy=0;
       let spinVel=0, dead=false;
       
       /* English brightness = the fraction of the moon's disc that is actually lit,
@@ -393,15 +420,89 @@ export function runOghamDial(opts = {}) {
       
         if(arc>=TOTAL_ARC){ arc=TOTAL_ARC; finish() }
         if(arc<0) arc=0;
+
+        /* The wheel follows the poem instead of being welded to it. Grabbing the
+           ring writes ringArc directly — there is nothing to lag behind, and the
+           direct feel of that gesture is the good one, so it is preserved
+           exactly. Everything else eases, so scrubbing the text at reading speed
+           no longer whips the wheel round at reading speed. */
+        /* Under RING_SNAP the wheel eases across, which is what ordinary
+           reading looks like. Over it — a hard fling through the poem — chasing
+           just means watching the wheel spin frantically for a second, so it
+           fades out instead, re-seats where the poem now is, and fades back. */
+        const RING_SNAP=0.9;
+        if(dragging && zone==='ring'){
+          ringArc=arc; ringVeil=Math.min(1,ringVeil+dt*3);
+        } else if(Math.abs(arc-ringArc)>RING_SNAP){
+          ringVeil=Math.max(0,ringVeil-dt*4);
+          if(ringVeil<=0.02) ringArc=arc;      // moved while nobody can see it
+        } else {
+          ringArc += (arc-ringArc)*(1-Math.pow(0.01,dt));
+          ringVeil=Math.min(1,ringVeil+dt*1.6);
+        }
+
+        /* ── the creeping dolly ──────────────────────────────────────────────
+           Recession as a function of how far through the poem we are, so it
+           runs backwards too if the reader scrubs back. Smoothstepped: the
+           opening lines should barely move. */
+        if(!finished){
+          const p=Math.max(0,Math.min(1,arc/TOTAL_ARC));
+          const u=p*p*(3-2*p);
+          if(Math.abs(u-creepU)>0.0004){
+            creepU=u;
+            const w=$('world');
+            if(creepW!==window.innerWidth||creepH!==window.innerHeight){
+              /* The origin must be read in the element's own coordinates, so
+                 the transform comes off for the measurement. Only on resize. */
+              creepW=window.innerWidth; creepH=window.innerHeight;
+              w.style.transform='none';
+              const c0=dialCentre();
+              w.style.transformOrigin=`${c0.cx}px ${c0.cy}px`;
+            }
+            /* The same arithmetic finish() uses: the moon's rest diameter over
+               its diameter in the dial. Measured once, at scale 1, so it is the
+               true end of the journey rather than a number that felt about
+               right. */
+            if(creepEnd===null){
+              /* Measured once, at scale 1: where the moon has to end up, how big,
+                 and how far it must travel to get there. All three then ride the
+                 same progress value. */
+              const c1=dialCentre(), tg=moonTileTarget();
+              creepCx=c1.cx; creepCy=c1.cy; creepK0=c1.k;
+              creepEnd=Math.max(0.05,Math.min(1,tg.d/(188*c1.k)));
+              creepDx=tg.cx-c1.cx; creepDy=tg.cy-c1.cy;
+              // Counter-scaled rings grow past the viewBox; let them.
+              $('svg').style.overflow='visible';
+            }
+            const q=u*CREEP_CAP;
+            creepScale=1+(creepEnd-1)*q;
+            w.style.transform=
+              `translate(${(creepDx*q).toFixed(1)}px,${(creepDy*q).toFixed(1)}px) `+
+              `scale(${creepScale.toFixed(4)})`;
+            /* The ogham is held, not receded from. Cancelling the world's scale
+               inside the SVG leaves the glyphs their size while the moon they
+               surround shrinks and falls away toward its rest position. */
+            const inv=(1/creepScale).toFixed(4);
+            $('stems').setAttribute('transform',`scale(${inv})`);
+            $('rotor').setAttribute('transform',`scale(${inv})`);
+            if(opts.onProgress){ try{ opts.onProgress(u) }catch(x){} }
+            /* onPhase normally only fires on a drag, but the moon is shrinking
+               now even when nobody touches it, and the glow is sized from it. */
+            if(opts.onPhase && Math.abs(u-lastCreepReport)>0.01){
+              lastCreepReport=u;
+              try{ const c=dialCentre(); opts.onPhase(phase,c.cx,c.cy,188*c.k) }catch(x){}
+            }
+          }
+        }
       
         // carving
         lines.forEach(L=>{
-          const dMid = arc < L.start ? L.start-arc : arc > L.end ? arc-L.end : 0;
+          const dMid = ringArc < L.start ? L.start-ringArc : ringArc > L.end ? ringArc-L.end : 0;
           if(dMid>CULL){ L.g.setAttribute('display','none'); return }
           L.g.removeAttribute('display');
-          L.g.setAttribute('transform',`rotate(${(-(arc-L.start)*180/Math.PI).toFixed(2)})`);
+          L.g.setAttribute('transform',`rotate(${(-(ringArc-L.start)*180/Math.PI).toFixed(2)})`);
       
-          const fade = Math.max(0,1-Math.max(0,dMid-EDGE_SOFT)/(CULL-EDGE_SOFT));
+          const fade = Math.max(0,1-Math.max(0,dMid-EDGE_SOFT)/(CULL-EDGE_SOFT)) * ringVeil;
           const lum  = lumFor(phase);
       
           /* A comet, not a block. Each stroke lights as it crosses the apex and dies
@@ -436,7 +537,20 @@ export function runOghamDial(opts = {}) {
         while(idx<lines.length-1 && arc>=lines[idx+1].start) idx++;
         const L=lines[idx], nxt=lines[Math.min(idx+1,lines.length-1)];
         const t=Math.max(0,Math.min(1,(arc-L.start)/Math.max(0.001,(nxt.start-L.start))));
-        const y=rows[idx].y + (rows[Math.min(idx+1,rows.length-1)].y - rows[idx].y)*t;
+        let y;
+        if(idx>=lines.length-1){
+          /* On the last line there is no next anchor to interpolate toward, so
+             the column stopped dead in the middle of the frame and waited to be
+             faded out. Keep it climbing at the pace the previous line set, far
+             enough to clear the reading frame, and the poem ends by leaving
+             rather than by stopping. */
+          const prv=lines[Math.max(0,idx-1)];
+          const span=Math.max(0.001,L.start-prv.start);
+          const over=Math.max(0,Math.min(1,(arc-L.start)/span));
+          y=rows[idx].y + over*(($('read').clientHeight||300)*0.6 + 90);
+        } else {
+          y=rows[idx].y + (rows[Math.min(idx+1,rows.length-1)].y - rows[idx].y)*t;
+        }
         colEl.style.transform=`translateY(${(($('read').clientHeight||300)*0.5 - y).toFixed(1)}px)`;
       
         const lum=lumFor(phase);
@@ -452,6 +566,13 @@ export function runOghamDial(opts = {}) {
         $('halo').setAttribute('opacity',(0.07+phase*0.36).toFixed(3));
         // The ratchet: once the moon has been moved, the Irish stays for good.
         if(!revealed && phase>0.06) revealed=true;
+        /* The land is not ours — the scene built it and will keep it after we
+           are removed. Tell it where the moon is and how full, and it lights
+           itself. Guarded because the dial must still run standalone. */
+        if(opts.onPhase){
+          // 188 is the moon's diameter in the dial's own 660 viewBox.
+          try{ const c=dialCentre(); opts.onPhase(phase, c.cx, c.cy, 188*c.k); }catch(x){}
+        }
         if($('hud')) $('hud').textContent = revealed ? '' : '';
       }
       
@@ -490,7 +611,7 @@ export function runOghamDial(opts = {}) {
           // lines, so a comfortable swipe moves a couple of lines rather than
           // flinging you through the poem.
           const dy=p.clientY-lastY;
-          const perPx=(TOTAL_ARC/POEM.length)*3/window.innerHeight;
+          const perPx=(TOTAL_ARC/POEM.length)*6/window.innerHeight;
           arc=Math.max(0,Math.min(TOTAL_ARC,arc-dy*perPx));
           textVel=textVel*0.6+(-dy*perPx/(dt/1000))*0.4;
         } else if(zone==='ring'){
@@ -520,7 +641,7 @@ export function runOghamDial(opts = {}) {
            hatch that skips the saying of it. */
         if(zone==='ring' && Math.abs(angVel)>0.35) spinVel=Math.max(-6,Math.min(6,angVel));
         // Gentle carry on the text, so it glides to rest rather than stopping dead.
-        if(zone==='text' && Math.abs(textVel)>0.20) spinVel=Math.max(-2.2,Math.min(2.2,textVel*0.5));
+        if(zone==='text' && Math.abs(textVel)>0.12) spinVel=Math.max(-9,Math.min(9,textVel));
         textVel=0;
         zone=null;
       }
@@ -558,15 +679,28 @@ export function runOghamDial(opts = {}) {
         tone(392,.07,2.4);
         lines.forEach(L=>{ L.g.style.transition='opacity .9s ease-out'; L.g.setAttribute('opacity','0') });
         colEl.style.transition='opacity .7s ease-out'; colEl.style.opacity='0';
-        const {cx,cy,k}=dialCentre();
+        /* Measure from where the dial STARTED, not where the creep has carried
+           it. dialCentre() reports the moon's live position, so using it here
+           would compute a near-zero translation and snap the dial back to centre
+           at the handoff. Cached values make this transform absolute. */
+        const b = (creepEnd!==null) ? {cx:creepCx, cy:creepCy, k:creepK0} : dialCentre();
+        const cx=b.cx, cy=b.cy;
         const t=moonTileTarget();
-        const dialMoonD = 188*k;                 // r=94 in the 660 viewBox
+        const dialMoonD = 188*b.k;               // r=94 in the 660 viewBox
         const scale = t.d/dialMoonD;
+        /* One number for the whole camera move. It was 2.4s in four places,
+           which landed the moon before the eye had finished reading the
+           recession. handOff waits for it plus a breath. */
+        const PULL_MS=3400;
         const w=$('world');
         w.style.transformOrigin=`${cx}px ${cy}px`;
         setTimeout(()=>{
-          w.style.transition='transform 2.4s cubic-bezier(.32,.02,.2,1)';
+          w.style.transition=`transform ${PULL_MS}ms cubic-bezier(.32,.02,.2,1)`;
           w.style.transform=`translate(${(t.cx-cx).toFixed(1)}px,${(t.cy-cy).toFixed(1)}px) scale(${scale.toFixed(4)})`;
+          /* Same duration, same easing, different scale per depth: the land
+             recedes ON this camera move rather than after it. Nothing grows —
+             the frame widens and the far layers barely change. */
+          if(opts.onPullBack){ try{ opts.onPullBack(PULL_MS,{cx:t.cx,cy:t.cy,d:t.d}) }catch(x){} }
           /* The real starfield lives in index.html, beneath #gameContainer, and has
              been running the whole time. So instead of drawing our own stars we
              simply stop covering it: the sky layer and the dial's own backdrop fade
@@ -574,18 +708,44 @@ export function runOghamDial(opts = {}) {
              it is the good one. */
           $('sky').style.transition='opacity 2.0s ease-out'; $('sky').style.opacity='0';
           $('headland').style.transition='opacity 2.0s ease-out'; $('headland').style.opacity='0';
-          $('grade').style.transition='opacity 2.4s ease-out'; $('grade').style.opacity='0';
+          $('grade').style.transition=`opacity ${PULL_MS}ms ease-out`; $('grade').style.opacity='0';
           const rootEl=document.getElementById('ogd-root');
           if(rootEl){ rootEl.style.transition='background-color 2.0s ease-out';
                       rootEl.style.backgroundColor='transparent'; }
         },700);
-        setTimeout(()=>{ dead=true; handOff(phase); },3400);
+        setTimeout(()=>{ dead=true; handOff(phase); },700+PULL_MS+300);
       }
       
       /* ── Placeholders ────────────────────────────────────────────────────── */
       function paint(){
+        /* Two skies. SOLID is the dial standing on its own. HAZE is for when a
+           starfield is already turning behind it: darkness banked at the top and
+           bottom and nothing across the middle, so the stars carry the frame.
+           #ogd-grade still supplies the vignette either way.
+           An ASSETS.sky image overrides both, and would need its own alpha. */
+        const SKY_SOLID='linear-gradient(#0d1a18 0%,#16292400 38%,#1d322c 62%,#0b1412 100%),radial-gradient(ellipse at 50% 64%,#2a423a,#0a1211 72%)';
+        // Bottom only. The top band used to be 92% opaque and is now the sky.
+        const SKY_HAZE ='linear-gradient(rgba(13,26,24,0) 0%,rgba(22,41,36,0) 58%,rgba(11,20,18,.88) 100%)';
         $('sky').style.background=ASSETS.sky?`url(${ASSETS.sky}) 50%/cover no-repeat`
-          :'linear-gradient(#0d1a18 0%,#16292400 38%,#1d322c 62%,#0b1412 100%),radial-gradient(ellipse at 50% 64%,#2a423a,#0a1211 72%)';
+          :(opts.showThrough?SKY_HAZE:SKY_SOLID);
+        /* The vignette's clear centre sits at 64% for the standalone dial, which
+           frames the ring nicely and crushes the top of the frame. With a real
+           sky behind us the centre lifts and the edges soften. */
+        if(opts.showThrough){
+          $('grade').style.background=
+            'radial-gradient(ellipse at 50% 46%,rgba(26,44,40,0) 46%,rgba(4,8,7,.78) 100%)';
+          /* Stars are at infinity and cannot be out of focus. The bottom band
+             stays — the near foreground has a real claim to defocus — but this
+             one was softening the one thing in frame that must stay sharp, and
+             costing a full-width backdrop blur of a live canvas every frame to
+             do it. */
+          const topBand=$('tilt').querySelector('.top');
+          if(topBand) topBand.style.display='none';
+        }
+        /* showThrough means the caller has already put real land behind us.
+           Our placeholder headland and stick figures would sit on top of it —
+           two headlands is worse than none. */
+        if(opts.showThrough){ $('headland').innerHTML=''; $('figG').textContent=''; return; }
         if(ASSETS.headland) $('headland').style.background=`url(${ASSETS.headland}) 50% 100%/cover no-repeat`;
         else $('headland').innerHTML=
           `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%">

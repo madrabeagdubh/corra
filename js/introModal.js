@@ -12,6 +12,9 @@ import { constellationTexts } from '../data/constellationTexts.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 import { runOghamDial } from './introOghamDial.js';
 import { createDomButton } from './game/systems/gameTypography.js';
+import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
+import { createNightScape } from './game/effects/nightScape.js';
+import { createStarField } from './game/effects/starField.js';
 
 
 
@@ -122,7 +125,7 @@ export function initConstellationScene(onComplete, startPhase) {
     document.fonts.load('1.8rem Aonchlo').catch(() => {});
     const game = new Phaser.Game({
         type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight,
-        backgroundColor: '#00060f', parent: 'gameContainer',
+        backgroundColor: NIGHT.baseCss, parent: 'gameContainer',
         scene: [ConstellationScene],
         scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
         input: { touch: true },
@@ -211,6 +214,30 @@ const AMERGIN_LINES = [
     { ga: 'Cé buar Teathra le gean?',               en: 'Who can charm the sunless king?' },
 ];
 
+/* n1-top@3x.png is blue-dominant, and a Phaser tint only multiplies — it can
+   darken the blue but never add green. So the image is redrawn once through a
+   Canvas2D filter, which can rotate the hue, and registered as its own texture.
+   index.html's loader applies the same filter string to the same asset.
+   If the browser has no ctx.filter the original is used unchanged: the scene
+   stays purple rather than breaking. */
+function _nightNebula(scene, img) {
+    const KEY = 'nebulaNight';
+    if (scene.textures.exists(KEY)) return KEY;
+    try {
+        const cv = document.createElement('canvas');
+        cv.width = img.width; cv.height = img.height;
+        const c = cv.getContext('2d');
+        if (typeof c.filter === 'undefined') return img;
+        c.filter = NIGHT.nebulaFilter;
+        c.drawImage(img, 0, 0);
+        scene.textures.addCanvas(KEY, cv);
+        return KEY;
+    } catch (e) {
+        console.warn('[ConstellationScene] Nebula recolour failed:', e);
+        return img;
+    }
+}
+
 export class ConstellationScene extends Phaser.Scene {
     constructor() {
         super({ key: 'ConstellationScene' });
@@ -262,23 +289,61 @@ export class ConstellationScene extends Phaser.Scene {
     }
 
     create() {
-        /* The dial runs first, then the scene builds. create() decides; _build()
-           constructs.
+        /* The sky goes up first and the dial is played over it. create()
+           decides; _buildSky() and _build() construct.
 
            This used to call this.scene.restart() once the poem finished, which
            was far too blunt: a restart re-runs preload(), so the image loader
            tripped over keys it already had ("Failed to process file: naomhog"),
            and update() had already been running against a scene that create()
            had returned from without building anything. All that was wanted was
-           to defer the second half of create(). */
+           to defer the second half of create().
+
+           Then the dial ran over an opaque backdrop and revealed index.html's
+           loader starfield at the pull-back, and this scene built wheels of its
+           own on top of THAT — three starfields, two of them swapped in front of
+           the player. The sky is built once, here, and never replaced. */
+        this._buildSky();
         if (!this.registry.get('dialSeen')) {
             this.registry.set('dialSeen', true);
-            runOghamDial({ parent: 'gameContainer' })
+            runOghamDial({
+                parent: 'gameContainer',
+                showThrough: true,
+                // The dial does not own the land; it only says where its moon is
+                // and when the camera starts to move.
+                onPhase   : (phase, cx, cy, d) => this._nightScape?.setMoon(cx, cy, phase, d),
+                onPullBack: (ms, target)       => this._nightScape?.pullBack(ms, target),
+                // The dolly rides the poem, so the land recedes as it is read.
+                onProgress : (u)               => this._nightScape?.setProgress(u),
+            })
                 .then(phase => { this._dialPhase = phase; this._build(); })
                 .catch(() => this._build());     // never strand the player
             return;
         }
         this._build();
+    }
+
+    /* Everything the dial needs to be standing in front of, and nothing else.
+       Runs before the poem; _build() must not repeat it. */
+    _buildSky() {
+        if (this._skyBuilt) return;
+        this._skyBuilt = true;
+        const wSize = 5000;
+        this._wSize  = wSize;
+        this.worldCX = wSize / 2; this.worldCY = wSize / 2;
+        this.cameras.main.setBackgroundColor(NIGHT.baseCss);
+        this.cameras.main.setBounds(0, 0, wSize, wSize);
+        /* Live polar stars about a hub above the top edge — see
+           js/game/effects/starField.js for why the baked wheels had to go. The
+           handles expose `.angle` in degrees, which is the whole of what
+           updateSpin() and panCameraTo() ever wanted from a RenderTexture. */
+        this._starField = createStarField(this);
+        [this._bgWheelRt, this._driftWheelRt, this._fgWheelRt] = this._starField.layers;
+        [this._bgWheelSpeed, this._driftWheelSpeed, this._fgWheelSpeed] = this._starField.speeds;
+        this.drawNebula(wSize);
+        /* The land goes up with the sky, before the dial, and outlives it. The
+           dial cannot own this: handOff() removes its root. */
+        this._nightScape = createNightScape({ parent: document.body });
     }
 
     _build() {
@@ -299,12 +364,8 @@ export class ConstellationScene extends Phaser.Scene {
         // position. This scene must not replay the opening.
         this._dialRan = (typeof _seed === 'number');
         this._frozenAmerginLine = null;
-        this.cameras.main.setBackgroundColor('#00060f');
-        const wSize = 5000;
-        this.worldCX = wSize / 2; this.worldCY = wSize / 2;
-        this.cameras.main.setBounds(0, 0, wSize, wSize);
-        this.drawStaticBackground(wSize);
-        this.drawNebula(wSize);
+        // The sky is already up — _buildSky() ran before the dial did.
+        const wSize = this._wSize;
         this.worldG  = this.add.graphics().setDepth(10);
         this.rippleG = this.add.graphics().setDepth(11);
         this.trailG  = this.add.graphics().setScrollFactor(0).setDepth(13);
@@ -328,21 +389,12 @@ export class ConstellationScene extends Phaser.Scene {
         this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
         this.buildMoonOverlay();
 
-        // ── Shadow hill as DOM element ────────────────────────────────────────
-        // z-index 99999: above scrolling text (99998), below moon (100000+)
-        // pointer-events:none so stars beneath remain tappable
-        const hillEl = document.createElement('img');
-        hillEl.src = './assets/shadowHill.png';
-        hillEl.style.cssText = [
-            'position:fixed;',
-            'bottom:0;left:0;',
-            'width:125%;',
-            'height:auto;',
-            'pointer-events:none;',
-            'z-index:99999;',
-        ].join('');
-        document.body.appendChild(hillEl);
-        this._shadowHillEl = hillEl;
+        /* The single shadowHill plate is gone. It was one flat image at
+           z-index 99999 with the druid and queen painted into it, so it could
+           take neither its own scale factor in the pull-back nor its own
+           moonlight. nightScape.js carries it as layers instead — see
+           midHeadland.png in that file's table. */
+        this._syncNightScape(this.moonPhase);
 
         this.scale.on('resize', (gs) => {
             if (this._duskEl) this._duskEl.style.height = Math.round(gs.height * 0.20) + 'px';
@@ -415,9 +467,14 @@ export class ConstellationScene extends Phaser.Scene {
         let currentLyricIndex = Math.floor(Math.random() * AMERGIN_LINES.length);
         // The dial's poem has replaced the looping Amergin line. With the dial,
         // the overlay starts empty and is reused by the constellation texts.
+        // Two jobs, one variable, and they came apart when the dial took
+        // over the opening. `line` is what this overlay DISPLAYS;
+        // _frozenAmerginLine is the question carried to the champion screen,
+        // whose 'Cé murach mise.' only answers a 'Cé...?'. The dial's poem
+        // replaces the display and nothing else.
         let line = this._dialRan ? { ga: '', en: '' }
                                  : AMERGIN_LINES[currentLyricIndex];
-        this._frozenAmerginLine = line;
+        this._frozenAmerginLine = AMERGIN_LINES[currentLyricIndex];
 
         const irishEl = document.createElement('div');
         irishEl.textContent = line.ga;
@@ -436,7 +493,7 @@ export class ConstellationScene extends Phaser.Scene {
             `font-family:${FONTS.english};font-size:${TYPE.domBodyEn.size};`,
             `color:${COLORS.druid};text-align:center;`,
             'text-shadow:0 0 12px rgba(0,0,0,0.9);padding:0 6%;',
-            'pointer-events:none;opacity:0.05;transition:opacity 0.5s ease;',
+            `pointer-events:none;opacity:${this.moonPhase};transition:opacity 0.5s ease;`,
             'position:absolute;left:0;right:0;',
             `top:${Math.round(H * 0.22)}px;`,
         ].join('');
@@ -462,12 +519,13 @@ export class ConstellationScene extends Phaser.Scene {
         document.body.appendChild(overlay);
 
         this._moonWidget = createMoonWidget({
-            initialPhase : 0.05,
+            initialPhase : this.moonPhase,
             showSlider   : false,
             corner       : 'bottom-center',
             onChange     : (phase) => {
                 this.moonPhase = phase;
                 enEl.style.opacity = String(phase);
+                this._syncNightScape(phase);
 
                 if (!this._moonSwipeDone && !this._dialRan && phase > 0.5) {
                     this._moonSwipeDone = true;
@@ -579,6 +637,21 @@ if (wrapper) {
         setTimeout(() => this.settleMoon(), 0);
     }
 
+    /* The dial reported the moon's screen position itself while the poem ran.
+       Once the widget exists it is the thing the player is dragging, so the
+       light follows it from wherever it actually sits. */
+    _syncNightScape(phase) {
+        if (!this._nightScape) return;
+        const el = this._moonWidget?.element;
+        if (el) {
+            const r = el.getBoundingClientRect();
+            this._nightScape.setMoon(r.left + r.width / 2, r.top + r.height / 2,
+                                     phase, this._moonWidget.moonD);
+        } else {
+            this._nightScape.setMoon(undefined, undefined, phase);
+        }
+    }
+
     // ── settleMoon ────────────────────────────────────────────────────────────
     settleMoon() {
         if (!this._harpSilentStarted) {
@@ -586,7 +659,12 @@ if (wrapper) {
             this._startHarpOnSwipe();
         }
 
-        this._bgWheelsPaused = true;
+        /* Stilling the wheels makes the pan read as a deliberate camera move —
+           but only when they were not already established. After the dial they
+           have been turning behind the ogham for the whole poem, and a 1400ms
+           freeze here lands a dead stop on the frame the player is watching the
+           moon settle onto. One continuous night means one continuous turn. */
+        if (!this._dialRan) this._bgWheelsPaused = true;
         this.spinAngle = 0;
         this.cameras.main.setAngle(0);
 
@@ -718,6 +796,11 @@ if (wrapper) {
         if (this._bgWheelRt)    this._bgWheelRt.angle    += this._bgWheelSpeed    * dt;
         if (this._driftWheelRt) this._driftWheelRt.angle += this._driftWheelSpeed * dt;
         if (this._fgWheelRt)    this._fgWheelRt.angle    += this._fgWheelSpeed    * dt;
+        /* The camera's own tilt waits for the scene proper. settleMoon() snaps
+           this angle back to 0, and a poem's worth of drift would make that snap
+           a visible lurch at the handoff. The wheels turn regardless — that is
+           the part the player sees behind the ogham. */
+        if (!this._built) return;
         const camDeg = this._driftWheelSpeed * dt;
         this.spinAngle = (this.spinAngle || 0) + camDeg;
         this.cameras.main.setOrigin(0.5, 0.28);
@@ -727,7 +810,7 @@ if (wrapper) {
     drawNebula(wSize) {
         const S  = Math.round(Math.max(this.W, this.H) * 1.5);
         const rt = this.add.renderTexture(0, 0, S, S)
-            .setScrollFactor(0).setDepth(2).setAlpha(0.55)
+            .setScrollFactor(0).setDepth(2).setAlpha(NIGHT.nebulaAlpha)
             .setOrigin(0.5).setPosition(this.W / 2, this.H / 2)
             .setBlendMode(Phaser.BlendModes.ADD);
         this._nebulaWheelRt    = rt;
@@ -736,16 +819,11 @@ if (wrapper) {
             rt.clear();
             if (img) {
                 const scale = Math.max(S / img.width, S / img.height);
-                rt.draw(img, (S - img.width * scale) / 2, (S - img.height * scale) / 2);
+                const src   = _nightNebula(this, img);
+                rt.draw(src, (S - img.width * scale) / 2, (S - img.height * scale) / 2);
             } else {
                 const fg = this.make.graphics({ add: false });
-                for (const g of [
-                    { x:0.35, y:0.38, r:0.38, c1:0x6030c0, c2:0x1a1060 },
-                    { x:0.65, y:0.28, r:0.32, c1:0x402090, c2:0x101050 },
-                    { x:0.50, y:0.65, r:0.40, c1:0x203880, c2:0x0a1840 },
-                    { x:0.22, y:0.68, r:0.30, c1:0x501060, c2:0x180830 },
-                    { x:0.78, y:0.58, r:0.34, c1:0x381888, c2:0x101430 },
-                ]) { fg.fillGradientStyle(g.c1,g.c1,g.c2,g.c2,0.7,0.7,0,0); fg.fillCircle(S*g.x,S*g.y,S*g.r); }
+                for (const g of NIGHT.nebulaBlobs) { fg.fillGradientStyle(g.c1,g.c1,g.c2,g.c2,0.7,0.7,0,0); fg.fillCircle(S*g.x,S*g.y,S*g.r); }
                 rt.draw(fg, 0, 0); fg.destroy();
             }
         };
@@ -758,6 +836,8 @@ if (wrapper) {
         }
     }
 
+    /* DEAD as of the polar starfield — kept as the way back if live drawing
+       turns out to cost frames on real hardware. Nothing calls this. */
     drawStaticBackground(wSize) {
         const W = this.W, H = this.H;
         const S = Math.round(Math.max(W, H) * 1.5);
@@ -771,7 +851,7 @@ if (wrapper) {
                 for (let i = 0; i < l.n; i++) {
                     const x = rng.realInRange(0, S), y = rng.realInRange(0, S);
                     const r = rng.realInRange(l.minR, l.maxR), a = rng.realInRange(l.minA, l.maxA);
-                    tmp.fillStyle(0xffffff, a);
+                    tmp.fillStyle(NIGHT.starHex, a);
                     if (r < 1.2) { tmp.fillRect(Math.floor(x), Math.floor(y), 2, 2); }
                     else {
                         const arm = Math.round(r);
@@ -787,19 +867,19 @@ if (wrapper) {
             { n:600, minR:0.6, maxR:1.0, minA:0.08, maxA:0.18 },
             { n:200, minR:1.0, maxR:1.5, minA:0.12, maxA:0.24 },
             { n:60,  minR:1.4, maxR:2.0, minA:0.16, maxA:0.30 },
-        ], 360/180000, 3);
+        ], SKY_SPIN * 360/180000, 3);
         this._bgWheelRt = bg.rt; this._bgWheelSpeed = bg.speed;
         const dr = makeWheel('réaltaí2', [
             { n:1800, minR:0.6, maxR:1.1, minA:0.15, maxA:0.38 },
             { n:600,  minR:1.0, maxR:1.6, minA:0.22, maxA:0.50 },
             { n:150,  minR:1.4, maxR:2.2, minA:0.28, maxA:0.58 },
-        ], 360/90000, 4);
+        ], SKY_SPIN * 360/90000, 4);
         this._driftWheelRt = dr.rt; this._driftWheelSpeed = dr.speed;
         const fg = makeWheel('réaltaí3', [
             { n:180, minR:1.0, maxR:2.0, minA:0.28, maxA:0.55 },
             { n:60,  minR:1.8, maxR:3.0, minA:0.38, maxA:0.65 },
             { n:20,  minR:2.5, maxR:4.0, minA:0.45, maxA:0.75 },
-        ], 360/60000, 5);
+        ], SKY_SPIN * 360/60000, 5);
         this._fgWheelRt = fg.rt; this._fgWheelSpeed = fg.speed;
     }
 
@@ -1076,6 +1156,9 @@ if (wrapper) {
         if (this._duskEl)      {this._duskEl.remove();      this._duskEl=null;}
         if (this._menuPreview?.parentNode){this._menuPreview.remove();this._menuPreview=null;}
         if (this._shadowHillEl?.parentNode){this._shadowHillEl.remove();this._shadowHillEl=null;}
+        if (this._nightScape){this._nightScape.destroy();this._nightScape=null;}
+        if (this._starField){this._starField.destroy();this._starField=null;
+                             this._bgWheelRt=this._driftWheelRt=this._fgWheelRt=null;}
         this._hideDarkImage(true);
     }
 
@@ -1249,10 +1332,15 @@ if (wrapper) {
     }
 
     update(time, delta) {
-        // Phaser drives update() from the moment the scene is active, which
-        // includes the whole time the dial is up and nothing has been built.
+        // Phaser drives update() from the moment the scene is active. The sky
+        // now exists throughout the dial and must keep turning behind it; the
+        // constellations do not exist until _build() has run.
+        if (!this._skyBuilt) return;
+        this.updateSpin(delta);
+        // Bobs keep their positions between frames; the angles do not.
+        this._starField?.render();
         if (!this._built) return;
-        this.updateSpin(delta); this.drawScene();
+        this.drawScene();
     }
 }
 

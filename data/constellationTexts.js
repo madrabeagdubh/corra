@@ -4,20 +4,23 @@ export const constellationTexts = {
     // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────
     cu: {
         waiting: [
-             {
-                ga: 'Tríd oichí fada gan codladh a bhanríonn,',
-                en: 'Through long and sleepless nights o queen,',
-                speaker: 'druid',
-            },{
-                ga: 'tá córthaí na spéire cúrtaithe agam',
-                en: 'I have searched the signs of the sky',
-                speaker: 'druid',
-            },
-            {
-                ga: 'Éist go maith le mo léamh!',
-                en: 'Heed well my reading.',
-                speaker: 'druid',
-            },
+        /* Silenced: the first constellation is now approached without
+           narration. The druid and queen wait in a still sky until the
+           player starts connecting. Kept here rather than deleted. */
+        // {
+        // ga: 'Tríd oichí fada gan codladh a bhanríonn,',
+        // en: 'Through long and sleepless nights o queen,',
+        // speaker: 'druid',
+        // },{
+        // ga: 'tá córthaí na spéire cúrtaithe agam',
+        // en: 'I have searched the signs of the sky',
+        // speaker: 'druid',
+        // },
+        // {
+        // ga: 'Éist go maith le mo léamh!',
+        // en: 'Heed well my reading.',
+        // speaker: 'druid',
+        // },
         ],
         completion: [
             {

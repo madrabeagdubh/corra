@@ -176,19 +176,27 @@ export function createStarField(scene, opts = {}) {
             _blitter: blitter,
             _stars: stars,
             _speed: SKY_SPIN * rate * 360 / L.ms,
+            _lastDeg: null,          // render() skips a layer that has not turned
         };
         return handle;
     });
 
     function render() {
+        // Hoisted: constant for the life of a layout, and it was being recomputed
+        // once per star per frame.
+        const span = wedge ? wedge.hi - wedge.lo : 0;
         for (const L of layers) {
+            /* A still sky costs nothing. Once the wheels are paused — which is the
+               whole constellation scene now that the harp stills them — every one
+               of these writes would put a star back exactly where it already was. */
+            if (L.angle === L._lastDeg) continue;
+            L._lastDeg = L.angle;
             const off = L.angle * Math.PI / 180;
             for (const s of L._stars) {
                 let a = s.a + off;
                 if (wedge) {
                     // Leaving the wedge is leaving the screen, so re-entering at
                     // the far edge is invisible. Radius is untouched.
-                    const span = wedge.hi - wedge.lo;
                     a = wedge.lo + (((a - wedge.lo) % span) + span) % span;
                 }
                 // -CELL/2 because a bob draws from its top-left corner.

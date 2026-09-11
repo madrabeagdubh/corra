@@ -78,8 +78,8 @@ const LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
     { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:22 },
     { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:17 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:20, left:'20%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:19, left:'29%', w:24 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12, left:'50%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12, left:'57%', w:24 },
     { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:13 },
 ];
 
@@ -219,6 +219,7 @@ export function createNightScape(opts = {}) {
     place();
 
     let pulled = false;
+    let lastProgress = -1;
 
     return {
         /* Driven by the dial while the poem runs, then by the moon widget.
@@ -244,8 +245,14 @@ export function createNightScape(opts = {}) {
             if (pulled) return;
             // The whole journey, matching the dial's CREEP_CAP.
             const t = Math.max(0, Math.min(1, u));
+            /* Below this the layers move less than a pixel, and five style writes
+               on full-viewport composited elements is not free. */
+            if (Math.abs(t - lastProgress) < 0.001) return;
+            lastProgress = t;
             made.forEach(m => {
-                m.wrap.style.transition = 'none';
+                // Written once. Reassigning it every tick invalidates the style of
+                // a large composited layer for no reason.
+                if (m.wrap.style.transition !== 'none') m.wrap.style.transition = 'none';
                 m.wrap.style.transform =
                     `scale(${(1 + (m.endScale - 1) * t).toFixed(4)})`;
             });

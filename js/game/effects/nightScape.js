@@ -51,8 +51,16 @@ const DIR = 'assets/nightscape/';
 const PULL = 1.5;
 
 /* Eye level as a fraction of viewport height. Everything recedes toward this
-   line. Move it and the whole sense of where the viewer is standing moves. */
-const HORIZON = 0.48;
+   line, so it also sets HOW LOW the land is able to finish: a plate at scale s
+   can never end below FLOOR*(1-s) above the floor, because scaling about the
+   horizon lifts it by exactly that much.
+
+   It started at 0.48, mid-screen, which is where a horizon goes when you are
+   standing in a landscape. This composition is not that — it is a low band of
+   land beneath a very large sky, with the moon resting near the bottom edge. A
+   horizon that high forced every plate to finish high enough to sit over the
+   moon, and no amount of tuning `top` could get underneath it. */
+const HORIZON = 0.75;
 
 /* Each land plate is described by where its TOP EDGE should finish, in vh above
    the viewport floor, after the dolly. Everything else is derived. This is the
@@ -68,11 +76,11 @@ const HORIZON = 0.48;
    at under 26vh was visible during the poem. */
 const LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
-    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:44 },
-    { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:32 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:40, left:'20%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:39, left:'29%', w:24 },
-    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:24 },
+    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:22 },
+    { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:17 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:20, left:'20%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:19, left:'29%', w:24 },
+    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:13 },
 ];
 
 const scaleFor = z => z / (z + PULL);

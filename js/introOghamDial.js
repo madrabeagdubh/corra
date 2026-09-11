@@ -193,19 +193,17 @@ export function runOghamDial(opts = {}) {
       
       /* ── The poem, unbroken ───────────────────────────────────────────────── */
       const POEM=[
-        {ga:'A ríon na h-ardspéire',                  en:'O Queen of the high vault'},
-        {ga:'A iníon na dorchadais',                  en:'O daughter of darkness'},
-        {ga:'Codlaíonn ionat',                        en:'In thee sleeps'},
-        {ga:'Seacht n-uaire sholas an ghaiscígh',     en:'Seven times the brightness of a hero\u2019s light'},
-        {ga:'Glaoim ar',                              en:'I call it forth'},
-        {ga:'Éirigh, a Ghealach, sín siar do chlóca dorcha', en:'Arise, O Moon, Draw back thy dark cloak'},
-        {ga:'Seas mar aisling thar dhroim Teamhrach', en:'stand above the ridge of Tara like a dream'},
-        {ga:'Lig dod sholas titim',                   en:'let fall thy light'},
-        {ga:'Go bhféadfaidh cine éigse',              en:'That a race of poets'},
-        {ga:'mhórleabhar dorcha na bhflaitheas a léamh', en:'may read the dark book of heaven'},
-        {ga:'Nochtaigh an dán atá snáite sa dorchadas',   en:'Reveal what fate is weaving in the dark'},
-        {ga:'Dán na saothraigh is na tite',           en:'The fate of those who strive and those who fall'},
-        {ga:'Agus scríobh do thuar go glé ar spéir na hÉireann', en:'And write thy meaning plain on Erin\u2019s sky'},
+        {ga:'Is fada mé i ndorchadas',                en:'Long am I in darkness'},
+        {ga:'Feicim Slua Reann ag ardú',              en:'I see the bright ones climb'},
+        {ga:'Rianaím a ngathanna geala in airde',     en:'I trace their flashing spears upraised'},
+        {ga:'fós ní scaoilfidh siad a rúin!',         en:'yet they part not with their counsel!'},
+        {ga:'A Gealach',                              en:'O bright one'},
+        {ga:'A Ríona na Bóinne is na Banna',           en:'O Queen of Boyne and Bann'},
+        {ga:'Le seacht n-uaire solas an laoich',      en:'With seven times a hero\u2019s light'},
+        {ga:'Gairim ort!',                            en:'I call thee forth!'},
+        {ga:'Soilsigh droim na Teamhrach',            en:'Shine down upon the ridge of Tara'},
+        {ga:'srianaigh na taoisigh uaibhreacha',      en:'bridle these haughty chiefs'},
+        {ga:'is nocht a rúin dod ghiolla',            en:'and lay their secrets bare before thy servant'},
       ];
       
       const RADII=[206,166,126];
@@ -383,6 +381,11 @@ export function runOghamDial(opts = {}) {
       const CREEP_CAP=1;
       let creepU=0, creepScale=1, creepW=0, creepH=0, lastCreepReport=-1;
       let creepEnd=null, creepCx=0, creepCy=0, creepK0=1, creepDx=0, creepDy=0;
+      /* Seconds of stillness before the moon starts asking more insistently,
+         and the breath's two amplitudes. hintWas tracks the frame `revealed`
+         flips so the halo can be handed back cleanly. */
+      const HINT_URGE=9;
+      let hintT=0, idleT=0, hintWas=false;
       let spinVel=0, dead=false;
       
       /* English brightness = the fraction of the moon's disc that is actually lit,
@@ -431,6 +434,25 @@ export function runOghamDial(opts = {}) {
            just means watching the wheel spin frantically for a second, so it
            fades out instead, re-seats where the poem now is, and fades back. */
         const RING_SNAP=0.9;
+        /* ── the moon asks to be found ─────────────────────────────────────
+           Only until it has been. `revealed` flips on the first movement of the
+           moon, and after that this never runs again. */
+        if(!revealed){
+          hintT+=dt; idleT+=dt;
+          const urgent = idleT>HINT_URGE;
+          const period = urgent ? 2.2 : 3.8;
+          const swell  = 0.5-0.5*Math.cos(hintT*2*Math.PI/period);
+          const base   = 0.07+phase*0.36;
+          $('halo').setAttribute('opacity',(base+swell*(urgent?0.26:0.11)).toFixed(3));
+          // Radius only moves once it is urgent: a change of KIND, not degree,
+          // against a screen where everything else drifts at a constant rate.
+          $('halo').setAttribute('r',(98+(urgent?swell*7:0)).toFixed(1));
+        } else if(!hintWas){
+          hintWas=true;
+          $('halo').setAttribute('r','98');
+          $('halo').setAttribute('opacity',(0.07+phase*0.36).toFixed(3));
+        }
+
         if(dragging && zone==='ring'){
           ringArc=arc; ringVeil=Math.min(1,ringVeil+dt*3);
         } else if(Math.abs(arc-ringArc)>RING_SNAP){
@@ -590,6 +612,7 @@ export function runOghamDial(opts = {}) {
       function down(e){
         const t=(e.touches?e.touches[0]:e);
         dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0; angVel=0; textVel=0; spinVel=0;
+        idleT=0;   // reading the poem is not idling; only stillness escalates
         /* Three zones. The text itself scrubs the poem, which is how the rest of
            the game's scrolling text behaves — you should not have to find the ring
            to move the words. */

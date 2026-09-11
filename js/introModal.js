@@ -700,7 +700,9 @@ if (wrapper) {
     _startPostSettleSequence(baseScrollY) {
         this.tweens.add({
             targets: this.worldG, alpha: 1, duration: 1200, ease: 'Sine.easeIn',
-            onStart: () => { this._bgWheelsPaused = false; },
+            // Only restart the turn if the harp never got going — a blocked or
+            // refused audio context should not leave the sky frozen.
+            onStart: () => { if (!this._harpSilentStarted) this._bgWheelsPaused = false; },
             onComplete: () => {
                 const driftBase = this.cameras.main.scrollY;
                 const driftProg = { t: 0 };
@@ -975,7 +977,12 @@ if (wrapper) {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer=null; }
         this.pulseIdx=0; this._interactionStarted=true; this.canInteract=true;
         this._updateDusk();
-        this.showWaitingTexts(this.constellations[this.currentIndex], ()=>{});
+        /* Nothing is said before the first constellation. The poem has just
+           ended on "and lay their secrets bare before thy servant"; the druid
+           and queen then wait in a still sky for the player to begin. Later
+           constellations narrate as usual. */
+        if (this.currentIndex > 0)
+            this.showWaitingTexts(this.constellations[this.currentIndex], ()=>{});
         this.runPulseStep();
     }
 
@@ -1023,6 +1030,9 @@ if (wrapper) {
                 this.smoothX=pointer.x; this.smoothY=pointer.y;
                 this.trailPts=[this.screenToRotated(pointer.x,pointer.y)];
                 star.lit=true; this.tweens.killTweensOf(star); star.brightness=2.0;
+                // Belt and braces: the wheels are normally already stilled by
+                // _startHarpOnSwipe(). This only matters if a path reaches the
+                // stars without the harp having started.
                 this.spawnRipple(star.wx,star.wy); this._setBgWheelPaused(true); break;
             }
         }
@@ -1215,6 +1225,19 @@ if (wrapper) {
         mg.gain.cancelScheduledValues(now);
         mg.gain.setValueAtTime(0.0001, now);
         mg.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
+
+        mg.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
+
+        /* The sky settles as the music arrives. This used to happen on the first
+           touch of a star, which made the player's opening move look like they
+           had stopped the heavens by accident.
+
+           Set directly, NOT through _setBgWheelPaused(): that helper refuses to
+           pause while _interactionStarted is false, which is true for everything
+           before startSequencePulse() — including here. Its guard is about not
+           freezing a scene that is not yet interactive, which is a different
+           question from this one. */
+        this._bgWheelsPaused = true;
 
     } catch(e) { console.warn('[audio] _startHarpOnSwipe error:', e); }
 } 

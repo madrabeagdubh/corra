@@ -98,7 +98,7 @@ const MARKUP = `
       </defs>
       <circle id="ogd-halo" r="98" fill="#9dc4b0" opacity=".07" filter="url(#ogd-glow)"/>
       <circle r="94" fill="#0e1614"/>
-      <g transform="scale(-1,1)"><path id="ogd-moon" d="" fill="url(#ogd-moonG)"/></g>
+      <g id="ogd-moonwrap" transform="scale(-1,1)"><path id="ogd-moon" d="" fill="url(#ogd-moonG)"/></g>
       <g id="ogd-stems"></g>
       <g id="ogd-rotor"></g>
     </svg>
@@ -381,6 +381,7 @@ export function runOghamDial(opts = {}) {
       const CREEP_CAP=1;
       let creepU=0, creepScale=1, creepW=0, creepH=0, lastCreepReport=-1;
       let creepEnd=null, creepCx=0, creepCy=0, creepK0=1, creepDx=0, creepDy=0;
+      let elWorld=null, elStems=null, elRotor=null;   // looked up once, not per frame
       /* Seconds of stillness before the moon starts asking more insistently,
          and the breath's two amplitudes. hintWas tracks the frame `revealed`
          flips so the halo can be handed back cleanly. */
@@ -423,6 +424,33 @@ export function runOghamDial(opts = {}) {
       
         if(arc>=TOTAL_ARC){ arc=TOTAL_ARC; finish() }
         if(arc<0) arc=0;
+
+        /* The moon slides back toward dark whenever it is left alone. Downhill
+           means toward 0 on the waxing half and toward 2 on the waning one —
+           either way, out. Suspended while a finger is down or a tap-glide is
+           running, so it never fights the player for the control. */
+        if(!dragging && (typeof glideTo==='undefined'||glideTo<0) && phase>DRIFT_FLOOR){
+          const cp=cyclePos(rawPhase);
+          /* About 0.0002 of phase a frame — less than a 94px disc can show. Let it
+             accumulate and repaint when there is something to see, rather than
+             rebuilding the terminator path sixty times a second for nothing. */
+          driftAcc+=(cp<=1?-1:1)*DRIFT_RATE*dt*1000;
+          if(Math.abs(driftAcc)>0.002){ setRaw(rawPhase+driftAcc); driftAcc=0; }
+        }
+
+        /* Glide, never jump: the point of answering a tap is to show that this
+           thing SLIDES, and a cut shows nothing. Smoothstepped, and abandoned
+           the moment a real drag starts — taking hold always beats a tap still
+           running. */
+        if(glideTo>=0){
+          if(dragging){ glideTo=-1; }
+          else {
+            glideT=Math.min(1,glideT+dt*1000/TAP_MS);
+            const ge=glideT*glideT*(3-2*glideT);
+            setRaw(glideFrom+(glideTo-glideFrom)*ge);
+            if(glideT>=1) glideTo=-1;
+          }
+        }
 
         /* The wheel follows the poem instead of being welded to it. Grabbing the
            ring writes ringArc directly — there is nothing to lag behind, and the
@@ -472,7 +500,7 @@ export function runOghamDial(opts = {}) {
           const u=p*p*(3-2*p);
           if(Math.abs(u-creepU)>0.0004){
             creepU=u;
-            const w=$('world');
+            const w=elWorld||(elWorld=$('world'));
             if(creepW!==window.innerWidth||creepH!==window.innerHeight){
               /* The origin must be read in the element's own coordinates, so
                  the transform comes off for the measurement. Only on resize. */
@@ -505,8 +533,8 @@ export function runOghamDial(opts = {}) {
                inside the SVG leaves the glyphs their size while the moon they
                surround shrinks and falls away toward its rest position. */
             const inv=(1/creepScale).toFixed(4);
-            $('stems').setAttribute('transform',`scale(${inv})`);
-            $('rotor').setAttribute('transform',`scale(${inv})`);
+            (elStems||(elStems=$('stems'))).setAttribute('transform',`scale(${inv})`);
+            (elRotor||(elRotor=$('rotor'))).setAttribute('transform',`scale(${inv})`);
             if(opts.onProgress){ try{ opts.onProgress(u) }catch(x){} }
             /* onPhase normally only fires on a drag, but the moon is shrinking
                now even when nobody touches it, and the glow is sized from it. */
@@ -543,9 +571,17 @@ export function runOghamDial(opts = {}) {
             else if(rel < 0)  e = (1 + rel/LEAD) * 0.45;   // about to be spoken
             else              e = Math.exp(-rel/TRAIL);    // the trail behind
             e *= gate;
-            m.n.setAttribute('stroke', e>0.30?'#e8c56d':'#8fb3a2');
-            m.n.setAttribute('opacity',((0.30+e*0.68)*fade).toFixed(2));
-            m.n.setAttribute('stroke-width',(2.0*L.R/RADII[0]+e*1.9).toFixed(1));
+            /* Write only what changed. Comparison is on the FORMATTED strings,
+               not the floats: the floats wobble in the twelfth decimal every
+               frame while the rendered value is identical, which would defeat the
+               whole point. Strokes away from the apex now cost three string
+               compares instead of three attribute writes. */
+            const st = e>0.30?'#e8c56d':'#8fb3a2';
+            const op = ((0.30+e*0.68)*fade).toFixed(2);
+            const sw = (2.0*L.R/RADII[0]+e*1.9).toFixed(1);
+            if(m._st!==st){ m._st=st; m.n.setAttribute('stroke',st); }
+            if(m._op!==op){ m._op=op; m.n.setAttribute('opacity',op); }
+            if(m._sw!==sw){ m._sw=sw; m.n.setAttribute('stroke-width',sw); }
           }
         });
       
@@ -582,8 +618,41 @@ export function runOghamDial(opts = {}) {
         });
       }
       
+      /* Lifted from moonWidget.js so the dial's moon and the scene's are one
+         object rather than two that resemble each other.
+
+         rawPhase is unbounded. cyclePos folds it into [0,2): the first half is
+         waxing, the second waning, and phase — the fraction actually lit — is the
+         triangle over it. Winding past full therefore carries on round to dark
+         instead of stopping, and the crescent swaps limb on the way back, which
+         is what makes that read as a moon rather than a rewind. */
+      let rawPhase=0;
+      const cyclePos=r=>((r%2)+2)%2;
+      /* Degrees. The gesture stays horizontal; the moon is turned under it so the
+         terminator travels up and to the right. moonWidget uses rotate(160deg)
+         for the same reason. */
+      const MOON_TILT=-35;
+      /* The widget's own numbers: 0.1 of phase per nine seconds, resting at a
+         sliver rather than going fully out. DRIFT_FLOOR=0 for full dark. */
+      const DRIFT_RATE=0.1/9000, DRIFT_FLOOR=0.25;
+      let driftAcc=0;   // unpainted drift, flushed when it is worth a pixel
+
+      function setRaw(r){
+        rawPhase=r;
+        const cp=cyclePos(rawPhase);
+        phase=cp<=1?cp:2-cp;
+        const wrap=$('moonwrap');
+        if(wrap) wrap.setAttribute('transform',
+          `rotate(${MOON_TILT}) scale(${cp<=1?-1:1},1)`);
+        _paintPhase();
+      }
+
       function setPhase(p){
-        phase=Math.max(0,Math.min(1,p));
+        // Kept so callers that think in plain illumination still work.
+        setRaw(Math.max(0,Math.min(1,p)));
+      }
+
+      function _paintPhase(){
         $('moon').setAttribute('d',moonPath(phase));
         $('halo').setAttribute('opacity',(0.07+phase*0.36).toFixed(3));
         // The ratchet: once the moon has been moved, the Irish stays for good.
@@ -609,9 +678,18 @@ export function runOghamDial(opts = {}) {
       const wrapPi=a=>{while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a};
       
       let dragging=false,zone=null,lastX=0,lastY=0,lastT=0,lastAng=0,vel=0,angVel=0,textVel=0;
+      /* A tap — a touch that goes nowhere — slides the moon this far, over
+         this long. Comfortably past the 0.06 ratchet, so one tap also brings
+         up the Irish and a dim English behind it. */
+      const TAP_STEP=0.30, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
+      let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
       function down(e){
         const t=(e.touches?e.touches[0]:e);
         dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0; angVel=0; textVel=0; spinVel=0;
+        /* lastY is only written by move(), so a tap that never moves would
+           otherwise measure itself against the previous gesture's position.
+           Seed it here or every tap looks like a drag. */
+        lastY=t.clientY; downX=t.clientX; downY=t.clientY; downT=lastT; glideTo=-1;
         idleT=0;   // reading the poem is not idling; only stillness escalates
         /* Three zones. The text itself scrubs the poem, which is how the rest of
            the game's scrolling text behaves — you should not have to find the ring
@@ -644,13 +722,25 @@ export function runOghamDial(opts = {}) {
         } else {
           const dx=p.clientX-lastX;
           vel=vel*0.7+(dx/dt)*0.3;
-          setPhase(phase+dx/(window.innerWidth*0.80));
+          /* raw, not phase: on the waning half they run opposite ways and
+             adding to phase there would reverse the gesture under the finger. */
+          setRaw(rawPhase+dx/(window.innerWidth*0.80));
         }
         lastX=p.clientX; lastY=p.clientY; lastT=t;
         e.preventDefault();
       }
       function up(){
         if(!dragging) return; dragging=false;
+        /* A touch that went nowhere. Until the moon has been moved once, read
+           it as the gesture people actually make at a glowing circle — a press
+           — and answer it by sliding. */
+        if(!revealed){
+          const moved=Math.hypot(lastX-downX,lastY-downY);
+          if(moved<TAP_SLOP && performance.now()-downT<TAP_TIME){
+            // raw, so a tap near full carries on round rather than clamping.
+            glideFrom=rawPhase; glideTo=rawPhase+TAP_STEP; glideT=0;
+          }
+        }
         // A hard shove on the ring runs the poem out to its end. That is the skip:
         // it is the same gesture as reading ahead, only harder, so nobody has to be
         // told about it and nobody stumbles into it.

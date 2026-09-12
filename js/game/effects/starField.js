@@ -101,6 +101,14 @@ function radiiFor(hx, hy, W, H) {
  * @param {number} [opts.hubX] fraction of width  (0.5 = centre)
  * @param {number} [opts.hubY] fraction of height (negative = above the screen)
  */
+/* Diagnostics — see patch_star_probe.py. Inert unless the URL asks. */
+const _sq = (typeof location !== 'undefined' && location.search) || '';
+const STAR_SCALE = (() => {
+    const m = /[?&]stars=([0-9.]+)/.exec(_sq);
+    return m ? Math.max(0.02, parseFloat(m[1]) || 1) : 1;
+})();
+const NO_STAR_DRAW = /[?&]noStarDraw\b/.test(_sq);
+
 export function createStarField(scene, opts = {}) {
     ensureTexture(scene);
 
@@ -152,9 +160,12 @@ export function createStarField(scene, opts = {}) {
         const blitter = scene.add.blitter(0, 0, TEX)
             .setScrollFactor(0).setDepth(L.depth)
             .setBlendMode(Phaser.BlendModes.ADD);
+        // Built either way, so the only difference measured is the drawing.
+        if (NO_STAR_DRAW) blitter.visible = false;
 
         const stars = [];
-        for (let i = 0; i < L.n; i++) {
+        const count = Math.max(1, Math.round(L.n * STAR_SCALE));
+        for (let i = 0; i < count; i++) {
             const u = rng.frac();
             const r = rad.min + (rad.max - rad.min) * Math.pow(u, falloff);
             const t = (r - rad.min) / Math.max(1, rad.max - rad.min);

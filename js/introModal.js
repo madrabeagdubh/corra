@@ -1361,7 +1361,8 @@ if (wrapper) {
         if (!this._skyBuilt) return;
         this.updateSpin(delta);
         // Bobs keep their positions between frames; the angles do not.
-        this._starField?.render();
+        // ?noStars — see patch_perf_probe.py
+        if(!/[?&]noStars\b/.test(location.search)) this._starField?.render();
         if (!this._built) return;
         this.drawScene();
     }

@@ -42,9 +42,13 @@ const STYLE = `
     -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 20%,#000 80%,transparent 100%);
     mask-image:linear-gradient(to bottom,transparent 0,#000 20%,#000 80%,transparent 100%)}
   #ogd-col{position:absolute;left:0;right:0;top:0;will-change:transform}
+  /* ONE tight shadow. There used to be two — an 18px blur and a 40px — and
+     rasterising them on every visible line every frame was the single largest
+     cost in the intro. Blur is roughly quadratic in its radius, so this is not a
+     small saving. Its job is legibility against stars, which 8px does. */
   #ogd-col .ga,#ogd-col .en{position:absolute;left:0;right:0;text-align:center;
     padding:0 5vw;box-sizing:border-box;
-    text-shadow:0 3px 18px rgba(0,0,0,.95),0 0 40px rgba(0,0,0,.75)}
+    text-shadow:0 2px 8px rgba(0,0,0,.96)}
   /* Matched to TYPE.domBody / TYPE.domBodyEn in js/game/systems/gameTypography.js
      (1.8rem Urchlo, 1.7rem Courier). Hardcoded rather than imported because this
      module is deliberately self-contained — if you retune the type scale there,
@@ -59,7 +63,7 @@ const STYLE = `
     font-size:1.8rem;line-height:1.2;color:#a0a0b8;opacity:0;
     transition:opacity 1.1s ease-out}
   #ogd-col .en{font-family:"Courier New",monospace;
-    font-size:1.7rem;line-height:1.24;color:#9b8dbd}
+    font-size:1.7rem;line-height:1.24;color:#8ea3b5}
 
   #ogd-tilt{z-index:5}
   #ogd-tilt .band{position:absolute;left:0;width:100%;
@@ -194,12 +198,11 @@ export function runOghamDial(opts = {}) {
       /* ── The poem, unbroken ───────────────────────────────────────────────── */
       const POEM=[
         {ga:'Is fada mé i ndorchadas',                en:'Long am I in darkness'},
-        {ga:'Feicim Slua Reann ag ardú',              en:'I see the bright ones climb'},
-        {ga:'Rianaím a ngathanna geala in airde',     en:'I trace their flashing spears upraised'},
-        {ga:'fós ní scaoilfidh siad a rúin!',         en:'yet they part not with their counsel!'},
+        {ga:'Feicim an Slua Reann ag dreapadh',              en:'I see the bright ones climb'},
+        {ga:'Feicim a gathanna geala',     en:'I see their flashing spears'},
+        {ga:'Ach tá síad ina thost!',         en:'yet they are silent!'},
         {ga:'A Gealach',                              en:'O bright one'},
         {ga:'A Ríona na Bóinne is na Banna',           en:'O Queen of Boyne and Bann'},
-        {ga:'Le seacht n-uaire solas an laoich',      en:'With seven times a hero\u2019s light'},
         {ga:'Gairim ort!',                            en:'I call thee forth!'},
         {ga:'Soilsigh droim na Teamhrach',            en:'Shine down upon the ridge of Tara'},
         {ga:'srianaigh na taoisigh uaibhreacha',      en:'bridle these haughty chiefs'},
@@ -368,6 +371,11 @@ export function runOghamDial(opts = {}) {
       
       /* ── State ───────────────────────────────────────────────────────────── */
       let arc=0, phase=0, revealed=false, started=false, finished=false, audioCtx=null;
+      /* The carving's own turn while the poem waits to be started. Kept apart
+         from arc so nothing downstream — creep, column, line advance —
+         mistakes it for progress through the poem. */
+      let idleSpin=0, elIdleRotor=null;
+      let _lastGaO=null, _lastEnO=null;   // last opacities written to the column
       /* Where the WHEEL is, as opposed to where the poem is. See the easing
          in the frame loop below. */
       let ringArc=0;
@@ -381,6 +389,11 @@ export function runOghamDial(opts = {}) {
       const CREEP_CAP=1;
       let creepU=0, creepScale=1, creepW=0, creepH=0, lastCreepReport=-1;
       let creepEnd=null, creepCx=0, creepCy=0, creepK0=1, creepDx=0, creepDy=0;
+      /* How often the dolly is allowed to rewrite the SVG's scale. Each write
+         re-rasterises every stroke in the dial, so this is the single biggest
+         per-frame cost once the poem is moving. 30 means every other frame. */
+      const CREEP_HZ=30;
+      let creepLast=0;
       let elWorld=null, elStems=null, elRotor=null;   // looked up once, not per frame
       /* Seconds of stillness before the moon starts asking more insistently,
          and the breath's two amplitudes. hintWas tracks the frame `revealed`
@@ -405,15 +418,66 @@ export function runOghamDial(opts = {}) {
         return `M 0 ${-R} A ${R} ${R} 0 0 1 0 ${R} A ${Math.abs(rx).toFixed(2)} ${R} 0 0 ${sw} 0 ${-R} Z`;
       };
       
+      /* Diagnostics. All of it inert unless the URL asks for it. */
+      const _q=(typeof location!=='undefined'&&location.search)||'';
+      const PERF=/[?&]perf\b/.test(_q);
+      const OFF=k=>new RegExp('[?&]no'+k+'\\b').test(_q);
+      const NO_CARVE=OFF('Carve'), NO_CREEP=OFF('Creep');
+      const NO_SPIN=OFF('Spin'), NO_TEXT=OFF('Text');
+      /* The per-stroke glow. Off: the carving is painted once and the line
+         group's opacity carries the edge fade — one attribute write a line a
+         frame instead of hundreds. True restores the comet exactly. */
+      const CARVING_GLOW=false;
+      let perfInit=false, perfEma=16.7, perfAt=0, perfEl=null;
+
       function frame(dt){
         if(dead) return;
+
+        if(!perfInit){
+          perfInit=true;
+          if(OFF('Tilt')&&$('tilt')) $('tilt').style.display='none';
+          if(NO_TEXT&&$('col')) $('col').style.display='none';
+          if(PERF){
+            /* Built here, because #ogd-panel is styled in STYLE but never added
+               to the markup. A readout nobody can find is worse than none. */
+            perfEl=document.createElement('div');
+            perfEl.style.cssText=[
+              'position:fixed;top:64px;left:10px;z-index:2147483647;',
+              'font:700 15px ui-monospace,monospace;color:#0f0;',
+              'background:rgba(0,0,0,.72);padding:5px 9px;border-radius:5px;',
+              'pointer-events:none;white-space:pre;',
+            ].join('');
+            perfEl.textContent='perf…';
+            document.body.appendChild(perfEl);
+          }
+        }
+        if(PERF){
+          // EMA of the real frame interval, which is what the player feels.
+          perfEma=perfEma*0.9+dt*1000*0.1;
+          const nowP=performance.now();
+          if(nowP-perfAt>500){
+            perfAt=nowP;
+            const txt=`${perfEma.toFixed(1)} ms  ${(1000/perfEma).toFixed(0)} fps`;
+            if(perfEl) perfEl.textContent=txt;
+            console.log('[perf]',txt);
+          }
+        }
       
         /* The wheel's own turn never stops except while a finger is actually on it.
            There used to be a hold after every gesture, which read as the thing
            stalling each time you nudged it. Inertia is now added ON TOP of the base
            turn rather than replacing it, so a swipe speeds the wheel up and then
            eases back to its own pace without ever pausing. */
-        if(!dragging){
+        /* Until the player acts, the letters circle and the poem does not move.
+           Anyone can sit and watch the sky for as long as they like and still
+           begin at the first line. */
+        if(!started){
+          idleSpin += OMEGA*dt;
+          (elIdleRotor||(elIdleRotor=$('rotor')))
+            .setAttribute('transform',`rotate(${(idleSpin*180/Math.PI).toFixed(2)})`);
+        }
+
+        if(!dragging && started){
           arc += OMEGA*dt;
           if(spinVel!==0){
             arc += spinVel*dt;
@@ -495,10 +559,12 @@ export function runOghamDial(opts = {}) {
            Recession as a function of how far through the poem we are, so it
            runs backwards too if the reader scrubs back. Smoothstepped: the
            opening lines should barely move. */
-        if(!finished){
+        if(!finished && !NO_CREEP){
           const p=Math.max(0,Math.min(1,arc/TOTAL_ARC));
           const u=p*p*(3-2*p);
-          if(Math.abs(u-creepU)>0.0004){
+          const nowMs=performance.now();
+          if(Math.abs(u-creepU)>0.0004 && nowMs-creepLast>=1000/CREEP_HZ){
+            creepLast=nowMs;
             creepU=u;
             const w=elWorld||(elWorld=$('world'));
             if(creepW!==window.innerWidth||creepH!==window.innerHeight){
@@ -550,7 +616,8 @@ export function runOghamDial(opts = {}) {
           const dMid = ringArc < L.start ? L.start-ringArc : ringArc > L.end ? ringArc-L.end : 0;
           if(dMid>CULL){ L.g.setAttribute('display','none'); return }
           L.g.removeAttribute('display');
-          L.g.setAttribute('transform',`rotate(${(-(ringArc-L.start)*180/Math.PI).toFixed(2)})`);
+          if(!NO_SPIN)
+            L.g.setAttribute('transform',`rotate(${(-(ringArc-L.start)*180/Math.PI).toFixed(2)})`);
       
           const fade = Math.max(0,1-Math.max(0,dMid-EDGE_SOFT)/(CULL-EDGE_SOFT)) * ringVeil;
           const lum  = lumFor(phase);
@@ -561,7 +628,25 @@ export function runOghamDial(opts = {}) {
              lights at all; the carving is there and unreadable, which is the point. */
           // Any moon at all lights the head; only full dark leaves the carving cold.
           const gate = smooth(Math.min(1, phase/MOON_GATE));
-          for(let k=0;k<L.marks.length;k++){
+          /* The whole line fades in and out at the edges of the visible arc,
+             which used to be multiplied into every stroke individually. One
+             write on the group does the same job. */
+          const go=(0.30*fade).toFixed(2);
+          if(L._go!==go){ L._go=go; L.g.setAttribute('opacity',go); }
+
+          if(!CARVING_GLOW && !L._painted){
+            // Once, at rest. Present and unlit.
+            L._painted=true;
+            const w0=(2.0*L.R/RADII[0]).toFixed(1);
+            for(let k=0;k<L.marks.length;k++){
+              const m=L.marks[k];
+              m.n.setAttribute('stroke','#8fb3a2');
+              m.n.setAttribute('opacity','1');
+              m.n.setAttribute('stroke-width',w0);
+            }
+          }
+
+          for(let k=0;(NO_CARVE||!CARVING_GLOW)?false:k<L.marks.length;k++){
             const m=L.marks[k];
             // Each stroke knows its own arc, recorded when it was carved, so the
             // glow tracks the letters rather than an even share of the line.
@@ -611,11 +696,32 @@ export function runOghamDial(opts = {}) {
         }
         colEl.style.transform=`translateY(${(($('read').clientHeight||300)*0.5 - y).toFixed(1)}px)`;
       
-        const lum=lumFor(phase);
+        /* Written only on a change. These elements carry two large blurred text
+           shadows, so an opacity write is not a cheap compositor tweak — it
+           re-rasterises the line and its 40px blur. The values move five times a
+           second at most; they were being written sixty. */
+        /* Only the rows near the reading frame exist as far as the painter is
+           concerned. The column is promoted for its transform, but a layer as tall
+           as the whole poem is too large to keep, so the browser was repainting it
+           every frame instead of compositing it. Absolutely positioned rows, so
+           hiding them costs no layout. */
+        const _rh = ($('read').clientHeight||300);
+        const _mid = y;
         rows.forEach(r=>{
-          r.ga.style.opacity = revealed ? '0.95' : '0';
-          r.en.style.opacity = lum.toFixed(3);
+          const vis = Math.abs(r.y - _mid) < _rh*1.25 ? '' : 'none';
+          if(r._vis!==vis){ r._vis=vis; r.ga.style.display=vis; r.en.style.display=vis; }
         });
+
+        const lum=lumFor(phase);
+        const gaO = revealed ? '0.95' : '0';
+        const enO = lum.toFixed(3);
+        if(gaO!==_lastGaO || enO!==_lastEnO){
+          _lastGaO=gaO; _lastEnO=enO;
+          rows.forEach(r=>{
+            r.ga.style.opacity = gaO;
+            r.en.style.opacity = enO;
+          });
+        }
       }
       
       /* Lifted from moonWidget.js so the dial's moon and the scene's are one
@@ -681,7 +787,10 @@ export function runOghamDial(opts = {}) {
       /* A tap — a touch that goes nowhere — slides the moon this far, over
          this long. Comfortably past the 0.06 ratchet, so one tap also brings
          up the Irish and a dim English behind it. */
-      const TAP_STEP=0.30, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
+      /* Half a moon. Enough that the English is plainly readable and plainly
+         caused by the moon; see the note in patch_tap_goes_further.py about
+         lumFor() if every crescent should read brighter, not just this one. */
+      const TAP_STEP=0.50, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
       let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
       function down(e){
         const t=(e.touches?e.touches[0]:e);
@@ -701,6 +810,10 @@ export function runOghamDial(opts = {}) {
         lastAng=angAt(t.clientX,t.clientY);
         if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(x){} }
         if(!started){ started=true;
+          /* Held at 0 the whole time they were watching, so this changes nothing
+             today. Left in as a guarantee: whatever moves arc in future, the poem
+             still begins at the beginning. */
+          arc=0;
           if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
           tone(174,.09,1.8); }
       }

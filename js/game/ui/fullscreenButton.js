@@ -12,6 +12,8 @@
  *   initFullscreenButton()
  */
 
+import { requestFullscreenWithFade } from './fullscreenFade.js'
+
 export function initFullscreenButton() {
   if (/iphone|ipad|ipod/i.test(navigator.userAgent)) return
 
@@ -65,9 +67,7 @@ export function initFullscreenButton() {
   btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault() })
   btn.addEventListener('click', (e) => {
     e.stopPropagation()
-    const el = document.documentElement
-    if      (el.requestFullscreen)       el.requestFullscreen()
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
+    requestFullscreenWithFade()
   })
 
   const update = () => {

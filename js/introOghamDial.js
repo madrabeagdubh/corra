@@ -60,7 +60,13 @@ const STYLE = `
      the flat rem values, not clamps: the vw term used to win on a phone and
      shrink both against the scene the poem hands off to. */
   #ogd-col .ga{font-family:Urchlo,Aonchlo,serif;
-    font-size:1.8rem;line-height:1.2;color:#a0a0b8;opacity:0;
+    font-size:1.8rem;line-height:1.2;
+    /* Brighter, more saturated version of speakerColor('druid')'s #a0a0b8 --
+       same violet-grey hue family, so it still reads as the druid's voice,
+       but vivid rather than muted for this one dramatic opening incantation.
+       Colour only, deliberately no glow/shadow -- see the note above about
+       why that blur was removed from this column in the first place. */
+    color:#cbb8ff;opacity:0;
     transition:opacity 1.1s ease-out}
   #ogd-col .en{font-family:"Courier New",monospace;
     font-size:1.7rem;line-height:1.24;color:#8ea3b5}
@@ -197,17 +203,21 @@ export function runOghamDial(opts = {}) {
       
       /* ── The poem, unbroken ───────────────────────────────────────────────── */
       const POEM=[
-        {ga:'Is fada mé i ndorchadas',                en:'Long am I in darkness'},
-        {ga:'Feicim an Slua Reann ag dreapadh',              en:'I see the bright ones climb'},
-        {ga:'Feicim a gathanna geala',     en:'I see their flashing spears'},
-        {ga:'Ach tá síad ina thost!',         en:'yet they are silent!'},
-        {ga:'A Gealach',                              en:'O bright one'},
-        {ga:'A Ríona na Bóinne is na Banna',           en:'O Queen of Boyne and Bann'},
-        {ga:'Gairim ort!',                            en:'I call thee forth!'},
-        {ga:'Soilsigh droim na Teamhrach',            en:'Shine down upon the ridge of Tara'},
-        {ga:'srianaigh na taoisigh uaibhreacha',      en:'bridle these haughty chiefs'},
-        {ga:'is nocht a rúin dod ghiolla',            en:'and lay their secrets bare before thy servant'},
-      ];
+      
+
+  { ga: 'Tríd oícheanta fada',   en: 'Through long nights' },
+  { ga: 'tá comharthaí na spéire cuardaithe agam', en: 'I have searched the signs of the sky' },
+  { ga: 'Leanaim an slua geal',                en: 'I follow the bright host' },
+  { ga: 'is a ngathanna geala',                en: 'and their flashing spears' },
+  { ga: 'ach tá a mbrí doléir',                en: 'yet their meaning is unclear' },
+  { ga: 'A Ghealach',                          en: 'O Moon' },
+  { ga: 'a Ríona na Bóinne is na Banna',       en: 'O Queen of the Boyne and the Bann' },
+  { ga: 'gairim ort!',                          en: 'I call upon thee!' },
+  { ga: 'Soilsigh droim na Teamhrach',         en: 'Shine down upon the ridge of Tara' },
+  { ga: 'srianaigh na taoisigh uaibhreacha',   en: 'bridle these haughty chiefs' },
+  { ga: 'is nocht a rúin dod ghiolla',         en: 'and lay bare their secrets to your servant' }
+
+];
       
       const RADII=[206,166,126];
       const WORDS_PER_SEC=0.72;
@@ -357,7 +367,33 @@ export function runOghamDial(opts = {}) {
       }
       
       function relayout(){
-        const H=$('read').clientHeight||300;
+        /* A resize (fullscreen engaging, among other things) can fire before the
+           DOM has actually settled into its new layout. Measuring at that exact
+           moment reads offsetHeight as 0 for every row, and each one silently
+           falls back to a small hardcoded height below -- bunching every pair
+           together, since relayout() otherwise only re-runs on a FURTHER resize
+           that may never come. If the reading frame itself has no real height
+           yet, or the first row measures nothing, this isn't a real 34px line --
+           it's an unmeasured one. Retry next frame instead of committing to it. */
+        const rawH = $('read').clientHeight;
+        if(!rawH){
+          requestAnimationFrame(relayout);
+          return;
+        }
+        /* Separately: rows far from the current reading position are
+           display:none, culled by the carving loop below as a perf
+           optimisation -- and a display:none element always reports
+           offsetHeight 0, on principle, not because anything is unsettled.
+           relayout() can rerun mid-poem on ANY resize, fullscreen or not, by
+           which point several rows are legitimately culled -- so force
+           everything visible for the measurement, regardless of the reading
+           position at the moment this runs. */
+        rows.forEach(r=>{ r.ga.style.display=''; r.en.style.display=''; });
+        if(rows.length && !rows[0].ga.offsetHeight){
+          requestAnimationFrame(relayout);
+          return;
+        }
+        const H=rawH||300;
         let y=0;
         rows.forEach((r,i)=>{
           r.ga.style.top=y+'px';
@@ -365,6 +401,12 @@ export function runOghamDial(opts = {}) {
           r.en.style.top=(y+gh+PAIR_GAP)+'px';
           const eh=r.en.offsetHeight||26;
           r.y=y+gh/2;                      // the pair's anchor, for scrolling
+          /* Invalidate the cached visibility so the carving loop's own
+             culling (frame(), below) is FORCED to recompute and reapply the
+             real display for this row on its very next tick, rather than
+             comparing against a value relayout() just overwrote without its
+             knowledge and concluding (wrongly) that nothing changed. */
+          r._vis=null;
           y += gh + PAIR_GAP + eh + BLOCK_GAP;
         });
       }
@@ -617,7 +659,7 @@ export function runOghamDial(opts = {}) {
           if(dMid>CULL){ L.g.setAttribute('display','none'); return }
           L.g.removeAttribute('display');
           if(!NO_SPIN)
-            L.g.setAttribute('transform',`rotate(${(-(ringArc-L.start)*180/Math.PI).toFixed(2)})`);
+            L.g.setAttribute('transform',`rotate(${((ringArc-L.start)*180/Math.PI).toFixed(2)})`);
       
           const fade = Math.max(0,1-Math.max(0,dMid-EDGE_SOFT)/(CULL-EDGE_SOFT)) * ringVeil;
           const lum  = lumFor(phase);
@@ -815,7 +857,26 @@ export function runOghamDial(opts = {}) {
              still begins at the beginning. */
           arc=0;
           if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
-          tone(174,.09,1.8); }
+          tone(174,.09,1.8);
+        }
+        /* Fullscreen (and anything else gated on a first real gesture) wants to
+           happen HERE, not on whatever later touch first reaches the Phaser
+           canvas -- #ogd-root covers the whole viewport and catches every touch
+           while the dial is up, so a canvas-level listener can't fire until this
+           module is gone.
+
+           Called on EVERY down(), not just the first: field testing found the
+           very first touch's fullscreen request gets rejected ("Permissions
+           check failed" -- Chromium's error for missing transient user
+           activation) for reasons that don't reproduce on later touches, even
+           though this call is synchronous inside a real touchstart/pointerdown
+           handler. Rather than chase that down further, the hook itself
+           (_requestFullscreen/_unlockAudio on the introModal side) is already
+           safe to call repeatedly -- it no-ops once it has succeeded -- so
+           retrying on every press costs nothing and gives several chances to
+           land inside a request the browser actually honours, still far
+           earlier than waiting for the dial to be gone entirely. */
+        if(opts.onFirstTouch){ console.log('[ogd] dial: first touch, calling onFirstTouch'); try{ opts.onFirstTouch() }catch(x){ console.warn('[ogd] onFirstTouch threw:', x) } }
       }
       function move(e){
         if(!dragging) return;
@@ -830,8 +891,8 @@ export function runOghamDial(opts = {}) {
           textVel=textVel*0.6+(-dy*perPx/(dt/1000))*0.4;
         } else if(zone==='ring'){
           const a=angAt(p.clientX,p.clientY), d=wrapPi(a-lastAng);
-          lastAng=a; arc=Math.max(0,Math.min(TOTAL_ARC,arc-d));
-          angVel=angVel*0.6+(-d/(dt/1000))*0.4;
+          lastAng=a; arc=Math.max(0,Math.min(TOTAL_ARC,arc+d));
+          angVel=angVel*0.6+(d/(dt/1000))*0.4;
         } else {
           const dx=p.clientX-lastX;
           vel=vel*0.7+(dx/dt)*0.3;
@@ -903,8 +964,8 @@ export function runOghamDial(opts = {}) {
       function finish(){
         if(finished) return; finished=true;
         tone(392,.07,2.4);
-        lines.forEach(L=>{ L.g.style.transition='opacity .9s ease-out'; L.g.setAttribute('opacity','0') });
-        colEl.style.transition='opacity .7s ease-out'; colEl.style.opacity='0';
+        lines.forEach(L=>{ L.g.style.transition='opacity .5s ease-out'; L.g.setAttribute('opacity','0') });
+        colEl.style.transition='opacity .4s ease-out'; colEl.style.opacity='0';
         /* Measure from where the dial STARTED, not where the creep has carried
            it. dialCentre() reports the moon's live position, so using it here
            would compute a near-zero translation and snap the dial back to centre
@@ -917,7 +978,7 @@ export function runOghamDial(opts = {}) {
         /* One number for the whole camera move. It was 2.4s in four places,
            which landed the moon before the eye had finished reading the
            recession. handOff waits for it plus a breath. */
-        const PULL_MS=3400;
+        const PULL_MS=600;
         const w=$('world');
         w.style.transformOrigin=`${cx}px ${cy}px`;
         setTimeout(()=>{
@@ -932,14 +993,21 @@ export function runOghamDial(opts = {}) {
              simply stop covering it: the sky layer and the dial's own backdrop fade
              out, and the loader is revealed as the frame widens. One starfield, and
              it is the good one. */
-          $('sky').style.transition='opacity 2.0s ease-out'; $('sky').style.opacity='0';
-          $('headland').style.transition='opacity 2.0s ease-out'; $('headland').style.opacity='0';
+          $('sky').style.transition='opacity 0.5s ease-out'; $('sky').style.opacity='0';
+          $('headland').style.transition='opacity 0.5s ease-out'; $('headland').style.opacity='0';
           $('grade').style.transition=`opacity ${PULL_MS}ms ease-out`; $('grade').style.opacity='0';
+          /* The bottom depth-of-field band (#ogd-tilt) was never faded here,
+             so its backdrop-filter blur/desaturation -- covering roughly the
+             bottom quarter of the screen, right where the land sits -- simply
+             vanished when root.remove() deleted it below, snapping the land
+             from soft-and-desaturated to sharp-and-vivid in a single frame. */
+          const tiltEl=$('tilt');
+          if(tiltEl){ tiltEl.style.transition='opacity 0.5s ease-out'; tiltEl.style.opacity='0'; }
           const rootEl=document.getElementById('ogd-root');
-          if(rootEl){ rootEl.style.transition='background-color 2.0s ease-out';
+          if(rootEl){ rootEl.style.transition='background-color 0.5s ease-out';
                       rootEl.style.backgroundColor='transparent'; }
-        },700);
-        setTimeout(()=>{ dead=true; handOff(phase); },700+PULL_MS+300);
+        },100);
+        setTimeout(()=>{ dead=true; handOff(phase); },100+PULL_MS+100);
       }
       
       /* ── Placeholders ────────────────────────────────────────────────────── */
@@ -998,7 +1066,13 @@ export function runOghamDial(opts = {}) {
       
       paint(); build(); buildColumn(); setPhase(0);
       requestAnimationFrame(()=>{ relayout(); startLoop(); });
-      addEventListener('resize',()=>relayout());
+      addEventListener('resize',()=>{
+        // Two frames' grace: the same mid-transition race relayout() itself
+        // now guards against, but caught here too so the common case (an
+        // ordinary resize, not just fullscreen) measures post-settle on the
+        // first try rather than relying on relayout()'s own retry.
+        requestAnimationFrame(()=>requestAnimationFrame(relayout));
+      });
       
     })();
   });

@@ -13,8 +13,8 @@ introNarrative: [
   {
 
 
-	  ga: 'Seacht lá\n\nSeacht lá óna d\'fhág mé \n\nOileán an Cheo\n\nsíos Caol Muile\n\nlena fhallaí carraigracha \n\na chlaonann isteach go naimhdreach\n\nansin trasna Mhuir Mhaoil\n\nThar Latharna\n\nThar scornach fhairsing Loch Cuan\n\nthar ghuaillí dorcha Chairlinn\n\nTimpeall ar Chuailnge:\n\nsmig thaoisigh uasail\n\nag ghoba amach sa mhuir\n\ngan ghealladh\n\nisteach liom ar dheireadh\n\nuiscí níos socaire\n\nAn é seo an áit?\n\nD\'fhéadfadh gur í an Bhóinn í\n\nD\'fhéadfadh gur í an Bhóinn í',
-	  en: 'Seven days\n\nSeven days since I left \n\nthe isle of Skye\n\ndown the narrow Sound of Mull\n\nwith it\'s rocky walls \n\nleaning close as enemies\n\nThen across the Sea of Moyle\n\nPast Larne\n\nPast the wide throat of Strangford\n\npast Carlingford\'s dark shoulders\n\nAnd round Cooley:\n\nthe chin of a noble chieftain\n\njutting out into the sea\n\nwithout surrender\n\nat last I enter\n\ncalmer waters\n\nIs this the place?\n\nIt may be the Boyne\n\nIt may be the Boyne'
+	  ga: 'Seacht lá\n\nSeacht lá óna d\'fhág mé \n\nOileán an Cheo\n\nsíos Caol Muile\n\nlena fhallaí carraigracha \n\na chlaonann isteach go naimhdreach\n\nansin trasna Mhuir Mhaoil\n\nThar Latharna\n\nTimpeall ar Chuailnge\n\na goban amach san fharraige \n\ncosúl le smig thaoisigh dúshlánach\n\nisteach liom ar dheireadh\n\nuiscí níos socaire\n\nAn é seo an áit?\n\nD\'fhéadfadh gur í an Bhóinn í\n\nD\'fhéadfadh gur í an Bhóinn í',
+	  en: 'Seven days\n\nSeven days since I left \n\nthe isle of Skye\n\ndown the narrow Sound of Mull\n\nwith it\'s rocky walls \n\nleaning close as enemies\n\nThen across the Sea of Moyle\n\nPast Larne\n\nAnd round Cooley\n\nwhich juts out into the sea \n\nlike the chin of a defiant chieftain\n\nat last I enter\n\ncalmer waters\n\nIs this the place?\n\nIt may be the Boyne\n\nIt may be the Boyne'
 
   }
 ],

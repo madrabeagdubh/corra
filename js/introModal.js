@@ -15,12 +15,12 @@ import { createDomButton } from './game/systems/gameTypography.js';
 import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
 import { createStarField } from './game/effects/starField.js';
+import { requestFullscreenWithFade, resetFullscreenState } from './game/ui/fullscreenFade.js';
 
 
 
 
 var _audioUnlocked  = false;
-var _fullscreenDone = false;
 
 (function warmupMusicSystem() {
     setTimeout(function() {
@@ -98,29 +98,12 @@ function _unlockAudio() {
     } catch (e) { console.warn('[ConstellationScene] Audio unlock:', e); }
 }
 
-function _requestFullscreen() {
-    if (_fullscreenDone) return;
-    try {
-        const el = document.documentElement;
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-            _fullscreenDone = true; return;
-        }
-        if (el.requestFullscreen) {
-            el.requestFullscreen().then(() => { _fullscreenDone = true; }).catch(() => {});
-        } else if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen(); _fullscreenDone = true;
-        } else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen(); _fullscreenDone = true;
-        }
-    } catch (e) { console.warn('[ConstellationScene] Fullscreen:', e); }
-}
-
 var _sceneInitialized = false;
 
 export function initConstellationScene(onComplete, startPhase) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
-    _fullscreenDone = false;
+    resetFullscreenState();
     document.fonts.load('1.8rem Urchlo').catch(() => {});
     document.fonts.load('1.8rem Aonchlo').catch(() => {});
     const game = new Phaser.Game({
@@ -315,6 +298,15 @@ export class ConstellationScene extends Phaser.Scene {
                 onPullBack: (ms, target)       => this._nightScape?.pullBack(ms, target),
                 // The dolly rides the poem, so the land recedes as it is read.
                 onProgress : (u)               => this._nightScape?.setProgress(u),
+                // Ask for fullscreen on the dial's own first touch, not whatever
+                // later touch first reaches the Phaser canvas -- by then the moon
+                // widget's rest position has already been computed against the
+                // smaller, chrome-included viewport, and fullscreen's resize
+                // visibly shifts everything anchored to the screen edges.
+                onFirstTouch: () => {
+                    console.log('[ConstellationScene] onFirstTouch fired -- requesting fullscreen');
+                    requestFullscreenWithFade(); _unlockAudio();
+                },
             })
                 .then(phase => { this._dialPhase = phase; this._build(); })
                 .catch(() => this._build());     // never strand the player
@@ -381,7 +373,7 @@ export class ConstellationScene extends Phaser.Scene {
         this.input.on('pointermove', this.onPointerMove, this);
         this.input.on('pointerup',   this.onPointerUp,   this);
         const fsHandler = () => {
-            _requestFullscreen(); _unlockAudio();
+            requestFullscreenWithFade(); _unlockAudio();
             this.game.canvas.removeEventListener('pointerdown', fsHandler);
             this.game.canvas.removeEventListener('touchstart',  fsHandler);
         };
@@ -406,10 +398,14 @@ export class ConstellationScene extends Phaser.Scene {
             'position:fixed;left:0;right:0;bottom:0;',
             `height:${Math.round(this.H * 0.20)}px;`,
             'pointer-events:none;z-index:99994;opacity:0;',
-            'transition:background 1.8s ease, opacity 0.6s ease;',
+            'transition:background 1.8s ease, opacity 3.6s ease;',
         ].join('');
         document.body.appendChild(this._duskEl);
-        this._drawDuskGradient(0);
+        // One frame's grace so the browser paints opacity:0 before this
+        // flips it to 1 -- otherwise there is nothing for the 0.6s opacity
+        // transition to animate FROM, and it snaps straight to visible
+        // instead of fading in. Same pattern _showDarkImage() already uses.
+        requestAnimationFrame(() => this._drawDuskGradient(0));
     }
 
     // ── Dusk ──────────────────────────────────────────────────────────────────
@@ -530,7 +526,7 @@ export class ConstellationScene extends Phaser.Scene {
                 if (!this._moonSwipeDone && !this._dialRan && phase > 0.5) {
                     this._moonSwipeDone = true;
                     clearInterval(this._lyricInterval);
-                    _requestFullscreen();
+                    requestFullscreenWithFade();
                     _unlockAudio();
                     this._driftMoonToBottom();
                     this.settleMoon();
@@ -543,7 +539,7 @@ export class ConstellationScene extends Phaser.Scene {
 const wrapper = this._moonWidget.element;
 if (wrapper) {
     const earlyUnlock = () => {
-        _requestFullscreen();
+        requestFullscreenWithFade();
         _unlockAudio();
         wrapper.removeEventListener('pointerdown', earlyUnlock);
     };
@@ -1019,7 +1015,7 @@ if (wrapper) {
     }
 
     onPointerDown(pointer) {
-        _requestFullscreen(); _unlockAudio();
+        requestFullscreenWithFade(); _unlockAudio();
         if (!this.canInteract) return;
         const c=this.constellations[this.currentIndex]; if (!c||c.completed) return;
         const hr2=this.hitR()**2;

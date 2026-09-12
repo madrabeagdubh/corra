@@ -98,6 +98,20 @@ const dropFor = s => (1 / s - 1) * FLOOR;
    FLOOR - (FLOOR - h) * s, so inverting gives this. */
 const coverFor = (s, finalTop) => FLOOR - (FLOOR - finalTop) / s;
 
+/* The moonlight glow. Off: a screen-blend layer bigger than the viewport is
+   the most expensive thing in this scene, and its cost climbs with the
+   moon's brightness. The code below is left intact — set this true to put
+   it back, or to compare against whatever replaces it. */
+const MOONLIGHT = false;
+
+/* The land is lit by the moon rather than painted lit. DARK is where it sits
+   at a new moon — 0 is pitch, 1 is no effect. Cheap: one shader per layer, and
+   only rewritten when the value actually changes. Do NOT add a blur to these
+   elements; it would be re-run on every brightness change. Bake tilt-shift
+   into the art instead. */
+const MOON_REVEAL = true;
+const DARK = 0.30;
+
 const Z_BASE  = 30;
 const Z_LIGHT = 44;
 
@@ -193,7 +207,9 @@ export function createNightScape(opts = {}) {
         'transform-origin:50% 50%;',
         'transition:opacity 0.35s ease;',
     ].join('');
-    parent.appendChild(light);
+    /* Not built into the page at all when MOONLIGHT is off — hiding it would
+       still leave the compositor a layer to think about. */
+    if (MOONLIGHT) parent.appendChild(light);
 
     /* Lit fraction of the disc, the same curve the dial uses for the English
        gloss — so the land and the text brighten together. */
@@ -202,12 +218,31 @@ export function createNightScape(opts = {}) {
         return s * s;
     };
 
+    /* Declared here, not below with `pulled` — place() runs during setup and
+       would hit the temporal dead zone of a `let` declared after it. */
+    let _lastBright = null;
+
     let _x = window.innerWidth / 2,
         _y = window.innerHeight * 0.35,
         _d = MOON_REF,
         _p = 0;
 
     function place() {
+        const lum0 = lumFor(_p);
+
+        /* Out of the dark as the moon fills. Rounded to three places and cached,
+           so a slow drift writes a few times a second rather than every frame. */
+        if (MOON_REVEAL) {
+            const b = (DARK + (1 - DARK) * lum0).toFixed(3);
+            if (b !== _lastBright) {
+                _lastBright = b;
+                made.forEach(m => { m.el.style.filter = `brightness(${b})`; });
+            }
+        }
+        // The figures still take their light from the moon; only the glow layer
+        // is gone. This is the cheap half of the effect and it stays.
+        made.forEach(m => { if (m.lit) m.lit.style.opacity = lum0.toFixed(3); });
+        if (!MOONLIGHT) return;
         const k = _d / MOON_REF;
         light.style.transform =
             `translate3d(${(_x - LIGHT_PX / 2).toFixed(1)}px,` +

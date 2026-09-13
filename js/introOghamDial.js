@@ -37,6 +37,26 @@ const STYLE = `
   #ogd-figures{position:absolute;inset:0}
   svg{width:104vmin;height:104vmin;max-width:none}
 
+  /* The moon's touch-me prompt -- #ogd-halo below is the existing element,
+     just brightened and set in motion instead of sitting static at opacity
+     .07. transform-origin:0 0 matches the halo's own centre (it has no
+     cx/cy, so it defaults to the origin, same as the moon path itself). */
+  #ogd-halo{
+    transform-origin:0 0;
+    filter:url(#ogd-glow) hue-rotate(0deg);
+    animation:ogd-halo-pulse 2.4s ease-in-out infinite,
+              ogd-halo-hue 7s linear infinite;
+    transition:opacity .7s ease;
+  }
+  @keyframes ogd-halo-pulse{
+    0%,100%{opacity:.22;transform:scale(.94)}
+    50%{opacity:.55;transform:scale(1.14)}
+  }
+  @keyframes ogd-halo-hue{
+    0%{filter:url(#ogd-glow) hue-rotate(0deg)}
+    100%{filter:url(#ogd-glow) hue-rotate(360deg)}
+  }
+
   #ogd-read{position:fixed;left:0;right:0;top:0;height:34vh;z-index:7;overflow:hidden;
     pointer-events:none;
     -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 20%,#000 80%,transparent 100%);
@@ -106,9 +126,9 @@ const MARKUP = `
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      <circle id="ogd-halo" r="98" fill="#9dc4b0" opacity=".07" filter="url(#ogd-glow)"/>
+      <circle id="ogd-halo" r="98" fill="#9dc4b0" opacity=".22" filter="url(#ogd-glow)"/>
       <circle r="94" fill="#0e1614"/>
-      <g id="ogd-moonwrap" transform="scale(-1,1)"><path id="ogd-moon" d="" fill="url(#ogd-moonG)"/></g>
+      <g id="ogd-moonwrap" transform="scale(-1,1)"><path id="ogd-moon" d="" fill="url(#ogd-moonG)"/></g><circle id="ogd-corona" r="97" fill="none" stroke="#fdf6e3" stroke-width="1.1" opacity="0.4"/>
       <g id="ogd-stems"></g>
       <g id="ogd-rotor"></g>
     </svg>
@@ -549,12 +569,20 @@ export function runOghamDial(opts = {}) {
            the moment a real drag starts — taking hold always beats a tap still
            running. */
         if(glideTo>=0){
-          if(dragging){ glideTo=-1; }
+          if(dragging){ glideTo=-1; glideQueue=[]; }
           else {
-            glideT=Math.min(1,glideT+dt*1000/TAP_MS);
+            glideT=Math.min(1,glideT+dt*1000/glideMs);
             const ge=glideT*glideT*(3-2*glideT);
             setRaw(glideFrom+(glideTo-glideFrom)*ge);
-            if(glideT>=1) glideTo=-1;
+            if(glideT>=1){
+              if(glideQueue.length){
+                glideFrom=glideTo;
+                const _leg=glideQueue.shift();
+                glideTo=_leg.to; glideMs=_leg.ms; glideT=0;
+              } else {
+                glideTo=-1;
+              }
+            }
           }
         }
 
@@ -834,13 +862,20 @@ export function runOghamDial(opts = {}) {
          lumFor() if every crescent should read brighter, not just this one. */
       const TAP_STEP=0.50, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
       let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
+      let glideQueue=[], glideMs=TAP_MS;
       function down(e){
         const t=(e.touches?e.touches[0]:e);
         dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0; angVel=0; textVel=0; spinVel=0;
         /* lastY is only written by move(), so a tap that never moves would
            otherwise measure itself against the previous gesture's position.
            Seed it here or every tap looks like a drag. */
-        lastY=t.clientY; downX=t.clientX; downY=t.clientY; downT=lastT; glideTo=-1;
+        lastY=t.clientY; downX=t.clientX; downY=t.clientY; downT=lastT;
+        // NOT glideTo=-1 here: down() fires again for a synthetic
+        // mousedown/touchstart pair on the same physical tap (mobile
+        // browsers' compatibility events), which was killing an
+        // in-progress glide sequence partway through. A genuine,
+        // sustained drag already cancels the glide correctly, in the
+        // update loop's own `if(dragging){ glideTo=-1; ... }` check.
         idleT=0;   // reading the poem is not idling; only stillness escalates
         /* Three zones. The text itself scrubs the poem, which is how the rest of
            the game's scrolling text behaves — you should not have to find the ring
@@ -858,6 +893,10 @@ export function runOghamDial(opts = {}) {
           arc=0;
           if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
           tone(174,.09,1.8);
+          // The touch-me prompt has been answered -- quiet down, not an ongoing
+          // distraction once the player has actually engaged.
+          const halo=$('halo');
+          if(halo){ halo.style.animation='none'; halo.style.opacity='0'; }
         }
         /* Fullscreen (and anything else gated on a first real gesture) wants to
            happen HERE, not on whatever later touch first reaches the Phaser
@@ -912,7 +951,25 @@ export function runOghamDial(opts = {}) {
           const moved=Math.hypot(lastX-downX,lastY-downY);
           if(moved<TAP_SLOP && performance.now()-downT<TAP_TIME){
             // raw, so a tap near full carries on round rather than clamping.
-            glideFrom=rawPhase; glideTo=rawPhase+TAP_STEP; glideT=0;
+            // Three legs instead of one -- full, then new, then settle on
+            // half -- so the lesson (moon phase <-> English opacity) is
+            // actually shown, not just landed on. Constant angular speed
+            // across all three legs; the final one matches the original
+            // single-step tap's own pace and duration exactly.
+            const perUnitMs=TAP_MS/TAP_STEP;
+            glideFrom=rawPhase;
+            const _start=rawPhase;
+            glideQueue=[
+              { to:_start+1,          ms:perUnitMs },  // up to full
+              { to:_start,            ms:perUnitMs },  // back down to new -- a real
+                                                        // reversal (decreasing), not a
+                                                        // continuation to _start+2,
+                                                        // which wrapped around the far
+                                                        // side instead of retracing.
+              { to:_start+TAP_STEP,   ms:TAP_MS    },  // up to half, settle
+            ];
+            const _leg=glideQueue.shift();
+            glideTo=_leg.to; glideMs=_leg.ms; glideT=0;
           }
         }
         // A hard shove on the ring runs the poem out to its end. That is the skip:

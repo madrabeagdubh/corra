@@ -813,6 +813,16 @@ if (wrapper) {
             .setBlendMode(Phaser.BlendModes.ADD);
         this._nebulaWheelRt    = rt;
         this._nebulaWheelSpeed = -360 / 120000;
+        // A slow, subtle hue drift -- one object, simple HSV->RGB math once per
+        // frame, not a re-bake of the texture. Kept desaturated (0.25) so it
+        // reads as a gentle breathing shift, not a rainbow cycle.
+        this.tweens.addCounter({
+            from: 0, to: 360, duration: 70000, repeat: -1,
+            onUpdate: (tw) => {
+                const c = Phaser.Display.Color.HSVToRGB(tw.getValue() / 360, 0.25, 1);
+                rt.setTint(Phaser.Display.Color.GetColor(c.r, c.g, c.b));
+            },
+        });
         const paintNebula = (img) => {
             rt.clear();
             if (img) {
@@ -916,7 +926,7 @@ if (wrapper) {
             }
         }
         const c = this.constellations[idx]; if (!c) return;
-        const tx = c.wcx - this.W/2, ty = c.wcy - this.H/2 + this.H*0.22;
+        const tx = c.wcx - this.W/2, ty = c.wcy - this.H/2 + this.H*0.32; // was 0.22 -- pushed further up to clear the druid/queen text band below
         if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
         if (this._moonDriftTween) { this._moonDriftTween.stop(); this._moonDriftTween = null; }
         const sx=this.cameras.main.scrollX, sy=this.cameras.main.scrollY;
@@ -950,6 +960,70 @@ if (wrapper) {
         });
     }
 
+    // ── Druid/queen text band ────────────────────────────────────────────────
+    // So the druid/queen dialogue carried across the early constellations
+    // (constellationTexts.js's waiting/completion pairs) reads as a
+    // continuation of the same reading area the ogham dial's poem used, not
+    // a different element replacing it. The `transform` makes this the
+    // containing block for the position:fixed ScrollingTextPlayer overlay
+    // placed inside it (CSS spec: an ancestor with a non-none transform
+    // becomes the containing block for any position:fixed descendant), so
+    // that overlay's own inset:0 clips to THIS band instead of the full
+    // viewport -- no changes needed to ScrollingTextPlayer's DOM/CSS itself.
+    // Sits in the middle third rather than #ogd-read's top band: the ogham
+    // dial had empty sky up there, but a live constellation's stars land
+    // around H*0.18 down the screen (see panCameraTo()'s H*0.32 offset) and
+    // are tappable gameplay, not background -- copying the dial's band
+    // exactly ran text straight through them. bandTop/bandHeight are
+    // computed fresh each call from current window dimensions (cheap: two
+    // multiplications and a min()), so they stay correct across resizes
+    // instead of being fixed once at creation time.
+    //
+    // The bottom edge is a hard floor, not a guess: it's derived from the
+    // SAME moon-clearance math _stpClearance() already uses elsewhere, so
+    // the band is provably clear of the moon widget on any screen size --
+    // if the desired height wouldn't fit above that floor, it's clamped
+    // down to whatever actually does.
+    _druidQueenBandGeometry() {
+        const H = window.innerHeight;
+        const desiredTop    = H * 0.25;   // starting point -- retune if needed
+        const desiredHeight = H * 0.46;   // a little taller than the dial's 34vh
+        const safeBottom    = H - this._stpClearance() - 50;   // 24px buffer above the moon zone
+        const height = Math.max(0, Math.min(desiredHeight, safeBottom - desiredTop));
+        const top    = safeBottom - height;
+        return { top, height };
+    }
+
+    _druidQueenBand() {
+        if (!this._dqBandEl) {
+            const el = document.createElement('div');
+            el.id = 'druid-queen-text-band';
+            // Per-pixel fade at the top edge -- not a JS opacity fade on the text
+            // itself (see patch_scrolling_text_top_fade_remove.py for why that
+            // didn't work: it faded whole wrapped pairs as one block). A CSS
+            // mask fades whatever is actually painted in that strip, regardless
+            // of how it's grouped into DOM elements, so only the sliver of a
+            // line nearest the edge ever dims.
+            const EDGE_FADE_PCT = 14;   // % of the band's own height
+            el.style.cssText = [
+                'position:fixed;left:0;right:0;overflow:hidden;z-index:7;',
+                'pointer-events:none;transform:translateZ(0);',
+                `mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black 100%);`,
+                `-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black 100%);`,
+            ].join('');
+            document.body.appendChild(el);
+            this._dqBandEl = el;
+        }
+        const { top, height } = this._druidQueenBandGeometry();
+        this._dqBandEl.style.top    = top + 'px';
+        this._dqBandEl.style.height = height + 'px';
+        return this._dqBandEl;
+    }
+
+    _druidQueenBandHeight() {
+        return this._druidQueenBandGeometry().height;
+    }
+
     showWaitingTexts(c, onComplete) {
         if (this._textPlayer) { this._textPlayer.destroy(); this._textPlayer=null; }
         const texts=constellationTexts[c.id];
@@ -959,7 +1033,9 @@ if (wrapper) {
             lines,
             getMoonPhase:      () => this.moonPhase,
             onComplete:        onComplete || (() => {}),
-            bottomClearancePx: this._stpClearance(),
+            container:         this._druidQueenBand(),
+            viewportHeight:    this._druidQueenBandHeight(),
+            bottomClearancePx: 0,
         });
         this._textPlayer.start();
     }
@@ -1113,7 +1189,9 @@ if (wrapper) {
                 this._completionPlayer = new ScrollingTextPlayer({
                     lines:             completion,
                     getMoonPhase:      () => this.moonPhase,
-                    bottomClearancePx: this._stpClearance(),
+                    container:         this._druidQueenBand(),
+                    viewportHeight:    this._druidQueenBandHeight(),
+                    bottomClearancePx: 0,
                     onComplete: () => {
                         this._completionPlayer=null;
                         this.time.delayedCall(200,()=>{
@@ -1160,6 +1238,7 @@ if (wrapper) {
         this._closeSkipMenu();
         if (this.moonOverlay)  {this.moonOverlay.remove();  this.moonOverlay=null;}
         if (this._duskEl)      {this._duskEl.remove();      this._duskEl=null;}
+        if (this._dqBandEl)    {this._dqBandEl.remove();    this._dqBandEl=null;}
         if (this._menuPreview?.parentNode){this._menuPreview.remove();this._menuPreview=null;}
         if (this._shadowHillEl?.parentNode){this._shadowHillEl.remove();this._shadowHillEl=null;}
         if (this._nightScape){this._nightScape.destroy();this._nightScape=null;}
@@ -1358,7 +1437,15 @@ if (wrapper) {
         this.updateSpin(delta);
         // Bobs keep their positions between frames; the angles do not.
         // ?noStars — see patch_perf_probe.py
-        if(!/[?&]noStars\b/.test(location.search)) this._starField?.render();
+        if(!/[?&]noStars\b/.test(location.search)) {
+            this._starField?.render();
+            // Twinkle can't ride render()'s "still sky costs nothing" early-out
+            // (it needs alpha to change even while not rotating), so it's paused
+            // the same way rotation already is -- during the harp performance,
+            // this keeps that moment a genuinely still sky rather than a
+            // non-rotating one that still flickers.
+            if (!this._bgWheelsPaused) this._starField?.twinkle();
+        }
         if (!this._built) return;
         this.drawScene();
     }

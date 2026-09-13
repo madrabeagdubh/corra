@@ -33,7 +33,7 @@ export const NIGHT = {
        Canvas2D filter, which CAN rotate the hue, and the loader in index.html
        uses the identical filter so both nebulae are the same colour. */
     nebulaFilter : 'hue-rotate(-95deg) saturate(0.35) brightness(1.0)',
-    nebulaAlpha  : 0.5,
+    nebulaAlpha  : 0.68,   // raised from 0.5 for a richer intro backdrop
 
     /* Procedural fallback, used when the nebula image is missing. Same greens,
        reached directly rather than by filter. */

@@ -3,27 +3,36 @@
  *
  * Scrolls Irish/English paired lines upward through the screen.
  * Text enters just above the bottom UI (moon widget or dpad hub),
- * travels the full screen height, and exits off the top with no fade.
+ * travels the full screen height, and exits off the top.
  *
  * Constructor options:
  *   lines              — array of { ga, en?, speaker? }
  *   getMoonPhase       — () => 0..1, controls English opacity
- *   onComplete         — called after final fade-out
+ *   onComplete         — called once the last line has fully scrolled off
  *   container          — DOM element to append to (default: document.body)
  *   bottomClearancePx  — px from screen bottom to keep clear of UI
  *                        (moon widget top edge, or dpad hub top edge).
  *                        Defaults to 0.
+ *   viewportHeight     — override for window.innerHeight, for a caller
+ *                        confining this player to a scoped container.
  *
  * Behaviour:
- *   - Lines enter from just above bottomClearancePx, scroll upward.
- *   - Scroll stops when the last line reaches SCROLL_CEILING (~5% from top).
- *   - After HOLD_MS, overlay fades out and onComplete fires.
- *   - User can swipe anywhere on screen (above clearance) to scroll text.
+ *   - Lines enter from just above bottomClearancePx, scroll upward, and
+ *     keep going until fully scrolled off the top -- no ceiling, no hold,
+ *     no separate fade-out step. onComplete fires once the last line's
+ *     BOTTOM (not just its top) has passed y=0, so it's already genuinely
+ *     off-screen, not just starting to clip.
+ *   - User can swipe anywhere on screen (above clearance) to scroll text,
+ *     including back down for a re-read, at any point -- even after it's
+ *     scrolled past where it would otherwise have exited.
  *   - Tapping pauses for PAUSE_MS then auto-resumes.
- *   - No fade at the top — text simply scrolls off screen.
+ *   - Visual fade at the top edge, if wanted, is the CALLER's job (e.g. a
+ *     CSS mask-image on a confining container) -- this player doesn't do
+ *     one itself. A full-viewport caller has nothing above the top edge
+ *     to fade in the first place.
  *
- * NOTE: offsetY values and ceilingY are measured at start() time (inside a
- * rAF) so wrapper.offsetHeight is accurate after the browser has rendered.
+ * NOTE: offsetY values are measured at start() time (inside a rAF) so
+ * wrapper.offsetHeight is accurate after the browser has rendered.
  */
 
 import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn, speakerGlow } from '../systems/gameTypography.js';
@@ -32,11 +41,8 @@ import { FONTS, COLORS, TYPE, SPACING, speakerColor, speakerColorEn, speakerGlow
 const SCROLL_PX_PER_SEC = 30;
 const PAUSE_MS          = 5000;
 const RESUME_EASE_MS    = 1600;
-const HOLD_MS           = 4000;
-const FADE_OUT_MS       = 1000;
 const END_PAUSE_MS      = 400;
 
-const SCROLL_CEILING    = 0.05;   // last line stops at 5% from top
 const FADE_ZONE_BOTTOM  = 0.10;   // entry fade zone as fraction of screen height
 
 const LINE_GAP_PX       = 10;
@@ -60,12 +66,18 @@ export class ScrollingTextPlayer {
      */
 
 
-constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0, scrollSpeed = SCROLL_PX_PER_SEC }) {
+constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0, scrollSpeed = SCROLL_PX_PER_SEC, viewportHeight = null }) {
     this._lines             = lines;
     this._getMoonPhase      = getMoonPhase || (() => 0);
     this._onComplete        = onComplete   || (() => {});
     this._container         = container    || document.body;
     this._bottomClearancePx = Math.max(0, bottomClearancePx);
+    // Opt-in override so a caller can confine this player to a scoped
+    // container (see ConstellationScene's druid/queen text band in
+    // introModal.js) instead of the full window. Every existing caller
+    // that doesn't pass this is completely unaffected -- _H() below falls
+    // straight back to window.innerHeight.
+    this._viewportHeightOverride = viewportHeight || null;
 
     this._scrollY      = 0;
     this._velocity     = scrollSpeed / 60;
@@ -75,9 +87,6 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
         this._pauseTimer   = null;
         this._rafId        = null;
 
-        this._atCeiling    = false;
-        this._holdTimer    = null;
-        this._fadingOut    = false;
         this._completed    = false;
 
         this._dragging        = false;
@@ -92,7 +101,6 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
         this._overlay  = null;
         this._hitZone  = null;
         this._lineEls  = [];
-        this._ceilingY = 0;
 
         this._buildDOM();
         this._bindEvents();
@@ -104,8 +112,6 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
         if (this._running) return;
         this._running   = true;
         this._scrollY   = 0;
-        this._atCeiling = false;
-        this._fadingOut = false;
         this._completed = false;
         this._overlay.style.opacity    = '1';
         this._overlay.style.transition = '';
@@ -121,7 +127,6 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
         this._running = false;
         if (this._rafId)      cancelAnimationFrame(this._rafId);
         if (this._pauseTimer) clearTimeout(this._pauseTimer);
-        if (this._holdTimer)  clearTimeout(this._holdTimer);
         this._unbindEvents();
         if (this._overlay && this._overlay.parentNode) {
             this._overlay.parentNode.removeChild(this._overlay);
@@ -146,8 +151,12 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
 
     // ── DOM ───────────────────────────────────────────────────────────────────
 
+    _H() {
+        return this._viewportHeightOverride || window.innerHeight;
+    }
+
     _buildDOM() {
-        const H       = window.innerHeight;
+        const H       = this._H();
         const clearPx = this._bottomClearancePx;
 
         const overlay = document.createElement('div');
@@ -229,22 +238,10 @@ gaEl.style.cssText = [
     // Called at start() time after one rAF so offsetHeight values are real.
 
     _measureOffsets() {
-        const H       = window.innerHeight;
-        const clearPx = this._bottomClearancePx;
-        let cursor    = 0;
-
+        let cursor = 0;
         for (const entry of this._lineEls) {
             entry.offsetY = cursor;
             cursor += (entry.wrapper.offsetHeight || 60) + PAIR_GAP_PX;
-        }
-
-        // ceilingY: scrollY at which last line's top reaches H * SCROLL_CEILING
-        // screenY(last) = (H - clearPx) - scrollY + last.offsetY
-        // want: screenY(last) = H * SCROLL_CEILING
-        // → scrollY = (H - clearPx) - H*SCROLL_CEILING + last.offsetY
-        const lastEntry = this._lineEls[this._lineEls.length - 1];
-        if (lastEntry) {
-            this._ceilingY = (H - clearPx) - H * SCROLL_CEILING + lastEntry.offsetY;
         }
     }
 
@@ -254,7 +251,7 @@ gaEl.style.cssText = [
 _loop() {
     if (!this._running) return;
 
-    if (!this._paused && !this._dragging && !this._fadingOut) {
+    if (!this._paused && !this._dragging) {
         if (Math.abs(this._velocity - this._naturalVel) > 0.01) {
             const a = 1 - Math.exp(-16 / (RESUME_EASE_MS / (1000 / 60)));
             this._velocity += (this._naturalVel - this._velocity) * a;
@@ -266,19 +263,17 @@ _loop() {
         if (!this._completed) {
             const lastEntry = this._lineEls[this._lineEls.length - 1];
             if (lastEntry) {
-                const lastY = this._screenY(lastEntry);
-                if (lastY < 0) {
+                const lastY      = this._screenY(lastEntry);
+                const lastBottom = lastY + (lastEntry.wrapper.offsetHeight || 60);
+                // Bottom, not top: the top crossing y=0 only means clipping is
+                // about to START, with most of the line often still visible.
+                // Waiting for the bottom means it's genuinely, fully gone --
+                // matching the ogham dial's own poem column, which has no
+                // separate stop-and-fade step, just continuous scroll with
+                // the exit handled entirely by a CSS mask on the container.
+                if (lastBottom < 0) {
                     this._completed = true;
-                    if (this._hitZone) {
-                        this._hitZone.style.pointerEvents = 'none';
-                        this._hitZone.removeEventListener('touchstart', this._onTouchStart);
-                        this._hitZone.removeEventListener('mousedown',  this._onMouseDown);
-                    }
-                    window.removeEventListener('touchmove', this._onTouchMove);
-                    window.removeEventListener('touchend',  this._onTouchEnd);
-                    window.removeEventListener('mousemove', this._onMouseMove);
-                    window.removeEventListener('mouseup',   this._onMouseUp);
-                    this._beginFadeOut();
+                    this._finish();
                 }
             }
         }
@@ -290,7 +285,7 @@ _loop() {
 
 _render() {
         if (!this._overlay) return;
-        const H         = window.innerHeight;
+        const H         = this._H();
         const clearPx   = this._bottomClearancePx;
         const entryZone = H * FADE_ZONE_BOTTOM;
         const entryEdge = H - clearPx;   // Y below which text is hidden behind UI
@@ -325,39 +320,28 @@ _render() {
         }
     }
 
-    // ── Ceiling hold + fade ───────────────────────────────────────────────────
+    // ── Completion ────────────────────────────────────────────────────────────
+    // No hold, no overlay fade: by the time this runs the last line has
+    // already fully scrolled off (see _loop()'s lastBottom check), so
+    // there's nothing left on screen to fade -- just hand back to the
+    // caller. _onReachCeiling is kept as a harmless no-op: bowTutorial.js,
+    // advancedTraining.js, dawnCrossing.js, and returnCrossing.js all
+    // override it expecting it to matter, from an earlier attempt at this
+    // same problem in those scenes -- it never actually did anything (no
+    // internal call site called it even before this fix), so leaving the
+    // method here costs nothing and keeps those overrides from erroring.
 
-    _onReachCeiling() {
-        if (this._atCeiling) return;
-        this._atCeiling = true;
-        this._velocity  = 0;
-        this._startHoldTimer();
-    }
+    _onReachCeiling() {}
 
-    _startHoldTimer() {
-        if (this._holdTimer) clearTimeout(this._holdTimer);
-        this._holdTimer = setTimeout(() => {
-            this._holdTimer = null;
-            this._beginFadeOut();
-        }, HOLD_MS);
-    }
-
-_beginFadeOut() {
-    if (this._fadingOut) return;
-    this._fadingOut = true;
-    if (this._overlay) {
-        this._overlay.style.transition = `opacity ${FADE_OUT_MS}ms ease-out`;
-        this._overlay.style.opacity    = '0';
-    }
-    setTimeout(() => {
+    _finish() {
         this.destroy();
         this._onComplete();
-    }, FADE_OUT_MS);
-}
+    }
+
     // ── Screen coordinate ─────────────────────────────────────────────────────
 
     _screenY(entry) {
-        return (window.innerHeight - this._bottomClearancePx) - this._scrollY + entry.offsetY;
+        return (this._H() - this._bottomClearancePx) - this._scrollY + entry.offsetY;
     }
 
     // ── Touch / mouse ─────────────────────────────────────────────────────────
@@ -392,12 +376,6 @@ _beginFadeOut() {
     _gestureStart(clientY) {
         this._dragging        = true;
         this._paused          = false;
-        this._fadingOut       = false;
-        if (this._overlay) {
-            this._overlay.style.transition = '';
-            this._overlay.style.opacity    = '1';
-        }
-        if (this._holdTimer) { clearTimeout(this._holdTimer); this._holdTimer = null; }
         this._dragStartY      = clientY;
         this._dragStartScroll = this._scrollY;
         this._lastDragY       = clientY;
@@ -412,9 +390,11 @@ _beginFadeOut() {
         const dy  = clientY - this._lastDragY;
         if (dt > 0) this._dragVelocity = this._dragVelocity * 0.6 + (dy / dt) * 0.4;
         let newScroll = this._dragStartScroll + (this._dragStartY - clientY);
-        newScroll = Math.max(0, Math.min(this._ceilingY, newScroll));
-        this._scrollY   = newScroll;
-        this._atCeiling = (newScroll >= this._ceilingY);
+        // Dragging can pull text fully off the top edge (to let it disappear
+        // out of view, matching natural auto-scroll) or pull it back down
+        // again for a re-read, at any point -- no ceiling to clamp against.
+        newScroll = Math.max(0, newScroll);
+        this._scrollY = newScroll;
         this._lastDragY    = clientY;
         this._lastDragTime = now;
     }
@@ -423,22 +403,11 @@ _beginFadeOut() {
         if (wasTap) {
             this._dragging = false;
             this._paused   = true;
-            if (this._fadingOut) {
-                this._fadingOut = false;
-                if (this._overlay) {
-                    this._overlay.style.transition = '';
-                    this._overlay.style.opacity    = '1';
-                }
-            }
             if (this._pauseTimer) clearTimeout(this._pauseTimer);
             this._pauseTimer = setTimeout(() => {
                 this._paused     = false;
                 this._pauseTimer = null;
-                if (this._atCeiling) {
-                    this._startHoldTimer();
-                } else {
-                    this._velocity = this._naturalVel;
-                }
+                this._velocity   = this._naturalVel;
                 if (!this._rafId && this._running) {
                     this._rafId = requestAnimationFrame(this._loop.bind(this));
                 }
@@ -449,13 +418,8 @@ _beginFadeOut() {
         const maxVel   = this._naturalVel * 10;
         this._velocity = Math.max(-this._naturalVel * 3, Math.min(maxVel, flingVel));
         this._dragging = false;
-        if (this._atCeiling) {
-            this._startHoldTimer();
-        } else {
-            this._atCeiling = false;
-            if (!this._rafId && this._running) {
-                this._rafId = requestAnimationFrame(this._loop.bind(this));
-            }
+        if (!this._rafId && this._running) {
+            this._rafId = requestAnimationFrame(this._loop.bind(this));
         }
     }
 

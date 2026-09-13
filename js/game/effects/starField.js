@@ -47,10 +47,25 @@ const CELL = 9;
    spread reads as depth, and depth is more engaging than accuracy here. This is
    a sky with a dial at the centre of it, not an almanac. */
 const LAYERS = [
-    { key:'bg',    n:560, ms:180000, depth:3, frames:['s','s','m'], minA:0.08, maxA:0.30 },
-    { key:'drift', n:760, ms: 90000, depth:4, frames:['s','m','m'], minA:0.15, maxA:0.52 },
-    { key:'fg',    n:180, ms: 60000, depth:5, frames:['m','l','l'], minA:0.28, maxA:0.75 },
+    // Brightened from the original 0.08/0.30, 0.15/0.52, 0.28/0.75 -- alpha is
+    // set once per star at creation, not recomputed per frame, so this is a
+    // free change with no ongoing cost.
+    { key:'bg',    n:560, ms:180000, depth:3, frames:['s','s','m'], minA:0.14, maxA:0.46 },
+    { key:'drift', n:760, ms: 90000, depth:4, frames:['s','m','m'], minA:0.24, maxA:0.72 },
+    { key:'fg',    n:180, ms: 60000, depth:5, frames:['m','l','l'], minA:0.40, maxA:0.95 },
 ];
+
+// Trails: each star gets this many extra bobs lagging behind its head, alpha
+// falling off geometrically per segment. 0 disables trails entirely.
+const TRAIL_SEGMENTS = 0;
+const TRAIL_GAP       = 0.05;   // radians between segments
+const TRAIL_FALLOFF   = 0.55;   // each segment's alpha vs. the one before it
+
+// Twinkle: how many stars (across all layers) get a fresh random alpha each
+// call to twinkle(), and the range that new alpha is scaled into.
+const TWINKLE_PER_FRAME = 20;
+const TWINKLE_MIN       = 0.35;
+const TWINKLE_MAX       = 1.0;
 
 function ensureTexture(scene) {
     if (scene.textures.exists(TEX)) return;
@@ -146,8 +161,9 @@ export function createStarField(scene, opts = {}) {
     const falloff = opts.falloff !== undefined ? opts.falloff : 1;
 
     /* Stars also DIM with radius, so the band along the top is brighter as well
-       as denser and the bottom of the frame falls away into the land. */
-    const DIM = 0.62;
+       as denser and the bottom of the frame falls away into the land. Eased
+       from 0.62 -- still a real gradient, just not as punishing overall. */
+    const DIM = 0.35;
 
     let W = scene.scale.width, H = scene.scale.height;
     let hx = W * hubXf, hy = H * hubYf;
@@ -172,9 +188,16 @@ export function createStarField(scene, opts = {}) {
             const a = wedge ? rng.realInRange(wedge.lo, wedge.hi)
                             : rng.realInRange(-Math.PI, Math.PI);
             const frame = L.frames[rng.between(0, L.frames.length - 1)];
-            const bob = blitter.create(0, 0, frame);
-            bob.alpha = rng.realInRange(L.minA, L.maxA) * (1 - DIM * t);
-            stars.push({ r, a, bob });
+            const baseAlpha = rng.realInRange(L.minA, L.maxA) * (1 - DIM * t);
+            // bobs[0] is the head; bobs[1..] are trail segments, each fainter
+            // and, once positioned in render(), lagging further behind.
+            const bobs = [];
+            for (let seg = 0; seg <= TRAIL_SEGMENTS; seg++) {
+                const bob = blitter.create(0, 0, frame);
+                bob.alpha = baseAlpha * Math.pow(TRAIL_FALLOFF, seg);
+                bobs.push(bob);
+            }
+            stars.push({ r, a, bobs, baseAlpha, twinkle: 1, frameKey: frame });
         }
 
         /* A handle that quacks like the RenderTexture it replaced: `.angle` in
@@ -188,9 +211,15 @@ export function createStarField(scene, opts = {}) {
             _stars: stars,
             _speed: SKY_SPIN * rate * 360 / L.ms,
             _lastDeg: null,          // render() skips a layer that has not turned
+            _key: L.key,             // looked up by the flare-star picker below
         };
         return handle;
     });
+
+    // Flattened once, not per twinkle() call -- twinkle() runs every frame
+    // regardless of rotation state, so it should not rebuild this list each time.
+    const allStars = [];
+    for (const L of layers) for (const s of L._stars) allStars.push(s);
 
     function render() {
         // Hoisted: constant for the life of a layout, and it was being recomputed
@@ -203,25 +232,179 @@ export function createStarField(scene, opts = {}) {
             if (L.angle === L._lastDeg) continue;
             L._lastDeg = L.angle;
             const off = L.angle * Math.PI / 180;
+            // Trail segments lag BEHIND the direction of motion. Derived from
+            // this layer's own rotation sign rather than assumed, so it's
+            // correct regardless of which way a given layer turns.
+            const trailSign = -Math.sign(L._speed) || 1;
             for (const s of L._stars) {
-                let a = s.a + off;
-                if (wedge) {
-                    // Leaving the wedge is leaving the screen, so re-entering at
-                    // the far edge is invisible. Radius is untouched.
-                    a = wedge.lo + (((a - wedge.lo) % span) + span) % span;
+                for (let seg = 0; seg < s.bobs.length; seg++) {
+                    let a = s.a + off + trailSign * seg * TRAIL_GAP;
+                    if (wedge) {
+                        // Leaving the wedge is leaving the screen, so re-entering at
+                        // the far edge is invisible. Radius is untouched.
+                        a = wedge.lo + (((a - wedge.lo) % span) + span) % span;
+                    }
+                    // -CELL/2 because a bob draws from its top-left corner.
+                    const bob = s.bobs[seg];
+                    bob.x = hx + Math.cos(a) * s.r - CELL / 2;
+                    bob.y = hy + Math.sin(a) * s.r - CELL / 2;
                 }
-                // -CELL/2 because a bob draws from its top-left corner.
-                s.bob.x = hx + Math.cos(a) * s.r - CELL / 2;
-                s.bob.y = hy + Math.sin(a) * s.r - CELL / 2;
             }
         }
     }
     render();
 
+    /* Twinkle: a small random subset of stars gets a fresh alpha each call,
+       independent of whether the sky is turning. Cheap by construction --
+       TWINKLE_PER_FRAME stars touched, not all of them -- but genuinely a
+       separate always-running cost, unlike render() which can skip entirely
+       while stilled. Whether to call this during a deliberately still moment
+       (e.g. the harp performance) is the caller's decision. */
+    function twinkle() {
+        if (NO_STAR_DRAW || !allStars.length) return;
+        for (let i = 0; i < TWINKLE_PER_FRAME; i++) {
+            const s = allStars[(Math.random() * allStars.length) | 0];
+            s.twinkle = TWINKLE_MIN + Math.random() * (TWINKLE_MAX - TWINKLE_MIN);
+            for (let seg = 0; seg < s.bobs.length; seg++) {
+                s.bobs[seg].alpha = s.baseAlpha * Math.pow(TRAIL_FALLOFF, seg) * s.twinkle;
+            }
+        }
+    }
+
+    /* ── Special events ──────────────────────────────────────────────────────
+       Meteors, named flare stars, and glimmer clusters -- all rare and
+       selective by design, so each reads as a deliberate moment rather than
+       an ambient texture applied to everything (which is exactly what made
+       the earlier uniform trails read as a glitch). All three self-schedule
+       and clean up their pending timers in destroy(). */
+
+    // 1. Meteors: a one-off Graphics streak, animated and destroyed, every
+    // 9-22s. Occasional allocation like this is fine -- it's a single object
+    // every several seconds, nothing like the per-frame cost the rest of this
+    // file is built to avoid.
+    const METEOR_MIN_DELAY = 9000, METEOR_MAX_DELAY = 22000;
+    let _meteorTimer = null;
+
+    function scheduleMeteor() {
+        const delay = METEOR_MIN_DELAY + Math.random() * (METEOR_MAX_DELAY - METEOR_MIN_DELAY);
+        _meteorTimer = scene.time.delayedCall(delay, spawnMeteor);
+    }
+    function spawnMeteor() {
+        if (NO_STAR_DRAW) { scheduleMeteor(); return; }
+        const a0 = wedge ? (wedge.lo + Math.random() * (wedge.hi - wedge.lo))
+                         : (Math.random() * Math.PI * 2 - Math.PI);
+        const r0 = rad.min + (rad.max - rad.min) * Math.random();
+        const x0 = hx + Math.cos(a0) * r0, y0 = hy + Math.sin(a0) * r0;
+        // Roughly tangential to the field's own rotation, with some spread, so
+        // it reads as part of the same sky rather than an arbitrary streak.
+        const travel = a0 + Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+        const dist = 140 + Math.random() * 170;
+        const len  = 46 + Math.random() * 30;
+
+        const g = scene.add.graphics().setDepth(6).setScrollFactor(0)
+            .setBlendMode(Phaser.BlendModes.ADD);
+        g.lineStyle(2, NIGHT.starHex, 0.85);
+        g.lineBetween(0, 0, -Math.cos(travel) * len, -Math.sin(travel) * len);
+        g.fillStyle(NIGHT.starHex, 1);
+        g.fillCircle(0, 0, 2.4);
+        g.setPosition(x0, y0);
+
+        scene.tweens.add({
+            targets: g,
+            x: x0 + Math.cos(travel) * dist,
+            y: y0 + Math.sin(travel) * dist,
+            alpha: { from: 1, to: 0 },
+            duration: 650 + Math.random() * 250,
+            ease: 'Cubic.easeOut',
+            onComplete: () => { g.destroy(); },
+        });
+
+        scheduleMeteor();
+    }
+    scheduleMeteor();
+
+    // 2. Named flare stars: a handful of specific stars from the brightest
+    // ('fg') layer, occasionally flaring distinctly. Bobs can't be scaled
+    // (Phaser's Bob is position/alpha/tint/frame only), so a flare is a
+    // frame-swap to the largest glyph plus an alpha boost, not a scale-up.
+    const FLARE_COUNT      = 4;
+    const FLARE_MIN_DELAY  = 6000, FLARE_MAX_DELAY = 14000;
+    const FLARE_HALF_MS    = 320;
+    let _flareTimer = null;
+
+    const fgLayer    = layers.find(l => l._key === 'fg');
+    const flareStars = fgLayer
+        ? Phaser.Utils.Array.Shuffle(fgLayer._stars.slice()).slice(0, FLARE_COUNT)
+        : [];
+
+    function scheduleFlare() {
+        if (!flareStars.length) return;
+        const delay = FLARE_MIN_DELAY + Math.random() * (FLARE_MAX_DELAY - FLARE_MIN_DELAY);
+        _flareTimer = scene.time.delayedCall(delay, doFlare);
+    }
+    function doFlare() {
+        const s   = flareStars[(Math.random() * flareStars.length) | 0];
+        const bob = s.bobs[0];
+        bob.setFrame('l');
+        scene.tweens.add({
+            targets: bob,
+            alpha: 1,
+            duration: FLARE_HALF_MS,
+            yoyo: true,
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+                bob.setFrame(s.frameKey);
+                bob.alpha = s.baseAlpha * s.twinkle;
+            },
+        });
+        scheduleFlare();
+    }
+    scheduleFlare();
+
+    // 3. Glimmer clusters -- SIMPLIFIED stand-in for "foreshadow the first
+    // constellation". The real constellation stars don't exist as objects at
+    // this point (only created later, in ConstellationScene's _build()), so
+    // this does NOT preview the actual upcoming shape -- a random anchor
+    // star's nearest neighbours (by current screen position) are grouped and
+    // flicker together in sync. Same charming spirit, not a literal preview.
+    const GLIMMER_MIN_DELAY   = 14000, GLIMMER_MAX_DELAY = 30000;
+    const GLIMMER_CLUSTER_SIZE = 4;
+    let _glimmerTimer = null;
+
+    function scheduleGlimmer() {
+        const delay = GLIMMER_MIN_DELAY + Math.random() * (GLIMMER_MAX_DELAY - GLIMMER_MIN_DELAY);
+        _glimmerTimer = scene.time.delayedCall(delay, doGlimmer);
+    }
+    function doGlimmer() {
+        if (!allStars.length) { scheduleGlimmer(); return; }
+        const anchor = allStars[(Math.random() * allStars.length) | 0];
+        const ax = hx + Math.cos(anchor.a) * anchor.r, ay = hy + Math.sin(anchor.a) * anchor.r;
+        const cluster = allStars
+            .map(s => ({ s, d: Math.hypot(hx + Math.cos(s.a) * s.r - ax, hy + Math.sin(s.a) * s.r - ay) }))
+            .sort((p, q) => p.d - q.d)
+            .slice(0, GLIMMER_CLUSTER_SIZE)
+            .map(p => p.s);
+
+        for (const s of cluster) {
+            const bob = s.bobs[0];
+            scene.tweens.add({
+                targets: bob,
+                alpha: Math.min(1, s.baseAlpha * 1.8),
+                duration: 500,
+                yoyo: true,
+                ease: 'Sine.easeInOut',
+                onComplete: () => { bob.alpha = s.baseAlpha * s.twinkle; },
+            });
+        }
+        scheduleGlimmer();
+    }
+    scheduleGlimmer();
+
     return {
         layers,
         speeds: layers.map(l => l._speed),
         render,
+        twinkle,
 
         /* Re-seat the hub after a resize, or to move the pole at runtime. Radii
            and the wedge are screen-relative, so both are recomputed; the stars
@@ -237,6 +420,10 @@ export function createStarField(scene, opts = {}) {
 
         destroy() {
             layers.forEach(l => l._blitter.destroy());
+            allStars.length = 0;
+            if (_meteorTimer)  _meteorTimer.remove();
+            if (_flareTimer)   _flareTimer.remove();
+            if (_glimmerTimer) _glimmerTimer.remove();
         },
     };
 }

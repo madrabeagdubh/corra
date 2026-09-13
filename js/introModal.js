@@ -246,7 +246,6 @@ export class ConstellationScene extends Phaser.Scene {
         this._textPlayer       = null;
         this._completionPlayer = null;
         this._harpStarted      = false;
-        this._duskEl           = null;
         this._darkImageEl      = null;
         this._shadowHillEl     = null;
         this.spinAngle         = 0;
@@ -387,41 +386,6 @@ export class ConstellationScene extends Phaser.Scene {
            moonlight. nightScape.js carries it as layers instead — see
            midHeadland.png in that file's table. */
         this._syncNightScape(this.moonPhase);
-
-        this.scale.on('resize', (gs) => {
-            if (this._duskEl) this._duskEl.style.height = Math.round(gs.height * 0.20) + 'px';
-            this._updateDusk();
-        });
-
-        this._duskEl = document.createElement('div');
-        this._duskEl.style.cssText = [
-            'position:fixed;left:0;right:0;bottom:0;',
-            `height:${Math.round(this.H * 0.20)}px;`,
-            'pointer-events:none;z-index:99994;opacity:0;',
-            'transition:background 1.8s ease, opacity 3.6s ease;',
-        ].join('');
-        document.body.appendChild(this._duskEl);
-        // One frame's grace so the browser paints opacity:0 before this
-        // flips it to 1 -- otherwise there is nothing for the 0.6s opacity
-        // transition to animate FROM, and it snaps straight to visible
-        // instead of fading in. Same pattern _showDarkImage() already uses.
-        requestAnimationFrame(() => this._drawDuskGradient(0));
-    }
-
-    // ── Dusk ──────────────────────────────────────────────────────────────────
-    _drawDuskGradient(progress) {
-        const el = this._duskEl; if (!el) return;
-        const t   = Math.max(0, Math.min(1, progress));
-        const botR = Math.round(Phaser.Math.Linear(140,  40, t));
-        const botG = Math.round(Phaser.Math.Linear(170,  20, t));
-        const botB = Math.round(Phaser.Math.Linear(210,  80, t));
-        const botA = Phaser.Math.Linear(0.28, 0.14, t);
-        el.style.background = `linear-gradient(to bottom,rgba(0,0,0,0) 0%,rgba(${botR},${botG},${botB},${botA}) 100%)`;
-        if (el.style.opacity === '0') el.style.opacity = '1';
-    }
-    _updateDusk() {
-        const total = this.constellations.length;
-        this._drawDuskGradient(total > 1 ? this.currentIndex / (total - 1) : 0);
     }
 
     // ── Dark image ────────────────────────────────────────────────────────────
@@ -561,12 +525,27 @@ if (wrapper) {
             // Fixed distance from bottom edge — tune MOON_REST_FROM_BOTTOM above.
             this._moonFinalTopPx = H - wrapperH - MOON_REST_FROM_BOTTOM;
 
-            wrapper.style.bottom    = 'auto';
-            // With the dial, the moon is ALREADY at rest — its pull-back landed
-            // on this exact spot. Starting at 35vh and drifting down would move
-            // a moon the player has just watched arrive.
-            wrapper.style.top       = (this._dialRan ? this._moonFinalTopPx
-                                                     : Math.round(H * 0.35)) + 'px';
+            if (this._dialRan) {
+                // With the dial, the moon is ALREADY at rest — its pull-back
+                // landed on this exact spot, so there's no drift animation to
+                // protect here (unlike the swipe path below). Anchor to the
+                // bottom edge directly instead of freezing an absolute top
+                // pixel computed from H: if fullscreen engages LATER — not
+                // during the dial, but afterward, via the widget's own
+                // earlyUnlock tap, the canvas fallback, or the restore button
+                // — a frozen top pixel would strand the widget once the
+                // viewport grows taller. Same class of bug already fixed for
+                // the druid/queen band's text spacing.
+                wrapper.style.top    = 'auto';
+                wrapper.style.bottom = MOON_REST_FROM_BOTTOM + 'px';
+            } else {
+                // Starting at 35vh for the drift-down ANIMATION below.
+                // _driftMoonToBottom() switches this to bottom-anchoring once
+                // that animation completes, so it ends up resize-safe too —
+                // just not before the drift has had its moment.
+                wrapper.style.bottom = 'auto';
+                wrapper.style.top    = Math.round(H * 0.35) + 'px';
+            }
             wrapper.style.left      = '50%';
             wrapper.style.transform = 'translateX(-50%)';
             wrapper.style.transition = 'none';
@@ -918,7 +897,7 @@ if (wrapper) {
 
     panCameraTo(idx, animate=true) {
         this._hideDarkImage(false);
-        this.currentIndex = idx; this._updateDusk();
+        this.currentIndex = idx;
         const panNow = this.time.now;
         for (const c of this.constellations) {
             if (c.completed) for (const cn of c.connections) {
@@ -944,9 +923,15 @@ if (wrapper) {
         const panDist=Math.sqrt((tx-sx)**2+(ty-sy)**2);
         const sweepDeg=Math.min(panDist*0.018,55);
         this._bgWheelsPaused=true;
+        // Land pan: persisted (not reset per pan), so the land stays "looking"
+        // the way the last pan left it until this one moves it again. Target
+        // derived from dx (this pan's own horizontal delta), clamped to [-1,1].
+        const landPanFrom=this._landPan||0;
+        const landPanTo=Math.max(-1,Math.min(1, dx/(this.W*0.6)));
+        this._landPan=landPanTo;
         const PAN_MS=3000, prog2={t:0};
         this.tweens.add({ targets:prog2, t:1, duration:PAN_MS, ease:'Cubic.easeInOut',
-            onUpdate:()=>{ bgL.forEach((l,i)=>{l.rt.angle=startAngles[i]-sweepDeg*l.depth*prog2.t;}); this.spinAngle=startCamAngle*(1-prog2.t); cam.setAngle(this.spinAngle); },
+            onUpdate:()=>{ bgL.forEach((l,i)=>{l.rt.angle=startAngles[i]-sweepDeg*l.depth*prog2.t;}); this.spinAngle=startCamAngle*(1-prog2.t); cam.setAngle(this.spinAngle); this._nightScape?.setPan(landPanFrom+(landPanTo-landPanFrom)*prog2.t); },
             onComplete:()=>{ this.spinAngle=0; cam.setAngle(0); this._bgWheelsPaused=false; this._setBgWheelPaused(true); },
         });
         this.tweens.add({ targets:prog, t:1, duration:PAN_MS, ease:'Cubic.easeInOut',
@@ -1048,7 +1033,6 @@ if (wrapper) {
     startSequencePulse() {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer=null; }
         this.pulseIdx=0; this._interactionStarted=true; this.canInteract=true;
-        this._updateDusk();
         /* Nothing is said before the first constellation. The poem has just
            ended on "and lay their secrets bare before thy servant"; the druid
            and queen then wait in a still sky for the player to begin. Later
@@ -1237,7 +1221,6 @@ if (wrapper) {
         this._stopAllAudio();
         this._closeSkipMenu();
         if (this.moonOverlay)  {this.moonOverlay.remove();  this.moonOverlay=null;}
-        if (this._duskEl)      {this._duskEl.remove();      this._duskEl=null;}
         if (this._dqBandEl)    {this._dqBandEl.remove();    this._dqBandEl=null;}
         if (this._menuPreview?.parentNode){this._menuPreview.remove();this._menuPreview=null;}
         if (this._shadowHillEl?.parentNode){this._shadowHillEl.remove();this._shadowHillEl=null;}

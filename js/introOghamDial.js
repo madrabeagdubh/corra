@@ -89,7 +89,7 @@ const STYLE = `
     color:#cbb8ff;opacity:0;
     transition:opacity 1.1s ease-out}
   #ogd-col .en{font-family:"Courier New",monospace;
-    font-size:1.7rem;line-height:1.24;color:#8ea3b5}
+    font-size:1.7rem;line-height:1.24;color:#dfe9df}
 
   #ogd-tilt{z-index:5}
   #ogd-tilt .band{position:absolute;left:0;width:100%;

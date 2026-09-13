@@ -193,7 +193,9 @@ export function speakerColorEn(speaker) {
   const map = {
     queen:          '#b8966a',
     // Blue-grey against the Irish's violet-grey: same voice, separable thread.
-    druid:          '#8ea3b5',
+    // Brightened to near-white -- same bone-green tint as the stars
+    // (NIGHT.starHex), not flat #ffffff, so it sits in the same air.
+    druid:          '#dfe9df',
     hero:           '#b8af90',
     spirit:         '#9b9bcc',
     bean_si:        '#9b9bcc',

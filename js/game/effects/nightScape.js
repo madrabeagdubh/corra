@@ -85,6 +85,22 @@ const LAYERS = [
 
 const scaleFor = z => z / (z + PULL);
 
+// setPan()'s per-layer maximum: half of whatever a layer's own vw exceeds
+// 100 by -- the overhang it was already built with specifically so it has
+// room to pan without exposing empty space past its own edge. Layers with
+// no vw of their own (druid/queen -- small figures, not full-width
+// backdrop plates) borrow midHead's overhang instead of computing one from
+// their own much smaller width, since they share its depth (z=3) and
+// should move with it.
+// midHead alone tiles (repeat-x, see box construction above), so it can't
+// run out of image -- it gets a much larger, unclamped swing instead of
+// the overhang-capped maximum every other layer uses.
+const MIDHEAD_WRAP_VW = 40;
+
+const maxPanVwFor = L => (L.vw !== undefined)
+    ? (L.vw - 100) / 2
+    : (LAYERS.find(x => x.key === 'midHead').vw - 100) / 2;
+
 /* Height of the viewport below the horizon, in vh. Every bit of the geometry
    below is measured from the floor up to this line. */
 const FLOOR = (1 - HORIZON) * 100;
@@ -154,8 +170,20 @@ export function createNightScape(opts = {}) {
             if (cover < 2) console.warn(
                 `[nightScape] ${L.key} finishes too low to be visible at the ` +
                 `start (cover ${cover.toFixed(1)}vh). Raise finalTop or z.`);
-            box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
-                  `background:url(${DIR}${L.file}) no-repeat 50% 100%/cover;`;
+            if (L.key === 'midHead') {
+                // Genuinely repeating instead of cover/no-repeat: midHeadland is a
+                // repetitive treeline with no single unique landmark, so tiling it
+                // doesn't visibly duplicate anything -- unlike farRidge (one
+                // distinctive rock) or nearFg (a distinctive valley shape), which
+                // stay as cover/no-repeat. `auto <height>` keeps the tile at the
+                // image's own aspect ratio (unlike `cover`, which sizes from BOTH
+                // box dimensions and would distort a repeating tile).
+                box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
+                      `background:url(${DIR}${L.file}) repeat-x 0 100%/auto ${(cover + drop).toFixed(2)}vh;`;
+            } else {
+                box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
+                      `background:url(${DIR}${L.file}) no-repeat 50% 100%/cover;`;
+            }
         } else {
             // Figures: contain, so a silhouette keeps its proportions inside a
             // box whose height is what we actually care about.
@@ -182,7 +210,8 @@ export function createNightScape(opts = {}) {
             wrap.appendChild(lit);
         }
 
-        made.push({ wrap, el, lit, endScale: s });
+        made.push({ wrap, el, lit, endScale: s, maxPanVw: maxPanVwFor(L),
+                    wraps: L.key === 'midHead' });
     });
 
     /* ── moonlight ──────────────────────────────────────────────────────────
@@ -290,6 +319,33 @@ export function createNightScape(opts = {}) {
                 if (m.wrap.style.transition !== 'none') m.wrap.style.transition = 'none';
                 m.wrap.style.transform =
                     `scale(${(1 + (m.endScale - 1) * t).toFixed(4)})`;
+            });
+        },
+
+        /* Horizontal pan, synced to the camera's own pan tween (see
+           panCameraTo() in introModal.js) -- sells the idea that the whole
+           scene, druid/queen included, is turning to look at a different
+           part of the sky, rather than the stars alone moving. fraction is
+           clamped to [-1, 1]; each layer's own maxPanVw (set at creation,
+           see maxPanVwFor() above) caps it to exactly the overhang that
+           layer's own art was built with, so full pan reveals as much of
+           each layer as physically exists, no more. Applied to `el` (and
+           `lit`, to stay aligned) -- `wrap` owns the separate scale
+           transform for recede/pull-back, so the two never fight over one
+           transform. */
+        setPan(fraction) {
+            const f = Math.max(-1, Math.min(1, fraction));
+            made.forEach(m => {
+                if (m.wraps) {
+                    // repeat-x wraps automatically and infinitely -- no clamping,
+                    // no need to touch the centering transform at all.
+                    m.el.style.backgroundPositionX = (f * MIDHEAD_WRAP_VW).toFixed(2) + 'vw';
+                    return;
+                }
+                const vw = (f * m.maxPanVw).toFixed(2);
+                const tr = `translateX(calc(-50% + ${vw}vw))`;
+                m.el.style.transform = tr;
+                if (m.lit) m.lit.style.transform = tr;
             });
         },
 

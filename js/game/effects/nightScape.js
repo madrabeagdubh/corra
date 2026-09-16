@@ -78,9 +78,9 @@ const LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
     { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:22 },
     { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:17 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12, left:'50%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12, left:'57%', w:24 },
-    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:13 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:10, left:'50%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:10, left:'57%', w:24 },
+    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:20 },
 ];
 
 const scaleFor = z => z / (z + PULL);
@@ -92,14 +92,28 @@ const scaleFor = z => z / (z + PULL);
 // backdrop plates) borrow midHead's overhang instead of computing one from
 // their own much smaller width, since they share its depth (z=3) and
 // should move with it.
-// midHead alone tiles (repeat-x, see box construction above), so it can't
-// run out of image -- it gets a much larger, unclamped swing instead of
-// the overhang-capped maximum every other layer uses.
-const MIDHEAD_WRAP_VW = 40;
+// Every backdrop plate tiles now (repeat-x, see box construction below), so
+// none of them can run out of image -- each gets a much larger, unclamped
+// swing instead of the overhang-capped maximum figures (druid/queen) still
+// use. Scaled by depth so nearer layers still move more, same as the
+// overhang-capped approach did: farRidge z=8 -> 15vw, midHead z=3 -> 40vw
+// (unchanged from the midHead-only version), nearFg z=2.2 -> ~54.5vw.
+const wrapVwFor = z => 120 / z;
 
+// druid/queen (the only layers with no L.vw) lock to nearFg's own wrap
+// swing, not an independent amount -- they stand on that layer and should
+// slide with it exactly, not at their own rate. Matching wrapVw's raw
+// number alone isn't enough: each layer's wrap carries its own recede
+// scale (scaleFor(z), fixed by the time any panning happens), which
+// MULTIPLIES whatever translation the child (el) gets -- apparent shift =
+// raw_vw * scaleFor(z). druid/queen (z=3) and nearFg (z=2.2) scale
+// differently, so the same raw number would still move at different
+// apparent rates. Compensating by the ratio of the two scales makes the
+// APPARENT shift match exactly, not just the raw vw figure.
+const nearFgZ = LAYERS.find(x => x.key === 'nearFg').z;
 const maxPanVwFor = L => (L.vw !== undefined)
     ? (L.vw - 100) / 2
-    : (LAYERS.find(x => x.key === 'midHead').vw - 100) / 2;
+    : wrapVwFor(nearFgZ) * (scaleFor(nearFgZ) / scaleFor(L.z));
 
 /* Height of the viewport below the horizon, in vh. Every bit of the geometry
    below is measured from the floor up to this line. */
@@ -170,20 +184,12 @@ export function createNightScape(opts = {}) {
             if (cover < 2) console.warn(
                 `[nightScape] ${L.key} finishes too low to be visible at the ` +
                 `start (cover ${cover.toFixed(1)}vh). Raise finalTop or z.`);
-            if (L.key === 'midHead') {
-                // Genuinely repeating instead of cover/no-repeat: midHeadland is a
-                // repetitive treeline with no single unique landmark, so tiling it
-                // doesn't visibly duplicate anything -- unlike farRidge (one
-                // distinctive rock) or nearFg (a distinctive valley shape), which
-                // stay as cover/no-repeat. `auto <height>` keeps the tile at the
-                // image's own aspect ratio (unlike `cover`, which sizes from BOTH
-                // box dimensions and would distort a repeating tile).
-                box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
-                      `background:url(${DIR}${L.file}) repeat-x 0 100%/auto ${(cover + drop).toFixed(2)}vh;`;
-            } else {
-                box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
-                      `background:url(${DIR}${L.file}) no-repeat 50% 100%/cover;`;
-            }
+            // Genuinely repeating rather than cover/no-repeat, now that all three
+            // backdrop plates have art suited to it. `auto <height>` keeps each
+            // tile at the image's own aspect ratio (unlike `cover`, which sizes
+            // from BOTH box dimensions and would distort a repeating tile).
+            box = `width:${(L.vw / s).toFixed(2)}vw;height:${(cover + drop).toFixed(2)}vh;` +
+                  `background:url(${DIR}${L.file}) repeat-x 0 100%/auto ${(cover + drop).toFixed(2)}vh;`;
         } else {
             // Figures: contain, so a silhouette keeps its proportions inside a
             // box whose height is what we actually care about.
@@ -211,7 +217,7 @@ export function createNightScape(opts = {}) {
         }
 
         made.push({ wrap, el, lit, endScale: s, maxPanVw: maxPanVwFor(L),
-                    wraps: L.key === 'midHead' });
+                    wraps: L.top !== undefined, wrapVw: wrapVwFor(L.z) });
     });
 
     /* ── moonlight ──────────────────────────────────────────────────────────
@@ -339,7 +345,7 @@ export function createNightScape(opts = {}) {
                 if (m.wraps) {
                     // repeat-x wraps automatically and infinitely -- no clamping,
                     // no need to touch the centering transform at all.
-                    m.el.style.backgroundPositionX = (f * MIDHEAD_WRAP_VW).toFixed(2) + 'vw';
+                    m.el.style.backgroundPositionX = (f * m.wrapVw).toFixed(2) + 'vw';
                     return;
                 }
                 const vw = (f * m.maxPanVw).toFixed(2);

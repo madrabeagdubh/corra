@@ -223,19 +223,16 @@ export function runOghamDial(opts = {}) {
       
       /* ── The poem, unbroken ───────────────────────────────────────────────── */
       const POEM=[
-      
+   { ga: 'A Ghealach',                          en: 'O Moon' },
+   
 
   { ga: 'Tríd oícheanta fada',   en: 'Through long nights' },
-  { ga: 'tá comharthaí na spéire cuardaithe agam', en: 'I have searched the signs of the sky' },
-  { ga: 'Leanaim an slua geal',                en: 'I follow the bright host' },
-  { ga: 'is a ngathanna geala',                en: 'and their flashing spears' },
-  { ga: 'ach tá a mbrí doléir',                en: 'yet their meaning is unclear' },
-  { ga: 'A Ghealach',                          en: 'O Moon' },
-  { ga: 'a Ríona na Bóinne is na Banna',       en: 'O Queen of the Boyne and the Bann' },
+  { ga: 'Tá comharthaí na spéire cuardaithe agam', en: 'I have searched the signs of the sky' },
+  { ga: 'ach ní thuigim',                en: 'But I don\'t understand' },
+    { ga: 'a Ríona na Bóinne is na Banna',       en: 'O Queen of the Boyne and the Bann' },
   { ga: 'gairim ort!',                          en: 'I call upon thee!' },
-  { ga: 'Soilsigh droim na Teamhrach',         en: 'Shine down upon the ridge of Tara' },
-  { ga: 'srianaigh na taoisigh uaibhreacha',   en: 'bridle these haughty chiefs' },
-  { ga: 'is nocht a rúin dod ghiolla',         en: 'and lay bare their secrets to your servant' }
+  { ga: 'Srian na taoisigh uaibhreacha',   en: 'Bridle these haughty chiefs' },
+  { ga: 'Nochtaigh a rúin dod ghiolla',         en: 'Reveal their secrets to your servant' }
 
 ];
       

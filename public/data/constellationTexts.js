@@ -1,8 +1,8 @@
 
+
 export const constellationTexts = {
 
-    // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────
-    cu: {
+    // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────                                                                             cu: {
         waiting: [
              {
                 ga: 'Tríd oichí fada gan codladh a bhanríonn,',
@@ -21,89 +21,94 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Féach Cú na Féinne, ag drannadh fiachal anocht',
+                ga: 'Féach Cú na Féinne, ag drannadh a fhiacla anocht',
                 en: 'See the hound of the fianna, tonight he snarls',
                 speaker: 'druid',
             },
-        ],
-    },
-
-    // ── An Naomhóg — The Currach (Cassiopeia) ───────────────────────────────
-    naomhog: {
-        waiting: [
-            {
-                ga: 'Agus ar muir? Cad deir bealach na Bó Finne, a Chonaill na súile géire?',
-                en: 'And at sea? What says the river of heaven, o keen-eyed wolf?',
+           
+             {
+                ga: 'Cad is cuis len a fearg?',
+                en: "What is the cause of his anger?",
                 speaker: 'queen',
             },
         ],
-        completion: [
-            {
-                ga: 'Corraíonn slua na Fomhóraigh faoín naomhóg.',
-                en: 'The Fomorian host stirs beneath the curragh.',
+    },
+
+   // ── An Naomhóg — The Currach (Cassiopeia) ───────────────────────────────
+    naomhog: {
+        waiting: [
+           {
+                ga: 'Breathnaigh ansin, a bhanríonn',
+                en: "Look there, o queen",
                 speaker: 'druid',
-            },
-            {
-                ga: 'Leathaíonn Tethra tiarnas sa dorchadas.',
-                en: 'Tethra spreads his dominion in the darkness.',
+            },{
+                ga: 'faoi Bheallach na Bó Finne',
+                en: "beneath the Sea of Heaven",
                 speaker: 'druid',
             },
         ],
+        completion: [
+           
+
+   {
+                ga: 'Éiríonn Tethra, Rí na Formoraigh',
+                en: "Tethra, King of the Formorians rises",
+                speaker: 'druid',
+            }
+
+
+        ],
     },
 
-    // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ───────────────
-    // Queen sees hope in the northern stars; druid delivers the bitter opening.
+    // ── An Carr Mór — The Great Chariot / Plough ────────────────────────────
     carr: {
         waiting: [
             {
-                ga: 'Ach feach an carr ar an bóthar dubh!',
-                en: 'But see the chariot on the dark road!',
+                ga: 'Ach Ceanglíonn an Carr Mór Tethra chun fharraige',
+                en: 'But the Great Chariot binds Tethra to the ocean',
                 speaker: 'queen',
             },
-
-            {
-                ga: 'Gille na réaltaí ó Thúaidh, scíath na féine.',
-                en: 'Brightness of the northern stars, shield of fenians',
-                speaker: 'queen',
-            }
- 
         ],
         completion: [
-            {
-                ga: 'Tá insint searbh ar an scéal nach tugann sásamh dom.',
-                en: 'I am not glad to tell a thing so bitter...',
-                speaker: 'druid',
+             {
+                ga: 'Is mar sin a sháinnaigh an Dagda é',
+                en: 'Thus did Dagda banish Tethra',
+                speaker: 'queen',
+            },{
+                ga: 'Fadó fadó in Éireann',
+                en: 'Long long ago in Ireland',
+                speaker: 'queen',
             },
         ],
     },
 
-    // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
-    // The druid reads the Boar's rising: war and doom beneath its red star.
+         // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
     torc: {
         waiting: [
             {
-                ga: '...ach eiríonn an Torc faoin réalt dearg.',
-                en: 'But the Boar does rise with war.',
+                ga: 'Dhrann an Cú starrfhiacail geal',
+                en: "and yet the hound's fang shines",
                 speaker: 'druid',
             }
-           
         ],
         completion: [
-           
- {
-                ga: 'Feicim Taoisigh fomhórach cogairsithe, dúr agus ulamh.',
-                en: 'I see Fomorian chiefains arrayed for battle, grim and ready.',
+            {
+                ga: 'Slemhnaigh an péist',
+                en: 'Tethra slips through',
                 speaker: 'druid',
-            }
+            },{
+                ga: 'áit nach thig leis an gCarr é a leanúint.',
+                en: 'where the chariot cannot follow',
+                speaker: 'druid',
+            },
         ],
     },
-
-    // ── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ───────────────
+   // ── Cúirt Fhomhóir — The Court of Fomor (Corona Borealis) ───────────────
     cuirt: {
         waiting: [
             {
-                ga: 'Draoí faiteach! An deanfainn umhlú go talamh meas tú? Mar beith-gheal lá stoirme?',
-                en: 'Frightened druid! Think ye I shall bend my neck? Like birch on a stormy day?',
+                ga: 'Draoí faiteach! An deanfainn umhlú go talamh meas tú?',
+                en: 'Frightened druid! Think ye I would cower to the ground?',
                 speaker: 'queen',
             },
             {
@@ -127,9 +132,7 @@ export const constellationTexts = {
                 ga: 'Feicim cúirt ár mbith-naimhde, agus gach suíochán lán.',
                 en: 'I see the court of Tethra, and every seat is full.',
                 speaker: 'druid',
-            },
-        ],
-    },
+	    }]},
 
     // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────
     // The queen pleads for any sign of hope; the druid silences her.

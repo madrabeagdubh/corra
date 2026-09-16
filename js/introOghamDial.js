@@ -228,7 +228,6 @@ export function runOghamDial(opts = {}) {
 
   { ga: 'Tríd oícheanta fada',   en: 'Through long nights' },
   { ga: 'Tá comharthaí na spéire cuardaithe agam', en: 'I have searched the signs of the sky' },
-  { ga: 'ach ní thuigim',                en: 'But I don\'t understand' },
     { ga: 'a Ríona na Bóinne is na Banna',       en: 'O Queen of the Boyne and the Bann' },
   { ga: 'gairim ort!',                          en: 'I call upon thee!' },
   { ga: 'Srian na taoisigh uaibhreacha',   en: 'Bridle these haughty chiefs' },

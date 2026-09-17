@@ -223,6 +223,26 @@ export function runOghamDial(opts = {}) {
       
       /* ── The poem, unbroken ───────────────────────────────────────────────── */
       const POEM=[
+   /* A blank lead-in. Every real line already scrolls up into the reading
+      frame from below as arc carries it in from its own `start` -- line 0
+      never got that because there was no line before it to scroll FROM.
+      Rather than fake that motion with a bespoke timer (which had to guess
+      at, or chase, how long the screen would be visible for), give it a
+      real predecessor: an empty line costs one English "word" (an empty
+      string still splits to one token) and so takes the same span as any
+      other single-word line -- ordinary arc-per-word pacing, nothing
+      hand-tuned. It carves no ogham (toOgham('') is empty) and shows no
+      text, so all it contributes is the same scroll-in every other line
+      gets, applied once, before the poem is actually read.
+      Using U+200B (zero-width space) rather than a literal empty string:
+      an empty .ga/.en div has no text node at all, and a block with no
+      content collapses to zero height in every layout engine -- which
+      relayout()'s own startup guard below reads as "not measured yet" and
+      retries forever, since a genuinely empty row's height will never
+      become non-zero. A zero-width space is a real character, so the row
+      gets a normal line-box at the font's usual height, while rendering
+      nothing visible. */
+   { ga: '\u200B', en: '\u200B' },
    { ga: 'A Ghealach',                          en: 'O Moon' },
    
 
@@ -470,6 +490,27 @@ export function runOghamDial(opts = {}) {
         const s=Math.sin(Math.max(0,p)*Math.PI/2);
         return Math.max(0, Math.min(1, s*s));
       };
+      /* English specifically needs a harder floor than the moon's own honest
+         lit-fraction gives it -- and the OPPOSITE kind of floor from what this
+         used to say here: not a minimum that keeps it visible, a threshold
+         that keeps it OFF. At EN_THRESHOLD=0.2 (a fifth) and below, this is
+         exactly 0 -- not dim, not "all but invisible" as an approximation, off
+         -- so a dark moon (or anything short of a real fifth of one) means no
+         English at all, full stop. A reader's eye catches English
+         automatically the instant there's anything legible there to catch,
+         which undercuts the Irish being the thing actually being taught; a
+         barely-there sliver of the old curve (lumFor(0.1) ≈ 0.024) was already
+         enough to be read. Above the threshold, phase is rescaled from
+         [0.2, 1] onto [0, 1] and run through the same sin² shape as before, so
+         the whole remaining range of the moon -- not just its first sliver --
+         does the work of bringing English up to full at true full moon. */
+      const EN_THRESHOLD=0.2;
+      const enLumFor=p=>{
+        if(p<=EN_THRESHOLD) return 0;
+        const q=(p-EN_THRESHOLD)/(1-EN_THRESHOLD);
+        const s=Math.sin(q*Math.PI/2);
+        return Math.max(0, Math.min(1, s*s));
+      };
       const R=94;
       const moonPath=p=>{
         const rx=R*Math.cos(p*Math.PI), sw=rx>0?0:1;
@@ -490,6 +531,14 @@ export function runOghamDial(opts = {}) {
 
       function frame(dt){
         if(dead) return;
+
+        /* The fullscreen request the first touch can trigger (see
+           introModal.js's onFirstTouch) covers the screen with a fade for
+           the better part of a second. Freeze the poem's own clock while
+           that's up, so no reading time is spent behind a screen the player
+           can't see -- rather than have the black overlay eat into however
+           long the poem's opening would otherwise be visible for. */
+        const obscured = !!(opts.isObscured && opts.isObscured());
 
         if(!perfInit){
           perfInit=true;
@@ -526,16 +575,36 @@ export function runOghamDial(opts = {}) {
            stalling each time you nudged it. Inertia is now added ON TOP of the base
            turn rather than replacing it, so a swipe speeds the wheel up and then
            eases back to its own pace without ever pausing. */
-        /* Until the player acts, the letters circle and the poem does not move.
-           Anyone can sit and watch the sky for as long as they like and still
-           begin at the first line. */
-        if(!started){
+        /* The wheel is free to spin on its own terms until the moon has been
+           found -- not just before the first touch. Previously this stopped
+           at `started`, which is set by any touch at all; now it runs for as
+           long as `!revealed`, and move()'s own ring-drag handling below
+           feeds the same idleSpin directly, so a drag on the ring nudges
+           this exact rotation rather than a separate one. The two compose
+           naturally: autonomous drift plus direct manipulation, same as
+           inertia layers on top of the base turn everywhere else in this
+           file. Nothing here touches arc, so none of it moves the text --
+           see the note below on why that matters. Reset to identity the
+           instant revealed fires (in _paintPhase()), so the ring settles
+           cleanly into its real, content-driven rotation rather than
+           carrying a stale spin forward forever. */
+        if(!revealed){
           idleSpin += OMEGA*dt;
           (elIdleRotor||(elIdleRotor=$('rotor')))
             .setAttribute('transform',`rotate(${(idleSpin*180/Math.PI).toFixed(2)})`);
         }
 
-        if(!dragging && started){
+        /* `revealed` gates arc the same way it gates the Irish opacity: until
+           the moon has been found, neither the ring's own drag (move(),
+           zone==='ring') nor the text column's own drag (zone==='text') nor
+           this automatic tick moves the poem forward. Two touch zones out of
+           three never go near the moon, so without this a player whose first
+           instinct is to grab the ring or scrub the text could carry the
+           whole poem past unread -- and, just as much the point, spinning
+           the ring would look like the thing that reveals text, when the
+           moon is what's meant to teach that. Nothing here changes once
+           revealed flips true; it only holds arc still before that. */
+        if(!dragging && started && !obscured && revealed){
           arc += OMEGA*dt;
           if(spinVel!==0){
             arc += spinVel*dt;
@@ -778,9 +847,8 @@ export function runOghamDial(opts = {}) {
           if(r._vis!==vis){ r._vis=vis; r.ga.style.display=vis; r.en.style.display=vis; }
         });
 
-        const lum=lumFor(phase);
         const gaO = revealed ? '0.95' : '0';
-        const enO = lum.toFixed(3);
+        const enO = enLumFor(phase).toFixed(3);
         if(gaO!==_lastGaO || enO!==_lastEnO){
           _lastGaO=gaO; _lastEnO=enO;
           rows.forEach(r=>{
@@ -806,7 +874,7 @@ export function runOghamDial(opts = {}) {
       const MOON_TILT=-35;
       /* The widget's own numbers: 0.1 of phase per nine seconds, resting at a
          sliver rather than going fully out. DRIFT_FLOOR=0 for full dark. */
-      const DRIFT_RATE=0.1/9000, DRIFT_FLOOR=0.25;
+      const DRIFT_RATE=0.1/9000, DRIFT_FLOOR=0;
       let driftAcc=0;   // unpainted drift, flushed when it is worth a pixel
 
       function setRaw(r){
@@ -828,7 +896,25 @@ export function runOghamDial(opts = {}) {
         $('moon').setAttribute('d',moonPath(phase));
         $('halo').setAttribute('opacity',(0.07+phase*0.36).toFixed(3));
         // The ratchet: once the moon has been moved, the Irish stays for good.
-        if(!revealed && phase>0.06) revealed=true;
+        if(!revealed && phase>0.06){
+          revealed=true;
+          // The touch-me prompt has been answered -- quiet down, not an
+          // ongoing distraction once the player has actually found the moon.
+          // (Not on generic `started`: the ring and the text column are both
+          // gated behind this same `revealed` flag now, so a first touch
+          // that lands on either of those hasn't answered the prompt yet --
+          // silencing the hint there would leave a player who hasn't found
+          // the moon with no cue that the moon is what they're looking for.)
+          const halo=$('halo');
+          if(halo){ halo.style.animation='none'; halo.style.opacity='0'; }
+          // The free spin above (frame()'s idleSpin) stops being written the
+          // moment this fires, but whatever rotation it left on #ogd-rotor
+          // would otherwise sit there forever, composed on top of every
+          // line's own real, arc-driven rotation from here on. Clear it so
+          // the wheel settles cleanly into its actual reading position
+          // instead of carrying a permanent, arbitrary spin into the poem.
+          (elIdleRotor||(elIdleRotor=$('rotor'))).removeAttribute('transform');
+        }
         /* The land is not ours — the scene built it and will keep it after we
            are removed. Tell it where the moon is and how full, and it lights
            itself. Guarded because the dial must still run standalone. */
@@ -857,11 +943,36 @@ export function runOghamDial(opts = {}) {
          caused by the moon; see the note in patch_tap_goes_further.py about
          lumFor() if every crescent should read brighter, not just this one. */
       const TAP_STEP=0.50, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
+      /* The first two legs (up to full, back down to none) keep their
+         original brisk, constant-angular-speed sweep -- that part read
+         fine. What made the whole gesture feel frantic was going straight
+         from that into a third sweep at the same pace with no breath
+         between: three moves in one unbroken rush. TAP_PAUSE_MS is a beat
+         of real stillness at the bottom before anything else happens.
+         TAP_SETTLE is the quarter mark -- not TAP_STEP's half -- so the
+         demo undersells itself rather than showing off the whole trick at
+         once, leaving the fuller phase for the player's own hand to find.
+         TAP_SETTLE_MS is unchanged from when this settled at "nearly
+         half"; covering less distance in the same time reads as even
+         slower and calmer, which is the same direction this has been
+         moving in throughout. */
+      const TAP_PAUSE_MS=400, TAP_SETTLE=0.25, TAP_SETTLE_MS=1050;
       let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
       let glideQueue=[], glideMs=TAP_MS;
+      /* A detent every MOON_CLICK_STEP of phase while the moon itself is
+         being dragged (move()'s zone==='moon' branch) -- the same click
+         texture as elsewhere in the game (a short highpassed noise burst),
+         reproduced locally in moonClick() below since this file has no
+         imports. lastClickUnit is reset on every down() so a fresh drag
+         starts clean rather than registering a burst of clicks for
+         whatever distance the moon moved since the last one (a glide, or
+         a previous drag) with nobody's finger anywhere near it. */
+      let lastClickUnit=0;
+      const MOON_CLICK_STEP=0.025;
       function down(e){
         const t=(e.touches?e.touches[0]:e);
         dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0; angVel=0; textVel=0; spinVel=0;
+        lastClickUnit=Math.floor(rawPhase/MOON_CLICK_STEP);
         /* lastY is only written by move(), so a tap that never moves would
            otherwise measure itself against the previous gesture's position.
            Seed it here or every tap looks like a drag. */
@@ -888,11 +999,7 @@ export function runOghamDial(opts = {}) {
              still begins at the beginning. */
           arc=0;
           if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
-          tone(174,.09,1.8);
-          // The touch-me prompt has been answered -- quiet down, not an ongoing
-          // distraction once the player has actually engaged.
-          const halo=$('halo');
-          if(halo){ halo.style.animation='none'; halo.style.opacity='0'; }
+          introChord();
         }
         /* Fullscreen (and anything else gated on a first real gesture) wants to
            happen HERE, not on whatever later touch first reaches the Phaser
@@ -917,23 +1024,45 @@ export function runOghamDial(opts = {}) {
         if(!dragging) return;
         const p=(e.touches?e.touches[0]:e), t=performance.now(), dt=Math.max(1,t-lastT);
         if(zone==='text'){
-          // Drag up to go on, the way text scrolls. One screen covers about three
-          // lines, so a comfortable swipe moves a couple of lines rather than
-          // flinging you through the poem.
-          const dy=p.clientY-lastY;
-          const perPx=(TOTAL_ARC/POEM.length)*6/window.innerHeight;
-          arc=Math.max(0,Math.min(TOTAL_ARC,arc-dy*perPx));
-          textVel=textVel*0.6+(-dy*perPx/(dt/1000))*0.4;
+          // Nothing to scrub until the moon has been found once — see the
+          // note by the `revealed` gate in frame()'s own arc-advance.
+          if(revealed){
+            // Drag up to go on, the way text scrolls. One screen covers about three
+            // lines, so a comfortable swipe moves a couple of lines rather than
+            // flinging you through the poem.
+            const dy=p.clientY-lastY;
+            const perPx=(TOTAL_ARC/POEM.length)*6/window.innerHeight;
+            arc=Math.max(0,Math.min(TOTAL_ARC,arc-dy*perPx));
+            textVel=textVel*0.6+(-dy*perPx/(dt/1000))*0.4;
+          }
         } else if(zone==='ring'){
           const a=angAt(p.clientX,p.clientY), d=wrapPi(a-lastAng);
-          lastAng=a; arc=Math.max(0,Math.min(TOTAL_ARC,arc+d));
-          angVel=angVel*0.6+(d/(dt/1000))*0.4;
+          lastAng=a;
+          if(revealed){
+            arc=Math.max(0,Math.min(TOTAL_ARC,arc+d));
+            angVel=angVel*0.6+(d/(dt/1000))*0.4;
+          } else {
+            // Free spin: nudges the exact same idleSpin the wheel already
+            // turns on its own (see frame()), so dragging feels directly
+            // responsive without ever touching arc -- and so the text --
+            // until the moon has actually been found.
+            idleSpin += d;
+          }
         } else {
           const dx=p.clientX-lastX;
           vel=vel*0.7+(dx/dt)*0.3;
           /* raw, not phase: on the waning half they run opposite ways and
              adding to phase there would reverse the gesture under the finger. */
           setRaw(rawPhase+dx/(window.innerWidth*0.80));
+          // A detent every MOON_CLICK_STEP -- see its note up by
+          // lastClickUnit's declaration. One click per boundary crossed;
+          // capped so a very fast swipe can't fire an unbounded burst.
+          const clickUnit=Math.floor(rawPhase/MOON_CLICK_STEP);
+          if(clickUnit!==lastClickUnit){
+            const steps=Math.min(8,Math.abs(clickUnit-lastClickUnit));
+            for(let i=0;i<steps;i++) moonClick();
+            lastClickUnit=clickUnit;
+          }
         }
         lastX=p.clientX; lastY=p.clientY; lastT=t;
         e.preventDefault();
@@ -947,22 +1076,22 @@ export function runOghamDial(opts = {}) {
           const moved=Math.hypot(lastX-downX,lastY-downY);
           if(moved<TAP_SLOP && performance.now()-downT<TAP_TIME){
             // raw, so a tap near full carries on round rather than clamping.
-            // Three legs instead of one -- full, then new, then settle on
-            // half -- so the lesson (moon phase <-> English opacity) is
-            // actually shown, not just landed on. Constant angular speed
-            // across all three legs; the final one matches the original
-            // single-step tap's own pace and duration exactly.
+            // Four legs -- full, then new, a held beat, then a slow settle
+            // short of half -- so the lesson (moon phase <-> English
+            // opacity) is actually shown, not just landed on, and without
+            // reading as one frantic, unbroken rush to get there.
             const perUnitMs=TAP_MS/TAP_STEP;
             glideFrom=rawPhase;
             const _start=rawPhase;
             glideQueue=[
-              { to:_start+1,          ms:perUnitMs },  // up to full
-              { to:_start,            ms:perUnitMs },  // back down to new -- a real
-                                                        // reversal (decreasing), not a
-                                                        // continuation to _start+2,
-                                                        // which wrapped around the far
-                                                        // side instead of retracing.
-              { to:_start+TAP_STEP,   ms:TAP_MS    },  // up to half, settle
+              { to:_start+1,            ms:perUnitMs    },  // up to full
+              { to:_start,              ms:perUnitMs    },  // back down to none -- a real
+                                                              // reversal (decreasing), not a
+                                                              // continuation to _start+2,
+                                                              // which wrapped around the far
+                                                              // side instead of retracing.
+              { to:_start,              ms:TAP_PAUSE_MS },  // a beat of stillness
+              { to:_start+TAP_SETTLE,   ms:TAP_SETTLE_MS},  // slowly, to a quarter
             ];
             const _leg=glideQueue.shift();
             glideTo=_leg.to; glideMs=_leg.ms; glideT=0;
@@ -989,12 +1118,53 @@ export function runOghamDial(opts = {}) {
       addEventListener('mousemove',move); addEventListener('touchmove',move,{passive:false});
       addEventListener('mouseup',up); addEventListener('touchend',up);
       
-      function tone(f,g,d){
+      function tone(f,g,d,offset=0){
         if(!audioCtx||!started) return;
         const o=audioCtx.createOscillator(),v=audioCtx.createGain();
-        o.type='triangle'; o.frequency.value=f; v.gain.value=g;
-        v.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+d);
-        o.connect(v); v.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d);
+        o.type='triangle'; o.frequency.value=f;
+        const t0=audioCtx.currentTime+offset;
+        v.gain.setValueAtTime(g,t0);
+        v.gain.exponentialRampToValueAtTime(.0001,t0+d);
+        o.connect(v); v.connect(audioCtx.destination); o.start(t0); o.stop(t0+d);
+      }
+      /* The chord that marks the game's actual beginning -- the first-ever
+         touch, same moment `started` flips true. D3-A3-D4-A4: root, fifth,
+         octave, fifth-an-octave-up. No third, on purpose: a bare fifth/
+         octave voicing reads as open and modal rather than pinning a major
+         or minor tonality onto the very first sound the player hears --
+         fitting company for the drone-and-mode-flavoured trad tunes
+         elsewhere in the game (tradTuneConfig.js's own fallback key is D,
+         which is why this is rooted there too). Each note enters a few
+         milliseconds after the last, a tight harp-roll rather than a flat
+         synth stab, and decays slowly enough to still be sounding as the
+         moon and the ring first come into view. */
+      function introChord(){
+        const notes=[
+          { f:146.83, g:0.075, t:0     },  // D3 — root
+          { f:220.00, g:0.065, t:0.02  },  // A3 — fifth
+          { f:293.66, g:0.060, t:0.045 },  // D4 — octave
+          { f:440.00, g:0.045, t:0.075 },  // A4 — fifth, an octave up
+        ];
+        notes.forEach(n=>tone(n.f,n.g,2.6,n.t));
+      }
+      /* Same recipe as the moon's click elsewhere in the game (SoundBoard's
+         MOON_SWIPE: a short highpassed noise burst) -- reproduced locally
+         rather than imported, since this file has no imports anywhere and
+         is meant to keep running without the rest of the game wired in. */
+      function moonClick(){
+        if(!audioCtx||!started) return;
+        const now=audioCtx.currentTime;
+        const buf=audioCtx.createBuffer(1,Math.max(1,Math.floor(audioCtx.sampleRate*0.04)),audioCtx.sampleRate);
+        const data=buf.getChannelData(0);
+        for(let i=0;i<data.length;i++){
+          const ti=i/audioCtx.sampleRate;
+          data[i]=(Math.random()*2-1)*Math.exp(-ti*120);
+        }
+        const src=audioCtx.createBufferSource(); src.buffer=buf;
+        const hpf=audioCtx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=2000;
+        const g=audioCtx.createGain(); g.gain.setValueAtTime(0.06,now);
+        src.connect(hpf); hpf.connect(g); g.connect(audioCtx.destination);
+        src.start(now);
       }
       
       /* Where the moon has to land: exactly where createMoonWidget will place it,

@@ -15,7 +15,7 @@ import { createDomButton } from './game/systems/gameTypography.js';
 import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
 import { createStarField } from './game/effects/starField.js';
-import { requestFullscreenWithFade, resetFullscreenState } from './game/ui/fullscreenFade.js';
+import { requestFullscreenWithFade, resetFullscreenState, isScreenObscured } from './game/ui/fullscreenFade.js';
 
 
 
@@ -297,6 +297,12 @@ export class ConstellationScene extends Phaser.Scene {
                 onPullBack: (ms, target)       => this._nightScape?.pullBack(ms, target),
                 // The dolly rides the poem, so the land recedes as it is read.
                 onProgress : (u)               => this._nightScape?.setProgress(u),
+                // The fullscreen request this same touch triggers below can
+                // cover the screen for the better part of a second. Without
+                // this, the poem's clock keeps running behind that overlay
+                // and line 0 loses most of its visible time to a black
+                // screen before the player has even seen it once.
+                isObscured : ()                => isScreenObscured(),
                 // Ask for fullscreen on the dial's own first touch, not whatever
                 // later touch first reaches the Phaser canvas -- by then the moon
                 // widget's rest position has already been computed against the

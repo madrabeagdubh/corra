@@ -216,7 +216,51 @@ export function createNightScape(opts = {}) {
             wrap.appendChild(lit);
         }
 
-        made.push({ wrap, el, lit, endScale: s, maxPanVw: maxPanVwFor(L),
+        /* The tall flower stalks' own tops, continuously (if very gently)
+           ruffled. A masked clone rather than touching `el` directly: `el`'s
+           own transform is needed unchanged for panning (setPan() writes
+           backgroundPositionX on wrapping layers, not transform, but keeping
+           the sway on a separate element means the skew can never fight
+           anything else that moves `el`). The mask is measured from the
+           actual art — nearForeground.png is fully transparent above ~14% of
+           its own height, sparse (the thin tops, meant to sway) from there
+           to ~40%, and solid ground/dense bloom below ~68% (measured via a
+           per-row opacity scan) — so the fade sits in that transition rather
+           than at an arbitrary round number.
+           `el` gets the EXACT INVERSE mask, not no mask at all: with `sway`
+           merely stacked on top of an unmasked `el`, the two are pixel-
+           identical only at rest (skewX(0)); the moment `sway` skews, its
+           shifted stalks no longer land on the same pixels as `el`'s
+           unmoving copy underneath, and this art is too sparse (thin lines
+           against a mostly transparent ground) to fully cover its own old
+           position — so the static copy shows through as a visible double.
+           Complementary masks mean each row is drawn by exactly one of the
+           two layers at any moment: `el` is the only thing rendering the
+           lower, static two-thirds, `sway` the only thing rendering the
+           upper, moving third, with a crossfade handoff between them at rest
+           that reproduces the original single-layer image exactly.
+           Position (backgroundPositionX) and brightness (filter) are kept in
+           sync with `el` wherever those already get written below
+           (setPan(), place()) — a clone has no live link to the original, so
+           anything that moves or lights `el` has to say so explicitly for
+           `sway` too, the same way `lit` already does. */
+        let sway = null;
+        if (L.key === 'nearFg') {
+            el.style.maskImage =
+                'linear-gradient(to bottom, transparent 0%, transparent 38%, black 68%)';
+            el.style.webkitMaskImage = el.style.maskImage;
+            sway = el.cloneNode(false);
+            sway.style.maskImage =
+                'linear-gradient(to bottom, black 0%, black 38%, transparent 68%)';
+            sway.style.webkitMaskImage = sway.style.maskImage;
+            // Roots don't move -- pivot the skew from the bottom, not the
+            // element's default centre, so it reads as hinged low rather
+            // than rotating around its own middle.
+            sway.style.transformOrigin = '50% 100%';
+            wrap.appendChild(sway);
+        }
+
+        made.push({ wrap, el, lit, sway, endScale: s, maxPanVw: maxPanVwFor(L),
                     wraps: L.top !== undefined, wrapVw: wrapVwFor(L.z) });
     });
 
@@ -271,7 +315,13 @@ export function createNightScape(opts = {}) {
             const b = (DARK + (1 - DARK) * lum0).toFixed(3);
             if (b !== _lastBright) {
                 _lastBright = b;
-                made.forEach(m => { m.el.style.filter = `brightness(${b})`; });
+                made.forEach(m => {
+                    m.el.style.filter = `brightness(${b})`;
+                    // A clone has no live link back to `el` -- brightness has
+                    // to be said again here or the swaying top stays whatever
+                    // brightness it happened to be cloned at.
+                    if (m.sway) m.sway.style.filter = `brightness(${b})`;
+                });
             }
         }
         // The figures still take their light from the moon; only the glow layer
@@ -287,6 +337,37 @@ export function createNightScape(opts = {}) {
         made.forEach(m => { if (m.lit) m.lit.style.opacity = lum.toFixed(3); });
     }
     place();
+
+    /* ── the flower tops, gently astir ──────────────────────────────────────
+       Continuous rather than one-shot: a small, ever-present base sway (two
+       incommensurable sines, the same "cheap, seamless, no noise table"
+       shape wind.js already uses elsewhere in the game for exactly this
+       reason) with an occasional stronger swell riding on top of it, rather
+       than long stretches of stillness broken by discrete gusts. Driven by
+       its own requestAnimationFrame loop -- this file has no per-frame
+       update hook of its own to piggyback on (it's driven externally, in
+       bursts, by setProgress()/setPan()/setMoon()), and wind.js's own
+       instance is meant to be advanced by a Phaser scene's update(), not
+       read from here -- so this reproduces that shape rather than sharing
+       the module, in spirit if not in code.
+       The gust term is a clamped, steeply-powered sine: mostly near zero,
+       rising to a brief, pronounced swell around a ~23s period rather than
+       smoothly swinging every which way -- an occasional stronger gust
+       riding on the continuous base, not a second, larger metronome next to
+       the first one. */
+    const nearFgMade = made.find(m => m.sway);
+    let swayRAF = null;
+    const swayT0 = performance.now();
+    function tickSway(now){
+        if (!nearFgMade || !nearFgMade.sway.isConnected) { swayRAF = null; return; }
+        const t = (now - swayT0) / 1000;
+        const base = Math.sin(t * 0.157) * 0.45 + Math.sin(t * 0.370 + 1.7) * 0.22;
+        const gust = Math.max(0, Math.sin(t * 0.273 + 4.1)) ** 4 * 2.6;
+        const deg = base + gust;
+        nearFgMade.sway.style.transform = `translateX(-50%) skewX(${deg.toFixed(3)}deg)`;
+        swayRAF = requestAnimationFrame(tickSway);
+    }
+    if (nearFgMade) swayRAF = requestAnimationFrame(tickSway);
 
     let pulled = false;
     let lastProgress = -1;
@@ -346,6 +427,11 @@ export function createNightScape(opts = {}) {
                     // repeat-x wraps automatically and infinitely -- no clamping,
                     // no need to touch the centering transform at all.
                     m.el.style.backgroundPositionX = (f * m.wrapVw).toFixed(2) + 'vw';
+                    // Same reasoning as place()'s brightness sync above: a
+                    // clone doesn't track `el`'s position on its own, so a
+                    // pan would otherwise leave the swaying top's flowers
+                    // visibly offset from the static ones under it.
+                    if (m.sway) m.sway.style.backgroundPositionX = m.el.style.backgroundPositionX;
                     return;
                 }
                 const vw = (f * m.maxPanVw).toFixed(2);
@@ -379,6 +465,7 @@ export function createNightScape(opts = {}) {
         elements: made.map(m => m.wrap).concat([light]),
 
         destroy() {
+            if (swayRAF) cancelAnimationFrame(swayRAF);
             made.forEach(m => m.wrap.remove());
             light.remove();
         },

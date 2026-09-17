@@ -19,6 +19,15 @@
 
 let _fsDone = false;
 let _fsFadeEl = null, _fsFadeBusy = false;
+/* True from the moment the overlay starts fading in until it has finished
+   fading back out. Callers with something time-based on screen (the ogham
+   dial's poem clock, notably) can poll this to pause rather than keep
+   ticking against a screen the player can't actually see. Cleared on a
+   timeout matching whatever fade-out duration was actually used, so it
+   tracks the overlay's real opacity rather than just the call that started
+   it. */
+let _fsObscured = false;
+let _fsClearTimer = null;
 
 function _fsFadeOverlay() {
     if (_fsFadeEl) return _fsFadeEl;
@@ -34,6 +43,8 @@ function _fsFadeOverlay() {
     return el;
 }
 function _fsFadeIn() {
+    if (_fsClearTimer) { clearTimeout(_fsClearTimer); _fsClearTimer = null; }
+    _fsObscured = true;
     if (_fsFadeBusy) return;
     _fsFadeBusy = true;
     const el = _fsFadeOverlay();
@@ -45,6 +56,15 @@ function _fsFadeOut(ms) {
     el.style.transition = `opacity ${ms}ms ease`;
     el.style.opacity = '0';
     _fsFadeBusy = false;
+    if (_fsClearTimer) clearTimeout(_fsClearTimer);
+    _fsClearTimer = setTimeout(() => { _fsObscured = false; _fsClearTimer = null; }, ms);
+}
+
+/** Is the fade overlay currently covering (or still mid-fade over) the
+ *  screen? Used to pause anything reading-time-sensitive rather than let it
+ *  run unseen underneath the overlay. */
+export function isScreenObscured() {
+    return _fsObscured;
 }
 
 /** Ready to run whenever it's needed; a fast no-op whenever it isn't. */

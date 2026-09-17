@@ -635,10 +635,23 @@ if (wrapper) {
 
     // ── settleMoon ────────────────────────────────────────────────────────────
     settleMoon() {
-        if (!this._harpSilentStarted) {
-            this._initAudioContext();
-            this._startHarpOnSwipe();
-        }
+        // Audio context warms up here (cheap, silent) so the first star touch
+        // doesn't also pay setup cost -- but actually starting playback
+        // still waits for that touch (see onPointerDown()), so the music
+        // genuinely starts because the player reached for a star, not
+        // automatically once the poem ends.
+        this._initAudioContext();
+        // The slow part (fetching soundfont samples over the network) starts
+        // now too, well ahead of time, so it's normally long finished by the
+        // time the player reaches a star -- see the note on _prepareHarp()
+        // for why loading and starting are split like this.
+        this._harpPrepPromise = this._prepareHarp();
+        // The sky still stills here, same moment as before: freezing it at
+        // the first star touch instead reads as the player's own touch
+        // having broken something (tried and reverted once already -- see
+        // the note in _startHarpOnSwipe()). Decoupled from the harp actually
+        // starting, which no longer happens at this point.
+        this._bgWheelsPaused = true;
 
         /* Stilling the wheels makes the pan read as a deliberate camera move —
            but only when they were not already established. After the dial they
@@ -681,9 +694,17 @@ if (wrapper) {
     _startPostSettleSequence(baseScrollY) {
         this.tweens.add({
             targets: this.worldG, alpha: 1, duration: 1200, ease: 'Sine.easeIn',
-            // Only restart the turn if the harp never got going — a blocked or
-            // refused audio context should not leave the sky frozen.
-            onStart: () => { if (!this._harpSilentStarted) this._bgWheelsPaused = false; },
+            // This used to check "did the harp actually start" here and
+            // un-freeze the sky if not, on the assumption that harp-starting
+            // followed settleMoon() almost immediately -- so "hasn't started
+            // yet" reliably meant "audio was blocked or refused". Now that
+            // starting the harp deliberately waits for the player's first
+            // star touch (see onPointerDown()), "hasn't started yet" is the
+            // normal waiting-for-the-player state, not a failure, and this
+            // check would un-freeze the sky within about a second of it
+            // settling — well before the player has done anything. The sky
+            // is meant to stay still through this whole phase regardless of
+            // when (or whether) the music itself gets going.
             onComplete: () => {
                 const driftBase = this.cameras.main.scrollY;
                 const driftProg = { t: 0 };
@@ -1092,9 +1113,16 @@ if (wrapper) {
                 this.smoothX=pointer.x; this.smoothY=pointer.y;
                 this.trailPts=[this.screenToRotated(pointer.x,pointer.y)];
                 star.lit=true; this.tweens.killTweensOf(star); star.brightness=2.0;
+                // The music begins now, on the player's first real attempt to
+                // connect the constellation -- not automatically once the
+                // poem ends (see settleMoon()). The sky was already stilled
+                // there too, well before this, so this doesn't also read as
+                // the touch itself having done that; it's just sound
+                // arriving into a scene that was already quiet and still.
+                this._startHarpOnSwipe();
                 // Belt and braces: the wheels are normally already stilled by
-                // _startHarpOnSwipe(). This only matters if a path reaches the
-                // stars without the harp having started.
+                // settleMoon(), well before this point. This only matters if
+                // a path reaches the stars without that having run.
                 this.spawnRipple(star.wx,star.wy); this._setBgWheelPaused(true); break;
             }
         }
@@ -1240,6 +1268,7 @@ if (wrapper) {
     initAudio() {
         this.audioContext=null; this._masterGain=null; this._sfxGain=null;
         this._harpPlayer=null; this._harpStarted=false; this._harpSilentStarted=false;
+        this._harpPrepared=false; this._harpPrepPromise=null;
     }
 
     _initAudioContext() {
@@ -1258,50 +1287,82 @@ if (wrapper) {
         return [65.41,73.42,55.00,49.00,41.20,73.42,65.41,55.00,43.65,49.00,73.42][Math.min(i,10)];
     }
 
+    /* The slow part -- loadTune() fetches soundfont samples from a remote CDN
+       (paulrosen.github.io / gleitz.github.io), which can easily be hundreds
+       of milliseconds to a few seconds, especially uncached. Splitting this
+       out and calling it early (see settleMoon()) means that cost is paid
+       automatically, hidden inside the pan/settle sequence, rather than
+       showing up as a gap between the player's first star touch and any
+       sound actually starting. This does NOT call play() -- starting
+       playback here would begin the tune's own clock immediately, and by
+       the time the player actually touched a star some seconds later, the
+       audible portion would already have advanced past its opening notes.
+       Loading is silent regardless of timing; starting playback is not, so
+       only starting playback needs to wait for the touch. */
+    async _prepareHarp() {
+        if (this._harpPrepared) return;
+        this._harpPrepared = true;
+        try {
+            const player = new TradSessionPlayer();
+            allTunes['myLaganLove'] = levelTunes.myLaganLove;
+
+            const loaded = await player.loadTune('myLaganLove');
+            if (!loaded) { console.warn('[audio] Harp load failed'); return; }
+
+            if (player.tracks[1]) { player.tracks[1].gain.gain.value = 0; player.tracks[1].active = false; }
+            if (player.tracks[2]) { player.tracks[2].gain.gain.value = 0; player.tracks[2].active = false; }
+
+            player.engine.masterGain.gain.value = 0.0001;
+            this._harpPlayer = player;
+        } catch(e) { console.warn('[audio] _prepareHarp error:', e); }
+    }
+
   async _startHarpOnSwipe() {
     if (this._harpSilentStarted) return;
     this._harpSilentStarted = true;
     this._harpStarted = true;
     try {
-        // Stop prewarmed champion theme
+        // Stop prewarmed champion theme -- held until the actual gesture
+        // rather than moved into _prepareHarp(), so whatever was playing
+        // during the poem carries on right up until the harp genuinely
+        // starts instead of leaving an early silent gap.
         if (_prewarmedPlayer) {
             try { await _prewarmedPlayer.stop(); } catch(e) {}
             _prewarmedPlayer = null;
         }
 
-        const player = new TradSessionPlayer();
-        allTunes['myLaganLove'] = levelTunes.myLaganLove;
+        // Normally already resolved by now -- loading started well before
+        // this touch, during settleMoon(). Only waits for real if the
+        // player reached a star unusually fast.
+        if (this._harpPrepPromise) await this._harpPrepPromise;
+        const player = this._harpPlayer;
+        if (!player) { console.warn('[audio] Harp not available'); return; }
 
-        const loaded = await player.loadTune('myLaganLove');
-        if (!loaded) { console.warn('[audio] Harp load failed'); return; }
-
-        if (player.tracks[1]) { player.tracks[1].gain.gain.value = 0; player.tracks[1].active = false; }
-        if (player.tracks[2]) { player.tracks[2].gain.gain.value = 0; player.tracks[2].active = false; }
-
-        player.engine.masterGain.gain.value = 0.0001;
-        this._harpPlayer = player;
         await player.play();
 
         const ac = player.audioContext;
         if (ac && ac.state === 'suspended') await ac.resume();
 
+        /* 2.5s used to live here. On automatic, pre-touch playback that read
+           as music gradually arriving; on a deliberate touch it read as two
+           separate problems at once -- a delay before anything is audible,
+           and, once audible, already well past the tune's own opening notes
+           (play() started the tune's clock immediately; the long ramp just
+           kept it inaudible while that clock ran). 60ms is enough to avoid
+           an audible click on the initial ramp and nothing more -- the
+           point is for this to sound like it started because of the touch,
+           at the touch, from the beginning. */
         const mg = player.engine.masterGain, now = ac.currentTime;
         mg.gain.cancelScheduledValues(now);
         mg.gain.setValueAtTime(0.0001, now);
-        mg.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
+        mg.gain.exponentialRampToValueAtTime(0.85, now + 0.06);
 
-        mg.gain.exponentialRampToValueAtTime(0.85, now + 2.5);
-
-        /* The sky settles as the music arrives. This used to happen on the first
-           touch of a star, which made the player's opening move look like they
-           had stopped the heavens by accident.
-
-           Set directly, NOT through _setBgWheelPaused(): that helper refuses to
-           pause while _interactionStarted is false, which is true for everything
-           before startSequencePulse() — including here. Its guard is about not
-           freezing a scene that is not yet interactive, which is a different
-           question from this one. */
-        this._bgWheelsPaused = true;
+        /* The sky freeze that used to live here (set the moment the harp
+           actually started) moved to settleMoon(), which now runs
+           unconditionally and well before this does -- see the note there.
+           Freezing it here instead, at the first star touch, is exactly what
+           made the player's opening move look like they had stopped the
+           heavens by accident; that's the whole reason this got split. */
 
     } catch(e) { console.warn('[audio] _startHarpOnSwipe error:', e); }
 } 

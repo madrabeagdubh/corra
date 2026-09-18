@@ -1151,10 +1151,10 @@ export function runOghamDial(opts = {}) {
       /* Same idea, for the ring: a detent every RING_TICK_STEP of angle
          turned while the ring itself is being dragged (move()'s
          zone==='ring' branch), free-spinning or not -- see ringTick()
-         below, which reuses the short highpassed-noise-burst recipe the
-         moon used to use. That recipe suits the ring better than it ever
-         suited the moon: a carved stone wheel turning is a mechanical
-         thing, where the moon is closer to an instrument. ringRotAcc is
+         below, which is a soft wooden knock. A carved stone wheel turning
+         is a mechanical thing, where the moon is closer to an instrument,
+         but it must not be NOISE: random bursts at a spinning wheel's tick
+         rate merge into radio static. ringRotAcc is
          a plain running total of angle turned (not wrapped like arc or
          idleSpin, since it only exists to be divided into ticks) reset on
          every down() for the same reason lastClickUnit is. */
@@ -1383,28 +1383,51 @@ export function runOghamDial(opts = {}) {
         // genuinely ring, overlapping the ones on either side of it.
         tone(MOON_SCALE[idx],0.05,0.6,offset);
       }
-      /* The ring's own tick -- the noise-burst click the moon used to use,
-         before it moved to the pleasant plucked tone above. Reused here
-         rather than invented fresh: it read as "mechanical" before, which
-         didn't suit the moon (an instrument, not a machine) but suits a
-         turning stone wheel exactly. Duller and quieter than the original
-         (bandpass ~900Hz rather than a bright 2000Hz highpass, and a touch
-         shorter) so it doesn't compete with, or get mistaken for, the
-         moon's own brighter clicks when both happen close together. */
+      /* The ring's own tick: a soft wooden knock. It used to be a 30ms burst of
+         Math.random() through a bandpass, and that is exactly what a fast spin
+         turned into radio static -- random bursts at this tick rate merge into
+         a hiss, whatever the filter. A knock is tonal instead: a sine whose
+         pitch falls fast (the body of the wood) with a brief, quiet upper
+         partial on top (the strike), gone in ~90ms. Short and dry, so it sits
+         under the moon's plucked notes rather than being mistaken for them.
+         RING_KNOCK_HZ is 260 rather than something lower because a phone
+         speaker gives up somewhere below 250Hz -- a deeper knock would lose
+         its body and leave only the click.
+         Two things keep a fast spin from becoming a rattle even so:
+           - RING_TICK_MIN_GAP, a floor on the gap between ticks, enforced on
+             the SCHEDULED time. A fast swipe asks for a staggered run (see
+             move()); this thins that run to two or three rather than
+             silencing it or stacking eight, and caps the whole thing at ~25
+             knocks a second however fast the wheel is thrown.
+           - a few percent of random pitch on each, so a run of them reads as
+             a hand on wood rather than one sample retriggered. */
+      const RING_KNOCK_HZ=260, RING_TICK_MIN_GAP=0.04;
+      let lastRingTickAt=-1;
       function ringTick(offset=0){
         if(!audioCtx||!started) return;
         const t0=audioCtx.currentTime+offset;
-        const buf=audioCtx.createBuffer(1,Math.max(1,Math.floor(audioCtx.sampleRate*0.03)),audioCtx.sampleRate);
-        const data=buf.getChannelData(0);
-        for(let i=0;i<data.length;i++){
-          const ti=i/audioCtx.sampleRate;
-          data[i]=(Math.random()*2-1)*Math.exp(-ti*160);
-        }
-        const src=audioCtx.createBufferSource(); src.buffer=buf;
-        const bpf=audioCtx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value=900; bpf.Q.value=1.2;
-        const g=audioCtx.createGain(); g.gain.setValueAtTime(0.045,t0);
-        src.connect(bpf); bpf.connect(g); g.connect(audioCtx.destination);
-        src.start(t0);
+        if(t0-lastRingTickAt<RING_TICK_MIN_GAP) return;
+        lastRingTickAt=t0;
+        const f=RING_KNOCK_HZ*(1+(Math.random()*2-1)*0.06);
+        // The body. A 2ms ramp in rather than an instant step: a gain that
+        // jumps is itself a click.
+        const bo=audioCtx.createOscillator(), bg=audioCtx.createGain();
+        bo.type='sine';
+        bo.frequency.setValueAtTime(f,t0);
+        bo.frequency.exponentialRampToValueAtTime(f*0.5,t0+0.045);
+        bg.gain.setValueAtTime(0.0001,t0);
+        bg.gain.linearRampToValueAtTime(0.06,t0+0.002);
+        bg.gain.exponentialRampToValueAtTime(0.0001,t0+0.09);
+        bo.connect(bg); bg.connect(audioCtx.destination);
+        bo.start(t0); bo.stop(t0+0.1);
+        // The strike.
+        const so=audioCtx.createOscillator(), sg=audioCtx.createGain();
+        so.type='sine'; so.frequency.setValueAtTime(f*3,t0);
+        sg.gain.setValueAtTime(0.0001,t0);
+        sg.gain.linearRampToValueAtTime(0.022,t0+0.001);
+        sg.gain.exponentialRampToValueAtTime(0.0001,t0+0.02);
+        so.connect(sg); sg.connect(audioCtx.destination);
+        so.start(t0); so.stop(t0+0.03);
       }
       
       /* Where the moon has to land: exactly where createMoonWidget will place it,

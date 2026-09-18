@@ -76,11 +76,11 @@ const HORIZON = 0.75;
    at under 26vh was visible during the poem. */
 const LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
-    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:22 },
+    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:26 },
     { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:17 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:10, left:'50%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:10, left:'57%', w:24 },
-    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:20 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:11, left:'56%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:11, left:'63%', w:24 },
+    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:23 },
 ];
 
 const scaleFor = z => z / (z + PULL);
@@ -246,17 +246,32 @@ export function createNightScape(opts = {}) {
            `sway` too, the same way `lit` already does. */
         let sway = null;
         if (L.key === 'nearFg') {
+            /* Transition zone widened from 38-68% to 30-70%, and the sway
+               clone's own pivot moved from the very bottom (100%) to this
+               zone's own midpoint (50%) -- together, these fix a seam that
+               showed up once the sway amplitude grew: skewX() shifts every
+               point sideways by an amount proportional to its distance from
+               transform-origin, so with the origin pinned at the roots, the
+               transition zone (30-70%, nowhere near the roots) shifted by
+               real, visible pixels under any meaningful skew, sliding out
+               of registration with the static base layer directly beneath
+               it and exposing it as a duplicated-looking sliver right where
+               the stalks meet the ground. Pivoting from the transition
+               zone's own centre instead keeps that zone close to the point
+               that doesn't move, so it stays in registration with the base
+               layer through the skew; the fully-opaque top (still the part
+               that's actually far enough from centre to swing visibly)
+               keeps reading as the thing swaying, and the widened,
+               softer gradient gives any residual mismatch less of a hard
+               edge to be seen at. */
             el.style.maskImage =
-                'linear-gradient(to bottom, transparent 0%, transparent 38%, black 68%)';
+                'linear-gradient(to bottom, transparent 0%, transparent 30%, black 70%)';
             el.style.webkitMaskImage = el.style.maskImage;
             sway = el.cloneNode(false);
             sway.style.maskImage =
-                'linear-gradient(to bottom, black 0%, black 38%, transparent 68%)';
+                'linear-gradient(to bottom, black 0%, black 30%, transparent 70%)';
             sway.style.webkitMaskImage = sway.style.maskImage;
-            // Roots don't move -- pivot the skew from the bottom, not the
-            // element's default centre, so it reads as hinged low rather
-            // than rotating around its own middle.
-            sway.style.transformOrigin = '50% 100%';
+            sway.style.transformOrigin = '50% 50%';
             wrap.appendChild(sway);
         }
 
@@ -351,18 +366,24 @@ export function createNightScape(opts = {}) {
        read from here -- so this reproduces that shape rather than sharing
        the module, in spirit if not in code.
        The gust term is a clamped, steeply-powered sine: mostly near zero,
-       rising to a brief, pronounced swell around a ~23s period rather than
-       smoothly swinging every which way -- an occasional stronger gust
-       riding on the continuous base, not a second, larger metronome next to
-       the first one. */
+       rising to a brief, pronounced swell rather than smoothly swinging
+       every which way -- an occasional stronger gust riding on the
+       continuous base, not a second, larger metronome next to the first
+       one. First pass at this (0.45/0.22/2.6, 23s gust period) read as too
+       subtle to register as a breeze; doubled once already
+       (0.9/0.44/5.2) and still came back as "hardly noticed" -- upped
+       again here, further and by more (1.4/0.68/9.0), and the gust period
+       itself shortened too (23s -> ~13s, gust frequency raised along with
+       size, not just size alone, since "too infrequent" was as much the
+       complaint as "too gentle"). */
     const nearFgMade = made.find(m => m.sway);
     let swayRAF = null;
     const swayT0 = performance.now();
     function tickSway(now){
         if (!nearFgMade || !nearFgMade.sway.isConnected) { swayRAF = null; return; }
         const t = (now - swayT0) / 1000;
-        const base = Math.sin(t * 0.157) * 0.45 + Math.sin(t * 0.370 + 1.7) * 0.22;
-        const gust = Math.max(0, Math.sin(t * 0.273 + 4.1)) ** 4 * 2.6;
+        const base = Math.sin(t * 0.157) * 1.4 + Math.sin(t * 0.370 + 1.7) * 0.68;
+        const gust = Math.max(0, Math.sin(t * 0.45 + 4.1)) ** 4 * 9.0;
         const deg = base + gust;
         nearFgMade.sway.style.transform = `translateX(-50%) skewX(${deg.toFixed(3)}deg)`;
         swayRAF = requestAnimationFrame(tickSway);

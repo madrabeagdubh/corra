@@ -377,10 +377,21 @@ export function runOghamDial(opts = {}) {
       
         TOTAL_ARC = arcCursor;
         OMEGA = TOTAL_ARC / (totalWords / WORDS_PER_SEC);
+        /* Fixed reference for relayout()'s own rescaling below -- captured
+           once, here, so repeated relayouts (any resize can trigger one,
+           fullscreen engaging among them) always rescale relative to this
+           original word-count-based total, never to whatever TOTAL_ARC
+           happens to currently be (which relayout() itself will have
+           already changed) — otherwise the scale would drift a little
+           further from the original on every single relayout, rather than
+           landing in the same place each time. */
+        ORIGINAL_TOTAL_ARC = TOTAL_ARC;
+        TOTAL_READ_SEC = totalWords / WORDS_PER_SEC;
         if($('stat')) $('stat').textContent=' '+POEM.length+' lines, '+(TOTAL_ARC/(Math.PI*2)).toFixed(1)+
                               ' turns, '+(totalWords/WORDS_PER_SEC).toFixed(0)+'s';
       }
       let OMEGA=0.3;
+      let ORIGINAL_TOTAL_ARC=0, TOTAL_READ_SEC=0;
       
       /* ── The reading column ───────────────────────────────────────────────────
          Rows are laid at their arc position, then MEASURED and pushed apart so no
@@ -445,10 +456,100 @@ export function runOghamDial(opts = {}) {
           r._vis=null;
           y += gh + PAIR_GAP + eh + BLOCK_GAP;
         });
+
+        /* build()'s own lines[i].start/.end (which the column's scroll AND
+           the ring's own carving both read from, keeping the two in step)
+           allocate arc — and so real reading time — by word count per
+           line. That's a reasonable stand-in when nothing better is known,
+           but the column's own scroll SPEED depends on pixel distance, not
+           word count, and those two don't track each other cleanly: e.g.
+           "Bridle these haughty chiefs" and "I call upon thee!" are both
+           four words, but only one wraps to two lines on a narrow phone.
+           A short line that happens to wrap gets the same word-based time
+           as a short line that doesn't, but has noticeably further to
+           scroll in that time — so the column visibly speeds up and slows
+           down line to line, not because of any real pacing choice, just
+           because word count and rendered height aren't the same measure.
+           Now that real row heights are known (just measured above, not
+           available yet when build() first ran), rescale start/.end to be
+           proportional to the ACTUAL measured pixel gap between each pair
+           of rows instead — giving the column a genuinely constant
+           pixels-per-second scroll rate throughout, which is the thing
+           that was actually asked for.
+           The ring's own carving keeps using its original word-count-based
+           internal stroke spacing (sg, unit, each mark's own m.a offset) --
+           only the shared start/.end BOUNDARIES between lines are
+           rescaled, not the strokes' positions within them. So a given
+           line's marks can now finish carving somewhat before or after its
+           (rescaled) end, rather than exactly at it. That's an accepted
+           trade -- the carving is decorative at this point (nobody's
+           actually reading the ogham), where the column's scroll speed is
+           the thing players actually perceive as rushed or steady.
+           pxToArc is always computed against ORIGINAL_TOTAL_ARC, the fixed
+           value build() captured once, not against TOTAL_ARC as it
+           currently stands (which this same block will have already
+           changed) -- otherwise each further relayout (any resize can
+           trigger one) would rescale relative to an already-rescaled
+           value and drift a little further from the original scale every
+           time, rather than landing in the same place however many times
+           this runs. */
+        if(lines.length===rows.length && rows.length>1 && ORIGINAL_TOTAL_ARC>0){
+          let totalPx=0;
+          for(let i=0;i<rows.length;i++){
+            const gapPx=(i<rows.length-1) ? (rows[i+1].y-rows[i].y) : (y-rows[i].y);
+            totalPx+=Math.max(1,gapPx);
+          }
+          if(totalPx>0){
+            const pxToArc=ORIGINAL_TOTAL_ARC/totalPx;
+            let ac=0;
+            lines.forEach((L,i)=>{
+              L.start=ac;
+              const gapPx=(i<rows.length-1) ? (rows[i+1].y-rows[i].y) : (y-rows[i].y);
+              const gapArc=Math.max(1,gapPx)*pxToArc;
+              L.end=ac+gapArc;
+              ac=L.end+LINE_PAUSE;
+            });
+            TOTAL_ARC=ac;
+            OMEGA=TOTAL_READ_SEC>0 ? TOTAL_ARC/TOTAL_READ_SEC : OMEGA;
+          }
+        }
       }
       
       /* ── State ───────────────────────────────────────────────────────────── */
       let arc=0, phase=0, revealed=false, started=false, finished=false, audioCtx=null;
+      /* A genuine hold on line 1 ("A Ghealach"/"O Moon"), not just a slower
+         drift through it. Originally triggered by arc reaching lines[1].start
+         (the exact instant that line is centred) -- but the reading column's
+         visibility window is generous enough (see the CULL note further
+         down) that line 2 was already inside it at that exact instant too,
+         not just approaching: freezing arc there froze line 2 in full view
+         as well, undercutting the hold's whole point. Triggering on real
+         elapsed time since the scroll actually started moving (PRE_HOLD_MS,
+         confirmed against an actual recording) sidesteps that: arc freezes
+         wherever it naturally is at that moment, which lands close enough to
+         line 1's own centring that the difference isn't the issue -- the
+         point is line 2 genuinely hasn't scrolled into the window yet at
+         that earlier moment, however close to centred line 1 already is.
+         preHoldMs only accumulates while arc is actually advancing (the
+         same gate as the ordinary tick below), so it measures real reading
+         time, not time since the very first touch (which could include a
+         fullscreen transition or other pause first). Once the hold begins,
+         arc simply stops changing -- no snapping to a specific line
+         boundary, it just stays exactly where PRE_HOLD_MS caught it -- for
+         FIRST_LINE_HOLD_MS, then resumes at the ordinary pace.
+         firstLineHoldDone latches once the hold has been spent, so it only
+         ever happens the one time. */
+      let firstLineHoldDone=false, firstLineHoldT=0, preHoldMs=0;
+      const FIRST_LINE_HOLD_MS=2000;
+      const PRE_HOLD_MS=3000;
+      /* Fires the auto-brighten glide (AUTO_BRIGHT_TARGET, defined near the
+         tap-nudge constants below) exactly once, the instant the hold
+         above begins -- not every frame the hold condition remains true.
+         Doesn't reset if the resulting glide gets cancelled by an active
+         drag (see the glide-tick's own dragging guard): if the player was
+         already touching the moon themselves at that exact moment, they
+         were already getting the lesson firsthand. */
+      let autoBrightArmed=false;
       /* The carving's own turn while the poem waits to be started. Kept apart
          from arc so nothing downstream — creep, column, line advance —
          mistakes it for progress through the poem. */
@@ -478,7 +579,7 @@ export function runOghamDial(opts = {}) {
          flips so the halo can be handed back cleanly. */
       const HINT_URGE=9;
       let hintT=0, idleT=0, hintWas=false;
-      let spinVel=0, dead=false;
+      let dead=false;
       
       /* English brightness = the fraction of the moon's disc that is actually lit,
          which is sin²(pπ/2), not the phase itself. The old curve reached full by
@@ -603,13 +704,49 @@ export function runOghamDial(opts = {}) {
            whole poem past unread -- and, just as much the point, spinning
            the ring would look like the thing that reveals text, when the
            moon is what's meant to teach that. Nothing here changes once
-           revealed flips true; it only holds arc still before that. */
-        if(!dragging && started && !obscured && revealed){
-          arc += OMEGA*dt;
-          if(spinVel!==0){
-            arc += spinVel*dt;
-            spinVel *= Math.pow(0.12,dt);
-            if(Math.abs(spinVel)<0.05) spinVel=0;
+           revealed flips true; it only holds arc still before that.
+           spinVel -- a bit of extra momentum a fling on the ring or the
+           text column used to carry on with after release, on top of the
+           steady OMEGA rate here, decaying back to zero over roughly a
+           second -- has been removed entirely, along with the angVel/
+           textVel tracking that only ever fed it. It meant the pace right
+           after releasing a fast fling briefly didn't match the pace a
+           moment later, or the rest of the time; passive, un-dragged
+           reading is meant to be one single, unvarying speed, full stop.
+           Scrubbing the ring or text still moves arc directly, during the
+           drag itself (see move()) -- reading fast by dragging quickly is
+           unaffected; what's gone is only the carry-on after release.
+           Gated on scrubbingArc, not plain dragging: the moon has its own
+           drag (adjusting phase, and so English's opacity) that has nothing
+           to do with arc at all. Freezing the poem's own pace just because
+           a finger happens to be on the moon rather than the ring or the
+           text made adjusting the moon feel like it was interrupting the
+           reading, when the two are meant to be independent -- the poem
+           should keep rolling regardless of what the moon is doing. */
+        const scrubbingArc=dragging && (zone==='ring' || zone==='text');
+        if(!scrubbingArc && started && !obscured && revealed){
+          if(!firstLineHoldDone && preHoldMs>=PRE_HOLD_MS){
+            /* The demonstration itself: fires exactly once, the instant
+               this hold begins, rather than on the initial touch -- see
+               the note by TAP_NUDGE/AUTO_BRIGHT_TARGET below for why.
+               Only runs if the moon is still short of the target; if the
+               player already found it themselves by now, there's nothing
+               left to demonstrate. The glide-tick below (glideTo>=0)
+               cancels itself the instant a real drag starts, same as any
+               other glide, so this can never fight the player's own
+               touch. */
+            if(!autoBrightArmed){
+              autoBrightArmed=true;
+              if(rawPhase<AUTO_BRIGHT_TARGET){
+                glideFrom=rawPhase; glideQueue=[];
+                glideTo=AUTO_BRIGHT_TARGET; glideMs=AUTO_BRIGHT_MS; glideT=0;
+              }
+            }
+            firstLineHoldT+=dt*1000;
+            if(firstLineHoldT>=FIRST_LINE_HOLD_MS) firstLineHoldDone=true;
+          } else {
+            arc += OMEGA*dt;
+            if(!firstLineHoldDone) preHoldMs+=dt*1000;
           }
         }
       
@@ -639,6 +776,23 @@ export function runOghamDial(opts = {}) {
             glideT=Math.min(1,glideT+dt*1000/glideMs);
             const ge=glideT*glideT*(3-2*glideT);
             setRaw(glideFrom+(glideTo-glideFrom)*ge);
+            /* Same detent-crossing click detection move()'s zone==='moon'
+               branch uses for an actual drag (see MOON_CLICK_STEP's own
+               note) -- applied here so an automatic glide (the tap-nudge,
+               and the hold-synced auto-brighten) sounds like the same
+               gesture a manual drag would make, not a silent, external
+               takeover of the moon. Shares lastClickUnit with the manual
+               path, so a drag started right after a glide picks up
+               cleanly from wherever the glide left off, rather than
+               firing a spurious burst for ground the glide already
+               covered. */
+            const clickUnit=Math.floor(rawPhase/MOON_CLICK_STEP);
+            if(clickUnit!==lastClickUnit){
+              const dir=clickUnit>lastClickUnit?1:-1;
+              const steps=Math.min(8,Math.abs(clickUnit-lastClickUnit));
+              for(let i=1;i<=steps;i++) moonClick(lastClickUnit+dir*i,(i-1)*0.04);
+              lastClickUnit=clickUnit;
+            }
             if(glideT>=1){
               if(glideQueue.length){
                 glideFrom=glideTo;
@@ -847,6 +1001,16 @@ export function runOghamDial(opts = {}) {
           if(r._vis!==vis){ r._vis=vis; r.ga.style.display=vis; r.en.style.display=vis; }
         });
 
+        /* Every visible row shares the exact same opacity -- no per-line
+           dimming. That was tried (only the current line at full
+           brightness, everything else visible dimmed to 35%) specifically
+           to answer "next line already visible during the hold" -- but the
+           actual answer to that turned out to be retiming the reveal
+           itself (see the new moon-brightening sequence below), not
+           dimming lines the player hasn't reached yet. Irish especially is
+           meant to read as fully present throughout, fading only the way
+           it already does at the edges of the visible window as a line
+           scrolls out -- not selectively dimmed while still in view. */
         const gaO = revealed ? '0.95' : '0';
         const enO = enLumFor(phase).toFixed(3);
         if(gaO!==_lastGaO || enO!==_lastEnO){
@@ -935,44 +1099,72 @@ export function runOghamDial(opts = {}) {
       const angAt=(x,y)=>{const{cx,cy}=dialCentre();return Math.atan2(y-cy,x-cx)};
       const wrapPi=a=>{while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a};
       
-      let dragging=false,zone=null,lastX=0,lastY=0,lastT=0,lastAng=0,vel=0,angVel=0,textVel=0;
+      let dragging=false,zone=null,lastX=0,lastY=0,lastT=0,lastAng=0,vel=0;
       /* A tap — a touch that goes nowhere — slides the moon this far, over
          this long. Comfortably past the 0.06 ratchet, so one tap also brings
          up the Irish and a dim English behind it. */
       /* Half a moon. Enough that the English is plainly readable and plainly
          caused by the moon; see the note in patch_tap_goes_further.py about
          lumFor() if every crescent should read brighter, not just this one. */
-      const TAP_STEP=0.50, TAP_MS=560, TAP_SLOP=14, TAP_TIME=450;
-      /* The first two legs (up to full, back down to none) keep their
-         original brisk, constant-angular-speed sweep -- that part read
-         fine. What made the whole gesture feel frantic was going straight
-         from that into a third sweep at the same pace with no breath
-         between: three moves in one unbroken rush. TAP_PAUSE_MS is a beat
-         of real stillness at the bottom before anything else happens.
-         TAP_SETTLE is the quarter mark -- not TAP_STEP's half -- so the
-         demo undersells itself rather than showing off the whole trick at
-         once, leaving the fuller phase for the player's own hand to find.
-         TAP_SETTLE_MS is unchanged from when this settled at "nearly
-         half"; covering less distance in the same time reads as even
-         slower and calmer, which is the same direction this has been
-         moving in throughout. */
-      const TAP_PAUSE_MS=400, TAP_SETTLE=0.25, TAP_SETTLE_MS=1050;
+      const TAP_SLOP=14, TAP_TIME=450;
+      /* The old four-leg demonstration (full, none, a pause, settle past
+         half) that used to live here on the very first tap is gone --
+         moved to the moment the poem itself holds on "A Ghealach"/"O
+         Moon" (see AUTO_BRIGHT_TARGET below, and the note where it fires
+         in frame()'s arc-advance). That was always fighting an uphill
+         battle: firing immediately on touch meant showing the moon-
+         brightens-English mechanic before the player had even seen "O
+         Moon" for themselves, disconnected from anything they were
+         actually looking at, however long the sequence was tuned to run.
+         A tap now just needs to answer the touch -- a quick, single slide
+         comfortably past the 0.06 reveal ratchet, nothing more. */
+      const TAP_NUDGE=0.15, TAP_NUDGE_MS=400;
+      /* Where the demonstration moved to. 0.75 ("3/4") is well past
+         EN_THRESHOLD=0.2 (see enLumFor()), landing comfortably in
+         English's fully-legible range rather than right at the edge of
+         it, and clearly short of a full moon -- the player's own hand
+         still has somewhere to take it from there. AUTO_BRIGHT_MS leaves
+         a few hundred ms of FIRST_LINE_HOLD_MS's own 2000ms window
+         unused at the end, so the brightened moon has a moment to sit
+         before the hold itself ends and the poem moves on. Only fires if
+         the moon is still short of this by the time the hold begins (see
+         the guard where it's triggered) -- if the player already found
+         it themselves in the meantime, there's nothing left to
+         demonstrate. */
+      const AUTO_BRIGHT_TARGET=0.45, AUTO_BRIGHT_MS=1400;
       let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
-      let glideQueue=[], glideMs=TAP_MS;
+      let glideQueue=[], glideMs=TAP_NUDGE_MS;
       /* A detent every MOON_CLICK_STEP of phase while the moon itself is
-         being dragged (move()'s zone==='moon' branch) -- the same click
-         texture as elsewhere in the game (a short highpassed noise burst),
-         reproduced locally in moonClick() below since this file has no
-         imports. lastClickUnit is reset on every down() so a fresh drag
-         starts clean rather than registering a burst of clicks for
-         whatever distance the moon moved since the last one (a glide, or
-         a previous drag) with nobody's finger anywhere near it. */
+         being dragged (move()'s zone==='moon' branch), each one a note from
+         MOON_SCALE (see moonClick() below). lastClickUnit is reset on every
+         down() so a fresh drag starts clean rather than registering a burst
+         of notes for whatever distance the moon moved since the last one (a
+         glide, or a previous drag) with nobody's finger anywhere near it.
+         0.025 (40 detents across a full phase swing) was too fine: a real
+         drag crosses many of them at once, and with each one firing its own
+         short note, that read as a rapid, undignified mallet-clatter rather
+         than music. 0.07 is under half as many detents, and each note now
+         rings for much longer (see moonClick()) -- fewer, longer notes that
+         overlap and blend, closer to a hand actually drawn across strings. */
       let lastClickUnit=0;
-      const MOON_CLICK_STEP=0.025;
+      const MOON_CLICK_STEP=0.07;
+      /* Same idea, for the ring: a detent every RING_TICK_STEP of angle
+         turned while the ring itself is being dragged (move()'s
+         zone==='ring' branch), free-spinning or not -- see ringTick()
+         below, which reuses the short highpassed-noise-burst recipe the
+         moon used to use. That recipe suits the ring better than it ever
+         suited the moon: a carved stone wheel turning is a mechanical
+         thing, where the moon is closer to an instrument. ringRotAcc is
+         a plain running total of angle turned (not wrapped like arc or
+         idleSpin, since it only exists to be divided into ticks) reset on
+         every down() for the same reason lastClickUnit is. */
+      let ringRotAcc=0, lastRingTickUnit=0;
+      const RING_TICK_STEP=Math.PI/20;
       function down(e){
         const t=(e.touches?e.touches[0]:e);
-        dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0; angVel=0; textVel=0; spinVel=0;
+        dragging=true; lastX=t.clientX; lastT=performance.now(); vel=0;
         lastClickUnit=Math.floor(rawPhase/MOON_CLICK_STEP);
+        ringRotAcc=0; lastRingTickUnit=0;
         /* lastY is only written by move(), so a tap that never moves would
            otherwise measure itself against the previous gesture's position.
            Seed it here or every tap looks like a drag. */
@@ -998,8 +1190,32 @@ export function runOghamDial(opts = {}) {
              today. Left in as a guarantee: whatever moves arc in future, the poem
              still begins at the beginning. */
           arc=0;
-          if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
-          introChord();
+          /* A freshly-created context is normally suspended until a genuine
+             user gesture unlocks it -- this touch is that gesture, but
+             resume() is itself async. A quick tap (which also fires
+             onFirstTouch()'s fullscreen request in this same gesture, a few
+             lines below) seems to sometimes leave that promise never
+             settling within any time that matters -- possibly the
+             fullscreen transition itself interferes with it on some
+             browsers, though that's a guess, not something confirmed on a
+             device. Either way, waiting on resume() alone meant the chord
+             could go missing entirely on exactly the gesture (a tap) most
+             likely to trigger fullscreen in the same breath as this fires.
+             fireChordOnce() is called from whichever settles first: the
+             resume() promise, or a 200ms timeout that fires regardless --
+             short enough nobody would notice a delay, long enough to cover
+             a normal resume, and the chordFired guard means only the first
+             of the two ever actually plays anything. */
+          if(audioCtx){
+            let chordFired=false;
+            const fireChordOnce=()=>{ if(!chordFired){ chordFired=true; introChord(); } };
+            if(audioCtx.state==='suspended'){
+              audioCtx.resume().then(fireChordOnce).catch(()=>{});
+              setTimeout(fireChordOnce,200);
+            } else {
+              fireChordOnce();
+            }
+          }
         }
         /* Fullscreen (and anything else gated on a first real gesture) wants to
            happen HERE, not on whatever later touch first reaches the Phaser
@@ -1033,20 +1249,28 @@ export function runOghamDial(opts = {}) {
             const dy=p.clientY-lastY;
             const perPx=(TOTAL_ARC/POEM.length)*6/window.innerHeight;
             arc=Math.max(0,Math.min(TOTAL_ARC,arc-dy*perPx));
-            textVel=textVel*0.6+(-dy*perPx/(dt/1000))*0.4;
           }
         } else if(zone==='ring'){
           const a=angAt(p.clientX,p.clientY), d=wrapPi(a-lastAng);
           lastAng=a;
           if(revealed){
             arc=Math.max(0,Math.min(TOTAL_ARC,arc+d));
-            angVel=angVel*0.6+(d/(dt/1000))*0.4;
           } else {
             // Free spin: nudges the exact same idleSpin the wheel already
             // turns on its own (see frame()), so dragging feels directly
             // responsive without ever touching arc -- and so the text --
             // until the moon has actually been found.
             idleSpin += d;
+          }
+          // A detent every RING_TICK_STEP of angle turned, free-spinning or
+          // not -- see ringRotAcc's note up by its declaration. Same
+          // staggered-run treatment as the moon's own detents.
+          ringRotAcc += d;
+          const tickUnit=Math.floor(ringRotAcc/RING_TICK_STEP);
+          if(tickUnit!==lastRingTickUnit){
+            const steps=Math.min(8,Math.abs(tickUnit-lastRingTickUnit));
+            for(let i=1;i<=steps;i++) ringTick((i-1)*0.015);
+            lastRingTickUnit=tickUnit;
           }
         } else {
           const dx=p.clientX-lastX;
@@ -1055,12 +1279,20 @@ export function runOghamDial(opts = {}) {
              adding to phase there would reverse the gesture under the finger. */
           setRaw(rawPhase+dx/(window.innerWidth*0.80));
           // A detent every MOON_CLICK_STEP -- see its note up by
-          // lastClickUnit's declaration. One click per boundary crossed;
-          // capped so a very fast swipe can't fire an unbounded burst.
+          // lastClickUnit's declaration. One note per boundary crossed, each
+          // one a step further up (or down) MOON_SCALE, staggered slightly
+          // like introChord()'s roll rather than fired all at once -- a
+          // fast swipe across several detents plays as a little run, not a
+          // chord. 40ms apart rather than 18ms: with each note now ringing
+          // for 0.6s (see moonClick()), a tighter stagger blurred into a
+          // single smear; this spacing still reads as one continuous
+          // gesture while each note has a moment to actually be heard.
+          // Capped so a very fast swipe can't fire an unbounded burst.
           const clickUnit=Math.floor(rawPhase/MOON_CLICK_STEP);
           if(clickUnit!==lastClickUnit){
+            const dir=clickUnit>lastClickUnit?1:-1;
             const steps=Math.min(8,Math.abs(clickUnit-lastClickUnit));
-            for(let i=0;i<steps;i++) moonClick();
+            for(let i=1;i<=steps;i++) moonClick(lastClickUnit+dir*i,(i-1)*0.04);
             lastClickUnit=clickUnit;
           }
         }
@@ -1076,25 +1308,9 @@ export function runOghamDial(opts = {}) {
           const moved=Math.hypot(lastX-downX,lastY-downY);
           if(moved<TAP_SLOP && performance.now()-downT<TAP_TIME){
             // raw, so a tap near full carries on round rather than clamping.
-            // Four legs -- full, then new, a held beat, then a slow settle
-            // short of half -- so the lesson (moon phase <-> English
-            // opacity) is actually shown, not just landed on, and without
-            // reading as one frantic, unbroken rush to get there.
-            const perUnitMs=TAP_MS/TAP_STEP;
             glideFrom=rawPhase;
-            const _start=rawPhase;
-            glideQueue=[
-              { to:_start+1,            ms:perUnitMs    },  // up to full
-              { to:_start,              ms:perUnitMs    },  // back down to none -- a real
-                                                              // reversal (decreasing), not a
-                                                              // continuation to _start+2,
-                                                              // which wrapped around the far
-                                                              // side instead of retracing.
-              { to:_start,              ms:TAP_PAUSE_MS },  // a beat of stillness
-              { to:_start+TAP_SETTLE,   ms:TAP_SETTLE_MS},  // slowly, to a quarter
-            ];
-            const _leg=glideQueue.shift();
-            glideTo=_leg.to; glideMs=_leg.ms; glideT=0;
+            glideQueue=[];
+            glideTo=rawPhase+TAP_NUDGE; glideMs=TAP_NUDGE_MS; glideT=0;
           }
         }
         // A hard shove on the ring runs the poem out to its end. That is the skip:
@@ -1105,13 +1321,13 @@ export function runOghamDial(opts = {}) {
            the same motion used to read ahead will be dismissed by accident, and the
            poem is the whole point of the scene. It ends when it has been said.
       
-           A hard spin still carries you forward quickly — that is reading fast, and
-           reaching the end that way is legitimate. It just is not a separate escape
-           hatch that skips the saying of it. */
-        if(zone==='ring' && Math.abs(angVel)>0.35) spinVel=Math.max(-6,Math.min(6,angVel));
-        // Gentle carry on the text, so it glides to rest rather than stopping dead.
-        if(zone==='text' && Math.abs(textVel)>0.12) spinVel=Math.max(-9,Math.min(9,textVel));
-        textVel=0;
+           A hard spin still moves arc directly, during the drag itself (see move()),
+           so reading fast by scrubbing quickly is still entirely legitimate -- what's
+           gone is the bit of extra momentum a fling used to carry on with after
+           release, decaying back to the steady pace over the following second or so.
+           That carry-on meant the pace right after releasing a fast fling briefly
+           didn't match the pace a moment later, or the rest of the time -- passive
+           reading is meant to be one single, unvarying speed, full stop. */
         zone=null;
       }
       addEventListener('mousedown',down); addEventListener('touchstart',down,{passive:true});
@@ -1147,24 +1363,48 @@ export function runOghamDial(opts = {}) {
         ];
         notes.forEach(n=>tone(n.f,n.g,2.6,n.t));
       }
-      /* Same recipe as the moon's click elsewhere in the game (SoundBoard's
-         MOON_SWIPE: a short highpassed noise burst) -- reproduced locally
-         rather than imported, since this file has no imports anywhere and
-         is meant to keep running without the rest of the game wired in. */
-      function moonClick(){
+      /* A short plucked-string tone rather than a mechanical click -- the same
+         general recipe as introChord() (a triangle wave through tone()), so
+         dragging the moon sounds like the same instrument as the opening
+         chord, not a separate, unrelated UI sound. MOON_SCALE is D major
+         pentatonic across three octaves (D2..D5): pentatonic because it has
+         no interval that sounds "wrong" in any order, which matters here --
+         a fast drag can land on any note in any sequence, and a scale with a
+         leading tone or a tritone would risk an audibly sour moment doing
+         that. clickUnit picks the note; a fast swipe crossing several
+         detents at once (see move()'s zone==='moon' branch) walks up or
+         down through several notes in one gesture -- a glissando you
+         actually play, not a fixed tone repeated. */
+      const MOON_SCALE=[73.42,82.41,92.50,110.00,123.47,146.83,164.81,185.00,220.00,246.94,293.66,329.63,369.99,440.00,493.88,587.33];
+      function moonClick(clickUnit,offset=0){
+        const idx=((clickUnit%MOON_SCALE.length)+MOON_SCALE.length)%MOON_SCALE.length;
+        // 0.22s used to leave each note dead silent before the next one
+        // fired -- percussive rather than musical. 0.6s lets each one
+        // genuinely ring, overlapping the ones on either side of it.
+        tone(MOON_SCALE[idx],0.05,0.6,offset);
+      }
+      /* The ring's own tick -- the noise-burst click the moon used to use,
+         before it moved to the pleasant plucked tone above. Reused here
+         rather than invented fresh: it read as "mechanical" before, which
+         didn't suit the moon (an instrument, not a machine) but suits a
+         turning stone wheel exactly. Duller and quieter than the original
+         (bandpass ~900Hz rather than a bright 2000Hz highpass, and a touch
+         shorter) so it doesn't compete with, or get mistaken for, the
+         moon's own brighter clicks when both happen close together. */
+      function ringTick(offset=0){
         if(!audioCtx||!started) return;
-        const now=audioCtx.currentTime;
-        const buf=audioCtx.createBuffer(1,Math.max(1,Math.floor(audioCtx.sampleRate*0.04)),audioCtx.sampleRate);
+        const t0=audioCtx.currentTime+offset;
+        const buf=audioCtx.createBuffer(1,Math.max(1,Math.floor(audioCtx.sampleRate*0.03)),audioCtx.sampleRate);
         const data=buf.getChannelData(0);
         for(let i=0;i<data.length;i++){
           const ti=i/audioCtx.sampleRate;
-          data[i]=(Math.random()*2-1)*Math.exp(-ti*120);
+          data[i]=(Math.random()*2-1)*Math.exp(-ti*160);
         }
         const src=audioCtx.createBufferSource(); src.buffer=buf;
-        const hpf=audioCtx.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=2000;
-        const g=audioCtx.createGain(); g.gain.setValueAtTime(0.06,now);
-        src.connect(hpf); hpf.connect(g); g.connect(audioCtx.destination);
-        src.start(now);
+        const bpf=audioCtx.createBiquadFilter(); bpf.type='bandpass'; bpf.frequency.value=900; bpf.Q.value=1.2;
+        const g=audioCtx.createGain(); g.gain.setValueAtTime(0.045,t0);
+        src.connect(bpf); bpf.connect(g); g.connect(audioCtx.destination);
+        src.start(t0);
       }
       
       /* Where the moon has to land: exactly where createMoonWidget will place it,
@@ -1186,7 +1426,6 @@ export function runOghamDial(opts = {}) {
       }
       function finish(){
         if(finished) return; finished=true;
-        tone(392,.07,2.4);
         lines.forEach(L=>{ L.g.style.transition='opacity .5s ease-out'; L.g.setAttribute('opacity','0') });
         colEl.style.transition='opacity .4s ease-out'; colEl.style.opacity='0';
         /* Measure from where the dial STARTED, not where the creep has carried

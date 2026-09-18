@@ -95,8 +95,8 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Agus san áit nach dtig leis an gCarr leanúint, feicim aghaidh an áir.',
-                en: 'And where the chariot cannot follow I look upon the face of doom.',
+                ga: 'Is thit ufás orm ag faire na spéire',
+                en: 'And terror has seized me at my watching',
                 speaker: 'druid',
             },
         ],
@@ -112,7 +112,7 @@ export const constellationTexts = {
             },
             {
                 ga: 'An amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
-                en: 'Is it that I would simply lay the Red Branch at an enemy\'s feet?',
+                en: 'Would you have me lay the Red Branch at the feet of an enemy?',
                 speaker: 'queen',
             },
         ],
@@ -123,8 +123,8 @@ export const constellationTexts = {
                 speaker: 'druid',
             },
             {
-                ga: 'Feicim cúirt ár mbithnaimhdí, agus gach suíochán lán.',
-                en: 'I see the court of an implacable enemy, and every seat is full.',
+                ga: 'Feicim cúirt ár mbithnaimhaid, agus gach suíochán lán.',
+                en: 'I see a court of foes, and every seat is full.',
                 speaker: 'druid',
             },
         ],

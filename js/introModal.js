@@ -183,6 +183,15 @@ const SPIRAL_A = 550, SPIRAL_B = 0.9, SPIRAL_STEP = 1.45;
 const TRAIL_SMOOTH = 0.28, TRAIL_MAX = 70;
 const LINE_LINGER_MS = 7600;
 const RIPPLE_MS = 900, RIPPLE_MAX_R = 55, RIPPLE_ALPHA = 0.75;
+/* [starHint] The idle hint: a shooting star that traces a real stroke. */
+const HINT_LAST_INDEX = 0;      // hint runs for constellations 0..this (0 = the first only)
+const HINT_FIRST_MS  = 6000;    // idle before the streak
+const HINT_REPEAT_MS = 14000;   // between streaks while the player is still idle
+const HINT_RETRY_MS  = 9000;    // after a stroke that didn't finish the constellation
+const HINT_MAX_STARS = 3;       // stars shown: 3 = two legs, "one, to the next, to the next"
+const HINT_SPEED     = 0.18;    // world px per ms along a leg
+const HINT_LEG_MIN_MS = 550, HINT_LEG_MAX_MS = 1000;
+const HINT_TAIL_PX   = 70;
 
 // ── Moon rest position ────────────────────────────────────────────────────────
 // Fixed px from the bottom edge of the screen after swipe.
@@ -1067,6 +1076,8 @@ if (wrapper) {
         if (this.currentIndex > 0)
             this.showWaitingTexts(this.constellations[this.currentIndex], ()=>{});
         this.runPulseStep();
+        // [starHint] the streak is a second, slower prompt on top of the pulse.
+        this._armHint(HINT_FIRST_MS);
     }
 
     runPulseStep() {
@@ -1080,6 +1091,131 @@ if (wrapper) {
         this.pulseIdx++;
         const atEnd=this.pulseIdx%seq.length===0;
         this.pulseTimer=this.time.delayedCall(atEnd?1800:500,()=>this.runPulseStep());
+    }
+
+    /* ── [starHint] the idle hint ───────────────────────────────────────────
+       A shooting star that does what the player is supposed to do. Silent;
+       runs alongside runPulseStep(), which it does not touch. */
+    _armHint(ms) {
+        if (this.currentIndex > HINT_LAST_INDEX) return;   // taught once; that's enough
+        if (this._hintTimer) { this._hintTimer.remove(); this._hintTimer = null; }
+        if (this._hintTween) return;     // one is running; it re-arms itself when done
+        this._hintTimer = this.time.delayedCall(ms, () => this._playStarHint());
+    }
+
+    _cancelHint() {
+        if (this._hintTimer) { this._hintTimer.remove(); this._hintTimer = null; }
+        if (this._hintTween) { this._hintTween.stop(); this._hintTween = null; }
+        if (this._hintG) {
+            const g = this._hintG; this._hintG = null;
+            this.tweens.killTweensOf(g);
+            this.tweens.add({ targets: g, alpha: 0, duration: 250, onComplete: () => g.destroy() });
+        }
+    }
+
+    // Up to HINT_MAX_STARS stars along a chain of PENDING connections, each leg
+    // starting where the last ended -- a stroke evaluateStroke() would accept.
+    // Every pending connection is tried as the opening leg, in both directions,
+    // and the longest chain wins: the first connection in the data can be a dead
+    // end (draoi's is), which would otherwise show a single leg.
+    _hintPath(c) {
+        const pending = c.connections.filter(cn => !cn.completed);
+        let best = [];
+        for (let s = 0; s < pending.length && best.length < HINT_MAX_STARS; s++) {
+            for (const [a, b] of [[pending[s].from, pending[s].to], [pending[s].to, pending[s].from]]) {
+                const path = [a, b], used = new Set([s]);
+                while (path.length < HINT_MAX_STARS) {
+                    const end = path[path.length - 1];
+                    const i = pending.findIndex((cn, k) => !used.has(k) &&
+                        ((cn.from === end && !path.includes(cn.to)) ||
+                         (cn.to === end && !path.includes(cn.from))));
+                    if (i < 0) break;
+                    used.add(i);
+                    path.push(pending[i].from === end ? pending[i].to : pending[i].from);
+                }
+                if (path.length > best.length) best = path;
+                if (best.length >= HINT_MAX_STARS) break;
+            }
+        }
+        return best.map(i => c.stars[i]).filter(Boolean);
+    }
+
+    _playStarHint() {
+        this._hintTimer = null;
+        const c = this.constellations[this.currentIndex];
+        if (!c || c.completed || !this.canInteract || this.isDrawing || this._hintTween) return;
+        if (this._skipMenuOpen) { this._armHint(3000); return; }
+        const path = this._hintPath(c);
+        if (path.length < 2) return;
+
+        const legs = []; let total = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+            const a = path[i], b = path[i + 1];
+            const len = Math.hypot(b.wx - a.wx, b.wy - a.wy);
+            const dur = Phaser.Math.Clamp(len / HINT_SPEED, HINT_LEG_MIN_MS, HINT_LEG_MAX_MS);
+            legs.push({ a, b, len, dur, t0: total }); total += dur;
+        }
+
+        // World space, so it rides the camera's drift. Made after _build(), so
+        // the UI camera must be told to ignore it or it is drawn twice.
+        const g = this.add.graphics().setDepth(12).setBlendMode(Phaser.BlendModes.ADD);
+        this.uiCamera?.ignore(g);
+        this._hintG = g;
+
+        const flare = star => {
+            this.spawnRipple(star.wx, star.wy);
+            this.tweens.killTweensOf(star);
+            this.tweens.add({ targets: star, brightness: 2.4, duration: 300, ease: 'Sine.easeOut',
+                yoyo: true, onComplete: () => { star.brightness = 1; } });
+        };
+        // The line laid behind the head, in the same two-pass glow the real
+        // connections use but fainter -- a suggestion, not a completed line.
+        const seg = (a, b) => {
+            g.lineStyle(4.5, 0x99ccff, 0.10); g.lineBetween(a.wx, a.wy, b.wx, b.wy);
+            g.lineStyle(1.4, 0xddeeff, 0.32); g.lineBetween(a.wx, a.wy, b.wx, b.wy);
+        };
+        const draw = (li, u, head) => {
+            g.clear();
+            for (let i = 0; i < li; i++) seg(legs[i].a, legs[i].b);
+            const L = legs[li];
+            const hx = L.a.wx + (L.b.wx - L.a.wx) * u, hy = L.a.wy + (L.b.wy - L.a.wy) * u;
+            seg(L.a, { wx: hx, wy: hy });
+            if (!head) return;
+            const dx = (L.b.wx - L.a.wx) / L.len, dy = (L.b.wy - L.a.wy) / L.len;
+            const tail = Math.min(HINT_TAIL_PX, u * L.len), N = 6;
+            for (let k = 0; k < N; k++) {
+                const f = 1 - k / N;
+                g.lineStyle(0.6 + 2.4 * f, NIGHT.starHex, 0.9 * f);
+                g.lineBetween(hx - dx * tail * k / N,       hy - dy * tail * k / N,
+                              hx - dx * tail * (k + 1) / N, hy - dy * tail * (k + 1) / N);
+            }
+            g.fillStyle(NIGHT.starHex, 0.22); g.fillCircle(hx, hy, 7);
+            g.fillStyle(NIGHT.starHex, 1);    g.fillCircle(hx, hy, 2.4);
+        };
+
+        let arrived = 0;
+        flare(path[0]);
+        const prog = { ms: 0 };
+        this._hintTween = this.tweens.add({
+            targets: prog, ms: total, duration: total, ease: 'Linear',
+            onUpdate: () => {
+                const ms = prog.ms;
+                while (arrived + 1 < path.length && ms >= legs[arrived].t0 + legs[arrived].dur) {
+                    arrived++; flare(path[arrived]);
+                }
+                let li = legs.findIndex(L => ms < L.t0 + L.dur);
+                if (li < 0) li = legs.length - 1;
+                draw(li, Math.min(1, (ms - legs[li].t0) / legs[li].dur), true);
+            },
+            onComplete: () => {
+                this._hintTween = null;
+                // The head is gone; the line it laid stays a moment, then fades.
+                draw(legs.length - 1, 1, false);
+                this.tweens.add({ targets: g, alpha: 0, duration: 1400, delay: 500, ease: 'Sine.easeIn',
+                    onComplete: () => { g.destroy(); if (this._hintG === g) this._hintG = null; } });
+                this._armHint(HINT_REPEAT_MS);
+            },
+        });
     }
 
     getStarSeq(c) {
@@ -1123,7 +1259,9 @@ if (wrapper) {
                 // Belt and braces: the wheels are normally already stilled by
                 // settleMoon(), well before this point. This only matters if
                 // a path reaches the stars without that having run.
-                this.spawnRipple(star.wx,star.wy); this._setBgWheelPaused(true); break;
+                this.spawnRipple(star.wx,star.wy); this._setBgWheelPaused(true);
+                this._cancelHint();   // [starHint] they're doing it themselves
+                break;
             }
         }
     }
@@ -1160,6 +1298,8 @@ if (wrapper) {
         this.isDrawing=false; this.trailPts=[]; this.trailG.clear();
         const c=this.constellations[this.currentIndex];
         if (c) this.evaluateStroke(c);
+        // [starHint] still not done? show them again after a while.
+        if (c && !c.completed) this._armHint(HINT_RETRY_MS);
         for (const star of (c?c.stars:[])) {
             star.lit=false;
             if (!c||!c.completed) { this.tweens.killTweensOf(star); star.brightness=1; }
@@ -1194,6 +1334,7 @@ if (wrapper) {
     onConstellationComplete(c) {
         c.completed=true; this.canInteract=false;
         if (this.pulseTimer) this.pulseTimer.remove();
+        this._cancelHint();   // [starHint]
         for (const star of c.stars){star.completed=true;this.tweens.killTweensOf(star);}
         this.playCompletionChord();
         if (c.id==='draoi') triggerMurmuration(this.audioContext);

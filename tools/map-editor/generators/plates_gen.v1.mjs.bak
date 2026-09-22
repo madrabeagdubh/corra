@@ -1,0 +1,282 @@
+// plates_gen.mjs
+// Location: tools/map-editor/generators/plates_gen.mjs
+//
+//  Purpose 
+// A level built to be PHOTOGRAPHED, not played. The intro's far / mid / near
+// backdrop plates (public/assets/nightscape/farRidge.png, midHeadland.png,
+// nearForeground.png) are meant to carry the look of the game itself. This map
+// puts each of those three things in its own band of the screen, over plain
+// ground, so one screenshot gives clean source material for each:
+//
+//   FAR   a rolling ridge along the north edge, with a thin line of distant
+//         trees on its crest. Lands just under the horizon, heavily blurred.
+//   MID   loose tree clusters with meadow between them. The middle third of
+//         the screen.
+//   NEAR  bare rolling meadow, so the ground flora (Vegetation) has room and
+//         nothing stands in front of it.
+//
+// The world is much WIDER than one screen shows: every band is a run of
+// separate features along x, so a plate can be built from several screenshots
+// by walking east/west along the south edge. Each band is uniform along x, so
+// stitching one band is a plain horizontal shift -- no perspective to fight.
+//
+//  Reading the rows 
+// North is row 0 (far), south is the last row (near). The spawn is near the
+// south edge, looking north. See BANDS below; retune there and re-run.
+//
+// Usage:
+//   node tools/map-editor/generators/plates_gen.mjs            (writes plates)
+//   node tools/map-editor/generators/plates_gen.mjs myname     (writes myname)
+//
+// Writes public/maps/bogMaps/<name>.json. View flat at
+//   /tools/map-editor/viewer.html?map=<name>
+// or in the game with  ?scene=plates  (see js/game/scenes/locations/bog/plates.js).
+//
+// Deterministic: same name, same map. Change SEED_SALT for a different one.
+
+import { writeFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
+import { buildTrunkPositions, applyRootPeaksToHeightMap } from './_treeShared.mjs'
+
+const __dirname  = dirname(fileURLToPath(import.meta.url))
+const OUTPUT_DIR = resolve(__dirname, '../../../public/maps/bogMaps')
+
+//  CONFIG 
+
+const CONFIG = {
+  width:  96,        // wide on purpose: room to walk sideways between shots
+  height: 64,
+  SEED_SALT: 7,
+
+  // Where the player starts: south edge, middle. Walk east/west from here.
+  spawn: { x: 48, y: 58 },
+
+  // Row bands, north (0) to south. Rows are TILES from the north edge.
+  BANDS: {
+    far:  { from: 2,  to: 16 },   // the ridge
+    mid:  { from: 24, to: 40 },   // tree clusters
+    near: { from: 44, to: 63 },   // meadow -- kept clear of trees
+  },
+
+  // FAR: ridge height in heightMap units (existing maps run 0..~2.1).
+  ridge: {
+    peak:        1.9,    // tallest crest
+    baseline:    0.25,   // lowest saddle along the ridge line
+    wavelength:  34,     // tiles between big rises; a second, shorter wave rides on it
+    fadeRows:    9,      // rows over which the ridge sinks back to meadow, south of its crest band
+  },
+
+  // FAR trees: a thin line along the crest.
+  farTrees: {
+    spacing:     3.2,    // mean tiles between trees along the crest (jittered)
+    rowJitter:   1.6,
+    minGap:      2,      // never closer than this many tiles (keeps them separate)
+  },
+
+  // MID trees: loose clusters. Each cluster is a scatter of separate trees.
+  midTrees: {
+    clusterEvery: 15,    // mean tiles between cluster centres along x
+    clusterJitter: 5,
+    radiusMin:   2.6,
+    radiusMax:   5.0,
+    fill:        0.34,   // chance a candidate cell inside a cluster gets a tree
+    minGap:      2,
+    strays:      0.012,  // stray single trees across the mid band
+  },
+
+  // Gentle undulation everywhere else so the ground is not a billiard table.
+  meadowRoll: { amp: 0.18, wavelength: 19 },
+}
+
+//  Helpers 
+
+const make2D = (w, h, v = 0) => Array.from({ length: h }, () => new Array(w).fill(v))
+
+function mulberry32(seed) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const smooth = (t) => t * t * (3 - 2 * t)
+
+// 1-D value noise: smooth, periodic-free, deterministic from the rng.
+function makeNoise1D(rng, len, wavelength) {
+  const n = Math.ceil(len / wavelength) + 3
+  const pts = Array.from({ length: n }, () => rng())
+  return (x) => {
+    const g = x / wavelength, i = Math.floor(g), f = smooth(g - i)
+    return pts[i] * (1 - f) + pts[i + 1] * f
+  }
+}
+
+//  Ground 
+
+function buildBase(W, H) {
+  // The same checker the other generated maps use.
+  return Array.from({ length: H }, (_, y) =>
+    Array.from({ length: W }, (_, x) => ((x + y) % 2 === 0 ? 839 : 840)))
+}
+
+//  Height 
+// heightMap is a VERTEX grid, (H+1) x (W+1) -- PGR reads it that way.
+
+function buildHeightMap(cfg, rng) {
+  const { width: W, height: H, ridge, BANDS, meadowRoll } = cfg
+  const hm = make2D(W + 1, H + 1, 0.05)
+
+  const big   = makeNoise1D(rng, W + 4, ridge.wavelength)
+  const small = makeNoise1D(rng, W + 4, ridge.wavelength / 3.1)
+  const roll  = makeNoise1D(rng, W + H + 8, meadowRoll.wavelength)
+  const roll2 = makeNoise1D(rng, W + H + 8, meadowRoll.wavelength * 0.61)
+
+  // Crest height along x: a big wave plus a shorter one, mapped into [baseline, peak].
+  const crest = (x) => {
+    const v = 0.72 * big(x) + 0.28 * small(x)
+    return ridge.baseline + (ridge.peak - ridge.baseline) * v
+  }
+
+  const ridgeMid = (BANDS.far.from + BANDS.far.to) / 2
+  const ridgeHalf = (BANDS.far.to - BANDS.far.from) / 2
+
+  for (let vy = 0; vy <= H; vy++) {
+    for (let vx = 0; vx <= W; vx++) {
+      // Ridge profile across rows: full height in the far band, smoothly down to nothing
+      // south of it and to a low foothill north of it.
+      const dy = (vy - ridgeMid) / ridgeHalf
+      let prof
+      if (dy <= 0)      prof = Math.max(0.35, 1 - dy * dy * 0.65)             // north slope stays fairly high
+      else if (dy <= 1) prof = 1 - smooth(dy) * 0.10                            // crest band
+      else              prof = Math.max(0, 1 - smooth(Math.min(1, (dy - 1) * ridgeHalf / ridge.fadeRows)))
+      const ridgeH = crest(vx) * prof
+
+      // Low, slow roll over everything (a little more of it in the meadow).
+      const r = (roll(vx + vy * 0.6) - 0.5) * 2 * meadowRoll.amp
+              + (roll2(vy + vx * 0.4) - 0.5) * 2 * meadowRoll.amp * 0.6
+      hm[vy][vx] = Math.max(0.02, 0.06 + ridgeH + r)
+    }
+  }
+  return hm
+}
+
+//  Trees 
+
+// Separate single trees: place candidates, keep each only if it is at least
+// minGap tiles from every tree already placed.
+function makePlacer(W, H, wallMask, minGap) {
+  const placed = []
+  return (x, y) => {
+    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false
+    if (wallMask[y][x]) return false
+    for (const [px, py] of placed) if (Math.hypot(px - x, py - y) < minGap) return false
+    wallMask[y][x] = 1
+    placed.push([x, y])
+    return true
+  }
+}
+
+function buildFarTrees(cfg, rng, wallMask, heightMap) {
+  const { width: W, height: H, BANDS, farTrees } = cfg
+  const place = makePlacer(W, H, wallMask, farTrees.minGap)
+  // The crest row wanders with the ridge, so the tree line rides its top.
+  const mid = (BANDS.far.from + BANDS.far.to) / 2
+  let x = 2 + rng() * farTrees.spacing
+  while (x < W - 2) {
+    const y = Math.round(mid + (rng() - 0.5) * 2 * farTrees.rowJitter)
+    place(Math.round(x), y)
+    x += farTrees.spacing * (0.55 + rng() * 0.9)
+  }
+}
+
+function buildMidTrees(cfg, rng, wallMask) {
+  const { width: W, height: H, BANDS, midTrees: m } = cfg
+  const place = makePlacer(W, H, wallMask, m.minGap)
+  const bandMid = (BANDS.mid.from + BANDS.mid.to) / 2
+  const bandHalf = (BANDS.mid.to - BANDS.mid.from) / 2
+
+  const centres = []
+  for (let cx = m.clusterEvery * 0.5; cx < W; cx += m.clusterEvery + (rng() - 0.5) * 2 * m.clusterJitter) {
+    const cy = bandMid + (rng() - 0.5) * bandHalf * 1.2
+    centres.push({ cx, cy, r: m.radiusMin + rng() * (m.radiusMax - m.radiusMin) })
+  }
+  for (const c of centres) {
+    for (let y = Math.floor(c.cy - c.r); y <= Math.ceil(c.cy + c.r); y++) {
+      for (let x = Math.floor(c.cx - c.r); x <= Math.ceil(c.cx + c.r); x++) {
+        if (y < BANDS.mid.from || y > BANDS.mid.to) continue
+        const d = Math.hypot(x - c.cx, y - c.cy)
+        if (d > c.r) continue
+        // Denser at the centre, thinning to the edge.
+        if (rng() < m.fill * (1 - 0.6 * d / c.r)) place(x, y)
+      }
+    }
+  }
+  // A few loners, so the gaps between clusters aren't perfectly bare.
+  for (let y = BANDS.mid.from; y <= BANDS.mid.to; y++)
+    for (let x = 1; x < W - 1; x++)
+      if (rng() < m.strays) place(x, y)
+
+  return centres.length
+}
+
+//  Main 
+
+function generate(outputName) {
+  const cfg = CONFIG
+  const seed = outputName.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 2654435761 + cfg.SEED_SALT
+  const rng = mulberry32(seed)
+  const { width: W, height: H } = cfg
+
+  const heightMap = buildHeightMap(cfg, rng)
+  const wallMask  = make2D(W, H, 0)
+
+  buildFarTrees(cfg, rng, wallMask, heightMap)
+  const clusters = buildMidTrees(cfg, rng, wallMask)
+
+  // The spawn and everything within a few tiles of it stays clear, always.
+  for (let y = cfg.spawn.y - 4; y <= cfg.spawn.y + 4; y++)
+    for (let x = cfg.spawn.x - 4; x <= cfg.spawn.x + 4; x++)
+      if (wallMask[y]?.[x] !== undefined) wallMask[y][x] = 0
+
+  // Root peaks so trees sit ON the ground the way the game's own trees do.
+  // keepChance 1.0 because PerspectiveScene's ForestEffects runs at
+  // trunkKeepChance 1.0 -- every wall cell that borders open ground grows a trunk.
+  const trunks = buildTrunkPositions(wallMask, W, H, { keepChance: 1.0 })
+  applyRootPeaksToHeightMap(heightMap, trunks)
+
+  const map = {
+    name: outputName,
+    width: W,
+    height: H,
+    hasCliffs: true,           // tells PGR to read heightMap for ground undulation
+    layers: [buildBase(W, H), make2D(W, H, 0)],
+    wallMask,
+    heightMap,
+    legend: { '839': 'grass', '840': 'grass' },
+    spawns: { player: cfg.spawn },
+    exits: {},
+    entries: {},
+  }
+
+  writeFileSync(resolve(OUTPUT_DIR, `${outputName}.json`), JSON.stringify(map))
+  console.log(`Written: public/maps/bogMaps/${outputName}.json  (${W}x${H}, ${trunks.length} trunks, ${clusters} mid clusters)`)
+
+  // ASCII preview: north at top. # tree, ^ high ground, . meadow.
+  console.log('\n  north (far) at the top;  # tree   ^ ridge   . meadow   @ spawn\n')
+  for (let y = 0; y < H; y += 2) {
+    let row = ''
+    for (let x = 0; x < W; x += 1) {
+      if (Math.abs(x - cfg.spawn.x) <= 0 && Math.abs(y - cfg.spawn.y) <= 1) { row += '@'; continue }
+      const t = wallMask[y][x] || wallMask[y + 1]?.[x]
+      row += t ? '#' : (heightMap[y][x] > 1.0 ? '^' : '.')
+    }
+    console.log(row)
+  }
+}
+
+generate(process.argv[2] || 'plates')

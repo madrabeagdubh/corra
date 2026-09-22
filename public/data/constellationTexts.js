@@ -117,14 +117,16 @@ export const constellationTexts = {
             },
         ],
         completion: [
-            {
-                ga: 'Ní dhéanaim tarcaisne don Chraobh.',
-                en: 'I cast no scorn upon the branch.',
+       {
+                ga: 'Dána an slua, mór do thaoisigh',
+                en: 'Brave the host, great thy chieftains',
                 speaker: 'druid',
             },
+
+
             {
-                ga: 'Feicim cúirt ár mbithnaimhaid, agus gach suíochán lán.',
-                en: 'I see a court of foes, and every seat is full.',
+                ga: 'Ach tagann Tethra chun an ghéag is dána a fhuiliú, is gach moladh a mhúchadh.',
+                en: 'But the dragon of the dark comes to bleed the boldest arm, and silence all praise.',
                 speaker: 'druid',
             },
         ],
@@ -133,14 +135,10 @@ export const constellationTexts = {
     // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────
     draoi: {
         waiting: [
+            
             {
-                ga: 'Cá bhfuil dóchas i measc na n-uaisle, a Chonaill dhíl?',
-                en: 'Where among the high-placed ones o faithful wolf, dwells a sign of hope?',
-                speaker: 'queen',
-            },
-            {
-                ga: 'Aimsigh réalt in aghaidh thuile an áir!',
-                en: 'Find me some star that stands against the tide of ruin.',
+                ga: 'Aimsigh réalt in aghaidh an áir, a Chonaill dhíl.',
+                en: 'Find a star against the ruin, o faithful wolf.',
                 speaker: 'queen',
             },
         ],

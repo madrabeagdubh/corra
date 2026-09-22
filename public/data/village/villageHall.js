@@ -36,7 +36,7 @@ export const villageHallContent = {
       name: 'Mór',
       x: 7, y: 5,
       radius: 3,
-      visual:   { gid: 255, flat: false },
+      visual:   { gid: 9103, flat: false },   // [hallEncounter] was 255, a placeholder tile
       portrait: '/assets/npcs/muireann.png',
 
       dialogues: [

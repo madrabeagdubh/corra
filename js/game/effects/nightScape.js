@@ -74,14 +74,37 @@ const HORIZON = 0.75;
    low finishing position implies it began below the floor. That is why
    nearForeground sits at z 2.2 rather than 1.5: at s=0.5 nothing it could finish
    at under 26vh was visible during the poem. */
-const LAYERS = [
+// [proceduralPlates] Geometry for plates_procedural/*.png (trimmed to their skylines). Previous values: farRidge top:26, midHead top:17, druid foot:11, queen foot:11, nearFg top:23.
+// [introLevel] ?level=1: the land comes from a real level, so no plates and no fullscreen haze.
+const INTRO_LEVEL = (() => { try { return new URLSearchParams(window.location.search).get('level') === '1'; }
+                            catch (e) { return false; } })();
+const ALL_LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
-    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:26 },
-    { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:17 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:11, left:'56%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:11, left:'63%', w:24 },
-    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:23 },
+    { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:30 },
+    { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:15.5 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12.4, left:'56%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12.4, left:'63%', w:24 },
+    { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:14 },
 ];
+
+/* [layerSwitch] ?layers=mid | far,mid | mid,near ... picks which backdrop plates to build.
+   The druid and queen are figures, not plates, and are always kept. No param, or nothing
+   recognised, means all three. LAYERS is what everything below iterates, so a plate that
+   is switched off is simply never built; ALL_LAYERS stays the full reference table. */
+const PLATE_NAME = { farRidge: 'far', midHead: 'mid', nearFg: 'near' };
+const WANTED_PLATES = (() => {
+    try {
+        const raw = new URLSearchParams(window.location.search).get('layers');
+        if (raw === 'none' || (!raw && INTRO_LEVEL)) return new Set();   // [introLevel] no plates at all
+        if (!raw) return null;
+        const want = new Set(raw.split(',').map(s => s.trim().toLowerCase())
+            .filter(k => Object.values(PLATE_NAME).includes(k)));
+        return want.size ? want : null;
+    } catch (e) { return null; }
+})();
+const LAYERS = ALL_LAYERS.filter(L =>
+    !(L.key in PLATE_NAME) || !WANTED_PLATES || WANTED_PLATES.has(PLATE_NAME[L.key]));
+if (WANTED_PLATES) console.log('[nightScape] plates: ' + [...WANTED_PLATES].join(', ') + ' (+ figures)');
 
 const scaleFor = z => z / (z + PULL);
 
@@ -110,10 +133,15 @@ const wrapVwFor = z => 120 / z;
 // differently, so the same raw number would still move at different
 // apparent rates. Compensating by the ratio of the two scales makes the
 // APPARENT shift match exactly, not just the raw vw figure.
-const nearFgZ = LAYERS.find(x => x.key === 'nearFg').z;
+const nearFgZ = ALL_LAYERS.find(x => x.key === 'nearFg').z;   // [layerSwitch] the FULL table: always defined
+// [layerSwitch] The plate the druid and queen lock to: the nearest one actually present.
+// Locked to a plate that was switched off, they would slide at its rate over a hill
+// that moves at its own.
+const FIGURE_BASE_Z = (['nearFg', 'midHead', 'farRidge']
+    .map(k => LAYERS.find(x => x.key === k)).find(Boolean) || ALL_LAYERS.find(x => x.key === 'nearFg')).z;
 const maxPanVwFor = L => (L.vw !== undefined)
     ? (L.vw - 100) / 2
-    : wrapVwFor(nearFgZ) * (scaleFor(nearFgZ) / scaleFor(L.z));
+    : wrapVwFor(FIGURE_BASE_Z) * (scaleFor(FIGURE_BASE_Z) / scaleFor(L.z));
 
 /* Height of the viewport below the horizon, in vh. Every bit of the geometry
    below is measured from the floor up to this line. */
@@ -175,7 +203,7 @@ const Z_LIGHT = 44;
    Chrome gives no event when the pill goes: TOAST_MS is a stopwatch, not a
    signal. Touch devices with a Fullscreen API only (the desktop notice sits at
    the top, not here). Set TOAST_SETTLE false to switch the whole thing off. */
-const TOAST_SETTLE        = true;
+const TOAST_SETTLE        = (true);   // [introLevel v7] a small figure lift still runs for the level; nothing else does (see the scene's header)
 const TOAST_MS            = 10000;   // how long the pill stays up: the land holds still this long
 const TOAST_SETTLE_MS     = 10000;   // then takes this long to descend and clear
 const TOAST_EASE          = 'cubic-bezier(.37,0,.63,1)';   // ease-in-out (sine)
@@ -198,6 +226,10 @@ const TOAST_GIVEUP_MS     = 12000;
    must stay SHORT: the hill art is transparent between its ridges, and a tall
    fill shows through them as a grey band. */
 const TOAST_FILL          = true;
+// [introLevel v7] In level mode only the two figures lift, a little, to clear Chrome's fullscreen pill;
+// the ground is left alone (it already reaches the bottom of the canvas -- see the scene's header).
+const TOAST_LEVEL_LIFT_PX   = 40;
+const TOAST_LEVEL_MARGIN_PX = 12;
 const TOAST_FILL_SLACK_PX = 24;
 const Z_HAZE              = Z_BASE + LAYERS.length;   // over the land, under the dial
 const Z_FILL              = Z_BASE - 1;               // under the land, over the sky
@@ -388,6 +420,7 @@ export function createNightScape(opts = {}) {
             const b = (DARK + (1 - DARK) * lum0).toFixed(3);
             if (b !== _lastBright) {
                 _lastBright = b;
+                if (window.__introLevelBrightness) window.__introLevelBrightness(+b);   // [introLevel]
                 made.forEach(m => {
                     m.el.style.filter = `brightness(${b})`;
                     // A clone has no live link back to `el` -- brightness has
@@ -451,6 +484,9 @@ export function createNightScape(opts = {}) {
     let pulled = false;
     let lastProgress = -1;
 
+    // [introLevel v7] Figures hold their final pose from the very first frame (the poem's dolly would
+    // otherwise raise and shrink them over a land that does not move).
+    if (INTRO_LEVEL) made.forEach(m => { m.wrap.style.transform = `scale(${m.endScale.toFixed(4)})`; });
     // >>> toastSettle v4 (instance)
     /* See the constants block near the top of this file. The scene is always
        built before the dial's first touch (that touch is what asks for
@@ -489,6 +525,7 @@ export function createNightScape(opts = {}) {
             a.onfinish = () => { m.wrap.style.translate = ''; a.cancel(); };
             toastAnims.push(a);
         });
+        if (haze) {
         const h = haze.animate([{ opacity: 1 }, { opacity: 0 }],
             { ...timing, easing: 'linear' });
         h.onfinish = () => {
@@ -496,6 +533,7 @@ export function createNightScape(opts = {}) {
             haze.remove(); if (fill) fill.remove();   // the plates are home; both are hidden or spent
         };
         toastAnims.push(h);
+        }
     }
 
     const onToastFs = () => { if (inFs()) toastSettle(TOAST_MS); };
@@ -505,9 +543,9 @@ export function createNightScape(opts = {}) {
     };
 
     if (toastOn) {
-        const near = TOAST_TOP_DEVICE_PX / (window.devicePixelRatio || 1) + TOAST_MARGIN_PX;
+        const near = TOAST_TOP_DEVICE_PX / (window.devicePixelRatio || 1) + (INTRO_LEVEL ? TOAST_LEVEL_MARGIN_PX : TOAST_MARGIN_PX);
         made.forEach((m, i) => {
-            const px = near * nearFgZ / LAYERS[i].z;
+            const px = INTRO_LEVEL ? TOAST_LEVEL_LIFT_PX : near * nearFgZ / LAYERS[i].z;
             toastLift[i] = px;
             m.wrap.style.translate = `0 ${(-px).toFixed(1)}px`;
         });
@@ -517,7 +555,7 @@ export function createNightScape(opts = {}) {
         // `lift` opens a gap of (lift - drop) at the bottom of the screen. The
         // deepest of those, plus slack, is all the fill needs to be -- and
         // keeping it that short keeps its top edge behind opaque ground.
-        if (TOAST_FILL) {
+        if (TOAST_FILL && !INTRO_LEVEL) {
             const gap = Math.max(0, ...made.map((m, i) =>
                 toastLift[i] - dropFor(m.endScale) / 100 * window.innerHeight));
             fill = document.createElement('div');
@@ -530,6 +568,7 @@ export function createNightScape(opts = {}) {
             parent.appendChild(fill);
         }
 
+        if (!INTRO_LEVEL) {
         // Over the land: the haze.
         haze = document.createElement('div');
         haze.dataset.nightscape = 'toastHaze';
@@ -544,6 +583,7 @@ export function createNightScape(opts = {}) {
                 `rgba(${c},0) 100%);`,
         ].join('');
         parent.appendChild(haze);
+        }
 
         document.addEventListener('fullscreenchange', onToastFs);
         document.addEventListener('webkitfullscreenchange', onToastFs);
@@ -572,9 +612,10 @@ export function createNightScape(opts = {}) {
            still has somewhere to go. No transition: this tracks a value the
            reader is driving, and it must be able to run backwards. */
         setProgress(u) {
+            if (window.__introLevelProgress) window.__introLevelProgress(u);   // [introLevel]
             if (pulled) return;
             // The whole journey, matching the dial's CREEP_CAP.
-            const t = Math.max(0, Math.min(1, u));
+            const t = INTRO_LEVEL ? 1 : Math.max(0, Math.min(1, u));   // [introLevel v7] the level does not dolly, so neither do the figures
             /* Below this the layers move less than a pixel, and five style writes
                on full-viewport composited elements is not free. */
             if (Math.abs(t - lastProgress) < 0.001) return;
@@ -601,6 +642,9 @@ export function createNightScape(opts = {}) {
            transform. */
         setPan(fraction) {
             const f = Math.max(-1, Math.min(1, fraction));
+            // [introLevel v7] the level's ground drives the whole effect; tell it the fraction directly
+            if (window.__introLevelPan) window.__introLevelPan(f);
+            if (INTRO_LEVEL) return;   // no horizontal slide for the figures in level mode -- see its header
             made.forEach(m => {
                 if (m.wraps) {
                     // repeat-x wraps automatically and infinitely -- no clamping,

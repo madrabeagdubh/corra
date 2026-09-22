@@ -69,6 +69,12 @@ gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/G2-|G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3-|A2A/B/||
 cc/d/ e/f/|gg/e/ d/B/|A/B/G2-|G2A/B/|cc/d/ e/f/|gc'>b|a3-|a>a b/a/|
 gg/e/d/c/|d/g/ G/B/ d/B/|A/4B/4A/^G2-|^G>f g/f/|e/d/ c/B/ A/G/|EA>B|A3|A2||`
 
+// [hallEncounter] Synthetic GID for Mór's sprite, registered in onEnter() below.
+// 9001 harp, 9101 Muireann (d3Sea), 9102 Odhrán (d3), 9103 Mór. Keep in sync
+// with visual.gid in public/data/village/villageHall.js. She moved here from
+// b0, which used to register it; the registration did not move with her.
+const MOR_GID = 9103
+
 export default class VillageHallScene extends VillageScene {
   constructor() { super({ key: 'villageHall' }) }
 
@@ -180,6 +186,11 @@ export default class VillageHallScene extends VillageScene {
     // public/data/village/villageHall.js) rather than fixed in place,
     // matching the established once-per-champion pattern used everywhere
     // else instead of this scene's own one-off notification.
+    // [hallEncounter] Placeholder art until Mór has her own: muireann.png, as in
+    // b0. Swap the URL here for the world figure and `portrait` in the content
+    // file for the dialogue card -- separate paths on purpose (the tile path
+    // fails silently, the portrait path fails loudly).
+    this.perspectiveGround?.registerCustomTile?.(MOR_GID, '/assets/npcs/muireann.png')
     this._checkRestTransition()
   }
 

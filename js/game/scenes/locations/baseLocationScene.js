@@ -472,6 +472,13 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
     if (nearestFlag) {
       this._flagInRange = true;
       if (this._encounterPanel) {
+        // [openPanelReset] _openPanel is a slot scenes overwrite with an
+        // instance property (door -> _triggerDoor, harp, NPC badge), which
+        // shadows the class method for good; nothing ever restores it. Once the
+        // player had stood by a door, every ordinary encounter badge afterwards
+        // still did the door's job. Put the class method back before raising
+        // an ordinary encounter. A no-op when there is no override.
+        delete this._encounterPanel._openPanel;
         const text   = nearestFlag.getData('text');
         const id     = nearestFlag.getData('id');
         const visual = nearestFlag.getData('flagVisual') || nearestFlag.getData('visual');

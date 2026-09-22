@@ -98,6 +98,12 @@ export default class PerspectiveGroundRenderer {
   static LIGHT_COLOR    = 'rgba(255, 240, 180, 0.18)'
   static TILES_ACROSS   = 3.8
   static HORIZON_Y_FRAC = 0.28
+  // [clipTop] null = terrain is sliced off at the horizon line, as always. A scene may set a
+  // fraction of screen height ABOVE the horizon, so hills and mountains can rise into the sky.
+  static CLIP_TOP_FRAC  = null
+  // [horizonFade] Ground rows whose flat position lies within this many px of the horizon fade toward
+  // transparent (distance haze). 60 is the original behaviour; 0 draws every row fully opaque.
+  static HORIZON_FADE_PX = 60
   static TW         = 24
   static TH         = 24
   static MG         = 24
@@ -850,13 +856,17 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
 
     this._oCtx.clearRect(0, 0, sw, sh)
     if (!this._debugged) console.log('[PGR v8] frame: horizonPx=' + horizonPx + ' sw=' + sw + ' sh=' + sh + ' hasCliffs=' + !!(this.scene.mapData?.hasCliffs) + ' elevActive=' + !!(this._elev))
+    // [clipTop] where the ground/object canvases are clipped: the horizon, unless a scene asked
+    // to let terrain rise above it (CLIP_TOP_FRAC). Never below the horizon.
+    const _clipFrac = PerspectiveGroundRenderer.CLIP_TOP_FRAC
+    const _clipTop  = (_clipFrac == null) ? horizonPx : Math.max(0, Math.min(horizonPx, Math.floor(sh * _clipFrac)))
     this._oCtx.save()
     this._oCtx.beginPath()
-    this._oCtx.rect(0, horizonPx, sw, sh - horizonPx)
+    this._oCtx.rect(0, _clipTop, sw, sh - _clipTop)
     this._oCtx.clip()
     this._gCtx.save()
     this._gCtx.beginPath()
-    this._gCtx.rect(0, horizonPx, sw, sh - horizonPx)
+    this._gCtx.rect(0, _clipTop, sw, sh - _clipTop)
     this._gCtx.clip()
 
     // Reset per frame: closures capture this frame's geometry, so a
@@ -920,7 +930,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
       if (yBotClamped <= yTopClamped) continue
 
       const distFromHorizon = yBotClamped - horizonPx
-      const horizonFade     = distFromHorizon < 60 ? Math.max(0, distFromHorizon / 60) : 1.0
+      const _fadePx         = PerspectiveGroundRenderer.HORIZON_FADE_PX
+      const horizonFade     = (_fadePx > 0 && distFromHorizon < _fadePx) ? Math.max(0, distFromHorizon / _fadePx) : 1.0
 
       const scaleNear = this._scaleAtRow(tileRow + 1)
       const halfCols  = scaleNear > 0.001 ? (sw / 2) / scaleNear + 1 : mapW

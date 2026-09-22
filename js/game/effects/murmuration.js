@@ -356,10 +356,16 @@ function _drawFormation(ctx, f, H, useSprites) {
 
         if (alpha < 0.02) continue;
 
+        // f.angle is the HEADING (-PI/2 = straight up the screen). Both the
+        // sprites and the procedural bird are drawn nose-up at rotation 0, so
+        // the rotation to draw with is the heading measured from "up", not
+        // the heading itself. Passing f.angle straight through turned every
+        // bird a further quarter turn: flying up, but facing left.
+        const facing = f.angle + Math.PI / 2;
         if (useSprites) {
-            _drawSprite(ctx, bird, f.angle, alpha);
+            _drawSprite(ctx, bird, facing, alpha);
         } else {
-            _drawProcedural(ctx, bird.x, bird.y, bird.size, f.angle, alpha);
+            _drawProcedural(ctx, bird.x, bird.y, bird.size, facing, alpha);
         }
     }
 }

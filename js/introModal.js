@@ -14,6 +14,7 @@ import { runOghamDial } from './introOghamDial.js';
 import { createDomButton } from './game/systems/gameTypography.js';
 import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
+import IntroLevelScene from './game/scenes/locations/bog/introLevel.js';   // [introLevel v4]
 import { createStarField } from './game/effects/starField.js';
 import { requestFullscreenWithFade, resetFullscreenState, isScreenObscured } from './game/ui/fullscreenFade.js';
 
@@ -100,6 +101,7 @@ function _unlockAudio() {
 
 var _sceneInitialized = false;
 
+const LEVEL_ON = new URLSearchParams(window.location.search).get('level') === '1';   // [introLevel v4]
 export function initConstellationScene(onComplete, startPhase) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
@@ -109,7 +111,9 @@ export function initConstellationScene(onComplete, startPhase) {
     const game = new Phaser.Game({
         type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight,
         backgroundColor: NIGHT.baseCss, parent: 'gameContainer',
-        scene: [ConstellationScene],
+        // [introLevel v4] ?level=1: the level scene lives in THIS game (the main game does not
+        // exist until the intro has ended).
+        scene: LEVEL_ON ? [ConstellationScene, IntroLevelScene] : [ConstellationScene],
         scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
         input: { touch: true },
     });
@@ -197,6 +201,28 @@ const HINT_TAIL_PX   = 70;
 // Fixed px from the bottom edge of the screen after swipe.
 // This is the only value you need to tune — consistent across all window sizes.
 const MOON_REST_FROM_BOTTOM = 120;
+
+/* [dread] Cúirt Fhomhóir: where the queen turns from anger to fear. The lines go
+   red and the connection tone goes wrong. DREAD_LINES / DREAD_SOUND switch each
+   half off independently. */
+const DREAD_ID = 'cuirt';
+const DREAD_LINES = true, DREAD_SOUND = true;
+// The calm palette is exactly what used to be hard-coded in drawScene(), the
+// ripple loop and the trail, so every other constellation looks as it did.
+const PAL_CALM  = { glow:0x99ccff, core:0xddeeff, ripple:0x99ddff, ripple2:0xddeeff,
+                    trailGlow:0x99ccff, trailMid:0xddeeff, trailHead:0xffffff };
+const PAL_DREAD = { glow:0xb01414, core:0xff4536, ripple:0xff5a48, ripple2:0xffb0a0,
+                    trailGlow:0xb01414, trailMid:0xff5a48, trailHead:0xffd8d0 };
+/* The connection tone. DREAD_CHIME_OCT multiplies the constellation's sfx root
+   (41.2Hz for cuirt) up to about E4, and it is that high on purpose: a phone
+   speaker gives up somewhere below ~250Hz, and a dread tone with no body left
+   would just be a click. Each join starts DREAD_STEP_SEMITONES lower than the
+   last; the whole cluster then sinks DREAD_DROOP_CENTS as it decays. */
+const DREAD_CHIME_OCT = 8, DREAD_STEP_SEMITONES = 1;
+const DREAD_CHIME_S = 2.4, DREAD_DROOP_CENTS = 60, DREAD_TREMOLO_HZ = 5.5;
+// root, minor second, tritone, octave, minor ninth, tritone above the octave
+const CALM_CHORD  = [[1,0],[1.5,1],[2,2],[2.381,3],[3,4],[4,5]];
+const DREAD_CHORD = [[1,0],[1.0595,1],[1.4142,2],[2,3],[2.1189,4],[2.8284,5]];
 
 const AMERGIN_LINES = [
     { ga: 'Cé an té le nod slí na gcloch sléibhe?', en: 'Who knows the way of the mountain stones?' },
@@ -295,6 +321,20 @@ export class ConstellationScene extends Phaser.Scene {
            own on top of THAT — three starfields, two of them swapped in front of
            the player. The sky is built once, here, and never replaced. */
         this._buildSky();
+        // [introLevel v4] SPIKE: ?level=1 puts a real level under the sky, in place of the
+        // painted plates. Dev-only; see js/game/scenes/locations/bog/introLevel.js.
+        if (LEVEL_ON && !this.scene.isActive('intro_level')) {
+            if (this.scene.get('intro_level')) {
+                this.scene.launch('intro_level');
+                this.events.once('shutdown', () => { try { this.scene.stop('intro_level'); } catch (e) {} });
+            } else {
+                console.error('[introLevel] scene is not registered in the intro game');
+                const d = document.createElement('div');
+                d.style.cssText = 'position:fixed;left:6px;top:6px;z-index:2147483646;font:12px monospace;color:#f88;background:rgba(0,0,0,.6);padding:3px 7px;';
+                d.textContent = 'introLevel: scene NOT registered in the intro game';
+                document.body.appendChild(d);
+            }
+        }
         if (!this.registry.get('dialSeen')) {
             this.registry.set('dialSeen', true);
             runOghamDial({
@@ -1384,6 +1424,7 @@ if (wrapper) {
             if (this._moonWidget){this._moonWidget.destroy();this._moonWidget=null;}
             if (this._onComplete) this._onComplete(this.moonPhase, this._frozenAmerginLine);
             const canvas=this.game.canvas;
+            try { this.scene.stop('intro_level'); } catch (e) {}   // [introLevel v4] before its DOM canvases are orphaned
             this.game.destroy(true); canvas.remove();
             const gc=document.getElementById('gameContainer');
             if (gc) gc.style.display='none';
@@ -1521,7 +1562,7 @@ if (wrapper) {
             mg.gain.setValueAtTime(0.45,chordAt); mg.gain.exponentialRampToValueAtTime(0.001,chordAt+6.0);
             const del=ac.createDelay(0.8); del.delayTime.value=0.32;
             const dg=ac.createGain(); dg.gain.value=0.18; mg.connect(del); del.connect(dg); dg.connect(mg);
-            [[1,0],[1.5,1],[2,2],[2.381,3],[3,4],[4,5]].forEach(([ratio,i])=>{
+            (DREAD_SOUND&&this._isDread()?DREAD_CHORD:CALM_CHORD).forEach(([ratio,i])=>{   // [dread]
                 const freq=root*ratio, s=chordAt+i*0.07, g=ac.createGain(); g.connect(mg);
                 const o1=ac.createOscillator(); o1.type='triangle'; o1.frequency.value=freq; o1.connect(g);
                 const o2=ac.createOscillator(); o2.type='sine'; o2.frequency.value=freq;
@@ -1533,8 +1574,53 @@ if (wrapper) {
         } catch(e){console.warn('[audio] playCompletionChord:',e);}
     }
 
+    // [dread] Which palette to draw with. `c` defaults to the constellation being played.
+    _pal(c) {
+        c = c || this.constellations?.[this.currentIndex];
+        return (DREAD_LINES && c && c.id === DREAD_ID) ? PAL_DREAD : PAL_CALM;
+    }
+    _isDread() { return this.constellations?.[this.currentIndex]?.id === DREAD_ID; }
+
+    /* [dread] The connection tone for Cúirt Fhomhóir. Not a bell but a cluster: the
+       root, a semitone above it (the two beat against each other, a rough,
+       wavering interference), and a tritone above that, with the same cold
+       inharmonic partial the ordinary chime has. A slow tremolo and a pitch that
+       sinks as it decays. Each join starts a semitone lower than the one before,
+       counted from how many connections are already made, so the six of them
+       creep downward together. The tremolo sits on a stage BEFORE the envelope
+       so it can never leak past the decay as a hum. */
+    _playDreadChime() {
+        const ac=this.audioContext; if (!ac||!this._sfxGain) return;
+        try {
+            if (ac.state==='suspended') ac.resume();
+            const c=this.constellations[this.currentIndex];
+            const k=c?c.connections.filter(cn=>cn.completed).length:0;
+            const f=this._getSfxRoot(this.currentIndex||0)*DREAD_CHIME_OCT*Math.pow(2,-k*DREAD_STEP_SEMITONES/12);
+            const now=ac.currentTime, end=now+DREAD_CHIME_S;
+            const droop=Math.pow(2,-DREAD_DROOP_CENTS/1200);
+            const env=ac.createGain(); env.connect(this._sfxGain);
+            env.gain.setValueAtTime(0,now);
+            env.gain.linearRampToValueAtTime(0.42,now+0.012);
+            env.gain.exponentialRampToValueAtTime(0.001,end);
+            const trem=ac.createGain(); trem.gain.value=0.7; trem.connect(env);
+            const lfo=ac.createOscillator(), lfoG=ac.createGain();
+            lfo.frequency.value=DREAD_TREMOLO_HZ; lfoG.gain.value=0.3;
+            lfo.connect(lfoG); lfoG.connect(trem.gain);
+            lfo.start(now); lfo.stop(end+0.05);
+            [[1,0.55],[Math.pow(2,1/12),0.30],[Math.SQRT2,0.40],[2.756,0.10]].forEach(([ratio,level])=>{
+                const o=ac.createOscillator(), g=ac.createGain();
+                o.type='sine';
+                o.frequency.setValueAtTime(f*ratio,now);
+                o.frequency.exponentialRampToValueAtTime(f*ratio*droop,end);
+                g.gain.value=level; o.connect(g); g.connect(trem);
+                o.start(now); o.stop(end+0.05);
+            });
+        } catch(e){console.warn('[audio] _playDreadChime:',e);}
+    }
+
     _playConnectionChime() {
         const ac=this.audioContext; if (!ac||!this._sfxGain) return;
+        if (DREAD_SOUND && this._isDread()) { this._playDreadChime(); return; }   // [dread]
         try {
             if (ac.state==='suspended') ac.resume();
             const root=this._getSfxRoot(this.currentIndex||0);
@@ -1555,7 +1641,7 @@ if (wrapper) {
         this._bgWheelsPaused=paused;
     }
 
-    spawnRipple(wx,wy){this.ripples.push({wx,wy,startTime:this.time.now});}
+    spawnRipple(wx,wy){this.ripples.push({wx,wy,startTime:this.time.now,pal:this._pal()});}
 
     drawScene() {
         this.worldG.clear();
@@ -1575,8 +1661,9 @@ if (wrapper) {
                     const ease=t<0.7?1:1-((t-0.7)/0.3)**2;
                     alpha=0.12+ease*0.80; width=0.7+ease*1.8;
                 }
-                this.worldG.lineStyle(width*3,0x99ccff,alpha*0.18); this.worldG.lineBetween(a.wx,a.wy,b.wx,b.wy);
-                this.worldG.lineStyle(width,0xddeeff,alpha);         this.worldG.lineBetween(a.wx,a.wy,b.wx,b.wy);
+                const pal=this._pal(c);   // [dread]
+                this.worldG.lineStyle(width*3,pal.glow,alpha*0.18); this.worldG.lineBetween(a.wx,a.wy,b.wx,b.wy);
+                this.worldG.lineStyle(width,pal.core,alpha);         this.worldG.lineBetween(a.wx,a.wy,b.wx,b.wy);
             }
             for (const star of c.stars) {
                 if (star.completed)  {this.worldG.fillStyle(0x8899aa,0.15);this.worldG.fillCircle(star.wx,star.wy,1.2);}
@@ -1589,8 +1676,9 @@ if (wrapper) {
         this.ripples=this.ripples.filter(rp=>{
             const t=(now-rp.startTime)/RIPPLE_MS; if(t>=1)return false;
             const ease=1-(1-t)**2, r=RIPPLE_MAX_R*ease, alpha=RIPPLE_ALPHA*(1-t);
-            this.rippleG.lineStyle(4,0x99ddff,alpha*0.28); this.rippleG.strokeCircle(rp.wx,rp.wy,r*1.18);
-            this.rippleG.lineStyle(1.5,0xddeeff,alpha);    this.rippleG.strokeCircle(rp.wx,rp.wy,r);
+            const rpal=rp.pal||PAL_CALM;   // [dread]
+            this.rippleG.lineStyle(4,rpal.ripple,alpha*0.28); this.rippleG.strokeCircle(rp.wx,rp.wy,r*1.18);
+            this.rippleG.lineStyle(1.5,rpal.ripple2,alpha);    this.rippleG.strokeCircle(rp.wx,rp.wy,r);
             return true;
         });
 
@@ -1602,11 +1690,12 @@ if (wrapper) {
                 smooth.push({x:0.5*(p1.x+p2.x)+0.125*(-p0.x+p1.x-p2.x+p3.x),y:0.5*(p1.y+p2.y)+0.125*(-p0.y+p1.y-p2.y+p3.y)});
                 smooth.push(p2);
             }
+            const tp=this._pal();   // [dread]
             for (let i=1;i<smooth.length;i++) {
                 const t=i/(smooth.length-1),t2=t*t,p1=smooth[i-1],p2=smooth[i];
-                if(t2*14>0.3){this.trailG.lineStyle(14*t2,0x99ccff,0.08*t);this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);}
-                if(t2*4>0.3) {this.trailG.lineStyle(4*t2, 0xddeeff,0.35*t);this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);}
-                this.trailG.lineStyle(t,0xffffff,0.9*t); this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);
+                if(t2*14>0.3){this.trailG.lineStyle(14*t2,tp.trailGlow,0.08*t);this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);}
+                if(t2*4>0.3) {this.trailG.lineStyle(4*t2, tp.trailMid,0.35*t);this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);}
+                this.trailG.lineStyle(t,tp.trailHead,0.9*t); this.trailG.lineBetween(p1.x,p1.y,p2.x,p2.y);
             }
         }
     }

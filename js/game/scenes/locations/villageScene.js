@@ -187,7 +187,14 @@ export default class VillageScene extends PerspectiveScene {
       const module  = await import(/* @vite-ignore */ `/data/village/${jsKey}.js`)
       const content = module[jsKey + 'Content'] || {}
 
-      this.mapData.objects        = content.objects        || []
+      // [hallEncounter] Keep what the MAP declares (the hall's harp lives in
+      // villageHall.json, not its content file) and add the content's on top.
+      // This used to replace the map's objects outright, which quietly dropped
+      // the harp zone. Copied, not assigned: content.objects is the content
+      // module's own array, shared across visits, and the fixed encounters
+      // pushed below would pile up in it on every re-entry.
+      const ownObjects = (this.mapData.objects || []).filter(o => o.type === 'harp')
+      this.mapData.objects        = [...ownObjects, ...(content.objects || [])]
       this.mapData.npcs           = content.npcs           || []
       this.mapData.introNarrative = content.introNarrative || []
 
@@ -214,7 +221,42 @@ export default class VillageScene extends PerspectiveScene {
   // ── createObjects ─────────────────────────────────────────────────────────
   createObjects() {
     super.createObjects()
+    this._registerFixedEncounters()
     this._registerHarpZones()
+  }
+
+  // [hallEncounter] BaseLocationScene.createObjects() makes every object a bare
+  // zone: id, type, text, position. BogScene overrides it to give
+  // fixed_encounter zones what an encounter needs, and VillageScene never had
+  // that override, so a fixed_encounter loaded by _loadContent() (Mór, in the
+  // hall) became a zone with a one-tile reach, no dialogue and no sprite:
+  // nobody in the room, and nothing to talk to. These are the same fields
+  // BogScene sets, minus its walking-encounter support, which no village
+  // encounter uses. The _pendingFlags record is what PGR draws the figure from
+  // (PerspectiveScene hands it to setEncounterFlags once the renderer exists).
+  _registerFixedEncounters() {
+    const encounters = (this.mapData.objects || []).filter(o => o.type === 'fixed_encounter')
+    if (!encounters.length) return
+    this._pendingFlags = this._pendingFlags || []
+    for (const obj of encounters) {
+      const zone = (this.interactables || []).find(z =>
+        z.getData('id') === obj.id && z.getData('type') === 'fixed_encounter')
+      if (!zone) continue
+      const visual = obj.visual || { gid: 255, flat: false }
+      zone.setData('flagVisual', visual)
+      zone.setData('visual',     obj.visual || {})
+      zone.setData('actions',    obj.actions   || [])
+      zone.setData('dialogues',  obj.dialogues || [])
+      if (obj.portrait) {
+        zone.setData('portrait', obj.portrait)
+        // Warm the portrait now: the loader is async and returns null until it
+        // completes, so one first requested at conversation time is always
+        // absent for the first card.
+        this._encounterPanel?._resolvePortraitKey?.(obj.portrait)
+      }
+      if (obj.radius) zone.setData('radius', obj.radius * this.tileSize)
+      this._pendingFlags.push({ tileX: obj.x, tileY: obj.y, visual })
+    }
   }
 
   // ── createNPCs — drawn onto PGR canvas ────────────────────────────────────

@@ -30,7 +30,7 @@
 
   <style>
     html {
-      background: #070b0a;  /* NIGHT.baseCss */
+      background: #040409;  /* NIGHT.baseCss */
     }
 
     body {
@@ -46,7 +46,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: #070b0a;  /* NIGHT.baseCss */
+      background: #040409;  /* NIGHT.baseCss */
       
       pointer-events: none;
     }
@@ -166,7 +166,7 @@
         lastTime = now;
 
         // Background
-        ctx.fillStyle = '#070b0a';   // NIGHT.baseCss
+        ctx.fillStyle = '#040409';   // NIGHT.baseCss
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Nebula
@@ -175,7 +175,7 @@
           ctx.translate(hubX, hubY);
           ctx.rotate(-now * 0.00002);
           // Same string as NIGHT.nebulaFilter — both nebulae, one colour.
-          ctx.filter = 'hue-rotate(-95deg) saturate(0.35) brightness(1.0)';
+          ctx.filter = 'hue-rotate(20deg) saturate(0.85) brightness(0.95)';
           ctx.globalAlpha = 0.4 + (Math.sin(now * 0.0005) * 0.1);
 
           const scale = 2.2;

@@ -60,19 +60,19 @@ export const constellationTexts = {
     carr: {
         waiting: [
             {
-                ga: 'Ach ceanglaíonn an Carr Mór é faoin bhfarraige.',
-                en: 'But the Great Chariot binds Him under the ocean.',
+                ga: 'Nach ceanglaíonn an Carr Mór é faoin bhfarraige?',
+                en: 'Does the Great Chariot not bind Him under the ocean?',
                 speaker: 'queen',
             },
         ],
         completion: [
             {
-                ga: 'Is mar sin a dhíbir an Dagda é,',
-                en: 'Thus did Dagda banish Tethra,',
+                ga: 'Thuigeas gur mar sin a dhíbir an Dagda é,',
+                en: 'So I understood did Dagda banished Tethra,',
                 speaker: 'queen',
             },
             {
-                ga: 'Fadó fadó in Éirinn.',
+                ga: 'Fadó fadó in Éireann',
                 en: 'Long long ago in Ireland.',
                 speaker: 'queen',
             },
@@ -90,13 +90,13 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Tá a láimh fhuar ag síneadh trí na réalta,',
-                en: 'His cold hand reaches through the stars,',
+                ga: 'Tá láimh fhuar ag síneadh trí na réalta,',
+                en: 'A cold hand reaches through the stars,',
                 speaker: 'druid',
             },
             {
-                ga: 'Is thit ufás orm ag faire na spéire',
-                en: 'And terror has seized me at my watching',
+                ga: 'Tagann ufás orm ag faire na spéire',
+                en: 'And terror seizes me at my watching',
                 speaker: 'druid',
             },
         ],
@@ -110,26 +110,57 @@ export const constellationTexts = {
                 en: 'Frightened druid!',
                 speaker: 'queen',
             },
+
             {
-                ga: 'An amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
-                en: 'Would you have me lay the Red Branch at the feet of an enemy?',
+                ga: 'Is mairg don spéir a éiríonn',
+                en: 'Woe to the sky that rises',
                 speaker: 'queen',
             },
-        ],
-        completion: [
-       {
-                ga: 'Dána an slua, mór do thaoisigh',
-                en: 'Brave the host, great thy chieftains',
-                speaker: 'druid',
-            },
-
-
             {
-                ga: 'Ach tagann Tethra chun an ghéag is dána a fhuiliú, is gach moladh a mhúchadh.',
-                en: 'But the dragon of the dark comes to bleed the boldest arm, and silence all praise.',
-                speaker: 'druid',
+                ga: 'in aghaidh mo ghaiscígh sciathghela!',
+                en: 'against my shield-bright warriors!',
+                speaker: 'queen',
             },
-        ],
+                      {
+                ga: 'a gcroíthe saor ó eagla',
+                en: 'their hearts untouched by fear',
+                speaker: 'queen',
+            },
+            {
+                ga: 'Ní chasfaidh neamh iad',
+                en: 'The heavens will not turn them',
+                speaker: 'queen',
+            },
+
+
+
+	],
+        completion: [
+   
+
+
+
+			{
+        ga: 'Gabh do chlaíomh geal in aghaidh Thethra, mar sin',
+        en: 'Take up your bright sword against Tethra',
+        speaker: 'druid',
+    },	{
+        ga: 'Ach caoin anois do ghaiscígh sciathghela',
+        en: 'But mourn now for your bright-shielded champions',
+        speaker: 'druid',
+    },
+     {
+        ga: 'Déan caoineadh ar do shluatha cróga',
+        en: 'Mourn your valiant hosts',
+        speaker: 'druid',
+    },
+    {
+        ga: 'Sin a thaispeánann na réalta fuaire dom',
+        en: 'Such is what the cold stars show me',
+        speaker: 'druid',
+    },
+     //  
+]
     },
 
     // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────

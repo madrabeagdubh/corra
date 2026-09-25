@@ -101,6 +101,46 @@ export const SPECIES = {
 
 const SPECIES_KEYS = Object.keys(SPECIES)
 
+/* MEADOW_SPECIES -- dry-to-damp upland grassland flowers, for a hilltop rather than a bog.
+   Deliberately NOT part of SPECIES: species are picked by cumulative weight, so adding to
+   that object would re-roll the mix on every map in the game. These are opt-in, by passing
+   `species: [...]` to Vegetation (see introLevel.js). Same fields as SPECIES above. */
+export const MEADOW_SPECIES = {
+  mearacan: {           // harebell -- dry hilltops, thin nodding blue bells
+    name: 'Harebell', irish: 'Méaracán gorm',
+    form: 'bells', h: 0.40, stiffness: 0.5, amplitude: 2.2, lag: 0.30,
+    wet: 0.40, tol: 0.26, weight: 1.0,
+    palette: ['#8FB6E8', '#5B82C4', '#3B5A34', '#243B22'],
+  },
+  noinin: {             // ox-eye daisy -- meadow, white ray florets round a gold disc
+    name: 'Ox-eye daisy', irish: 'Nóinín mór',
+    form: 'umbel', h: 0.52, stiffness: 1.0, amplitude: 1.4, lag: 0.10,
+    wet: 0.50, tol: 0.28, weight: 1.1,
+    palette: ['#FAFAF0', '#E8D98A', '#3A5433', '#243B22'],
+  },
+  minscoth: {           // common knapweed -- rough grassland, hard purple head
+    name: 'Knapweed', irish: 'Mínscoth',
+    form: 'spike', h: 0.56, stiffness: 1.2, amplitude: 1.2, lag: 0.08,
+    wet: 0.46, tol: 0.26, weight: 0.85,
+    palette: ['#B0569E', '#7C3670', '#41573A', '#27381F'],
+  },
+  crobhein: {           // bird's-foot trefoil -- low, spreading, egg-and-bacon yellow
+    name: "Bird's-foot trefoil", irish: 'Crobh éin',
+    form: 'tuft', h: 0.26, stiffness: 1.4, amplitude: 0.9, lag: 0.04,
+    wet: 0.42, tol: 0.30, weight: 1.0,
+    palette: ['#F3C84D', '#E08A2A', '#3E5A32', '#26401F'],
+  },
+  odhrach: {            // devil's-bit scabious -- damp upland, violet pincushion
+    name: "Devil's-bit scabious", irish: 'Odhrach bhallach',
+    form: 'umbel', h: 0.58, stiffness: 0.9, amplitude: 1.6, lag: 0.14,
+    wet: 0.58, tol: 0.26, weight: 0.9,
+    palette: ['#9A8AD8', '#6A5AAE', '#3A5433', '#243B22'],
+  },
+}
+
+// Every species this module can draw. The DEFAULT key list stays SPECIES only.
+const ALL_SPECIES = { ...SPECIES, ...MEADOW_SPECIES }
+
 /* ── deterministic hashing ─────────────────────────────────────────────── */
 
 function hash2(x, y, salt = 0) {
@@ -228,6 +268,43 @@ export const VEGETATION_DEFAULTS = {
   // Plant height as a fraction of a tile, before per-species h.
   heightTiles: 0.9,
 
+  // How many INDEPENDENT chances a tile gets to grow something. The roll below
+  // is per-tile, so 1 (the default, and every map built before this existed)
+  // means a tile holds at most one plant however high `density` goes -- that
+  // ceiling, not density, is what stops a meadow reading as full. Each extra
+  // pass re-rolls position, species and variant from its own seed offset, and
+  // pass 0 is bit-for-bit what a perTile:1 map already drew, so raising this
+  // only ever ADDS plants to a map that asks for it.
+  perTile: 1,
+
+  // Which species may grow here, as keys. Defaults to the original SPECIES set, so a map
+  // that says nothing gets exactly what it always got. Pass a list (keys from SPECIES and/or
+  // MEADOW_SPECIES) to choose a different flora for one map.
+  species: null,
+
+  // false bakes ONE sway phase instead of PHASES and skips the wind lookup entirely: a still
+  // night. Costs a twelfth of the sprite memory, which buys variants and extra species back.
+  wind: true,
+
+  // Silhouette variants baked per species. More = less obvious repetition, at bake cost.
+  variants: VARIANTS,
+
+  // Per-plant size scatter, +/- this fraction. Real meadows are not one size; without it a
+  // dense field reads as wallpaper however many species are in it.
+  scaleJitter: 0,
+
+  // Optional fadeAt(x, top, bottom, halfWidth) -> 0..1, in screen px: an alpha multiplier for a
+  // plant about to be drawn with that footprint. 0 skips it outright. Lets a scene keep plants
+  // out of part of the screen -- the intro clears them from behind the moon -- without the
+  // module knowing anything about why. null (the default) costs nothing.
+  fadeAt: null,
+
+  // Optional: a height (tiles) by which plants have thinned out and shrunk away. On a map with
+  // real hills, flowers climbing the slopes at full size and density read wrong -- the meadow
+  // belongs to the low ground. Below it, density and size ease down with height; at it, none.
+  // null (the default) leaves every other map as it is.
+  heightFade: null,
+
   // Sway. swayScale multiplies every species amplitude at BAKE time, so
   // changing it rebuilds the sprites. swayRate is how fast the cycle
   // advances. Both default low -- a field of plants all moving reads as
@@ -251,16 +328,24 @@ export class Vegetation {
     this.pgr = opts.pgr || scene.perspectiveGround || scene.pgr || null
     this.cfg = { ...VEGETATION_DEFAULTS, ...opts }
 
+    // Resolved once: which species, how many variants, how many sway phases.
+    this._keys = this.cfg.species ?? SPECIES_KEYS
+    const missing = this._keys.filter(k => !ALL_SPECIES[k])
+    if (missing.length) console.warn('[Vegetation] unknown species ignored:', missing)
+    this._keys = this._keys.filter(k => ALL_SPECIES[k])
+    this._phases = this.cfg.wind === false ? 1 : PHASES
+    this._variants = Math.max(1, this.cfg.variants | 0)
+
     // sprites[speciesIndex][variant][phase]
-    this.sprites = SPECIES_KEYS.map(k =>
-      Array.from({ length: VARIANTS }, (_, v) =>
-        Array.from({ length: PHASES }, (_, p) =>
-          bakeSprite(SPECIES[k], v, p, this.cfg.swayScale))))
+    this.sprites = this._keys.map(k =>
+      Array.from({ length: this._variants }, (_, v) =>
+        Array.from({ length: this._phases }, (_, p) =>
+          bakeSprite(ALL_SPECIES[k], v, p, this.cfg.wind === false ? 0 : this.cfg.swayScale))))
 
     // Cumulative weights for species selection.
     this._cum = []
     let acc = 0
-    for (const k of SPECIES_KEYS) { acc += SPECIES[k].weight; this._cum.push(acc) }
+    for (const k of this._keys) { acc += ALL_SPECIES[k].weight; this._cum.push(acc) }
     this._total = acc
   }
 
@@ -306,10 +391,14 @@ export class Vegetation {
     const prevAlpha = ctx.globalAlpha
 
     for (let col = c0; col <= c1; col++) {
+     // Each pass is an independent chance for this tile. Pass 0 uses the seed offsets
+     // exactly as they were before perTile existed, so a perTile:1 map is unchanged.
+     for (let k = 0; k < c.perTile; k++) {
+      const ks = k * 977          // 0 for the first pass: the original stream, untouched
       // Coarse clump, then per-tile roll.
-      const clump = hash2(Math.floor(col / c.clumpScale), Math.floor(tileRow / c.clumpScale), c.seed)
+      const clump = hash2(Math.floor(col / c.clumpScale), Math.floor(tileRow / c.clumpScale), c.seed + ks)
       const localDensity = c.density * (clump < c.clumpBias ? 0.25 : 1.6)
-      const roll = hash2(col, tileRow, c.seed + 1)
+      const roll = hash2(col, tileRow, c.seed + 1 + ks)
       if (roll > localDensity) continue
 
       if (c.isWater && c.isWater(col, tileRow)) continue
@@ -317,18 +406,26 @@ export class Vegetation {
       const wet = this._wetness(pgr, col, tileRow)
 
       // Pick a species whose habitat matches this ground.
-      const pick = hash2(col, tileRow, c.seed + 2) * this._total
+      const pick = hash2(col, tileRow, c.seed + 2 + ks) * this._total
       let si = 0
       while (si < this._cum.length - 1 && pick > this._cum[si]) si++
-      const key = SPECIES_KEYS[si]
-      const sp = SPECIES[key]
+      const key = this._keys[si]
+      const sp = ALL_SPECIES[key]
       if (Math.abs(wet - sp.wet) > sp.tol) continue
 
-      const variant = Math.floor(hash2(col, tileRow, c.seed + 3) * VARIANTS)
+      // Lowland bias: fewer plants the higher the ground, and smaller (see heightFade).
+      let lowland = 1
+      if (c.heightFade) {
+        const gh = pgr._vertexH?.(col, tileRow) ?? 0
+        lowland = Math.max(0, Math.min(1, 1 - gh / c.heightFade))
+        if (hash2(col, tileRow, c.seed + 8 + ks) > lowland) continue
+      }
+
+      const variant = Math.floor(hash2(col, tileRow, c.seed + 3 + ks) * this._variants)
 
       // Sub-tile jitter so plants do not sit on a lattice.
-      const jx = hash2(col, tileRow, c.seed + 4) - 0.5
-      const jy = hash2(col, tileRow, c.seed + 5) * 0.8 + 0.1
+      const jx = hash2(col, tileRow, c.seed + 4 + ks) - 0.5
+      const jy = hash2(col, tileRow, c.seed + 5 + ks) * 0.8 + 0.1
 
       const worldCol = col + 0.5 + jx * 0.7
       const screenX = pgr._colToScreenX(worldCol, tileRow + jy)
@@ -338,18 +435,29 @@ export class Vegetation {
       const terrainH = pgr._vertexH?.(col, tileRow) ?? 0
       const footY = rowY - terrainH * s
 
-      // Travelling gust: phase depends on WORLD X, so the wave sweeps.
-      const ph = wind.phaseAt(worldCol * 64) * c.swayRate + hash2(col, tileRow, c.seed + 6) * 6.283
-      let pi = Math.floor((ph / (Math.PI * 2)) * PHASES) % PHASES
-      if (pi < 0) pi += PHASES
+      // Travelling gust: phase depends on WORLD X, so the wave sweeps. A still night has one
+      // baked phase, so there is nothing to look up.
+      let pi = 0
+      if (this._phases > 1) {
+        const ph = wind.phaseAt(worldCol * 64) * c.swayRate + hash2(col, tileRow, c.seed + 6 + ks) * 6.283
+        pi = Math.floor((ph / (Math.PI * 2)) * this._phases) % this._phases
+        if (pi < 0) pi += this._phases
+      }
 
       const spr = this.sprites[si][variant][pi]
-      const scale = (s * c.heightTiles) / REF_H
+      // Size scatter, so a full field does not read as one plant stamped over and over.
+      const jitter = c.scaleJitter
+        ? 1 + (hash2(col, tileRow, c.seed + 7 + ks) * 2 - 1) * c.scaleJitter
+        : 1
+      const scale = (s * c.heightTiles * jitter * (c.heightFade ? 0.45 + 0.55 * lowland : 1)) / REF_H
       const w = spr.width * scale
       const h = spr.height * scale
 
-      ctx.globalAlpha = prevAlpha * fade
+      const keep = c.fadeAt ? c.fadeAt(screenX, footY - h, footY, w / 2) : 1
+      if (keep <= 0) continue
+      ctx.globalAlpha = prevAlpha * fade * keep
       ctx.drawImage(spr, screenX - w / 2, footY - h, w, h)
+     }
     }
 
     ctx.globalAlpha = prevAlpha

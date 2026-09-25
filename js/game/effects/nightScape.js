@@ -75,15 +75,18 @@ const HORIZON = 0.75;
    nearForeground sits at z 2.2 rather than 1.5: at s=0.5 nothing it could finish
    at under 26vh was visible during the poem. */
 // [proceduralPlates] Geometry for plates_procedural/*.png (trimmed to their skylines). Previous values: farRidge top:26, midHead top:17, druid foot:11, queen foot:11, nearFg top:23.
-// [introLevel] ?level=1: the land comes from a real level, so no plates and no fullscreen haze.
-const INTRO_LEVEL = (() => { try { return new URLSearchParams(window.location.search).get('level') === '1'; }
-                            catch (e) { return false; } })();
+// [introLevel] The land comes from a real level, so no plates and no fullscreen haze.
+// Used to be gated on ?level=1 while the live ground was still a spike; that's
+// the main version now, so this is just permanently true. The old painted-plate
+// geometry above (ALL_LAYERS) and the code it feeds stay in the file, unused,
+// rather than being torn out in the same pass as this default flip.
+const INTRO_LEVEL = true;
 const ALL_LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
     { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:30 },
     { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:15.5 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12.4, left:'56%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12.4, left:'63%', w:24 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12.4, left:'63%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12.4, left:'53%', w:24 },
     { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:14 },
 ];
 
@@ -365,7 +368,8 @@ export function createNightScape(opts = {}) {
             wrap.appendChild(sway);
         }
 
-        made.push({ wrap, el, lit, sway, endScale: s, maxPanVw: maxPanVwFor(L),
+        el.dataset.introFigure = L.key;     // found by introLevel, to read where they really stand
+        made.push({ key: L.key, wrap, el, lit, sway, endScale: s, maxPanVw: maxPanVwFor(L),
                     wraps: L.top !== undefined, wrapVw: wrapVwFor(L.z) });
     });
 
@@ -500,7 +504,11 @@ export function createNightScape(opts = {}) {
     const inFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
     const fsApi = document.documentElement.requestFullscreen
                || document.documentElement.webkitRequestFullscreen;
-    const toastOn = TOAST_SETTLE && !!fsApi && !inFs() && window.matchMedia
+    // [introLevel] Not in level mode. This lift existed to raise the figures clear of Chrome's
+    // fullscreen pill, then walk them back down over 10s -- but toastFog.js now covers the pill
+    // outright, so all the lift does is make the druid and queen drift down into place while the
+    // player watches. They start where they belong and stay there.
+    const toastOn = TOAST_SETTLE && !INTRO_LEVEL && !!fsApi && !inFs() && window.matchMedia
         && window.matchMedia('(pointer: coarse)').matches;
 
     function toastEnd() { toastAnims.forEach(a => a.cancel()); toastAnims = []; }
@@ -588,6 +596,27 @@ export function createNightScape(opts = {}) {
         document.addEventListener('fullscreenchange', onToastFs);
         document.addEventListener('webkitfullscreenchange', onToastFs);
         document.addEventListener('pointerdown', onToastTouch, true);
+    }
+    // [introLevel] The figures stand ON the ground, so when the level pans its terrain they have
+    // to travel with it, or they look like they are sliding across a field that is moving
+    // underneath them. The level owns the maths -- how many tiles it panned, times the on-screen
+    // scale at the figures' own row -- because nightScape has no access to the renderer. It
+    // pushes the result here each frame; all this does is apply it.
+    if (INTRO_LEVEL) {
+        window.__introFigurePanPx = (px, scale, dy) => {
+            const k  = (Number.isFinite(scale) && scale > 0) ? scale : 1;
+            // dy: set on maps that pin the figures to a ground depth -- how far to move their
+            // feet down (or up) onto the terrain there. 0 elsewhere.
+            const tr = `translate(calc(-50% + ${(px || 0).toFixed(1)}px), ${(dy || 0).toFixed(1)}px) scale(${k.toFixed(4)})`;
+            made.forEach(m => {
+                if (m.key !== 'druid' && m.key !== 'queen') return;
+                // Grow from the feet, not the middle: they are standing on the ground, so that
+                // is the point that must not move.
+                m.el.style.transformOrigin = '50% 100%';
+                m.el.style.transform = tr;
+                if (m.lit) { m.lit.style.transformOrigin = '50% 100%'; m.lit.style.transform = tr; }
+            });
+        };
     }
     // <<< toastSettle v4 (instance)
 

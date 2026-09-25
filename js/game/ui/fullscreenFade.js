@@ -35,7 +35,7 @@ function _fsFadeOverlay() {
     el.id = 'fs-fade-overlay';
     el.style.cssText = [
         'position:fixed;inset:0;z-index:999998;',
-        'background:#070b0a;pointer-events:none;',
+        'background:#040409;pointer-events:none;',
         'opacity:0;transition:opacity 0.25s ease;',
     ].join('');
     document.body.appendChild(el);

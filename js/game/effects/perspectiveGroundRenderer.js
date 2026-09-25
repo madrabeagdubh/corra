@@ -249,6 +249,26 @@ export default class PerspectiveGroundRenderer {
     return c
   }
 
+  // The ground and object canvases used to be sized ONCE, in the constructor. Every frame
+  // after a resize was then drawn for the new screen into a canvas of the old size -- and the
+  // global stylesheet (css/styles.css: canvas { width:100%; height:100% }) stretched that
+  // stale canvas over the new screen. Going fullscreen on a phone (taller, same width) did
+  // both at once: whatever belonged below the old height was cut off, and everything left
+  // was displayed about 15% lower than the renderer had placed it. The intro starts windowed
+  // and then goes fullscreen, so it hit this every time; levels built after fullscreen was
+  // already on never did, which is why it stayed hidden.
+  //
+  // Resetting a canvas's width or height clears it AND resets its context state, so the
+  // pixel-art smoothing flag is set again, and the idle-skip is told to redraw next frame.
+  _resizeCanvases(w, h) {
+    for (const c of [this._groundCanvas, this._objectCanvas]) {
+      if (c && (c.width !== w || c.height !== h)) { c.width = w; c.height = h }
+    }
+    if (this._gCtx) this._gCtx.imageSmoothingEnabled = false
+    if (this._oCtx) this._oCtx.imageSmoothingEnabled = false
+    this._lastCamX = null
+  }
+
   // ── Sky / mountain / light: implementation lives in pgr/pgrSky.js ──
   // Thin delegates kept so scene-facing call sites (pgr.setSkyImage(...)
   // etc.) are untouched by the split.
@@ -672,6 +692,7 @@ _horizonPx() {
       this._boatScreenY = null
       this._hlX = null
       this._hlY = null
+      this._resizeCanvases(_newSw, _newSh)
     }
     this._sw = _newSw
     this._sh = _newSh

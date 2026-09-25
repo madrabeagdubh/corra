@@ -17,6 +17,7 @@ import { createNightScape } from './game/effects/nightScape.js';
 import IntroLevelScene from './game/scenes/locations/bog/introLevel.js';   // [introLevel v4]
 import { createStarField } from './game/effects/starField.js';
 import { requestFullscreenWithFade, resetFullscreenState, isScreenObscured } from './game/ui/fullscreenFade.js';
+import { armToastFog, clearToastFog } from './game/ui/toastFog.js';
 
 
 
@@ -101,7 +102,11 @@ function _unlockAudio() {
 
 var _sceneInitialized = false;
 
-const LEVEL_ON = new URLSearchParams(window.location.search).get('level') === '1';   // [introLevel v4]
+// [introLevel v4] The live-rendered ground is the main version now (was ?level=1,
+// a spike gated behind that param while the procedural pipeline was being proven
+// out against the old painted plates). Permanently on; fps/horizon/dolly stay
+// URL-tunable dev knobs (see IntroLevelScene's constructor), just off by default.
+const LEVEL_ON = true;
 export function initConstellationScene(onComplete, startPhase) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
@@ -320,6 +325,7 @@ export class ConstellationScene extends Phaser.Scene {
            loader starfield at the pull-back, and this scene built wheels of its
            own on top of THAT — three starfields, two of them swapped in front of
            the player. The sky is built once, here, and never replaced. */
+        armToastFog();   // grey fog over Chrome's fullscreen toast -- see toastFog.js
         this._buildSky();
         // [introLevel v4] SPIKE: ?level=1 puts a real level under the sky, in place of the
         // painted plates. Dev-only; see js/game/scenes/locations/bog/introLevel.js.
@@ -556,6 +562,9 @@ export class ConstellationScene extends Phaser.Scene {
         // Position moon at 35vh to start
     
 const wrapper = this._moonWidget.element;
+// The level scene clears the flowers from behind the moon (see introLevel.js _trackMoon), and
+// that scene has no reference to this widget -- so it finds the element by this tag.
+if (wrapper) wrapper.dataset.introMoon = '1';
 if (wrapper) {
     const earlyUnlock = () => {
         requestFullscreenWithFade();
@@ -1069,8 +1078,10 @@ if (wrapper) {
             el.style.cssText = [
                 'position:fixed;left:0;right:0;overflow:hidden;z-index:7;',
                 'pointer-events:none;transform:translateZ(0);',
-                `mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black 100%);`,
-                `-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black 100%);`,
+                // Both edges: lines fade in at the bottom as they fade out at the top. The band
+                // used to fade only its top, so text left softly and arrived with a hard edge.
+                `mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black ${100 - EDGE_FADE_PCT}%, transparent 100%);`,
+                `-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black ${EDGE_FADE_PCT}%, black ${100 - EDGE_FADE_PCT}%, transparent 100%);`,
             ].join('');
             document.body.appendChild(el);
             this._dqBandEl = el;
@@ -1425,6 +1436,7 @@ if (wrapper) {
             if (this._onComplete) this._onComplete(this.moonPhase, this._frozenAmerginLine);
             const canvas=this.game.canvas;
             try { this.scene.stop('intro_level'); } catch (e) {}   // [introLevel v4] before its DOM canvases are orphaned
+            clearToastFog();   // in case fullscreen never happened
             this.game.destroy(true); canvas.remove();
             const gc=document.getElementById('gameContainer');
             if (gc) gc.style.display='none';

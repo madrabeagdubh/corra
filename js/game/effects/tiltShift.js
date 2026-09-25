@@ -75,6 +75,11 @@ export const TILT_SHIFT_DEFAULTS = {
   // sharp zone. Lower = softer, longer transition.
   farHold: 0.45,
   nearHold: 0.40,
+  // Where the far blur band STARTS, as a fraction of screen height (0 = the top, as before).
+  // A scene with a big sky and distant land low down -- the intro -- sets this so the blur
+  // covers the far hills without smearing the stars above them. When non-zero the band fades
+  // in at its top as well, so there is no edge where the blur begins.
+  farTop: 0,
 
   // ── Aerial perspective ────────────────────────────────────────────────────
   hazeAmount: 0.16,
@@ -341,14 +346,17 @@ export class TiltShift {
 
     // ── Far blur ────────────────────────────────────────────────────────────
     if (this.far) {
-      const hPct = farBottom * 100
+      const top  = Math.max(0, Math.min(c.farTop || 0, farBottom))
+      const hPct = (farBottom - top) * 100
       const hold = Math.round(c.farHold * 100)
       // The mask fades the blurred layer out toward the sharp band. Partial
       // opacity over the sharp original reads as a lighter blur, giving a
-      // smooth falloff for free.
-      const mask = `linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${hold}%, rgba(0,0,0,0) 100%)`
+      // smooth falloff for free. With a farTop it also fades IN from its top.
+      const mask = top > 0
+        ? `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 30%, rgba(0,0,0,1) ${Math.max(hold, 40)}%, rgba(0,0,0,0) 100%)`
+        : `linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${hold}%, rgba(0,0,0,0) 100%)`
       this._style(this.far, {
-        top: '0',
+        top: (top * 100) + '%',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.farBlur <= 0) ? 'none' : 'block',
         backdropFilter: `blur(${c.farBlur}px) saturate(${c.saturate ?? 1})`,

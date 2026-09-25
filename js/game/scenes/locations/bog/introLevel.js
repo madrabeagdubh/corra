@@ -10,6 +10,9 @@
 //   &dolly=1                 a slow pull-back over the poem (OFF by default: the druid and
 //                            queen are still an overlay, and would slide over the ground)
 //   &flora=0                 no wildflowers (isolates their cost)
+//   &bloom=1                 how full the meadow is: 0 = the old sparse scatter, 1 = a field
+//                            in flower (default), up to 3 = as much as it will bear. Costs
+//                            frames -- measure with &fps=1.
 //   &lit=1                   no moon dimming: the land at full brightness from the start
 //   &horizon=0.74            where the horizon sits (0.02 - 0.9). LOW = a low camera: more
 //                            sky, the land compressed into the bottom of the screen
@@ -18,13 +21,22 @@
 //   &clip=0.15               how far ABOVE the horizon terrain may rise (fraction of screen
 //                            height from the top); needs the renderer's CLIP_TOP_FRAC flag
 //   &haze=0.6                strength of the depth-haze band at the horizon (0 = none)
+//   &dark=0.42               the moon's dimming of the land (1 = undimmed). Colour knob.
+//   &land=0.5                share of extra fullscreen height given to the land (rest stays
+//                            sky). 1 = all of it, 0 = none. Lower means a lower horizon.
+//   &fit=0                   don't hold the composition steady across a resize (compare the
+//                            old behaviour, where fullscreen grew the figures but not the land)
+//   &rock=0                  how much cliff stone: 0 = none (the default), 1 = as first built,
+//                            2 = sparser. Scoped to this scene; the game's own levels are
+//                            untouched.
+//   &sat=0.78                how much hue survives the night grade (1 = untouched). Colour knob.
 //   &fade=0                  the renderer's own horizon fade, in px (default 60 in the game, 0
 //                            here). See "THE SEE-THROUGH MOUNTAINS" below.
 //   &panTiles=4               how far the ground pans (in tiles) when the intro turns to look at
 //                            another part of the sky. 0 = the ground does not pan at all.
-//   &veil=1                   force the fullscreen grey veil on/off (1/0). Auto-detected by
-//                            default: touch device, Fullscreen API present, not already
-//                            fullscreen. See "THE VEIL" below.
+//   &map=valley              the V-shaped valley prototype: the moon rests in open sky in the
+//                            notch between its walls. Generate it first with
+//                            intro_hilltop_gen.py --shape valley
 //   &map=plates              the earlier mountains-and-hilltop test level instead
 //   &band=far|mid|near       one of that level's single bands
 //
@@ -56,17 +68,9 @@
 //   the two small figure sprites still rise a little (nightScape.js) -- this scene had nothing
 //   to do for the toast any more.
 //
-// THE VEIL (v7 -> v8)
-//   v7 went too far the other way: the grey fade was part of the effect people liked, not just
-//   a bug to remove. v8 brings it back, but as a VEIL rather than a structural lift: a soft grey
-//   overlay across the land (this scene's own element, same colour family as the depth haze, so
-//   it reads as part of the same misty air rather than a disconnected slab), which simply
-//   dissolves once the browser settles into fullscreen (or after a short wait, if the person
-//   never touches the fullscreen prompt). Nothing underneath it moves, so there is nothing for
-//   it to line up WITH -- it only has to fade.
-//   This is entirely self-contained (its own fullscreenchange listener, its own timing), not
-//   coordinated with nightScape's separate, smaller figure-lift, because that cross-file
-//   coordination is exactly what went wrong in v6.
+// THE VEIL (removed)
+//   The veil that used to soften Chrome's fullscreen toast here is gone. That job now
+//   belongs to js/game/ui/toastFog.js, owned by introModal.js.
 //
 // THE RESIZE JUMP (v7 -> v8)
 //   Entering fullscreen changes the canvas's own pixel size (Chrome's toolbars leave), and the
@@ -128,32 +132,96 @@ import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRendere
 import { Vegetation } from '../../../effects/vegetation.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { wind } from '../../../effects/wind.js'
+import { TiltShift } from '../../../effects/tiltShift.js'
 
 const TILE        = 48     // logical px per tile: the generated maps and the renderer both use it
 // Per map: where the camera stands (col, PLAYER row: the renderer looks 14 rows beyond it), how far
 // the optional dolly pulls it back, and the framing that suits the map.
 const MAPS = {
   hilltop: { file: 'intro_hilltop', col: 48.0, row: 100, dollyRows: 5,  horizon: 0.75, across: 6.5, clip: 0.15, haze: 0.6, fade: 0,  panTiles: 4 },
+  // The V-shaped valley (generator --shape valley). Its horizon is measured in PIXELS up from
+  // the bottom, not as a fraction: the moon rests a fixed 120px up (introModal's
+  // MOON_REST_FROM_BOTTOM), so a horizon 112px up sits just under the moon's ring at any
+  // screen height and the moon always has sky behind it. `horizon` is only the first-frame
+  // guess; _groundH() takes over from there. mistBreak: the bank lies low in the notch.
+  valley:  { file: 'intro_valley',  col: 48.0, row: 100, dollyRows: 5,  horizon: 0.837, horizonFromBottom: 112, across: 6.5, clip: 0.15, haze: 0.45, fade: 0, panTiles: 1.5, mistBreak: 0.85, figureDepth: 12,
+             // Heights here run to 20 tiles; shade over that range, and harder than the default,
+             // so each hill has a lit face and a shadowed one rather than one flat colour.
+             relief: { reliefRange: 9, reliefL: 15, slopeGain: 0.7, slopeL: 13 },
+             // Flowers belong to the floor: full size there, fewer and smaller up the slopes,
+             // gone by about this height (tiles).
+             flowerHeight: 5,
+             // Sharp on the figures, the far valley and the nearest flowers softened: the
+             // miniature look. farTop keeps the blur off the stars. No haze of its own -- the
+             // scene's mist does that job. followMax is high because the figures stand low.
+             tiltShift: { focusHeight: 0.10, farTop: 0.55, farBlur: 3, nearBlur: 2.5,
+                          farHold: 0.35, nearHold: 0.5, hazeAmount: 0, vignette: 0.2,
+                          saturate: 1.05, followMin: 0.5, followMax: 0.97 } },
   plates:  { file: 'plates',        col: 24.5, row: 44.5, dollyRows: 12, horizon: 0.10, across: 3.8, clip: null, haze: 0,   fade: 60, panTiles: 0 },
 }
-const HAZE_RGB   = '74,104,112'  // a cool, pale night-haze, chosen in the graded (post-filter) space
-// The veil: how strong at most, how long it holds once fullscreen is confirmed, how long it takes
-// to fade, and how long it waits before giving up on a fullscreen prompt that never resolves.
-const VEIL_MAX_ALPHA  = 0.55
-const VEIL_HOLD_MS    = 2600
-const VEIL_FADE_MS    = 2400
-const VEIL_GIVEUP_MS  = 9000
+// The depth-haze at the horizon, chosen in the graded (post-filter) space. Was '74,104,112', a
+// flat slate grey that sat on the horizon like dirty glass; this is the same value swung toward
+// the scene's green so the far air glows rather than dulls.
+const HAZE_RGB   = '84,96,128'   // blue-slate night air (was a teal, '86,128,124', matched to the old green night)
 // Where the figures' feet stand, as a fraction of the page height (measured from a real screenshot
 // of their resting pose). The pan is sized so the ground AT THIS HEIGHT moves with them.
 const FOLLOW      = 0.1    // the camera eases toward its target like the game's own follow does
-const DARK        = 0.30   // the moon's dimming at a new moon: the same number nightScape uses
+// Where the figures' feet sit, up from the bottom of the screen. MUST match nightScape's
+// LAYERS entries for druid and queen (foot: 12.4) -- it is their geometry, read from here only
+// so the ground row under their feet can be found.
+const FIGURE_FOOT_VH = 12.4
+// Roughly where across the screen they stand (nightScape: druid left 56%, queen 63%) -- used
+// only to look up the terrain height under them when a map pins them to a depth.
+const FIGURE_X_FRAC = 0.595
+// The clearing around the moon (see _moonFade). CLEAR_RING is its hard edge as a multiple of the
+// moon widget's radius -- 1 is the widget's own outer edge, so nothing pokes out from under it;
+// CLEAR_SOFT is how far beyond that the flowers take to come back, as a fraction of the ring.
+const CLEAR_RING = 1.0
+const CLEAR_SOFT = 0.6
+// How far down the mountain range the mist's clear upper edge lies, as a share of the range's
+// own height on screen (high peaks to lowest skyline). 0 = level with the peaks (they vanish
+// into it), 1 = level with the lowest point (almost everything stands clear). Half: the upper
+// half of the range breaks through a bank lying over its lower half.
+const MIST_BREAK = 0.5
+// The moon's dimming at a new moon. Was 0.30, which darkened a grade that had already darkened
+// the land: the two multiplied out to a net gain of about R 0.09 / G 0.13 / B 0.19, so grass,
+// rock and earth all landed within a few levels of each other and the land read as one flat
+// blue-grey slab. Override live with ?dark=0.5 while tuning.
+const DARK        = 0.42
 const GRADED      = ['pgr-ground', 'steep-face-overlay', 'pgr-objects']
-// The moonlit grade, as on the plates scene (tuned on a real capture of this level).
-const NIGHT       = { sat: 0.55, slope: [0.30, 0.42, 0.62], lift: [0.010, 0.020, 0.055] }
+// The GROUND's night grade is a tone curve, not a straight multiply. A multiply shifts every
+// tone the same way, so shadow, mid-tone and highlight all went teal together and the land
+// read as one flat colour. Moonlit grass does not look like that: shadows fall to violet and
+// indigo, mid-tones to blue-slate, and only lit surfaces keep a silvery sage green. So after a
+// strong desaturation (the colour now comes from the curve, by brightness, not from the
+// texture), each channel gets its own curve: red and blue held UP in the darks (violet), green
+// held down there and rising fastest through the lights (sage). Values are before the moon's
+// dimming. The flowers keep NIGHT's gentler grade below, so they stay colourful on it.
+const GROUND_SAT  = 0.5    // keeps more of the grass's own green going into the curve (was 0.35)
+const GROUND_TONE = {
+  // Upper curve: less red and blue, so lit grass turns moonlit green rather than lavender;
+  // lower curve keeps its blue, so shadows stay indigo and the relief keeps its depth.
+  r: [0.07, 0.15, 0.26, 0.42, 0.54, 0.64],
+  g: [0.03, 0.12, 0.34, 0.62, 0.78, 0.88],
+  b: [0.17, 0.35, 0.50, 0.60, 0.66, 0.72],
+}
+const GROUND_LAYERS = ['pgr-ground', 'steep-face-overlay']
+// The brightest the moon may make the land (1 = undimmed, daylight). See __introLevelBrightness.
+const FULL_MOON_LAND = 0.7
+// The moonlit grade. Night should drain colour, not all of it: at sat 0.55 with a steep blue
+// bias the land had no hue left to be mystical WITH. Green now leads (it is the colour of the
+// nebula, the ogham strokes and the stars, so the land belongs to the same night), blue still
+// trails it for moonlight, and the small lift keeps the shadows as air rather than holes.
+// Override live with ?sat=0.9.
+const NIGHT       = { sat: 0.78, slope: [0.34, 0.52, 0.66], lift: [0.012, 0.030, 0.062] }
 
 export default class IntroLevelScene extends Phaser.Scene {
   // Read by SteepFaceRenderer through scene.constructor: stone only on slopes steeper than
   // 70% of this (0.84), so the mountains' upper faces are rock and the hilltop stays grass.
+  // This is a static on THIS scene, and the renderer reads it per-scene, so changing it here
+  // cannot affect the game's own levels (they use PerspectiveScene's 0.6, or the 0.6 fallback).
+  // ?rock= rewrites it live: the number is the threshold multiplier, so ?rock=2 needs twice the
+  // steepness before stone shows (much less rock), and ?rock=0 skips the stone pass entirely.
   static CLIMB_MAX_STEP = 1.2
 
   constructor() {
@@ -163,11 +231,21 @@ export default class IntroLevelScene extends Phaser.Scene {
     this._fpsOn   = q.get('fps') === '1'
     this._dolly   = q.get('dolly') === '1'
     this._flora   = q.get('flora') !== '0'
+    // How full the meadow is. 0 = the sparse original scatter; 1 = a field in flower (the
+    // default); up to 3 = as much as the renderer will bear. See _floraOpts().
+    this._bloom   = Math.max(0, Math.min(3, num('bloom', 2)))
+    // How much stone: 1 = as first built, higher = less rock, 0 = none at all. Defaults to 0:
+    // the cliff-stone texture belongs on real cliff faces, and on this hill's rolling ridges it
+    // just read as noise. ?rock=1 puts it back, ?rock=2 is a sparser version of it.
+    this._rock    = Math.max(0, Math.min(8, num('rock', 0)))
+    IntroLevelScene.CLIMB_MAX_STEP = 1.2 * (this._rock || 1)
     this._night   = q.has('night') ? Math.max(0, Math.min(1, num('night', 1))) : 1
     // Which map: the hilltop by default; ?map=plates (or any ?band=) picks the earlier test level.
     const band    = q.get('band')
     const bandOk  = ['far', 'mid', 'near'].includes(band)
-    this._mapKey  = (q.get('map') === 'plates' || bandOk) ? 'plates' : 'hilltop'
+    // The valley is the intro now; ?map=hilltop brings back the hill, ?map=plates the old test.
+    this._mapKey  = (q.get('map') === 'plates' || bandOk) ? 'plates'
+                  : (q.get('map') === 'hilltop') ? 'hilltop' : 'valley'
     const cfg     = MAPS[this._mapKey]
     this._cfg     = cfg
     this._mapUrl  = `/maps/bogMaps/${bandOk ? 'plates_' + band : cfg.file}.json`
@@ -178,10 +256,20 @@ export default class IntroLevelScene extends Phaser.Scene {
     this._fade    = Math.max(0, Math.min(200, num('fade', cfg.fade)))
     this._panTiles = Math.max(0, Math.min(20, num('panTiles', cfg.panTiles)))
     this._panFraction = 0     // -1..1, from nightScape.setPan(): how far the world has turned
-    this._veilForce = q.has('veil') ? q.get('veil') === '1' : null   // null = auto-detect
     this._lastSw = null; this._lastSh = null   // last frame's canvas size, to catch a resize
+    // Hold the composition steady when the viewport changes shape -- see _fitAcross(). ?fit=0
+    // to compare against the old behaviour.
+    this._fit     = q.get('fit') !== '0'
+    // Share of the extra fullscreen height given to the land (the rest stays sky). 1 put the
+    // horizon so high that the moon sat among the tall near flowers; half is the settled value.
+    this._landShare = Math.max(0, Math.min(1, num('land', 0.5)))
+    this._baseSw  = null; this._baseSh = null  // the shape the composition was framed at
+    this._acrossEff = null; this._horizonEff = null
     this._u       = 0                                          // the poem's progress, 0..1
-    this._brightness = q.get('lit') === '1' ? 1 : DARK
+    // Colour knobs, for tuning the night on a real screen instead of by argument: ?dark= is the
+    // overall moon dimming, ?sat= how much hue survives the grade. ?lit=1 still bypasses both.
+    this._brightness = q.get('lit') === '1' ? 1 : Math.max(0, Math.min(1, num('dark', DARK)))
+    this._sat     = Math.max(0, Math.min(2, num('sat', NIGHT.sat)))
     this._preExisting = null
   }
 
@@ -234,23 +322,36 @@ export default class IntroLevelScene extends Phaser.Scene {
 
     this.perspectiveGround = new PerspectiveGroundRenderer(this)
     this.perspectiveGround.setBuildings([])
-    if (this._flora) {
-      this.vegetation = new Vegetation(this, {
-        pgr: this.perspectiveGround, density: 0.34, clumpBias: 0.55, minScale: 22, heightTiles: 0.9,
-      })
+    // Tilt-shift, the same DOM overlays the game's levels use. Made here, before the lift above
+    // the stars (_raiseAboveStars), so its pgr-ts-* layers are lifted with the terrain.
+    // ?tilt=0 turns it off.
+    if (this._cfg.tiltShift && new URLSearchParams(location.search).get('tilt') !== '0') {
+      this.tiltShift = new TiltShift(this, { pgr: this.perspectiveGround, ...this._cfg.tiltShift })
     }
-    this.steepFaces = new SteepFaceRenderer(this)     // made BEFORE the grade looks for layers
+    // Relief shading sized to this map's hills (see tintManager.getGroundTint).
+    if (this._cfg.relief && this.perspectiveGround.tintManager) {
+      Object.assign(this.perspectiveGround.tintManager, this._cfg.relief)
+    }
+    if (this._flora) {
+      this.vegetation = new Vegetation(this, { pgr: this.perspectiveGround, ...this._floraOpts() })
+    }
+    // ?rock=0 means no stone at all, so the renderer is never built (nothing to grade or update).
+    this.steepFaces = this._rock ? new SteepFaceRenderer(this) : null   // made BEFORE the grade looks for layers
 
     this._applyNight()
     this._raiseAboveStars()
     this._addHaze()                                   // after the lift: it sets its own z-index
-    this._addVeil()                                    // after the haze: it sits just above it
     this._applyBrightness()
 
     // The intro's own clock drives this scene, through two hooks nightScape calls: the poem's
     // progress, and the moon's brightness.
     window.__introLevelProgress   = (u) => { this._u = Math.max(0, Math.min(1, u)) }
-    window.__introLevelBrightness = (b) => { this._brightness = b; this._applyBrightness() }
+    // The moon brightens the land as it fills -- but only so far. nightScape sends up to 1.0 at
+    // full moon, which is daylight: the grade's whole output, undimmed, and the valley washed out
+    // to a pale lavender. Capped, the full moon still visibly lights the land and it stays night.
+    window.__introLevelBrightness = (b) => {
+      this._brightness = Math.min(b, FULL_MOON_LAND); this._applyBrightness()
+    }
     // The pan fraction (-1..1) from nightScape.setPan(): the figures stay put, and the ground
     // does all the turning (see the header). Clamp defensively; NaN must never reach the camera.
     window.__introLevelPan        = (f) => { this._panFraction = Number.isFinite(f) ? Math.max(-1, Math.min(1, f)) : 0 }
@@ -283,6 +384,7 @@ export default class IntroLevelScene extends Phaser.Scene {
       // easing toward the new target would show as a jump partway through. Snap to it instead.
       const resized = this._lastSw !== null && (sw !== this._lastSw || sh !== this._lastSh)
       this._lastSw = sw; this._lastSh = sh
+      this._fitAcross(sw, sh)
       const u  = this._dolly ? this._u : 0
       const tx = this._cfg.col * TILE - sw / 2
       const ty = (this._cfg.row + u * this._cfg.dollyRows) * TILE - sh / 2
@@ -291,12 +393,197 @@ export default class IntroLevelScene extends Phaser.Scene {
       // The pan is NOT eased: the figures it must match move on the intro's own tween, and any lag
       // here would show as the ground trailing behind the people standing on it.
       cam.scrollX = this._baseX + this._panCols() * TILE
+      this._panFigures(sh)
+      this._trackMoon()
       this.perspectiveGround.update()
+      // The tilt-shift focuses on the player; the intro has none, so it is handed the figures'
+      // measured centre instead (from _panFigures). The renderer clears playerScreenY at the
+      // start of its own update when there is no player, so setting it here -- after that, just
+      // before the tilt-shift reads it -- touches nothing else.
+      if (this.tiltShift && this._figCentreY != null) {
+        this.perspectiveGround.playerScreenY = this._figCentreY
+        this.tiltShift.update(this.perspectiveGround)
+      }
+      this._drawFog(sw, sh)
       if (this._fpsTick) this._fpsTick()
     } catch (e) {
       console.error('[introLevel] failed; stopping the level so the intro carries on:', e)
       this._fail(e)
     }
+  }
+
+  // Hold the composition together when the viewport changes shape (entering fullscreen is the
+  // one that matters: on a phone it adds height and no width).
+  //
+  // THE PROBLEM. This picture is drawn in two coordinate systems that only agree at the shape
+  // it was framed in. Height-proportional: _horizonPx() = sh * horizonFrac, so the horizon,
+  // groundH and every row's screen Y; the haze band (fractions of height); and the druid and
+  // queen, who are sized and placed in vh by nightScape. Width-proportional: pixels per tile
+  // is sw * zoom / TILES_ACROSS, and with it every sprite's size, the terrain's elevation
+  // (drawn as height * scale) and how far back flora is worth drawing. Add 15% of height and
+  // the figures grow 15% and the land band stretches 15% taller, while the hills stay exactly
+  // as tall in pixels and the flowers stay exactly as big. Hence all of it at once: the
+  // figures sitting oddly, the flowers covering less, and the hills no longer poking through a
+  // haze band that just moved and grew.
+  //
+  // THE FIX. Put the ground on the same footing as everything else by making pixels per tile
+  // track the land band's height rather than the screen's width. TILES_ACROSS is the only
+  // lever needed: pxPerTile = sw / across, so holding pxPerTile / groundH constant means
+  //     across = across0 * (sw / sw0) * (sh0 / sh)
+  // (the horizon fraction is constant, so it cancels out of groundH). Fullscreen then
+  // magnifies the land to match the figures, instead of leaving it behind.
+  //
+  // The baseline is simply the first frame's shape -- for the intro that is the windowed
+  // viewport, which is what `across` was tuned against in the first place.
+  // THE FIX, part two. The horizon is a FRACTION of height (0.75), so the land is always the
+  // bottom quarter and extra fullscreen height is split in that same proportion -- three
+  // quarters of it to sky, which is the part nobody was asking for more of. Measured on the
+  // same device: fullscreen gave the land +60px and the sky +180px. Holding the SKY's pixel
+  // height instead and giving the whole gain to the land is +240px of ground and no change
+  // above the horizon: a 46% deeper field of flowers rather than 12%. The haze band is keyed
+  // to the horizon, so it moves with it and keeps sitting on the skyline.
+  _fitAcross(sw, sh) {
+    if (!this._fit || !sw || !sh) return
+    if (this._baseSw === null) { this._baseSw = sw; this._baseSh = sh }
+
+    // Sky keeps most of its pixel height; _landShare of the gain goes to the land.
+    const hz = Math.max(0.02, Math.min(0.9, 1 - this._groundH(sh) / sh))
+    if (hz !== this._horizonEff) {
+      this._horizonEff = hz
+      PerspectiveGroundRenderer.HORIZON_Y_FRAC = hz
+    }
+
+    const across = Math.max(0.8, Math.min(12,
+      this._across * (sw / this._baseSw) * (this._groundH(this._baseSh) / this._groundH(sh))))
+    if (across === this._acrossEff) return
+    this._acrossEff = across
+    // No invalidation needed: the renderer reads this static and redraws every frame.
+    PerspectiveGroundRenderer.TILES_ACROSS = across
+  }
+
+  // The land band in px: everything below the horizon. THE invariant for this scene -- terrain
+  // relief (height * scale) has to stay in proportion to the band the rows are spread across,
+  // or the hills sink relative to the horizon. Tying scale to screen height instead was my
+  // earlier mistake: the band grew 61% (all the extra fullscreen height went to land) while
+  // pixels-per-tile grew 15%, so the skyline dropped BELOW the horizon line and the haze,
+  // which is centred on the horizon, ended up hanging in open sky above the mountains.
+  _groundH(sh) {
+    // A map that pins its horizon in px from the bottom (the valley) keeps that land band at
+    // every screen height: the moon it is built around is pinned the same way.
+    const hfb = this._cfg?.horizonFromBottom
+    if (hfb) return Math.max(1, Math.min(sh * 0.98, hfb))
+    const base = this._baseSh || sh
+    const g0 = base * (1 - this._horizon)
+    // How much of the extra viewport height the LAND takes; the rest stays sky. 1 = all of it
+    // (the horizon climbs hard, which put the moon in among the tall near flowers), 0 = none
+    // (land holds its pixel height). ?land= to tune.
+    const land = Math.max(1, g0 + this._landShare * (sh - base))
+    return Math.min(sh * 0.98, land)
+  }
+
+  // Walk the druid and queen with the ground they stand on. The terrain pans by _panCols()
+  // tiles; on screen that is that many tiles times the scale AT THEIR OWN ROW -- a tile near
+  // the camera covers far more pixels than one at the horizon, so the row matters. Their feet
+  // sit FIGURE_FOOT_VH up from the bottom (nightScape's LAYERS foot: 12.4), which
+  // _screenYToWorldRow turns into the row they are standing on.
+  //
+  // The camera's col rises by panCols, and _colToScreenX subtracts the camera col, so a fixed
+  // point in the world travels LEFT by panCols * scale -- hence the minus.
+  _panFigures(sh) {
+    const fn = window.__introFigurePanPx
+    if (!fn) return
+    const pgr = this.perspectiveGround
+    const footY = sh * (1 - FIGURE_FOOT_VH / 100)
+    // Which ground the figures stand on. By default, whatever lies under their fixed screen
+    // position -- right on the hilltop, where that is about 12 tiles out, consistent with their
+    // size. But a map can pin them to a DEPTH instead (cfg.figureDepth, tiles from the camera).
+    // The valley needs it: its land band is so foreshortened that their fixed screen position
+    // lands on ground ~38 tiles away, so they panned with distant ground while the near floor
+    // and flowers -- what the eye takes as their ground -- swept past four times faster, and
+    // they looked like they were sliding. Pinned to the depth their size implies, their feet
+    // are set on the actual terrain there each frame, and they move exactly as it does.
+    const D = this._cfg.figureDepth
+    let row, dy = 0
+    if (D) {
+      row = pgr._perspCamRow() - D
+      const s0 = pgr._scaleAtRow(row)
+      const sw = this.game.canvas.width
+      // Their world column: fixed relative to the UNPANNED camera, so they travel with the land.
+      const col = Math.round(this._cfg.col + (FIGURE_X_FRAC * sw - sw / 2) / (s0 || 1))
+      const target = pgr._rowToScreenY(row) - (pgr._vertexH?.(col, Math.round(row)) ?? 0) * s0
+      // nightScape positions them in CSS px; the renderer works in canvas px.
+      const cv = this.game.canvas
+      dy = (target - footY) * ((cv.clientHeight || cv.height) / cv.height)
+    } else {
+      row = pgr._screenYToWorldRow?.(footY)
+    }
+    // Pan with the ground at their ACTUAL feet, read from the page. The row above is where they
+    // are MEANT to stand; measured on a recording, they were really standing on ground about 5
+    // tiles out while panning as if at ~30, so they moved 40% as far as the grass at their feet.
+    // Whatever the sprite's own layout does, the bottom of the druid's element is on screen where
+    // it is, so the ground row there is the one to move with.
+    const druid = this._druidEl?.isConnected ? this._druidEl
+      : (this._druidEl = document.querySelector('[data-intro-figure="druid"]'))
+    if (druid) {
+      const cv = this.game.canvas
+      const r = druid.getBoundingClientRect()
+      const feet = r.bottom * (cv.height / (cv.clientHeight || cv.height))
+      const seen = pgr._screenYToWorldRow?.(feet)
+      if (Number.isFinite(seen)) row = seen
+      this._figCentreY = (r.top + r.bottom) * 0.5 * (cv.height / (cv.clientHeight || cv.height))
+    }
+    const s = pgr._scaleAtRow(Number.isFinite(row) ? row : this._cfg.row + 1)
+    // The figures are sized in vh, so they already grow with the viewport. The land now grows
+    // with the LAND BAND, which is a different (larger) factor -- this is the remainder, so
+    // the two end up the same size relative to each other at any viewport shape.
+    let k = 1
+    if (this._fit && this._baseSh) {
+      k = (this._groundH(sh) / this._groundH(this._baseSh)) / (sh / this._baseSh)
+    }
+    fn(-this._panCols() * (s || 0), k, dy)
+  }
+
+  // The moon rests low, below the horizon, so it is always seen against land -- and with a full
+  // meadow that meant a thicket of stems crossing its edge. This keeps a soft clearing around
+  // it: flowers whose footprint reaches inside the moon's ring are not drawn, and those just
+  // outside it thin out gradually, so it reads as a clearing rather than a moon-shaped hole.
+  //
+  // The moon belongs to the intro scene, not this one, so it is found by the data-intro-moon
+  // tag introModal puts on it, and its circle is re-read every frame: it drifts in and settles,
+  // and the clearing follows it there. One getBoundingClientRect a frame; the test per plant is
+  // a handful of arithmetic.
+  _trackMoon() {
+    if (!this._moonEl || !this._moonEl.isConnected) {
+      this._moonEl = document.querySelector('[data-intro-moon]')
+    }
+    const el = this._moonEl
+    if (!el) { this._moonClear = null; return }
+    const r = el.getBoundingClientRect()
+    if (!r.width) { this._moonClear = null; return }
+    // Canvas px per CSS px: the renderer draws in the game canvas's own units.
+    const cv = this.game.canvas
+    const k = cv.width / (cv.clientWidth || window.innerWidth || cv.width)
+    this._moonClear = {
+      x: (r.left + r.width / 2) * k,
+      y: (r.top + r.height / 2) * k,
+      r: (Math.min(r.width, r.height) / 2) * k,
+    }
+  }
+
+  // Alpha for a plant with this screen footprint: 0 inside the moon's ring, easing to 1 over
+  // CLEAR_SOFT of its radius outside it. Distance is measured from the moon's centre to the
+  // NEAREST point of the plant, so a tall stem is caught by its head, not just its foot.
+  _moonFade(x, top, bottom, hw) {
+    const m = this._moonClear
+    if (!m) return 1
+    const nx = Math.max(x - hw, Math.min(m.x, x + hw))
+    const ny = Math.max(top, Math.min(m.y, bottom))
+    const d = Math.hypot(nx - m.x, ny - m.y)
+    const inner = m.r * CLEAR_RING, outer = inner * (1 + CLEAR_SOFT)
+    if (d <= inner) return 0
+    if (d >= outer) return 1
+    const t = (d - inner) / (outer - inner)
+    return t * t * (3 - 2 * t)
   }
 
   // The pan, in tiles: the fraction nightScape reports, scaled by this map's own panTiles.
@@ -324,6 +611,7 @@ export default class IntroLevelScene extends Phaser.Scene {
     delete window.__introLevelBrightness
     delete window.__introLevelPan
     if (this.steepFaces) { try { this.steepFaces.destroy() } catch (_) {} this.steepFaces = null }
+    if (this.tiltShift) { try { this.tiltShift.destroy() } catch (_) {} this.tiltShift = null }
     if (!keepReadout) { this._fpsEl?.remove(); this._fpsEl = null }
     this._fpsTick = null
     document.querySelectorAll('[id^="pgr-"], #steep-face-overlay').forEach(el => {
@@ -331,12 +619,11 @@ export default class IntroLevelScene extends Phaser.Scene {
     })
     if (this._nightSvg) { this._nightSvg.remove(); this._nightSvg = null }
     this._hazeEl = null
-    if (this._veilAnim) { try { this._veilAnim.cancel() } catch (_) {} this._veilAnim = null }
-    if (this._veilTimer) { clearTimeout(this._veilTimer); this._veilTimer = null }
-    document.removeEventListener('fullscreenchange', this._onVeilFs)
-    document.removeEventListener('webkitfullscreenchange', this._onVeilFs)
-    this._veilEl = null
     PerspectiveGroundRenderer.CLIP_TOP_FRAC = null    // never leak the flags into the game's own levels
+    // _fitAcross() rewrites these per resize; put the map's own values back rather than
+    // leaving whatever this viewport happened to need.
+    PerspectiveGroundRenderer.TILES_ACROSS = this._across
+    PerspectiveGroundRenderer.HORIZON_Y_FRAC = this._horizon
     PerspectiveGroundRenderer.HORIZON_FADE_PX = 60
   }
 
@@ -349,48 +636,13 @@ export default class IntroLevelScene extends Phaser.Scene {
     })
   }
 
-  // A soft grey veil over the land, dissolving once fullscreen is confirmed (or given up on).
-  // Self-contained: its own detection, its own timing, no coordination with nightScape's much
-  // smaller figure-lift (see the header for why that coordination was the wrong idea in v6).
-  _addVeil() {
-    const inFs  = () => !!(document.fullscreenElement || document.webkitFullscreenElement)
-    const auto  = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)
-      && !inFs() && window.matchMedia && window.matchMedia('(pointer: coarse)').matches
-    const on = this._veilForce !== null ? this._veilForce : auto
-    if (!on) return
-    const el = document.createElement('div')
-    el.id = 'pgr-intro-veil'
-    const hz = this._horizon * 100
-    el.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:24;' +
-      `opacity:${VEIL_MAX_ALPHA};` +
-      `background:linear-gradient(to bottom,rgba(${HAZE_RGB},0) ${Math.max(0, hz - 6)}%,rgba(${HAZE_RGB},1) ${hz}%);`
-    document.body.appendChild(el)
-    this._veilEl = el
-    this._onVeilFs = () => { if (inFs()) this._settleVeil() }
-    document.addEventListener('fullscreenchange', this._onVeilFs)
-    document.addEventListener('webkitfullscreenchange', this._onVeilFs)
-    this._veilTimer = setTimeout(() => this._settleVeil(), VEIL_GIVEUP_MS)
-  }
-
-  _settleVeil() {
-    if (!this._veilEl || this._veilAnim) return
-    clearTimeout(this._veilTimer); this._veilTimer = null
-    document.removeEventListener('fullscreenchange', this._onVeilFs)
-    document.removeEventListener('webkitfullscreenchange', this._onVeilFs)
-    const el = this._veilEl
-    this._veilAnim = el.animate(
-      [{ opacity: VEIL_MAX_ALPHA, offset: 0 }, { opacity: VEIL_MAX_ALPHA, offset: VEIL_HOLD_MS / (VEIL_HOLD_MS + VEIL_FADE_MS) }, { opacity: 0, offset: 1 }],
-      { duration: VEIL_HOLD_MS + VEIL_FADE_MS, easing: 'cubic-bezier(.37,0,.63,1)', fill: 'both' })
-    this._veilAnim.onfinish = () => { el.style.opacity = '0'; el.remove(); if (this._veilEl === el) this._veilEl = null }
-  }
-
   // The moonlit grade: an SVG filter on the WORLD layers (saturation down, per-channel gain,
   // a small blue lift in the shadows). `night` (0..1) blends from "no change" to the full grade.
   _applyNight() {
     const t = this._night
     if (!t) return
     const lerp  = (v) => 1 + (v - 1) * t
-    const sat   = lerp(NIGHT.sat)
+    const sat   = lerp(this._sat)
     const slope = NIGHT.slope.map(lerp)
     const lift  = NIGHT.lift.map(v => v * t)
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -403,37 +655,171 @@ export default class IntroLevelScene extends Phaser.Scene {
       `<feFuncR type="linear" slope="${slope[0].toFixed(4)}" intercept="${lift[0].toFixed(4)}"/>` +
       `<feFuncG type="linear" slope="${slope[1].toFixed(4)}" intercept="${lift[1].toFixed(4)}"/>` +
       `<feFuncB type="linear" slope="${slope[2].toFixed(4)}" intercept="${lift[2].toFixed(4)}"/>` +
+      `</feComponentTransfer></filter>` +
+      // The ground's own grade (see GROUND_TONE). Blended toward "no change" by t, like the rest.
+      `<filter id="plates-night-ground" color-interpolation-filters="sRGB">` +
+      `<feColorMatrix type="saturate" values="${lerp(GROUND_SAT).toFixed(4)}"/>` +
+      `<feComponentTransfer>` +
+      ['r', 'g', 'b'].map(ch => {
+        const tab = GROUND_TONE[ch], n = tab.length - 1
+        const vals = tab.map((v, i) => (i / n + (v - i / n) * t).toFixed(4)).join(' ')
+        return `<feFunc${ch.toUpperCase()} type="table" tableValues="${vals}"/>`
+      }).join('') +
       `</feComponentTransfer></filter>`
     document.body.appendChild(svg)
     this._nightSvg = svg          // held, so cleanup never depends on finding it again
   }
 
-  // Depth haze, standing in for fog: a soft band centred on the horizon, strongest there and
-  // fading up into the sky and down the land. Rows map monotonically to screen height, so
-  // "near the horizon" is "far away" and this reads as atmosphere. id starts with pgr-, so
-  // _cleanup removes it with the rest; it dims with the moon like the land does.
+  // THE MIST. Replaces the old horizon-keyed haze band, which is gone.
+  //
+  // Why the old one never sat right: it was a full-width band centred on the HORIZON LINE. Since
+  // the valley and the lowered horizon, the mountains no longer reach that line -- their crest
+  // sits below it -- so the band hung in open sky above them. The attempts to re-anchor it
+  // measured how far terrain rose ABOVE the horizon, which here is never; the measurement came
+  // back zero and the band quietly fell back to the horizon line every time.
+  //
+  // This one never refers to the horizon. It finds the actual ridge line -- for every few pixels
+  // across the screen, the highest point any terrain reaches -- and lays the mist along that
+  // contour: a thin fade above the crest, densest just below it, thinning down over the far
+  // slopes. So it follows the real peaks and passes, at any viewport shape, any seed, and as
+  // the ground pans. Its depth is a share of the land band, so it scales with the terrain.
+  //
+  // Redrawn only when something that moves the ridge changes (viewport, camera, pan, fit);
+  // on a still frame it costs nothing. ?haze= is its density, 0 turns it off.
   _addHaze() {
     if (!this._haze) return
-    const hz  = this._horizon
-    const top = Math.max(0, hz - 0.10) * 100, mid = hz * 100, bot = Math.min(100, (hz + 0.22) * 100)
-    const el = document.createElement('div')
-    el.id = 'pgr-intro-haze'
-    el.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:23;' +
-      `background:linear-gradient(to bottom,rgba(${HAZE_RGB},0) ${top}%,rgba(${HAZE_RGB},${this._haze}) ${mid}%,rgba(${HAZE_RGB},0) ${bot}%);`
-    document.body.appendChild(el)
-    this._hazeEl = el
+    const cv = document.createElement('canvas')
+    cv.id = 'pgr-intro-fog'
+    cv.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:23;'
+    document.body.appendChild(cv)
+    this._hazeEl = cv          // the name _applyBrightness() and _cleanup() already know
+    this._fogKey = null
+  }
+
+  _drawFog(sw, sh) {
+    const cv = this._hazeEl
+    if (!cv || !this._haze || !this.mapData) return
+    const P = PerspectiveGroundRenderer, cam = this.cameras.main
+    const key = `${sw}x${sh}|${cam.scrollX.toFixed(1)}|${cam.scrollY.toFixed(1)}|${P.TILES_ACROSS}|${P.HORIZON_Y_FRAC}`
+    if (key === this._fogKey) return
+    this._fogKey = key
+    if (cv.width !== sw || cv.height !== sh) { cv.width = sw; cv.height = sh }
+    const ctx = cv.getContext('2d')
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, sw, sh)
+
+    // 1. The ridge: per BIN-wide column of screen, the smallest y any terrain reaches.
+    const pgr = this.perspectiveGround
+    const BIN = 6, nb = Math.ceil(sw / BIN) + 1
+    const crest = new Float32Array(nb).fill(Infinity)
+    const W = this.mapData.width
+    // Exactly the rows the renderer draws, no more: it stops at camRow - FL*8. Searching the
+    // whole map found peaks that exist in the data but are never rendered, and put the mist's
+    // top edge above the ridge you can actually see.
+    const camRow = pgr._perspCamRow()
+    const r0 = Math.max(0, Math.floor(camRow - P.FOCAL_LENGTH * 8))
+    for (let r = r0; r < camRow; r++) {
+      const y0 = pgr._rowToScreenY?.(r)
+      if (y0 == null) continue
+      const s = pgr._scaleAtRow(r)
+      for (let c = 0; c <= W; c++) {
+        const x = pgr._colToScreenX(c, r)
+        if (!(x > -BIN && x < sw + BIN)) continue
+        const y = y0 - (pgr._vertexH?.(c, r) ?? 0) * s
+        const b = Math.round(x / BIN)
+        if (b >= 0 && b < nb && y < crest[b]) crest[b] = y
+      }
+    }
+    // Columns nothing landed in (the map's own edges) borrow their nearest neighbour.
+    let last = Infinity
+    for (let i = 0; i < nb; i++) { if (crest[i] < Infinity) last = crest[i]; else crest[i] = last }
+    last = Infinity
+    for (let i = nb - 1; i >= 0; i--) { if (crest[i] < Infinity) last = crest[i]; else crest[i] = last }
+    if (!(crest[0] < Infinity)) return
+    // Soften the line so the mist does not step with every tile edge.
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < nb - 1; i++) crest[i] = (crest[i - 1] + crest[i] * 2 + crest[i + 1]) / 4
+    }
+    // 2. The mist is FLAT. The ridge is only used to decide how high the bank lies: it hangs
+    //    low across the whole view and the peaks break through it, rather than tracing their
+    //    outline (the first version draped it along the contour, which read as a halo on every
+    //    mountain). Percentiles, not the extremes, so one odd spike or the valley's notch does
+    //    not drag the bank up or down.
+    const ys = Array.from(crest).sort((a, b) => a - b)
+    const pick = f => ys[Math.min(ys.length - 1, Math.max(0, Math.floor(f * (ys.length - 1))))]
+    const peak = pick(0.10)          // the high peaks (smaller y is higher on screen)
+    const base = pick(0.90)          // where the skyline sits lowest
+    this._fogCrestTop = ys[0]
+    const g = this._groundH(sh)
+    const brk = this._cfg?.mistBreak ?? MIST_BREAK
+    const yClear = peak + (base - peak) * brk          // above this, nothing: peaks stand clear
+    const yDense = base + 0.04 * g                     // thickest just under the lowest skyline
+    const yGone  = base + 0.45 * g                     // thinned out over the far slopes by here
+    if (!(yGone > yClear)) return
+    const grad = ctx.createLinearGradient(0, yClear, 0, yGone)
+    grad.addColorStop(0, `rgba(${HAZE_RGB},0)`)
+    grad.addColorStop(Math.min(0.95, Math.max(0.05, (yDense - yClear) / (yGone - yClear))),
+                      `rgba(${HAZE_RGB},${this._haze})`)
+    grad.addColorStop(1, `rgba(${HAZE_RGB},0)`)
+    ctx.fillStyle = grad
+    ctx.fillRect(0, yClear, sw, yGone - yClear)
   }
 
   // The night grade, then the moon's dimming on top. Only reference the grade's filter if it
   // exists: a url() to nothing can void the whole filter list.
   _applyBrightness() {
-    const grade = this._night ? 'url(#plates-night) ' : ''
-    const f = `${grade}brightness(${this._brightness.toFixed(3)})`
+    const b = `brightness(${this._brightness.toFixed(3)})`
     for (const id of GRADED) {
       const el = document.getElementById(id)
-      if (el) el.style.filter = f
+      if (!el) continue
+      const grade = !this._night ? ''
+        : GROUND_LAYERS.includes(id) ? 'url(#plates-night-ground) ' : 'url(#plates-night) '
+      el.style.filter = grade + b
     }
     if (this._hazeEl) this._hazeEl.style.filter = `brightness(${this._brightness.toFixed(3)})`
+  }
+
+  // The hilltop's flora. ?bloom=0 is the original sparse scatter; the default is a field in
+  // flower, and higher goes further. Three things held the old scatter back, and all three
+  // have to give at once or it stays thin:
+  //   1. a tile could hold at most ONE plant, whatever the density -- hence perTile.
+  //   2. minScale 22 stopped plants well before the horizon, so the far field was bare grass.
+  //   3. the habitat filter rejected any species whose `wet` missed the ground's wetness. The
+  //      crown reads ~0.5 (flat ground, so height matches its neighbours), which happens to
+  //      suit the flowering meadow species, and to exclude gorse, bog cotton and iris.
+  //
+  // Density alone made it repetitive rather than rich: four admitted species times three
+  // silhouettes is not much to look at twelve deep. So the count is deliberately lower than
+  // it could be, and the difference is spent on VARIETY instead -- the five upland meadow
+  // flowers from MEADOW_SPECIES on top of the original seven, more baked silhouettes, and a
+  // per-plant size scatter. It is a still night (wind: false), which bakes one sway phase
+  // instead of twelve: that alone pays for the extra species and variants several times over.
+  _floraOpts() {
+    const b = this._bloom
+    if (!b) return { density: 0.34, clumpBias: 0.55, minScale: 22, heightTiles: 0.9 }
+    return {
+      density: 1.0,               // with clumpBias low, effectively every tile rolls
+      clumpBias: 0.12,            // few sparse blocks: clearings, not gaps
+      perTile: Math.max(1, Math.round(b)),
+      minScale: Math.max(9, 22 - 5 * b),    // flowers keep going toward the horizon
+      fadeScale: Math.max(20, 46 - 10 * b),
+      heightTiles: 0.95,
+      wind: false,                // a still night -- and one baked phase instead of twelve
+      // A soft clearing around the moon, so its edge is not crossed by stems. See _moonFade().
+      fadeAt: (x, top, bottom, hw) => this._moonFade(x, top, bottom, hw),
+      heightFade: this._cfg.flowerHeight ?? null,
+      variants: 6,                // twice the silhouettes; affordable now the phases are gone
+      scaleJitter: 0.35,          // no two plants quite the same height
+      // The bog's own flora plus the upland meadow flowers. The crown's wetness admits most
+      // of the meadow set and only the drier half of the bog set, which is the intent: a
+      // hilltop in flower, with gorse and ragwort where the ground dries out.
+      species: ['aiteann', 'ceannbhan', 'feileastram', 'creachtach', 'airgead', 'buachalan',
+                'lusmor', 'mearacan', 'noinin', 'minscoth', 'crobhein', 'odhrach'],
+      // A gentle meadow-damp field: two incommensurate waves so patches of one flower give
+      // way to another, never a grid and never uniform.
+      wetnessAt: (col, row) =>
+        0.5 + 0.10 * Math.sin(col / 9.3 + row / 14.7) + 0.06 * Math.sin(col / 3.7 - row / 5.1),
+    }
   }
 
   // The readout. Made on demand, so it can exist from preload; an error stays on screen.
@@ -459,9 +845,32 @@ export default class IntroLevelScene extends Phaser.Scene {
         this._status(
           `level  ${Math.round(frames * 1000 / acc)} fps  worst ${worst.toFixed(0)} ms\n` +
           `${this._mapKey} | ready in ${this._readyMs} ms | ` +
-          `${this._dolly ? 'dolly' : 'still'} | ${this._flora ? 'flora' : 'no flora'}`)
+          `${this._dolly ? 'dolly' : 'still'} | ${this._flora ? 'flora' : 'no flora'}\n` +
+          this._geomLine())
         frames = 0; acc = 0; worst = 0
       }
     }
+  }
+
+  // Where the horizon, the skyline and the haze band actually are, in screen px. The haze is
+  // placed relative to the HORIZON, but what it needs to sit on is the SKYLINE -- the top of
+  // the mountains, which is the horizon plus however many pixels the tallest terrain rises
+  // above it, and that rise is a different function of the viewport. Comparing these numbers
+  // windowed against fullscreen says whether the band needs re-keying to the skyline.
+  _geomLine() {
+    try {
+      const pgr = this.perspectiveGround
+      const sh  = this.game.canvas.height
+      const hzF = this._horizonEff ?? this._horizon
+      const hzPx = Math.round(sh * hzF)
+      // Signed: negative means the ridge sits BELOW the horizon line -- the case that fooled
+      // the old haze band, which only ever looked for terrain rising above it.
+      const peak = Number.isFinite(this._fogCrestTop) ? hzPx - this._fogCrestTop : NaN
+      const across = this._acrossEff ?? this._across
+      const k = (this._fit && this._baseSh)
+        ? (this._groundH(sh) / this._groundH(this._baseSh)) / (sh / this._baseSh) : 1
+      return `sh ${sh} hz ${hzPx} (${hzF.toFixed(3)}) skyline ${peak >= 0 ? '+' : ''}${Math.round(peak)}px\n` +
+             `land ${Math.round(this._groundH(sh))} across ${across.toFixed(2)} fig x${k.toFixed(2)}`
+    } catch (e) { return 'geom: n/a' }
   }
 }

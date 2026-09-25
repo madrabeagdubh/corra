@@ -19,12 +19,12 @@
 
 export const NIGHT = {
     // Deepest background. Matches #ogd-root in introOghamDial.js.
-    baseCss : '#070b0a',
+    baseCss : '#040409',
 
     // Stars: a bone-green white rather than pure white, so they sit in the same
     // air as the ogham strokes (#8fb3a2) instead of on top of them.
-    starHex : 0xdfe9df,
-    starCss : '223, 233, 223',
+    starHex : 0xe1e4f2,
+    starCss : '225, 228, 242',
 
     /* n1-top@3x.png is strongly blue-dominant — sampled around R5 G20 B40 — and
        ADD blending makes that the purple the whole scene was swimming in. A
@@ -32,17 +32,25 @@ export const NIGHT = {
        green where the art has none. Instead the image is redrawn once through a
        Canvas2D filter, which CAN rotate the hue, and the loader in index.html
        uses the identical filter so both nebulae are the same colour. */
-    nebulaFilter : 'hue-rotate(-95deg) saturate(0.35) brightness(1.0)',
-    nebulaAlpha  : 0.68,   // raised from 0.5 for a richer intro backdrop
+    /* saturate was 0.35, which left the green it had just rotated into as a flat
+       grey-green wash -- the sky's share of the scene's murk. At 0.62 the nebula
+       has colour to be mystical with, and the small brightness lift keeps its
+       bright cores glowing rather than sitting flush against the base. If this
+       changes, change index.html's copy of the same string too. */
+    /* The nebula is natively a deep blue (hue ~222, with crimson wisps); -95deg had turned it
+       green. +20deg carries it on to indigo-violet and keeps the crimson in the deep clouds:
+       richer and stranger than the green was. */
+    nebulaFilter : 'hue-rotate(20deg) saturate(0.85) brightness(0.95)',
+    nebulaAlpha  : 0.55,   // 0.5 -> 0.68 for a richer backdrop, then 0.74 with the above
 
     /* Procedural fallback, used when the nebula image is missing. Same greens,
        reached directly rather than by filter. */
     nebulaBlobs : [
-        { x:0.35, y:0.38, r:0.38, c1:0x3e7a5c, c2:0x123024 },
-        { x:0.65, y:0.28, r:0.32, c1:0x2f6b52, c2:0x0e2a20 },
-        { x:0.50, y:0.65, r:0.40, c1:0x2a6e58, c2:0x0a2a22 },
-        { x:0.22, y:0.68, r:0.30, c1:0x1f5a48, c2:0x0a2018 },
-        { x:0.78, y:0.58, r:0.34, c1:0x356b4e, c2:0x102a1e },
+        { x:0.35, y:0.38, r:0.38, c1:0x4a4a9a, c2:0x14123a },
+        { x:0.65, y:0.28, r:0.32, c1:0x3c3c86, c2:0x100e30 },
+        { x:0.50, y:0.65, r:0.40, c1:0x5a3470, c2:0x160c28 },
+        { x:0.22, y:0.68, r:0.30, c1:0x2e3474, c2:0x0c0e26 },
+        { x:0.78, y:0.58, r:0.34, c1:0x44388a, c2:0x120e30 },
     ],
 };
 

@@ -26,7 +26,7 @@
 //   initConstellationScene(onComplete, phase);
 
 const STYLE = `
-  #ogd-root{margin:0;height:100%;background:#070b0a;overflow:hidden;
+  #ogd-root{margin:0;height:100%;background:#040409;overflow:hidden;
     font-family:ui-serif,Georgia,serif;color:#cfe0d8;
     -webkit-user-select:none;user-select:none;touch-action:none}
   #ogd-root .layer{position:fixed;inset:0;pointer-events:none;background-repeat:no-repeat}
@@ -161,7 +161,7 @@ export function runOghamDial(opts = {}) {
     root.style.cssText = 'position:fixed;inset:0;z-index:60;overflow:hidden;' +
       'font-family:ui-serif,Georgia,serif;color:#cfe0d8;' +
       '-webkit-user-select:none;user-select:none;touch-action:none;' +
-      (opts.showThrough ? 'background:transparent' : 'background:#070b0a');
+      (opts.showThrough ? 'background:transparent' : 'background:#040409');
     root.innerHTML = MARKUP;
     parent.appendChild(root);
 
@@ -245,7 +245,8 @@ export function runOghamDial(opts = {}) {
    { ga: '\u200B', en: '\u200B' },
    { ga: 'A Ghealach',                          en: 'O Moon' },
    
-
+  { ga: ' ',                          en: ' ' },
+   
   { ga: 'Tríd oícheanta fada',   en: 'Through long nights' },
   { ga: 'Tá comharthaí na spéire', en: 'The signs of the sky' },
   { ga: 'cuardaithe agam', en: 'I have searched' },
@@ -1506,15 +1507,24 @@ export function runOghamDial(opts = {}) {
            An ASSETS.sky image overrides both, and would need its own alpha. */
         const SKY_SOLID='linear-gradient(#0d1a18 0%,#16292400 38%,#1d322c 62%,#0b1412 100%),radial-gradient(ellipse at 50% 64%,#2a423a,#0a1211 72%)';
         // Bottom only. The top band used to be 92% opaque and is now the sky.
-        const SKY_HAZE ='linear-gradient(rgba(13,26,24,0) 0%,rgba(22,41,36,0) 58%,rgba(11,20,18,.88) 100%)';
+        /* HAZE used to bank darkness at the bottom -- 88% opaque at the edge, in the old green.
+           Over the live scene that was the thing hiding the land and its flowers until the
+           hand-off faded it; the land now has its own grade, mist and toast fog, so the dial
+           leaves it alone and the flowers appear as the fog clears. */
+        const SKY_HAZE ='none';
         $('sky').style.background=ASSETS.sky?`url(${ASSETS.sky}) 50%/cover no-repeat`
           :(opts.showThrough?SKY_HAZE:SKY_SOLID);
         /* The vignette's clear centre sits at 64% for the standalone dial, which
            frames the ring nicely and crushes the top of the frame. With a real
            sky behind us the centre lifts and the edges soften. */
         if(opts.showThrough){
+          /* The vignette still frames the ring and the text against the stars, but is masked
+             off below the horizon so it cannot darken the land, and is the new indigo-black
+             rather than the old green-black. */
           $('grade').style.background=
-            'radial-gradient(ellipse at 50% 46%,rgba(26,44,40,0) 46%,rgba(4,8,7,.78) 100%)';
+            'radial-gradient(ellipse at 50% 46%,rgba(4,4,9,0) 46%,rgba(4,4,9,.78) 100%)';
+          $('grade').style.webkitMaskImage=$('grade').style.maskImage=
+            'linear-gradient(to bottom,#000 0%,#000 70%,transparent 84%)';
           /* Stars are at infinity and cannot be out of focus. The bottom band
              stays — the near foreground has a real claim to defocus — but this
              one was softening the one thing in frame that must stay sharp, and
@@ -1522,6 +1532,10 @@ export function runOghamDial(opts = {}) {
              do it. */
           const topBand=$('tilt').querySelector('.top');
           if(topBand) topBand.style.display='none';
+          /* ...and the bottom band too, now: the level has its own tilt-shift, focused on the
+             figures, so this one only doubled the blur and greyed the flowers. */
+          const botBand=$('tilt').querySelector('.bot');
+          if(botBand) botBand.style.display='none';
         }
         /* showThrough means the caller has already put real land behind us.
            Our placeholder headland and stick figures would sit on top of it —

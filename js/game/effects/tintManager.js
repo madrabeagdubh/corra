@@ -268,10 +268,13 @@ export class TintManager {
     // Rescale to [-1, 1] relative to a mid-point of HEIGHT_AMP * 0.4
     // so moderately hilly maps still show contrast.
     const avgH    = (h00 + h10 + h01 + h11) * 0.25
-    const heightT = Math.max(-1, Math.min(1, avgH / 0.4))
+    // reliefRange / slopeGain / reliefL / slopeL can be set per scene (see introLevel's
+    // cfg.relief). The defaults suit the game's gentle maps; on a map with hills many tiles high
+    // they saturate on every hill, and all the relief shading comes out as one flat colour.
+    const heightT = Math.max(-1, Math.min(1, avgH / (this.reliefRange ?? 0.4)))
     // +heightT → lighter, warmer (hilltop in sun)
     // -heightT → darker, cooler (valley in shadow)
-    const heightL = heightT * 9    // ±9 lightness — hilltops brighter, valleys darker
+    const heightL = heightT * (this.reliefL ?? 9)    // ±9 lightness by default — hilltops brighter, valleys darker
     // Hilltops: shift toward yellow-green (hue down toward 105°)
     // Valleys:  shift toward blue-purple  (hue up toward 210°)
     const heightH = heightT * -12  // positive height → hue down (warmer green); negative → hue up (blue)
@@ -280,8 +283,8 @@ export class TintManager {
     const slopeX  = ((h10 + h11) - (h00 + h01)) * 0.5
     const slopeY  = ((h01 + h11) - (h00 + h10)) * 0.5
     const dot     = slopeX * LIGHT_X + slopeY * LIGHT_Y
-    const slopeT  = Math.max(-1, Math.min(1, dot * 4))
-    const slopeL  = slopeT * 8
+    const slopeT  = Math.max(-1, Math.min(1, dot * (this.slopeGain ?? 4)))
+    const slopeL  = slopeT * (this.slopeL ?? 8)
     // NW-lit slopes: shift toward bright yellow-green (hue −8°)
     // SE-shadow slopes: shift toward blue-purple (hue +18°)
     const slopeH  = slopeT > 0 ? slopeT * -8 : slopeT * -18

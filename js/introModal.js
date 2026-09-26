@@ -188,7 +188,41 @@ const CONSTELLATION_DATA = [
     ]},
 ];
 
-const SPIRAL_A = 550, SPIRAL_B = 0.9, SPIRAL_STEP = 1.45;
+const SPIRAL_A = 550, SPIRAL_B = 0.9, SPIRAL_STEP = 1.45;   // the old spiral layout (unused)
+// [skyChoreo] THE SKY, AUTHORED. Where each constellation sits, in constellation-sizes from
+// the sky's centre (x right, y down; one size = the `usable` span in buildConstellations,
+// about two thirds of the screen's width on a phone, a third of its height). Anywhere is fine
+// as long as no two are closer than SKY_MIN_GAP -- checked at start-up, with a warning.
+const SKY_LAYOUT = {
+    cu:         [ 0.0,  0.0],   // the hound: straight ahead, where the poem left us
+    naomhog:    [ 1.6,  1.4],   // the curragh: low, riding the sea above the land
+    carr:       [ 1.2, -2.2],   // the chariot: high above the curragh
+    torc:       [-1.4,  0.9],   // the boar: below and west -- it rises into view
+    cuirt:      [-3.0,  2.0],   // Tethra's court: far west, low, near the land
+    draoi:      [-0.6, -2.1],   // the druid: overhead
+    clairseach: [ 2.4, -0.6],   // the harp, with the new star
+    laoch:      [ 3.4,  1.0],   // the hero
+};
+const SKY_MIN_GAP = 1.2;
+
+// How the view travels TO each constellation. ms / ease: timing. arc: sideways bulge of the
+// path as a fraction of its length (the old wheeling swoop; negative bulges the other way).
+// via: points to pass through on the way, in the same units as SKY_LAYOUT. wheel: extra
+// degrees of star-wheel spin on top of what the sideways motion gives. Anything left out
+// takes SKY_MOVE_DEFAULT.
+const SKY_MOVE_DEFAULT = { ms: 3000, ease: 'Cubic.easeInOut', arc: 0.28, via: null, wheel: 0 };
+const SKY_MOVES = {
+    naomhog:    { ms: 3200, ease: 'Cubic.easeInOut', arc:  0.30, wheel:  14 },   // "And at sea?"
+    carr:       { ms: 4600, ease: 'Sine.easeInOut',  arc:  0.06 },               // the chariot revealed
+    torc:       { ms: 2300, ease: 'Cubic.easeInOut', arc: -0.22, wheel: -10 },   // the boar rises
+    cuirt:      { ms: 4200, ease: 'Quad.easeInOut',  arc:  0.18 },               // a heavy descent
+    draoi:      { ms: 4800, ease: 'Sine.easeInOut',  arc:  0.20 },               // [plainPan] one long move
+    clairseach: { ms: 3800, ease: 'Sine.easeInOut',  arc:  0.12 },               // an uneasy drift
+    laoch:      { ms: 2000, ease: 'Cubic.easeInOut', arc: -0.30, wheel:  12 },   // the zip to the hero
+};
+// Star-wheel degrees per px of sideways travel (the old sweep's rate).
+const SKY_WHEEL_PER_PX = 0.018;
+
 const TRAIL_SMOOTH = 0.28, TRAIL_MAX = 70;
 const LINE_LINGER_MS = 7600;
 const RIPPLE_MS = 900, RIPPLE_MAX_R = 55, RIPPLE_ALPHA = 0.75;
@@ -957,11 +991,22 @@ if (wrapper) {
 
     buildConstellations(wSize) {
         const usable = Math.min(this.W, this.H) * 0.68;
+        // [skyChoreo] Authored positions (SKY_LAYOUT). The land's pan maps the sky's full
+        // horizontal reach onto the valley's pan range, so remember that reach.
+        this._skyUnit = usable;
+        let reach = 0;
+        for (const d of CONSTELLATION_DATA) reach = Math.max(reach, Math.abs((SKY_LAYOUT[d.id] || [0, 0])[0]));
+        this._skyHalfSpan = Math.max(1, reach * usable);
+        const ids = CONSTELLATION_DATA.map(d => d.id);
+        for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+            const a = SKY_LAYOUT[ids[i]] || [0, 0], b = SKY_LAYOUT[ids[j]] || [0, 0];
+            const g = Math.hypot(a[0] - b[0], a[1] - b[1]);
+            if (g < SKY_MIN_GAP) console.warn(`[sky] ${ids[i]} and ${ids[j]} are only ${g.toFixed(2)} apart (min ${SKY_MIN_GAP})`);
+        }
         this.constellations = CONSTELLATION_DATA.map((data, idx) => {
-            const theta = SPIRAL_B + idx * SPIRAL_STEP;
-            const r     = SPIRAL_A * (1 + idx * 0.25);
-            const wcx   = this.worldCX + Math.cos(theta) * r;
-            const wcy   = this.worldCY + Math.sin(theta) * r;
+            const at    = SKY_LAYOUT[data.id] || [0, 0];
+            const wcx   = this.worldCX + at[0] * usable;
+            const wcy   = this.worldCY + at[1] * usable;
             let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
             for (const o of data.starOffsets) {
                 minX=Math.min(minX,o.lx); maxX=Math.max(maxX,o.lx);
@@ -993,11 +1038,33 @@ if (wrapper) {
         const tx = c.wcx - this.W/2, ty = c.wcy - this.H/2 + this.H*0.32; // was 0.22 -- pushed further up to clear the druid/queen text band below
         if (!animate) { this.cameras.main.setScroll(tx, ty); return; }
         if (this._moonDriftTween) { this._moonDriftTween.stop(); this._moonDriftTween = null; }
-        const sx=this.cameras.main.scrollX, sy=this.cameras.main.scrollY;
-        const dx=tx-sx, dy=ty-sy, dist=Math.sqrt(dx*dx+dy*dy)||1;
-        const arcH=dist*0.28, px=-dy/dist*arcH, py=dx/dist*arcH;
-        const mx=(sx+tx)/2+px, my=(sy+ty)/2+py;
-        const cam=this.cameras.main, prog={t:0};
+        // [skyChoreo] The path: from here, through any authored waypoints, to the target, as
+        // camera scroll positions. One waypoint-free move is a quadratic swoop with a sideways
+        // bulge (arc); with waypoints it is a smooth curve through all of them, paced by length.
+        const M = { ...SKY_MOVE_DEFAULT, ...(SKY_MOVES[c.id] || {}) };
+        const cam = this.cameras.main;
+        const sx = cam.scrollX, sy = cam.scrollY;
+        const u = this._skyUnit || 1;
+        const toScroll = ([vx, vy]) => [this.worldCX + vx * u - this.W/2, this.worldCY + vy * u - this.H/2 + this.H*0.32];
+        const pts = [[sx, sy], ...((M.via || []).map(toScroll)), [tx, ty]];
+        let pathAt;
+        if (pts.length === 2) {
+            const dx = tx - sx, dy = ty - sy, dist = Math.hypot(dx, dy) || 1;
+            const arcH = dist * M.arc, mx = (sx + tx)/2 - dy/dist*arcH, my = (sy + ty)/2 + dx/dist*arcH;
+            pathAt = (t) => { const it = 1 - t; return [it*it*sx + 2*it*t*mx + t*t*tx, it*it*sy + 2*it*t*my + t*t*ty]; };
+        } else {
+            const P = [pts[0], ...pts, pts[pts.length - 1]];
+            const lens = []; let total = 0;
+            for (let i = 0; i + 1 < pts.length; i++) { const l = Math.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1]) || 1; lens.push(l); total += l; }
+            pathAt = (t) => {
+                let d = t * total, i = 0;
+                while (i < lens.length - 1 && d > lens[i]) { d -= lens[i]; i++; }
+                const f = Math.min(1, d / lens[i]), f2 = f*f, f3 = f2*f;
+                const p0 = P[i], p1 = P[i+1], p2 = P[i+2], p3 = P[i+3];
+                return [0, 1].map(k => 0.5 * ((2*p1[k]) + (-p0[k] + p2[k])*f + (2*p0[k] - 5*p1[k] + 4*p2[k] - p3[k])*f2 + (-p0[k] + 3*p1[k] - 3*p2[k] + p3[k])*f3));
+            };
+        }
+        const prog = { t: 0 };
         this.tweens.killTweensOf(cam); this.tweens.killTweensOf(prog);
         const bgL=[
             {rt:this._bgWheelRt,    depth:0.25},
@@ -1005,26 +1072,29 @@ if (wrapper) {
             {rt:this._fgWheelRt,    depth:0.65},
         ].filter(l=>l.rt);
         const startAngles=bgL.map(l=>l.rt.angle), startCamAngle=this.spinAngle||0;
-        const panDist=Math.sqrt((tx-sx)**2+(ty-sy)**2);
-        const sweepDeg=Math.min(panDist*0.018,55);
         this._bgWheelsPaused=true;
-        // Land pan: persisted (not reset per pan), so the land stays "looking"
-        // the way the last pan left it until this one moves it again. Target
-        // derived from dx (this pan's own horizontal delta), clamped to [-1,1].
-        const landPanFrom=this._landPan||0;
-        const landPanTo=Math.max(-1,Math.min(1, dx/(this.W*0.6)));
-        this._landPan=landPanTo;
-        const PAN_MS=3000, prog2={t:0};
-        this.tweens.add({ targets:prog2, t:1, duration:PAN_MS, ease:'Cubic.easeInOut',
-            onUpdate:()=>{ bgL.forEach((l,i)=>{l.rt.angle=startAngles[i]-sweepDeg*l.depth*prog2.t;}); this.spinAngle=startCamAngle*(1-prog2.t); cam.setAngle(this.spinAngle); this._nightScape?.setPan(landPanFrom+(landPanTo-landPanFrom)*prog2.t); },
-            onComplete:()=>{ this.spinAngle=0; cam.setAngle(0); this._bgWheelsPaused=false; this._setBgWheelPaused(true); },
-        });
-        this.tweens.add({ targets:prog, t:1, duration:PAN_MS, ease:'Cubic.easeInOut',
-            onUpdate:()=>{ const t=prog.t,it=1-t; cam.scrollX=it*it*sx+2*it*t*mx+t*t*tx; cam.scrollY=it*it*sy+2*it*t*my+t*t*ty; },
-            onComplete:()=>{
-                const newBase=cam.scrollY, dp={t:0};
-                this._moonDriftTween=this.tweens.add({ targets:dp, t:1, duration:480000, ease:'Linear',
-                    onUpdate:()=>{ if(this.canInteract) cam.scrollY=newBase+dp.t*(this.H*0.14); },
+        // The land looks where the view looks: its pan follows the view's horizontal position
+        // along the whole path (the sky's full reach = the valley's pan range, -1..1). The
+        // star wheels follow the same sideways motion, the same way (their hub is above the
+        // screen, so a clockwise turn carries the stars below it left, with the constellations
+        // when the view moves right), plus any authored extra spin.
+        const landAt = (scrollX) => Math.max(-1, Math.min(1,
+            (scrollX + this.W/2 - this.worldCX) / (this._skyHalfSpan || 1)));
+        this.tweens.add({ targets: prog, t: 1, duration: M.ms, ease: M.ease,
+            onUpdate: () => {
+                const t = prog.t, [x, y] = pathAt(t);
+                cam.scrollX = x; cam.scrollY = y;
+                const turn = (x - sx) * SKY_WHEEL_PER_PX + M.wheel * t;
+                bgL.forEach((l, i) => { l.rt.angle = startAngles[i] + turn * l.depth; });
+                this.spinAngle = startCamAngle * (1 - t); cam.setAngle(this.spinAngle);
+                this._landPan = landAt(x);
+                this._nightScape?.setPan(this._landPan);
+            },
+            onComplete: () => {
+                this.spinAngle = 0; cam.setAngle(0); this._bgWheelsPaused = false; this._setBgWheelPaused(true);
+                const newBase = cam.scrollY, dp = { t: 0 };
+                this._moonDriftTween = this.tweens.add({ targets: dp, t: 1, duration: 480000, ease: 'Linear',
+                    onUpdate: () => { if (this.canInteract) cam.scrollY = newBase + dp.t*(this.H*0.14); },
                 });
             },
         });

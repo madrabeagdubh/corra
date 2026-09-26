@@ -35,3 +35,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+
+public/river_preview.svg

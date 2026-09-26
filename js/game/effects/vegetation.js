@@ -52,7 +52,9 @@ const VARIANTS = 3        // silhouette variants per species
    stiffness : sway frequency        amplitude : sway arc in ref px
    lag       : how much the head trails the stem
    wet       : preferred ground wetness, 0 dry .. 1 waterlogged
-   tol       : how far from `wet` it will still grow                        */
+   tol       : how far from `wet` it will still grow
+   stem      : optional, default 1. Multiplies the stalk's length only; the head keeps
+               its size. <1 = a lower plant with the same bloom.  [flowerStems]  */
 
 export const SPECIES = {
   aiteann: {            // gorse — dry, exposed, spiny, barely moves
@@ -63,25 +65,25 @@ export const SPECIES = {
   },
   ceannbhan: {          // bog cotton — waterlogged only, whips about
     name: 'Bog cotton', irish: 'Ceannbhán',
-    form: 'tuft', h: 0.34, stiffness: 1.2, amplitude: 2.4, lag: 0.22,
+    form: 'tuft', h: 0.34, stem: 0.25, stiffness: 1.2, amplitude: 2.4, lag: 0.22,
     wet: 0.92, tol: 0.22, weight: 1.1,
     palette: ['#FBFBF4', '#E4E4D2', '#7E8B4E', '#5F6B39'],
   },
   feileastram: {        // yellow flag iris — wet margins, stiff blades
     name: 'Yellow flag', irish: 'Feileastram',
-    form: 'blade', h: 0.70, stiffness: 0.9, amplitude: 1.6, lag: 0.08,
+    form: 'blade', h: 0.70, stem: 0.25, stiffness: 0.9, amplitude: 1.6, lag: 0.08,
     wet: 0.80, tol: 0.20, weight: 0.7,
     palette: ['#F2C21A', '#D19A00', '#2C5D2E', '#1D4220'],
   },
   creachtach: {         // purple loosestrife — wet margins, tall spike
     name: 'Purple loosestrife', irish: 'Créachtach',
-    form: 'spike', h: 0.78, stiffness: 0.8, amplitude: 2.1, lag: 0.12,
+    form: 'spike', h: 0.78, stem: 0.25, stiffness: 0.8, amplitude: 2.1, lag: 0.12,
     wet: 0.74, tol: 0.24, weight: 0.8,
     palette: ['#C1548A', '#8E2F62', '#2E5340', '#1B3A2A'],
   },
   airgead: {            // meadowsweet — damp meadow, frothy head
     name: 'Meadowsweet', irish: 'Airgead luachra',
-    form: 'umbel', h: 0.60, stiffness: 1.0, amplitude: 1.7, lag: 0.16,
+    form: 'umbel', h: 0.60, stem: 0.25, stiffness: 1.0, amplitude: 1.7, lag: 0.16,
     wet: 0.62, tol: 0.26, weight: 0.9,
     palette: ['#F6F3E0', '#DCD6B4', '#3A5433', '#243B22'],
   },
@@ -108,19 +110,19 @@ const SPECIES_KEYS = Object.keys(SPECIES)
 export const MEADOW_SPECIES = {
   mearacan: {           // harebell -- dry hilltops, thin nodding blue bells
     name: 'Harebell', irish: 'Méaracán gorm',
-    form: 'bells', h: 0.40, stiffness: 0.5, amplitude: 2.2, lag: 0.30,
+    form: 'bells', h: 0.40, stem: 0.25, stiffness: 0.5, amplitude: 2.2, lag: 0.30,
     wet: 0.40, tol: 0.26, weight: 1.0,
     palette: ['#8FB6E8', '#5B82C4', '#3B5A34', '#243B22'],
   },
   noinin: {             // ox-eye daisy -- meadow, white ray florets round a gold disc
     name: 'Ox-eye daisy', irish: 'Nóinín mór',
-    form: 'umbel', h: 0.52, stiffness: 1.0, amplitude: 1.4, lag: 0.10,
+    form: 'umbel', h: 0.52, stem: 0.25, stiffness: 1.0, amplitude: 1.4, lag: 0.10,
     wet: 0.50, tol: 0.28, weight: 1.1,
     palette: ['#FAFAF0', '#E8D98A', '#3A5433', '#243B22'],
   },
   minscoth: {           // common knapweed -- rough grassland, hard purple head
     name: 'Knapweed', irish: 'Mínscoth',
-    form: 'spike', h: 0.56, stiffness: 1.2, amplitude: 1.2, lag: 0.08,
+    form: 'spike', h: 0.56, stem: 0.25, stiffness: 1.2, amplitude: 1.2, lag: 0.08,
     wet: 0.46, tol: 0.26, weight: 0.85,
     palette: ['#B0569E', '#7C3670', '#41573A', '#27381F'],
   },
@@ -132,7 +134,7 @@ export const MEADOW_SPECIES = {
   },
   odhrach: {            // devil's-bit scabious -- damp upland, violet pincushion
     name: "Devil's-bit scabious", irish: 'Odhrach bhallach',
-    form: 'umbel', h: 0.58, stiffness: 0.9, amplitude: 1.6, lag: 0.14,
+    form: 'umbel', h: 0.58, stem: 0.25, stiffness: 0.9, amplitude: 1.6, lag: 0.14,
     wet: 0.58, tol: 0.26, weight: 0.9,
     palette: ['#9A8AD8', '#6A5AAE', '#3A5433', '#243B22'],
   },
@@ -167,17 +169,20 @@ function swayOffset(phaseT, rowY, height, sp, swayScale = 1) {
    Each returns, for a plant of height H in ref px, an array of rows from the
    root up: { w, colour } — the width and colour of that pixel row.          */
 
-function silhouette(sp, H, variant) {
+// Fraction of a plant's height that is stem, by form.
+function stemFrac(form) {
+  return form === 'bush' ? 0.15
+    : form === 'tuft' ? 0.72
+    : form === 'blade' ? 0.30
+    : form === 'bells' ? 0.42
+    : form === 'spike' ? 0.62
+    : 0.78
+}
+
+function silhouette(sp, H, variant, headStart) {
   const rows = []
   const [c0, c1, stem, stemDark] = sp.palette
   const r = (i, s = 0) => hash2(variant, i, s)
-
-  const headStart = Math.floor(H * (sp.form === 'bush' ? 0.15
-    : sp.form === 'tuft' ? 0.72
-    : sp.form === 'blade' ? 0.30
-    : sp.form === 'bells' ? 0.42
-    : sp.form === 'spike' ? 0.62
-    : 0.78))
 
   for (let i = 0; i < H; i++) {
     if (i < headStart) {
@@ -224,8 +229,14 @@ function silhouette(sp, H, variant) {
 
 /** Bake one species/variant/phase into a small canvas. */
 function bakeSprite(sp, variant, phase, swayScale = 1) {
-  const H = Math.max(6, Math.round(REF_H * sp.h))
-  const rows = silhouette(sp, H, variant)
+  // [flowerStems] Head rows as for the full plant; stem rows scaled by sp.stem.
+  // Drawn scale is per ref px (not per sprite height), so fewer rows = a lower plant
+  // with the head unchanged on screen.
+  const H0 = Math.max(6, Math.round(REF_H * sp.h))
+  const stem0 = Math.floor(H0 * stemFrac(sp.form))
+  const stemRows = Math.max(1, Math.round(stem0 * (sp.stem ?? 1)))
+  const H = stemRows + (H0 - stem0)
+  const rows = silhouette(sp, H, variant, stemRows)
   const pad = Math.ceil(sp.amplitude * swayScale) + 4
   const W = pad * 2 + 8
 
@@ -318,6 +329,11 @@ export const VEGETATION_DEFAULTS = {
 
   // Optional: (col,row) => 0..1 wetness. Defaults to a terrain-height proxy.
   wetnessAt: null,
+
+  // Optional: (speciesKey, col, row) => bool. Asked for every plant once its species is
+  // chosen; false and it is not drawn. For a scene's own rules -- e.g. only low flowers
+  // close to the camera.  [allowAt]
+  allowAt: null,
 
   seed: 7,
 }
@@ -412,6 +428,7 @@ export class Vegetation {
       const key = this._keys[si]
       const sp = ALL_SPECIES[key]
       if (Math.abs(wet - sp.wet) > sp.tol) continue
+      if (c.allowAt && !c.allowAt(key, col, tileRow)) continue   // [allowAt]
 
       // Lowland bias: fewer plants the higher the ground, and smaller (see heightFade).
       let lowland = 1

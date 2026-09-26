@@ -1,4 +1,4 @@
-# generator-version: 7   (the patch only replaces this file if this number is lower than its own)
+# generator-version: 8   (the patch only replaces this file if this number is lower than its own)
 # intro_hilltop_gen.py -- the intro's hilltop level.
 #   Tune the knobs below (TREND_SCALE, PEAK_SCALE, WAVE_SCALE, DIP), then regenerate:
 #       python3 tools/map-editor/generators/intro_hilltop_gen.py
@@ -79,6 +79,27 @@ VRIDGE_MID   = 2.0       # height in the middle, tiles -- keeps its crest under 
 VRIDGE_SIDE  = 6.5       # height out toward the walls
 VRIDGE_W     = 14.0      # how far out from the middle it takes to rise to that
 VRIDGE_UND   = 1.4       # the roll along its crest
+# How much of the floor's ripple to keep (1 = as first built). The camera is so low that the
+# ripple's crests hid the river behind them; at 0.25 the floor is still not glass.  [river]
+FLOOR_RIPPLE = 0.25
+# THE RIVER (valley only). Its course as (column, distance from the camera in tiles); a smooth
+# curve passes through every point. It enters off-screen near right, sweeps across in front
+# of the figures and round their left -- they stand on the inside of the bend -- then winds
+# away in LATERAL bends: from this low camera a run along the view foreshortens to nothing,
+# but a run across it still shows, so stacked crossings are what read as distance. The bends
+# vary on purpose. The last point is hidden in the far ridge's foot. Previewed with
+# river_preview.py; edit here and re-run that before regenerating.
+RIVER_ON     = True
+RIVER_PTS = [
+    (54.0, -3.0), (52.4,  3.5), (49.0,  7.0), (45.6, 10.5), (45.2, 15.5), (47.5, 20.5),
+    (53.2, 25.5), (53.4, 29.5), (48.5, 32.5), (44.2, 36.0), (43.0, 41.5), (47.0, 44.5),
+    (51.8, 47.0), (52.2, 51.0), (47.5, 54.0), (43.8, 58.0), (45.0, 63.5), (48.5, 68.0),
+    (49.5, 78.0),
+]
+RIVER_W      = 3.4       # water width, tiles (was 2.2: read as a stream)
+BANK_W       = 1.4       # how far the bank takes to climb back to the original ground
+WATER_LEVEL  = 0.0       # the water's surface; the floor sits at about 0
+RIVER_BED    = 0.15      # how far the bed lies below the surface
 CAM_ROW   = 114          # the renderer's camera row = player row + 14 (CAMERA_ROW_OFFSET)
 PLAYER_ROW = CAM_ROW - 14
 CROWN_D   = 14           # crown reaches this far ahead of the camera
@@ -203,7 +224,7 @@ def height_valley(x, r):
     # the floor: nearly level, a little ripple so it is not glass, none right at the camera
     t = _smooth((d - 10.0) / 10.0)
     floor = (0.25 * math.sin(TAU * (x / 11.0 + d / 17.0 + _phase('vf1')))
-           + 0.15 * math.sin(TAU * (x / 5.0 - d / 7.0 + _phase('vf2')))) * t
+           + 0.15 * math.sin(TAU * (x / 5.0 - d / 7.0 + _phase('vf2')))) * t * FLOOR_RIPPLE
 
     half = VSHAPE_FLOOR + VSHAPE_WIDEN * max(0.0, d)
     past = abs(dx) - half
@@ -238,12 +259,60 @@ def _far_ridge(dx, d):
     return max(0.0, (base + roll) * along)
 
 
+def river_line(per=24):
+    # RIVER_PTS as a dense polyline (Catmull-Rom through every point), in (col, d).
+    P = [RIVER_PTS[0]] + RIVER_PTS + [RIVER_PTS[-1]]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for k in range(per):
+            t = k / per; t2 = t * t; t3 = t2 * t
+            out.append(tuple(0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t
+                                    + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2
+                                    + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)
+                             for j in (0, 1)))
+    out.append(RIVER_PTS[-1])
+    return out
+
+
+def river_dist(line, col, d):
+    # Distance in tiles from (col, d) to the nearest point on the polyline.
+    best = 1e9
+    for (ax, ad), (bx, bd) in zip(line, line[1:]):
+        if min(ad, bd) - 4 > d or max(ad, bd) + 4 < d:
+            continue
+        vx, vd = bx - ax, bd - ad
+        L = vx * vx + vd * vd
+        t = 0 if L == 0 else max(0.0, min(1.0, ((col - ax) * vx + (d - ad) * vd) / L))
+        ex, ed = ax + vx * t - col, ad + vd * t - d
+        best = min(best, ex * ex + ed * ed)
+    return math.sqrt(best)
+
+
+def river_carve(h, dist):
+    # The channel: the bed under the water, then a bank easing back up to the land. Only
+    # ever lowers ground, so where the river cuts into a hill's foot it leaves a cut bank.
+    half = RIVER_W / 2
+    if dist <= half:
+        return min(h, WATER_LEVEL - RIVER_BED)
+    if dist < half + BANK_W:
+        k = _smooth((dist - half) / BANK_W)
+        return min(h, WATER_LEVEL + (h - WATER_LEVEL) * k)
+    return h
+
+
 SHAPE = 'hilltop'        # set by --shape
 
 
 def make_map():
     fn = height_valley if SHAPE == 'valley' else height
-    heights = [[round(fn(x, r), 3) for x in range(W + 1)] for r in range(H + 1)]
+    river = SHAPE == 'valley' and RIVER_ON
+    line = river_line() if river else None
+    if river:
+        heights = [[round(river_carve(fn(x, r), river_dist(line, x, CAM_ROW - r)), 3)
+                    for x in range(W + 1)] for r in range(H + 1)]
+    else:
+        heights = [[round(fn(x, r), 3) for x in range(W + 1)] for r in range(H + 1)]
     ground = [[839 if (x + y) % 2 == 0 else 840 for x in range(W)] for y in range(H)]
     zeros = [[0] * W for _ in range(H)]
     return {
@@ -258,6 +327,12 @@ def make_map():
         'spawns': {'player': {'x': W // 2, 'y': PLAYER_ROW}},
         'exits': {},
         'entries': {},
+        # [river] For the water layer: map columns/rows (row = CAM_ROW - d).
+        **({'river': {
+            'width': RIVER_W,
+            'level': WATER_LEVEL,
+            'line': [[round(c, 3), round(CAM_ROW - d, 3)] for c, d in line],
+        }} if river else {}),
     }
 
 

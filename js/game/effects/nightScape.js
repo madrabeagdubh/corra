@@ -1,3 +1,4 @@
+import { NOCTURNE, ensureNocturneFilters } from '../systems/nightPalette.js';   // [nocturne]
 /**
  * nightScape.js
  *
@@ -85,8 +86,8 @@ const ALL_LAYERS = [
     // key         file                       z    finalVw  finalTop(vh)
     { key:'farRidge', file:'farRidge.png',       z:8,   vw:105, top:30 },
     { key:'midHead',  file:'midHeadland.png',    z:3,   vw:110, top:15.5 },
-    { key:'druid',    file:'druid.png',          z:3,   vh:8,  foot:12.4, left:'63%', w:26 },
-    { key:'queen',    file:'queen.png',          z:3,   vh:7,  foot:12.4, left:'53%', w:24 },
+    { key:'druid',    file:'druid.png',          z:3,   vh:13,  foot:8, left:'32%', w:26 },
+    { key:'queen',    file:'queen.png',          z:3,   vh:13,  foot:8, left:'20%', w:24 },
     { key:'nearFg',   file:'nearForeground.png', z:2.2, vw:120, top:14 },
 ];
 
@@ -426,11 +427,14 @@ export function createNightScape(opts = {}) {
                 _lastBright = b;
                 if (window.__introLevelBrightness) window.__introLevelBrightness(+b);   // [introLevel]
                 made.forEach(m => {
-                    m.el.style.filter = `brightness(${b})`;
+                    // [nocturne] The figures are graded into the scene's moonlight too.
+                    const g = (NOCTURNE.on && (m.key === 'druid' || m.key === 'queen'))
+                        ? 'url(#nocturne-figure) ' : '';
+                    m.el.style.filter = `${g}brightness(${b})`;
                     // A clone has no live link back to `el` -- brightness has
                     // to be said again here or the swaying top stays whatever
                     // brightness it happened to be cloned at.
-                    if (m.sway) m.sway.style.filter = `brightness(${b})`;
+                    if (m.sway) m.sway.style.filter = `${g}brightness(${b})`;
                 });
             }
         }
@@ -446,6 +450,7 @@ export function createNightScape(opts = {}) {
         light.style.opacity = lum > 0.002 ? lum.toFixed(3) : '0';
         made.forEach(m => { if (m.lit) m.lit.style.opacity = lum.toFixed(3); });
     }
+    ensureNocturneFilters();   // [nocturne] the figures' filter, before place() points at it
     place();
 
     /* ── the flower tops, gently astir ──────────────────────────────────────
@@ -607,9 +612,15 @@ export function createNightScape(opts = {}) {
             const k  = (Number.isFinite(scale) && scale > 0) ? scale : 1;
             // dy: set on maps that pin the figures to a ground depth -- how far to move their
             // feet down (or up) onto the terrain there. 0 elsewhere.
-            const tr = `translate(calc(-50% + ${(px || 0).toFixed(1)}px), ${(dy || 0).toFixed(1)}px) scale(${k.toFixed(4)})`;
             made.forEach(m => {
                 if (m.key !== 'druid' && m.key !== 'queen') return;
+                // [figureSlide] px is screen px, but this element sits inside its wrapper,
+                // which is scaled by the figures' depth (endScale): undo that, or every px moves
+                // the figure only endScale of a px and it slides against the ground. (dy is
+                // shrunk the same way, but the figures' height has been tuned by eye on top of
+                // that, so it is left as it is.)
+                const w  = m.endScale > 0 ? m.endScale : 1;
+                const tr = `translate(calc(-50% + ${((px || 0) / w).toFixed(1)}px), ${(dy || 0).toFixed(1)}px) scale(${k.toFixed(4)})`;
                 // Grow from the feet, not the middle: they are standing on the ground, so that
                 // is the point that must not move.
                 m.el.style.transformOrigin = '50% 100%';

@@ -30,6 +30,8 @@
 //                            2 = sparser. Scoped to this scene; the game's own levels are
 //                            untouched.
 //   &sat=0.78                how much hue survives the night grade (1 = untouched). Colour knob.
+//   &glow=1.8                how much brighter the flowers are than the land (1 = same). [floraGlow]
+//   &river=0                 no water drawn (the channel stays carved). [riverLayer]
 //   &fade=0                  the renderer's own horizon fade, in px (default 60 in the game, 0
 //                            here). See "THE SEE-THROUGH MOUNTAINS" below.
 //   &panTiles=4               how far the ground pans (in tiles) when the intro turns to look at
@@ -130,9 +132,11 @@
 //   with &fps=1), removes what it added, and stops itself so the intro carries on.
 import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRenderer.js'
 import { Vegetation } from '../../../effects/vegetation.js'
+import { RiverLayer } from '../../../effects/riverLayer.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { wind } from '../../../effects/wind.js'
 import { TiltShift } from '../../../effects/tiltShift.js'
+import { NOCTURNE } from '../../../systems/nightPalette.js'
 
 const TILE        = 48     // logical px per tile: the generated maps and the renderer both use it
 // Per map: where the camera stands (col, PLAYER row: the renderer looks 14 rows beyond it), how far
@@ -214,6 +218,27 @@ const FULL_MOON_LAND = 0.7
 // trails it for moonlight, and the small lift keeps the shadows as air rather than holes.
 // Override live with ?sat=0.9.
 const NIGHT       = { sat: 0.78, slope: [0.34, 0.52, 0.66], lift: [0.012, 0.030, 0.062] }
+// [floraGlow] The flowers' own grade (pgr-objects holds nothing else in this scene). Much
+// gentler than NIGHT: colour mostly kept, a cool silver lift so pale blooms catch the moon.
+// Their brightness is the land's times FLORA_GLOW (capped at 1), so they still follow the
+// moon but always sit above the grass. Override live with ?glow=.
+const FLORA       = { sat: 0.92, slope: [0.72, 0.80, 0.90], lift: [0.030, 0.040, 0.065] }
+const FLORA_GLOW  = 1.8
+const FLORA_LAYER = 'pgr-objects'
+// [foreFlowers] Close to the camera, beside the figures, only low flowers grow: tall ones
+// there clutter the druid and the queen. Within FORE_D tiles, only FORE_LOW species; over the
+// next FORE_BLEND tiles the rest return gradually; beyond that the meadow is untouched.
+const FORE_D      = 6
+const FORE_BLEND  = 4
+const FORE_LOW    = ['noinin', 'crobhein', 'ceannbhan', 'airgead', 'odhrach']
+// [moonGlow] The glow element's unscaled size in px; it is scaled to the moon every frame.
+const GLOW_BOX    = 1000
+// [nocturne] What is actually used: the shared warm palette (nightPalette.js), or with
+// ?nocturne=0 this file's own previous values above.
+const USE_GROUND_SAT  = NOCTURNE.on ? NOCTURNE.groundSat  : GROUND_SAT
+const USE_GROUND_TONE = NOCTURNE.on ? NOCTURNE.groundTone : GROUND_TONE
+const USE_FLORA       = NOCTURNE.on ? NOCTURNE.flora      : FLORA
+const USE_HAZE        = NOCTURNE.on ? NOCTURNE.haze       : HAZE_RGB
 
 export default class IntroLevelScene extends Phaser.Scene {
   // Read by SteepFaceRenderer through scene.constructor: stone only on slopes steeper than
@@ -270,6 +295,8 @@ export default class IntroLevelScene extends Phaser.Scene {
     // overall moon dimming, ?sat= how much hue survives the grade. ?lit=1 still bypasses both.
     this._brightness = q.get('lit') === '1' ? 1 : Math.max(0, Math.min(1, num('dark', DARK)))
     this._sat     = Math.max(0, Math.min(2, num('sat', NIGHT.sat)))
+    this._glow    = Math.max(0, Math.min(4, num('glow', FLORA_GLOW)))   // [floraGlow]
+    this._riverOn = q.get('river') !== '0'                             // [riverLayer]
     this._preExisting = null
   }
 
@@ -332,8 +359,16 @@ export default class IntroLevelScene extends Phaser.Scene {
     if (this._cfg.relief && this.perspectiveGround.tintManager) {
       Object.assign(this.perspectiveGround.tintManager, this._cfg.relief)
     }
+    // [riverLayer] The river, if the map has one: drawn by the renderer's row loop (it finds
+    // it as scene.riverLayer), its moon road centred on the moon _trackMoon() measures.
+    this.riverLayer = (map.river && this._riverOn)
+      ? new RiverLayer(map.river, { moonX: () => this._moonRoadX ?? this._moonClear?.x })   // [moonGlow]
+      : null
     if (this._flora) {
-      this.vegetation = new Vegetation(this, { pgr: this.perspectiveGround, ...this._floraOpts() })
+      const river = this.riverLayer
+      this.vegetation = new Vegetation(this, { pgr: this.perspectiveGround, ...this._floraOpts(),
+        ...(river ? { isWater: (col, row) => river.isWaterTile(col, row) } : {}),
+        allowAt: (key, col, row) => this._foreAllow(key, col, row) })   // [foreFlowers]
     }
     // ?rock=0 means no stone at all, so the renderer is never built (nothing to grade or update).
     this.steepFaces = this._rock ? new SteepFaceRenderer(this) : null   // made BEFORE the grade looks for layers
@@ -341,6 +376,7 @@ export default class IntroLevelScene extends Phaser.Scene {
     this._applyNight()
     this._raiseAboveStars()
     this._addHaze()                                   // after the lift: it sets its own z-index
+    this._addGlow()                                   // [nocturne] the moonlit air over the notch
     this._applyBrightness()
 
     // The intro's own clock drives this scene, through two hooks nightScape calls: the poem's
@@ -405,6 +441,7 @@ export default class IntroLevelScene extends Phaser.Scene {
         this.tiltShift.update(this.perspectiveGround)
       }
       this._drawFog(sw, sh)
+      this._placeGlow()
       if (this._fpsTick) this._fpsTick()
     } catch (e) {
       console.error('[introLevel] failed; stopping the level so the intro carries on:', e)
@@ -540,7 +577,10 @@ export default class IntroLevelScene extends Phaser.Scene {
     if (this._fit && this._baseSh) {
       k = (this._groundH(sh) / this._groundH(this._baseSh)) / (sh / this._baseSh)
     }
-    fn(-this._panCols() * (s || 0), k, dy)
+    // [figureSlide] s is canvas px per tile; the figures are placed in CSS px.
+    const cvp = this.game.canvas
+    const cssPerCanvas = (cvp.clientWidth || cvp.width) / cvp.width
+    fn(-this._panCols() * (s || 0) * cssPerCanvas, k, dy)
   }
 
   // The moon rests low, below the horizon, so it is always seen against land -- and with a full
@@ -619,6 +659,8 @@ export default class IntroLevelScene extends Phaser.Scene {
     })
     if (this._nightSvg) { this._nightSvg.remove(); this._nightSvg = null }
     this._hazeEl = null
+    this.riverLayer = null
+    if (this._glowEl) { this._glowEl.remove(); this._glowEl = null }   // [nocturne]
     PerspectiveGroundRenderer.CLIP_TOP_FRAC = null    // never leak the flags into the game's own levels
     // _fitAcross() rewrites these per resize; put the map's own values back rather than
     // leaving whatever this viewport happened to need.
@@ -658,13 +700,21 @@ export default class IntroLevelScene extends Phaser.Scene {
       `</feComponentTransfer></filter>` +
       // The ground's own grade (see GROUND_TONE). Blended toward "no change" by t, like the rest.
       `<filter id="plates-night-ground" color-interpolation-filters="sRGB">` +
-      `<feColorMatrix type="saturate" values="${lerp(GROUND_SAT).toFixed(4)}"/>` +
+      `<feColorMatrix type="saturate" values="${lerp(USE_GROUND_SAT).toFixed(4)}"/>` +
       `<feComponentTransfer>` +
       ['r', 'g', 'b'].map(ch => {
-        const tab = GROUND_TONE[ch], n = tab.length - 1
+        const tab = USE_GROUND_TONE[ch], n = tab.length - 1
         const vals = tab.map((v, i) => (i / n + (v - i / n) * t).toFixed(4)).join(' ')
         return `<feFunc${ch.toUpperCase()} type="table" tableValues="${vals}"/>`
       }).join('') +
+      `</feComponentTransfer></filter>` +
+      // [floraGlow] The flowers' grade. See FLORA.
+      `<filter id="plates-night-flora" color-interpolation-filters="sRGB">` +
+      `<feColorMatrix type="saturate" values="${lerp(USE_FLORA.sat).toFixed(4)}"/>` +
+      `<feComponentTransfer>` +
+      ['R', 'G', 'B'].map((ch, i) =>
+        `<feFunc${ch} type="linear" slope="${lerp(USE_FLORA.slope[i]).toFixed(4)}" intercept="${(USE_FLORA.lift[i] * t).toFixed(4)}"/>`
+      ).join('') +
       `</feComponentTransfer></filter>`
     document.body.appendChild(svg)
     this._nightSvg = svg          // held, so cleanup never depends on finding it again
@@ -686,6 +736,60 @@ export default class IntroLevelScene extends Phaser.Scene {
   //
   // Redrawn only when something that moves the ridge changes (viewport, camera, pan, fit);
   // on a still frame it costs nothing. ?haze= is its density, 0 turns it off.
+  // [nocturne] [moonGlow] THE GLOW. The moon's light in the air around it, in the moon's own
+  // colour (NOCTURNE.moon.light). One fixed element, above the stars (Phaser, z 10) and below
+  // the land (pgr-*, z 18+), so the hills stand dark against it when the moon is low. Its
+  // gradient is built once; following the moon is only a transform (translate + scale), so
+  // it costs compositing and nothing else. _applyBrightness() sets its strength.
+  _addGlow() {
+    if (!NOCTURNE.on || this._glowEl) return
+    const R = GLOW_BOX / 2
+    const c = NOCTURNE.moon.light
+    // A long, eased fall-off (roughly exponential), so there is no visible edge anywhere.
+    const stops = [[0, 1], [5, 0.78], [12, 0.52], [22, 0.30], [35, 0.15], [50, 0.065],
+                   [66, 0.024], [82, 0.007], [100, 0]]
+      .map(([p, a]) => `rgba(${c},${a}) ${p}%`).join(',')
+    const el = document.createElement('div')
+    el.id = 'intro-moon-glow'
+    el.style.cssText = `position:fixed;left:0;top:0;width:${GLOW_BOX}px;height:${GLOW_BOX}px;` +
+      `pointer-events:none;z-index:16;opacity:0;transform-origin:${R}px ${R}px;` +
+      `will-change:transform;background:radial-gradient(circle closest-side,${stops});`
+    // [geeseInside] Inside #gameContainer (its own stacking context: see murmuration.js), so
+    // z 16 really is above the stars (Phaser, 10) and below the geese (17) and the land (18+).
+    ;(document.getElementById('gameContainer') || document.body).appendChild(el)
+    this._glowEl = el
+    this._glowKey = null
+  }
+
+  // Where the moon is on screen, in CSS px, whichever moon is showing: the moon widget once
+  // it is up (the [data-intro-moon] tag), otherwise the ogham dial's moon (#ogd-corona, the
+  // circle around it). null when neither is on screen.
+  _moonOnScreen() {
+    const w = this._moonEl?.isConnected ? this._moonEl : document.querySelector('[data-intro-moon]')
+    let r = w?.getBoundingClientRect()
+    if (!r?.width) {
+      if (!this._dialMoonEl?.isConnected) this._dialMoonEl = document.getElementById('ogd-corona')
+      r = this._dialMoonEl?.getBoundingClientRect()
+    }
+    if (!r?.width) return null
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.min(r.width, r.height) / 2 }
+  }
+
+  _placeGlow() {
+    const m = this._moonOnScreen()
+    // The moon road follows the same moon, in canvas px.
+    const cv = this.game.canvas
+    this._moonRoadX = m ? m.x * (cv.width / (cv.clientWidth || cv.width)) : null
+    const el = this._glowEl
+    if (!el || !m) return
+    const R = GLOW_BOX / 2
+    const s = (m.r * NOCTURNE.glow.radiusMoons) / R
+    const key = `${m.x.toFixed(1)}|${m.y.toFixed(1)}|${s.toFixed(3)}`
+    if (key === this._glowKey) return
+    this._glowKey = key
+    el.style.transform = `translate3d(${(m.x - R).toFixed(1)}px,${(m.y - R).toFixed(1)}px,0) scale(${s.toFixed(4)})`
+  }
+
   _addHaze() {
     if (!this._haze) return
     const cv = document.createElement('canvas')
@@ -757,10 +861,10 @@ export default class IntroLevelScene extends Phaser.Scene {
     const yGone  = base + 0.45 * g                     // thinned out over the far slopes by here
     if (!(yGone > yClear)) return
     const grad = ctx.createLinearGradient(0, yClear, 0, yGone)
-    grad.addColorStop(0, `rgba(${HAZE_RGB},0)`)
+    grad.addColorStop(0, `rgba(${USE_HAZE},0)`)
     grad.addColorStop(Math.min(0.95, Math.max(0.05, (yDense - yClear) / (yGone - yClear))),
-                      `rgba(${HAZE_RGB},${this._haze})`)
-    grad.addColorStop(1, `rgba(${HAZE_RGB},0)`)
+                      `rgba(${USE_HAZE},${this._haze})`)
+    grad.addColorStop(1, `rgba(${USE_HAZE},0)`)
     ctx.fillStyle = grad
     ctx.fillRect(0, yClear, sw, yGone - yClear)
   }
@@ -772,11 +876,22 @@ export default class IntroLevelScene extends Phaser.Scene {
     for (const id of GRADED) {
       const el = document.getElementById(id)
       if (!el) continue
+      if (id === FLORA_LAYER) {    // [floraGlow]
+        const fb = `brightness(${Math.min(1, this._brightness * this._glow).toFixed(3)})`
+        el.style.filter = (this._night ? 'url(#plates-night-flora) ' : '') + fb
+        continue
+      }
       const grade = !this._night ? ''
         : GROUND_LAYERS.includes(id) ? 'url(#plates-night-ground) ' : 'url(#plates-night) '
       el.style.filter = grade + b
     }
     if (this._hazeEl) this._hazeEl.style.filter = `brightness(${this._brightness.toFixed(3)})`
+    // [nocturne] The glow follows the moon: faint at new moon, full at the land's brightest.
+    if (this._glowEl) {
+      const G = NOCTURNE.glow
+      const k = Math.max(0, Math.min(1, (this._brightness - DARK) / Math.max(0.01, FULL_MOON_LAND - DARK)))
+      this._glowEl.style.opacity = (G.minAlpha + (G.alpha - G.minAlpha) * k).toFixed(3)
+    }
   }
 
   // The hilltop's flora. ?bloom=0 is the original sparse scatter; the default is a field in
@@ -794,6 +909,18 @@ export default class IntroLevelScene extends Phaser.Scene {
   // flowers from MEADOW_SPECIES on top of the original seven, more baked silhouettes, and a
   // per-plant size scatter. It is a still night (wind: false), which bakes one sway phase
   // instead of twelve: that alone pays for the extra species and variants several times over.
+  // [foreFlowers] Low flowers only near the camera (see FORE_D). Past FORE_D a tall plant's
+  // chance of growing rises smoothly to 1 over FORE_BLEND tiles, decided per tile with a fixed
+  // hash so nothing flickers as the view pans.
+  _foreAllow(key, col, row) {
+    if (FORE_LOW.includes(key)) return true
+    const d = this.perspectiveGround._perspCamRow() - (row + 0.5)
+    if (d >= FORE_D + FORE_BLEND) return true
+    if (d <= FORE_D) return false
+    const h = Math.sin(col * 12.9898 + row * 78.233) * 43758.5453
+    return (h - Math.floor(h)) < (d - FORE_D) / FORE_BLEND
+  }
+
   _floraOpts() {
     const b = this._bloom
     if (!b) return { density: 0.34, clumpBias: 0.55, minScale: 22, heightTiles: 0.9 }

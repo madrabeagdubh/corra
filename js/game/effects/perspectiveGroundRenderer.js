@@ -1652,6 +1652,10 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       // Ground flora. Drawn here, inside the row loop, so plants interleave
       // with trees, buildings and NPCs by depth. Drawing them after the loop
       // would put every plant in front of every trunk.
+      // [riverLayer] A scene's smooth river (see riverLayer.js), into the GROUND canvas right
+      // after this row's ground, so nearer rows paint over it: banks and hills hide the water
+      // behind them for free. No riverLayer on the scene, no cost.
+      this.scene?.riverLayer?.renderRow(this, this._gCtx, tileRow)
       this.scene?.vegetation?.renderRow(this, this._oCtx, tileRow)
 
     } // tileRow

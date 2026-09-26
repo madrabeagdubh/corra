@@ -9,17 +9,43 @@
  *   triggerMurmuration(audioContext);
  */
 
+// [geese] The sprites live in public/assets/, not assets/vfx/ -- the old paths never loaded,
+// so every goose was the procedural stroke fallback. They are black, nose-up silhouettes with
+// four wingbeat frames. USE_SPRITES = false brings back the simple strokes.
 const SPRITE_PATHS = [
-    'assets/vfx/gooseFrame1.png',
-    'assets/vfx/gooseFrame2.png',
-    'assets/vfx/gooseFrame3.png',
-    'assets/vfx/gooseFrame4.png',
+    'assets/gooseFrame1.png',
+    'assets/gooseFrame2.png',
+    'assets/gooseFrame3.png',
+    'assets/gooseFrame4.png',
 ];
+const USE_SPRITES = true;
 
-const TOTAL_MS        = 18000;
-const FORMATIONS      = 14;
-const BIRDS_PER_FLOCK = 62;
+const TOTAL_MS        = 18000;   // the sound's length (the flight ends when the last bird is gone)
 const FRAME_MS        = 100;
+
+// [geese] A few skeins, rising out of the valley through the middle of the view.
+const FORMATIONS      = 4;       // skeins (was 14)
+const BIRDS_MIN       = 7;       // birds per skein (was 62, which stretched each skein ~1000 px)
+const BIRDS_MAX       = 13;
+const SPAWN_GAP_MS    = 2600;    // between skeins
+const CENTRE_SPREAD   = 0.10;    // where they cross mid-screen: centre +/- this share of width
+const LEAN            = 0.22;    // max heading lean from straight up, radians
+const V_HALF_ANGLE    = 0.62;    // half the V's opening (~35 deg): arms trail behind the leader
+const SPEED_MIN       = 0.11;    // px per ms (was ~0.28-0.63: they crossed in 1.5-3 s)
+const SPEED_MAX       = 0.16;
+const SIZE_MIN        = 14;      // bird size before depth (sprite width is 2.8x this) (was 9)
+const SIZE_MAX        = 24;      // (was 15)
+// [geeseLayer] Where the geese fly in the page's stacking order: above the stars and the
+// constellations (the Phaser canvas, z 10) and the moon's glow (z 17, made earlier, so this
+// draws over it), below the land (pgr-* layers, z 18+) and the figures (z 30+). They rise from
+// behind the hills and fly through the sky rather than across the front of the screen.
+const GEESE_Z         = 17;
+// [geeseInside] ...inside #gameContainer: it is position:fixed, so it is its own stacking
+// context, and only from inside it can the geese go between the stars and the land. A z-index
+// on <body> is compared with the whole container at once (above the land AND the stars).
+// Without the container, the old place: <body>, over everything.
+const GEESE_Z_BODY    = 88888;
+const FADE_BAND       = 0.12;    // share of screen height to fade in over (bottom) and out (top)
 
 const _sprites      = [];
 let   _spritesReady = false;
@@ -209,137 +235,113 @@ function _playMurmuringVisual() {
         'left:0',
         'width:100%',
         'height:100%',
-        'z-index:88888',
+        `z-index:${_geeseParent() === document.body ? GEESE_Z_BODY : GEESE_Z}`,
         'pointer-events:none',
     ].join(';');
-    document.body.appendChild(canvas);
+    _geeseParent().appendChild(canvas);   // [geeseInside]
 
     const ctx       = canvas.getContext('2d');
     const startTime = performance.now();
+    let   last      = startTime;
 
-    // Build formations — each starts fully on screen
     const formations = [];
     for (let i = 0; i < FORMATIONS; i++) {
-        const spawnAt = i * (TOTAL_MS * 0.10) + Math.random() * 200;
-        formations.push(_createFormation(W, H, spawnAt));
+        formations.push(_createFormation(W, H, i * SPAWN_GAP_MS + Math.random() * 600));
     }
 
     const frame = (now) => {
-        const elapsed  = now - startTime;
-        const progress = Math.min(elapsed / TOTAL_MS, 1);
+        const elapsed = now - startTime;
+        const dt      = Math.min(64, now - last);
+        last = now;
 
         ctx.clearRect(0, 0, W, H);
 
-        const useSprites = _spritesReady &&
-                           _sprites[0]?.complete &&
-                           _sprites[0]?.naturalWidth > 0;
+        const useSprites = USE_SPRITES && _spritesReady &&
+                           _sprites.every(im => im.complete && im.naturalWidth > 0);
 
+        let alive = false;
         for (const f of formations) {
-            if (elapsed < f.spawnAt) continue;
-            _updateFormation(f, elapsed - f.spawnAt);
-            _drawFormation(ctx, f, H, useSprites);
+            if (elapsed < f.spawnAt) { alive = true; continue; }
+            _updateFormation(f, elapsed - f.spawnAt, dt);
+            if (_drawFormation(ctx, f, H, useSprites)) alive = true;
         }
 
-        if (progress < 1) {
+        // Done when every skein has flown off the top (or after a generous cap).
+        if (alive && elapsed < 45000) {
             requestAnimationFrame(frame);
         } else {
-            const fadeStart = performance.now();
-            const fadeOut   = (t2) => {
-                canvas.style.opacity = String(1 - Math.min((t2 - fadeStart) / 1000, 1));
-                if (t2 - fadeStart < 1000) requestAnimationFrame(fadeOut);
-                else canvas.remove();
-            };
-            requestAnimationFrame(fadeOut);
+            canvas.remove();
         }
     };
 
     requestAnimationFrame(frame);
 }
 
+// [geese] One skein: a proper V, the leader at the point and both arms trailing BEHIND it
+// (the old arms both ran off to one side, which is what carried the flocks off to the left).
+// Its path is chosen so it crosses the middle of the screen near the centre line, entering
+// from below the land and leaving off the top.
+function _geeseParent() {
+    return document.getElementById('gameContainer') || document.body;
+}
+
 function _createFormation(W, H, spawnAt) {
-    const birdSize = 12 + Math.random() * 14;
-    const speed    = 2.8 + Math.random() * 3.5;
+    const depth    = 0.6 + Math.random() * 0.4;            // nearer skeins: bigger, faster, darker
+    const birdSize = (SIZE_MIN + Math.random() * (SIZE_MAX - SIZE_MIN)) * depth;
+    const speed    = (SPEED_MIN + Math.random() * (SPEED_MAX - SPEED_MIN)) * (0.75 + 0.25 * depth);
+    const angle    = -Math.PI / 2 + (Math.random() - 0.5) * 2 * LEAN;   // heading; -PI/2 = up
+    const fx = Math.cos(angle), fy = Math.sin(angle);                   // forward
+    const rx = -fy, ry = fx;                                            // to its right
 
-    // Flight direction — mostly upward, slight lean
-    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.4;
-
-    // Leader spawns in lower two-thirds of screen, away from edges
-    const leaderStartX = W * 0.15 + Math.random() * W * 0.70;
-    const leaderStartY = H * 0.55 + Math.random() * H * 0.30;
-
-    const birds = [];
-
-    for (let i = 0; i < BIRDS_PER_FLOCK; i++) {
-        // Inverted V: leader is at the bottom point.
-        // Birds spread upward-left and upward-right from the leader.
-        // Asymmetrical — left arm slightly longer or different angle than right.
-        let localX, localY;
-
-        if (i === 0) {
-            localX = 0; localY = 0;  // leader — bottom of the V
-        } else {
-            // Alternate left and right arms, but with slight asymmetry
-            const isLeft  = i % 2 === 1;
-            const rank    = Math.ceil(i / 2);
-            const armAngle = isLeft
-                ? -0.42 - Math.random() * 0.12   // left arm angle (up-left)
-                :  0.38 + Math.random() * 0.12;   // right arm angle (up-right) — slightly different
-
-            const spacing = birdSize * (1.6 + Math.random() * 0.4);
-            localX = Math.cos(armAngle) * spacing * rank;
-            localY = Math.sin(armAngle) * spacing * rank;   // negative = upward from leader
+    const count   = BIRDS_MIN + Math.floor(Math.random() * (BIRDS_MAX - BIRDS_MIN + 1));
+    const spacing = birdSize * (1.6 + Math.random() * 0.3);
+    const birds   = [];
+    // One arm a bird or two longer than the other, as real skeins usually are.
+    const extra = Math.random() < 0.5 ? 1 : -1;
+    for (let i = 0; i < count; i++) {
+        let back = 0, side = 0;
+        if (i > 0) {
+            const s    = (i % 2 === 1) ? extra : -extra;
+            const rank = Math.ceil(i / 2);
+            const open = V_HALF_ANGLE + (Math.random() - 0.5) * 0.08;
+            back = Math.cos(open) * spacing * rank + (Math.random() - 0.5) * spacing * 0.25;
+            side = s * Math.sin(open) * spacing * rank;
         }
-
-        // Clamp initial world position to stay within screen
-        const worldX = leaderStartX + localX;
-        const worldY = leaderStartY + localY;
-
         birds.push({
-            localX,
-            localY,
-            x: worldX,
-            y: worldY,
+            // offset from the leader, in screen px
+            ox: -fx * back + rx * side,
+            oy: -fy * back + ry * side,
+            x: 0, y: 0,
             frameIndex:    Math.floor(Math.random() * 4),
             frameTimer:    Math.random() * FRAME_MS,
-            frameDuration: FRAME_MS * (0.75 + Math.random() * 0.5),
+            frameDuration: FRAME_MS * (1.1 + Math.random() * 0.5),
             wobblePhase:   Math.random() * Math.PI * 2,
-            wobbleAmp:     (Math.random() - 0.5) * 3.5,
-            size:          birdSize * (i === 0 ? 1.1 : 0.8 + Math.random() * 0.35),
-            maxAlpha:      i === 0 ? 1.0 : 0.78 + Math.random() * 0.22,
+            wobbleAmp:     (Math.random() - 0.5) * 2.5,
+            size:          birdSize * (i === 0 ? 1.08 : 0.9 + Math.random() * 0.2),
+            maxAlpha:      (0.7 + 0.3 * depth) * (i === 0 ? 1.0 : 0.85 + Math.random() * 0.15),
         });
     }
 
-    return {
-        spawnAt,
-        leaderStartX,
-        leaderStartY,
-        leaderX: leaderStartX,
-        leaderY: leaderStartY,
-        angle,
-        speed,
-        birdSize,
-        birds,
-    };
+    // Start just below the screen with the whole V hidden, on a line that crosses the middle
+    // height at xMid.
+    const tail   = spacing * Math.ceil((count - 1) / 2) * Math.cos(V_HALF_ANGLE);
+    const startY = H + tail + birdSize * 2;
+    const xMid   = W * (0.5 + (Math.random() - 0.5) * 2 * CENTRE_SPREAD);
+    const toMid  = (H / 2 - startY) / fy;                                // distance to mid-height
+    const startX = xMid - fx * toMid;
+
+    return { spawnAt, angle, fx, fy, speed, birds,
+             leaderStartX: startX, leaderStartY: startY, leaderX: startX, leaderY: startY };
 }
 
-function _updateFormation(f, age) {
-    const cos = Math.cos(f.angle);
-    const sin = Math.sin(f.angle);
-
-    f.leaderX = f.leaderStartX + cos * f.speed * age * 0.1;
-    f.leaderY = f.leaderStartY + sin * f.speed * age * 0.1;
-
+function _updateFormation(f, age, dt) {
+    f.leaderX = f.leaderStartX + f.fx * f.speed * age;
+    f.leaderY = f.leaderStartY + f.fy * f.speed * age;
     for (const bird of f.birds) {
-        // Rotate local offset into flight-direction space
-        const rot  = f.angle - Math.PI / 2;
-        const rx   = bird.localX * Math.cos(rot) - bird.localY * Math.sin(rot);
-        const ry   = bird.localX * Math.sin(rot) + bird.localY * Math.cos(rot);
-        const wob  = bird.wobbleAmp * Math.sin(age * 0.0022 + bird.wobblePhase);
-
-        bird.x = f.leaderX + rx + wob;
-        bird.y = f.leaderY + ry;
-
-        bird.frameTimer += 16;
+        const wob = bird.wobbleAmp * Math.sin(age * 0.0022 + bird.wobblePhase);
+        bird.x = f.leaderX + bird.ox + f.fy * -wob;     // wobble sideways to the heading
+        bird.y = f.leaderY + bird.oy + f.fx * wob;
+        bird.frameTimer += dt;
         if (bird.frameTimer >= bird.frameDuration) {
             bird.frameTimer = 0;
             bird.frameIndex = (bird.frameIndex + 1) % Math.max(1, _sprites.length);
@@ -347,49 +349,37 @@ function _updateFormation(f, age) {
     }
 }
 
+// Draws the skein; returns true while any of it is still on its way (below the top edge).
 function _drawFormation(ctx, f, H, useSprites) {
+    let alive = false;
+    const band = H * FADE_BAND;
+    // Both the sprites and the procedural bird are drawn nose-up at rotation 0.
+    const facing = f.angle + Math.PI / 2;
     for (const bird of f.birds) {
-        // Birds fade out as they exit the top — no fade-in needed
-        // since they start on screen
-        const exitFade = Math.max(0, Math.min(bird.y / (H * 0.1), 1));
-        const alpha    = exitFade * bird.maxAlpha;
-
+        if (bird.y > -bird.size * 3) alive = true;
+        const fadeIn  = Math.max(0, Math.min((H - bird.y) / band, 1));   // rising out of the valley
+        const fadeOut = Math.max(0, Math.min(bird.y / band, 1));         // leaving off the top
+        const alpha   = fadeIn * fadeOut * bird.maxAlpha;
         if (alpha < 0.02) continue;
-
-        // f.angle is the HEADING (-PI/2 = straight up the screen). Both the
-        // sprites and the procedural bird are drawn nose-up at rotation 0, so
-        // the rotation to draw with is the heading measured from "up", not
-        // the heading itself. Passing f.angle straight through turned every
-        // bird a further quarter turn: flying up, but facing left.
-        const facing = f.angle + Math.PI / 2;
-        if (useSprites) {
-            _drawSprite(ctx, bird, facing, alpha);
-        } else {
-            _drawProcedural(ctx, bird.x, bird.y, bird.size, facing, alpha);
-        }
+        if (useSprites) _drawSprite(ctx, bird, facing, alpha);
+        else _drawProcedural(ctx, bird.x, bird.y, bird.size, facing, alpha);
     }
+    return alive;
 }
 
+// The sprites are already black silhouettes: drawn as they are, at the bird's alpha. (The old
+// version multiplied a dark rectangle over each one, which on a transparent canvas paints the
+// rectangle itself -- never seen only because the sprites never loaded.)
 function _drawSprite(ctx, bird, angle, alpha) {
     const sprite = _sprites[bird.frameIndex];
-    if (!sprite?.complete || !sprite.naturalWidth) {
-        _drawProcedural(ctx, bird.x, bird.y, bird.size, angle, alpha);
-        return;
-    }
-
     const w = bird.size * 2.8;
     const h = w * (sprite.naturalHeight / sprite.naturalWidth);
-
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(bird.x, bird.y);
     ctx.rotate(angle);
     ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = 'rgba(6, 8, 20, 0.88)';
-    ctx.fillRect(-w / 2, -h / 2, w, h);
     ctx.restore();
-    ctx.globalCompositeOperation = 'source-over';
 }
 
 function _drawProcedural(ctx, x, y, size, angle, alpha) {

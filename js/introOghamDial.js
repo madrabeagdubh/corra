@@ -1,3 +1,4 @@
+import { NOCTURNE } from './game/systems/nightPalette.js';   // [moonGlow]
 // introOghamDial.js  (v6)
 //
 // The druid's incantation: a ring of ogham turning about the moon while the
@@ -110,6 +111,10 @@ const STYLE = `
     background:#050908;color:#8fb4a4;font-size:16px;letter-spacing:.12em}
 `;
 
+// [moonGlow] The moon's colour comes from the shared palette, so the glow introLevel draws
+// around it is the same colour. ?nocturne=0 gives back the original cool sage-cream.
+const MOON_STOPS = NOCTURNE.on ? NOCTURNE.moon.stops : ['#f7f3e4', '#e0e7d8', '#bdccc0'];
+
 const MARKUP = `
 
 <div class="layer" id="ogd-sky"></div>
@@ -118,8 +123,8 @@ const MARKUP = `
     <svg id="ogd-svg" viewBox="-330 -400 660 660">
       <defs>
         <radialGradient id="ogd-moonG" cx="42%" cy="38%">
-          <stop offset="0%" stop-color="#f7f3e4"/><stop offset="70%" stop-color="#e0e7d8"/>
-          <stop offset="100%" stop-color="#bdccc0"/>
+          <stop offset="0%" stop-color="${MOON_STOPS[0]}"/><stop offset="70%" stop-color="${MOON_STOPS[1]}"/>
+          <stop offset="100%" stop-color="${MOON_STOPS[2]}"/>
         </radialGradient>
         <filter id="ogd-glow" x="-80%" y="-80%" width="260%" height="260%">
           <feGaussianBlur stdDeviation="10" result="b"/>
@@ -250,11 +255,15 @@ export function runOghamDial(opts = {}) {
   { ga: 'Tríd oícheanta fada',   en: 'Through long nights' },
   { ga: 'Tá comharthaí na spéire', en: 'The signs of the sky' },
   { ga: 'cuardaithe agam', en: 'I have searched' },
+	       
+  { ga: ' ',                          en: ' ' },
+   
+
      { ga: 'a Ríona na Bóinne',       en: 'O Queen of the Boyne' },
   { ga: 'is na Banna',       en: 'and the Bann' },
   { ga: 'gairim ort!',                          en: 'I call upon thee!' },
   { ga: 'Srian na taoisigh uaibhreacha',   en: 'Bridle these haughty chiefs' },
-  { ga: 'Nochtaigh a rúin dod ghiolla',         en: 'Reveal their secrets to your servant' }
+  { ga: 'Nochtaigh a rúin dod ghiolla',         en: 'Reveal their secrets to thy servant' }
 
 ];
       

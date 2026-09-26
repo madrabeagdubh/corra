@@ -121,14 +121,9 @@ export const constellationTexts = {
                 en: 'against my shield-bright warriors!',
                 speaker: 'queen',
             },
-                      {
-                ga: 'a gcroíthe saor ó eagla',
-                en: 'their hearts untouched by fear',
-                speaker: 'queen',
-            },
-            {
+                               {
                 ga: 'Ní chasfaidh neamh iad',
-                en: 'The heavens will not turn them',
+                en: 'Heaven will not turn them',
                 speaker: 'queen',
             },
 

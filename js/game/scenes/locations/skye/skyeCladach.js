@@ -15,8 +15,14 @@
 //      riser of the wall is solid but for one carved stair; her calls walk
 //      the player up them, ending beside her on the top. Starts when the
 //      dialogue sets `drill_start`.
-//   2. OFF TO THE LOCH -- "Maith go leor. Chuig an loch!" and she dashes
-//      off north and vanishes. The player follows, over the map edge.
+//   2. THE PEP TALK -- at the top her conversation opens by itself, worded
+//      by how the climb went (climb_clean / climb_rough): welcome to Skye,
+//      not many come this way, you did. Then the choice: on to the loch,
+//      or to the garden (skyeGairdin.js, west) to practise first.
+//   3. OFF -- to the loch she dashes away north and vanishes. To the
+//      garden she says "Lean mé", walks a few steps west, quickens, then
+//      dashes the rest -- so the player sees the way. Wildflowers thicken
+//      toward the west edge of the headland top, pointing the same way.
 //
 // Tap-to-move is OFF on this map until `lesson_movement` (set at the loch):
 // the loch is where it's introduced.
@@ -44,7 +50,10 @@ import { initReturnCrossing } from '../../returnCrossing.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 
 const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
-const EXIT_DASH = [18, 3]                           // where she dashes before vanishing
+const EXIT_DASH   = [18, 3]                         // north, toward the loch
+const GARDEN_DASH = [2, 19]                         // west, toward the garden
+const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // her walk before the dash
+const CLEAN_MAX   = 1                               // corrections for a "clean" climb
 const INTRO_DELAY_MS = 5000
 const NUDGE_MS = 6000
 
@@ -74,6 +83,8 @@ const LINES = {
   nudge:  { ga: 'Aníos!', en: 'Up!' },
   done:   { ga: 'Maith go leor. Chuig an loch!',
             en: 'Good enough. To the loch!' },
+  follow: { ga: 'Lean mé. Siar linn, go dtí an gairdín.',
+            en: 'Follow me. West, to the garden.' },
 }
 
 const inBox = (b, x, y) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1
@@ -91,7 +102,7 @@ export class SkyeCladach extends SkyeScene {
     await super.create(data)
     if (!this.player) return                    // base create failed (logged)
 
-    this._caption = new SkyeCaption()
+    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt() })
     this._uathach = this._findFigure(SKYE_GID.UATHACH)
     this._boat    = this._findFigure(SKYE_GID.BOAT)
     if (this._boat) this._boat.flag.hidden = true   // ShoreProps draws the boat; the flag is just for talking
@@ -106,8 +117,10 @@ export class SkyeCladach extends SkyeScene {
       wall,
     ))
 
-    if (GameState.hasNote('drill_done')) {
-      this._vanishUathach(false)                  // she's gone on to the loch
+    if (GameState.hasNote('pep_done')) {
+      this._vanishUathach(false)                  // she's gone on ahead
+    } else if (GameState.hasNote('drill_done')) {
+      this._phase = 'pep'                         // up top, waiting to talk
     } else if (!GameState.hasNote('drill_start')) {
       this._phase = 'arrival'
       this._introTimer = this.time.delayedCall(INTRO_DELAY_MS, () => this._openIntro())
@@ -134,6 +147,8 @@ export class SkyeCladach extends SkyeScene {
     }
     if (this._phase === 'drill' && !panelOpen) this._drill?.update()
     if (this._phase === 'comeUp') this._checkClimb(time)
+    if (!panelOpen && GameState.hasNote('go_loch'))   this._pepChoice('go_loch')
+    if (!panelOpen && GameState.hasNote('go_garden')) this._pepChoice('go_garden')
     if (GameState.hasNote('leave_skye') && !panelOpen) this._leaveSkye()
   }
 
@@ -168,10 +183,11 @@ export class SkyeCladach extends SkyeScene {
   }
 
   _drillDone() {
+    this._mistakes = this._drill?.mistakes ?? 0
     this._drill?.destroy()
     this._drill = null
     GameState.addNote('drill_done')
-    if (this._onTop()) return this._offToLoch()
+    if (this._onTop()) return this._pepTalk()
     this._phase = 'comeUp'
     this._nextNudge = null
     this._caption.show(LINES.comeUp.ga, LINES.comeUp.en)
@@ -181,7 +197,7 @@ export class SkyeCladach extends SkyeScene {
   // ends on the top. If it doesn't, wait for them to get up there, nudging
   // now and then, alternating the short and the full call.
   _checkClimb(time) {
-    if (this._onTop()) return this._offToLoch()
+    if (this._onTop()) return this._pepTalk()
     if (this._nextNudge == null) this._nextNudge = time + NUDGE_MS
     if (time < this._nextNudge) return
     this._nextNudge = time + NUDGE_MS
@@ -190,14 +206,78 @@ export class SkyeCladach extends SkyeScene {
     this._caption.show(line.ga, line.en, 2500)
   }
 
-  // ── 2. off to the loch ───────────────────────────────────────────────────
-  _offToLoch() {
+  // ── 2. the pep talk ──────────────────────────────────────────────────────
+  _pepTalk() {
+    this._phase = 'pep'
+    GameState.addNote((this._mistakes ?? 0) <= CLEAN_MAX ? 'climb_clean' : 'climb_rough')
+    this.time.delayedCall(700, () => {
+      const panel = this._encounterPanel
+      if (!panel || !this._uathach || panel._isOpen) return
+      panel.notify({ id: 'fixed:uathach', visual: this._uathach.flag.visual }, this._uathach.zone)
+      panel._openPanel()
+    })
+  }
+
+  _pepChoice(note) {
+    GameState.removeNote(note)
+    if (this._phase !== 'pep') return
+    GameState.addNote('pep_done')
+    if (note === 'go_garden') this._leadToGarden()
+    else this._offToLoch()
+  }
+
+  // ── 3. off ───────────────────────────────────────────────────────────────
+  _offToLoch() { this._offTo(EXIT_DASH, LINES.done) }
+
+  // "Lean mé": a few unhurried steps west, a few quicker ones, then the
+  // dash -- the player sees which way she's going before she's gone.
+  _leadToGarden() {
     this._phase = 'dash'
-    this._caption.show(LINES.done.ga, LINES.done.en, 3000)
+    const u = this._uathach
+    this._caption.speak(LINES.follow.ga, LINES.follow.en, 3200)
+    if (!u) { this._phase = 'free'; return }
+    let t = 1600
+    const n = LEAD.slow + LEAD.quick
+    for (let i = 1; i <= n; i++) {
+      t += i <= LEAD.slow ? LEAD.slowMs : LEAD.quickMs
+      this.time.delayedCall(t, () => {
+        const x = Math.max(GARDEN_DASH[0] + 1, u.flag.tileX - 1)
+        moveFigure(this, u.flag, u.zone, [x, GARDEN_DASH[1]])
+      })
+    }
+    this.time.delayedCall(t + 300, () => dash(this, {
+      flag: u.flag, zone: u.zone, to: GARDEN_DASH,
+      onArrive: () => this.time.delayedCall(500, () => {
+        this._vanishUathach(true)
+        this._phase = 'free'
+      }),
+    }))
+  }
+
+  // Wildflowers on the headland top, thickening toward its west edge: a
+  // quiet pointer to the garden. On the ground canvas, like the ráth's.
+  getVegetation() {
+    const toX = 16                                   // none east of here
+    return {
+      species: ['mearacan', 'noinin', 'minscoth', 'crobhein'],
+      density: 1, clumpBias: 0, perTile: 2, scaleJitter: 0.35, onGround: true,
+      allowAt: (key, col, row) => {
+        if (row > 21 || col >= toX) return false
+        const want = Math.pow((toX - col) / toX, 1.4) * 0.85   // 0 -> 0.85 going west
+        const h = Math.abs(Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1
+        return h < want
+      },
+      isWater: () => false,
+    }
+  }
+
+  _offTo(to, line) {
+    this._phase = 'dash'
+    this._caption.speak(line.ga, line.en, 3000)
     this.time.delayedCall(1400, () => {
       if (!this._uathach) { this._phase = 'free'; return }
       dash(this, {
-        flag: this._uathach.flag, zone: this._uathach.zone, to: EXIT_DASH,
+        flag: this._uathach.flag, zone: this._uathach.zone, to,
         onArrive: () => this.time.delayedCall(500, () => {
           this._vanishUathach(true)
           this._phase = 'free'
@@ -224,18 +304,40 @@ export class SkyeCladach extends SkyeScene {
     if (this._leaving) return
     this._leaving = true
     const champ = this.registry.get('selectedChampion') || window.selectedChampion
-    this.cameras.main.fadeOut(700, 0, 0, 0)
-    this.time.delayedCall(750, () => {
+
+    // A DOM veil, not a camera fade: PGR's layers, the moon and the d-pad
+    // are DOM elements a Phaser fade doesn't cover.
+    const veil = document.createElement('div')
+    veil.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;' +
+      'pointer-events:all;z-index:1000010;transition:opacity 0.6s linear'
+    document.body.appendChild(veil)
+    requestAnimationFrame(() => { veil.style.opacity = '1' })
+
+    setTimeout(() => {
       const container = document.getElementById('gameContainer')
       if (container) container.style.background = '#000'
+      // Stop this scene BEFORE the crossing starts: its shutdown removes the
+      // moon, badge, d-pad and PGR layers. Left running, they sat on top of
+      // the crossing (which draws beneath them) -- a second moon, still
+      // wearing the boat badge.
+      this.scene.stop()
       initReturnCrossing(champ, GameSettings.englishOpacity, () => {
         if (window.startGame) window.startGame(champ, { startScene: 'd3_sea' })
-        else this.scene.start('d3_sea')
       })
-    })
+      setTimeout(() => {
+        veil.style.opacity = '0'
+        setTimeout(() => veil.remove(), 700)
+      }, 60)
+    }, 650)
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
+  // Where Uathach is standing, for the caption's focus -- or null.
+  _speakerAt() {
+    const f = this._uathach?.flag
+    return f && !f.hidden ? [f.tileX, f.tileY] : null
+  }
+
   _onTop() {
     const ts = this.tileSize
     return inBox(TOP, Math.floor(this.player.logicalX / ts), Math.floor(this.player.logicalY / ts))

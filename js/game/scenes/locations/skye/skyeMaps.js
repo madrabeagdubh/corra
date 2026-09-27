@@ -7,6 +7,7 @@
 import SkyeScene from './skyeScene.js'
 import { SkyeCladach } from './skyeCladach.js'
 import { SkyeLoch } from './skyeLoch.js'
+import { SkyeGairdin } from './skyeGairdin.js'
 
 // SkyeCladach (the shore) and SkyeLoch carry Uathach's movement lesson:
 // see skyeCladach.js and skyeLoch.js
@@ -31,4 +32,4 @@ export class SkyeDun extends SkyeScene {
   getMapKey() { return 'skye_dun' }
 }
 
-export const SKYE_SCENES = [SkyeCladach, SkyeLoch, SkyeMachaire, SkyeFaiche, SkyeDroichead, SkyeDun]
+export const SKYE_SCENES = [SkyeCladach, SkyeGairdin, SkyeLoch, SkyeMachaire, SkyeFaiche, SkyeDroichead, SkyeDun]

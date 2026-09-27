@@ -172,7 +172,17 @@ clearNotify() {
         const ctx = badge.getContext('2d')
         ctx.clearRect(0, 0, badge.width, badge.height)
         ctx.imageSmoothingEnabled = false
-        ctx.drawImage(src, 0, 0, badge.width, badge.height)
+        // Fit, don't stretch: a long, low sprite (a boat) squashed into a
+        // square came out as a cropped, upright boat. Near-square sprites
+        // (NPCs) still fill the badge as before.
+        const ar = src.width / src.height
+        if (ar > 1.3 || ar < 1 / 1.3) {
+          const k = Math.min(badge.width / src.width, badge.height / src.height) * 0.92
+          const w = src.width * k, h = src.height * k
+          ctx.drawImage(src, (badge.width - w) / 2, (badge.height - h) / 2, w, h)
+        } else {
+          ctx.drawImage(src, 0, 0, badge.width, badge.height)
+        }
       }
     }
 

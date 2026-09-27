@@ -41,6 +41,9 @@ export class Wind {
 
   /** @param {number} delta - milliseconds, as Phaser hands it to update() */
   update(delta) {
+    // calm: the wind's clock stops, so everything that sways stops dead
+    // mid-sway -- a held breath (Skye's ráth uses it; set({ calm: true })).
+    if (this.calm) return this
     this._t += (delta || 16) / 1000
 
     // Summed incommensurable sines: cheap, seamless, no noise table needed.

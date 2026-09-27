@@ -1,0 +1,81 @@
+# skyeGairdin — Uathach in her kata garden
+#
+# Idle lines between kata, and the sos (break) talks: the scene sets
+# sos_1, sos_2, sos_3 every second kata finished and opens this card.
+# She talks about the discipline: footwork, pattern, thought -- and, last,
+# a thread for the constellations (see the omen in skyeGairdin.js).
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/skyeGairdin
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — idle, before the first break
+@when !note sos_1
+@hold
+Stand in the middle when you're ready.
+% Seas sa lár nuair atá tú réidh.
+Stay as long as you like. Come back whenever you like.
+% Fan chomh fada agus is mian leat. Fill aon uair is mian leat.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — sos: the feet first
+@when note sos_1
+@when !note sos_1_heard
+@note sos_1_heard
+@continue
+Rest a moment.
+% Lig do scíth nóiméad.
+Everything else is built on the feet.
+% Tá gach rud eile tógtha ar na cosa.
+Sword, spear, bow: without the feet, they're only wood and iron.
+% Claíomh, sleá, bogha: gan na cosa, níl iontu ach adhmad agus iarann.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 2 — idle
+@when !note sos_2
+@hold
+Again, whenever you like.
+% Arís, aon uair is mian leat.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 3 — sos: the word and the foot
+@when note sos_2
+@when !note sos_2_heard
+@note sos_2_heard
+@continue
+When the feet follow the word without thinking, the mind is free.
+% Nuair a leanann na cosa an focal gan smaoineamh, bíonn an intinn saor.
+That's why we walk them again, and again.
+% Sin é an fáth a siúlaimid arís iad, agus arís eile.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 4 — idle
+@when !note sos_3
+@hold
+The stones don't mind how often you walk them.
+% Is cuma leis na clocha cé chomh minic a shiúlann tú orthu.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 5 — sos: older than the board
+@when note sos_3
+@when !note sos_3_heard
+@note sos_3_heard
+@continue
+Some of these patterns are older than the board.
+% Tá cuid de na patrúin seo níos sine ná an clár.
+They came down from the sky, they say.
+% Tháinig siad anuas ón spéir, a deirtear.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 6 — idle, for good
+@hold
+The stones will be here.
+% Beidh na clocha anseo.

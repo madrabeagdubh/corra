@@ -12,7 +12,8 @@
 //             |
 //         skye_cladach       strand + sea along the south
 //
-// Exits are 5-tile corridors centred on each edge; entries mirror the
+// Exits run the full width of each edge wherever both sides are standable
+// (see the build section at the bottom); entries mirror the
 // bog maps' convention (arrive 3 tiles in, position carried from source).
 // pathDist gives the trails PGR's mud tint.
 //
@@ -24,12 +25,18 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { createNoise2D } from 'simplex-noise'
 import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
+import { readFileSync } from 'fs'
 
 const __dirname  = dirname(fileURLToPath(import.meta.url))
 const OUTPUT_DIR = resolve(__dirname, '../../../public/maps/skyeMaps')
 
+// The kata live in a browser ES module; node treats this repo's .js as
+// CommonJS, so load it from its source text instead.
+const { LAR, BOARD_R, onBoard, inlay } = await import('data:text/javascript,' +
+  encodeURIComponent(readFileSync(resolve(__dirname, '../../../public/data/skye/kata.js'), 'utf8')))
+
 const W = 36, H = 36
-const MID = 18, HALF = 2              // corridor = cols/rows 16..20
+const MID = 18
 const GRASS = [839, 840], STRAND = 731, SEA = 1625
 
 const LEGEND = { '0': 'overlay', '731': 'waterside', '839': 'grass', '840': 'grass', '1625': 'water',
@@ -46,19 +53,13 @@ function mulberry32(seed) {
 }
 
 const grid = (w, h, f) => Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => f(x, y)))
-const corridor = () => Array.from({ length: HALF * 2 + 1 }, (_, i) => MID - HALF + i)
 
 // ── exits / entries ─────────────────────────────────────────────────────────
 const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east' }
 
-function exitTiles(dir) {
-  const c = corridor()
-  if (dir === 'north') return c.map(x => [x, 0])
-  if (dir === 'south') return c.map(x => [x, H - 1])
-  if (dir === 'west')  return c.map(y => [0, y])
-  return c.map(y => [W - 1, y])
-}
 
+// Arrival rules (every map, every edge): 3 tiles in, same row/column as
+// crossed -- the generator only makes exits where that tile is standable.
 const ENTRIES = {
   north: { y: 3,     xFromSource: true },
   south: { y: H - 4, xFromSource: true },
@@ -88,11 +89,10 @@ function pathDistFor(points, falloff = 3) {
 
 const MAPS = {
   skye_cladach: {
-    exits: { north: 'skye_loch' },
+    // west, off the headland top (rows 16-20): Uathach's kata garden
+    exits: { north: 'skye_loch', west: 'skye_gairdin' },
     // At the foot of the headland; jetty and boat behind (south).
     spawn: { x: MID, y: 28 },
-    // Arriving back from the loch: on the headland top.
-    entries: { north: { x: MID, y: 2 } },
     build(n, rng) {
       // ── Layout (keep in sync with skye/skyeCladach.js) ────────────────
       //   rows 30+   sea; row 29 strand; jetty (18-19, 30-33), boat (34)
@@ -141,8 +141,10 @@ const MAPS = {
         trail: [[[16, 21], [MID, 0]]],
         trailFalloff: 1.5,
         extra: {
-          // solid: every riser tile but the stair
-          blockMask: grid(W, H, (x, y) => (y in GAPS && x !== GAPS[y]) ? 1 : 0),
+          // solid: every riser tile but the stair, and the wall's two ends
+          // (so its narrow ledges don't lead off the map sideways)
+          blockMask: grid(W, H, (x, y) =>
+            ((y in GAPS && x !== GAPS[y]) || (y >= 22 && y <= 26 && (x === 0 || x === W - 1))) ? 1 : 0),
           // the wall, its terraces and its foot read as bare rock (the
           // risers also get SteepFaceRenderer's stone texture on top)
           stoneTint: grid(W, H, (x, y) =>
@@ -156,10 +158,57 @@ const MAPS = {
     },
   },
 
+  skye_gairdin: {
+    exits: { east: 'skye_cladach' },
+    spawn: { x: 30, y: 18 },
+    build(n) {
+      // ── Uathach's ráth (skye/skyeGairdin.js) ──────────────────────────
+      // A gentle ringfort, like Tara: concentric rises in the land, a ripple
+      // from a drop of water, walkable everywhere -- a comfort, not a
+      // defence. From the centre out:
+      //   the board   a round floor of stones, inlaid as a sun wheel in
+      //               four colours (kata.js inlay), the lár at its heart
+      //   the tier    one low raised ring to sit on and watch from
+      //   the bank    a soft outer rampart, then the open field
+      // Radii in tiles from the lár's centre; every rise stays well under
+      // the 0.6 climb limit.
+      const cx = LAR[0] + 0.5, cy = LAR[1] + 0.5
+      const smooth = (a, b, r) => { const t = Math.max(0, Math.min(1, (r - a) / (b - a))); return t * t * (3 - 2 * t) }
+      const stones = []
+      const R = Math.ceil(BOARD_R)
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++)
+          if (onBoard(dx, dy)) stones.push([LAR[0] + dx, LAR[1] + dy, inlay(dx, dy)])
+      return {
+        tile: () => null,
+        overlay: () => 0,
+        height: (x, y) => {
+          const r = Math.hypot(x - cx, y - cy)
+          const floor = 0.1
+          const tier  = 0.45 * smooth(9.9, 11.2, r)                    // step up to the tier
+          const bank  = 0.55 * smooth(12.4, 14.4, r) * (1 - smooth(14.8, 17.2, r))
+          const out   = 0.25 * smooth(14.8, 17.2, r)                    // the field beyond
+          const h = floor + tier + bank + out - 0.45 * smooth(14.8, 17.2, r)
+          return h + (r > 10 ? (n(x * 0.2, y * 0.2) + 1) * 0.02 : 0)
+        },
+        trail: [[[W - 1, LAR[1]], [LAR[0] + BOARD_R + 1, LAR[1]]]],
+        trailFalloff: 1.2,
+        extra: {
+          stones,                                   // [x, y, colour]
+          lar: LAR,
+          boardR: BOARD_R,
+          // weathered standing stones: two on the tier, one out on the bank
+          standingStones: [[11, 10], [27, 12], [31, 26]],
+          // wildflowers and gorse grow beyond the bank (radius, tiles)
+          floraFrom: 15.2,
+        },
+      }
+    },
+  },
+
   skye_loch: {
     exits: { north: 'skye_machaire', south: 'skye_cladach' },
     spawn: { x: MID, y: 27 },
-    entries: { south: { x: MID, y: 27 }, north: { x: MID, y: 2 } },
     build(n) {
       // ── Layout (keep in sync with skye/skyeLoch.js) ───────────────────
       //   rows 25+   south bank (arrival from the shore)
@@ -268,37 +317,80 @@ const MAPS = {
 }
 
 // ── build ───────────────────────────────────────────────────────────────────
+// Two passes. First every map's terrain; then the exits, which need both
+// sides of each edge: an edge tile is an exit only where you can stand on
+// it AND on the tile you'd arrive at next door. So exits run the full width
+// of an edge, broken only where something physically blocks the way
+// (cliff, wall, sea) -- no hunting for a narrow corridor.
 mkdirSync(OUTPUT_DIR, { recursive: true })
 
+const built = {}
 Object.entries(MAPS).forEach(([name, def], i) => {
   const rng   = mulberry32(0x5C1A + i * 101)
   const noise = createNoise2D(rng)
   const t     = def.build(noise, rng)
+  built[name] = {
+    def, t,
+    layer0: grid(W, H, (x, y) => t.tile(x, y) ?? GRASS[rng() < 0.5 ? 0 : 1]),
+    layer1: grid(W, H, (x, y) => t.overlay?.(x, y) ?? 0),
+    heightMap: grid(W + 1, H + 1, (x, y) => +t.height(x, y).toFixed(4)),
+  }
+})
 
-  const layer0 = grid(W, H, (x, y) => t.tile(x, y) ?? GRASS[rng() < 0.5 ? 0 : 1])
-  const layer1 = grid(W, H, (x, y) => t.overlay?.(x, y) ?? 0)
-  const heightMap = grid(W + 1, H + 1, (x, y) => +t.height(x, y).toFixed(4))
+// Standable: not sea, not a loch pool, not solid rock or hedge.
+const NOT_STANDABLE = new Set([SEA, 1679])
+function standable(m, x, y) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return false
+  if (NOT_STANDABLE.has(m.layer0[y][x])) return false
+  const ex = m.t.extra || {}
+  return !ex.blockMask?.[y]?.[x] && !ex.hedgeMask?.[y]?.[x]
+}
 
+// The edge tile, and the tile next door it leads to, for position i.
+const EDGE = {
+  north: i => [[i, 0], [i, H - 1]],
+  south: i => [[i, H - 1], [i, 0]],
+  west:  i => [[0, i], [W - 1, i]],
+  east:  i => [[W - 1, i], [0, i]],
+}
+// Where an arrival lands, three tiles in from the edge it came through.
+const LAND = {
+  north: i => [i, 3],     south: i => [i, H - 4],
+  west:  i => [3, i],     east:  i => [W - 4, i],
+}
+
+for (const [name, m] of Object.entries(built)) {
   const exits = {}, entries = {}
   const openCols = new Set(), openRows = new Set()
-  for (const [dir, dest] of Object.entries(def.exits)) {
-    exits[dir] = { tiles: exitTiles(dir), destination: dest, entryPoint: OPPOSITE[dir] }
-    entries[dir] = def.entries?.[dir] ?? ENTRIES[dir]
-    ;(dir === 'north' || dir === 'south' ? openCols : openRows)
-      .add(MID - 2).add(MID - 1).add(MID).add(MID + 1).add(MID + 2)
+  for (const [dir, dest] of Object.entries(m.def.exits)) {
+    const d = built[dest]
+    const tiles = []
+    for (let i = 1; i < (dir === 'north' || dir === 'south' ? W : H) - 1; i++) {
+      const [[ax, ay], [bx, by]] = EDGE[dir](i)
+      const [lx, ly] = LAND[OPPOSITE[dir]](i)
+      if (standable(m, ax, ay) && d && standable(d, bx, by) && standable(d, lx, ly)) {
+        tiles.push([ax, ay])
+        ;(dir === 'north' || dir === 'south' ? openCols : openRows).add(i)
+      }
+    }
+    if (!tiles.length) console.warn(`[skye_gen] ${name}: no crossable tiles on the ${dir} edge`)
+    exits[dir] = { tiles, destination: dest, entryPoint: OPPOSITE[dir] }
   }
+  // Arrivals keep the row/column they crossed at (see LAND).
+  for (const dir of ['north', 'south', 'east', 'west']) entries[dir] = ENTRIES[dir]
 
+  const t = m.t
   const map = {
     name, width: W, height: H,
-    layers: [layer0, layer1],
-    heightMap, legend: LEGEND,
-    spawns: { player: def.spawn ?? { x: MID, y: MID } },
+    layers: [m.layer0, m.layer1],
+    heightMap: m.heightMap, legend: LEGEND,
+    spawns: { player: m.def.spawn ?? { x: MID, y: MID } },
     exits, entries,
     pathDist: pathDistFor(t.trail, t.trailFalloff),
     ...(t.extra || {}),
     border: { openCols: [...openCols].sort((a, b) => a - b), openRows: [...openRows].sort((a, b) => a - b) },
   }
-
   writeFileSync(resolve(OUTPUT_DIR, `${name}.json`), JSON.stringify(map))
-  console.log(`[skye_gen] ${name}.json  exits: ${Object.keys(exits).join(', ')}`)
-})
+  console.log(`[skye_gen] ${name}.json  exits: ` +
+    Object.entries(exits).map(([k, v]) => `${k} (${v.tiles.length} tiles)`).join(', '))
+}

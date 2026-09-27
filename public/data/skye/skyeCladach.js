@@ -73,6 +73,50 @@ export const skyeCladachContent = {
           ],
         },
 
+        // ── node 1a — the top, a clean climb ──────────────────────
+        {
+          requires: { note: 'climb_clean', noteAbsent: 'pep_done' },
+          hold: true,
+          ga: 'Níor chaill tú céim.\nFáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.\nMás furasta a bhí sé, ar aghaidh linn. Más mian leat tuilleadh, bíonn tuilleadh ann i gcónaí.',
+          en: 'You didn\'t miss a step.\nWelcome to Skye. Not many come this way. You did.\nIf that was easy, on we go. If you want more, there\'s always more.',
+          options: [
+            {
+              note: 'go_loch',
+              exit: true,
+              ga: 'Ar aghaidh chuig an loch.',
+              en: 'On to the loch.',
+            },
+            {
+              note: 'go_garden',
+              exit: true,
+              ga: 'Chuig an ngairdín ar dtús.',
+              en: 'To the garden first.',
+            },
+          ],
+        },
+
+        // ── node 1b — the top, a harder climb ─────────────────────
+        {
+          requires: { note: 'climb_rough', noteAbsent: 'pep_done' },
+          hold: true,
+          ga: 'Ní raibh sé sin éasca. Is cuma.\nFáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.\nTá gairdín thiar ansin. Cleachtfaimid ann chomh fada agus is mian leat.',
+          en: 'That wasn\'t easy. No matter.\nWelcome to Skye. Not many come this way. You did.\nThere\'s a garden over west. We\'ll practise there as long as you like.',
+          options: [
+            {
+              note: 'go_garden',
+              exit: true,
+              ga: 'Chuig an ngairdín.',
+              en: 'To the garden.',
+            },
+            {
+              note: 'go_loch',
+              exit: true,
+              ga: 'Ar aghaidh chuig an loch.',
+              en: 'On to the loch.',
+            },
+          ],
+        },
+
         // ── node 2 — mid-lesson ───────────────────────────────────
         {
           requires: { note: 'drill_start', noteAbsent: 'lesson_movement' },

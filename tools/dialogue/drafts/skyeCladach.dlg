@@ -11,6 +11,9 @@
 #   drill_done             -> (scene) drill finished
 #   lesson_movement        -> (scene) reached her at the top of the lane
 #   uathach_told_machaire  -> she has pointed them onward
+#   climb_clean / climb_rough -> (scene) how the climb went, before the pep talk
+#   go_loch / go_garden    -> pep-talk choice; one-off, the scene clears it
+#   pep_done               -> (scene) the pep talk is over
 #
 # IRISH IS A FIRST DRAFT -- check before shipping.
 
@@ -50,6 +53,55 @@ But first, let's see if you can follow an order.
 % An múinteoir arm is fearr ar domhan.
 < And the hardest.
 % Agus an ceann is crua.
+
+
+# ══════════════════════════════════════════════════════════════════════
+# THE PEP TALK -- at the top of the wall, opened by the scene. It sets
+# climb_clean (a correction or none) or climb_rough first. The subtext is
+# the whole project: you came, and that matters. She never says so.
+= node 1a — the top, a clean climb
+@when note climb_clean
+@when !note pep_done
+@hold
+You didn't miss a step.
+% Níor chaill tú céim.
+Welcome to Skye. Not many come this way. You did.
+% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
+If that was easy, on we go. If you want more, there's always more.
+% Más furasta a bhí sé, ar aghaidh linn. Más mian leat tuilleadh, bíonn tuilleadh ann i gcónaí.
+
+* On to the loch.
+% Ar aghaidh chuig an loch.
+@note go_loch
+@exit
+
+* To the garden first.
+% Chuig an ngairdín ar dtús.
+@note go_garden
+@exit
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1b — the top, a harder climb
+@when note climb_rough
+@when !note pep_done
+@hold
+That wasn't easy. No matter.
+% Ní raibh sé sin éasca. Is cuma.
+Welcome to Skye. Not many come this way. You did.
+% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
+There's a garden over west. We'll practise there as long as you like.
+% Tá gairdín thiar ansin. Cleachtfaimid ann chomh fada agus is mian leat.
+
+* To the garden.
+% Chuig an ngairdín.
+@note go_garden
+@exit
+
+* On to the loch.
+% Ar aghaidh chuig an loch.
+@note go_loch
+@exit
 
 
 # ══════════════════════════════════════════════════════════════════════

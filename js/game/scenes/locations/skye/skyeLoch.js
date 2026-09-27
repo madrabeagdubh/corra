@@ -85,7 +85,7 @@ export class SkyeLoch extends SkyeScene {
     await super.create(data)
     if (!this.player) return
 
-    this._caption = new SkyeCaption()
+    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt() })
     this._uathach = this._findFigure(SKYE_GID.UATHACH)
     this.perspectiveGround?.setStructures(new LochStones(this, this.mapData.stones))
     this._spots  = this.mapData.uathachSpots      // [A, B]
@@ -151,7 +151,7 @@ export class SkyeLoch extends SkyeScene {
     this._pathSteps = 0
     this._padSteps = 0
     this._phase = 'crossing'
-    this.time.delayedCall(delayMs, () => this._say(line, 3000))
+    this.time.delayedCall(delayMs, () => this._speak(line, 3000))
   }
 
   // A d-pad step (not one of a tapped route's): nudge now and then; after
@@ -173,7 +173,7 @@ export class SkyeLoch extends SkyeScene {
     this._phase = 'talk'
     const tapped = this._tapped
     if (this._round === 'A') {
-      this._say(tapped ? LINES.tappedA : LINES.walkedA, 3400)
+      this._speak(tapped ? LINES.tappedA : LINES.walkedA, 3400)
       this.time.delayedCall(3200, () => this._dashTo(this._spots[1], () => {
         if (!tapped) this._ringOn = true
         this._beginRound('B', 400, tapped ? LINES.againB : LINES.againBHint)
@@ -181,8 +181,8 @@ export class SkyeLoch extends SkyeScene {
     } else {
       GameState.addNote('lesson_movement')
       this._ringOn = false
-      this._say(tapped ? LINES.tappedB : LINES.walkedB, 3000)
-      this.time.delayedCall(3000, () => this._say(LINES.more, 3200))
+      this._speak(tapped ? LINES.tappedB : LINES.walkedB, 3000)
+      this.time.delayedCall(3000, () => this._speak(LINES.more, 3200))
       this.time.delayedCall(5600, () => this._dashTo([22, 1], () => {
         this.time.delayedCall(400, () => { this._vanishUathach(true); this._phase = 'free' })
       }))
@@ -213,7 +213,7 @@ export class SkyeLoch extends SkyeScene {
       if (lesson) {
         this._padSteps = 0
         this._ringOn = true                                // the hint grows
-        this._say(this._dunks === 1 ? LINES.wet : this._dunks === 2 ? LINES.explicit : LINES.wetAgain, 3000)
+        this._speak(this._dunks === 1 ? LINES.wet : this._dunks === 2 ? LINES.explicit : LINES.wetAgain, 3000)
       }
       this.time.delayedCall(350, () => { this._dunking = false })
     })
@@ -260,7 +260,14 @@ export class SkyeLoch extends SkyeScene {
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
-  _say(line, ms) { this._caption?.show(line.ga, line.en, ms) }
+  _say(line, ms)   { this._caption?.show(line.ga, line.en, ms) }     // while moving
+  _speak(line, ms) { this._caption?.speak(line.ga, line.en, ms) }    // a spoken moment
+
+  // Where Uathach is standing, for the caption's focus -- or null.
+  _speakerAt() {
+    const f = this._uathach?.flag
+    return f && !f.hidden ? [f.tileX, f.tileY] : null
+  }
 
   _onStone() {
     const p = this.player, ts = this.tileSize

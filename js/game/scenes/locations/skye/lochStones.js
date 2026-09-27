@@ -8,7 +8,12 @@
 //
 // A PGR structure provider (pgr.setStructures), drawn on the ground
 // canvas after each row, so nearer rows paint over farther ones.
-// mapData.stones = [[x, y], ...]
+// mapData.stones = [[x, y], ...] or [[x, y, colour], ...]
+//   colour: 'ban' | 'dubh' | 'dearg' | 'glas' | 'lar' (the ráth's inlay)
+// opts.water = false  -- no ring on the water (stones set in grass)
+// opts.isLit(x, y)    -- true: a warm lit stone (a kata's walked path)
+// opts.isEcho(x, y)   -- true: a faint lingering glow (a figure that stays)
+// opts.colourAt(x, y) -- a colour to override everything (or null)
 
 function hash(x, y, s = 0) {
   let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (s | 0) * 2147483647
@@ -17,13 +22,23 @@ function hash(x, y, s = 0) {
 }
 
 const TOPS = ['#7d786f', '#8a857b', '#726d65']
+// The ráth's night board: slate blue-greys, the sun wheel only in value and
+// the faintest hue, so lit stars read like stars on a night floor. (The
+// colour NAMES stay, for place calls: dearg is still the reddish one.)
+const INLAY = { ban: '#5c6270', dubh: '#2c313b', dearg: '#574349', glas: '#434f55', lar: '#8a8e98' }
 
 export default class LochStones {
-  constructor(scene, stones) {
+  constructor(scene, stones, opts = {}) {
+    this.water = opts.water !== false
+    this.isLit = opts.isLit || null
+    this.isEcho = opts.isEcho || null
+    this.colourAt = opts.colourAt || null
     this.byRow = new Map()
-    for (const [x, y] of stones || []) {
+    this.colour = new Map()
+    for (const [x, y, c] of stones || []) {
       if (!this.byRow.has(y)) this.byRow.set(y, [])
       this.byRow.get(y).push(x)
+      if (c) this.colour.set(`${x},${y}`, INLAY[c])
     }
   }
 
@@ -50,9 +65,11 @@ export default class LochStones {
     const thick = Math.max(1.5, ry * 0.35)
 
     // ring on the water
+    if (this.water) {
     ctx.strokeStyle = 'rgba(220,235,242,0.22)'
     ctx.lineWidth = Math.max(1, sB * 0.02)
     ctx.beginPath(); ctx.ellipse(cx, cy + thick * 0.8, rx * 1.25, ry * 1.25, 0, 0, Math.PI * 2); ctx.stroke()
+    }
 
     // irregular outline, shared by the wet side and the dry top
     const pts = []
@@ -67,7 +84,11 @@ export default class LochStones {
       ctx.closePath()
     }
     ctx.fillStyle = '#34322e'; path(thick); ctx.fill()                  // wet side
-    ctx.fillStyle = TOPS[Math.floor(hash(col, row, 20) * TOPS.length)]
+    const lit = this.isLit?.(col, row)
+    ctx.fillStyle = this.colourAt?.(col, row)
+      || (lit ? '#f0d27a'
+        : this.isEcho?.(col, row) ? '#b3a978'
+        : (this.colour.get(`${col},${row}`) || TOPS[Math.floor(hash(col, row, 20) * TOPS.length)]))
     path(0); ctx.fill()                                                // top
     ctx.fillStyle = 'rgba(255,255,255,0.12)'                           // dry highlight
     ctx.beginPath(); ctx.ellipse(cx - rx * 0.2, cy - ry * 0.25, rx * 0.45, ry * 0.3, 0, 0, Math.PI * 2); ctx.fill()

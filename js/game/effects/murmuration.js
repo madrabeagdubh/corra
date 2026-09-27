@@ -75,23 +75,42 @@ export function triggerMurmuration(audioContext) {
 }
 
 
+// The geese heard and not seen: the same calls, no birds on screen, faded
+// in from nothing and away again -- far off. Used as an echo elsewhere (the
+// omen on Skye's ráth). opts: { fadeInS, peak, totalMs }
+export function playGeeseCall(audioContext, opts = {}) {
+    if (!audioContext) return;
+    const go = () => _playMurmuringSound(audioContext, {
+        fadeInS: opts.fadeInS ?? 3, peak: opts.peak ?? 1.3, totalMs: opts.totalMs ?? 14000 });
+    audioContext.state === 'suspended' ? audioContext.resume().then(go) : go();
+}
+
 // ── Audio — honks and wingbeats only, fading with the flock ──────────────────
 
-function _playMurmuringSound(ac) {
+function _playMurmuringSound(ac, opts = {}) {
     if (!ac) return;
 
     // Small lookahead to avoid scheduling in the past
     const now     = ac.currentTime + 0.02;
-    const TOTAL_S = TOTAL_MS / 1000;
+    const TOTAL_S = (opts.totalMs ?? TOTAL_MS) / 1000;
 
     // No compressor/limiter — just a clean master gain
     const master = ac.createGain();
     master.connect(ac.destination);
 
-    // Master envelope — full immediately, slow fade as flock thins
-    master.gain.setValueAtTime(2.2,  now);
-    master.gain.setValueAtTime(2.2,  now + TOTAL_S * 0.35);
-    master.gain.linearRampToValueAtTime(0, now + TOTAL_S);
+    if (opts.fadeInS) {
+        // Far off: rise out of nothing, hold, fade away
+        const peak = opts.peak ?? 1.3;
+        master.gain.setValueAtTime(0, now);
+        master.gain.linearRampToValueAtTime(peak, now + opts.fadeInS);
+        master.gain.setValueAtTime(peak, now + TOTAL_S * 0.5);
+        master.gain.linearRampToValueAtTime(0, now + TOTAL_S);
+    } else {
+        // Master envelope — full immediately, slow fade as flock thins
+        master.gain.setValueAtTime(2.2,  now);
+        master.gain.setValueAtTime(2.2,  now + TOTAL_S * 0.35);
+        master.gain.linearRampToValueAtTime(0, now + TOTAL_S);
+    }
 
     // Wingbeat layer — rhythmic filtered noise bursts, like actual wing strokes
     _wingbeatsLayer(ac, master, now, TOTAL_S);

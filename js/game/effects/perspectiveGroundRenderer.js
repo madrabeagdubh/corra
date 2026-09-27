@@ -1065,7 +1065,8 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
                 const _h01 = this._vertexH(mCol,     mRow + 1)
                 const _h11 = this._vertexH(mCol + 1, mRow + 1)
                 const _pdM = this.scene.mapData?.pathDist?.[mRow]?.[mCol] ?? null
-                mTint = this.tintManager.getGroundTint(mGid, mCol, mRow, _h00, _h10, _h01, _h11, _pdM)
+                const _stM = this.scene.mapData?.stoneTint?.[mRow]?.[mCol] ?? 0
+                mTint = this.tintManager.getGroundTint(mGid, mCol, mRow, _h00, _h10, _h01, _h11, _pdM, _stM)
               } else {
                 mTint = this.tintManager.getTint(mGid, mCol, mRow)
               }
@@ -1189,7 +1190,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
               const _h01 = this._vertexH(tileCol,     tileRow + 1)
               const _h11 = this._vertexH(tileCol + 1, tileRow + 1)
               const _pd  = this.scene.mapData?.pathDist?.[tileRow]?.[tileCol] ?? null
-              tint0 = this.tintManager.getGroundTint(gid0, tileCol, tileRow, _h00, _h10, _h01, _h11, _pd)
+              const _st  = this.scene.mapData?.stoneTint?.[tileRow]?.[tileCol] ?? 0
+              tint0 = this.tintManager.getGroundTint(gid0, tileCol, tileRow, _h00, _h10, _h01, _h11, _pd, _st)
             } else {
               tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
             }
@@ -1537,6 +1539,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         if (inMap && this._encounterFlags?.length) {
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
+            if (flag.hidden) continue     // e.g. a figure mid-vanish
             if (!flag.visual?.gid) continue
             if (flag.visual.flat) {
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
@@ -1656,7 +1659,12 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       // after this row's ground, so nearer rows paint over it: banks and hills hide the water
       // behind them for free. No riverLayer on the scene, no cost.
       this.scene?.riverLayer?.renderRow(this, this._gCtx, tileRow)
-      this.scene?.vegetation?.renderRow(this, this._oCtx, tileRow)
+      // cfg.onGround: draw into the GROUND canvas instead, like riverLayer
+      // above -- nearer rows (and the stone overlay) then paint over plants
+      // behind them, so raised terrain occludes them properly. Off by
+      // default: plants on the objects canvas interleave with trunks/NPCs.
+      const _veg = this.scene?.vegetation
+      _veg?.renderRow(this, _veg.cfg?.onGround ? this._gCtx : this._oCtx, tileRow)
 
     } // tileRow
 

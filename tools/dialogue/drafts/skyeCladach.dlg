@@ -1,0 +1,83 @@
+# skyeCladach — Uathach on the shore of Skye
+#
+# The player's first conversation on the island. The lesson itself (the
+# step drill, her dust-dash, the bramble lane) is run by the scene, and
+# her lines during it are captions, not cards -- see
+# js/game/scenes/locations/skye/skyeCladach.js. This draft is only what
+# she says when you tap her.
+#
+# NOTES USED
+#   drill_start            -> "Ready." chosen; the scene starts the drill
+#   drill_done             -> (scene) drill finished
+#   lesson_movement        -> (scene) reached her at the top of the lane
+#   uathach_told_machaire  -> she has pointed them onward
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/skyeCladach
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the landing
+@continue
+So. The sea gave you up.
+% Bhuel. Scaoil an fharraige uaithi thú.
+I am Uathach, daughter of Scáthach.
+% Is mise Uathach, iníon Scáthaí.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — first, an order
+@when !note drill_start
+@hold
+@again Well? / Bhuel?
+My mother is waiting at the dún.
+% Tá mo mháthair ag fanacht ag an dún.
+But first, let's see if you can follow an order.
+% Ach ar dtús, feicfimid an féidir leat ordú a leanúint.
+
+* Ready.
+% Réidh.
+@note drill_start
+@exit
+
+* Who is Scáthach?
+% Cé hí Scáthach?
+@first
+> Who is Scáthach?
+% Cé hí Scáthach?
+< The finest teacher of arms in the world.
+% An múinteoir arm is fearr ar domhan.
+< And the hardest.
+% Agus an ceann is crua.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 2 — mid-lesson
+@when note drill_start
+@when !note lesson_movement
+@hold
+Listen, and move.
+% Éist, agus bog.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 3 — onward
+@when note lesson_movement
+@when !note uathach_told_machaire
+@note uathach_told_machaire
+@continue
+Beyond is the machaire. The other students idle there.
+% Thall ansin tá an machaire. Bíonn na daltaí eile ag díomhaoineas ann.
+Feardiad will show you how things are done here.
+% Taispeánfaidh Feardiad duit conas a dhéantar rudaí anseo.
+Past them is the long bridge, and my mother beyond it.
+% Taobh thall díobh tá an droichead fada, agus mo mháthair ar an taobh eile de.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 4 — after
+@when note uathach_told_machaire
+@hold
+Go on. I'll not carry you.
+% Ar aghaidh leat. Ní iompróidh mé thú.

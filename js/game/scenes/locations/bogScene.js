@@ -36,6 +36,9 @@ const ALWAYS_UNWALKABLE = new Set([
 
 export default class BogScene extends PerspectiveScene {
 
+  // Folder under public/data/ holding this map's content module.
+  getContentDir() { return 'bog' }
+
   // ── Content loading ───────────────────────────────────────────────────────
   // Loads map objects, NPCs, and places/restores encounter deck cards.
   // Called by PerspectiveScene.create() before scene initialisation.
@@ -46,7 +49,7 @@ export default class BogScene extends PerspectiveScene {
 
     try {
 
-	    const module = await import(/* @vite-ignore */ `/data/bog/${jsKey}.js`)
+	    const module = await import(/* @vite-ignore */ `/data/${this.getContentDir()}/${jsKey}.js`)
       const content = module[jsKey + 'Content'] || {}
 
       this.mapData.objects        = content.objects        || []
@@ -226,8 +229,16 @@ export default class BogScene extends PerspectiveScene {
             // tiles. Without it a short path completes before the walker is
             // ever on screen, and the player only ever sees him standing.
             startWhenNear: obj.walk.startWhenNear ?? 0,
-            started: !(obj.walk.startWhenNear > 0),
+            // startOnNote: stand still until this GameState note exists
+            // (e.g. set by a dialogue option -- "lead on").
+            startOnNote: obj.walk.startOnNote || null,
+            started: !(obj.walk.startWhenNear > 0) && !obj.walk.startOnNote,
             pauseInDialogue: obj.walk.pauseInDialogue !== false,
+            // leash: wait whenever the player is more than N tiles away,
+            // so a guide never walks off and leaves them behind.
+            leash: obj.walk.leash || 0,
+            // arriveNote: set on reaching the last tile of a 'stop' path.
+            arriveNote: obj.walk.arriveNote || null,
           })
         }
       }
@@ -297,11 +308,34 @@ export default class BogScene extends PerspectiveScene {
       if (w.pauseInDialogue && this._encounterPanel?._isOpen) continue
 
       // Wait for the player to be close enough to witness the walk.
+      // Already arrived on an earlier visit: jump to the end. Checked on
+      // the first tick, not at creation -- GameState.init() runs later in
+      // create(), so notes are not loaded yet when objects are built.
+      if (!w.arriveChecked) {
+        w.arriveChecked = true
+        if (w.arriveNote && GameState.hasNote(w.arriveNote)) {
+          this._placeWalker(w, w.path.length - 1)
+          w.started = true
+          continue
+        }
+      }
+
       if (!w.started) {
-        if (playerX == null) continue
-        const d = Phaser.Math.Distance.Between(playerX, playerY, w.zone.x, w.zone.y)
-        if (d > w.startWhenNear * ts) continue
+        if (w.startOnNote && !GameState.hasNote(w.startOnNote)) continue
+        if (w.startWhenNear > 0) {
+          if (playerX == null) continue
+          const d = Phaser.Math.Distance.Between(playerX, playerY, w.zone.x, w.zone.y)
+          if (d > w.startWhenNear * ts) continue
+        }
         w.started = true
+      }
+
+      // Leash: hold position (and restart the step clock) while the
+      // player is too far behind.
+      if (w.leash && playerX != null &&
+          Phaser.Math.Distance.Between(playerX, playerY, w.zone.x, w.zone.y) > w.leash * ts) {
+        w.elapsed = 0
+        continue
       }
 
       w.elapsed += delta
@@ -314,19 +348,27 @@ export default class BogScene extends PerspectiveScene {
         else if (w.loop === 'cycle') { next = 0 }
         else { continue }                      // 'stop': stay put at the end
       }
-      w.i = next
+      this._placeWalker(w, next)
 
-      const [tx, ty] = w.path[w.i]
-      w.flag.tileX = tx
-      w.flag.tileY = ty
-
-      const px = tx * ts + ts / 2
-      const py = ty * ts + ts / 2
-      w.zone.x = px
-      w.zone.y = py
-      w.zone.setData('logicalX', px)
-      w.zone.setData('logicalY', py)
+      if (w.arriveNote && w.i === w.path.length - 1 && w.loop === 'stop') {
+        GameState.addNote(w.arriveNote)
+      }
     }
+  }
+
+  /** Move a walker (flag + zone together) to path index i. */
+  _placeWalker(w, i) {
+    const ts = this.tileSize
+    w.i = i
+    const [tx, ty] = w.path[i]
+    w.flag.tileX = tx
+    w.flag.tileY = ty
+    const px = tx * ts + ts / 2
+    const py = ty * ts + ts / 2
+    w.zone.x = px
+    w.zone.y = py
+    w.zone.setData('logicalX', px)
+    w.zone.setData('logicalY', py)
   }
 
   update(time, delta) {

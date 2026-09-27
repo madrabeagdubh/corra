@@ -1,0 +1,32 @@
+# skyeCladachBoat — the boat at the jetty head, Skye
+#
+# The way off the island: leaving the tutorial for the main adventure.
+# Asks, never assumes -- a player wandering down the jetty to look at the
+# sea shouldn't find themselves rowing to Ireland.
+#
+# NOTES USED
+#   leave_skye  -> one-off trigger; the scene clears it and starts the
+#                  crossing back (returnCrossing -> d3_sea)
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/skyeCladach
+@encounter 1
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the boat
+@hold
+The boat that brought you here.
+% An bád a thug anseo thú.
+It would take you back across the sea.
+% Thabharfadh sé ar ais thar farraige thú.
+
+* Leave the island.
+% Fág an t-oileán.
+@note leave_skye
+@exit
+
+* Not yet.
+% Ní fós.
+@exit

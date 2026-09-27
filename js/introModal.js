@@ -142,21 +142,34 @@ const CONSTELLATION_DATA = [
     ], connections: [
         { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
     ]},
+    // [conReach] The Plough as it really is: its seven stars projected from their true sky
+    // positions (north up, east to the left), bowl to the right, handle curving down-left.
     { id: 'carr', starOffsets: [
-        { lx:  1.23, ly: -0.40 }, { lx:  1.25, ly: -0.05 }, { lx:  0.42, ly:  0.12 },
-        { lx:  0.07, ly: -0.09 }, { lx: -0.54, ly: -0.02 }, { lx: -1.02, ly:  0.04 },
-        { lx: -1.40, ly:  0.40 },
+        { lx:  1.19, ly: -0.67 },   // 0 Dubhe
+        { lx:  1.40, ly: -0.10 },   // 1 Merak
+        { lx:  0.63, ly:  0.37 },   // 2 Phecda
+        { lx:  0.26, ly:  0.02 },   // 3 Megrez
+        { lx: -0.34, ly:  0.12 },   // 4 Alioth
+        { lx: -0.83, ly:  0.15 },   // 5 Mizar
+        { lx: -1.40, ly:  0.67 },   // 6 Alkaid
     ], connections: [
         { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 0 },
         { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
     ]},
+    // [conReach] The Boar side-on, wider than tall (it was a tall diagonal, whose lowest
+    // stars sat on the text band): snout and tusk right, bristled back, a leg fore and aft.
     { id: 'torc', starOffsets: [
-        { lx:  1.14, ly: -1.40 }, { lx:  1.27, ly: -1.11 }, { lx:  0.53, ly: -0.73 },
-        { lx: -0.00, ly:  0.07 }, { lx: -0.10, ly:  0.89 }, { lx: -0.55, ly:  0.98 },
-        { lx: -1.10, ly:  0.35 }, { lx: -1.19, ly:  0.95 },
+        { lx:  1.40, ly:  0.10 },   // 0 snout
+        { lx:  1.12, ly:  0.38 },   // 1 tusk
+        { lx:  0.82, ly: -0.28 },   // 2 brow
+        { lx:  0.18, ly: -0.58 },   // 3 bristles, high on the shoulders
+        { lx: -0.48, ly: -0.46 },   // 4 back
+        { lx: -1.18, ly: -0.18 },   // 5 rump
+        { lx: -1.02, ly:  0.56 },   // 6 hind leg
+        { lx:  0.42, ly:  0.52 },   // 7 foreleg
     ], connections: [
-        { from: 0, to: 2 }, { from: 1, to: 2 }, { from: 2, to: 3 },
-        { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 }, { from: 5, to: 7 },
+        { from: 0, to: 1 }, { from: 0, to: 2 }, { from: 2, to: 3 },
+        { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 }, { from: 2, to: 7 },
     ]},
     { id: 'cuirt', starOffsets: [
         { lx: -1.30, ly:  0.40 }, { lx: -0.85, ly: -0.55 }, { lx: -0.30, ly: -1.10 },
@@ -204,6 +217,14 @@ const SKY_LAYOUT = {
     laoch:      [ 3.4,  1.0],   // the hero
 };
 const SKY_MIN_GAP = 1.2;
+// [conReach] A constellation sits CON_SCREEN_Y down the screen (panCameraTo's H*0.32 offset)
+// and its wider side spans the `usable` size; its height is capped at CON_V_FRAC of that, so
+// the lowest stars (plus their touch radius) stay clear of the text band below. The band's
+// top edge is floored to match (see _druidQueenBandGeometry).
+const CON_SCREEN_Y = 0.18;
+const CON_V_FRAC   = 0.8;
+const CON_USABLE   = 0.68;   // of min(W, H): as in buildConstellations
+const CON_HIT      = 0.09;   // of min(W, H): as in hitR()
 
 // How the view travels TO each constellation. ms / ease: timing. arc: sideways bulge of the
 // path as a fraction of its length (the old wheeling swoop; negative bulges the other way).
@@ -1012,7 +1033,8 @@ if (wrapper) {
                 minX=Math.min(minX,o.lx); maxX=Math.max(maxX,o.lx);
                 minY=Math.min(minY,o.ly); maxY=Math.max(maxY,o.ly);
             }
-            const scale = usable / Math.max((maxX-minX)||0.01, (maxY-minY)||0.01);
+            // [conReach] Wide ones fill `usable` across; tall ones are capped lower.
+            const scale = Math.min(usable / ((maxX-minX)||0.01), usable * CON_V_FRAC / ((maxY-minY)||0.01));
             const ocx=(minX+maxX)/2, ocy=(minY+maxY)/2;
             const stars = data.starOffsets.map((o,i) => ({
                 index:i, wx:wcx+(o.lx-ocx)*scale, wy:wcy+(o.ly-ocy)*scale,
@@ -1129,7 +1151,11 @@ if (wrapper) {
         const desiredTop    = H * 0.25;   // starting point -- retune if needed
         const desiredHeight = H * 0.46;   // a little taller than the dial's 34vh
         const safeBottom    = H - this._stpClearance() - 50;   // 24px buffer above the moon zone
-        const height = Math.max(0, Math.min(desiredHeight, safeBottom - desiredTop));
+        // [conReach] Never start above the lowest a star can sit, plus its touch radius and
+        // a small gap -- otherwise a touch meant for a star drags the text instead.
+        const minDim    = Math.min(window.innerWidth, H);
+        const starFloor = H * CON_SCREEN_Y + minDim * CON_USABLE * CON_V_FRAC / 2 + minDim * CON_HIT + 8;
+        const height = Math.max(0, Math.min(desiredHeight, safeBottom - Math.max(desiredTop, starFloor)));
         const top    = safeBottom - height;
         return { top, height };
     }

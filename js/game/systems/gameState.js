@@ -169,6 +169,14 @@ boatPosition: null,
     this.save()
   },
 
+  // For one-off triggers set by dialogue (e.g. 'leave_skye'): the scene
+  // acts on the note, then clears it so it can fire again next time.
+  removeNote(note) {
+    if (!this._state || !this.hasNote(note)) return
+    this._state.notes = this._state.notes.filter(n => n !== note)
+    this.save()
+  },
+
   // -- Encounter layouts ----------------------------------------------------
   // Saves the random encounter placement for a map so the same encounters
   // are restored on re-entry rather than re-drawn from the deck.

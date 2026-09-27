@@ -97,8 +97,11 @@ export default class SteepFaceRenderer {
   // erring generously large costs little.
   static PHANTOM_WEST_MARGIN = 80
 
-  constructor(scene) {
+  // opts.skip(tx, ty) -> true: leave that tile alone (a scene drawing its
+  // own stonework there, e.g. Skye's harbour wall). Optional.
+  constructor(scene, opts = {}) {
     this.scene = scene
+    this._skip = opts.skip || null
     this._sw = scene.game.canvas.width
     this._sh = scene.game.canvas.height
 
@@ -235,6 +238,7 @@ export default class SteepFaceRenderer {
 
     for (let ty = 0; ty < mapH; ty++) {
       for (let tx = 0; tx < mapW; tx++) {
+        if (this._skip?.(tx, ty)) continue
         const steepness = this._tileSteepness(pgr, tx, ty, mapW, mapH)
         if (steepness > visualThreshold && this._facesCamera(pgr, tx, ty, mapW)) {
           mask[ty][tx] = 1

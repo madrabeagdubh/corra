@@ -340,9 +340,13 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         onClick: () => {
             showResponseAndProceed(() => {
                 cleanupHeroSelect();
+                // Training = the Isle of Skye: the dawn crossing rows the
+                // player over and they step off at the Skye jetty (the old
+                // BowTutorial stays registered until Scathach's archery is
+                // ported to the dún).
                 initDawnCrossing(champion, GameSettings.englishOpacity, () => {
                     window.startGame
-                        ? window.startGame(champion, { startScene: 'BowTutorial' })
+                        ? window.startGame(champion, { startScene: 'skye_cladach' })
                         : console.error('[TutorialOrAdventure] window.startGame not found!');
                 });
             });

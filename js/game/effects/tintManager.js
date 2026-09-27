@@ -115,6 +115,8 @@ const LIGHT_Y = -0.707   // NW y component
 // unlike vegetation/rock/etc, a path isn't a material category with its
 // own GIDs, so it has no natural home in GID_CATEGORIES/_palette.
 const PATH_MUD_HSL = { h: 28, s: 42, l: 22 }
+// Weathered grey rock, a touch blue -- the stoneTint target (see getGroundTint).
+const STONE_HSL = { h: 215, s: 7, l: 44 }
 
 // -------------------------------------------------------------------------
 
@@ -258,7 +260,7 @@ export class TintManager {
    *   shading below, just a third input. Omit (or pass null) for maps with
    *   no path data, which leaves output identical to before this was added.
    */
-  getGroundTint(gid, tx, ty, h00, h10, h01, h11, pathDist = null) {
+  getGroundTint(gid, tx, ty, h00, h10, h01, h11, pathDist = null, stoneT = 0) {
     // Base palette tint (same per-tile hash variation as getTint)
     const base = this.getTint(gid, tx, ty)
     if (!base) return null
@@ -306,6 +308,17 @@ export class TintManager {
       s = s + (PATH_MUD_HSL.s - s) * mudT
       l = l + (PATH_MUD_HSL.l - l) * mudT
       alpha = alpha + (0.7 - alpha) * mudT * 0.5   // slightly more opaque at trail centre
+    }
+
+    // ── Stone blending ───────────────────────────────────────────────────
+    // stoneT 0..1 (mapData.stoneTint): ground that should read as bare rock,
+    // e.g. a shoreline band. Same continuous blend as the mud above.
+    if (stoneT > 0) {
+      const t = Math.min(1, stoneT)
+      h = h + (STONE_HSL.h - h) * t
+      s = s + (STONE_HSL.s - s) * t
+      l = l + (STONE_HSL.l - l) * t
+      alpha = alpha + (0.72 - alpha) * t * 0.6
     }
 
     return { h, s, l, alpha }

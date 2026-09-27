@@ -1,0 +1,18 @@
+# skyeLoch — Uathach at the loch
+#
+# The lesson (stepping stones, dunks, the ring) is run by the scene and
+# spoken in captions -- see js/game/scenes/locations/skye/skyeLoch.js.
+# This is only what she says if the player taps her badge.
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/skyeLoch
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — at the loch
+@hold
+Not at your feet.
+% Ní ar do chosa.
+Look where you're going.
+% Féach ar an áit a bhfuil tú ag dul.

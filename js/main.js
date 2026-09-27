@@ -28,6 +28,7 @@ import ElevationMoatTest  from './game/scenes/locations/forest/elevationMoatTest
 import Grove from './game/scenes/locations/forest/grove.js'
 import PlatesScene from './game/scenes/locations/bog/plates.js'
 import IntroLevelScene from './game/scenes/locations/bog/introLevel.js'
+import { SKYE_SCENES } from './game/scenes/locations/skye/skyeMaps.js'
 import { champions } from '../data/champions.js'
 import { initFullscreenButton } from './game/ui/fullscreenButton.js'
 initFullscreenButton()
@@ -81,7 +82,8 @@ function _createGame(selectedChampion, options) {
             BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
             VillageHall,TestForest,Grove,ElevationTest,ElevationMoatTest,
             PlatesScene,
-            IntroLevelScene
+            IntroLevelScene,
+            ...SKYE_SCENES
         ],
         autoStart: false,
         scale: {

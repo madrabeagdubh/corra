@@ -531,14 +531,26 @@ if (!fs.existsSync(target)) {
 }
 
 const tlines = fs.readFileSync(target, 'utf8').split('\n')
-const open = tlines.findIndex(l => l.trim() === 'dialogues: [')
-if (open < 0) {
+// @encounter N picks the Nth 'dialogues: [' in the file (0 = first), so one
+// map's data file can hold several speakers, one .dlg each. It used to be
+// parsed and then ignored -- every draft wrote into the first array.
+// CONVENTION: keep `dialogues` the LAST field of each speaker, since the
+// close is found by searching back from the next speaker's array.
+const opens = tlines.map((l, i) => l.trim() === 'dialogues: [' ? i : -1).filter(i => i >= 0)
+const which = header.encounter || 0
+if (!opens.length) {
   console.error('No "dialogues: [" found in ' + header.file + '.js')
   process.exit(1)
 }
+if (which >= opens.length) {
+  console.error(`@encounter ${which}: ${header.file}.js has only ${opens.length} dialogues array(s)`)
+  process.exit(1)
+}
+const open  = opens[which]
+const limit = which + 1 < opens.length ? opens[which + 1] : tlines.length
 // The close is the last '      ],' followed by a line closing the speaker.
 let close = -1
-for (let i = tlines.length - 1; i > open; i--) {
+for (let i = limit - 1; i > open; i--) {
   if (tlines[i].trim() === '],' && tlines[i + 1] && tlines[i + 1].trim() === '},') {
     close = i; break
   }

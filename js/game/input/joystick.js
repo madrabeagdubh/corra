@@ -602,6 +602,30 @@ if (this._root.style.opacity === '0') {
     if (this._base) this._base.style.opacity = '1'
   }
 
+  // -- Tutorial highlight ------------------------------------------------------
+  // highlight('up'|'down'|'left'|'right', strength 0..1) makes one cardinal
+  // button pulse with a gold glow; highlight(null) clears it. Independent of
+  // the pressed style (_pressBtn/_releaseBtn only touch background/border),
+  // so the glow survives the player actually pressing the button.
+  highlight(dir, strength = 1) {
+    if (!document.getElementById('dpad-hint-style')) {
+      const st = document.createElement('style')
+      st.id = 'dpad-hint-style'
+      st.textContent = `@keyframes dpadHintPulse {
+        0%,100% { box-shadow: 0 0 4px 1px rgba(245,208,96,var(--hint-a)); }
+        50%     { box-shadow: 0 0 16px 6px rgba(245,208,96,var(--hint-a)); }
+      }`
+      document.head.appendChild(st)
+    }
+    const IDX = { up: 0, down: 1, left: 2, right: 3 }
+    this._buttons.slice(0, 4).forEach((btn, i) => {
+      const on = dir && IDX[dir] === i && strength > 0
+      btn.style.setProperty('--hint-a', on ? String(Math.min(1, strength)) : '0')
+      btn.style.animation = on ? 'dpadHintPulse 1.1s ease-in-out infinite' : ''
+      if (!on) btn.style.boxShadow = ''
+    })
+  }
+
   // All 8 hit areas, not just the 4 cardinals: buttons 4-7 are the
   // invisible diagonals, and leaving their pointerEvents live meant a tap
   // aimed at a dialogue button could still walk the player across the map.

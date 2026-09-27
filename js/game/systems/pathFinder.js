@@ -145,37 +145,47 @@ _heuristic(ax, ay, bx, by) {
   // ── Screen → tile projection ──────────────────────────────────────────────
 
   static screenToTile(screenX, screenY, pgr, tileSize) {
-    const sw        = pgr._sw
-    const sh        = pgr._sh  // pgr's cached render height
-    const horizonPx  = Math.floor(sh * pgr.constructor.HORIZON_Y_FRAC)
+    // Inverts PGR's OWN projection (its _perspCamRow / _scaleAtRow /
+    // _colToScreenX), so a tap maps to exactly the tile drawn under the
+    // finger. The previous version re-derived the maths independently and
+    // disagreed with the renderer in three ways:
+    //   • camera row taken from the PLAYER, but PGR draws from the CAMERA,
+    //     which trails the player (follow lerp) and is CLAMPED at the map
+    //     edges -- near the north edge of a map taps landed rows off;
+    //   • the static HORIZON_Y_FRAC instead of the scene's own horizon;
+    //   • terrain height ignored, so on rising ground taps landed too far.
+    // tileSize is unused (kept for call-site compatibility).
+    const horizonPx = pgr._horizonPx()
     if (screenY <= horizonPx) return null
+    const flatRow = pgr._screenYToWorldRow(screenY)
+    if (flatRow == null) return null
 
-    const groundH     = sh - horizonPx
-    const FL     = pgr.constructor.FOCAL_LENGTH
-    const cam    = pgr.scene.cameras.main
-    const zoom   = cam.zoom || 1
-    const player = pgr.scene.player
-    const perspCamRow = player
-      ? player.logicalY / pgr.tileDisplaySize
-        + (pgr._cameraRowOffset ?? pgr.constructor.CAMERA_ROW_OFFSET)
-      : (cam.scrollY + sh / (2 * zoom)) / pgr.tileDisplaySize
-        + (pgr._cameraRowOffset ?? pgr.constructor.CAMERA_ROW_OFFSET)
-    const perspCamCol = (cam.scrollX + sw / (2 * zoom)) / pgr.tileDisplaySize
+    const camCol = pgr._perspCamCol()
+    const sw     = pgr._sw
+    const colAt  = (row) => {
+      const sc = pgr._scaleAtRow(row + 0.5)
+      return sc < 0.001 ? null : Math.floor((screenX - sw / 2) / sc + camCol)
+    }
 
-    const denom    = screenY - horizonPx
-    if (denom <= 0) return null
-    const d        = FL * groundH / denom - FL
-    const worldRow = perspCamRow - d
-
-    const ty = Math.floor(worldRow)
-
-    const scale = pgr._scaleAtRow(ty + 0.5)
-    if (scale < 0.001) return null
-
-    const worldCol = (screenX - sw / 2) / scale + perspCamCol
-    const tx       = Math.floor(worldCol)
-
-    return { tx, ty }
+    // Raised ground is drawn lifted toward the horizon, where a FARTHER
+    // flat row would be -- so the tile actually under the finger is at
+    // flatRow or nearer. Nearer rows draw over farther ones, so walk from
+    // near to far and take the first tile whose lifted span holds screenY.
+    const r0 = Math.floor(flatRow)
+    const H  = pgr._hmH ? pgr._hmH - 1 : Infinity
+    for (let row = Math.min(r0 + 12, H - 1); row >= r0; row--) {
+      const col = colAt(row)
+      if (col == null) continue
+      const yTop = pgr._rowToScreenY(row)
+      const yBot = pgr._rowToScreenY(row + 1)
+      if (yTop == null || yBot == null) continue
+      const lift = (r) => ((pgr._vertexH(col, r) + pgr._vertexH(col + 1, r)) * 0.5) * pgr._scaleAtRow(r)
+      const top = yTop - lift(row)
+      const bot = yBot - lift(row + 1)
+      if (screenY >= top && screenY < bot) return { tx: col, ty: row }
+    }
+    const col = colAt(r0)
+    return col == null ? null : { tx: col, ty: r0 }
   }
 }
 

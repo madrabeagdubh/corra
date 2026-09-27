@@ -140,8 +140,30 @@ export const MEADOW_SPECIES = {
   },
 }
 
+/* HEDGE_SPECIES -- for planted-dense barriers (a map's hedge mask, via `allowAt`), not open
+   ground. Opt-in like MEADOW_SPECIES. tol 1.0: a hedge grows where it's put, whatever the
+   wetness proxy says. Pair with gorse (aiteann) for a yellow-flecked Skye hedge. */
+export const HEDGE_SPECIES = {
+  // form 'mound': low, wide, rounded scrub with a ragged edge, speckled per
+  // pixel. The tall 'bush' form planted densely reads as a conifer
+  // plantation and wrecks the sense of scale; a hedge wants to hump.
+  // Palette for mounds: [flower/fruit (rare), accent, leaf, leaf shade].
+  dris: {               // bramble -- tangled, dark, red-purple canes and fruit
+    name: 'Bramble', irish: 'Dris',
+    form: 'mound', h: 0.42, stiffness: 1.6, amplitude: 0.5, lag: 0.02,
+    wet: 0.40, tol: 1.0, weight: 1.0,
+    palette: ['#2A1422', '#6B3346', '#3E5D2C', '#233A1C'],
+  },
+  aiteanntor: {         // gorse as low scrub -- same plant as aiteann, hedge-shaped
+    name: 'Gorse', irish: 'Aiteann',
+    form: 'mound', h: 0.56, stiffness: 1.8, amplitude: 0.4, lag: 0.0,
+    wet: 0.40, tol: 1.0, weight: 0.8,
+    palette: ['#F5C21B', '#E0A800', '#3A5530', '#22361D'],
+  },
+}
+
 // Every species this module can draw. The DEFAULT key list stays SPECIES only.
-const ALL_SPECIES = { ...SPECIES, ...MEADOW_SPECIES }
+const ALL_SPECIES = { ...SPECIES, ...MEADOW_SPECIES, ...HEDGE_SPECIES }
 
 /* ── deterministic hashing ─────────────────────────────────────────────── */
 
@@ -228,7 +250,43 @@ function silhouette(sp, H, variant, headStart) {
 }
 
 /** Bake one species/variant/phase into a small canvas. */
+// A low rounded scrub, drawn per pixel so the leaf mass speckles rather
+// than striping. Half-width follows a quarter circle from base to crown,
+// wider than tall, with a ragged outline.
+function bakeMound(sp, variant, phase, swayScale = 1) {
+  const H  = Math.max(6, Math.round(REF_H * sp.h))
+  const maxW = Math.round(H * 1.9)
+  const pad = Math.ceil(sp.amplitude * swayScale) + 2
+  const W = maxW + pad * 2
+  const cv = document.createElement('canvas')
+  cv.width = W
+  cv.height = H + 1
+  const ctx = cv.getContext('2d')
+  const [cFlower, cAccent, cLeaf, cShade] = sp.palette
+  const phaseT = (phase / PHASES) * Math.PI * 2
+  const r = (a, b) => hash2(variant * 131 + a, b, 17)
+  for (let i = 0; i < H; i++) {
+    const f  = i / (H - 1)
+    const hw = (maxW / 2) * Math.sqrt(Math.max(0, 1 - f * f)) * (0.88 + 0.12 * r(i, 1))
+    const dx = swayOffset(phaseT, i, H, sp, swayScale)
+    const cx = W / 2 + dx
+    const y  = H - 1 - i
+    for (let x = Math.floor(-hw); x <= Math.ceil(hw); x++) {
+      const edge = Math.abs(x) > hw - 1.6
+      if (edge && r(i * 7 + x, 3) < 0.5) continue          // ragged outline
+      const v = r(i * 13 + x, 5)
+      const top = i > H * 0.6
+      ctx.fillStyle = v < 0.07 ? cFlower
+                    : v < 0.20 ? cAccent
+                    : (top ? v < 0.75 : v < 0.55) ? cLeaf : cShade
+      ctx.fillRect(Math.round(cx + x), y, 1, 1)
+    }
+  }
+  return cv
+}
+
 function bakeSprite(sp, variant, phase, swayScale = 1) {
+  if (sp.form === 'mound') return bakeMound(sp, variant, phase, swayScale)
   // [flowerStems] Head rows as for the full plant; stem rows scaled by sp.stem.
   // Drawn scale is per ref px (not per sprite height), so fewer rows = a lower plant
   // with the head unchanged on screen.

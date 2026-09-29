@@ -885,6 +885,7 @@ function showHeroSelect() {
 // ── Background particles ──────────────────────────────────────────────────────
 function initBackgroundParticles() {
     const nebula = document.createElement('div');
+    nebula.id = 'heroSelectNebula';
     nebula.style.cssText = [
         'position:fixed;inset:0;z-index:-2;pointer-events:none;',
         'background:radial-gradient(ellipse 80% 60% at 30% 40%,rgba(60,30,120,0.18) 0%,transparent 70%),',
@@ -939,6 +940,7 @@ function initBackgroundParticles() {
 
     let t = 0;
     function animate() {
+        if (!canvas.isConnected) return;   // removed on leaving heroSelect
         t++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         particles.forEach(p => { p.update(t); p.draw(); });

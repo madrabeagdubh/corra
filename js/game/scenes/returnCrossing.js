@@ -292,7 +292,10 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         } catch(e) {}
     })();
 
-    const hardCap = setTimeout(() => { if (!sceneDone) beginExit(); }, 240000);
+    // The crossing ends when the poem's last line has scrolled away -- however
+    // long the player lingers, scrubbing back to read. The only timer is a
+    // failsafe in case the poem never loaded at all.
+    const hardCap = setTimeout(() => { if (!sceneDone && !textPlayer) beginExit(); }, 20000);
 
     // ── Audio ──────────────────────────────────────────────────────────────────
     let boatAC    = null;

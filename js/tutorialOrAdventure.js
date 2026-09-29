@@ -257,6 +257,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     `;
 
     function cleanupHeroSelect() {
+        import('./heroSelect.js').then(m => m.destroyMoonWidget?.()).catch(() => {});
         document.getElementById('heroSelect')?.remove();
         document.getElementById('global-stats-bar')?.remove();
         document.getElementById('statPopup')?.remove();

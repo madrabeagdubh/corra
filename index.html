@@ -230,8 +230,12 @@ window.stopStarfield = function() {
   <div id="heroSelect"></div>
   <div id="gameContainer"></div>
 
-  <!-- Main Game Script -->
-  <script type="module" src="js/main.js?v=7"></script>
+  <!-- Main Game Script. No "?v=" here: heroSelect.js imports './main.js', and
+       a module's address includes its query -- main.js?v=7 and main.js would
+       be two separate modules, so the whole game would start twice (two
+       crossings stacked, two fullscreen buttons, ...). Vite fingerprints the
+       built files itself, so no cache-busting query is needed. -->
+  <script type="module" src="js/main.js"></script>
   <script>
     // Handle start button: fullscreen, scroll, and remove button
     const startButton = document.getElementById('startButton');

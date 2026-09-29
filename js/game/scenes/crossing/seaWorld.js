@@ -530,7 +530,10 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
             const tt = now / 1000, span = 70
             ctx.lineWidth = 1
             for (let k = 0; k < span / Wc.crestM; k++) {
-                const z = zCam + 2 + ((k * Wc.crestM - tt * Wc.crestSpeed) % span + span) % span
+                // fixed on the water (drifting at crestSpeed), not tied to the
+                // camera: as the camera rides with the boat they slide past
+                // with its own surge -- pulse for pulse with the oars
+                const z = zCam + 2 + ((k * Wc.crestM - tt * Wc.crestSpeed - zCam - 2) % span + span) % span
                 const a = (Wc.crestA || 0.16) * Math.min(1, (z - zCam) / 6) * (1 - (z - zCam) / span)
                 if (a <= 0.01) continue
                 ctx.strokeStyle = rgb(mixRGB(hor, [255, 255, 255], 0.35), a)
@@ -1159,7 +1162,11 @@ export const RETURN = {
     runoff: { start: 20, perSec: 5, max: 16, r: [18, 90], runAt: 26, gravity: 1.6, maxV: 1.1, stopChance: 0.7,
               landUntil: 5, fade: [6.2, 7.8], lens: 1.8, down: 4, milk: 0.07,   // down: how soft (copy at 1/down size); milk: white wash
               big: { count: 3, r: [80, 125], x: [0.3, 0.7], y: [0.45, 0.8], at: [0.05, 1.0] } },
-    weather: { swell: 0.34, swellS: 3.0, crestM: 3.4, crestSpeed: 1.9, crestA: 0.24,
+    // swellS = the stroke cycle (catch+drive+release+glide+recover, 3.25 s):
+    // the boat's pitch, the camera's ride and the stroke share one rhythm.
+    // crestSpeed 0: the swell lines lie still on the water and slide past
+    // as the boat pulls.
+    weather: { swell: 0.34, swellS: 3.25, crestM: 3.4, crestSpeed: 0, crestA: 0.24,
                windX: -0.6, windZ: -0.4, rain: 0, fog: [0.05, 0.85],
                // the storm crossing the water: its front runs from startDist
                // to us; most rings fall in bands at its edge (bandShare)

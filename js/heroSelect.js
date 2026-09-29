@@ -40,6 +40,12 @@ let swipeNudgePanning   = false;
 // Moon widget — exported so characterModal can call setTapHandler
 let moonWidgetInstance = null;
 export function getMoonWidget() { return moonWidgetInstance; }
+// Leaving hero select for good (Training / The Bog): its moon lives on the
+// page itself, not inside #heroSelect, so removing that element leaves the
+// moon behind -- hidden under later screens' moons, until it isn't.
+export function destroyMoonWidget() {
+    if (moonWidgetInstance) { moonWidgetInstance.destroy(); moonWidgetInstance = null; }
+}
 
 // ── _doFinalize — MODULE SCOPE ────────────────────────────────────────────────
 // Hoisted here so showHeroSelect() and the restored tap handler in characterModal
@@ -943,7 +949,10 @@ function initBackgroundParticles() {
 }
 
 // ── DOM init ──────────────────────────────────────────────────────────────────
-const _skipHeroSelect = new URLSearchParams(window.location.search).get('scene');
+// The dev shortcuts (?scene=, ?crossing=) go straight in: no intro running
+// behind them.
+const _devParams      = new URLSearchParams(window.location.search);
+const _skipHeroSelect = _devParams.get('scene') || _devParams.get('crossing');
 if (!_skipHeroSelect) {
     document.addEventListener('DOMContentLoaded', initHeroSelect);
     if (document.readyState !== 'loading') initHeroSelect();

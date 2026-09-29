@@ -47,6 +47,8 @@ export function getMoonBottomOffset(moonD, pad = 18) {
 
 const DRIFT_RATE = 0.1 / 9000
 
+const _liveFixed = new Set()     // page-level (non-embedded, non-slider) moons alive now
+
 const PULSE_ATTACK_MS  = 100
 const PULSE_DECAY_MS   = 380
 const PULSE_TOTAL_MS   = PULSE_ATTACK_MS + PULSE_DECAY_MS
@@ -137,6 +139,12 @@ export function createMoonWidget(opts = {}) {
         } else {
             rootEl = _buildFixed(canvas, moonR, moonD, pad, corner)
             document.body.appendChild(rootEl)
+            // There should only ever be one page-level moon. If an old one was
+            // never destroyed it hides under the new one until it doesn't --
+            // the 'second moon' bug. Say so, with where the old one came from.
+            _liveFixed.add(rootEl)
+            if (_liveFixed.size > 1) console.warn(`[moonWidget] ${_liveFixed.size} page-level moons alive -- one wasn't destroyed.`, [..._liveFixed].map(el => el._createdBy))
+            rootEl._createdBy = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ').trim()
         }
 
         const SWIPE_RANGE = () => showSlider ? window.innerWidth * 0.70 : moonD * 3
@@ -393,6 +401,7 @@ export function createMoonWidget(opts = {}) {
             if (_lpTimer)    { clearTimeout(_lpTimer);            _lpTimer    = null }
             if (_lpProgressId) { cancelAnimationFrame(_lpProgressId); _lpProgressId = null }
             if (rootEl?.parentNode) rootEl.parentNode.removeChild(rootEl)
+            _liveFixed.delete(rootEl)
         },
     }
 }

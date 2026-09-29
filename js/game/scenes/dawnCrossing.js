@@ -134,7 +134,6 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     resize();
     window.addEventListener('resize', resize);
 
-    const SCENE_DURATION = 95000;      // hard cap: the scene ends by then whatever happens
 
     // ── Audio ──────────────────────────────────────────────────────────────────
 
@@ -399,7 +398,10 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         } catch(e) {}
     })();
 
-    const hardCap = setTimeout(() => { if (!sceneDone) beginExit(); }, SCENE_DURATION);
+    // The crossing ends when the poem's last line has scrolled away -- however
+    // long the player lingers, scrubbing back to read. The only timer is a
+    // failsafe in case the poem never loaded at all.
+    const hardCap = setTimeout(() => { if (!sceneDone && !textPlayer) beginExit(); }, 20000);
 
     // ── Exit ───────────────────────────────────────────────────────────────────
 

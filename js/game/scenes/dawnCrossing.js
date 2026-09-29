@@ -1,40 +1,13 @@
-// dawnCrossing.js  — v10
+// dawnCrossing.js  — v12 (the world is crossing/seaWorld.js)
 // Call: initDawnCrossing(champion, sliderValue, onComplete)
 import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
-import { FONTS, SPACING, TYPE, createDomButton } from '../systems/gameTypography.js';
+import { FONTS, SPACING, TYPE, COLORS, NARRATOR_GLOW, createDomButton } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
-import { allTunes } from '../systems/music/allTunes.js';
+import { createContrast } from '../ui/textContrast.js';
+import { createSeaWorld, DAWN } from './crossing/seaWorld.js';
 
-const BOAT_PIXELS = [
-    '0000000110000000',
-    '0000001111000000',
-    '0000011111100000',
-    '0001111111111000',
-    '0111111111111110',
-    '1111111111111111',
-    '0111111111111110',
-    '0001111111111000',
-];
-const BOAT_W = 16;
-const BOAT_H = 8;
-
-const READY_MS  = 1800;
-const STROKE_MS = 1200;
-const RETURN_MS =  900;
-const OAR_CYCLE = READY_MS + STROKE_MS + RETURN_MS;
-
-const READY_ANGLE  = -0.44;
-const CATCH_ANGLE  = -0.44;
-const FINISH_ANGLE =  0.40;
-const READY_LIFT   =  2.4;
-
-const rnd    = (a, b) => a + Math.random() * (b - a);
 const clamp  = (x, a, b) => x < a ? a : x > b ? b : x;
-const lerp   = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
-const easeIO = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-const easeOut = t => 1 - (1-clamp(t,0,1))*(1-clamp(t,0,1));
-const easeIn  = t => clamp(t,0,1)*clamp(t,0,1);
 
 export function initDawnCrossing(champion, sliderValue, onComplete) {
     let moonPhase = typeof sliderValue === 'number' ? sliderValue : (GameSettings.englishOpacity ?? 0.15);
@@ -50,7 +23,7 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
 
     const gaFontPx = TYPE.domBody.sizePx;
     const enFontPx = TYPE.domBodyEn.sizePx;
-    const SCENE_IRISH_COLOR = '#e8c84a';
+    const SCENE_IRISH_COLOR = COLORS.narrator;     // the narrator: same voice, same look, both crossings
     const SCENE_EN_COLOR    = '#9ab4c8';
 
     const fontOverride = document.createElement('style');
@@ -60,25 +33,14 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
             font-size:${gaFontPx}px !important;
             color:${SCENE_IRISH_COLOR} !important;
             line-height:${SPACING.irishLineHeight} !important;
-            text-shadow:
-                0 0 22px rgba(240,180,20,0.9),
-                0 0  8px rgba(200,140,0,0.7),
-                1px  1px 0 rgba(60,30,0,0.8),
-               -1px -1px 0 rgba(60,30,0,0.8),
-                1px -1px 0 rgba(60,30,0,0.8),
-               -1px  1px 0 rgba(60,30,0,0.8) !important;
+            text-shadow:${NARRATOR_GLOW} !important;
         }
         #dawnCrossing div div div:nth-child(2) {
             font-size:${enFontPx}px !important;
             color:${SCENE_EN_COLOR} !important;
             font-family:${FONTS.english} !important;
             line-height:${SPACING.englishLineHeight} !important;
-            text-shadow:
-                0 0 10px rgba(0,0,0,0.95),
-                1px  1px 0 rgba(0,0,0,0.8),
-               -1px -1px 0 rgba(0,0,0,0.8),
-                1px -1px 0 rgba(0,0,0,0.8),
-               -1px  1px 0 rgba(0,0,0,0.8) !important;
+            text-shadow:none !important;   /* the colour itself contrasts (ui/textContrast.js) */
         }
     `;
     document.head.appendChild(fontOverride);
@@ -172,26 +134,7 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
     resize();
     window.addEventListener('resize', resize);
 
-    const SCENE_DURATION = 95000;
-    const STAR_FADE_END  = 44000;
-    const SEA_DAWN_END   = 74000;
-    const BOAT_DURATION  = 88000;
-
-    const stars = Array.from({ length: 520 }, () => {
-        const ang = Math.random() * Math.PI * 2;
-        const rad = Math.pow(Math.random(), 0.6);
-        return {
-            x: 0.5 + Math.cos(ang) * rad * 0.52,
-            y: 0.5 + Math.sin(ang) * rad * 0.52,
-            r: rnd(0.15, 1.6),
-            base: rnd(0.08, 0.62),
-            ts: rnd(0.0003, 0.0014),
-            to: rnd(0, Math.PI * 2),
-            swirlAng: ang,
-            swirlRad: rad * 0.52,
-            swirlSpd: rnd(0.000008, 0.000028) * (Math.random() < 0.5 ? 1 : -1),
-        };
-    });
+    const SCENE_DURATION = 95000;      // hard cap: the scene ends by then whatever happens
 
     // ── Audio ──────────────────────────────────────────────────────────────────
 
@@ -312,26 +255,7 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         if (!inStroke && now - lastOminous > 12000 && Math.random() < 0.0004) { lastOminous = now; playOminousCreak(); }
     }
 
-    // ── Harp ───────────────────────────────────────────────────────────────────
-    // The champion's own theme, a motif at a time, one per line of text as it
-    // becomes readable. Same instrument and same phrasing as the dialogue
-    // system, so the crossing sounds of a piece with the rest of the game.
-    //
-    // Shares boatAC rather than opening a context of its own: SoundBoard.ctx()
-    // accepts a raw AudioContext as well as a scene, and the browser cap on
-    // concurrent contexts is what silenced the harp the first time it was
-    // built elsewhere.
-
-    // No music of its own. The crossing plays under the theme fading out of
-    // tutorialOrAdventure, and that is enough -- a voice synth read the lines
-    // here and didn't fit, and neither did a harp line per line of text: it put
-    // a second piece of music in conversation with the first.
-    //
-    // _spokenLines stays because the text player's line fade depends on it, and
-    // initVoice() stays as a no-op because it is called from the render loop.
-    const _spokenLines = new Set();
-
-    function initVoice() {}
+    const contrast = createContrast()
 
     // ── Scene text ─────────────────────────────────────────────────────────────
 
@@ -410,17 +334,13 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                         alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * BOTTOM_FADE_FRAC)));
 
                     entry.gaEl.style.opacity = String(alpha);
-                    if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
-
-                    // ── Voice trigger ─────────────────────────────────────────
-                    // Speak each line once, when it first reaches ≥30% opacity.
-                    // initVoice() is called here so boatAC is guaranteed ready.
-                    
-if (!_spokenLines.has(i) && alpha >= 0.75) {
-                        _spokenLines.add(i);
-                        // Nothing sounds per line any more. The guard stays
-                        // because it is what stops a line being counted twice.
+                    if (entry.enEl) {
+                        entry.enEl.style.opacity = String(alpha * mp);
+                        // pick an ink that contrasts with the scene behind it
+                        const el = entry.enEl
+                        contrast.update(el, [canvas], () => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })
                     }
+
                 }
             };
 
@@ -533,246 +453,14 @@ if (!_spokenLines.has(i) && alpha >= 0.75) {
         }, 3900);
     }
 
-    // ── Ripples ────────────────────────────────────────────────────────────────
-
-    const RIPPLE_LIFE  = 11000;
-    const RIPPLE_MAX_R = 0.30;
-    const RIPPLE_SETS  = 10;
-    let ripples    = [];
-    let lastRipple = 0;
-
-    function rippleColor(hue, alpha) { return `hsla(${(hue%360).toFixed(1)},44%,74%,${alpha.toFixed(3)})`; }
-
-    function spawnRipple(x, y, angle) {
-        if (ripples.length >= RIPPLE_SETS) ripples.shift();
-        ripples.push({ x, y, born: performance.now(), angle, hueOffset: Math.random() * 360, scaleX: 0.85 + Math.random() * 0.18, scaleY: 0.38 + Math.random() * 0.14, sqPhase: Math.random() * Math.PI * 2, sqPhase2: Math.random() * Math.PI * 2 });
-    }
-
-    function drawSquirmArc(ctx, R, startAngle, endAngle, sqAmp, sqFreq, sqTime, sqPh, sqPh2, baseAlpha, hue) {
-        const STEPS = 52, FADE_END = 0.18;
-        for (let s = 0; s < STEPS; s++) {
-            const t0 = s / STEPS;
-            const endFade0 = t0 < FADE_END ? t0 / FADE_END : t0 > 1 - FADE_END ? (1 - t0) / FADE_END : 1;
-            const segAlpha = baseAlpha * endFade0;
-            if (segAlpha < 0.003) continue;
-            const a0 = startAngle + (endAngle - startAngle) * t0;
-            const a1 = startAngle + (endAngle - startAngle) * (t0 + 1/STEPS);
-            const sq0 = sqAmp * (Math.sin(sqFreq*a0 + sqTime*1.1 + sqPh)*0.65 + Math.sin(sqFreq*a0*3 + sqTime*0.7 + sqPh2)*0.35);
-            const sq1 = sqAmp * (Math.sin(sqFreq*a1 + sqTime*1.1 + sqPh)*0.65 + Math.sin(sqFreq*a1*3 + sqTime*0.7 + sqPh2)*0.35);
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a0)*(R+sq0), Math.sin(a0)*(R+sq0));
-            ctx.lineTo(Math.cos(a1)*(R+sq1), Math.sin(a1)*(R+sq1));
-            ctx.strokeStyle = rippleColor(hue, segAlpha);
-            ctx.stroke();
-        }
-    }
-
-    // ── Skye image ─────────────────────────────────────────────────────────────
-
-    const skyeImg = new Image();
-    skyeImg.src = 'assets/skye0.png';
-    let skyeLoaded = false;
-    skyeImg.onload  = () => { skyeLoaded = true; };
-    skyeImg.onerror = () => { console.warn('[dawnCrossing] skye0.png not found'); };
-
-    // ── Draw loop ──────────────────────────────────────────────────────────────
-
-    const startTime    = performance.now();
-    let   rafId        = null;
-    let   boatProgress = 0;
-
+    // ── The crossing itself: the shared sea world (crossing/seaWorld.js) ──────
+    // Everything visual -- the sea, the rower, the stroke, the ripples, Skye
+    // rising out of the dawn -- is the DAWN journey there.
+    const world = createSeaWorld({ canvas, ctx, champion, tickSounds, config: DAWN })
+    let rafId = null
     function draw(now) {
-        rafId = requestAnimationFrame(draw);
-        const W = canvas.width, H = canvas.height;
-        const elapsed = now - startTime;
-
-        const colT = clamp(elapsed / SEA_DAWN_END, 0, 1);
-        const colE = easeIO(colT);
-        const sr = colT < 0.5 ? lerp(2,  50, colT*2) : lerp(50, 138, (colT-0.5)*2);
-        const sg = colT < 0.5 ? lerp(4,  62, colT*2) : lerp(62, 148, (colT-0.5)*2);
-        const sb = colT < 0.5 ? lerp(10, 80, colT*2) : lerp(80, 158, (colT-0.5)*2);
-
-        ctx.fillStyle = `rgb(${Math.round(sr)},${Math.round(sg)},${Math.round(sb)})`;
-        ctx.fillRect(0, 0, W, H);
-
-        for (let i = 0; i < 180; i++) {
-            const fy = i/180, y = fy*H;
-            const ir = sr + Math.sin(fy*11.4 + elapsed*0.00042) * (5+colE*8);
-            const ig = sg + Math.sin(fy*7.2  + elapsed*0.00037 + 1.2) * (7+colE*10);
-            const ib = sb + Math.cos(fy*9.5  + elapsed*0.00051 + fy*0.5) * (9+colE*12);
-            const dx = Math.sin(fy*5.3 + elapsed*0.00045 + i*0.07) * (fy*4);
-            ctx.fillStyle = `rgba(${Math.round(clamp(ir,0,255))},${Math.round(clamp(ig,0,255))},${Math.round(clamp(ib,0,255))},0.22)`;
-            ctx.fillRect(Math.round(dx), Math.round(y), W+6, Math.ceil(H/180+1));
-        }
-
-        const starFadeT = clamp(elapsed / STAR_FADE_END, 0, 1);
-        const starAlpha = 1 - easeIO(starFadeT);
-        if (starAlpha > 0.003) {
-            const swirlSpd = Math.max(0, 1 - starFadeT * 1.1);
-            for (const s of stars) {
-                s.swirlAng += s.swirlSpd * swirlSpd;
-                s.x = 0.5 + Math.cos(s.swirlAng) * s.swirlRad;
-                s.y = 0.5 + Math.sin(s.swirlAng) * s.swirlRad;
-                const tw = 0.55 + 0.45 * Math.sin(elapsed * s.ts + s.to);
-                const rC = Math.round(lerp(235, 168, starFadeT));
-                const gC = Math.round(lerp(240, 182, starFadeT));
-                ctx.beginPath();
-                ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(${rC},${gC},255,${s.base * tw * starAlpha})`;
-                ctx.fill();
-            }
-        }
-
-        if (skyeLoaded) {
-            const skyeT     = clamp((elapsed - SCENE_DURATION*0.45) / (SCENE_DURATION*0.5), 0, 1);
-            const skyeAlpha = skyeT * 0.20;
-            if (skyeAlpha > 0.001) {
-                const aspect = skyeImg.naturalWidth / skyeImg.naturalHeight;
-                const skyeW  = W, skyeH = skyeW / aspect;
-                ctx.save(); ctx.globalAlpha = skyeAlpha;
-                ctx.drawImage(skyeImg, 0, 52, skyeW, skyeH);
-                ctx.restore();
-            }
-        }
-
-        {
-            const rNow = performance.now();
-            ripples = ripples.filter(r => (rNow - r.born) < RIPPLE_LIFE);
-            ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            for (const rip of ripples) {
-                const age = rNow - rip.born, lifeT = age / RIPPLE_LIFE;
-                const fadeA = lifeT < 0.06 ? lifeT / 0.06 : 1 - Math.pow(lifeT, 1.25);
-                if (fadeA < 0.004) continue;
-                const maxR = H * RIPPLE_MAX_R, RINGS = 6;
-                const sqTime = elapsed * 0.0022 + rip.sqPhase;
-                ctx.save(); ctx.translate(rip.x, rip.y); ctx.scale(rip.scaleX, rip.scaleY);
-                for (let ring = 0; ring < RINGS; ring++) {
-                    const ringDelay = (ring / RINGS) * 0.35;
-                    const ringT = clamp((lifeT - ringDelay) / (1 - ringDelay), 0, 1);
-                    if (ringT <= 0) continue;
-                    const R = maxR * ringT, hue = rip.hueOffset + elapsed * 0.018 + ring * 32;
-                    const lw = Math.max(0.3, (1 - ringT * 0.65) * 2.4);
-                    const alpha = fadeA * (1 - ringT * 0.45) * (0.58 - ring * 0.055);
-                    if (alpha < 0.004 || R < 1) continue;
-                    const sqAmp = R * (0.08 + ringT * 0.16), sqFreq = 2.7 + ring * 1.7;
-                    const sqPh = rip.sqPhase + ring * 1.4, sqPh2 = rip.sqPhase2 + ring * 0.9;
-                    const arcS = 0, arcE = Math.PI;
-                    ctx.lineWidth = lw * 8;  drawSquirmArc(ctx, R, arcS, arcE, sqAmp, sqFreq, sqTime, sqPh, sqPh2, alpha * 0.11, hue);
-                    ctx.lineWidth = lw * 2.4; drawSquirmArc(ctx, R, arcS, arcE, sqAmp, sqFreq, sqTime, sqPh, sqPh2, alpha * 0.40, hue);
-                    ctx.lineWidth = Math.max(0.4, lw * 0.6); drawSquirmArc(ctx, R, arcS, arcE, sqAmp, sqFreq, sqTime, sqPh, sqPh2, alpha * 0.88, (hue+35)%360);
-                    const h2 = (hue + 55 + ring * 18) % 360, alpha2 = alpha * 0.35;
-                    if (alpha2 > 0.005) {
-                        const arcS2 = Math.PI * 0.12, arcE2 = Math.PI * 0.88;
-                        ctx.lineWidth = lw * 1.6; drawSquirmArc(ctx, R*0.80, arcS2, arcE2, sqAmp*1.3, sqFreq+1, sqTime*1.2, sqPh2, sqPh, alpha2*0.38, h2);
-                        ctx.lineWidth = Math.max(0.3, lw * 0.45); drawSquirmArc(ctx, R*0.80, arcS2, arcE2, sqAmp*1.3, sqFreq+1, sqTime*1.2, sqPh2, sqPh, alpha2*0.82, (h2+25)%360);
-                    }
-                }
-                ctx.restore();
-            }
-            ctx.restore();
-        }
-
-        const cycMs    = elapsed % OAR_CYCLE;
-        const inReady  = cycMs < READY_MS;
-        const inStroke = !inReady && cycMs < READY_MS + STROKE_MS;
-        const inReturn = !inReady && !inStroke;
-        const strokeT  = inStroke ? (cycMs - READY_MS) / STROKE_MS : 0;
-        const returnT  = inReturn ? (cycMs - READY_MS - STROKE_MS) / RETURN_MS : 0;
-        const strokeEnv = inStroke ? Math.sin(strokeT * Math.PI) : 0;
-
-        const baseRate   = 1 / (BOAT_DURATION / (1000/60));
-        const coastRate  = inReturn ? lerp(0.55, 0.40, returnT) : 0.45;
-        const surgeScale = inStroke ? (1.0 + strokeEnv * 1.1) : coastRate;
-        boatProgress     = clamp(boatProgress + baseRate * surgeScale, 0, 1);
-
-        const boatE = easeIO(boatProgress);
-        const boatX = lerp(W*0.50, W*0.82, boatE);
-        const boatY = lerp(H*0.82, H*0.38, boatE);
-
-        tickSounds(now, inStroke, strokeT, inReturn, returnT);
-
-        if (inReturn && returnT < 0.04 && now - lastRipple > OAR_CYCLE * 0.8) {
-            lastRipple = now;
-            const boatAngle = Math.atan2(
-                boatY - lerp(H*0.82, H*0.38, easeIO(Math.max(0, boatProgress-0.005))),
-                boatX - lerp(W*0.50, W*0.82, easeIO(Math.max(0, boatProgress-0.005)))
-            );
-            spawnRipple(boatX - 16, boatY + 5, boatAngle);
-            spawnRipple(boatX + 16, boatY + 5, boatAngle);
-        }
-
-        const persp  = lerp(1.0, 0.22, boatE);
-        const bAlpha = lerp(1.0, 0.0, clamp((boatE-0.68)/0.32, 0, 1));
-        const SCALE  = Math.max(1, Math.round((W/145)*persp));
-        const bw = BOAT_W*SCALE, bh = BOAT_H*SCALE;
-        const bLeft = boatX - bw*0.5, bTop = boatY - bh;
-
-        let pullAngle, liftY;
-        if (inReady) {
-            pullAngle = READY_ANGLE; liftY = SCALE * READY_LIFT;
-        } else if (inStroke) {
-            const sweepT = easeOut(easeIn(strokeT));
-            pullAngle = lerp(CATCH_ANGLE, FINISH_ANGLE, sweepT); liftY = 0;
-        } else {
-            const liftT   = clamp(returnT / 0.60, 0, 1);
-            const settleT = clamp((returnT - 0.60) / 0.40, 0, 1);
-            const peakLift = SCALE * READY_LIFT * 1.3;
-            liftY = returnT < 0.60 ? lerp(0, peakLift, easeOut(liftT)) : lerp(peakLift, SCALE * READY_LIFT, easeIn(settleT));
-            pullAngle = lerp(FINISH_ANGLE, READY_ANGLE, easeIO(returnT));
-        }
-
-        const oAlpha = clamp(persp*2.2, 0, 1) * bAlpha;
-
-        if (bAlpha > 0.02) {
-            ctx.save(); ctx.globalAlpha = 0.07*(1-boatE*0.4)*bAlpha;
-            ctx.translate(bLeft, bTop+bh+1); ctx.scale(1, -0.14);
-            for (let row=0; row<BOAT_H; row++)
-                for (let col=0; col<BOAT_W; col++)
-                    if (BOAT_PIXELS[row][col]==='1') {
-                        ctx.fillStyle = `rgba(${Math.round(sr+14)},${Math.round(sg+17)},${Math.round(sb+22)},1)`;
-                        ctx.fillRect(col*SCALE, row*SCALE, SCALE, SCALE);
-                    }
-            ctx.restore();
-        }
-
-        function drawOar(frac, dir) {
-            if (oAlpha < 0.01) return;
-            ctx.save(); ctx.globalAlpha = oAlpha;
-            ctx.translate(bLeft + bw*frac, bTop + bh*0.55 - liftY);
-            ctx.rotate(pullAngle * dir);
-            ctx.strokeStyle = '#050810'; ctx.lineWidth = Math.max(1, SCALE*0.55);
-            ctx.beginPath();
-            ctx.moveTo(-dir*SCALE*7, -SCALE*0.8);
-            ctx.lineTo( dir*SCALE*13, SCALE*2.4);
-            ctx.stroke();
-            ctx.fillStyle = '#050810';
-            ctx.beginPath();
-            ctx.ellipse(dir*SCALE*13, SCALE*2.4, SCALE*1.4, SCALE*0.48, pullAngle*dir*0.4, 0, Math.PI*2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(-dir*SCALE*7, -SCALE*0.8, Math.max(1, SCALE*0.7), 0, Math.PI*2);
-            ctx.fill();
-            ctx.restore();
-        }
-        drawOar(0.26, -1); drawOar(0.74, 1);
-
-        if (bAlpha > 0.01) {
-            ctx.globalAlpha = bAlpha;
-            for (let row=0; row<BOAT_H; row++)
-                for (let col=0; col<BOAT_W; col++)
-                    if (BOAT_PIXELS[row][col]==='1') {
-                        ctx.fillStyle = '#040709';
-                        ctx.fillRect(Math.round(bLeft+col*SCALE), Math.round(bTop+row*SCALE), SCALE, SCALE);
-                    }
-            ctx.globalAlpha = 1;
-        }
-
-        canvas.style.transform = `skewX(${Math.sin(elapsed*0.00033)*0.0014}rad) skewY(${Math.cos(elapsed*0.00024)*0.0009}rad)`;
-
-        const vig = ctx.createRadialGradient(W*0.5, H*0.5, H*0.07, W*0.5, H*0.5, H*0.95);
-        vig.addColorStop(0, 'rgba(0,0,0,0)');
-        vig.addColorStop(1, `rgba(1,2,5,${lerp(0.70, 0.16, colE)})`);
-        ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+        rafId = requestAnimationFrame(draw)
+        world.draw(now)
     }
 
     rafId = requestAnimationFrame(draw);

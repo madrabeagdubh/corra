@@ -141,6 +141,29 @@ document.addEventListener('fullscreenchange', onFullscreenChange)
 document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 window.addEventListener('load', () => console.log('Game started'))
 
+// Dev shortcut to the sea crossings, which aren't Phaser scenes:
+//   ?crossing=dawn     the dawn crossing to Skye (then on to the Skye shore)
+//   ?crossing=return   the return crossing (then on to d3_sea)
+//   &champ=N           which champion rows (index into champions; default 0)
+window.addEventListener('load', async () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const crossing = urlParams.get('crossing')
+    if (!crossing) return
+    const champ = champions[Number(urlParams.get('champ')) || 0] || champions[0]
+    window.stopStarfield?.()
+    for (const id of ['starfieldLoader', 'heroSelect']) {
+        const el = document.getElementById(id); if (el) el.style.display = 'none'
+    }
+    const { GameSettings } = await import('./game/settings/gameSettings.js')
+    if (crossing === 'dawn') {
+        const { initDawnCrossing } = await import('./game/scenes/dawnCrossing.js')
+        initDawnCrossing(champ, GameSettings.englishOpacity, () => startGame(champ, { startScene: 'skye_cladach' }))
+    } else if (crossing === 'return') {
+        const { initReturnCrossing } = await import('./game/scenes/returnCrossing.js')
+        initReturnCrossing(champ, GameSettings.englishOpacity, () => startGame(champ, { startScene: 'd3_sea' }))
+    }
+})
+
 window.addEventListener('load', () => {
     const urlParams = new URLSearchParams(window.location.search)
     const sceneOverride = urlParams.get('scene')

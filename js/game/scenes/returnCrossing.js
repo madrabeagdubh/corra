@@ -1,53 +1,21 @@
-// returnCrossing.js — v2
+// returnCrossing.js — v3 (the world is crossing/seaWorld.js, RETURN)
 // Call: initReturnCrossing(champion, sliderValue, onComplete)
 //
-// The return journey: Skye → Éire. Top-centre to bottom-left.
-// Choppy day, light swell, wind from the north-east.
+// The return journey: Skye -> Eire on a grey, windy, ominous day. Skye at
+// the top, receding into the murk; Ireland below us, offscreen. The boat
+// rows toward us out of the grey, bow first, the rower's back to us (a
+// generated back view, silhouetted against the light), through a lifting
+// swell, rain on the wind.
 import { transitionOut, transitionIn } from '../ui/sceneTransition.js'
-import { FONTS, COLORS, SPACING, TYPE, createDomButton } from '../systems/gameTypography.js';
+import { FONTS, COLORS, SPACING, TYPE, NARRATOR_GLOW, createDomButton } from '../systems/gameTypography.js';
 import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
+import { createContrast } from '../ui/textContrast.js';
+import { createSeaWorld, RETURN } from './crossing/seaWorld.js';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOAT PIXELS
-// ─────────────────────────────────────────────────────────────────────────────
-const BOAT_PIXELS = [
-    '0000000110000000',
-    '0000001111000000',
-    '0000011111100000',
-    '0001111111111000',
-    '0111111111111110',
-    '1111111111111111',
-    '0111111111111110',
-    '0001111111111000',
-];
-const BOAT_W = 16;
-const BOAT_H = 8;
+// used by the sound hooks (tickSounds); the world has its own helpers
+const rnd = (a, b) => a + Math.random() * (b - a);
 
-// ── Oar cycle ─────────────────────────────────────────────────────────────────
-const READY_MS  = 1600;
-const STROKE_MS = 1400;
-const RETURN_MS =  800;
-const OAR_CYCLE = READY_MS + STROKE_MS + RETURN_MS;
-
-const READY_ANGLE  = -0.44;
-const CATCH_ANGLE  = -0.44;
-const FINISH_ANGLE =  0.40;
-const READY_LIFT   =  2.4;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-const rnd    = (a, b) => a + Math.random() * (b - a);
-const clamp  = (x, a, b) => x < a ? a : x > b ? b : x;
-const lerp   = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
-const easeIO = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-const easeOut = t => 1 - (1-clamp(t,0,1))*(1-clamp(t,0,1));
-const easeIn  = t => clamp(t,0,1)*clamp(t,0,1);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
 export function initReturnCrossing(champion, sliderValue, onComplete) {
     // Seed from passed value or current GameSettings
     let moonPhase = typeof sliderValue === 'number' ? sliderValue : (GameSettings.englishOpacity ?? 0.15);
@@ -63,11 +31,10 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     document.body.appendChild(container);
 
     // ── Font override for ScrollingTextPlayer ─────────────────────────────────
-    const W0 = window.innerWidth, H0 = window.innerHeight;
     const gaFontPx = TYPE.domBody.sizePx;
     const enFontPx = TYPE.domBodyEn.sizePx;
 
-    const SCENE_IRISH_COLOR = '#d8e8f0';
+    const SCENE_IRISH_COLOR = COLORS.narrator;     // the narrator: same voice, same look, both crossings
     const SCENE_EN_COLOR    = '#8a9a8e';
 
     const fontOverride = document.createElement('style');
@@ -77,25 +44,14 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
             font-size:${gaFontPx}px !important;
             color:${SCENE_IRISH_COLOR} !important;
             line-height:${SPACING.irishLineHeight} !important;
-            text-shadow:
-                0 0 22px rgba(160,200,230,0.85),
-                0 0  8px rgba(100,160,200,0.6),
-                1px  1px 0 rgba(0,10,20,0.9),
-               -1px -1px 0 rgba(0,10,20,0.9),
-                1px -1px 0 rgba(0,10,20,0.9),
-               -1px  1px 0 rgba(0,10,20,0.9) !important;
+            text-shadow:${NARRATOR_GLOW} !important;
         }
         #returnCrossing div div div:nth-child(2) {
             font-size:${enFontPx}px !important;
             color:${SCENE_EN_COLOR} !important;
             font-family:${FONTS.english} !important;
             line-height:${SPACING.englishLineHeight} !important;
-            text-shadow:
-                0 0 10px rgba(0,0,0,0.95),
-                1px  1px 0 rgba(0,0,0,0.8),
-               -1px -1px 0 rgba(0,0,0,0.8),
-                1px -1px 0 rgba(0,0,0,0.8),
-               -1px  1px 0 rgba(0,0,0,0.8) !important;
+            text-shadow:none !important;   /* the colour itself contrasts (ui/textContrast.js) */
         }
     `;
     document.head.appendChild(fontOverride);
@@ -194,87 +150,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     resize();
     window.addEventListener('resize', resize);
 
-    // ── Scene timing ──────────────────────────────────────────────────────────
-    const SCENE_DURATION = 95000;
-    const BOAT_DURATION  = 88000;
-    const SKYE_FADE_END  = 22000;
-
-    // ── Clouds ────────────────────────────────────────────────────────────────
-    const clouds = Array.from({ length: 7 }, () => ({
-        x:     rnd(0, 1.4),
-        y:     rnd(0.04, 0.32),
-        w:     rnd(0.18, 0.42),
-        h:     rnd(0.04, 0.10),
-        speed: rnd(0.000008, 0.000022),
-        alpha: rnd(0.06, 0.18),
-        puffs: Array.from({ length: Math.floor(rnd(3,6)) }, () => ({
-            ox: rnd(-0.5, 0.5),
-            oy: rnd(-0.4, 0.4),
-            rs: rnd(0.7, 1.3),
-        })),
-    }));
-
-    // ── Swell ─────────────────────────────────────────────────────────────────
-    // A few long sine components, summed per-scanline in the draw loop to make a
-    // rolling swell of light crests and dark troughs. `wl` is in world units (not
-    // screen fraction), so wavelengths compress toward the horizon for perspective.
-    const WAVE_COUNT = 5;
-    const waves = Array.from({ length: WAVE_COUNT }, (_, i) => ({
-        phase: Math.random() * Math.PI * 2,
-        speed: rnd(0.00045, 0.00085) * (i % 2 ? -0.6 : 1),   // mostly inbound, some cross-swell
-        amp:   rnd(0.020, 0.045),
-        wl:    rnd(0.55, 1.30),
-    }));
-    const waveAmpSum = waves.reduce((s, w) => s + w.amp, 0) || 1;
-
-    // ── Foam lines ────────────────────────────────────────────────────────────
-    const FOAM_COUNT = 42;
-    const foamLines  = Array.from({ length: FOAM_COUNT }, () => ({
-        x:      rnd(0, 1),
-        y:      rnd(0.50, 0.95),
-        len:    rnd(0.018, 0.050),
-        speedX: rnd(0.000004, 0.000010),
-        speedY: rnd(0.000003, 0.000008),
-        alpha:  rnd(0.07, 0.20),
-    }));
-
-    // ── Wave crests ───────────────────────────────────────────────────────────
-    const CREST_COUNT = 8;
-    const waveCrests  = Array.from({ length: CREST_COUNT }, () => makeCrest(rnd(0, 6000)));
-
-    function makeCrest(bornOffset) {
-        return {
-            x:       rnd(0.05, 0.92),
-            y:       rnd(0.55, 0.90),
-            width:   rnd(0.06, 0.14),
-            height:  rnd(0.006, 0.014),
-            life:    0 - bornOffset,
-            maxLife: rnd(1800, 3200),
-            alpha:   rnd(0.18, 0.38),
-        };
-    }
-
-    // ── Yaw state ─────────────────────────────────────────────────────────────
-    let yawAngle   = 0;
-    let yawCorrect = false;
-    let yawTimer   = 0;
-    const YAW_DRIFT   = 0.000018;
-    const YAW_THRESH  = 0.09;
-    const YAW_CORRECT = 0.00012;
-    let suppressPort  = false;
-
-    // ── Images ────────────────────────────────────────────────────────────────
-    const skyeImg = new Image();
-    skyeImg.src = 'assets/skye01.png';
-    let skyeLoaded = false;
-    skyeImg.onload  = () => { skyeLoaded = true; };
-    skyeImg.onerror = () => {};
-
-    const cloudImg = new Image();
-    cloudImg.src = 'assets/cloud1.png';
-    let cloudLoaded = false;
-    cloudImg.onload  = () => { cloudLoaded = true; };
-    cloudImg.onerror = () => {};
+    const contrast = createContrast()
 
     // ── Text ──────────────────────────────────────────────────────────────────
     const SCROLLING_TEXT_PATH = new URL('/ui/scrollingTextPlayer.js',    import.meta.url).href;
@@ -350,7 +226,11 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
                     // Fade text out before it reaches the moon widget at bottom
                     if (bottom > H2 * (1 - 0.18)) alpha = Math.min(alpha, Math.max(0, (H2 - y) / (H2 * 0.18)));
                     entry.gaEl.style.opacity = String(alpha);
-                    if (entry.enEl) entry.enEl.style.opacity = String(alpha * mp);
+                    if (entry.enEl) {
+                        entry.enEl.style.opacity = String(alpha * mp);
+                        const el = entry.enEl
+                        contrast.update(el, [canvas], () => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })
+                    }
                 }
             };
 
@@ -442,6 +322,116 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         src.buffer = buf;
         return src;
     }
+
+    // ── Rain ───────────────────────────────────────────────────────────────────
+    // Close by the boat: CRACKLE -- countless flat little pops, like static
+    // (rain on wood and water up close is clicks, not tones): a loop of
+    // sparse random impulses. Behind it a WASH with slow waves of intensity,
+    // and a low body. The level follows how near the camera is to the boat
+    // (world.rain: the storm arriving across the water, times how near we
+    // are): a distant wash grows as it approaches, the crackle arrives with
+    // it; as we climb the crackle fades first, the wash lingers, then goes.
+    let rain = null;
+    function startRain() {
+        if (rain || !boatAC) return;
+        const loop = (dur) => { const s = makeNoise(dur); s.loop = true; return s; };
+        const src = loop(3), hp = boatAC.createBiquadFilter(), lp = boatAC.createBiquadFilter(), wash = boatAC.createGain();
+        hp.type = 'highpass'; hp.frequency.value = 700; lp.type = 'lowpass'; lp.frequency.value = 7000; wash.gain.value = 0;
+        src.connect(hp); hp.connect(lp); lp.connect(wash); wash.connect(masterOut); src.start();
+        const src2 = loop(3), bp = boatAC.createBiquadFilter(), body = boatAC.createGain();
+        bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6; body.gain.value = 0;
+        src2.connect(bp); bp.connect(body); body.connect(masterOut); src2.start();
+        // the crackle: 2 s of sparse impulses (random sign and size), looped
+        const sr = boatAC.sampleRate, cb = boatAC.createBuffer(1, sr * 2, sr), cd = cb.getChannelData(0);
+        for (let i = 0; i < 2 * 380; i++) {                       // ~380 pops a second
+            const at = Math.floor(Math.random() * (cd.length - 4)), v = (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.7);
+            cd[at] += v; cd[at + 1] += v * 0.5; cd[at + 2] -= v * 0.25;
+        }
+        const cs = boatAC.createBufferSource(); cs.buffer = cb; cs.loop = true;
+        const chp = boatAC.createBiquadFilter(), crackle = boatAC.createGain();
+        chp.type = 'highpass'; chp.frequency.value = 900; crackle.gain.value = 0;
+        cs.connect(chp); chp.connect(crackle); crackle.connect(masterOut); cs.start();
+        rain = { wash, body, crackle, last: performance.now() };
+    }
+    function tickRain(now, near) {
+        if (!boatAC) return;
+        startRain();
+        const t = boatAC.currentTime;
+        rain.last = now;
+        const swell = 0.75 + 0.25 * Math.sin(now / 1000 * 0.55) * Math.sin(now / 1000 * 0.23 + 1);   // waves of intensity
+        rain.crackle.gain.setTargetAtTime(0.5 * near * near, t, 0.3);          // leads close by, fades first
+        rain.wash.gain.setTargetAtTime((0.02 + 0.07 * near) * swell, t, 0.6);  // softer, lingering
+        rain.body.gain.setTargetAtTime(0.05 * near, t, 0.6);
+    }
+
+
+    // A drop hitting the glass: a SPLAT -- a soft wet slap of noise with a
+    // little low thump under it for the big ones; bigger drops louder and
+    // lower, placed left or right where it lands.
+    function playGlassTap(x, size) {
+        if (!boatAC) return;
+        const t = boatAC.currentTime, out = boatAC.createGain();
+        if (boatAC.createStereoPanner) { const pan = boatAC.createStereoPanner(); pan.pan.value = Math.max(-1, Math.min(1, x * 2 - 1)) * 0.8; out.connect(pan); pan.connect(masterOut); }
+        else out.connect(masterOut);
+        const src = makeNoise(0.2), bp = boatAC.createBiquadFilter(), g = boatAC.createGain();
+        bp.type = 'bandpass'; bp.frequency.value = rnd(900, 1800) * (1.25 - 0.5 * size); bp.Q.value = 0.9;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12 + 0.4 * size, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06 + 0.12 * size);
+        src.connect(bp); bp.connect(g); g.connect(out); src.start(t); src.stop(t + 0.22);
+        if (size > 0.45) {                                           // the big ones land with weight
+            const o = boatAC.createOscillator(), og = boatAC.createGain();
+            o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+            og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(0.25 * size, t + 0.005); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+            o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.14);
+        }
+    }
+
+    // ── Rising wind ────────────────────────────────────────────────────────────
+    // As the camera climbs, everything else fades and a wind rises. Like
+    // d3OpenSea's: a steady wash (looped noise, a broad band, a high-pass)
+    // and gusts -- noise bursts that swell and fall away. And a KEEN: three
+    // whistling voices, each a narrow resonance in the noise gliding slowly up
+    // and down in pitch, swelling and fading on its own time, drifting in and
+    // out of each other. On its own path, so it isn't faded with the rest.
+    let wind = null;
+    function tickWind(now, climb) {
+        if (!boatAC) return;
+        const t = boatAC.currentTime, s = now / 1000;
+        if (!wind) {
+            const out = boatAC.createGain(); out.gain.value = 0; out.connect(boatAC.destination);
+            const src = makeNoise(4); src.loop = true;
+            const bp = boatAC.createBiquadFilter(), hp = boatAC.createBiquadFilter(), wash = boatAC.createGain();
+            bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 0.4; hp.type = 'highpass'; hp.frequency.value = 300; wash.gain.value = 0.5;
+            src.connect(bp); bp.connect(hp); hp.connect(wash); wash.connect(out); src.start();
+            const voices = [0, 1, 2].map(() => {
+                const n = makeNoise(4); n.loop = true;
+                const f = boatAC.createBiquadFilter(), g = boatAC.createGain();
+                f.type = 'bandpass'; f.frequency.value = rnd(400, 1100); f.Q.value = rnd(10, 16); g.gain.value = 0;
+                n.connect(f); f.connect(g); g.connect(out); n.start();
+                return { f, g, next: 0 };
+            });
+            wind = { out, bp, voices, nextGust: s + rnd(2, 4) };
+        }
+        wind.out.gain.setTargetAtTime(0.16 * climb, t, 0.6);           // a presence, not a gale
+        wind.bp.frequency.setTargetAtTime(500 + 500 * climb, t, 0.8);
+        // the keen: each voice glides to a new pitch and level now and then
+        for (const v of wind.voices) {
+            if (s < v.next) continue;
+            v.next = s + rnd(1.4, 3.6);
+            v.f.frequency.setTargetAtTime(rnd(380, 900) + 500 * climb * Math.random(), t, rnd(0.6, 1.4));
+            v.g.gain.setTargetAtTime(Math.random() < 0.4 ? 0 : rnd(0.3, 0.9), t, rnd(0.6, 1.4));
+        }
+        // gusts, as in d3OpenSea: a burst that swells and falls away
+        if (s > wind.nextGust && climb > 0.1) {
+            wind.nextGust = s + rnd(3, 7);
+            const dur = rnd(1.5, 3.5), src = makeNoise(dur), hp2 = boatAC.createBiquadFilter(), g = boatAC.createGain();
+            hp2.type = 'highpass'; hp2.frequency.value = 500 + climb * 400;
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12 + climb * 0.12, t + dur * 0.3);
+            g.gain.linearRampToValueAtTime(0.04, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
+            src.connect(hp2); hp2.connect(g); g.connect(wind.out); src.start(t); src.stop(t + dur);
+        }
+    }
+
 
     function playWaterRush(intensity) {
         if (!ensureAudio()) return;
@@ -560,6 +550,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     function beginExit() {
         if (sceneDone) return;
         sceneDone = true;
+        if (wind && boatAC) wind.out.gain.setTargetAtTime(0, boatAC.currentTime, 0.4);
         clearTimeout(textTimer);
         clearTimeout(hardCap);
         if (textPlayer) { textPlayer.destroy(); textPlayer = null; }
@@ -619,436 +610,17 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         }, 3900);
     }
 
-    // ── Ripples ───────────────────────────────────────────────────────────────
-    const RIPPLE_LIFE  = 9000;
-    const RIPPLE_MAX_R = 0.26;
-    const RIPPLE_SETS  = 10;
-    let ripples    = [];
-    let lastRipple = 0;
-
-    function rippleColor(hue, alpha) {
-        return `hsla(${(hue%360).toFixed(1)},28%,68%,${alpha.toFixed(3)})`;
-    }
-
-    function spawnRipple(x, y, angle) {
-        if (ripples.length >= RIPPLE_SETS) ripples.shift();
-        ripples.push({
-            x, y, born: performance.now(), angle,
-            hueOffset: 180 + Math.random() * 60,
-            scaleX:    0.90 + Math.random() * 0.16,
-            scaleY:    0.15 + Math.random() * 0.06,
-            sqPhase:   Math.random() * Math.PI * 2,
-            sqPhase2:  Math.random() * Math.PI * 2,
-        });
-    }
-
-    function drawSquirmArc(ctx, R, startAngle, endAngle, sqAmp, sqFreq, sqTime, sqPh, sqPh2, baseAlpha, hue) {
-        const STEPS = 52, FADE_END = 0.18;
-        for (let s = 0; s < STEPS; s++) {
-            const t0 = s / STEPS, t1 = (s + 1) / STEPS;
-            const endFade0 = t0 < FADE_END ? t0/FADE_END : t0 > 1-FADE_END ? (1-t0)/FADE_END : 1;
-            const segAlpha = baseAlpha * endFade0;
-            if (segAlpha < 0.003) continue;
-            const a0 = startAngle + (endAngle - startAngle) * t0;
-            const a1 = startAngle + (endAngle - startAngle) * t1;
-            const sq0 = sqAmp*(Math.sin(sqFreq*a0+sqTime*1.1+sqPh)*0.65+Math.sin(sqFreq*a0*3+sqTime*0.7+sqPh2)*0.35);
-            const sq1 = sqAmp*(Math.sin(sqFreq*a1+sqTime*1.1+sqPh)*0.65+Math.sin(sqFreq*a1*3+sqTime*0.7+sqPh2)*0.35);
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a0)*(R+sq0), Math.sin(a0)*(R+sq0));
-            ctx.lineTo(Math.cos(a1)*(R+sq1), Math.sin(a1)*(R+sq1));
-            ctx.strokeStyle = rippleColor(hue, segAlpha);
-            ctx.stroke();
-        }
-    }
-
-    // ── Render ────────────────────────────────────────────────────────────────
-    const startTime     = performance.now();
-    let   rafId         = null;
-    let   boatProgress  = 0;
-    let   lastFrameTime = performance.now();
-
+    // ── The crossing itself: the shared sea world (crossing/seaWorld.js) ──────
+    const world = createSeaWorld({ canvas, ctx, champion, tickSounds, config: RETURN,
+        onEvent: (type, e) => { if (type === 'glassHit') playGlassTap(e.x, e.size) } })
+    let rafId = null
     function draw(now) {
-        rafId = requestAnimationFrame(draw);
-        const W = canvas.width, H = canvas.height;
-        const elapsed = now - startTime;
-        const dt = Math.min(now - lastFrameTime, 64);
-        lastFrameTime = now;
-
-        // Sea colour
-        const colT = clamp(elapsed / SCENE_DURATION, 0, 1);
-        const colE = easeIO(colT);
-        const sr = Math.round(lerp(14, 20, colE));
-        const sg = Math.round(lerp(28, 32, colE));
-        const sb = Math.round(lerp(28, 52, colE));
-
-        ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
-        ctx.fillRect(0, 0, W, H);
-
-        // Sky gradient
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, H*0.42);
-        const skyR = Math.round(lerp(52, 28, colE));
-        const skyG = Math.round(lerp(62, 38, colE));
-        const skyB = Math.round(lerp(72, 68, colE));
-        skyGrad.addColorStop(0, `rgb(${skyR},${skyG},${skyB})`);
-        skyGrad.addColorStop(1, `rgba(${sr},${sg},${sb},0)`);
-        ctx.fillStyle = skyGrad;
-        ctx.fillRect(0, 0, W, H*0.42);
-
-        // Skye fades out
-        if (skyeLoaded) {
-            const skyeT     = clamp(elapsed / SKYE_FADE_END, 0, 1);
-            const skyeAlpha = (1 - easeIO(skyeT)) * 0.22;
-            if (skyeAlpha > 0.001) {
-                const aspect = skyeImg.naturalWidth / skyeImg.naturalHeight;
-                const skyeW  = W, skyeH = skyeW / aspect;
-                ctx.save(); ctx.globalAlpha = skyeAlpha;
-                ctx.drawImage(skyeImg, 0, 0, skyeW, skyeH);
-                ctx.restore();
-            }
-        }
-
-        // Swell — rolling crests and troughs across the sea plane.
-        // Each scanline sums the wave components at its perspective-mapped depth,
-        // then shades light (crest) or dark (trough). Wavelengths bunch toward the
-        // horizon and spread out near the boat, so the sea reads as a flat plane
-        // receding into distance rather than a wall of stripes.
-        {
-            for (const w of waves) w.phase += w.speed * dt;
-
-            const horizon    = 0.44;   // sky/sea meeting line
-            const bandTop    = 0.47;
-            const bandBottom = 0.99;
-            const SLICES     = 80;
-
-            ctx.save();
-            for (let s = 0; s < SLICES; s++) {
-                const ft  = s / SLICES;                       // 0 at horizon → 1 at boat
-                const fy  = bandTop + (bandBottom - bandTop) * ft;
-                const fy1 = bandTop + (bandBottom - bandTop) * ((s + 1) / SLICES);
-
-                // Perspective depth: reciprocal mapping = a receding flat plane.
-                // Far (small spacing) near the horizon, near (wide spacing) at the boat.
-                const dist = 1 / (ft * 0.84 + 0.16);          // ~6.25 at horizon → 1.0 at boat
-
-                // Sum the swell components at this depth, normalised to ~[-1, 1].
-                let h = 0;
-                for (const w of waves) {
-                    h += w.amp * Math.sin(dist / w.wl * Math.PI * 2 + w.phase);
-                }
-                const lift = h / waveAmpSum;
-
-                // Fade out toward the horizon (this also hides the sub-pixel
-                // aliasing where far wavelengths bunch below one slice) and give
-                // the near swell a touch more contrast.
-                const horizonFade = clamp((ft - 0.04) / 0.22, 0, 1);
-                const nearGain    = lerp(0.55, 1.0, ft);
-                const strength    = horizonFade * nearGain;
-                if (strength < 0.01) continue;
-
-                const mag   = Math.abs(lift) * strength;
-                const alpha = 0.30 * mag;
-                if (alpha < 0.006) continue;
-
-                let cr, cg, cb;
-                if (lift > 0) {
-                    // Crest — catches the cool sky light.
-                    const t = lift * strength;
-                    cr = lerp(sr, 196, t * 0.85);
-                    cg = lerp(sg, 212, t * 0.85);
-                    cb = lerp(sb, 230, t * 0.90);
-                } else {
-                    // Trough — sinks darker and a touch bluer.
-                    const t = -lift * strength;
-                    cr = lerp(sr, 3,  t * 0.85);
-                    cg = lerp(sg, 10, t * 0.85);
-                    cb = lerp(sb, 20, t * 0.80);
-                }
-
-                const dx = Math.sin(fy * 5.5 + elapsed * 0.00028) * W * 0.010;
-                ctx.fillStyle = `rgba(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)},${alpha.toFixed(3)})`;
-                ctx.fillRect(dx, Math.round(fy * H), W + 6, Math.ceil((fy1 - fy) * H) + 1);
-            }
-            ctx.restore();
-        }
-
-        // Sea shimmer
-        for (let i = 0; i < 140; i++) {
-            const fy = i/140, y = fy*H;
-            const ir = sr + Math.sin(fy*11.4 + elapsed*0.00038) * (4+colE*6);
-            const ig = sg + Math.sin(fy*7.2  + elapsed*0.00033 + 1.2) * (5+colE*8);
-            const ib = sb + Math.cos(fy*9.5  + elapsed*0.00044 + fy*0.5) * (7+colE*10);
-            const dx = Math.sin(fy*5.3 + elapsed*0.00042 + i*0.07) * (fy*4);
-            ctx.fillStyle = `rgba(${Math.round(clamp(ir,0,255))},${Math.round(clamp(ig,0,255))},${Math.round(clamp(ib,0,255))},0.18)`;
-            ctx.fillRect(Math.round(dx), Math.round(y), W+6, Math.ceil(H/140+1));
-        }
-
-        // Foam lines
-        {
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            for (const fl of foamLines) {
-                fl.x -= fl.speedX * 0.25 * dt;
-                fl.y -= fl.speedY * 0.25 * dt;
-                if (fl.x + fl.len < 0) fl.x = 1.0 + rnd(0, 0.08);
-                if (fl.y < 0.48) { fl.y = rnd(0.88, 0.96); fl.x = rnd(0, 1); }
-                const x0 = Math.round(fl.x * W);
-                const y0 = Math.round(fl.y * H);
-                const pw = Math.round(fl.len * W);
-                const depthFade = clamp((fl.y - 0.50) / 0.40, 0, 1);
-                if (depthFade < 0.01) continue;
-                const PIXEL = Math.max(1, Math.round(W / 280));
-                ctx.globalAlpha = fl.alpha * depthFade;
-                ctx.fillStyle = 'rgb(200,210,218)';
-                ctx.fillRect(x0, y0, pw, PIXEL);
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-        }
-
-        // Wave crests
-        {
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            for (const cr of waveCrests) {
-                cr.life += dt * 0.25;
-                if (cr.life > cr.maxLife) { Object.assign(cr, makeCrest(0)); cr.life = 0; continue; }
-                if (cr.life < 0) continue;
-                const t   = cr.life / cr.maxLife;
-                const env = t < 0.18 ? t / 0.18 : 1 - Math.pow((t - 0.18) / 0.82, 0.7);
-                if (env < 0.01) continue;
-                const cx = Math.round(cr.x * W);
-                const cy = Math.round(cr.y * H);
-                const rx = Math.round(cr.width  * W * 0.5 * (0.7 + env * 0.3));
-                const ry = Math.max(1, Math.round(cr.height * H * env));
-                const PIXEL  = Math.max(2, Math.round(W / 220));
-                const bright = Math.round(lerp(185, 240, env));
-                const barH   = Math.max(PIXEL, Math.round(PIXEL * 1.5));
-                ctx.globalAlpha = cr.alpha * env;
-                ctx.fillStyle = `rgb(${bright},${bright+5},${bright+10})`;
-                ctx.fillRect(cx - rx, cy, rx * 2, barH);
-                ctx.globalAlpha = cr.alpha * env * 0.5;
-                ctx.fillStyle = `rgb(${Math.min(255,bright+20)},${Math.min(255,bright+25)},${Math.min(255,bright+28)})`;
-                ctx.fillRect(cx - rx, cy, rx * 2, PIXEL);
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-        }
-
-        // Clouds
-        {
-            ctx.save();
-            for (const cl of clouds) {
-                cl.x -= cl.speed * dt;
-                if (cl.x + cl.w < -0.05) cl.x = 1.05;
-                const cx = cl.x * W, cy = cl.y * H;
-                const cw = cl.w * W, ch = cl.h * W;
-                if (cloudLoaded) {
-                    ctx.globalAlpha = cl.alpha;
-                    ctx.drawImage(cloudImg, cx - cw*0.5, cy - ch*0.5, cw, ch);
-                } else {
-                    for (const puff of cl.puffs) {
-                        const px = cx + puff.ox * cw * 0.5;
-                        const py = cy + puff.oy * ch * 0.5;
-                        const pr = cw * 0.22 * puff.rs;
-                        const grd = ctx.createRadialGradient(px,py,0,px,py,pr);
-                        grd.addColorStop(0, `rgba(180,190,195,${cl.alpha*1.5})`);
-                        grd.addColorStop(1, 'rgba(180,190,195,0)');
-                        ctx.fillStyle = grd;
-                        ctx.beginPath();
-                        ctx.ellipse(px, py, pr, pr*0.55, 0, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                }
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-        }
-
-        // Ripples
-        {
-            const rNow = performance.now();
-            ripples = ripples.filter(r => (rNow - r.born) < RIPPLE_LIFE);
-            ctx.save();
-            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            for (const rip of ripples) {
-                const age   = rNow - rip.born;
-                const lifeT = age / RIPPLE_LIFE;
-                const fadeA = lifeT < 0.06 ? lifeT/0.06 : 1-Math.pow(lifeT,1.25);
-                if (fadeA < 0.004) continue;
-                const maxR  = H * RIPPLE_MAX_R;
-                const RINGS = 5;
-                const sqTime = elapsed * 0.0022 + rip.sqPhase;
-                ctx.save();
-                ctx.translate(rip.x, rip.y);
-                for (let ring = 0; ring < RINGS; ring++) {
-                    const ringDelay = (ring/RINGS)*0.35;
-                    const ringT = clamp((lifeT-ringDelay)/(1-ringDelay),0,1);
-                    if (ringT <= 0) continue;
-                    const R     = maxR * ringT;
-                    const hue   = rip.hueOffset + elapsed*0.012 + ring*28;
-                    const lw    = Math.max(0.3, (1-ringT*0.65)*2.4);
-                    const alpha = fadeA*(1-ringT*0.45)*(0.72-ring*0.06);
-                    if (alpha < 0.004 || R < 1) continue;
-                    const sqAmp  = R*(0.07+ringT*0.14);
-                    const sqFreq = 2.7+ring*1.7;
-                    const sqPh   = rip.sqPhase+ring*1.4;
-                    const sqPh2  = rip.sqPhase2+ring*0.9;
-                    ctx.save();
-                    ctx.scale(rip.scaleX, rip.scaleY * (1 - ring * 0.04));
-                    const arcS = Math.PI, arcE = Math.PI*2;
-                    ctx.lineWidth = lw*8;    drawSquirmArc(ctx,R,arcS,arcE,sqAmp,sqFreq,sqTime,sqPh,sqPh2,alpha*0.10,hue);
-                    ctx.lineWidth = lw*2.4;  drawSquirmArc(ctx,R,arcS,arcE,sqAmp,sqFreq,sqTime,sqPh,sqPh2,alpha*0.38,hue);
-                    ctx.lineWidth = Math.max(0.4,lw*0.6); drawSquirmArc(ctx,R,arcS,arcE,sqAmp,sqFreq,sqTime,sqPh,sqPh2,alpha*0.80,(hue+35)%360);
-                    const h2 = (hue+55+ring*18)%360, alpha2 = alpha*0.32;
-                    if (alpha2 > 0.005) {
-                        const arcS2 = Math.PI*1.12, arcE2 = Math.PI*1.88;
-                        ctx.lineWidth = lw*1.6; drawSquirmArc(ctx,R*0.80,arcS2,arcE2,sqAmp*1.3,sqFreq+1,sqTime*1.2,sqPh2,sqPh,alpha2*0.36,h2);
-                        ctx.lineWidth = Math.max(0.3,lw*0.45); drawSquirmArc(ctx,R*0.80,arcS2,arcE2,sqAmp*1.3,sqFreq+1,sqTime*1.2,sqPh2,sqPh,alpha2*0.78,(h2+25)%360);
-                    }
-                    ctx.restore();
-                }
-                ctx.restore();
-            }
-            ctx.restore();
-        }
-
-        // ── Boat ──────────────────────────────────────────────────────────────
-        const cycMs    = elapsed % OAR_CYCLE;
-        const inReady  = cycMs < READY_MS;
-        const inStroke = !inReady && cycMs < READY_MS + STROKE_MS;
-        const inReturn = !inReady && !inStroke;
-        const strokeT  = inStroke ? (cycMs - READY_MS) / STROKE_MS : 0;
-        const returnT  = inReturn ? (cycMs - READY_MS - STROKE_MS) / RETURN_MS : 0;
-        const strokeEnv = inStroke ? Math.sin(strokeT * Math.PI) : 0;
-
-        const baseRate   = 1 / (BOAT_DURATION / (1000/60));
-        const coastRate  = inReturn ? lerp(0.55, 0.40, returnT) : 0.45;
-        const surgeScale = inStroke ? (1.0 + strokeEnv * 1.1) : coastRate;
-        boatProgress     = clamp(boatProgress + baseRate * surgeScale, 0, 1);
-
-        const boatE = easeIO(boatProgress);
-        const boatX = lerp(W*0.50, W*0.14, boatE);
-        const boatY = lerp(H*0.48, H*0.82, boatE);
-
-        // Yaw
-        yawTimer += dt;
-        if (!yawCorrect) {
-            yawAngle += YAW_DRIFT * dt;
-            if (yawAngle >= YAW_THRESH) { yawCorrect = true; suppressPort = true; }
-        } else {
-            yawAngle = Math.max(0, yawAngle - YAW_CORRECT * dt);
-            if (yawAngle <= 0.005) { yawCorrect = false; suppressPort = false; yawAngle = 0; }
-        }
-
-        // Pitch from swell
-        let swellY = 0;
-        for (const w of waves) swellY += Math.sin(boatY/H * Math.PI * (1/w.wl) + w.phase) * w.amp * H * 0.4;
-        const pitchAngle = Math.atan2(swellY * 0.012, 40);
-
-        tickSounds(now, inStroke, strokeT, inReturn, returnT);
-
-        if (inReturn && returnT < 0.04 && now - lastRipple > OAR_CYCLE * 0.8) {
-            lastRipple = now;
-            const prevE   = easeIO(Math.max(0, boatProgress - 0.005));
-            const prevX   = lerp(W*0.50, W*0.14, prevE);
-            const prevY   = lerp(H*0.48, H*0.82, prevE);
-            const boatAng = Math.atan2(boatY - prevY, boatX - prevX);
-            const behindDist = Math.max(1, Math.round((W/145) * lerp(0.22, 1.0, boatE))) * 14;
-            const behindX = boatX - Math.cos(boatAng) * behindDist;
-            const behindY = boatY - Math.sin(boatAng) * behindDist;
-            spawnRipple(behindX - 12, behindY, boatAng);
-            if (!suppressPort) spawnRipple(behindX + 12, behindY, boatAng);
-        }
-
-        const persp  = lerp(0.22, 1.0, boatE);
-        const bAlpha = lerp(0.0, 1.0, clamp(boatE/0.10, 0, 1)) *
-                       lerp(1.0, 0.0, clamp((boatE-0.88)/0.12, 0, 1));
-        const SCALE  = Math.max(1, Math.round((W/145)*persp));
-        const bw = BOAT_W*SCALE, bh = BOAT_H*SCALE;
-        const bLeft = boatX - bw*0.5, bTop = boatY - bh;
-
-        let pullAngle, liftY;
-        if (inReady) {
-            pullAngle = READY_ANGLE; liftY = SCALE * READY_LIFT;
-        } else if (inStroke) {
-            const sweepT = easeOut(easeIn(strokeT));
-            pullAngle = lerp(CATCH_ANGLE, FINISH_ANGLE, sweepT); liftY = 0;
-        } else {
-            const liftT   = clamp(returnT/0.60, 0, 1);
-            const settleT = clamp((returnT-0.60)/0.40, 0, 1);
-            const peakLift = SCALE*READY_LIFT*1.3;
-            liftY = returnT < 0.60
-                ? lerp(0, peakLift, easeOut(liftT))
-                : lerp(peakLift, SCALE*READY_LIFT, easeIn(settleT));
-            pullAngle = lerp(FINISH_ANGLE, READY_ANGLE, easeIO(returnT));
-        }
-
-        const oAlpha = clamp(persp*2.2, 0, 1) * bAlpha;
-
-        // Hull reflection
-        if (bAlpha > 0.02) {
-            ctx.save();
-            ctx.globalAlpha = 0.06*(boatE*0.6+0.4)*bAlpha;
-            ctx.translate(bLeft, bTop+bh+1); ctx.scale(1, -0.14);
-            for (let row=0; row<BOAT_H; row++)
-                for (let col=0; col<BOAT_W; col++)
-                    if (BOAT_PIXELS[row][col]==='1') {
-                        ctx.fillStyle = `rgba(${sr+14},${sg+17},${sb+22},1)`;
-                        ctx.fillRect(col*SCALE, row*SCALE, SCALE, SCALE);
-                    }
-            ctx.restore();
-        }
-
-        ctx.save();
-        ctx.translate(boatX, boatY - bh*0.5);
-        ctx.rotate(pitchAngle + yawAngle * 0.4);
-        ctx.translate(-boatX, -(boatY - bh*0.5));
-
-        function drawOar(frac, dir, suppress) {
-            if (oAlpha < 0.01) return;
-            ctx.save();
-            ctx.globalAlpha = oAlpha;
-            const oAngle = suppress ? READY_ANGLE : pullAngle;
-            const oLift  = suppress ? SCALE * READY_LIFT : liftY;
-            ctx.translate(bLeft + bw*frac, bTop + bh*0.38 - oLift);
-            ctx.rotate(oAngle * dir);
-            ctx.strokeStyle = '#050810';
-            ctx.lineWidth   = Math.max(1, SCALE*0.55);
-            ctx.beginPath();
-            ctx.moveTo(-dir*SCALE*7, -SCALE*0.8);
-            ctx.lineTo( dir*SCALE*13,  SCALE*2.4);
-            ctx.stroke();
-            ctx.fillStyle = '#050810';
-            ctx.beginPath();
-            ctx.ellipse(dir*SCALE*13, SCALE*2.4, SCALE*1.4, SCALE*0.48, oAngle*dir*0.4, 0, Math.PI*2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(-dir*SCALE*7, -SCALE*0.8, Math.max(1,SCALE*0.7), 0, Math.PI*2);
-            ctx.fill();
-            ctx.restore();
-        }
-        drawOar(0.26, -1, suppressPort);
-        drawOar(0.74,  1, false);
-
-        if (bAlpha > 0.01) {
-            ctx.globalAlpha = bAlpha;
-            for (let row=0; row<BOAT_H; row++)
-                for (let col=0; col<BOAT_W; col++)
-                    if (BOAT_PIXELS[row][col]==='1') {
-                        ctx.fillStyle = '#040709';
-                        ctx.fillRect(Math.round(bLeft+col*SCALE), Math.round(bTop+row*SCALE), SCALE, SCALE);
-                    }
-            ctx.globalAlpha = 1;
-        }
-        ctx.restore();
-
-        // Vignette
-        const vig = ctx.createRadialGradient(W*0.5, H*0.5, H*0.07, W*0.5, H*0.5, H*0.95);
-        vig.addColorStop(0, 'rgba(0,0,0,0)');
-        vig.addColorStop(1, `rgba(2,4,6,${lerp(0.72, 0.42, colE)})`);
-        ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
-
-        canvas.style.transform = `skewX(${Math.sin(elapsed*0.00031)*0.0012}rad) skewY(${Math.cos(elapsed*0.00022)*0.0008}rad)`;
+        rafId = requestAnimationFrame(draw)
+        world.draw(now)
+        tickRain(now, world.rain)
+        tickWind(now, world.climb)
+        // everything but the wind fades as we rise into the cloud
+        if (boatAC && masterOut && !sceneDone) masterOut.gain.setTargetAtTime(0.55 * Math.max(0, world.near), boatAC.currentTime, 0.5)
     }
 
     rafId = requestAnimationFrame(draw);

@@ -84,6 +84,10 @@ export const COLORS = {
   narrative:    '#e8dfc0',
   narrativeEn:  '#a0c8a0',
 
+  // The narrator of the sea crossings (the same voice both ways): pale
+  // blue-white Irish with a cool glow -- see NARRATOR_GLOW below.
+  narrator:     '#d8e8f0',
+
   // Speakers
   hero:         '#e8dfc0',
   queen:        '#d4af37',
@@ -490,3 +494,13 @@ export function createDomButton(cfg) {
   return { el: btn, applyLanguage }
 }
 
+
+// The narrator's glow (the sea crossings' Irish lines), as a CSS text-shadow.
+export const NARRATOR_GLOW = [
+  '0 0 22px rgba(160,200,230,0.85)',
+  '0 0  8px rgba(100,160,200,0.6)',
+  '1px  1px 0 rgba(0,10,20,0.9)',
+  '-1px -1px 0 rgba(0,10,20,0.9)',
+  '1px -1px 0 rgba(0,10,20,0.9)',
+  '-1px  1px 0 rgba(0,10,20,0.9)',
+].join(', ')

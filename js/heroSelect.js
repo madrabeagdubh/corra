@@ -51,7 +51,13 @@ export function destroyMoonWidget() {
 // ── _doFinalize — MODULE SCOPE ────────────────────────────────────────────────
 // Hoisted here so showHeroSelect() and the restored tap handler in characterModal
 // can always reference it, regardless of when initMainHeroSelect() ran.
+// Set from the first tap until we come back, so a second tap in the gap
+// before finalize() runs can't start a second exit.
+let finalizing = false;
+
 async function _doFinalize() {
+    if (finalizing) return;
+    finalizing = true;
     try {
         const el = document.documentElement;
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -60,7 +66,7 @@ async function _doFinalize() {
         }
     } catch(e) {}
 
-    if (!validChampions[currentChampionIndex]) return;
+    if (!validChampions[currentChampionIndex]) { finalizing = false; return; }
 
     const musicReady = musicPlayer &&
                        musicPlayer.tracks &&
@@ -854,8 +860,9 @@ function finalize(champ) {
     const currentSliderValue = GameSettings.englishOpacity ?? 0.15;
     if (moonWidgetInstance) {
         moonWidgetInstance.pauseDrift();
-        // Null the tap handler during transition to prevent double-fire
+        // Null the handlers during transition to prevent double-fire
         moonWidgetInstance.setTapHandler(null);
+        moonWidgetInstance.setLongPressHandler(null);
     }
 
     const exitVeil = document.createElement('div');
@@ -884,8 +891,8 @@ function finalize(champ) {
 function showHeroSelect() {
     console.log('[HeroSelect] showHeroSelect() called');
 
-    const staleVeil = document.getElementById('heroSelectExitVeil');
-    if (staleVeil) staleVeil.remove();
+    document.querySelectorAll('#heroSelectExitVeil').forEach(v => v.remove());
+    finalizing = false;
 
     if (moonWidgetInstance) {
         moonWidgetInstance.resumeDrift();

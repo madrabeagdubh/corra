@@ -9,6 +9,7 @@ import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.
 import { FONTS, COLORS, TYPE, SPACING, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings } from './game/settings/gameSettings.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
+import { hopMsForTuneKey, danceTransform, musicClockFor } from './game/effects/championDance.js';
 
 console.log('[HeroSelect] MODULE LOADED - heroSelect.js is executing');
 
@@ -399,20 +400,9 @@ function initMainHeroSelect() {
             80%  { transform:translateX(-5px)   scaleY(1);    }
             100% { transform:translateX(0)     scaleY(1);    }
         }
-        @keyframes championBoogie {
-            0%,24.9%  { transform:translateY(0px)   scale(1,1);                   }
-            12.5%     { transform:translateY(-12px)  scale(0.9,1.15) rotate(3deg);  }
-            25%,49.9% { transform:translateY(0px)   scale(-1,1);                  }
-            37.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg);}
-            50%,74.9% { transform:translateY(0px)   scale(1,1);                   }
-            62.5%     { transform:translateY(-12px)  scale(0.9,1.15) rotate(3deg);  }
-            75%,99.9% { transform:translateY(0px)   scale(-1,1);                  }
-            87.5%     { transform:translateY(-12px)  scale(-0.9,1.15) rotate(-3deg);}
-            100%      { transform:translateY(0px)   scale(1,1);                   }
-        }
         .champion-canvas.floating {
-            animation:championBoogie 2s linear infinite;
             transform-origin:bottom center;
+            will-change:transform;
         }
         .stat-animate { animation:statPulse 0.4s ease-out; }
         .hero-select-container {
@@ -488,6 +478,9 @@ function initMainHeroSelect() {
     const firstChamp        = validChampions[newStartIndex];
     const englishOpacity    = GameSettings.englishOpacity ?? initialSliderValue;
 
+    dancers.length = 0;
+    startDanceLoop();
+
     const BATCH_SIZE = 30;
     let currentIndex = 0;
     let hasScrolled  = false;
@@ -542,6 +535,7 @@ function initMainHeroSelect() {
             nameEn.textContent = champ.nameEn;
             nameEn.style.opacity = String(englishOpacity);
 
+            registerDancer(i, canvas, champ);
             card.appendChild(canvas);
             card.appendChild(nameGa);
             card.appendChild(nameEn);
@@ -720,6 +714,42 @@ function runSwipeNudge() {
     }
 
     runCycle();
+}
+
+// ── Dance ─────────────────────────────────────────────────────────────────────
+// Each champion hops to the tempo of their own theme tune. Only the one or two
+// cards on screen are animated. The champion whose tune is playing follows the
+// music's own clock so they land on the beat.
+const dancers   = [];               // by card index: { canvas, tuneKey, hopMs }
+const hopCache  = new Map();        // champion -> { tuneKey, hopMs }
+let danceRafId  = null;
+
+function registerDancer(cardIndex, canvas, champ) {
+    let info = hopCache.get(champ);
+    if (!info) {
+        const tuneKey = getTuneKeyForChampion(champ);
+        info = { tuneKey, hopMs: hopMsForTuneKey(tuneKey) };
+        hopCache.set(champ, info);
+    }
+    dancers[cardIndex] = { canvas, ...info };
+}
+
+function startDanceLoop() {
+    if (danceRafId) return;
+    const frame = () => {
+        if (!scrollContainer?.isConnected) { danceRafId = null; return; }
+        const pos   = scrollContainer.scrollLeft / window.innerWidth;
+        const now   = performance.now();
+        const music = musicClockFor(musicPlayer);
+        for (let i = Math.floor(pos); i <= Math.ceil(pos); i++) {
+            const d = dancers[i];
+            if (!d) continue;
+            const ms = (music !== null && d.tuneKey === currentTuneKey) ? music : now;
+            d.canvas.style.transform = danceTransform(ms, d.hopMs);
+        }
+        danceRafId = requestAnimationFrame(frame);
+    };
+    danceRafId = requestAnimationFrame(frame);
 }
 
 // ── Swipe / scroll tracking ───────────────────────────────────────────────────

@@ -9,7 +9,8 @@ import { initDawnCrossing }   from './game/scenes/dawnCrossing.js';
 import { FONTS, COLORS, TYPE, SPACING, BUTTON, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings }     from './game/settings/gameSettings.js';
 import { createMoonWidget } from './game/ui/moonWidget.js';
-import { TEMPO_SETTINGS }   from './game/systems/music/tradSessionPlayerScheduled.js';
+import { hopMsForTuneKey, danceTransform, musicClockFor } from './game/effects/championDance.js';
+import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 
 const _state = {
     currentAmerginLine: null,
@@ -100,50 +101,18 @@ function createNightSky() {
 }
 
 // ---------------------------------------------
-// THE DANCE — one hop per beat of the champion's tune
+// THE DANCE — one hop per beat of the champion's own tune
 // ---------------------------------------------
-// Felt beats per bar: reels, jigs, hornpipes and polkas are danced in two,
-// slip jigs and waltzes in three.
-const BEATS_PER_BAR = { slipjig: 3, waltz: 3, slide: 2, air: 2 };
-const HOP_MIN_MS = 420;
-const HOP_MAX_MS = 950;
-const HOP_HEIGHT = 12;   // px, as before
-
-function _hopMsFor(tuneType) {
-    const barMs = TEMPO_SETTINGS[tuneType] || TEMPO_SETTINGS.defaultTempo;
-    let hop = barMs / (BEATS_PER_BAR[tuneType] || 2);
-    // Keep it danceable: halve or double into a comfortable range.
-    while (hop > HOP_MAX_MS) hop /= 2;
-    while (hop < HOP_MIN_MS) hop *= 2;
-    return hop;
-}
-
-function createDance(el, musicPlayerPromise) {
-    let rafId   = null;
-    let hopMs   = _hopMsFor(null);
-    let clock   = () => performance.now();   // ms; replaced by the audio clock when available
-
-    musicPlayerPromise.then(mp => {
-        if (!mp) return;
-        if (mp._tuneType) hopMs = _hopMsFor(mp._tuneType);
-        // Phase from the moment the tune started, so landings sit on the beat.
-        if (mp.audioContext && typeof mp.scheduledStartTime === 'number') {
-            clock = () => (mp.audioContext.currentTime - mp.scheduledStartTime) * 1000;
-        }
-    });
+function createDance(el, champion, musicPlayerPromise) {
+    let rafId = null;
+    let mp    = null;
+    const hopMs = hopMsForTuneKey(getTuneKeyForChampion(champion));
+    musicPlayerPromise.then(p => { mp = p; });
 
     function frame() {
-        const beats  = clock() / hopMs;
-        const hopIdx = Math.floor(beats);
-        const t      = beats - hopIdx;                  // 0..1 through this hop
-        const arc    = Math.sin(Math.PI * t);           // 0 → 1 → 0
-        const face   = (hopIdx & 1) ? -1 : 1;           // turns on each landing
-        const y      = -HOP_HEIGHT * arc;
-        const sx     = 1 - 0.1  * arc;
-        const sy     = 1 + 0.15 * arc;
-        const rot    = 3 * face * arc;
-        // The facing flip happens between two frames, never mid-tween.
-        el.style.transform = `translateY(${y}px) rotate(${rot}deg) scale(${face * sx}, ${sy})`;
+        // The music's clock keeps landings on the beat; wall time otherwise.
+        const ms = musicClockFor(mp) ?? performance.now();
+        el.style.transform = danceTransform(ms, hopMs);
         rafId = requestAnimationFrame(frame);
     }
 
@@ -280,7 +249,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     `;
     championHolder.appendChild(championCanvas);
 
-    const dance = createDance(championCanvas, musicPlayerPromise);
+    const dance = createDance(championCanvas, champion, musicPlayerPromise);
 
     (async function loadSprite() {
         try {

@@ -104,16 +104,7 @@ export class EncounterPanel {
 
     badge.addEventListener('pointerdown', (e) => {
       e.stopPropagation()
-      if (this._card?.id === 'disembark') {
-        this._scene.boatSystem && this._scene._doDisembark?.()
-        this.clearNotify()
-        if (this._scene) {
-          this._scene._disembarkBadgeShown = false
-          this._scene.joystick?.drawBadgeGlow?.(0)
-        }
-        return
-      }
-      this._openPanel()
+      this._activateBadge()
     })
 
     const hubEl = document.getElementById('dpad-moon-hub')
@@ -127,6 +118,21 @@ export class EncounterPanel {
     }
 
     this._badgeEl = badge
+  }
+
+  // What tapping the badge does. The brooch's stone does the same while lit
+  // (see _showBadge), so either the portrait on the moon or the stone works.
+  _activateBadge() {
+    if (this._card?.id === 'disembark') {
+      this._scene.boatSystem && this._scene._doDisembark?.()
+      this.clearNotify()
+      if (this._scene) {
+        this._scene._disembarkBadgeShown = false
+        this._scene.joystick?.drawBadgeGlow?.(0)
+      }
+      return
+    }
+    this._openPanel()
   }
 
   // -- Notify ----------------------------------------------------------------
@@ -165,6 +171,7 @@ clearNotify() {
     if (this._badgeHideTimer) { clearTimeout(this._badgeHideTimer); this._badgeHideTimer = null }
     this._badgeVisible = true
     badge.style.display = 'block'
+    this._scene?.joystick?.setStone?.(true, () => this._activateBadge())
 
     if (visual?.gid) {
       const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
@@ -196,6 +203,7 @@ clearNotify() {
     const badge = this._badgeEl
     if (!badge) return
     this._badgeVisible = false
+    this._scene?.joystick?.setStone?.(false)
     if (this._badgeHideTimer) clearTimeout(this._badgeHideTimer)
     badge.style.opacity = '0'
     this._badgeHideTimer = setTimeout(() => {
@@ -1142,4 +1150,5 @@ clearNotify() {
     this._scene = null
   }
 }
+
 

@@ -1,84 +1,98 @@
+// HPDisplay.js
+// Location: js/game/ui/HPDisplay.js
+//
+// Your hearts, on the status bar at the bottom of the screen: a heart and a
+// number, always there. The heart beats gently, faster when you're low;
+// it gives a little bump when the number changes, and the number turns red
+// below 30%.
+//
+// DOM, not Phaser: it lives inside #status-bar (statusBar.js), which every
+// perspective scene recreates -- so it re-attaches itself if the bar is new.
+// The scene's playerHPChanged event drives it; it lets go of that event when
+// the scene shuts down (Phaser reuses a scene's emitter across visits).
+//
+//   const hp = new HPDisplay(scene)        // the old { x, y } is ignored
+//   hp.updateDisplay(current, max)
+//   hp.destroy()
+
+const STYLE_ID = 'hp-display-style'
+
 export default class HPDisplay {
-  constructor(scene, { x = 20, y = 20 }) {
-    this.scene = scene;
-    this.hideTimer = null;
+  constructor(scene, _opts = {}) {
+    this.scene = scene
+    this.cur = 0; this.max = 0
+    if (!document.getElementById(STYLE_ID)) {
+      const st = document.createElement('style')
+      st.id = STYLE_ID
+      st.textContent = `
+        @keyframes hpBeat { 0%,100% { transform: scale(1) } 12% { transform: scale(1.14) } 24% { transform: scale(1) } 36% { transform: scale(1.08) } }
+        @keyframes hpBump { 0% { transform: scale(1) } 35% { transform: scale(1.35) } 100% { transform: scale(1) } }
+      `
+      document.head.appendChild(st)
+    }
+    this.el = document.createElement('div')
+    this.el.id = 'hp-display'
+    this.el.style.cssText = [
+      'position:absolute', 'left:12px', 'top:50%', 'transform:translateY(-50%)',
+      'display:flex', 'align-items:center', 'gap:6px', 'pointer-events:none', 'z-index:51',
+    ].join(';')
+    this.heart = document.createElement('img')
+    this.heart.src = 'assets/icons/heart.png'
+    this.heart.alt = ''
+    this.heart.style.cssText = 'width:18px;height:18px;image-rendering:pixelated;animation:hpBeat 1.6s ease-in-out infinite;'
+    this.text = document.createElement('span')
+    this.text.style.cssText = "font:bold 15px 'Courier Prime','Courier New',monospace;color:#f3e6c4;text-shadow:0 1px 2px #000;min-width:1.2em;"
+    this.el.append(this.heart, this.text)
+    this._attach()
 
-    this.container = scene.add.container(x, y);
-    this.container.setScrollFactor(0);
-    this.container.setDepth(2000);
-    this.container.setAlpha(0); // Start invisible
+    scene.events.on('playerHPChanged', this.updateDisplay, this)
+    // Phaser reuses a scene's event emitter when the scene starts again, so
+    // without this a display from an earlier visit would still answer.
+    scene.events.once('shutdown', this.destroy, this)
+    // the status bar may be built a moment after us: move onto it when it is
+    this._late = setTimeout(() => this._attach(), 700)
+  }
 
-console.log('[HPDisplay] heart texture exists:', scene.textures.exists('heart'));
-this.heart = scene.add.image(0, 0, 'heart');
-this.heart.setOrigin(0.5);
-this.heart.setDisplaySize(12, 12);
-    // HP Number Text
-    this.hpText = scene.add.text(0, 0, '100', {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      fontWeight: 'bold',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    });
-    this.hpText.setOrigin(0.5, 0.5);
-
-    this.container.add([this.heart, this.hpText]);
-
-    // Setup Heart Pulse Animation (infinite loop)
-    scene.tweens.add({
-      targets: this.heart,
-      scale: 0.4,
-      duration: 400,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Back.easeOut'
-    });
-
-    scene.events.on('playerHPChanged', this.updateDisplay, this);
+  // on the status bar if there is one; otherwise the same strip, on its own
+  _attach() {
+    if (!this.el) return
+    const bar = document.getElementById('status-bar')
+    if (bar && this.el.parentNode !== bar) {
+      this.el.style.position = 'absolute'; this.el.style.top = '50%'; this.el.style.bottom = ''; this.el.style.transform = 'translateY(-50%)'
+      bar.appendChild(this.el); return
+    }
+    if (!bar && !this.el.isConnected) {
+      this.el.style.position = 'fixed'; this.el.style.top = 'auto'; this.el.style.bottom = '12px'; this.el.style.transform = 'none'
+      document.body.appendChild(this.el)
+    }
   }
 
   updateDisplay(currentHP, maxHP) {
-    // 1. Update the number
-    this.hpText.setText(currentHP);
-
-    // 2. Change color if health is low
-    if (currentHP < maxHP * 0.3) {
-      this.hpText.setColor('#ff0000'); // Red if below 30%
-    } else {
-      this.hpText.setColor('#ffffff');
+    if (!this.el) return
+    this._attach()
+    const changed = currentHP !== this.cur
+    this.cur = currentHP; this.max = maxHP
+    this.text.textContent = String(currentHP)
+    const low = currentHP < maxHP * 0.3
+    this.text.style.color = low ? '#ff5a4a' : '#f3e6c4'
+    this.heart.style.animationDuration = low ? '0.7s' : currentHP < maxHP * 0.6 ? '1.1s' : '1.6s'
+    if (changed) {
+      this.text.style.animation = 'none'; void this.text.offsetWidth
+      this.text.style.animation = 'hpBump 0.35s ease-out'
     }
-
-    // 3. Show the UI and reset the hide timer
-    this.showTemporarily();
   }
 
-  showTemporarily() {
-    // Cancel existing timer if player gets hit again quickly
-    if (this.hideTimer) this.hideTimer.remove();
+  // kept for callers of the old display
+  showTemporarily() { this._attach() }
 
-    // Fade in
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 1,
-      duration: 200,
-      overwrite: true
-    });
-
-    // Set timer to hide after 3 seconds
-    this.hideTimer = this.scene.time.delayedCall(3000, () => {
-      this.scene.tweens.add({
-        targets: this.container,
-        alpha: 0,
-        duration: 500
-      });
-    });
+  _unhook() {
+    this.scene?.events?.off('playerHPChanged', this.updateDisplay, this)
   }
 
   destroy() {
-    if (this.hideTimer) this.hideTimer.remove();
-    this.scene.events.off('playerHPChanged', this.updateDisplay, this);
-    this.container.destroy();
+    clearTimeout(this._late)
+    this._unhook()
+    this.el?.remove()
+    this.el = null
   }
 }
-

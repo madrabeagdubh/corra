@@ -221,7 +221,12 @@ export default class Player {
     if (slot === 'weapon' && this.bowOverlay) this.bowOverlay.setVisible(false);
   }
 
-  update(joystick) {
+  // delta: ms since the last frame, from the scene's update(). A step takes
+  // stepDuration of real time whatever the screen's refresh rate (it used to
+  // assume 60 fps, so on a 120 Hz phone every step took half as long).
+  // Capped so a frame after the app comes back from the background can't
+  // complete a step that never visibly happened.
+  update(joystick, delta = 1000 / 60) {
     if (!joystick)       return;
     if (!this.isAlive()) return;
 
@@ -230,7 +235,7 @@ export default class Player {
     const force = joystick.force;
 
     if (this.isMoving) {
-      this.moveProgress += (1000 / 60) / this.stepDuration;
+      this.moveProgress += Math.min(delta, 100) / this.stepDuration;
 
       if (this.moveProgress >= 1) {
         this.logicalX     = this.targetX;
@@ -284,6 +289,7 @@ export default class Player {
 
   setPath(steps) {
     this.pathQueue = steps ?? [];
+    this._waitUntil = 0;
   }
 
   clearPath() {
@@ -292,6 +298,16 @@ export default class Player {
 
   _consumePathStep() {
     if (!this.pathQueue.length) return;
+    // A wait drawn into a route (input/routeDraw.js): stand here till it's done.
+    const head = this.pathQueue[0];
+    if (head.wait) {
+      const now = performance.now();
+      if (!this._waitUntil) { this._waitStart = now; this._waitUntil = now + head.wait; }
+      if (now < this._waitUntil) return;
+      this._waitUntil = 0;
+      this.pathQueue.shift();
+      return;
+    }
     const step = this.pathQueue.shift();
     const fakeJoystick = {
       force: 100,
@@ -355,6 +371,18 @@ if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetX = this.startX;
       this.targetY = this.startY;
       this.isMoving = false;
+      return;
+    }
+
+    // A figure standing there (a sparring partner): not a wall, so the
+    // held brooch isn't cancelled the way a wall cancels it -- the step
+    // simply doesn't happen. A tapped route ends here.
+    if (this.scene?.isOccupied?.(this.targetX, this.targetY)) {
+      this.targetX = this.startX;
+      this.targetY = this.startY;
+      this.isMoving = false;
+      this.pathQueue = [];
+      this.scene?.onBumpFigure?.(dx, dy);   // e.g. a shove, in a sword fight
       return;
     }
 

@@ -469,6 +469,44 @@ const INTERJECTIONS = {
             dur: 1.0 / n, stressed: i === 0, type: 'syl',
         }))
     },
+    // ── Combat (melee) ──────────────────────────────────────────────────────
+    // Short and wordless. rHz is the voice's root, so each champion's kiai
+    // is in their own register.
+    kiai: (rHz) => [
+        // "ki-AI!": a clipped lead-in, a gap, then the shout, rising and cut off
+        { hz: rHz * Math.pow(2,  7/12), dur: .055, stressed: false, type: 'syl' },
+        { hz: 0,                         dur: .035, stressed: false, type: 'gap' },
+        { hz: rHz * Math.pow(2, 11/12), dur: .16,  stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2,  6/12), dur: .07,  stressed: false, type: 'syl' },
+    ],
+    grunt: (rHz) => [
+        // effort on a hard cut: low, short, pushed out
+        { hz: rHz * Math.pow(2, -4/12), dur: .085, stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2, -7/12), dur: .06,  stressed: false, type: 'syl' },
+    ],
+    oof: (rHz) => [
+        // struck: the breath knocked out, falling
+        { hz: rHz * Math.pow(2,  3/12), dur: .045, stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2, -6/12), dur: .13,  stressed: false, type: 'syl' },
+    ],
+    ha: (rHz) => [
+        // a teacher's shout with his blow: one bark, a little fall
+        { hz: rHz * Math.pow(2,  5/12), dur: .12,  stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2,  2/12), dur: .05,  stressed: false, type: 'syl' },
+    ],
+    fall: (rHz) => [
+        // going down: a long falling groan
+        { hz: rHz * Math.pow(2,  2/12), dur: .08,  stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2, -3/12), dur: .16,  stressed: false, type: 'syl' },
+        { hz: rHz * Math.pow(2, -9/12), dur: .2,   stressed: false, type: 'syl' },
+    ],
+    haha: (rHz) => [
+        // a short laugh on a good moment: "ha-HA!"
+        { hz: rHz * Math.pow(2, 4/12), dur: .075, stressed: false, type: 'syl' },
+        { hz: 0,                        dur: .05,  stressed: false, type: 'gap' },
+        { hz: rHz * Math.pow(2, 7/12), dur: .12,  stressed: true,  type: 'syl' },
+        { hz: rHz * Math.pow(2, 3/12), dur: .05,  stressed: false, type: 'syl' },
+    ],
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

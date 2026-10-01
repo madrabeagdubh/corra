@@ -271,10 +271,55 @@ const MAPS = {
   skye_faiche: {
     exits: { west: 'skye_machaire' },
     build(n) {
+      // ── The practice green (keep in sync with skye/faicheGrounds.js) ──
+      //   THE RING    one marked circle of worn ground: drills and bouts
+      //               both. The students stand in a loose ring round it.
+      //   THE DAIS    a raised wooden platform to the north, for the teacher
+      //               to address the green from. Its edges are solid
+      //               (blockMask) but for one stair, front and centre.
+      //               faicheGrounds.js dresses it in planks.
+      //   RACKS       weapon racks either side of the way in from the west
+      //   DUMMIES     straw-stuffed posts along the east side
+      //   BANNERS     on poles round the ring, on the diagonals
+      const RING    = { cx: 18.5, cy: 19.5, r: 7 }        // tile units; centre = middle of tile (18,19)
+      const DAIS    = { x0: 15, x1: 21, y0: 6, y1: 8, h: 1.0 }
+      const STAIR   = [18, 9]
+      const RACKS   = [[6, 15], [6, 21]]
+      const DUMMIES = [[31, 16], [31, 19], [31, 22]]
+      const BANNERS = [[12, 13], [25, 13], [12, 26], [25, 26]]
+      const inBox = (b, x, y) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1
+      const ring = { x0: DAIS.x0 - 1, x1: DAIS.x1 + 1, y0: DAIS.y0 - 1, y1: DAIS.y1 + 1 }
+      const onRing = (x, y) => inBox(ring, x, y) && !inBox(DAIS, x, y)
+      const isStair = (x, y) => x === STAIR[0] && y === STAIR[1]
+      // tile heights; a vertex takes the highest tile touching it, so the
+      // ring round the dais becomes its slope (boarded over), and the stair
+      // tile one slope from the deck to the ground: half the height on
+      // average, so a climb of half a step either side of it
+      const tileH = (x, y) => inBox(DAIS, x, y) ? DAIS.h : 0
+      const props = [...RACKS, ...DUMMIES, ...BANNERS]
+      const isProp = (x, y) => props.some(([px, py]) => px === x && py === y)
+      // the ring: worn bare inside, and a little more so round its edge
+      const ringWear = (x, y) => {
+        const d = Math.hypot(x + 0.5 - RING.cx, y + 0.5 - RING.cy)
+        return d > RING.r ? 1 : d > RING.r - 1 ? 0.25 : 0.5
+      }
+      const trail = [[EDGE_PT.west, [Math.floor(RING.cx - RING.r), MID]]]
       return {
         tile: () => null,
-        height: (x, y) => (n(x * 0.1, y * 0.1) + 1) * 0.03,
-        trail: [[EDGE_PT.west, [MID, MID]]],
+        height: (x, y) => {
+          const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
+          return h + (n(x * 0.1, y * 0.1) + 1) * 0.03
+        },
+        trail,
+        extra: {
+          // the trail from the west, and the ring's worn ground
+          pathDist: (() => {
+            const t = pathDistFor(trail)
+            return t.map((row, y) => row.map((v, x) => Math.min(v, ringWear(x, y))))
+          })(),
+          blockMask: grid(W, H, (x, y) => ((onRing(x, y) && !isStair(x, y)) || isProp(x, y)) ? 1 : 0),
+          faiche: { ring: RING, dais: DAIS, stair: STAIR, racks: RACKS, dummies: DUMMIES, banners: BANNERS },
+        },
       }
     },
   },

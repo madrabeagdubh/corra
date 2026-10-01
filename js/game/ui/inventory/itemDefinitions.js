@@ -48,6 +48,26 @@ export const ITEM_DEFS = {
     color: 0x8B4513
   },
 
+  // Training blade for the Skye practice green. PLACEHOLDER icon: the
+  // Oryx short sword (its inventory texture is made from the item sheet
+  // at runtime, see meleeBout.js ensureSwordIcon).
+  wooden_sword: {
+    id: 'wooden_sword',
+    spriteKey: 'item_wooden_sword',
+    itemGid: TILES.SHORTSWORD,                // 2492
+    type: 'weapon',
+    subtype: 'sword',
+    nameEn: 'Wooden sword',
+    nameGa: 'Claíomh adhmaid',
+    descEn: 'A practice blade of ash. It will not cut, but it will bruise.',
+    descGa: 'Lann chleachtaidh fuinseoige. Ní ghearrfaidh sí, ach fágfaidh sí ball gorm.',
+    stats: { attack: 1 },
+    equipSlot: 'rightHand',
+    allowedSlots: [0],
+    actions: ['equip', 'drop'],
+    color: 0xC8A060
+  },
+
   arrows: {
     id: 'arrows',
     spriteKey: 'item_arrows',

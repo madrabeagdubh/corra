@@ -250,7 +250,7 @@ if (this.textures.exists('heart')) {
       // When in boat, skip player.update() entirely — BoatSystem owns all movement.
       // Calling player.update() even with null joystick still advances tween steps.
       if (!this.player.inBoat) {
-        this.player.update(this.joystick);
+        this.player.update(this.joystick, delta);
       }
 
       if (this.terrainManager) this.terrainManager.update();

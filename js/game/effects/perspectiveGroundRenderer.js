@@ -76,6 +76,7 @@ import * as PGRCliffs from './pgr/pgrCliffFaces.js'
 import * as PGRPreview from './pgr/pgrNorthPreview.js'
 import * as PGRBanks from './pgr/pgrWaterBanks.js'
 import * as PGRPlayer from './pgr/pgrPlayerBoat.js'
+import { backViewCanvas } from './backView.js'
 
 
 // Map GIDs 839/840 are flat single-colour grass (839 has zero pixel
@@ -423,6 +424,8 @@ export default class PerspectiveGroundRenderer {
       tCtx.drawImage(src, cutX, cutY, cutWidth, cutHeight, 0, 0, cutWidth, cutHeight)
       this._playerCanvas   = tc
       this._playerFrameKey = cacheKey
+      // seen from behind (facing away from the camera): generated once per frame key
+      try { this._playerBackCanvas = backViewCanvas(tc) } catch (_) { this._playerBackCanvas = null }
       console.log('[PGR v8] player canvas refreshed -', cacheKey, cutWidth, 'x', cutHeight)
     } catch(e) {
       console.warn('[PGR v8] could not build player canvas:', e.message)
@@ -436,7 +439,10 @@ export default class PerspectiveGroundRenderer {
 
 
 _horizonPx() {
-    return Math.floor(this._sh * (this._horizonYFrac ?? PerspectiveGroundRenderer.HORIZON_Y_FRAC))
+    let f = this._horizonYFrac ?? PerspectiveGroundRenderer.HORIZON_Y_FRAC
+    const L = this._lens
+    if (L?.horizon != null) f += (L.horizon - f) * L.w        // the lens tilts the camera down
+    return Math.floor(this._sh * f)
   }
 
 
@@ -444,20 +450,34 @@ _horizonPx() {
  _groundH()   { return this._sh - this._horizonPx() }
 
   _pxPerTileAtPlayer() {
-    return (this._sw * this._zoom()) / PerspectiveGroundRenderer.TILES_ACROSS
+    return (this._sw * this._zoom() * (this._lens?.mag || 1)) / PerspectiveGroundRenderer.TILES_ACROSS
   }
 
+  // A lens over the camera (e.g. a sword fight's close-up, combat/fightLens.js):
+  //   this._lens = { col, row, w, dolly, horizon, mag }   or null
+  //   col/row   a ground point (tile units, centres at +0.5) to look at
+  //             instead of the camera's own, blended in by w (0..1)
+  //   dolly     rows the camera moves forward: a real step in, not a crop
+  //   horizon   the horizon (fraction of the screen) to tilt to, so what
+  //             the camera stepped toward doesn't sink to the bottom
+  //   mag       a magnification on top, for what the step can't give
+  // Everything on screen goes through these and _horizonPx/_pxPerTileAtPlayer,
+  // so taps, routes and overlays follow.
   _perspCamRow() {
     if (!this._cameraReady()) return 0
     const c = this.scene.cameras.main, zoom = this._zoom()
-    return (c.scrollY + this._sh / (2 * zoom)) / this.tileDisplaySize
-         + (this._cameraRowOffset ?? PerspectiveGroundRenderer.CAMERA_ROW_OFFSET)
+    const off = this._cameraRowOffset ?? PerspectiveGroundRenderer.CAMERA_ROW_OFFSET
+    const row = (c.scrollY + this._sh / (2 * zoom)) / this.tileDisplaySize + off
+    const L = this._lens
+    return L ? row + (L.row + off - row) * L.w - (L.dolly || 0) : row
   }
 
   _perspCamCol() {
     if (!this._cameraReady()) return 0
     const c = this.scene.cameras.main, zoom = this._zoom()
-    return (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
+    const col = (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
+    const L = this._lens
+    return L ? col + (L.col - col) * L.w : col
   }
 
   _screenYToWorldRow(screenY) {
@@ -636,6 +656,15 @@ _horizonPx() {
 
   _drawTrapezoid(ctx, gid, tl, tr, bl, br) {
     this._drawTrapezoidTinted(ctx, gid, tl, tr, bl, br, null)
+  }
+
+  // A pose: a transform about a figure's feet -- { dx, dy } in tile widths,
+  // rot in radians, sx/sy scale. For a sword fight's crouch, lean and fall.
+  _applyPose(ctx, x, y, pose, w) {
+    ctx.translate(x + (pose.dx || 0) * w, y + (pose.dy || 0) * w)
+    if (pose.rot) ctx.rotate(pose.rot)
+    if (pose.sx || pose.sy) ctx.scale(pose.sx || 1, pose.sy || 1)
+    ctx.translate(-x, -y)
   }
 
   _drawBillboard(ctx, img, screenX, screenY, scaledTileW, heightMult) {
@@ -1332,7 +1361,9 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
           const _drawY = playerScreenY - (this._playerTerrainLift ?? 0) - _waveOff
           const _capsizeAngle = (this._boatActive && this.scene?._capsized)
             ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
-          this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle)
+          const _pose = this._boatActive ? null : this.scene?.playerPose?.()
+          if (_pose) { this._oCtx.save(); this._applyPose(this._oCtx, _drawX, _drawY, _pose, scaledTileW) }
+          this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle, 'behind')
           if (_capsizeAngle > 0.01) {
             this._oCtx.save()
             this._oCtx.translate(_drawX, _drawY)
@@ -1342,6 +1373,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
           this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
             _drawX, _drawY, scaledTileW, playerHM)
           if (_capsizeAngle > 0.01) this._oCtx.restore()
+          this._drawWeaponOverlay(_drawX, _drawY, scaledTileW, aimAngle, 'front')
+          if (_pose) this._oCtx.restore()
           playerDrawn = true
         }
 
@@ -1540,8 +1573,10 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
           for (const flag of this._encounterFlags) {
             if (flag.tileX !== tileCol || flag.tileY !== tileRow) continue
             if (flag.hidden) continue     // e.g. a figure mid-vanish
-            if (!flag.visual?.gid) continue
-            if (flag.visual.flat) {
+            // flag.draw(ctx, x, y, w, pgr): a prop or figure that draws itself
+            // (no tile image), sorted and lifted like any other figure
+            if (!flag.visual?.gid && !flag.draw) continue
+            if (flag.visual?.flat) {
               const xBL = this._colToScreenX(tileCol,     tileRow + 1)
               const xBR = this._colToScreenX(tileCol + 1, tileRow + 1)
               this._gCtx.globalAlpha = tileAlpha
@@ -1550,13 +1585,16 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
                 {x: xBL, y: yBotClamped}, {x: xBR, y: yBotClamped})
               this._gCtx.globalAlpha = 1.0
             } else {
+              // flag.offset: [dx, dy] in tiles, for a figure partway
+              // between tiles (a sparring partner's step). Still sorted
+              // and lifted by its whole tile.
               const proj = this._projectLogical(
-                (flag.tileX + 0.5) * this.tileDisplaySize,
-                (flag.tileY + 0.5) * this.tileDisplaySize
+                (flag.tileX + 0.5 + (flag.offset?.[0] || 0)) * this.tileDisplaySize,
+                (flag.tileY + 0.5 + (flag.offset?.[1] || 0)) * this.tileDisplaySize
               )
               if (!proj) continue
-              const canvas = this._getTileCanvas(flag.visual.gid)
-              if (canvas) {
+              const canvas = flag.draw ? null : this._getTileCanvas(flag.visual.gid)
+              if (canvas || flag.draw) {
                 // Terrain lift. perspectiveProject() is purely row/col --
                 // it knows nothing about the heightMap -- so without this a
                 // billboard on high ground is drawn at the sea-level screen
@@ -1577,7 +1615,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
                 // quite where they should be standing.
                 const _fW    = proj.scale * this.tileDisplaySize
                 const _fH2   = _fW * 1.2
-                const _fNudge = (flag.visual.yOffset || 0) * _fH2
+                const _fNudge = (flag.visual?.yOffset || 0) * _fH2
                 const _fX    = proj.screenX
                 const _fY    = proj.screenY - _fLift + _fNudge
 
@@ -1589,7 +1627,10 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
                 this.scene?.onPGRBeforeFlag?.(this._oCtx, flag, {
                   x: _fX - _fW / 2, y: _fY - _fH2, w: _fW, h: _fH2,
                 })
-                this._drawBillboard(this._oCtx, canvas, _fX, _fY, _fW, 1.2)
+                if (flag.pose) { this._oCtx.save(); this._applyPose(this._oCtx, _fX, _fY, flag.pose, _fW) }
+                if (flag.draw) flag.draw(this._oCtx, _fX, _fY, _fW, this)
+                else this._drawBillboard(this._oCtx, canvas, _fX, _fY, _fW, 1.2)
+                if (flag.pose) this._oCtx.restore()
                 this._oCtx.globalAlpha = 1.0
               }
             }
@@ -1637,7 +1678,9 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         const _drawX2 = playerScreenX
         const _waveOff2 = this._boatActive ? (this._waveRideOffset ?? 0) : 0
         const _drawY2 = playerScreenY - (this._playerTerrainLift ?? 0) - _waveOff2
-        this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null)
+        const _pose2 = this._boatActive ? null : this.scene?.playerPose?.()
+        if (_pose2) { this._oCtx.save(); this._applyPose(this._oCtx, _drawX2, _drawY2, _pose2, scaledTileW) }
+        this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null, 'behind')
         const _ca2 = (this._boatActive && this.scene?._capsized)
           ? ((this._capsizeFlip ?? 0) * Math.PI) : 0
         if (_ca2 > 0.01) {
@@ -1649,6 +1692,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
         this._drawPlayerAnimated(this._oCtx, this._playerCanvas,
           _drawX2, _drawY2, scaledTileW, playerHM2)
         if (_ca2 > 0.01) this._oCtx.restore()
+        this._drawWeaponOverlay(_drawX2, _drawY2, scaledTileW, null, 'front')
+        if (_pose2) this._oCtx.restore()
         playerDrawn = true
       }
 
@@ -1755,6 +1800,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
     // scene's post-draw hook (NPCs, overlays, whatever it draws) ran
     // double per frame. Single call is the correct behaviour; if
     // anything now looks fainter, it was relying on being drawn twice.
+    this.scene?._melee?.draw?.(this._oCtx)          // a sword fight's marks (combat/meleeView.js)
+    this.scene?._routeDraw?.draw?.(this._oCtx)      // a drawn route (input/routeDraw.js)
     this.scene?.onPGRDrawComplete?.(this._oCtx)
     this._oCtx.restore()
     this._gCtx.restore()
@@ -1864,7 +1911,7 @@ destroy() {
   }
   setBoatActive(active) { PGRPlayer.setBoatActive(this, active) }
 
-  _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle) { PGRPlayer.drawWeaponOverlay(this, playerScreenX, playerScreenY, scaledTileW, aimAngle) }
+  _drawWeaponOverlay(playerScreenX, playerScreenY, scaledTileW, aimAngle, phase = 'behind') { PGRPlayer.drawWeaponOverlay(this, playerScreenX, playerScreenY, scaledTileW, aimAngle, phase) }
 
   _drawPlayerAnimated(ctx, img, screenX, screenY, scaledTileW, heightMult) { PGRPlayer.drawPlayerAnimated(this, ctx, img, screenX, screenY, scaledTileW, heightMult) }
 

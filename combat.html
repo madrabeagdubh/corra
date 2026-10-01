@@ -1,0 +1,1093 @@
+<title>Corra Practice Yard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+/* Layout: one column — the yard (grid field + brooch dock) fills the phone width, the how-to sits under it. Single dark look, like the game. */
+:root {
+  --night: #0c0f0e;
+  --peat: #151a18;
+  --gold: #d4af37;
+  --gold-hi: #f5d060;
+  --text: #e8e2d0;
+  --muted: #9a9482;
+  --line: rgba(212,175,55,0.28);
+  --f-title: 'Uncial Antiqua', 'Palatino Linotype', serif;
+  --f-body: 'Courier Prime', 'Courier New', monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--night); color: var(--text); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 16px 40px; }
+.wrap { max-width: 440px; margin: 0 auto; display: grid; gap: 14px; }
+h1 { font-family: var(--f-title); font-weight: 400; font-size: 26px; color: var(--gold); margin: 0; }
+.stage { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; user-select: none; -webkit-user-select: none; }
+#field { display: block; width: 100%; touch-action: none; }
+.banner { position: absolute; left: 0; right: 0; top: 150px; text-align: center; pointer-events: none; }
+.banner .ga { font-family: var(--f-title); font-size: 30px; color: var(--gold-hi); text-shadow: 0 2px 6px #000; }
+.banner .en { font-size: 14px; text-shadow: 0 1px 3px #000; }
+.lesson { position: absolute; right: 10px; top: 26px; font-size: 13px; color: #bfefff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+.mode { position: absolute; right: 10px; top: 6px; font-size: 13px; text-shadow: 0 1px 2px #000; pointer-events: none; }
+.dock { background: #0a0d0c; border-top: 1px solid var(--line); display: flex; justify-content: center; padding-block: 8px 12px; }
+#brooch { display: block; touch-action: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button.seg { font: inherit; font-size: 14px; color: var(--text); background: var(--peat); border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; cursor: pointer; min-height: 40px; }
+button.seg[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); }
+button:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+.how { background: var(--peat); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin: 0; color: var(--muted); }
+.how b { color: var(--gold-hi); font-weight: 700; }
+.how p { margin: 0 0 8px; } .how p:last-child { margin: 0; }
+</style>
+
+<div class="wrap">
+  <h1>An Fhaiche</h1>
+
+  <div class="stage">
+    <canvas id="field" aria-label="Practice yard grid with a sparring partner"></canvas>
+    <div class="mode" id="mode" aria-live="polite"></div>
+    <div class="lesson" id="lessonEl"></div>
+    <div class="banner" aria-live="polite"><div class="ga" id="banGa"></div><div class="en" id="banEn"></div></div>
+    <div class="dock"><canvas id="brooch" aria-label="Brooch: ring to move, moon to strike, stone to parry"></canvas></div>
+  </div>
+
+  <div class="row">
+    <button class="seg" id="teacher" aria-pressed="true">Teacher</button>
+    <button class="seg" id="spar" aria-pressed="false">Swordsman</button>
+    <button class="seg" id="warden" aria-pressed="false">Warden</button>
+    <button class="seg" id="master" aria-pressed="false">Master</button>
+    <button class="seg" id="brawler" aria-pressed="false">Brawler</button>
+    <button class="seg" id="axe" aria-pressed="false">Axeman</button>
+    <button class="seg" id="spear" aria-pressed="false">Spearman</button>
+    <button class="seg" id="shield" aria-pressed="false">Shieldman</button>
+    <button class="seg" id="live" aria-pressed="false">Blades: wood</button>
+    <button class="seg" id="bandage">Bandage (2)</button>
+    <button class="seg" id="relbtn" aria-pressed="false">Line: from its start</button>
+    <button class="seg" id="reset">Start again</button>
+  </div>
+  <div class="how">
+    <p>Walk within <b>three tiles</b> of your partner and swords are drawn; get <b>more than five</b> away and it's over.</p>
+    <p><b>Field:</b> tap a tile to walk there, or <b>drag</b> a route with your finger (tap off it to stop). A dim line shows the walk to where your route begins, and in a fight it must begin within two tiles of you. The <b>Line</b> button switches to walking the shape relative to where you stand. Tap your partner to strike; from <b>two tiles</b> off it's a lunge, for two breath.</p>
+    <p><b>Brooch:</b> ring hops a tile, moon strikes. Strike while you walk and the cut rides on the stride; the walk carries on. A quick second strike comes back the other way; a patient one is the full cut.</p>
+    <p><b>Breath (the gold pips):</b> a swing costs one, and you have as many as you have hearts. A hit that catches them mid-move gives one back. Run dry and you're winded for a moment. On your last heart the moon glows red: one blow they can't parry, worth two hearts.</p>
+    <p><b>Steel:</b> the Blades button swaps wood for steel. You have six hearts, as do they, blows roll dice (yours 1d8 plus timing: a patient cut +2, a mid-wind-up catch +2, a backhand or a cut on the move −1), your breath is capped by your hearts, and as you lose hearts you slow down. There is blood. A blow of three hearts or more opens a <b>wound</b> that drips a heart every 12 seconds: stand still for 2.5 seconds to press it shut, or use a bandage (helpless for a moment). Bleeding slows your breath. The teacher stays wooden.</p>
+    <p><b>Teacher:</b> she parries everything and never hurts you. Land the strikes she asks for and she shows you the next thing. <b>Swordsman</b> is a real partner. The others want different tactics:</p>
+    <p><b>Axeman:</b> slow, hits three tiles at once for two hearts. Don't stand beside him; get round him. <b>Spearman:</b> strikes two and three tiles out in a line and the thrust knocks you back two tiles; get too close and he bashes you with the shaft, back into his reach. He backs away, and throws from range. <b>Shieldman:</b> blocks from the front; his blue-white bash stuns you, then he rushes with everything. Cut him from the side or behind, and don't get bashed. The swordsman and axeman read your route: if it takes you beside them, the red tile appears ahead of you (tap off the route to get out). All aim where you are <i>going</i>; the swordsman follows a miss at once, and the spearman throws from range.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const rad = a => a * Math.PI / 180
+  const deg = (y, x) => Math.atan2(y, x) * 180 / Math.PI
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const now = () => performance.now()
+
+  // ── tuning ──────────────────────────────────────────────────────────────
+  const COLS = 8, ROWS = 11, HEARTS = 6
+  const ENGAGE = 3, DISENGAGE = 5                   // combat starts within 3 tiles, ends beyond 5
+  const HOME = [4, 1]
+  const LEASH = 3                                    // they won't chase further than this from their place
+  const P = { hopMs: 130, hopRest: 110, repeatMs: 260, swingMs: 150, strikeRecover: 320,
+              parryWindow: 220, parryWhiff: 420, reelMs: 200, hurtMs: 650, longPressMs: 600 }
+  // the partner's pace: a teacher who waits for your answer, or a sparring partner who presses
+  const PRESETS = {
+    teacher: { teacher: true, stepMs: 600, windMs: 1100, strikeMs: 120, recoverMs: 1400, reelMs: 800, staggerMs: 800,
+               counterWind0: 950, counterWindStep: 40, counterWindMin: 650,
+               parryBase: 0.6, parryReel0: 0.25, parryReelStep: 0.1, parryMax: 0.7, restMin: 1200, restMax: 2200 },
+    spar:    { teacher: false, stepMs: 330, windMs: 650, strikeMs: 120, recoverMs: 750, reelMs: 480, staggerMs: 400,
+               counterWind0: 560, counterWindStep: 50, counterWindMin: 380,
+               parryBase: 0.4, parryReel0: 0.3, parryReelStep: 0.12, parryMax: 0.8, restMin: 500, restMax: 1200 },
+  }
+  PRESETS.axe = { teacher: false, kind: 'axe', hp: 4, dmg: 2, stepMs: 520, windMs: 1300, strikeMs: 140, recoverMs: 1700, reelMs: 480, staggerMs: 700,
+    counterWind0: 1000, counterWindStep: 0, counterWindMin: 1000, parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 600, restMax: 1300 }
+  PRESETS.spear = { teacher: false, kind: 'spear', hp: 4, dmg: 1, stepMs: 340, windMs: 850, strikeMs: 130, recoverMs: 1100, reelMs: 480, staggerMs: 600,
+    counterWind0: 800, counterWindStep: 0, counterWindMin: 800, parryBase: 0.1, parryReel0: 0, parryReelStep: 0, parryMax: 0.1, restMin: 500, restMax: 1000 }
+  PRESETS.shield = { teacher: false, kind: 'shield', hp: 3, dmg: 1, stepMs: 520, windMs: 950, strikeMs: 130, recoverMs: 1300, reelMs: 480, staggerMs: 600, turnMs: 650,
+    counterWind0: 800, counterWindStep: 0, counterWindMin: 800, parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 600, restMax: 1200 }
+  Object.assign(PRESETS.spar, { lead: 1, combo: 1, followWind: 380, ambush: true, hpLive: 12 })       // the swordsman aims where you're going, and follows a miss at once
+  Object.assign(PRESETS.axe, { lead: 1, ambush: true, hpLive: 16 })
+  Object.assign(PRESETS.spear, { lead: 1, throwCd: 4000, throwWind: 700 })   // and throws from range
+  Object.assign(PRESETS.spear, { bashWind: 450, stun: 350, kb: 2, bashDrain: 1, rush: 1, rushWind: 450, hpLive: 10 })   // too close? a shaft bash sends you back into his reach
+  Object.assign(PRESETS.shield, { windMs: 750, stun: 800, rush: 2, rushWind: 330, hpLive: 14 })   // his bash stuns; then he gives you everything
+  // three swordsmen, one body, three habits
+  PRESETS.warden = { ...PRESETS.spar, style: 'warden', hp: 7, stepMs: 420, windMs: 560, recoverMs: 650, staggerMs: 500, followWind: 360, combo: 0, lead: 0, ambush: false,
+    parryBase: 0.55, parryReel0: 0.4, parryReelStep: 0.1, parryMax: 0.85, restMin: 600, restMax: 1100 }     // holds his ground, parries, answers a miss
+  PRESETS.master = { ...PRESETS.spar, style: 'master', hp: 6, stepMs: 300, windMs: 620, recoverMs: 650, staggerMs: 400, followWind: 320, combo: 1, lead: 1, ambush: true,
+    rushWind: 380, parryBase: 0.45, parryReel0: 0.3, parryReelStep: 0.12, parryMax: 0.8, restMin: 300, restMax: 700 }   // keeps two tiles off, circles, feints, lunges
+  PRESETS.brawler = { ...PRESETS.spar, style: 'brawler', hp: 5, stepMs: 250, windMs: 400, strikeMs: 110, recoverMs: 800, staggerMs: 120, followWind: 280, combo: 2, lead: 0, ambush: false,
+    parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 120, restMax: 350 }     // no guard, fast, hits three times, wide open afterwards
+  for (const k in PRESETS) PRESETS[k] = { kind: 'sword', hp: HEARTS, dmg: 1, turnMs: 650, lead: 0, combo: 0, followWind: 400, rush: 0, rushWind: 330, stun: 800, throwCd: 0, throwWind: 700, bashWind: 450, kb: 1, bashDrain: 2, ambush: false, style: null, ...PRESETS[k] }
+  const F = { ...PRESETS.teacher }
+  // live blades: hearts become hit points, blows roll dice, and the wounded slow down
+  let liveOn = false
+  const live = () => liveOn && !F.teacher
+  const pmax = () => HEARTS
+  const foeMax = () => live() ? HEARTS : (F.hp || HEARTS)
+  const slowK = () => live() ? 1 + 0.6 * (1 - Math.max(0, eff(player)) / pmax()) : 1
+  const roll = (n, sides, bonus = 0) => { let t = bonus; for (let i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * sides); return Math.max(1, t) }
+  // wounds: a deep blow opens one; it drips a heart until you press it shut (stand still) or bandage it
+  const PRESS_MS = 2500
+  const bleedMs = () => 12000 / (1 + Math.max(0, player.wounds - 1) * 0.6)
+  let bandages = 2
+  const DICE = { sword: [1, 8, 0], axe: [2, 6, 0], spear: [1, 8, 0], shield: [1, 6, 0] }
+  const foeDamage = () => live() ? (foe.throw ? roll(1, 6) : roll(...DICE[F.kind])) : F.dmg
+  // the toll: a deep blow doesn't land all at once. It is owed, and a heart is paid each second
+  const TOLL_MS = 1000
+  const eff = e => e.hp - (e.owed || 0)
+  function owe(e, n) { if (!(e.owed > 0)) e.tollAt = now() + TOLL_MS; e.owed = Math.min(e.hp, (e.owed || 0) + n) }
+  const BUFFER_MS = 200
+  // breath (anáil): as many swings as you have hearts to start with; a clean hit or perfect parry gives one back
+  const BR = { regenMs: 700, idleMs: 450, windedMs: 1200, windedBack: 2, guardHoldMs: 200, perfectMs: 300, guardDrainMs: 650, lungeRecover: 140 }
+
+  const D8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]
+  const toD8 = a => D8[((Math.round(a / 45) % 8) + 8) % 8]
+  const sign = v => (v > 0) - (v < 0)
+
+  // ── the yard ────────────────────────────────────────────────────────────
+  const fc = document.getElementById('field'), fx = fc.getContext('2d')
+  let W = 0, H = 0, T = 40
+  const mk = () => ({ c: 0, r: 0, from: null, t0: 0, ms: 0, hp: HEARTS, hurtUntil: 0, face: 0 })
+  const player = Object.assign(mk(), { busyUntil: 0, parryUntil: 0, down: false, sheathed: false, lastDir: [0, -1] })
+  const foe = Object.assign(mk(), { state: 'idle', st0: 0, until: 0, target: null, hitDone: false, nextStep: 0, wind: 0 })
+  let combat = false, exchange = 0
+  let lastDrop = ''
+  const dropPath = why => { path = null; lastDrop = why }
+  let breath = HEARTS, lastSpend = 0, windedUntil = 0, guard = null, path = null, cueT = null
+  // the teacher's lessons: she parries everything; each lesson counts one thing you do well, then she moves on
+  const LESSONS = [
+    { kind: 'strike', name: 'Strike', need: 5, foeAttacks: false },
+    { kind: 'lunge', name: 'Reach', need: 3, foeAttacks: false },
+    { kind: 'dodge', name: 'Step aside', need: 3, foeAttacks: true },
+    { kind: 'none', name: '', need: 0, foeAttacks: true },
+  ]
+  let lesson = 0, lessonCount = 0
+  const cap = () => Math.min(HEARTS, Math.max(1, player.hp))            // breath can't exceed your hearts
+  const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms) } catch (_) {} }
+
+  function sizeField() {
+    const dpr = devicePixelRatio || 1, w = fc.getBoundingClientRect().width
+    W = w; T = W / COLS; H = T * ROWS
+    fc.style.height = H + 'px'
+    fc.width = Math.round(W * dpr); fc.height = Math.round(H * dpr); fx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+  function px(e, t = now()) {
+    const cx = (e.c + 0.5) * T, cy = (e.r + 0.5) * T
+    if (!e.from) return [cx, cy]
+    const k = Math.min(1, (t - e.t0) / e.ms), e2 = 1 - (1 - k) * (1 - k)
+    if (k >= 1) { e.from = null; return [cx, cy] }
+    const fx0 = (e.from[0] + 0.5) * T, fy0 = (e.from[1] + 0.5) * T
+    return [fx0 + (cx - fx0) * e2, fy0 + (cy - fy0) * e2]
+  }
+  const inside = (c, r) => c >= 0 && r >= 0 && c < COLS && r < ROWS
+  const occupied = (c, r, who) => { const o = who === player ? foe : player; return o.c === c && o.r === r }
+  function stepTo(e, c, r, ms) {
+    if (!inside(c, r) || occupied(c, r, e)) return false
+    e.from = [e.c, e.r]; e.t0 = now(); e.ms = ms; e.c = c; e.r = r
+    return true
+  }
+  const cheb = () => Math.max(Math.abs(foe.c - player.c), Math.abs(foe.r - player.r))
+  const towardFoe = () => [sign(foe.c - player.c), sign(foe.r - player.r)]
+  const targetTile = () => { const d = towardFoe(); return [player.c + d[0], player.r + d[1]] }
+
+  function resetBout() {
+    player.c = 3; player.r = 9; player.from = null; player.hp = pmax(); player.owed = 0; foe.owed = 0; foe.eye = 0; foe.whiffAt = 0; foe.feint = false; foe.lungeNow = false; player.down = false; blood.length = 0; player.wounds = 0; player.bleedAt = 0; player.press = 0; bandages = 2; bandageLabel()
+    player.busyUntil = 0; player.parryUntil = 0; player.sheathed = false
+    foe.c = HOME[0]; foe.r = HOME[1]; foe.from = null; foe.hp = foeMax(); foe.facing = 90; foe.nextTurn = 0; foe.targets = []; foe.throwAt = now() + 1500; foe.bash = false; foe.throw = false; foe.comboN = 0; foe.rush = 0; player.stunUntil = 0; setFoe('idle', 0)
+    combat = false; exchange = 0; swing = null; queued = null; banner('', '')
+    breath = HEARTS; windedUntil = 0; guard = null; path = null; lesson = 0; lessonCount = 0; showLesson(); player.busyKind = 'other'; player.cancelAt = 0; showMode()
+  }
+
+  // ── fx + sound ──────────────────────────────────────────────────────────
+  const sparks = [], floats = []
+  let hitStop = 0, redFlash = 0, parryFlash = 0
+  const banGa = document.getElementById('banGa'), banEn = document.getElementById('banEn'), modeEl = document.getElementById('mode')
+  const banner = (ga, en) => { banGa.textContent = ga; banEn.textContent = en }
+  const showMode = () => {
+    const winded = now() < windedUntil, bleeding = live() && player.wounds > 0 && !player.down
+    const base = player.sheathed ? 'Faoi thruaill · sheathed' : winded ? 'Tuirse · winded' : combat ? 'Ag troid · fighting' : ''
+    modeEl.textContent = (bleeding ? 'Bleeding' + (player.wounds > 1 ? ' ×' + player.wounds : '') + (base ? ' · ' : '') : '') + base
+    modeEl.style.color = bleeding ? '#ff8a7a' : winded ? '#9fb7c4' : combat ? '#f5d060' : '#9a9482'
+  }
+  const lessonEl = document.getElementById('lessonEl')
+  function say(ga, en) {
+    banner(ga, en); clearTimeout(cueT)
+    cueT = setTimeout(() => { if (foe.hp > 0 && !player.down) banner('', '') }, 2000)
+  }
+  function showLesson() {
+    const L = LESSONS[lesson]
+    lessonEl.textContent = !F.teacher ? '' : lesson >= 3 ? 'Lessons done, for now' : `${lesson + 1}. ${L.name} ${lessonCount}/${L.need}`
+  }
+  function lessonPoint(kind) {
+    if (!F.teacher || lesson >= 3 || LESSONS[lesson].kind !== kind) return
+    if (++lessonCount >= LESSONS[lesson].need) {
+      lesson++; lessonCount = 0
+      say('Maith thú!', lesson < 3 ? 'Next: ' + LESSONS[lesson].name : "That's all she has for you today.")
+    }
+    showLesson()
+  }
+  const sfx = (() => {
+    let ac = null
+    const ctx = () => (ac ||= new (window.AudioContext || window.webkitAudioContext)())
+    const noise = (c, ms) => { const b = c.createBuffer(1, Math.round(c.sampleRate * ms / 1000), c.sampleRate), d = b.getChannelData(0)
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = c.createBufferSource(); s.buffer = b; return s }
+    const safe = f => { try { const c = ctx(); f(c, c.currentTime) } catch (_) {} }
+    const tone = (c, t, type, f0, f1, ms, vol) => { const o = c.createOscillator(), g = c.createGain(); o.type = type
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + ms / 1000)
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000)
+      o.connect(g).connect(c.destination); o.start(t); o.stop(t + ms / 1000 + 0.02) }
+    const band = (c, t, ms, f0, f1, vol) => { const n = noise(c, ms), f = c.createBiquadFilter(), g = c.createGain()
+      f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + ms / 1000 * 0.9)
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000)
+      n.connect(f).connect(g).connect(c.destination); n.start(t) }
+    return {
+      wake() { try { ctx().resume?.() } catch (_) {} },
+      whoosh(p = 1) { safe((c, t) => band(c, t, 160, 700 * p, 2400 * p, 0.16)) },
+      clack() { safe((c, t) => { tone(c, t, 'sine', 190, 80, 140, 0.55); band(c, t, 45, 1600, 900, 0.3) }) },
+      // parries and clashes ring higher as an exchange goes on
+      ring(n = 0) { safe((c, t) => { const k = Math.pow(1.12, Math.min(n, 8)); tone(c, t, 'triangle', 1100 * k, 700 * k, 260, 0.22); tone(c, t, 'sine', 330 * k, 250 * k, 200, 0.35) }) },
+      tell(ms) { safe((c, t) => { const o = c.createOscillator(), g = c.createGain(), s = ms / 1000
+        o.type = 'triangle'; o.frequency.setValueAtTime(330, t); o.frequency.linearRampToValueAtTime(440, t + s)
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + s)
+        o.connect(g).connect(c.destination); o.start(t); o.stop(t + s + 0.02) }) },
+      step() { safe((c, t) => band(c, t, 55, 500, 400, 0.2)) },
+      draw() { safe((c, t) => band(c, t, 380, 1800, 5200, 0.12)) },
+      sheathe() { safe((c, t) => band(c, t, 300, 3800, 1200, 0.09)) },
+    }
+  })()
+
+  // ── the player's actions ────────────────────────────────────────────────
+  let swing = null      // { tile: [c, r], t0, hitDone }
+  let queued = null
+  const winded = () => now() < windedUntil
+  const canAct = () => !player.down && !guard && now() >= player.busyUntil && foe.hp > 0
+  // a hop may cut into the tail of a strike, so strike-hop-strike flows
+  const canMove = () => !player.down && !guard && foe.hp > 0 &&
+    (now() >= player.busyUntil || (player.busyKind === 'strike' && now() >= player.cancelAt))
+  // a strike may start mid-hop, so you can cut as you pass
+  const canStrike = () => canAct() || (!player.down && !guard && foe.hp > 0 && (player.busyKind === 'hop' || (swing && swing.hitDone)))
+  const okFor = kind => kind === 'move' ? canMove : kind === 'strike' ? canStrike : canAct
+  const moving = () => !!(path || heldD)
+  function act(fn, kind = 'full') {
+    if (okFor(kind)()) return fn()
+    if (!player.down && !guard && (player.busyUntil - now() <= BUFFER_MS || (kind === 'strike' && swing && !swing.hitDone))) queued = { fn, kind, until: now() + BUFFER_MS + 100 }
+  }
+
+  function spend(n) {
+    breath = Math.max(0, breath - n); lastSpend = now()
+    if (breath < 1 && !winded()) { windedUntil = now() + BR.windedMs; showMode() }
+  }
+  const refund = () => { breath = Math.min(cap(), breath + 1) }
+
+  function walk(d, stride = false) {
+    if (stepTo(player, player.c + d[0], player.r + d[1], P.hopMs * slowK())) {
+      player.lastDir = d
+      if (player.wounds && player.from) blood.push({ x: (player.from[0] + 0.5) * T + (Math.random() - 0.5) * 8, y: (player.from[1] + 0.5) * T + (Math.random() - 0.5) * 8, r: 2 + Math.random() * 2.5, a: 0.55 })
+      player.busyUntil = now() + (P.hopMs + (combat && !stride ? P.hopRest : 40)) * slowK(); player.busyKind = 'hop'
+      sfx.step(); return true
+    }
+    return false
+  }
+  // a quick second strike comes back the other way; a patient one is the full cut
+  let lastSwing = { t: -1e9, flip: false }
+  // a patient cut is hauled from the shoulder; a quick backhand is shorter, lighter, and lands sooner
+  const SW = { full: { vis: 380, hitAt: 215, rec: 300 }, quick: { vis: 250, hitAt: 141, rec: 240 } }
+  function nextFlip() { const f = now() - lastSwing.t < 550 ? !lastSwing.flip : false; lastSwing = { t: now(), flip: f }; return f }
+  function strike() {
+    if (!combat) return
+    if (winded() || breath < 1) { floats.push({ x: px(player)[0], y: px(player)[1] - T * 0.6, text: 'tuirse', life: 1 }); return }
+    const desperate = eff(player) <= (live() ? 2 : 1)            // last heart: one blow that cannot be turned aside
+    const inFlurry = now() - lastSwing.t < 550           // a follow-up carries the blade on: no wind-up, straight into the cut
+    const flip = nextFlip()
+    const sk = slowK(), base = flip ? SW.quick : SW.full
+    const sw = { vis: base.vis * sk, hitAt: base.hitAt * sk, rec: base.rec * sk }, k0 = inFlurry ? 0.3 : 0, toHit = sw.hitAt - k0 * sw.vis, rec = inFlurry ? 140 * sk : sw.rec
+    swing = { tile: targetTile(), t0: now() - k0 * sw.vis, hitDone: false, desperate, flip, vis: sw.vis, hitAt: sw.hitAt,
+      power: (flip ? -1 : inFlurry ? 0 : 2) + (moving() && player.busyKind === 'hop' ? -1 : 0) }      // a patient cut bites; a cut on the move or a quick backhand is lighter
+    // on the move, the cut rides on the stride: no recovery, the walk carries on
+    if (!(moving() && player.busyKind === 'hop')) {
+      player.busyUntil = now() + toHit + rec; player.busyKind = 'strike'; player.cancelAt = now() + toHit + 40
+      if (moving()) player.cancelAt = now()
+    }
+    spend(desperate ? breath : 1)
+    sfx.whoosh(desperate ? 0.6 : flip ? 1.3 : 1); buzz(flip ? 7 : 12)
+  }
+  // a lunge: hop in and strike, for two breath. Short of breath or a foe that has moved, and it falls short.
+  function lunge() {
+    if (!combat || cheb() !== 2) return
+    if (winded() || breath < 2) return act(() => walk(towardFoe()), 'move')
+    const d = towardFoe()
+    if (!stepTo(player, player.c + d[0], player.r + d[1], P.hopMs)) return
+    player.lastDir = d
+    swing = { tile: [foe.c, foe.r], t0: now() + P.hopMs, hitDone: false, desperate: false, lunge: true, flip: false, vis: SW.full.vis * slowK(), hitAt: SW.full.hitAt * slowK(), power: 1 }; lastSwing = { t: now(), flip: false }
+    player.busyUntil = now() + P.hopMs + SW.full.hitAt + SW.full.rec + BR.lungeRecover; player.busyKind = 'other'
+    spend(2); sfx.whoosh(1.2); buzz(14)
+  }
+  function parry() {
+    if (!combat) return
+    player.parryUntil = now() + P.parryWindow
+    player.busyUntil = now() + P.parryWindow + P.parryWhiff; player.busyKind = 'other'
+    parryFlash = 1
+  }
+  // holding a finger on the field raises your guard: a fresh guard is a parry; a held one is a plain block that costs breath
+  function startGuard() {
+    if (!combat || !canAct()) return
+    guard = { t0: now() }; path = null; queued = null
+    player.parryUntil = now() + BR.perfectMs; parryFlash = 1
+  }
+  function endGuard() {
+    if (!guard) return
+    guard = null; player.busyUntil = now() + 150; player.busyKind = 'other'
+  }
+  function toggleSheathe() {
+    player.sheathed = !player.sheathed; path = null; guard = null
+    if (player.sheathed && combat) { combat = false; exchange = 0; sfx.sheathe() }
+    showMode()
+  }
+
+  // Your blow arrives.
+  function playerStrikeLands() {
+    const [tc, tr] = swing.tile
+    if (foe.hp > 0 && (foe.c !== tc || foe.r !== tr)) foe.whiffAt = now()        // a swing at nothing: a patient man notices
+    if (foe.hp <= 0 || foe.c !== tc || foe.r !== tr || now() < foe.hurtUntil) return
+    // their blow landing at the same instant: a clash
+    if (foe.state === 'strike' && !foe.hitDone) return clash()
+    if (F.kind === 'shield' && !['wind', 'strike', 'recover', 'stagger'].includes(foe.state) &&
+        Math.abs(wrap180(deg(player.r - foe.r, player.c - foe.c) - foe.facing)) <= 50) return shieldBlock()
+    if (F.teacher) return teachParry()
+    // can they parry it? Never while open from a miss; often mid-exchange
+    const open = ['wind', 'reel'].includes(foe.state)   // a clean hit: caught mid-move. Hits into an opening already made don't refund
+    const chance = swing.desperate ? 0
+                 : foe.state === 'recover' || foe.state === 'stagger' ? 0
+                 : foe.state === 'reel' ? Math.min(F.parryMax, F.parryReel0 + F.parryReelStep * exchange)
+                 : foe.state === 'wind' ? 0 : F.parryBase
+    if (Math.random() < chance) return foeParries()
+    let dmg = swing.desperate ? 2 : 1
+    if (live()) dmg = roll(1, 8, (swing.power || 0) + (open ? 2 : 0)) * (swing.desperate ? 2 : 1)
+    if (live()) owe(foe, dmg); else foe.hp -= dmg
+    foe.hurtUntil = now() + 300; exchange = 0
+    if (open) refund()
+    hitStop = swing.desperate ? 140 : 80; buzz(swing.desperate ? 45 : 25); sfx.clack(); spray(px(foe), deg(tr - player.r, tc - player.c), swing.desperate ? '255,210,90' : '240,225,190'); gore(px(foe), deg(tr - player.r, tc - player.c), dmg)
+    const [x, y] = px(foe); floats.push({ x, y: y - T * 0.55, text: '−' + dmg, life: 1 })
+    if (foe.state === 'wind') setFoe('stagger', F.staggerMs)
+    else if (foe.state === 'reel') setFoe('recover', 500)
+    if (foe.hp <= 0) foeDown()
+  }
+  // one fighter falls; if the other is already owed a death, they both go down and neither has won
+  let resetT = 0
+  const scheduleReset = () => { clearTimeout(resetT); resetT = setTimeout(resetBout, 2600) }
+  const doomed = e => e.hp > 0 && e.owed > 0 && eff(e) <= 0
+  function foeDown() {
+    foe.hp = 0; foe.owed = 0; setFoe('beaten', 1e9); pool(px(foe))
+    if (player.down || doomed(player)) banner('Thit an bheirt', 'You both fall'); else banner('Bua!', 'Victory!')
+    scheduleReset()
+  }
+  function playerDown(ga, en) {
+    player.hp = 0; player.owed = 0; player.down = true; pool(px(player))
+    if (foe.hp <= 0 || doomed(foe)) banner('Thit an bheirt', 'You both fall')
+    else { banner(ga, en); setFoe('beaten', 1e9) }
+    scheduleReset()
+  }
+
+  // The shield takes the blow and shoves you back. Come at him from the side.
+  function shieldBlock() {
+    sfx.ring(0); hitStop = 70; buzz(30)
+    spray(px(foe), deg(player.r - foe.r, player.c - foe.c), '200,215,235')
+    const d = [sign(player.c - foe.c), sign(player.r - foe.r)]
+    stepTo(player, player.c + d[0], player.r + d[1], 140)
+    player.busyUntil = now() + 350; player.busyKind = 'other'; dropPath('shield')
+    floats.push({ x: px(foe)[0], y: px(foe)[1] - T * 0.55, text: 'clang', life: 1 })
+  }
+
+  // The teacher turns every blow aside and waits. She never counters.
+  function teachParry() {
+    sfx.ring(0); hitStop = 60; buzz(18)
+    spray(px(foe), deg(player.r - foe.r, player.c - foe.c) + 180, '255,230,140')
+    setFoe('reel', 350)
+    lessonPoint(swing.lunge ? 'lunge' : 'strike')
+  }
+
+  // They turn your blow aside, and come straight back at you, a little faster each time.
+  function foeParries() {
+    exchange++
+    sfx.ring(exchange); hitStop = 70
+    spray(px(foe), deg(player.r - foe.r, player.c - foe.c), '255,230,140')
+    player.busyUntil = now() + P.reelMs; queued = null
+    foe.target = [player.c, player.r]; foe.targets = [foe.target]
+    foe.wind = Math.max(F.counterWindMin, F.counterWind0 - F.counterWindStep * exchange)
+    setFoe('wind', foe.wind); sfx.tell(foe.wind)
+  }
+
+  function clash() {
+    exchange++
+    sfx.ring(exchange); hitStop = 100
+    const [x, y] = px(player), [x2, y2] = px(foe)
+    spray([(x + x2) / 2, (y + y2) / 2], 0, '255,240,180'); spray([(x + x2) / 2, (y + y2) / 2], 180, '255,240,180')
+    // both thrown back a tile
+    const d = [sign(player.c - foe.c), sign(player.r - foe.r)]
+    stepTo(player, player.c + d[0], player.r + d[1], 140); stepTo(foe, foe.c - d[0], foe.r - d[1], 140)
+    swing = null; foe.hitDone = true
+    player.busyUntil = now() + 260
+    setFoe('rest', 500)
+  }
+
+  // Their blow arrives.
+  function foeStrikeLands() {
+    const [tc, tr] = foe.target
+    if (!foe.targets.some(([c, r]) => c === player.c && r === player.r)) { foe.bash = false; foe.rush = 0; foeAfterBlow(F.combo ? 1 : 1); exchange = 0; lessonPoint('dodge'); return }   // fell short
+    if (swing && !swing.hitDone && swing.tile[0] === foe.c && swing.tile[1] === foe.r) return clash()
+    if (foe.bash) return stunPlayer()
+    if (now() < player.parryUntil) {                              // parried: they reel, briefly
+      exchange++; refund()
+      sfx.ring(exchange); hitStop = 90; parryFlash = 1
+      spray(px(player), deg(foe.r - player.r, foe.c - player.c), '255,230,140')
+      player.parryUntil = 0; player.busyUntil = now() + 60; player.busyKind = 'other'
+      if (guard) guard.t0 = now()            // the guard stays up after a parry; it counts as held from here
+      setFoe('reel', F.reelMs)
+      return
+    }
+    if (guard) {                                                  // a held guard turns the blow, but it costs breath
+      sfx.clack(); hitStop = 60; parryFlash = 0.6
+      spray(px(player), deg(foe.r - player.r, foe.c - player.c), '190,210,230')
+      setFoe('recover', F.recoverMs * 0.5); exchange = 0; spend(1)
+      if (winded()) endGuard()
+      return
+    }
+    if (F.teacher) {                                              // she pulls the blow: a tap, no harm
+      setFoe('recover', F.recoverMs * 0.6); exchange = 0; sfx.clack(); buzz(10)
+      const [x, y] = px(player); floats.push({ x, y: y - T * 0.55, text: 'Arís', life: 1 }); return
+    }
+    if (now() < player.hurtUntil || player.down) { foeAfterBlow(0.6); return }
+    dropPath('hit')
+    const hitDmg = foeDamage(); if (live()) owe(player, hitDmg); else player.hp -= hitDmg
+    floats.push({ x: px(player)[0], y: px(player)[1] - T * 0.55, text: '−' + hitDmg, life: 1, color: '#ff8a7a' })
+    if (live() && hitDmg >= 3 && eff(player) > 0) { const was = player.wounds; player.wounds = Math.min(3, was + 1); if (!was) player.bleedAt = now() + bleedMs(); showMode() }
+    player.hurtUntil = now() + (F.kind === 'shield' ? 380 : P.hurtMs); exchange = 0
+    hitStop = 110; redFlash = 1; buzz(45); sfx.clack(); spray(px(player), deg(tr - foe.r, tc - foe.c), '240,120,100'); gore(px(player), deg(tr - foe.r, tc - foe.c), hitDmg)
+    swing = null; queued = null; player.busyUntil = Math.max(player.busyUntil, now() + 300)
+    knock([sign(player.c - foe.c), sign(player.r - foe.r)], F.kind === 'spear' ? 2 : 1)
+    if (player.hp <= 0) playerDown('Buaileadh thú', 'You were beaten')
+    else foeAfterBlow(0.6)
+  }
+
+  const blood = []
+  function gore(p, dir, dmg) {
+    if (!live()) return
+    spray(p, dir, '175,20,20', 6 + dmg * 2); spray(p, dir + 180, '140,12,12', 3 + dmg)
+    for (let i = 0; i < 2 + dmg; i++) { const a = Math.random() * 6.28, d = Math.random() * T * 0.55
+      blood.push({ x: p[0] + Math.cos(a) * d, y: p[1] + Math.sin(a) * d, r: 1.5 + Math.random() * (2 + dmg * 0.6), a: 0.35 + Math.random() * 0.35 }) }
+    while (blood.length > 260) blood.shift()
+  }
+  function pool(p) {
+    if (!live()) return
+    for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, d = Math.random() * T * 0.45; blood.push({ x: p[0] + Math.cos(a) * d, y: p[1] + Math.sin(a) * d, r: 4 + Math.random() * 9, a: 0.5 }) }
+  }
+  function spray([x, y], dir, rgb, n = 9) {
+    for (let i = 0; i < n; i++) {
+      const a = rad(dir + (Math.random() - 0.5) * 110), sp = 60 + Math.random() * 130
+      sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, rgb })
+    }
+  }
+
+  // ── the sparring partner ────────────────────────────────────────────────
+  function setFoe(state, ms) {
+    foe.state = state; foe.st0 = now(); foe.until = now() + ms; foe.hitDone = false
+    if (state !== 'wind' && state !== 'strike') { foe.bash = false; foe.throw = false; foe.comboN = 0; foe.rush = 0; foe.feint = false }
+  }
+
+  const fromHome = ([c, r]) => Math.max(Math.abs(c - HOME[0]), Math.abs(r - HOME[1]))
+  function foeStep(goal, side = false, leashed = true) {
+    const opts = D8.map(d => [foe.c + d[0], foe.r + d[1]])
+      .filter(([c, r]) => inside(c, r) && !occupied(c, r, foe) && (!leashed || fromHome([c, r]) <= LEASH))
+    if (!opts.length) return
+    const dist = ([c, r]) => Math.max(Math.abs(c - goal[0]), Math.abs(r - goal[1]))
+    const here = dist([foe.c, foe.r])
+    let pick = null
+    if (side) {
+      const same = opts.filter(o => dist(o) === here && dist(o) > 1)
+      if (same.length) pick = same[Math.floor(Math.random() * same.length)]
+    } else {
+      opts.sort((a, b) => dist(a) - dist(b) || Math.hypot(a[0] - goal[0], a[1] - goal[1]) - Math.hypot(b[0] - goal[0], b[1] - goal[1]))
+      if (dist(opts[0]) < here) pick = opts[0]
+    }
+    if (pick) stepTo(foe, pick[0], pick[1], F.stepMs * 0.6)
+  }
+
+  // what their blow will cover: one tile, an axe's sweep of three, or a spear's line two and three tiles out
+  // where you will be: one or two steps along your route, or the way the brooch is held
+  function aimPoint(n = F.lead || 0) {
+    let c = player.c, r = player.r, k = 0
+    for (let i = 0; i < n; i++) {
+      let g = null
+      if (path && path.list) { while (k < path.list.length && path.list[k][0] === c && path.list[k][1] === r) k++; if (k < path.list.length) g = path.list[k] }
+      else if (path && path.c != null) g = [path.c, path.r]
+      if (g) { c += sign(g[0] - c); r += sign(g[1] - r) }
+      else if (heldD) { c += heldD[0]; r += heldD[1] }
+      else break
+    }
+    return [Math.max(0, Math.min(COLS - 1, c)), Math.max(0, Math.min(ROWS - 1, r))]
+  }
+  function aimThrow() {                                     // a thrown spear: the whole line, out to the edge of the field
+    const [ac, ar] = aimPoint(); foe.face = deg(ar - foe.r, ac - foe.c)
+    const d = toD8(foe.face)
+    foe.targets = []
+    for (let i = 1; i <= 7; i++) { const c = foe.c + d[0] * i, r = foe.r + d[1] * i; if (!inside(c, r)) break; foe.targets.push([c, r]) }
+    foe.target = foe.targets[0] || [foe.c + d[0], foe.r + d[1]]; foe.throw = true
+  }
+  function aimAttack(at) {
+    const [ac, ar] = at || aimPoint()
+    foe.face = deg(ar - foe.r, ac - foe.c)
+    const d = toD8(foe.face)
+    if (F.kind === 'axe') {
+      const i = D8.findIndex(v => v[0] === d[0] && v[1] === d[1])
+      foe.targets = [-1, 0, 1].map(o => { const v = D8[(i + o + 8) % 8]; return [foe.c + v[0], foe.r + v[1]] })
+      foe.target = foe.targets[1]
+    } else if (F.kind === 'spear' && cheb() >= 2) {
+      foe.targets = [[foe.c + d[0] * 2, foe.r + d[1] * 2], [foe.c + d[0] * 3, foe.r + d[1] * 3]]
+      foe.target = foe.targets[0]
+    } else {
+      let tx = sign(ac - foe.c), ty = sign(ar - foe.r)
+      if (!F.lead || (!tx && !ty)) { tx = sign(player.c - foe.c); ty = sign(player.r - foe.r) }
+      foe.target = at ? at : F.lead ? [foe.c + tx, foe.r + ty] : [player.c, player.r]; foe.targets = [foe.target]
+    }
+  }
+  // an ambusher reads your route: if you will be beside him when his blow would land, he starts now and aims at that tile
+  function ambushTile() {
+    const [c, r] = aimPoint(Math.max(1, Math.min(5, Math.round((F.windMs + F.strikeMs * 0.5) / (180 * slowK())))))   // where you'll be when it lands (about 180 ms a tile)
+    return Math.max(Math.abs(c - foe.c), Math.abs(r - foe.r)) === 1 ? [c, r] : null
+  }
+  function knock(d, n) {                                    // push the player back up to n tiles along d, as far as there is room
+    for (let k = n; k >= 1; k--) { const c = player.c + d[0] * k, r = player.r + d[1] * k; if (inside(c, r) && !occupied(c, r, player)) return stepTo(player, c, r, 120 + 25 * k) }
+    return false
+  }
+  function startWind(ms = F.windMs) { foe.wind = ms; setFoe('wind', foe.wind); sfx.tell(foe.wind) }
+  // after a blow: a rush to finish you, a combo's second cut, or the long recovery that leaves them open
+  function foeAfterBlow(mult) {
+    if (!player.down && foe.rush > 0) {
+      foe.rush--
+      if (F.kind !== 'spear' && cheb() > 1) stepTo(foe, foe.c + sign(player.c - foe.c), foe.r + sign(player.r - foe.r), 120)
+      if (cheb() <= (F.kind === 'spear' ? 3 : 1)) { aimAttack(); startWind(F.rushWind); return }
+    }
+    if (!player.down && F.combo && foe.comboN < F.combo && cheb() <= 2) {       // follows you in, even if the blow knocked you back
+      if (cheb() > 1) stepTo(foe, foe.c + sign(player.c - foe.c), foe.r + sign(player.r - foe.r), 120)
+      if (cheb() <= 1) { foe.comboN++; aimAttack(); startWind(F.followWind); return }
+    }
+    setFoe('recover', F.recoverMs * mult)
+  }
+  // the shield's bash: no wound, but you reel, lose your wind, and he is on you
+  function stunPlayer() {
+    dropPath('bash'); swing = null; queued = null; foe.bash = false
+    hitStop = 130; buzz(60); sfx.clack(); spray(px(player), deg(player.r - foe.r, player.c - foe.c), '200,215,235')
+    knock([sign(player.c - foe.c), sign(player.r - foe.r)], F.kb)
+    player.busyUntil = now() + F.stun; player.busyKind = 'other'; player.stunUntil = now() + F.stun
+    spend(F.bashDrain)
+    floats.push({ x: px(player)[0], y: px(player)[1] - T * 0.6, text: 'stun', life: 1 })
+    foe.rush = F.rush
+    foeAfterBlow(0.6)
+  }
+  function foeRetreat() {                                   // a spearman backs out of your reach
+    const here = cheb()
+    const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => inside(c, r) && !occupied(c, r, foe))
+      .map(o => [o, Math.max(Math.abs(o[0] - player.c), Math.abs(o[1] - player.r))]).filter(([, d]) => d > here)
+    if (!opts.length) return false
+    const best = opts.sort((a, b) => b[1] - a[1])[0][0]
+    return stepTo(foe, best[0], best[1], F.stepMs * 0.6)
+  }
+  const wrap180 = a => ((a % 360) + 540) % 360 - 180
+
+  const stepIn = d => { const c = foe.c + sign(player.c - foe.c), r = foe.r + sign(player.r - foe.r); if (!inside(c, r) || occupied(c, r, foe)) return false; return stepTo(foe, c, r, d) }
+  // the Warden: stands his ground, watches, and answers any cut that finds nothing
+  function wardenThink(t) {
+    const d = cheb()
+    if (foe.whiffAt && t - foe.whiffAt < 700 && d <= 2) {
+      foe.whiffAt = 0
+      if (d === 2 && !stepIn(100)) return
+      aimAttack(); startWind(F.followWind); return
+    }
+    if (d <= 1) { if (!foe.eye) foe.eye = t + 800; if (t >= foe.eye) { foe.eye = 0; aimAttack(); startWind() } return }
+    foe.eye = 0
+    if (d <= 3 && t >= foe.nextStep) { foe.nextStep = t + 2600; foeStep([player.c, player.r]) }       // his patience runs out, slowly
+  }
+  // the Master: keeps two tiles off, circles, feints, and lunges when you commit
+  function masterThink(t) {
+    if (foe.lungeNow) { foe.lungeNow = false; if (cheb() === 2 && stepIn(100)) { aimAttack(); startWind(F.rushWind); return } }
+    if (t < foe.nextStep) return
+    foe.nextStep = t + F.stepMs
+    const d = cheb()
+    if (d <= 1) { if (Math.random() < 0.6 && foeRetreat()) return; aimAttack(); startWind(F.followWind); return }
+    if (d === 2) {
+      const r = Math.random()
+      if (r < 0.2) { aimAttack(); startWind(560); foe.feint = true }            // shows the cut, then thinks better of it
+      else if (r < 0.4 && stepIn(100)) { aimAttack(); startWind(F.rushWind) }
+      else foeStep([player.c, player.r], true, false)
+      return
+    }
+    foeStep([player.c, player.r], false, false)
+  }
+
+  function foeThink() {
+    const t = now()
+    const locked = ['wind', 'strike', 'recover', 'reel'].includes(foe.state)
+    if (!locked) foe.face = deg(player.r - foe.r, player.c - foe.c)
+    if (F.teacher && !LESSONS[lesson].foeAttacks && foe.state !== 'beaten') {     // she stands her ground and only parries
+      if (foe.state === 'reel' && t < foe.until) return
+      if (foe.state !== 'idle') setFoe('idle', 0)
+      if (!combat && (foe.c !== HOME[0] || foe.r !== HOME[1]) && t >= foe.nextStep) { foe.nextStep = t + F.stepMs; foeStep(HOME, false, false) }
+      return
+    }
+    if (!combat && !locked && foe.state !== 'beaten') {
+      // out of the fight: back to their place, and wait there
+      if (foe.c !== HOME[0] || foe.r !== HOME[1]) { if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs; foeStep(HOME, false, false) } }
+      if (foe.state !== 'idle') setFoe('idle', 0)
+      return
+    }
+    // a shieldman turns to face you one step at a time; slip round behind him faster than he can turn
+    if (F.kind === 'shield' && !locked && t >= foe.nextTurn) {
+      const diff = wrap180(deg(player.r - foe.r, player.c - foe.c) - foe.facing)
+      if (Math.abs(diff) >= 30) { foe.facing = (foe.facing + sign(diff) * 45 + 360) % 360; foe.nextTurn = t + F.turnMs }
+    }
+    switch (foe.state) {
+      case 'idle': setFoe('approach', 5000); break
+      case 'rest':
+        if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs * 1.6; if (Math.random() < 0.5) foeStep([player.c, player.r], true) }
+        if (t >= foe.until) setFoe('approach', 5000)
+        break
+      case 'approach':
+        if (F.kind === 'spear') {
+          const inLine = (c, r) => { const dx = player.c - c, dy = player.r - r, m = Math.max(Math.abs(dx), Math.abs(dy))
+            return m >= 2 && m <= 3 && (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) }
+          if (F.throwCd && t >= foe.throwAt && cheb() >= 3 && cheb() <= 7) { foe.throwAt = t + F.throwCd * (1 + Math.random() * 0.6); aimThrow(); startWind(F.throwWind) }
+          else if (inLine(foe.c, foe.r)) { aimAttack(); startWind() }
+          else if (t >= foe.nextStep) {
+            foe.nextStep = t + F.stepMs
+            const good = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => inside(c, r) && !occupied(c, r, foe) && inLine(c, r))
+            if (cheb() <= 1) { if (!(Math.random() < 0.3 && foeRetreat())) { aimAttack(); foe.bash = true; startWind(F.bashWind) } }   // base to base: the shaft
+            else if (good.length) { const g = good[Math.floor(Math.random() * good.length)]; stepTo(foe, g[0], g[1], F.stepMs * 0.6) }
+            else foeStep([player.c, player.r], false, false)
+          }
+        } else if (F.ambush && (path || heldD) && ambushTile()) { aimAttack(ambushTile()); startWind()
+        } else if (F.style === 'warden') { wardenThink(t)
+        } else if (F.style === 'master') { masterThink(t)
+        } else if (cheb() <= 1) { aimAttack(); foe.bash = F.kind === 'shield'; startWind()
+        } else if (F.ambush && (path || heldD)) {                     // you're on the move: hold ground and let the route come to him
+        } else if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs; foeStep([player.c, player.r], false, F.style !== 'brawler') }
+        if (t >= foe.until) setFoe('rest', 500)
+        break
+      case 'wind':
+        if (foe.feint && t - foe.st0 >= foe.wind * 0.5) { foe.feint = false; setFoe('approach', 5000); foe.nextStep = t + 200; foe.lungeNow = true; break }
+        if (t >= foe.until) { setFoe('strike', F.strikeMs); sfx.whoosh(0.8) }
+        break
+      case 'strike':
+        if (!foe.hitDone && t - foe.st0 >= F.strikeMs * 0.5) { foe.hitDone = true; foeStrikeLands() }
+        break
+      case 'reel':                         // they've been parried: a brief opening
+        if (t >= foe.until) { exchange = 0; setFoe('rest', F.restMin) }
+        break
+      case 'recover': case 'stagger':      // a miss or a broken wind-up: a longer opening
+        if (t >= foe.until) setFoe('rest', F.restMin + Math.random() * (F.restMax - F.restMin))
+        break
+    }
+  }
+
+  // ── the brooch ──────────────────────────────────────────────────────────
+  const bc = document.getElementById('brooch'), D = 120, CSS = Math.round(D * 1.3)
+  const bx = (() => { const dpr = devicePixelRatio || 1; bc.style.width = bc.style.height = CSS + 'px'
+    bc.width = bc.height = Math.round(CSS * dpr); const c = bc.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); return c })()
+  const B = { RING: 0.82, BAND: 0.075, GAP: 22, GAP_AT: 135, HUB: 0.52, PIN: 0.058, TIP: 1.18, STONE: 0.15 }
+  const STONE_AT = B.GAP_AT + 180
+  const M = { dark: '#3b230f', base: '#a06a32', light: '#e8b772', enamel: '#b3262a' }
+  let held = null, heldD = null, nextRepeat = 0, ringRot = 0, bMode = null, moonTimer = null, moonLong = false
+  const sector = (x, y) => {
+    let a = deg(y, x); if (a < 0) a += 360
+    for (const c of [0, 90, 180, 270, 360]) if (Math.abs(a - c) <= 30) return c % 360
+    return Math.round((a - 45) / 90) * 90 + 45
+  }
+  const bLocal = e => { const b = bc.getBoundingClientRect(), R = D / 2; const x = (e.clientX - b.left - b.width / 2) / R, y = (e.clientY - b.top - b.height / 2) / R; return { x, y, d: Math.hypot(x, y) } }
+  const onStone = p => Math.hypot(p.x - Math.cos(rad(STONE_AT)) * B.RING, p.y - Math.sin(rad(STONE_AT)) * B.RING) < B.STONE * 2
+  bc.addEventListener('pointerdown', e => {
+    e.preventDefault(); sfx.wake(); bc.setPointerCapture(e.pointerId)
+    const p = bLocal(e)
+    if (p.d < B.HUB) {
+      bMode = 'moon'; moonLong = false
+      moonTimer = setTimeout(() => { moonLong = true; toggleSheathe() }, P.longPressMs)
+      return
+    }
+    const s = sector(p.x, p.y)
+    // in a fight the stone's slice parries; out of one it's just up-right
+    path = null
+    bMode = 'ring'; held = s; heldD = toD8(s); const d = heldD; act(() => walk(d), 'move'); nextRepeat = now() + 300
+  })
+  bc.addEventListener('pointermove', e => {
+    if (bMode !== 'ring') return
+    const p = bLocal(e); if (p.d < 0.3) return
+    const s = sector(p.x, p.y)
+    held = s; heldD = toD8(s)
+  })
+  const bEnd = () => {
+    if (bMode === 'moon') { clearTimeout(moonTimer); if (!moonLong) act(strike, 'strike') }
+    bMode = null; held = null; heldD = null
+  }
+  bc.addEventListener('pointerup', bEnd); bc.addEventListener('pointercancel', bEnd)
+
+  // ── the field: tap the foe to strike (two tiles off: lunge), tap a tile to walk there, hold to guard ──
+  let fp0 = null, gTimer = null
+  fc.addEventListener('pointerdown', e => {
+    e.preventDefault(); sfx.wake(); fc.setPointerCapture(e.pointerId)
+    fp0 = { t: now(), x: e.clientX, y: e.clientY }
+    clearTimeout(gTimer)
+  })
+  function fieldEnd(e, cancelled) {
+    clearTimeout(gTimer)
+    if (!fp0) return
+    const p = fp0; fp0 = null
+    if (trail) {
+      const list = trail; trail = null
+      if (cancelled || list.length < 2) return
+      if (relMode) { path = { list: shiftedRoute(list), n: 99 }; return }
+      if (combat && startTooFar(list)) { rejectFx = { list, t: now() }; buzz(20); return }     // in a fight, a line must begin beside you
+      path = { list, n: 99 }
+      return
+    }
+    if (guard) return endGuard()
+    if (cancelled || now() - p.t > 600 || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 14) return
+    const b = fc.getBoundingClientRect()
+    fieldTap(Math.floor((e.clientX - b.left) / T), Math.floor((e.clientY - b.top) / T))
+  }
+  let trail = null                                   // tiles under the finger while drawing a route
+  let relMode = false, rejectFx = null               // relative lines walk the shape from where you stand; a refused line flashes red
+  const startTooFar = list => Math.max(Math.abs(list[0][0] - player.c), Math.abs(list[0][1] - player.r)) > 2
+  function shiftedRoute(list) {                       // the same shape, laid down starting at your own tile
+    const dx = player.c - list[0][0], dy = player.r - list[0][1], out = []
+    for (const [c, r] of list) { if (!inside(c + dx, r + dy)) break; out.push([c + dx, r + dy]) }
+    return out
+  }
+  function trailTile(x, y) {
+    const b = fc.getBoundingClientRect(), c = Math.floor((x - b.left) / T), r = Math.floor((y - b.top) / T)
+    if (!inside(c, r)) return
+    const last = trail[trail.length - 1]
+    if (!last) return trail.push([c, r])
+    if (last[0] === c && last[1] === r) return
+    let [x0, y0] = last
+    while (x0 !== c || y0 !== r) { x0 += sign(c - x0); y0 += sign(r - y0); trail.push([x0, y0]) }
+  }
+  fc.addEventListener('pointermove', e => {
+    if (!fp0) return
+    if (!trail) { if (Math.hypot(e.clientX - fp0.x, e.clientY - fp0.y) < 14) return; trail = []; trailTile(fp0.x, fp0.y) }
+    trailTile(e.clientX, e.clientY)
+  })
+  fc.addEventListener('pointerup', e => fieldEnd(e, false))
+  fc.addEventListener('pointercancel', e => fieldEnd(e, true))
+  function fieldTap(c, r) {
+    if (!inside(c, r) || player.down || foe.hp <= 0) return
+    if (c === foe.c && r === foe.r && combat) {
+      const d = cheb()
+      if (d === 1) return act(strike, 'strike')          // a path you're on carries on
+      if (d === 2) { dropPath('lunge'); return act(lunge) }
+    }
+    if (path) {                                          // any tap off the route ends it; one more tap starts a new one
+      const on = path.list ? path.list.some(([pc, pr]) => pc === c && pr === r) : (path.c === c && path.r === r)
+      if (!on || (c === player.c && r === player.r)) dropPath('tap')
+      return
+    }
+    if (c === player.c && r === player.r) return
+    path = { c, r, n: 99 }
+  }
+
+  function drawBrooch() {
+    const c = bx, R = D / 2, t = now()
+    c.clearRect(0, 0, CSS, CSS); c.save(); c.translate(CSS / 2, CSS / 2)
+    const target = held === null ? 0 : ((held + 180 - B.GAP_AT + 540) % 360) - 180
+    ringRot += (target - ringRot) * (reduced ? 1 : held === null ? 0.12 : 0.25)
+    const ga = B.GAP_AT + ringRot, w = B.BAND * R
+    const arc = (a0, a1, col, lw) => { c.beginPath(); c.arc(0, 0, B.RING * R, rad(a0), rad(a1)); c.strokeStyle = col; c.lineWidth = lw; c.stroke() }
+    c.lineCap = 'butt'
+    arc(ga + B.GAP, ga - B.GAP + 360, M.dark, w + 1.6); arc(ga + B.GAP, ga - B.GAP + 360, M.base, w)
+    for (const [a, s] of [[ga + B.GAP, -1], [ga - B.GAP, 1]]) {
+      c.save(); c.rotate(rad(a)); c.translate(B.RING * R, 0)
+      c.beginPath(); c.moveTo(-w * 0.55, -s * w * 0.2); c.lineTo(-w * 1.25, s * w * 1.9)
+      c.quadraticCurveTo(0, s * w * 2.5, w * 1.25, s * w * 1.9); c.lineTo(w * 0.55, -s * w * 0.2); c.closePath()
+      c.fillStyle = M.base; c.fill(); c.strokeStyle = M.dark; c.lineWidth = 1; c.stroke()
+      c.beginPath(); c.ellipse(0, s * w * 1.35, w * 0.62, w * 0.55, 0, 0, Math.PI * 2); c.fillStyle = M.enamel; c.fill(); c.restore()
+    }
+    if (held !== null) { c.save(); c.shadowColor = 'rgba(245,208,96,0.9)'; c.shadowBlur = 10; c.lineCap = 'round'; arc(held - 20, held + 20, 'rgba(245,208,96,0.9)', w * 1.6); c.restore() }
+    const hx = Math.cos(rad(STONE_AT)) * B.RING * R, hy = Math.sin(rad(STONE_AT)) * B.RING * R
+    const tx = Math.cos(rad(STONE_AT + 180)) * B.TIP * R, ty = Math.sin(rad(STONE_AT + 180)) * B.TIP * R
+    c.beginPath(); c.moveTo(hx, hy); c.lineTo(tx, ty); c.strokeStyle = M.dark; c.lineWidth = B.PIN * R + 1.5; c.stroke()
+    c.strokeStyle = M.base; c.lineWidth = B.PIN * R; c.stroke()
+    const lit = t < player.parryUntil
+    if (lit) { c.save(); c.shadowColor = 'rgba(0,220,255,0.95)'; c.shadowBlur = 16; c.beginPath(); c.arc(hx, hy, B.STONE * R * 1.15, 0, Math.PI * 2); c.fillStyle = 'rgba(0,220,255,0.6)'; c.fill(); c.restore() }
+    c.beginPath(); c.arc(hx, hy, B.STONE * R, 0, Math.PI * 2); c.fillStyle = M.base; c.fill(); c.strokeStyle = M.dark; c.lineWidth = 1; c.stroke()
+    c.beginPath(); c.arc(hx, hy, B.STONE * R * 0.72, 0, Math.PI * 2); c.fillStyle = lit ? '#bff6ff' : combat ? '#2d6f80' : '#1c3a44'; c.fill()
+    // the moon; its rim turns gold while swords are drawn
+    const last = combat && eff(player) <= (live() ? 2 : 1) && !player.down      // last heart: the moon glows red for the one desperate blow
+    c.beginPath(); c.arc(0, 0, B.HUB * R + 2.5, 0, Math.PI * 2); c.fillStyle = last ? '#e0443a' : combat ? '#f5d060' : M.base; c.fill()
+    c.beginPath(); c.arc(0, 0, B.HUB * R, 0, Math.PI * 2); c.fillStyle = '#0b0f1c'; c.fill()
+    c.beginPath(); c.arc(0, 0, B.HUB * R * 0.45, 0, Math.PI * 2); c.fillStyle = '#e9e4cf'; c.fill()
+    c.beginPath(); c.arc(B.HUB * R * 0.22, 0, B.HUB * R * 0.46, 0, Math.PI * 2); c.fillStyle = '#0b0f1c'; c.fill()
+    if (combat && (!canAct() || t < windedUntil || breath < 1)) { c.beginPath(); c.arc(0, 0, B.HUB * R, 0, Math.PI * 2); c.fillStyle = 'rgba(0,0,0,0.4)'; c.fill() }
+    c.restore()
+  }
+
+  // ── drawing the yard ────────────────────────────────────────────────────
+  function figure([x, y], who, body, t) {
+    const r = T * 0.26
+    fx.fillStyle = 'rgba(0,0,0,0.3)'; fx.beginPath(); fx.ellipse(x + 3, y + 4, r, r * 0.7, 0, 0, Math.PI * 2); fx.fill()
+    const hurt = t < who.hurtUntil && Math.floor(t / 60) % 2
+    fx.fillStyle = hurt ? '#f0e0c0' : body; fx.beginPath(); fx.arc(x, y, r, 0, Math.PI * 2); fx.fill()
+    fx.fillStyle = '#d9c7a8'; fx.beginPath(); fx.arc(x, y, r * 0.55, 0, Math.PI * 2); fx.fill()
+    return r
+  }
+  function blade([x, y], dir, from, len, col) {
+    fx.beginPath(); fx.moveTo(x + Math.cos(rad(dir)) * from, y + Math.sin(rad(dir)) * from)
+    fx.lineTo(x + Math.cos(rad(dir)) * len, y + Math.sin(rad(dir)) * len)
+    fx.strokeStyle = col; fx.lineWidth = 4; fx.lineCap = 'round'; fx.stroke()
+  }
+  // the cut: the blade goes back over the shoulder, then whips through and the crescent of the air follows it
+  const easeIO = u => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, u)))) / 2
+  const swingPos = k => k < 0.4 ? -0.35 * easeIO(k / 0.4)                               // haul back
+    : k < 0.62 ? -0.35 + 1.5 * Math.pow((k - 0.4) / 0.22, 2)                            // accelerate through the target
+    : 1.15 + 0.07 * (1 - Math.pow(1 - (k - 0.62) / 0.38, 3))                            // follow through and settle
+  function swingFx(p, dir, k, reach, flip) {
+    const arc = flip ? 42 : 60, at = q => flip ? dir + arc - 2 * arc * q : dir - arc + 2 * arc * q
+    const pos = swingPos(k), sp = Math.abs(swingPos(Math.min(1, k + 0.012)) - swingPos(Math.max(0, k - 0.012))) / 0.024
+    const fade = 1 - Math.max(0, (k - 0.72) / 0.28), trail = Math.min(0.8, sp * 0.055)
+    if (trail > 0.1) {                                        // the crescent: pointed at both ends, fullest in the middle
+      const N = 16, outer = [], inner = []
+      for (let i = 0; i <= N; i++) {
+        const u = i / N, a = rad(at(pos - trail * (1 - u))), ro = reach * (0.86 + 0.14 * u), th = reach * 0.3 * Math.sin(Math.PI * Math.pow(u, 0.7))
+        outer.push([p[0] + Math.cos(a) * ro, p[1] + Math.sin(a) * ro]); inner.push([p[0] + Math.cos(a) * (ro - th), p[1] + Math.sin(a) * (ro - th)])
+      }
+      fx.beginPath(); outer.forEach(([x, y], i) => i ? fx.lineTo(x, y) : fx.moveTo(x, y)); inner.reverse().forEach(([x, y]) => fx.lineTo(x, y)); fx.closePath()
+      const a = Math.min(1, sp / 7) * fade
+      fx.fillStyle = `rgba(245,232,200,${0.42 * a})`; fx.fill()
+      fx.beginPath(); outer.forEach(([x, y], i) => i ? fx.lineTo(x, y) : fx.moveTo(x, y)); fx.strokeStyle = `rgba(255,248,225,${0.8 * a})`; fx.lineWidth = 1.5; fx.stroke()
+    }
+    blade(p, at(pos), T * 0.15, reach, `rgba(214,178,118,${0.3 + 0.7 * fade})`)
+  }
+  function hearts(x, y, n, size, center, of = HEARTS, owed = 0) {
+    const gap = size * 1.25, x0 = center ? x - of * gap / 2 : x
+    for (let i = 0; i < of; i++) {
+      const cx = x0 + i * gap + size / 2, s = size / 2
+      fx.beginPath(); fx.moveTo(cx, y + s * 0.9)
+      fx.bezierCurveTo(cx - s * 1.4, y - s * 0.1, cx - s * 0.6, y - s * 1.1, cx, y - s * 0.35)
+      fx.bezierCurveTo(cx + s * 0.6, y - s * 1.1, cx + s * 1.4, y - s * 0.1, cx, y + s * 0.9)
+      fx.fillStyle = i < n - owed ? '#e0443a' : i < n ? `rgba(120,18,14,${0.55 + 0.35 * Math.sin(now() / 120 + i)})` : 'rgba(255,255,255,0.12)'; fx.fill()
+      if (i >= n - owed && i < n) { fx.strokeStyle = 'rgba(224,68,58,0.55)'; fx.lineWidth = 1; fx.stroke() }
+    }
+  }
+  const tileRect = ([c, r], fill, stroke, lw = 2) => {
+    if (fill) { fx.fillStyle = fill; fx.fillRect(c * T + 2, r * T + 2, T - 4, T - 4) }
+    if (stroke) { fx.strokeStyle = stroke; fx.lineWidth = lw; fx.strokeRect(c * T + 2, r * T + 2, T - 4, T - 4) }
+  }
+
+  // ── the loop ────────────────────────────────────────────────────────────
+  let last = now()
+  function frame(t) {
+    let dt = Math.min(50, t - last); last = t
+    if (hitStop > 0) { hitStop -= dt; dt = 0 }
+    const s = dt / 1000
+
+    if (s > 0) {
+      // swords drawn within ENGAGE tiles; put away beyond DISENGAGE
+      const d = cheb()
+      if (!combat && !player.sheathed && foe.hp > 0 && !player.down && d <= ENGAGE) { combat = true; sfx.draw(); showMode() }
+      else if (combat && d > DISENGAGE) { combat = false; exchange = 0; sfx.sheathe(); showMode() }
+
+      if (queued) { if (t > queued.until) queued = null; else if (okFor(queued.kind)()) { const q = queued; queued = null; q.fn() } }
+      if (heldD && t >= nextRepeat && canMove() && !queued) { walk(heldD); nextRepeat = t + (combat ? P.repeatMs : 190) }
+
+      // tap-to-walk: one hop per step, dropped if you touch the brooch or are struck
+      if (path && !heldD && !queued && canMove()) {
+        let gc, gr
+        if (path.list) {                                   // a drawn route: follow it tile by tile
+          while (path.list.length && path.list[0][0] === player.c && path.list[0][1] === player.r) path.list.shift()
+          if (!path.list.length) path = null; else [gc, gr] = path.list[0]
+        } else {
+          gc = path.c; gr = path.r
+          if ((player.c === gc && player.r === gr) || (gc === foe.c && gr === foe.r && cheb() <= 1) || path.n <= 0) path = null
+        }
+        if (path) {
+          if (path.list) while (path.list.length > 1 && path.list[0][0] === foe.c && path.list[0][1] === foe.r) path.list.shift()   // skip a tile they've stepped onto
+          if (path.list) [gc, gr] = path.list[0]
+          const dist = (c, r) => Math.max(Math.abs(gc - c), Math.abs(gr - r))
+          const here = dist(player.c, player.r)
+          const tries = D8.map(d => [d[0], d[1]]).filter(d => inside(player.c + d[0], player.r + d[1]) && !occupied(player.c + d[0], player.r + d[1], player))
+            .map(d => [d, dist(player.c + d[0], player.r + d[1]), Math.hypot(gc - player.c - d[0], gr - player.r - d[1])])
+            .filter(([, dd]) => dd < here || (dd === here && here > 1)).sort((a, b) => a[1] - b[1] || a[2] - b[2])
+          if (!tries.length) { path.stuck = path.stuck || t; if (t - path.stuck > 700) dropPath('blocked') }     // wait a beat, then give up
+          else { path.stuck = 0; if (!walk(tries[0][0], true)) dropPath('walk'); else path.n-- }
+        }
+      }
+
+      // breath: comes back while you rest; a long-held guard spends it; none left and you're winded
+      if (windedUntil && t >= windedUntil) { windedUntil = 0; breath = Math.max(breath, Math.min(cap(), BR.windedBack)); lastSpend = t; showMode() }
+      else if (!winded() && !guard && breath < cap() && t - lastSpend > BR.idleMs) breath = Math.min(cap(), breath + dt / (BR.regenMs * (live() && player.wounds ? 2 : 1)))
+      breath = Math.min(breath, cap())
+      if (guard && t - guard.t0 > BR.guardDrainMs) { guard.t0 = t; spend(1); if (winded()) endGuard() }
+
+      // the toll: what you're owed to pay comes due a heart a second
+      for (const e of [player, foe]) {
+        if (!(e.owed > 0) || t < e.tollAt) continue
+        const [x, y] = px(e); e.hp -= 1; e.owed -= 1; e.tollAt = t + TOLL_MS; buzz(e === player ? 14 : 0)
+        blood.push({ x: x + (Math.random() - 0.5) * 12, y: y + (Math.random() - 0.5) * 12, r: 2.5 + Math.random() * 3, a: 0.55 })
+        if (e.hp <= 0) {
+          e.hp = 0; e.owed = 0
+          if (e === foe) foeDown()
+          else playerDown('Buaileadh thú', 'The blow caught up with you')
+        }
+      }
+      // a wound drips; standing still presses it shut
+      if (live() && player.wounds > 0 && !player.down) {
+        if (t >= player.bleedAt) {
+          const [x, y] = px(player); player.hp -= 1; player.bleedAt = t + bleedMs(); buzz(8)
+          floats.push({ x, y: y - T * 0.55, text: '−1', life: 1, color: '#ff8a7a' })
+          blood.push({ x: x + (Math.random() - 0.5) * 10, y: y + (Math.random() - 0.5) * 10, r: 3 + Math.random() * 3, a: 0.6 })
+          if (player.hp <= 0) playerDown('', 'You bled out')
+        }
+        const still = !path && !heldD && !swing && !player.from && !guard && t >= player.busyUntil
+        player.press = still ? player.press + dt : 0
+        if (player.press >= PRESS_MS && !player.down) {
+          player.wounds--; player.press = 0; player.bleedAt = player.wounds ? t + bleedMs() : 0
+          const [x, y] = px(player); floats.push({ x, y: y - T * 0.55, text: 'pressed', life: 1, color: '#dfe8ee' }); showMode()
+        }
+      } else player.press = 0
+      if (swing) {
+        const el = t - swing.t0
+        if (el >= swing.hitAt && !swing.hitDone) { swing.hitDone = true; playerStrikeLands() }
+        if (swing && el >= swing.vis) swing = null
+      }
+      if (foe.hp > 0 && !player.down) foeThink()
+      player.face = combat ? deg(foe.r - player.r, foe.c - player.c) : deg(player.lastDir[1], player.lastDir[0])
+      for (const p of sparks) { p.x += p.vx * s; p.y += p.vy * s; p.vx *= 0.9; p.vy *= 0.9; p.life -= s * 1.7 }
+      for (const f of floats) { f.y -= 30 * s; f.life -= s * 1.3 }
+      while (sparks.length && sparks[0].life <= 0) sparks.shift()
+      while (floats.length && floats[0].life <= 0) floats.shift()
+      redFlash = Math.max(0, redFlash - s * 3); parryFlash = Math.max(0, parryFlash - s * 4)
+    }
+
+    fx.fillStyle = '#243522'; fx.fillRect(0, 0, W, H)
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) if ((c + r) % 2) { fx.fillStyle = 'rgba(255,255,255,0.03)'; fx.fillRect(c * T, r * T, T, T) }
+    fx.strokeStyle = 'rgba(0,0,0,0.18)'; fx.lineWidth = 1
+    for (let c = 1; c < COLS; c++) { fx.beginPath(); fx.moveTo(c * T, 0); fx.lineTo(c * T, H); fx.stroke() }
+    for (let r = 1; r < ROWS; r++) { fx.beginPath(); fx.moveTo(0, r * T); fx.lineTo(W, r * T); fx.stroke() }
+    for (const b of blood) { fx.globalAlpha = b.a; fx.fillStyle = '#6b0f12'; fx.beginPath(); fx.arc(b.x, b.y, b.r, 0, 7); fx.fill() }
+    fx.globalAlpha = 1
+    // their place, when they're not fighting
+    tileRect(HOME, null, 'rgba(255,255,255,0.08)', 1)
+
+    // your target: a quiet gold outline
+    if (combat && !player.down) tileRect(targetTile(), null, 'rgba(245,208,96,0.55)', 1.5)
+    // their target: red, deepening through the wind-up
+    if (foe.state === 'wind' || foe.state === 'strike') {
+      const k = foe.state === 'strike' ? 1 : Math.min(1, (t - foe.st0) / foe.wind)
+      for (const tg of foe.targets) foe.bash ? tileRect(tg, `rgba(120,170,255,${0.12 + 0.4 * k})`, `rgba(190,220,255,${0.4 + 0.6 * k})`)
+        : tileRect(tg, `rgba(220,60,50,${foe.throw ? 0.08 + 0.25 * k : 0.12 + 0.4 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
+    }
+
+    const fp = px(foe, t), pp = px(player, t)
+    const colour = foe.hp <= 0 ? '#3a2a2a' : { recover: '#4d5c6b', stagger: '#4d5c6b', reel: '#3f6f86' }[foe.state] || (F.style && { warden: '#2f6a6a', master: '#b8b2a0', brawler: '#8a4a26' }[F.style]) || { sword: '#2f4f6f', axe: '#5b3a5f', spear: '#3f6a4a', shield: '#6a5a2f' }[F.kind]
+    const fr = figure(fp, foe, colour, t)
+    const aim = foe.target ? deg(foe.target[1] - foe.r, foe.target[0] - foe.c) : foe.face
+    if (foe.state === 'wind') blade(fp, aim + (F.kind === 'spear' ? 180 : 150), fr * 0.6, fr * (F.kind === 'spear' ? 2.6 : 2.1), '#c9a36b')
+    else if (foe.state === 'strike') { const k = Math.min(1, (t - foe.st0) / F.strikeMs)
+      if (foe.throw) blade(fp, aim, fr * 0.6 + k * T * 5, fr * 0.6 + k * T * 5 + T * 1.6, '#e8d3a0')
+      else if (F.kind === 'spear') blade(fp, aim, fr * 0.6, fr * 0.6 + k * T * 2.7, '#c9a36b')
+      else swingFx(fp, aim, 0.4 + 0.6 * k, T * (F.kind === 'axe' ? 1.25 : 1.05), false) }
+    else if (foe.state === 'recover' || foe.state === 'stagger') blade(fp, foe.face + 40, fr * 0.6, fr * 2.2, '#8a7350')
+    else if (foe.state === 'reel') blade(fp, foe.face + 110, fr * 0.6, fr * 2.2, '#b89565')
+    else if (foe.hp > 0) blade(fp, foe.face + (combat ? 25 : 150), fr * 0.6, fr * 2.2, '#b89565')
+    if (F.kind === 'shield' && foe.hp > 0) {
+      const up = !['wind', 'strike', 'recover', 'stagger'].includes(foe.state)
+      fx.beginPath(); fx.arc(fp[0], fp[1], fr * 1.6, rad(foe.facing - 50), rad(foe.facing + 50))
+      fx.strokeStyle = up ? '#d8c188' : 'rgba(150,150,150,0.5)'; fx.lineWidth = 6; fx.lineCap = 'round'; fx.stroke()
+    }
+    hearts(fp[0], fp[1] - T * 0.52, foe.hp, 8, true, foeMax(), foe.owed || 0)
+
+    if (swing) { const k = Math.max(0, Math.min(1, (t - swing.t0) / swing.vis)), a = rad(deg(swing.tile[1] - player.r, swing.tile[0] - player.c))
+      const lean = (k < 0.4 ? -0.07 * (1 - Math.cos(Math.PI * k / 0.4)) / 2 : Math.sin(Math.PI * (k - 0.4) / 0.6) * 0.2 - 0.07 * (1 - (k - 0.4) / 0.6)) * T; pp[0] += Math.cos(a) * lean; pp[1] += Math.sin(a) * lean }
+    const pr = figure(pp, player, player.down ? '#3a2220' : '#7a3b35', t)
+    if (swing) swingFx(pp, deg(swing.tile[1] - player.r, swing.tile[0] - player.c), Math.max(0, Math.min(1, (t - swing.t0) / swing.vis)), T * 1.05, swing.flip)
+    else if (!player.down) blade(pp, player.face + (combat ? -25 : 150), pr * 0.6, pr * 2.2, '#c9a36b')
+    if (t < player.stunUntil) for (let i = 0; i < 3; i++) { const a = t / 180 + i * 2.1; fx.beginPath(); fx.arc(pp[0] + Math.cos(a) * pr * 1.1, pp[1] - pr * 1.5 + Math.sin(a) * pr * 0.35, 3.2, 0, Math.PI * 2); fx.fillStyle = '#ffe680'; fx.fill() }
+    if (guard) { const a = deg(foe.r - player.r, foe.c - player.c); fx.beginPath(); fx.arc(pp[0], pp[1], pr * 1.7, rad(a - 65), rad(a + 65))
+      fx.strokeStyle = 'rgba(120,230,255,0.85)'; fx.lineWidth = 5; fx.lineCap = 'round'; fx.stroke() }
+    {
+      const line = (pts, col, w, dash) => { if (pts.length < 2) return; fx.beginPath(); pts.forEach(([x, y], k) => k ? fx.lineTo(x, y) : fx.moveTo(x, y))
+        fx.strokeStyle = col; fx.lineWidth = w; fx.lineJoin = 'round'; fx.lineCap = 'round'; fx.setLineDash(dash); fx.stroke(); fx.setLineDash([]) }
+      const ctr = ([c, r]) => [(c + 0.5) * T, (r + 0.5) * T]
+      const gold = 'rgba(245,208,96,0.65)', red = 'rgba(255,90,70,0.85)'
+      if (trail && trail.length) {
+        const bad = !relMode && combat && startTooFar(trail)
+        if (relMode) { line(trail.map(ctr), 'rgba(245,208,96,0.25)', 2, [2, 6]); line(shiftedRoute(trail).map(ctr), gold, 3, [2, 6]) }
+        else {
+          if (trail[0][0] !== player.c || trail[0][1] !== player.r) line([pp, ctr(trail[0])], bad ? red : 'rgba(245,208,96,0.35)', 2, [1, 5])   // the walk to where the line begins
+          line(trail.map(ctr), bad ? red : gold, 3, [2, 6])
+        }
+      } else if (path && path.list && path.list.length) {
+        const first = path.list.find(([c, r]) => c !== player.c || r !== player.r)
+        if (first && !relMode && (path.list[0][0] !== player.c || path.list[0][1] !== player.r)) line([pp, ctr(path.list[0])], 'rgba(245,208,96,0.35)', 2, [1, 5])
+        line(path.list.map(ctr), gold, 3, [2, 6])
+      }
+      if (rejectFx) { const a = 1 - (t - rejectFx.t) / 700; if (a <= 0) rejectFx = null; else { line(rejectFx.list.map(ctr), `rgba(255,90,70,${a})`, 3, [2, 6]); fx.fillStyle = `rgba(255,120,100,${a})`; fx.font = 'bold 13px "Courier Prime", monospace'; fx.textAlign = 'center'
+        fx.fillText('start beside you', W / 2, H * 0.5) } }
+    }
+    if (path && !guard && !path.list) { fx.strokeStyle = 'rgba(245,208,96,0.5)'; fx.setLineDash([4, 4]); fx.lineWidth = 1.5
+      fx.strokeRect(path.c * T + 4, path.r * T + 4, T - 8, T - 8); fx.setLineDash([]) }
+    if (parryFlash > 0) { fx.beginPath(); fx.arc(pp[0], pp[1], pr * 1.9, 0, Math.PI * 2); fx.strokeStyle = `rgba(120,230,255,${parryFlash})`; fx.lineWidth = 3; fx.stroke() }
+
+    for (const p of sparks) { fx.fillStyle = `rgba(${p.rgb},${Math.max(0, p.life)})`; fx.fillRect(p.x - 2, p.y - 1, 4, 2) }
+    fx.textAlign = 'center'; fx.font = 'bold 16px "Courier Prime", monospace'
+    for (const f of floats) { fx.globalAlpha = Math.max(0, f.life); fx.fillStyle = f.color || '#f5d060'; fx.fillText(f.text, f.x, f.y); fx.globalAlpha = 1 }
+    // the exchange count, while one is going
+    if (exchange >= 2) { fx.font = 'bold 14px "Courier Prime", monospace'; fx.fillStyle = '#bfefff'; fx.fillText('× ' + exchange, (fp[0] + pp[0]) / 2 + T * 0.8, (fp[1] + pp[1]) / 2) }
+
+    hearts(10, 16, player.hp, pmax() > 8 ? 12 : 14, false, pmax(), player.owed || 0)
+    // breath pips under the hearts: a pip fills as it returns; all grey while winded
+    for (let i = 0; i < HEARTS; i++) {
+      const cx = 10 + i * 17.5 + 7, cy = 35, k = Math.max(0, Math.min(1, breath - i))
+      if (i >= player.hp) { fx.beginPath(); fx.arc(cx, cy, 4.5, 0, Math.PI * 2); fx.strokeStyle = 'rgba(255,255,255,0.1)'; fx.lineWidth = 1; fx.stroke(); continue }
+      fx.beginPath(); fx.arc(cx, cy, 4.5, 0, Math.PI * 2); fx.fillStyle = 'rgba(255,255,255,0.12)'; fx.fill()
+      if (k > 0) { fx.beginPath(); fx.arc(cx, cy, 4.5 * (0.35 + 0.65 * k), 0, Math.PI * 2)
+        fx.fillStyle = t < windedUntil ? '#6f8794' : '#e9d98a'; fx.fill() }
+    }
+
+    if (live() && player.wounds > 0 && !player.down) {      // time to the next drip
+      const f = Math.max(0, Math.min(1, 1 - (player.bleedAt - t) / bleedMs()))
+      fx.fillStyle = 'rgba(255,255,255,0.12)'; fx.fillRect(10, 44, 105, 4); fx.fillStyle = '#c0392b'; fx.fillRect(10, 44, 105 * f, 4)
+      if (player.press > 0) { fx.beginPath(); fx.arc(pp[0], pp[1], pr * 1.9, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * player.press / PRESS_MS)
+        fx.strokeStyle = 'rgba(230,236,240,0.9)'; fx.lineWidth = 3; fx.lineCap = 'round'; fx.stroke() }
+    }
+    {                                                   // a red glow at the edges: brief when you're struck, steady while you're badly hurt
+      const miss = live() && !player.down ? 1 - Math.max(0, eff(player)) / pmax() : 0
+      const glow = Math.max(miss > 0.4 ? 0.15 + (miss - 0.4) * 0.7 : 0, 0.5 * redFlash)
+      if (glow > 0.01) {
+        const e = Math.min(W, H) * 0.22, col = a => `rgba(170,20,15,${a})`
+        const edge = (x0, y0, x1, y1, rx, ry, rw, rh) => { const g = fx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, col(glow)); g.addColorStop(1, col(0)); fx.fillStyle = g; fx.fillRect(rx, ry, rw, rh) }
+        edge(0, 0, e, 0, 0, 0, e, H); edge(W, 0, W - e, 0, W - e, 0, e, H); edge(0, 0, 0, e, 0, 0, W, e); edge(0, H, 0, H - e, 0, H - e, W, e)
+      }
+    }
+    drawBrooch()
+    requestAnimationFrame(frame)
+  }
+
+  document.getElementById('reset').addEventListener('click', resetBout)
+  const liveBtn = document.getElementById('live')
+  liveBtn.addEventListener('click', () => { liveOn = !liveOn; liveBtn.setAttribute('aria-pressed', String(liveOn)); liveBtn.textContent = liveOn ? 'Blades: steel' : 'Blades: wood'; resetBout() })
+  const bandageBtn = document.getElementById('bandage')
+  function bandageLabel() { bandageBtn.textContent = `Bandage (${bandages})` }
+  bandageBtn.addEventListener('click', () => {
+    if (!live() || !player.wounds || bandages <= 0 || !canAct()) return
+    bandages--; player.wounds = 0; player.bleedAt = 0; player.press = 0; path = null
+    player.busyUntil = now() + 800; player.busyKind = 'other'; bandageLabel(); showMode()
+  })
+  const relBtn = document.getElementById('relbtn')
+  relBtn.addEventListener('click', () => { relMode = !relMode; relBtn.setAttribute('aria-pressed', String(relMode)); relBtn.textContent = relMode ? 'Line: relative to me' : 'Line: from its start' })
+  const KINDS = ['teacher', 'spar', 'warden', 'master', 'brawler', 'axe', 'spear', 'shield']
+  for (const k of KINDS) document.getElementById(k).addEventListener('click', () => {
+    Object.assign(F, PRESETS[k]); showLesson()
+    for (const j of KINDS) document.getElementById(j).setAttribute('aria-pressed', String(j === k))
+    resetBout()
+  })
+  addEventListener('resize', sizeField)
+  sizeField(); resetBout(); requestAnimationFrame(frame)
+  window.__yard = { player, foe, get combat() { return combat }, get exchange() { return exchange }, get breath() { return breath }, get blood() { return blood.length }, get slow() { return slowK() }, get live() { return live() }, get lesson() { return lesson }, get lessonCount() { return lessonCount }, get winded() { return winded() }, get path() { return path }, get lastDrop() { return lastDrop }, get guard() { return guard }, fieldTap, strike, lunge, tile: () => T }   // for testing
+})()
+</script>
+

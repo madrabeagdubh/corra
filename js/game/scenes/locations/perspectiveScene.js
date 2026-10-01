@@ -74,6 +74,8 @@ import { TiltShift }         from '../../effects/tiltShift.js'
 import { wind }              from '../../effects/wind.js'
 import { CloudShadows }      from '../../effects/cloudShadows.js'
 import { Vegetation }        from '../../effects/vegetation.js'
+import MeleeBout, { prepareSword } from '../../combat/meleeBout.js'
+import RouteDraw             from '../../input/routeDraw.js'
 
 // Above the conversation card, which sits around 2000.
 const PROMPT_EASCA_DEPTH = 100000
@@ -337,6 +339,10 @@ export default class PerspectiveScene extends BaseLocationScene {
       this.forestEffects?.setNorthNeighborWallMask(null, _fh)
     }
 
+    // Your sword, in any scene: draw it, swish it, stand en garde. A scene
+    // with a sparring partner swaps this for one with them in it.
+    prepareSword(this)
+    this._melee = new MeleeBout(this)
     this.showIntroNarrative()
     this.onEnter()
 
@@ -366,6 +372,7 @@ if (this.forestEffects) this.forestEffects.update()
 this._updatePlayerOcclusionFade()
 this._updateCameraTerrainAvoidance()
     super.update(time, delta)
+    this._melee?.update(delta)
 
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
@@ -659,7 +666,10 @@ this._updateCameraTerrainAvoidance()
 
     const targetAlpha = Math.min(
       terrainFullyOccluded ? 0.5 : 1,
-      treeOccluding         ? 0.5 : 1
+      treeOccluding         ? 0.5 : 1,
+      // a scene's own reason, e.g. a sparring partner standing behind
+      // the player on screen (skyeFaiche.js)
+      this.playerOcclusionCap?.() ?? 1
     )
 
     const cur = pgr._playerOcclusionAlpha ?? 1
@@ -760,6 +770,7 @@ this._updateCameraTerrainAvoidance()
   // create() above. Harmless to call more than once (every branch is
   // null-guarded), so leaving it directly callable here too is safe.
   shutdown() {
+    if (this._melee)            { this._melee.destroy();           this._melee           = null }
     if (this._encounterPanel)   { this._encounterPanel.destroy();  this._encounterPanel  = null }
     if (this._moonWidget)       { this._moonWidget.destroy();      this._moonWidget      = null }
     if (this._menuHub)          { this._menuHub.destroy();         this._menuHub         = null }
@@ -955,14 +966,21 @@ try {
       x: this.scale.width / 2,
       y: statusTop - 60,
       radius: 60,
-      onTap: () => this._onJoystickTap(),
+      // this._moonOwner (e.g. a MeleeBout) may claim the moon: a tap and
+      // the long press are then its, and the menu waits.
+      onTap: () => { if (this._moonOwner?.tap?.()) return; this._onJoystickTap() },
+      onPressStart: () => this._moonOwner?.pressStart?.(),
+      onPressEnd: (info) => this._moonOwner?.pressEnd?.(info),
+      onSwipeVertical: (dir) => this._moonOwner?.swipeVertical?.(dir),
       onLongPressProgress: (p) => {
+        if (this._moonOwner?.claimsLongPress?.()) return
         this.joystick?.drawChargeGlow(p)
         if (p < 0.15) return
         this._menuPreview.style.display = 'block'
         this._menuPreview.style.opacity = ((p - 0.15) * 1.2).toFixed(2)
       },
       onLongPress: () => {
+        if (this._moonOwner?.claimsLongPress?.()) return
         if (Date.now() - (this._lastMenuClose ?? 0) < 400) return
         this.joystick?.drawChargeGlow(0)
         this._menuPreview.style.transition = 'opacity 0.2s ease'
@@ -1031,24 +1049,27 @@ try {
     this._lastMenuClose = Date.now()
   }
 
+  // A tap walks to the tapped tile; a drag draws a route (input/routeDraw.js).
+  // Both are decided when the finger lifts. With the bow in hand a drag
+  // aims, so a tap walks at once, as it always did.
   _setupTapToPath() {
     const canvas = this.game.canvas
-    canvas.addEventListener('pointerdown', (e) => {
-      const rect    = canvas.getBoundingClientRect()
-      const scaleX  = canvas.width  / rect.width
-      const scaleY  = canvas.height / rect.height
-      const canvasX = (e.clientX - rect.left) * scaleX
-      const canvasY = (e.clientY - rect.top)  * scaleY
-
+    const toCanvas = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      return [(e.clientX - rect.left) * canvas.width / rect.width, (e.clientY - rect.top) * canvas.height / rect.height]
+    }
+    const blocked = (canvasX, canvasY) => {
       const joyX = this.scale.width / 2, joyY = this._joyY, joyR = 100
-      if ((canvasX-joyX)**2 + (canvasY-joyY)**2 < joyR*joyR) return
-
-      if (this.textPanel?.isVisible)                        return
-      if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return
-      if (!this.perspectiveGround)                          return
-      if (this._bowAiming)                                  return
-      if (this._eascaPending)                               return
-
+      if ((canvasX-joyX)**2 + (canvasY-joyY)**2 < joyR*joyR) return true
+      if (this.textPanel?.isVisible)                        return true
+      if (this._menuHub?.isOpen() || this.worldMenu?.isOpen) return true
+      if (!this.perspectiveGround)                          return true
+      if (this._bowAiming)                                  return true
+      if (this._eascaPending)                               return true
+      return false
+    }
+    const tapAt = (canvasX, canvasY) => {
+      if (this._melee?.fieldTap?.(canvasX, canvasY)) return   // a strike at a sparring partner, not a walk
       if (this._onTapBeforePath?.(canvasX, canvasY) === false) return
 
       const tile = PathFinder.screenToTile(canvasX, canvasY, this.perspectiveGround, this.tileSize)
@@ -1061,7 +1082,30 @@ try {
         this.player.setPath(path)
         this._flashTargetTile(tile.tx, tile.ty)
       }
+    }
+    this._routeDraw = new RouteDraw(this)
+    let down = null
+    canvas.addEventListener('pointerdown', (e) => {
+      const [x, y] = toCanvas(e)
+      if (blocked(x, y)) return
+      if (this.player?.inventory?.getEquippedItem?.('rightHand')?.id === 'simple_bow') return tapAt(x, y)
+      down = { id: e.pointerId, x, y }
+      try { canvas.setPointerCapture(e.pointerId) } catch (_) {}
+      this._routeDraw.begin(x, y)
     })
+    canvas.addEventListener('pointermove', (e) => {
+      if (!down || e.pointerId !== down.id) return
+      const [x, y] = toCanvas(e)
+      this._routeDraw.move(x, y)
+    })
+    const up = (e, cancelled) => {
+      if (!down || e.pointerId !== down.id) return
+      const d = down; down = null
+      if (this._routeDraw.end(cancelled)) return            // it was a drag: a route
+      if (!cancelled) tapAt(d.x, d.y)
+    }
+    canvas.addEventListener('pointerup',     (e) => up(e, false))
+    canvas.addEventListener('pointercancel', (e) => up(e, true))
   }
 
   _onTapBeforePath(canvasX, canvasY) { return true }
@@ -1385,7 +1429,19 @@ perTile:        true,
   // environmental effects system gets this for free instead of having to
   // remember. Still calls super so BaseLocationScene's water auto-detection
   // keeps working. Cheap -- two property checks, called every frame.
+  // What PGR asks about the player while a sword is out (see _melee):
+  // how the body stands, how the sword is held, which way they face,
+  // whether a figure blocks a tile, and how far to fade the player when
+  // a sparring partner is behind them on screen.
+  playerPose()          { return this._melee?.playerPose?.() ?? null }
+  weaponPose()          { return this._melee?.weaponPose?.() ?? null }
+  playerFacing()        { return this._melee?.playerFacing?.() ?? null }
+  playerOcclusionCap()  { return this._melee?.playerFade?.() ?? 1 }
+  isOccupied(x, y)      { return !!this._melee?.occupies?.(Math.floor(x / this.tileSize), Math.floor(y / this.tileSize)) }
+  onBumpFigure(dx, dy)  { this._melee?.bump?.(dx, dy) }      // walked into a figure: a shove, in a bout
+
   hasContinuousAnimation() {
+    if (this._melee?.animating?.() || this._routeDraw?.route || this._routeDraw?.trail) return true
     if (this.cloudShadows || this.vegetation) return true
     return super.hasContinuousAnimation?.() ?? false
   }

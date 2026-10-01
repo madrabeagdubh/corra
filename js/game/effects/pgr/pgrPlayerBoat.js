@@ -7,6 +7,8 @@
 // so behaviour is identical to the pre-split code and PGR.destroy()
 // works untouched. Class statics are reached via pgr.constructor.
 
+import { drawHeldSword } from '../../combat/swordRig.js'
+
 export function loadBoatImage(pgr, imgElement) {
     const c   = document.createElement('canvas')
     c.width   = imgElement.naturalWidth  || imgElement.width
@@ -30,7 +32,10 @@ export function setBoatActive(pgr, active) {
     pgr._playerFrameKey = null
   }
 
-export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW, aimAngle) {
+// phase: 'behind' (before the body is drawn) or 'front' (after). Swords
+// go in front when facing the camera, behind when facing away; anything
+// else is drawn behind, as it always was.
+export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW, aimAngle, phase = 'behind') {
     const inv = pgr.scene.player?.inventory
     if (!inv) return
     const item = inv.getEquippedItem?.('rightHand')
@@ -48,6 +53,21 @@ export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW
       if (!itemImg?.width) return
       const ctx  = pgr._oCtx
       const ps   = pgr.constructor.PLAYER_SCALE ?? 1.0
+      if (item.subtype === 'sword') {
+        // A sword hangs in its scabbard at the hip until drawn, then is held
+        // by the grip in the hand on the side the player faces. A scene poses
+        // it (scene.weaponPose(): null = sheathed, { sheath } = sliding in or
+        // out, { angle, hand } = in the hand) -- see combat/swordRig.js.
+        // In front of the body facing the camera, behind it facing away.
+        const away = !!pgr._facingAway && !pgr._boatActive
+        if ((phase === 'front') === away) return
+        drawHeldSword(ctx, itemImg, {
+          x: playerScreenX, y: playerScreenY, w: scaledTileW, ps,
+          side: pgr._facingLeft ? -1 : 1, pose: pgr.scene?.weaponPose?.() ?? null,
+        })
+        return
+      }
+      if (phase === 'front') return
       const iw   = scaledTileW * 0.9 * ps
       const ih   = iw * (itemImg.height / itemImg.width)
       const REST_ANGLE    = (345 * Math.PI) / 180
@@ -104,6 +124,22 @@ if (pgr._boatActive) {
   if (p.moveDirection.x < 0)      pgr._facingLeft = true
   else if (p.moveDirection.x > 0) pgr._facingLeft = false
 }
+
+// Facing away from the camera shows the generated back view (backView.js):
+// walking north (or north-east/-west) turns your back to us; any other
+// step turns you round. Standing still keeps the last. A scene may say
+// otherwise -- scene.playerFacing() -> { away, left } (null fields: no
+// opinion), e.g. squaring up to a sparring partner.
+if (pgr._boatActive) pgr._facingAway = false
+else {
+  if (p?.isMoving) pgr._facingAway = p.moveDirection.y < 0
+  const ov = pgr.scene?.playerFacing?.()
+  if (ov) {
+    if (ov.away != null) pgr._facingAway = ov.away
+    if (ov.left != null) pgr._facingLeft = ov.left
+  }
+}
+if (pgr._facingAway && pgr._playerBackCanvas) img = pgr._playerBackCanvas
 
 if (!pgr._boatActive && p?.isMoving && (pgr._lastStepKeyX !== p.startX || pgr._lastStepKeyY !== p.startY)) {
   pgr._lastStepKeyX = p.startX

@@ -34,13 +34,22 @@ import BogScene from '../bogScene.js'
 export const SKYE_GID = {
   UATHACH: 9201,
   BOAT:    9202,   // badge/portrait only; ShoreProps draws the boat itself
+  WARDEN:  9203,   // the sparring partner on the faiche (skyeFaiche.js)
 }
 
 // Art per figure. PLACEHOLDERS until real sprites exist.
 const SKYE_ART = {
   [SKYE_GID.UATHACH]: '/assets/npcs/sorcha.png',
   [SKYE_GID.BOAT]:    '/assets/boat.png',
+  [SKYE_GID.WARDEN]:  '/assets/npcs/othran.png',
 }
+
+// Hearts come back on their own on Skye, one every REGEN_MS, while you're
+// not en garde -- the wooden blade bruises, it doesn't wound.
+const REGEN_MS = 6000
+
+// left behind when you land on Skye (see _stripPack)
+const ISLAND_NO = new Set(['simple_bow', 'arrows', 'healing_potion'])
 
 export default class SkyeScene extends BogScene {
   getMapPath()            { return `/maps/skyeMaps/${this.getMapKey()}.json?v=${Date.now()}` }
@@ -49,7 +58,7 @@ export default class SkyeScene extends BogScene {
 
   getAmbient()     { return 0x2a3438 }
   getPlayerLight() { return { color: 0xfff5dd, intensity: 2.0, radius: 320 } }
-  getSkyImage()    { return '/assets/skies/bog_threshold_sky.png' }
+  getSkyImage()    { return '/assets/skies/skye.png' }
   getMusicTrack()  { return null }
 
   // Sea, plus the bushes and rocks that stand in for brambles and
@@ -73,6 +82,18 @@ export default class SkyeScene extends BogScene {
     for (const [gid, url] of Object.entries(SKYE_ART)) {
       this.perspectiveGround?.registerCustomTile?.(Number(gid), url)
     }
+    this._stripPack()
+  }
+
+  // On the island you train with what you're given: no bow, no arrows, no
+  // potion in your pack (the pack is rebuilt with each scene, so this is
+  // done on every arrival). What a champion starts the main game with is
+  // still to be decided.
+  _stripPack() {
+    const inv = this.player?.inventory
+    if (!inv?.slots) return
+    inv.slots.forEach((it, i) => { if (it && ISLAND_NO.has(it.id)) inv.slots[i] = null })
+    this.player.updateStatsFromEquipment?.()
   }
 
   // Collision masks with no GID behind them:
@@ -88,4 +109,12 @@ export default class SkyeScene extends BogScene {
 
   // No random encounter cards on Skye.
   _placeEncounterDeck() {}
+
+  update(time, delta) {
+    super.update(time, delta)
+    const p = this.player
+    if (!p || this._moonOwner?.enGarde || p.currentHP >= p.maxHP || p.currentHP <= 0) { this._regenMs = 0; return }
+    this._regenMs = (this._regenMs || 0) + delta
+    if (this._regenMs >= REGEN_MS) { this._regenMs = 0; p.heal(1) }
+  }
 }

@@ -90,6 +90,13 @@ export default class Joystick {
     // PROGRESS with no way to know the finger has lifted.
     this._onPressEnd          = config.onPressEnd            ?? null
     this._onSwipe             = config.onSwipe              ?? null
+    // The moon: a press starting (for anything timed off it, e.g. a
+    // charged blow), and a vertical swipe -- 'up' or 'down', once per
+    // press. A press locks to one axis as it starts moving, so a
+    // vertical swipe never nudges the language slider and vice versa.
+    // onPressEnd now gets { dragged } -- true if the press swiped.
+    this._onPressStart        = config.onPressStart         ?? null
+    this._onSwipeVertical     = config.onSwipeVertical      ?? null
 
     const R = this.radius
 
@@ -303,6 +310,9 @@ export default class Joystick {
       this._hubSwipeStartT = performance.now()
       this._hubDragging    = false
       this._longPressFired = false
+      this._hubX0 = e.clientX; this._hubY0 = e.clientY
+      this._hubAxis = null; this._hubVFired = false
+      if (this._onPressStart) this._onPressStart()
 
       this._longPressInterval = setInterval(() => {
         if (this._hubDragging) return
@@ -324,6 +334,22 @@ export default class Joystick {
 
     this._moonCanvas.addEventListener('pointermove', (e) => {
       if (performance.now() - this._hubSwipeStartT < 50) return
+      if (!this._hubAxis) {
+        const mx = e.clientX - this._hubX0, my = e.clientY - this._hubY0
+        if (Math.hypot(mx, my) < 8) return
+        this._hubAxis = Math.abs(my) > Math.abs(mx) ? 'v' : 'h'
+      }
+      if (this._hubAxis === 'v') {
+        if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
+        if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
+        if (!this._hubDragging) { this._hubDragging = true; if (this._onLongPressCancel) this._onLongPressCancel() }
+        const my = e.clientY - this._hubY0
+        if (!this._hubVFired && Math.abs(my) >= 18) {
+          this._hubVFired = true
+          if (this._onSwipeVertical) this._onSwipeVertical(my < 0 ? 'up' : 'down')
+        }
+        return
+      }
       const dx = e.clientX - this._hubSwipeStartX
       if (Math.abs(dx) > 6) {
         if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
@@ -349,7 +375,7 @@ export default class Joystick {
       } else if (!this._longPressFired) {
         if (this._onLongPressCancel) this._onLongPressCancel()
       }
-      if (this._onPressEnd) this._onPressEnd()
+      if (this._onPressEnd) this._onPressEnd({ dragged: this._hubDragging })
 
       this._hubDragging    = false
       this._longPressFired = false
@@ -359,7 +385,7 @@ export default class Joystick {
       if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
       if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
       if (this._onLongPressCancel) this._onLongPressCancel()
-      if (this._onPressEnd) this._onPressEnd()
+      if (this._onPressEnd) this._onPressEnd({ dragged: true })
       this._hubDragging    = false
       this._longPressFired = false
     })

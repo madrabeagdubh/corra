@@ -43,6 +43,7 @@ export default class SkyeCaption {
       'z-index:1000003', 'opacity:0', 'transition:opacity 0.25s ease',
       'text-shadow:0 1px 2px #000, 0 0 6px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.6)',
     ].join(';')
+    this._color = opts.color || SPEAKER.uathach
     this._ga = document.createElement('div')
     this._ga.style.cssText = `font-family:${TYPE.cardBody.font};font-size:${TYPE.cardBody.size};` +
       `line-height:1.25;color:${opts.color || SPEAKER.uathach};white-space:pre-line`
@@ -89,8 +90,13 @@ export default class SkyeCaption {
     this._scene?.tiltShift?.setDialogueMode?.(false)
   }
 
+  /** The next line only, in another speaker's colour (a student, say). */
+  setColor(c) { this._nextColor = c }
+
   _put(ga, en, holdMs) {
     clearTimeout(this._timer)
+    this._ga.style.color = this._nextColor || this._color
+    this._nextColor = null
     this._ga.textContent = ga
     this._en.textContent = en
     this._en.style.opacity = String(GameSettings.englishOpacity)

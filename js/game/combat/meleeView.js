@@ -104,7 +104,8 @@ export default class MeleeView {
         this._float(d.on, '−' + d.dmg, d.on === 'player' ? '#ff8a7a' : '#f5d060')
         if (d.on === 'player') this.flash = 1
         break
-      case 'shove': A.shove = now; A.shoveDir = d.dir; buzz(30); if (!d.down) A.foeHurt = now; break
+      case 'shove': if (d.by === 'foe') { buzz(40); break }       // thrown: the knockdown shows it
+        A.shove = now; A.shoveDir = d.dir; buzz(30); if (!d.down) A.foeHurt = now; break
       case 'spent': this._float('player', 'tuirse', '#9fb7c4'); break
       case 'dodge': buzz(10); this._spray('player', '160,220,240', 6); this._float('player', 'seachain', '#bfefff'); break
       case 'float': this._float(d.who, d.text, d.color); break
@@ -255,7 +256,7 @@ export default class MeleeView {
         const sh = foe.state === 'salute' ? this._saluteHand(now - A.foeSaluteT, fs, 0.9, 0.42) : [0, 0]
         pose = { angle: ang, hand: [sh[0] * ff.h / ff.w, sh[1] * ff.h / ff.w] }      // the rig takes the hand in tile widths
       }
-      const img = this.scene.itemSheet?.getCanvas?.(2492)
+      const img = this.scene.itemSheet?.getCanvas?.(m.F.swordGid || 2492)
       if (pose !== 'none' && img) {
         ctx.save(); this.applyPose(ctx, ff.x, ff.y, this.flagPose || {}, ff.w)
         drawHeldSword(ctx, img, { x: ff.x, y: ff.y, w: ff.w, ps: FOE_PS, side: fs, pose })

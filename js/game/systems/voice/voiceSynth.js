@@ -822,7 +822,9 @@ function buildReverbImpulse(ac) {
 
 
 function schedSyl(ac, dest, bHz, when, dur, fromHz, v, sy, spu, stressBoost, reverbSend) {
-    if (!ac || !dest || dur < .03) return
+    // a syllable with no pitch (now and then, in some lines) would throw on
+    // the exponential ramps below and silence the rest of the line: skip it
+    if (!ac || !dest || dur < .03 || !(bHz > 1)) return
 
     const hz  = bHz  * Math.pow(2, v.os || 0)
     const fhs = fromHz ? fromHz * Math.pow(2, v.os || 0) : 0

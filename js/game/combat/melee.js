@@ -61,6 +61,13 @@ export const PRESETS = {
   // keeps two tiles off, circles, feints, lunges
   master:  { ...BASE, style: 'master', stepMs: 300, windMs: 620, recoverMs: 650, followWind: 320, combo: 1, lead: 1, ambush: true,
              rushWind: 380, parryBase: 0.45, restMin: 300, restMax: 700 },
+  // a beginner: slow to start, slow to recover, rarely turns a blow
+  novice:  { ...BASE, hp: 4, stepMs: 440, windMs: 820, recoverMs: 950, staggerMs: 520, followWind: 520,
+             parryBase: 0.12, parryReel0: 0.1, parryReelStep: 0.05, parryMax: 0.35, restMin: 900, restMax: 1600 },
+  // Uathach with a live blade: nothing you do lands -- she turns every blow --
+  // and she never cuts you. She throws you down, and after the third time it's over.
+  uathach: { ...BASE, style: 'shover', hp: 99, stepMs: 300, windMs: 420, recoverMs: 700, restMin: 300, restMax: 700,
+             untouchable: true, throws: 3, swordGid: 2496 },
   // no guard, fast, three cuts, wide open afterwards
   brawler: { ...BASE, style: 'brawler', hp: 5, stepMs: 250, windMs: 400, strikeMs: 110, recoverMs: 800, staggerMs: 120,
              followWind: 280, combo: 2, parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 120, restMax: 350 },
@@ -293,6 +300,7 @@ export default class Melee {
     const [tc, tr] = sw.tile
     if (foe.hp > 0 && (foe.c !== tc || foe.r !== tr)) foe.whiffAt = this.t        // a swing at nothing: a patient man notices
     if (foe.hp <= 0 || foe.c !== tc || foe.r !== tr || this.t < foe.hurtUntil) return
+    if (F.untouchable) return this._foeParries()                                  // she turns everything
     if (foe.state === 'strike' && !foe.hitDone) return this._clash()               // both blows at once
     if (!foe.armed) return this._struckUnarmed()
     const open = ['wind', 'reel'].includes(foe.state)       // caught mid-move: a clean hit, and a breath back
@@ -328,6 +336,7 @@ export default class Melee {
     this.p.busyUntil = this.t + P.reelMs; this.queued = null
     foe.target = [...this.pa.tile()]; foe.targets = [foe.target]
     foe.wind = Math.max(F.counterWindMin, F.counterWind0 - F.counterWindStep * this.exchange)
+    if (F.style === 'shover') { foe.shoving = true; foe.wind = 380 }               // her answer: a throw
     this._setFoe('wind', foe.wind)
     this.emit('parried', { by: 'foe', exchange: this.exchange, wind: foe.wind })
   }
@@ -400,6 +409,10 @@ export default class Melee {
     if (!this.combat || foe.hp <= 0 || this.p.lost) return
     if (this.carrying && this.cheb() <= 1) return this._returnSword()
     if (!this.canMove() || ['down', 'beaten', 'pickup'].includes(foe.state)) return     // feet free, as for a step
+    if (this.F.untouchable) {                                  // she doesn't budge; she answers
+      if (foe.state !== 'wind') { foe.shoving = true; this._setFoe('wind', 300); this.emit('tell', { ms: 300 }) }
+      return
+    }
     if (this.winded() || this.breath < 1) { this.emit('spent', { lastHeart: this.pa.hp() <= 1 }); return }
     this.spend(1)
     const offBalance = ['wind', 'recover', 'stagger', 'reel', 'unarmed'].includes(foe.state)
@@ -615,6 +628,39 @@ export default class Melee {
     this._foeStep(this.pa.tile(), false, false)
   }
 
+  // Uathach: walks you down, and when she's beside you, a moment's look -- then
+  // she throws you
+  _shoverThink(t) {
+    const foe = this.foe, F = this.F, d = this.cheb()
+    if (d <= 1) {
+      if (!foe.eye) foe.eye = t + 450 + Math.random() * 500
+      if (t >= foe.eye) { foe.eye = 0; foe.shoving = true; this._startWind(F.windMs) }
+      return
+    }
+    foe.eye = 0
+    if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs; this._foeStep(this.pa.tile(), false, false) }
+  }
+  // she throws you: off your feet, a tile back. The third time, it's over.
+  _foeThrows() {
+    const foe = this.foe, [pc, pr] = this.pa.tile()
+    foe.shoving = false
+    if (this.cheb() > 1 || this.p.downUntil > this.t) { this._setFoe('rest', 400); return }
+    const away = [sign(pc - foe.c), sign(pr - foe.r)]
+    this.pa.forceStep(away)
+    this.throws = (this.throws || 0) + 1
+    this._spoilCharge(); this.swing = null; this.queued = null
+    this.emit('shove', { by: 'foe', down: true, dir: away })
+    if (this.throws >= (this.F.throws || 3)) {
+      this.throws = 0
+      this._playerYields('Buaileadh thú', 'Thrown, three times.', true)
+      this.emit('thrownOut')
+      return
+    }
+    this.p.downUntil = this.t + PLAYER_DOWN_MS
+    this.emit('knockdown', { who: 'player' })
+    this._setFoe('recover', 900)
+  }
+
   _foeThink() {
     const t = this.t, foe = this.foe, F = this.F
     const locked = ['wind', 'strike', 'recover', 'reel', 'down', 'salute', 'unarmed', 'pickup', 'nod'].includes(foe.state)
@@ -644,6 +690,7 @@ export default class Melee {
         if (amb) { this._aimAttack(amb); this._startWind() }
         else if (F.style === 'warden') this._wardenThink(t)
         else if (F.style === 'master') this._masterThink(t)
+        else if (F.style === 'shover') this._shoverThink(t)
         else if (this.cheb() <= 1) { this._aimAttack(); this._startWind() }
         else if (F.ambush && onTheMove) { /* hold ground and let the route come to him */ }
         else if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs; this._foeStep(this.pa.tile(), false, F.style !== 'brawler') }
@@ -652,6 +699,7 @@ export default class Melee {
       }
       case 'wind':
         if (foe.feint && t - foe.st0 >= foe.wind * 0.5) { foe.feint = false; this._setFoe('approach', 5000); foe.nextStep = t + 200; foe.lungeNow = true; break }
+        if (t >= foe.until && foe.shoving) { this._foeThrows(); break }
         if (t >= foe.until) { this._setFoe('strike', F.strikeMs); this.emit('foeSwing') }
         break
       case 'strike':

@@ -278,13 +278,13 @@ const MAPS = {
       //               to address the green from. Its edges are solid
       //               (blockMask) but for one stair, front and centre.
       //               faicheGrounds.js dresses it in planks.
-      //   RACKS       weapon racks either side of the way in from the west
+      //   RACKS       weapon racks either side of the dais
       //   DUMMIES     straw-stuffed posts along the east side
       //   BANNERS     on poles round the ring, on the diagonals
       const RING    = { cx: 18.5, cy: 19.5, r: 7 }        // tile units; centre = middle of tile (18,19)
       const DAIS    = { x0: 15, x1: 21, y0: 6, y1: 8, h: 1.0 }
       const STAIR   = [18, 9]
-      const RACKS   = [[6, 15], [6, 21]]
+      const RACKS   = [[12, 8], [24, 8]]                 // flanking the dais
       const DUMMIES = [[31, 16], [31, 19], [31, 22]]
       const BANNERS = [[12, 13], [25, 13], [12, 26], [25, 26]]
       const inBox = (b, x, y) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1
@@ -304,11 +304,32 @@ const MAPS = {
         return d > RING.r ? 1 : d > RING.r - 1 ? 0.25 : 0.5
       }
       const trail = [[EDGE_PT.west, [Math.floor(RING.cx - RING.r), MID]]]
+      // The hills of Skye round the green: rough, rising ground to the north
+      // and up both sides, climbing behind the dais -- a skyline. None to the
+      // south: that's between the camera and you, and would hide you. The green
+      // itself -- the ring, the dais, the racks and dummies, the corners the
+      // pairs practise in -- stays flat. d: how far a vertex is outside it.
+      const boxOut = (x, y, b) => Math.max(b.x0 - x, x - b.x1, b.y0 - y, y - b.y1)
+      const FLAT = [
+        { x0: 9, x1: 32, y0: 5, y1: 13 },          // the dais, the racks, the pairs' corner to the north-east
+        { x0: -9, x1: 20, y0: 13, y1: 25 },        // the way in from the west
+        { x0: 5, x1: 33, y0: 13, y1: 29 },         // the ring, the dummies, the southern corners
+      ]
+      const greenOut = (x, y) => Math.min(...FLAT.map(b => boxOut(x, y, b)), Math.hypot(x - RING.cx, y - RING.cy) - (RING.r + 3))
+      const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+      const hills = (x, y) => {
+        const d = greenOut(x, y)
+        if (d <= 0) return 0
+        const rise = smooth(0, 5, d) * (3.2 + 2.0 * n(x * 0.12 + 7, y * 0.12 - 3))            // the slopes
+        const crags = smooth(1.5, 4, d) * Math.max(0, n(x * 0.33 - 11, y * 0.33 + 4)) * 1.4 // rock knuckles
+        const near = 1 - smooth(21, 28, y)          // none in the south half: the camera looks north, from the south
+        return Math.max(0, (rise + crags) * near)
+      }
       return {
         tile: () => null,
         height: (x, y) => {
           const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
-          return h + (n(x * 0.1, y * 0.1) + 1) * 0.03
+          return h + (n(x * 0.1, y * 0.1) + 1) * 0.03 + hills(x, y)
         },
         trail,
         extra: {
@@ -318,6 +339,12 @@ const MAPS = {
             return t.map((row, y) => row.map((v, x) => Math.min(v, ringWear(x, y))))
           })(),
           blockMask: grid(W, H, (x, y) => ((onRing(x, y) && !isStair(x, y)) || isProp(x, y)) ? 1 : 0),
+          // the hillsides read as rock where they're steep
+          stoneTint: grid(W, H, (x, y) => {
+            const hs = [hills(x, y), hills(x + 1, y), hills(x, y + 1), hills(x + 1, y + 1)]
+            const steep = Math.max(...hs) - Math.min(...hs)
+            return steep > 0.7 ? 1 : steep > 0.45 ? 0.5 : 0
+          }),
           faiche: { ring: RING, dais: DAIS, stair: STAIR, racks: RACKS, dummies: DUMMIES, banners: BANNERS },
         },
       }

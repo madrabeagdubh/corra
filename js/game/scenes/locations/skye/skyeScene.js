@@ -59,6 +59,8 @@ export default class SkyeScene extends BogScene {
   getAmbient()     { return 0x2a3438 }
   getPlayerLight() { return { color: 0xfff5dd, intensity: 2.0, radius: 320 } }
   getSkyImage()    { return '/assets/skies/skye.png' }
+  // a painting: shown whole, standing on the horizon, not drifting (pgrSky.js)
+  skyFitsHorizon() { return true }
   getMusicTrack()  { return null }
 
   // Sea, plus the bushes and rocks that stand in for brambles and

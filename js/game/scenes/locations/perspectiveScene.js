@@ -343,6 +343,8 @@ export default class PerspectiveScene extends BaseLocationScene {
     // with a sparring partner swaps this for one with them in it.
     prepareSword(this)
     this._melee = new MeleeBout(this)
+    // the brooch you've earned (the coin from Skye turns it silver)
+    if (GameState.hasNote('brooch_silver')) this.joystick?.setMetal?.('silver')
     this.showIntroNarrative()
     this.onEnter()
 

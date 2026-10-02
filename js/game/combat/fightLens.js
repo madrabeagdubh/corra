@@ -31,11 +31,14 @@ export default class FightLens {
 
   get pgr() { return this.scene.perspectiveGround }
 
-  // where the fighters stand, as ground points (tile units, centres at +0.5)
+  // where the fighters stand, as ground points (tile units, centres at +0.5).
+  // scene.lensFocus() -> [c, r] | null: something else to close in on with
+  // you (a training dummy) when there's no bout.
   _points() {
     const p = this.scene.player, ts = this.scene.tileSize, m = this.m
     const out = [[p.logicalX / ts, p.logicalY / ts]]
-    if (!m.noFoe) { const [x, y] = m.foeDrawPos(); out.push([x + 0.5, y + 0.5]) }
+    if (this._focus) out.push([this._focus[0] + 0.5, this._focus[1] + 0.5])
+    else if (!m.noFoe) { const [x, y] = m.foeDrawPos(); out.push([x + 0.5, y + 0.5]) }
     return out
   }
 
@@ -86,7 +89,9 @@ export default class FightLens {
   update(dt) {
     const g = this.pgr, m = this.m
     if (!g?._sh) return
-    const live = !m.noFoe && (m.combat || m.bout.over)
+    const bout = !m.noFoe && (m.combat || m.bout.over)
+    this._focus = bout ? null : (this.scene.lensFocus?.() || null)
+    const live = bout || !!this._focus
     const cur = this.cur, k = t => 1 - Math.exp(-Math.min(100, dt) / t)
     if (live) {
       const pts = this._points()

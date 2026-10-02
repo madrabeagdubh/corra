@@ -3,7 +3,7 @@
 //
 // The practice green: a marked ring of worn ground for drills and bouts,
 // a raised platform (the dais) to the north for the teacher, weapon racks
-// by the way in from the west, dummies along the east side, banners round
+// either side of it, dummies along the east side, banners round
 // the ring (faicheGrounds.js), and the students standing round it in a
 // loose ring (faicheCrowd.js). Layout comes from the map (mapData.faiche,
 // written by skye_gen.mjs).
@@ -12,6 +12,10 @@
 // with Uathach on the dais and the Warden as her second. Until it's done the
 // Warden can't be fought; afterwards he's back in the middle of the ring as
 // a sparring partner.
+//
+// Then the tournament (faicheTournament.js): the students one at a time,
+// easiest first, the Warden refereeing; and last, Uathach with a live blade,
+// and the coin that turns the brooch silver.
 //
 // Your sword comes from a rack: walk up to one, its picture shows on the
 // moon, tap it. From then on the sword is yours, in every scene.
@@ -29,7 +33,8 @@ import SkyeScene, { SKYE_GID } from './skyeScene.js'
 import SkyeCaption from './skyeCaption.js'
 import FaicheGrounds from './faicheGrounds.js'
 import FaicheCrowd from './faicheCrowd.js'
-import FaicheLesson from './faicheLesson.js'
+import FaicheLesson, { SPAR_DONE } from './faicheLesson.js'
+import FaicheTournament, { TOURNEY_DONE } from './faicheTournament.js'
 import MeleeBout, { prepareSword, SWORD_NOTE } from '../../../combat/meleeBout.js'
 import { GameState } from '../../../systems/gameState.js'
 import { SoundBoard } from '../../../systems/soundBoard.js'
@@ -76,6 +81,7 @@ export class SkyeFaiche extends SkyeScene {
 
     this.events.once('shutdown', () => {
       this._caption?.destroy(); this._caption = null
+      this._tourney?.destroy(); this._tourney = null
       this._lesson?.destroy(); this._lesson = null
       this._crowd?.destroy(); this._crowd = null
       this._grounds = null
@@ -105,7 +111,7 @@ export class SkyeFaiche extends SkyeScene {
 
   update(time, delta) {
     super.update(time, delta)
-    if (!this.player) return
+    if (!this.player || !this._grounds) return                // not built yet (create is async)
     // a sword just taken from a rack: into your pack, and one fewer in the rack
     if (!this._hadSword && GameState.hasNote(SWORD_NOTE)) {
       this._hadSword = true
@@ -119,27 +125,42 @@ export class SkyeFaiche extends SkyeScene {
     if (this._encounterPanel?._isOpen) return
     this._crowd?.update(delta, this._melee?.melee)
     this._lesson?.update(delta)
+    this._tourney?.update(delta)
+    // the lessons are all done: a few moments later, the tournament
+    if (!this._tourney && this._lesson?.phase === 'done' && GameState.hasNote(SPAR_DONE) && !GameState.hasNote(TOURNEY_DONE)) {
+      this._tourneyIn = (this._tourneyIn || 0) + delta
+      if (this._tourneyIn > 6000) this._tourney = new FaicheTournament(this, { crowd: this._crowd, lesson: this._lesson, grounds: this._grounds })
+    }
   }
 
   // the students' swords and Uathach's, over the figures
   onPGRDrawComplete(ctx) {
     this._crowd?.drawSwords(ctx)
     this._lesson?.draw(ctx)
+    this._tourney?.draw(ctx)
   }
 
   // ── the students ─────────────────────────────────────────────────────────
-  onMeleeEvent(name, d) { this._crowd?.onMeleeEvent(name, d); this._lesson?.onMeleeEvent(name, d) }
-  figureAt(tx, ty) { return !!this._crowd?.occupies(tx, ty) || this._uathachAt(tx, ty) }
+  onMeleeEvent(name, d) { this._crowd?.onMeleeEvent(name, d); this._lesson?.onMeleeEvent(name, d); this._tourney?.onMeleeEvent(name, d) }
+  figureAt(tx, ty) { return !!this._crowd?.occupies(tx, ty) || this._uathachAt(tx, ty) || !!this._lesson?.occupies(tx, ty) }
   _uathachAt(tx, ty) { const u = this._lesson?.u; return !!u && u.c === tx && u.r === ty }
   isOccupied(x, y) {
     const tx = Math.floor(x / this.tileSize), ty = Math.floor(y / this.tileSize)
-    return super.isOccupied(x, y) || !!this._crowd?.occupies(tx, ty) || this._uathachAt(tx, ty)
+    return super.isOccupied(x, y) || this.figureAt(tx, ty)
   }
+  // a tap on the training dummy: a cut, or a walk up to it
+  _onTapBeforePath(canvasX, canvasY) {
+    if (this._lesson?.tapDummy(canvasX, canvasY)) return false
+    return super._onTapBeforePath?.(canvasX, canvasY) ?? true
+  }
+  // the training dummy, when it's out: the camera closes in on it with you
+  lensFocus() { return this._lesson?.lensFocus() ?? null }
   // Walked into someone: a student (or Uathach) just stands their ground;
   // anyone else (the Warden) is the fight's business.
   onBumpFigure(dx, dy) {
     const p = this.player, ts = this.tileSize
     const tx = Math.floor(p.logicalX / ts) + dx, ty = Math.floor(p.logicalY / ts) + dy
+    if (this._lesson?.occupies(tx, ty)) { this._lesson.bumpDummy(dx); return }   // a shove at the dummy
     if (this._crowd?.at(tx, ty) || this._uathachAt(tx, ty)) return
     super.onBumpFigure(dx, dy)
   }

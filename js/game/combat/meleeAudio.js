@@ -88,6 +88,7 @@ export default class MeleeAudio {
         else this.breath({ kind: 'gasp', voice: this.pBreath, effort: 1, volume: 0.13 })
         break
       case 'shove':
+        if (d.by === 'foe') { this.sfx('BLADE_THUD', { hard: 0.3, volume: 0.5 }); this.say('player', 'oof'); break }   // thrown
         this.sfx('BLADE_THUD', { hard: 0.25, volume: 0.45 }); this.say('player', 'grunt')
         this._later(90, () => this.say('foe', 'oof', 0.7))
         break

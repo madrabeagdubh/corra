@@ -64,7 +64,7 @@ const NOJOY = { force: 0, angle: 0 }
 
 export default class MeleeBout {
   // kind null (the default): no sparring partner -- just your sword, in any scene
-  constructor(scene, { kind = null, home, gid } = {}) {
+  constructor(scene, { kind = null, home, gid, voice } = {}) {
     this.scene = scene
     const player = scene.player, ts = scene.tileSize
     const tileOf = (x, y) => [Math.floor(x / ts), Math.floor(y / ts)]
@@ -106,7 +106,7 @@ export default class MeleeBout {
 
     this.melee = new Melee({ kind, home, pa, emit: (n, d) => this._onEvent(n, d) })
     this.view = new MeleeView(scene, this.melee)
-    this.audio = new MeleeAudio(scene, this.melee, { material: 'wood' })
+    this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
     this.lens = this.melee.noFoe ? null : new FightLens(scene, this.melee)   // the camera closes in on a bout
 

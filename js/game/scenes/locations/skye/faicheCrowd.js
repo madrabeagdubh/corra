@@ -19,7 +19,10 @@
 //   const crowd = new FaicheCrowd(scene, { ring, count: 6 })
 //   crowd.update(delta, melee)          every frame
 //   crowd.onMeleeEvent(name, data)      from MeleeBout
-//   crowd.occupies(tx, ty)  crowd.at(tx, ty)
+//   crowd.occupies(tx, ty)  crowd.at(tx, ty)  crowd.byId(id)
+//   crowd.withdraw(s) / crowd.restore(s, [c, r])   out of the crowd (into the
+//                                       ring, to fight you) and back again
+//   crowd.addStudent()                  one more comes to watch
 //   crowd.drawSwords(ctx)               their swords, after PGR draws (a drill)
 //   crowd.destroy()
 //
@@ -34,6 +37,7 @@
 import { SoundBoard } from '../../../systems/soundBoard.js'
 import { GameState } from '../../../systems/gameState.js'
 import FigureSword, { figureAt } from '../../../combat/figureSword.js'
+import { VoiceSynth } from '../../../systems/voice/voiceSynth.js'
 
 const GID0 = 9210                    // 9210-9229: the students (SKYE_GID is 92xx)
 
@@ -72,21 +76,21 @@ const dialoguesFor = (lines, i) => {
 const STARTLED = [L('Mind yourself!'), L('Careful with that!'), L('Watch it!'), L('Ho there!')]
 
 export const STUDENTS = [
-  { id: 'ferdiad', frame: '038.png', color: '#9fd3ff', lines: [
+  { id: 'ferdiad', frame: '038.png', color: '#9fd3ff', voice: 'dallan', lines: [
     L('Fer Diad. You will be the new one.'),
     L('Watch his feet, not his sword. The sword goes where the feet say.'),
     L('Two winters I have been here. I still cannot touch Scáthach.'),
     L('Uathach likes new ones. For about a week.'),
   ] },
-  { id: 'ciaran', frame: '006.png' },
-  { id: 'eibhleann', frame: '035.png' },
-  { id: 'fial', frame: '067.png' },
-  { id: 'bearach', frame: '044.png' },
-  { id: 'laoise', frame: '084.png' },
-  { id: 'meallan', frame: '061.png' },
-  { id: 'saorla', frame: '041.png' },
-  { id: 'cassan', frame: '076.png' },
-  { id: 'eabhinn', frame: '080.png' },
+  { id: 'ciaran', frame: '006.png', voice: 'dallan' },
+  { id: 'eibhleann', frame: '035.png', voice: 'peig' },
+  { id: 'fial', frame: '067.png', voice: 'peig' },
+  { id: 'bearach', frame: '044.png', voice: 'ronnie' },
+  { id: 'laoise', frame: '084.png', voice: 'peig' },
+  { id: 'meallan', frame: '061.png', voice: 'dallan' },
+  { id: 'saorla', frame: '041.png', voice: 'peig' },
+  { id: 'cassan', frame: '076.png', voice: 'ronnie' },
+  { id: 'eabhinn', frame: '080.png', voice: 'peig' },
 ]
 const SPARE_FRAMES = ['005.png', '022.png', '036.png', '083.png']   // if one of theirs is yours
 const STUDENT_COLOR = '#d9e6b0'
@@ -105,10 +109,16 @@ export default class FaicheCrowd {
     const pgr = scene.perspectiveGround
     const mine = scene.player?.champion?.spriteKey
     const spare = SPARE_FRAMES.filter(f => f !== mine)
+    this._mine = mine; this._spare = spare
     const spots = this._spots(Math.min(count, STUDENTS.length))
-    this.students = spots.map(([c, r], i) => {
+    this.students = spots.map(([c, r], i) => this._make(i, c, r))
+    pgr?.setEncounterFlags([...(pgr._encounterFlags || []), ...this.students.map(s => s.flag)])
+    this._talkable = null
+  }
+
+  _make(i, c, r) {
       const s = STUDENTS[i]
-      const frame = s.frame === mine ? spare.shift() : s.frame
+      const frame = s.frame === this._mine ? this._spare.shift() : s.frame
       const gid = GID0 + i
       this._registerArt(gid, frame)
       const st = {
@@ -122,9 +132,27 @@ export default class FaicheCrowd {
       st.flag = { tileX: c, tileY: r, visual: { gid, flat: false }, offset: [0, 0], pose: null, student: st }
       st.zone = this._zoneFor(st, i)
       return st
-    })
-    pgr?.setEncounterFlags([...(pgr._encounterFlags || []), ...this.students.map(s => s.flag)])
-    this._talkable = null
+  }
+
+  byId(id) { return this.students.find(s => s.id === id) || null }
+
+  // out of the crowd: hidden, not in anyone's way (they're in the ring, as a fighter)
+  withdraw(s) { s.out = true; s.flag.hidden = true; s.from = null }
+  // back among the others, at (c, r)
+  restore(s, [c, r] = s.home) { s.out = false; s.flag.hidden = false; s.c = c; s.r = r; s.from = null; s.goal = null }
+
+  // one more comes to watch (the tournament draws a crowd)
+  addStudent() {
+    const i = this.students.length
+    if (i >= STUDENTS.length) return null
+    const spot = this._spots(i + 1)[i]
+    if (!spot) return null
+    const st = this._make(i, spot[0], spot[1])
+    this.students.push(st)
+    const pgr = this.scene.perspectiveGround
+    pgr?.setEncounterFlags([...(pgr._encounterFlags || []), st.flag])
+    if (this._talkable && this.scene.interactables) this.scene.interactables.push(st.zone)
+    return st
   }
 
   // their places round the ring: by angle, nudged outward off anything solid
@@ -165,7 +193,7 @@ export default class FaicheCrowd {
     const talk = !(melee && (melee.enGarde || melee.combat)) && !this.formation
     if (!sc.interactables) return
     for (const s of this.students) {
-      const [x, y] = this._drawPos(s)
+      const [x, y] = s.out ? [-999, -999] : this._drawPos(s)
       const px = (x + 0.5) * ts, py = (y + 0.5) * ts
       s.zone.x = px; s.zone.y = py
       s.zone.setData('logicalX', px); s.zone.setData('logicalY', py)
@@ -191,7 +219,7 @@ export default class FaicheCrowd {
   }
 
   occupies(tx, ty) { return !!this.at(tx, ty) }
-  at(tx, ty) { return this.students.find(s => s.c === tx && s.r === ty) || null }
+  at(tx, ty) { return this.students.find(s => !s.out && s.c === tx && s.r === ty) || null }
 
   // ── the frame ────────────────────────────────────────────────────────────
   update(dt, melee) {
@@ -200,6 +228,7 @@ export default class FaicheCrowd {
     const swords = melee && (melee.enGarde || melee.combat)
     const fighters = this._fighters(melee)
     for (const s of this.students) {
+      if (s.out) continue
       if (s.from && t - s.t0 >= s.ms) { s.from = null; s.hop = false }
       if (!s.from && (this.formation || s.goal)) {
         // a drill: to their place, and stand there
@@ -281,6 +310,7 @@ export default class FaicheCrowd {
       const line = STARTLED[Math.floor(Math.random() * STARTLED.length)]
       this.scene._caption?.setColor?.(s.color || STUDENT_COLOR)
       this.scene._caption?.show(line.ga, line.en, 1100)
+      this._speak(s, line.ga)
     }
   }
 
@@ -356,11 +386,17 @@ export default class FaicheCrowd {
     }
   }
 
+  // a word out loud, in their own voice (voiceSynth.js)
+  _speak(s, text) {
+    if (!this.voice) { const ac = SoundBoard.ctx(this.scene); this.voice = ac ? new VoiceSynth({ audioContext: ac, volume: 0.5 }) : null }
+    try { this.voice?.stop(); this.voice?.speak(text, { voice: s.voice || 'dallan', tuneKey: 'G' }) } catch (_) {}
+  }
+
   // their swords, drawn over the figures (as the Warden's is)
   drawSwords(ctx) {
     const now = performance.now()
     for (const s of this.students) {
-      if (s.kit.state === 'none') continue
+      if (s.out || s.kit.state === 'none') continue
       const [x, y] = this._drawPos(s)
       s.kit.paint(ctx, this.scene, figureAt(this.scene, x, y), s.face, s.flag.pose, now)
     }
@@ -374,6 +410,7 @@ export default class FaicheCrowd {
     const zones = this.students.map(s => s.zone)
     if (this.scene.interactables) this.scene.interactables = this.scene.interactables.filter(z => !zones.includes(z))
     zones.forEach(z => z?.destroy?.())
+    try { this.voice?.stop() } catch (_) {}
     this.students = []
   }
 }

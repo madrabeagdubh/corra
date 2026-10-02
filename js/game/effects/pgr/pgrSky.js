@@ -153,7 +153,15 @@ export function updateMountainParallax(pgr, playerLogicalX, playerLogicalY, mapW
 // ground redraw is skipped).
 export function updateSkyAnimation(pgr) {
   pgr._cloudDrift = ((pgr._cloudDrift ?? 0) + 0.0004) % (Math.PI * 2)
-  if (pgr._skyImg && pgr._skyImg.src) {
+  // A painted sky (scene.skyFitsHorizon() -> true): the whole painting,
+  // scaled to sit on the horizon -- its own horizon on ours -- and still.
+  if (pgr._skyImg && pgr._skyImg.src && pgr.scene?.skyFitsHorizon?.()) {
+    // a little past the horizon: the far ground doesn't always reach it, and
+    // the painting's own foreground fills the gap better than black does
+    const st = pgr._skyImg.style, h = pgr._horizonPx() + Math.round(pgr._sh * 0.07)
+    st.height = h + 'px'; st.width = pgr._sw + 'px'
+    st.objectFit = 'cover'; st.objectPosition = '50% 100%'
+  } else if (pgr._skyImg && pgr._skyImg.src) {
     const driftX = 50 + Math.sin(pgr._cloudDrift) * 12 + (pgr._skyParallaxX ?? 0)
     const currentPos = pgr._skyImg.style.objectPosition || '50% 50%'
     const currentY = currentPos.split(' ')[1] || '50%'
@@ -170,7 +178,7 @@ export function updateSkyAnimation(pgr) {
     pgr._mountainImg.style.height = _mtnH + 'px'
     pgr._mountainImg.style.top    = _mtnTop + 'px'
     pgr._mountainImg.style.width  = pgr._sw + 'px'
-    if (pgr._skyImg) {
+    if (pgr._skyImg && !pgr.scene?.skyFitsHorizon?.()) {
       pgr._skyImg.style.height = Math.floor(pgr._sh * 0.85) + 'px'
       pgr._skyImg.style.width  = pgr._sw + 'px'
     }

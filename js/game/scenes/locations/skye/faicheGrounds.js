@@ -8,8 +8,7 @@
 //   the dais     the teacher's platform, dressed in planks: a deck on top,
 //                boarded faces over its slopes, steps at the front (also a
 //                structure; the heights and the solid edges are the map's)
-//   racks        wooden swords standing in a rack, either side of the way
-//                in from the west
+//   racks        wooden swords standing in a rack, either side of the dais
 //   dummies      straw-stuffed posts along the east side; they rock when hit
 //   banners      on poles round the ring, stirring in the wind
 //
@@ -21,12 +20,16 @@
 //   const g = new FaicheGrounds(scene, scene.mapData.faiche)
 //   pgr.setStructures(g)              the ring's line, the dais
 //   pgr.setEncounterFlags([...flags, ...g.flags])
-//   g.hitDummy(i)                     set one rocking
+//   g.hitDummy(i, dir)                set one rocking
+//   g.placeDummy(i, x, y, carried)    move one (the Warden carries it out)
 //   g.takeSword(i)                    one fewer in rack i (false if empty)
 //   g.marker = [c, r] | null          a place marked on the ground (yours, in a drill)
 //   g.rackIcon(i)                     a small picture of rack i (for the moon's badge)
 
 const LIME = 'rgba(232,228,206,0.55)'
+// A dummy stands planted in the MIDDLE of its tile (figures stand on their
+// tile's near edge): it's a target, and you need to see which tile it's on.
+const CENTRE = -0.5
 const PLANK = '#6e5237', PLANK2 = '#64492f', SEAM = '#3d2c1e', FACE = '#4e3826', FACE_DK = '#3a2a1c'
 const WOOD = '#7a5636', WOOD_DK = '#4e3522', WOOD_LT = '#9b7448'
 const STRAW = '#c9a95e', STRAW_DK = '#9c7f3e', SACK = '#b39b72'
@@ -43,12 +46,20 @@ export default class FaicheGrounds {
     this.dummies = (layout.dummies || []).map(([x, y]) => ({ x, y, hitAt: -1e9, dir: 1 }))
     this.flags = [
       ...this.racks.map((r, i) => ({ tileX: r.x, tileY: r.y, visual: {}, offset: [0, 0], prop: 'rack', draw: (c, x, y, w) => this._rack(c, x, y, w, this.racks[i]) })),
-      ...this.dummies.map((d, i) => ({ tileX: d.x, tileY: d.y, visual: {}, offset: [0, 0], prop: 'dummy', draw: (c, x, y, w) => this._dummy(c, x, y, w, this.dummies[i]) })),
+      ...this.dummies.map((d, i) => ({ tileX: d.x, tileY: d.y, visual: {}, offset: [0, CENTRE], prop: 'dummy', dummyIndex: i, draw: (c, x, y, w) => this._dummy(c, x, y, w, this.dummies[i]) })),
       ...(layout.banners || []).map(([bx, by], i) => ({ tileX: bx, tileY: by, visual: {}, offset: [0, 0], prop: 'banner', draw: (c, x, y, w) => this._banner(c, x, y, w, i) })),
     ]
   }
 
   hitDummy(i, dir = 1) { const d = this.dummies[i]; if (d) { d.hitAt = performance.now(); d.dir = dir } }
+  // move dummy i to (x, y) (fractional tiles); carried: tipped over a shoulder, off the ground
+  placeDummy(i, x, y, carried = false) {
+    const d = this.dummies[i], f = this.flags.find(fl => fl.dummyIndex === i)
+    if (!d || !f) return
+    const c = Math.round(x), r = Math.round(y)
+    d.x = c; d.y = r; d.carried = carried
+    f.tileX = c; f.tileY = r; f.offset[0] = x - c; f.offset[1] = y - r + (carried ? 0 : CENTRE)
+  }
   takeSword(i) { const r = this.racks[i]; if (!r || r.swords <= 0) return false; r.swords--; return true }
   returnSword(i) { const r = this.racks[i]; if (r) r.swords = Math.min(5, r.swords + 1) }
 
@@ -240,6 +251,7 @@ export default class FaicheGrounds {
     const el = (performance.now() - d.hitAt) / 1000
     const rock = el < 1.6 ? Math.sin(el * 14) * Math.exp(-el * 3.2) * 0.35 * d.dir : 0
     ctx.save()
+    if (d.carried) { ctx.translate(x, y - h * 0.3); ctx.rotate(-0.9 * (d.dir || 1)); ctx.translate(-x, -y) }
     ctx.translate(x, y); ctx.rotate(rock); ctx.translate(-x, -y)
     ctx.fillStyle = WOOD_DK
     ctx.fillRect(x - w * 0.04, y - h * 0.72, w * 0.08, h * 0.72)                               // post

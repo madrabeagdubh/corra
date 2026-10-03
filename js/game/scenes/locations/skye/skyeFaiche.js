@@ -194,7 +194,7 @@ export class SkyeFaiche extends SkyeScene {
     return super._onTapBeforePath?.(canvasX, canvasY) ?? true
   }
   // the training dummy, when it's out: the camera closes in on it with you
-  lensFocus() { return this._lesson?.lensFocus() ?? null }
+  lensFocus() { return this._lesson?.lensFocus() ?? super.lensFocus() }
   // Walked into someone: a student (or Uathach) just stands their ground;
   // anyone else (the Warden) is the fight's business.
   onBumpFigure(dx, dy) {

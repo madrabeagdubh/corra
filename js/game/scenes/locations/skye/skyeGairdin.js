@@ -6,16 +6,18 @@
 // lár, the centre stone. Clear, quiet ground: the Warden's crash course
 // happens here, one to one (faicheCourse.js).
 //
-//   lessons  directions, compass, tap-to-move, the sword, the four calls,
-//            cuts, fatigue, dodge and counter, charge and disarm, shove
+//   lessons  directions, tap-to-move, drawing a route (Conall demonstrates),
+//            the sword, the calls, cuts, fatigue, the strong blow, the training
+//            dummy (carried out into the garden), a gentle practice duel
 //            (faicheCourse.js runs them; courseScript.js has the words)
 //   board    the stones light as you step on the called ones
-//   after    Conall sends you to the green for the dummy and the tournament
+//   after    Conall sends you across the loch to the green, where Uathach is
+//            taking a class
 //
-// Uathach is not here: she stays up on the green's dais until the tournament.
+// Uathach is not here: she is up on the green's dais.
 // (public/data/skye/skyeGairdin.js still lists her; the scene sends her away.)
 //
-// Taps: none until the course's tap lesson (or if the loch taught them).
+// Taps and drawn routes: none until the course teaches them (or the loch did).
 
 import SkyeScene, { SKYE_GID } from './skyeScene.js'
 import { GameState } from '../../../systems/gameState.js'
@@ -92,16 +94,45 @@ export class SkyeGairdin extends SkyeScene {
     this._drawRing(time)
   }
 
-  // Taps come with the tap lesson.
-  _onTapBeforePath() {
+  // Taps come with the tap lesson; a tap on the training dummy is a cut or a walk up to it.
+  _onTapBeforePath(canvasX, canvasY) {
+    if (this._course?.tapDummy?.(canvasX, canvasY)) return false
     if (this._course) return this._course.tapsOn()
     return true
+  }
+
+  // ── the training dummy, when the course has it out ───────────────────────
+  figureAt(tx, ty) { return !!this._course?.occupies?.(tx, ty) }
+  isOccupied(x, y) {
+    const tx = Math.floor(x / this.tileSize), ty = Math.floor(y / this.tileSize)
+    return super.isOccupied(x, y) || this.figureAt(tx, ty)
+  }
+  lensFocus() { return this._course?.lensFocus?.() ?? super.lensFocus() }
+  lensSolo() { return !!this._course?.speaking || super.lensSolo() }
+  // walked into the dummy: a shove at it; into anyone else (Conall): the fight's business
+  onBumpFigure(dx, dy) {
+    const p = this.player, ts = this.tileSize
+    const tx = Math.floor(p.logicalX / ts) + dx, ty = Math.floor(p.logicalY / ts) + dy
+    if (this._course?.occupies?.(tx, ty)) { this._course.bumpDummy(dx); return }
+    super.onBumpFigure(dx, dy)
   }
 
   onMeleeEvent(name, d) { this._course?.onMeleeEvent?.(name, d) }
 
   // the sword in flight (the lesson draws it)
   onPGRDrawComplete(ctx) { this._course?.draw?.(ctx) }
+
+  // Conall's card for a musical dialogue (portrait, background), if the panel can give it
+  conallCard() {
+    try {
+      const f = this._findFigure(SKYE_GID.WARDEN), ep = this._encounterPanel
+      return {
+        portrait: f?.zone.getData('portrait') || null,
+        graphicKey: f && ep ? ep._resolveNpcGraphicKey(f.zone) : null,
+        bgKey: ep?._resolveBgKey?.() ?? null,
+      }
+    } catch (_) { return {} }
+  }
 
   // ── what the course asks of the scene ─────────────────────────────────────
   courseMarker(tile) { this._marker = tile }

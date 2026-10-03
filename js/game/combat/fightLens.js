@@ -17,6 +17,8 @@
 
 const ZMAX = 2.4                 // closest: figures this many times their usual size
 const SAFE = { left: 0.08, right: 0.92, top: 0.2, bottom: 0.76 }   // of the screen; the moon is below `bottom`
+// a conversation keeps both speakers clear of the text above them, and off the moon
+const SAFE_TALK = { left: 0.1, right: 0.9, top: 0.44, bottom: 0.84 }
 const TALL = 2.0                 // a figure's height, in its tile widths, with the sword raised
 const H_MIN = 0.1               // the furthest the camera tilts down: horizon this far from the top
 const T_ZOOM = 420, T_PAN = 260, T_BLEND = 380      // ms: how quickly it follows
@@ -66,12 +68,13 @@ export default class FightLens {
     const g = this.pgr, keep = g._lens
     g._lens = lens
     let ok = true
+    const SF = this._talk ? SAFE_TALK : SAFE
     for (const [c, r] of this._points()) {
       const y = g._rowToScreenY(r + 0.5)
       if (y == null) { ok = false; break }
       const s = g._scaleAtRow(r + 0.5), x = g._colToScreenX(c, r + 0.5)
-      if (x - s * 0.6 < g._sw * SAFE.left || x + s * 0.6 > g._sw * SAFE.right ||
-          y > g._sh * SAFE.bottom || y - s * TALL < g._sh * SAFE.top) { ok = false; break }
+      if (x - s * 0.6 < g._sw * SF.left || x + s * 0.6 > g._sw * SF.right ||
+          y > g._sh * SF.bottom || y - s * TALL < g._sh * SF.top) { ok = false; break }
     }
     g._lens = keep
     return ok
@@ -79,6 +82,8 @@ export default class FightLens {
 
   // as close as it can get, by halving
   _best(col, row) {
+    // too far apart to fit even at the usual view: stay at it, centred between them.
+    // (Never back the camera off: past the edge of the map there is nothing to draw.)
     if (!this._fits(this._lensFor(col, row, 1))) return 1
     if (this._fits(this._lensFor(col, row, ZMAX))) return ZMAX
     let lo = 1, hi = ZMAX
@@ -92,6 +97,13 @@ export default class FightLens {
     const bout = !m.noFoe && (m.combat || m.bout.over)
     this._focus = bout ? null : (this.scene.lensFocus?.() || null)
     const live = bout || !!this._focus
+    this._talk = !bout && !!this._focus && !!this.scene.lensSolo?.()      // a conversation: both speakers, in or out
+    // tilt-shift through a bout (dialogue brings its own, textPanel.js)
+    const ts = this.scene.tiltShift
+    if (ts) {
+      if (bout && !this.scene.textPanel?.isVisible) { if (!ts._dialogueMode) { ts.setDialogueMode(true, null, 'combat'); this._ts = true } }
+      else if (this._ts && ts._profile === 'combat') { ts.setDialogueMode(false); this._ts = false }
+    }
     const cur = this.cur, k = t => 1 - Math.exp(-Math.min(100, dt) / t)
     if (live) {
       const pts = this._points()
@@ -107,11 +119,12 @@ export default class FightLens {
       cur.w += (0 - cur.w) * k(T_BLEND)
       cur.z += (1 - cur.z) * k(T_ZOOM)
     }
-    this.active = cur.w > 0.002 || cur.z > 1.002
+    this.active = cur.w > 0.002 || Math.abs(cur.z - 1) > 0.002
     g._lens = this.active ? { ...this._lensFor(cur.col, cur.row, cur.z), w: cur.w } : null
   }
 
   destroy() {
+    if (this._ts) { this.scene.tiltShift?.setDialogueMode(false); this._ts = false }
     if (this.pgr) this.pgr._lens = null
     this.active = false
   }

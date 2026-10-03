@@ -27,6 +27,7 @@
 //   node tools/map-editor/generators/skye_gen.mjs
 
 import BogScene from '../bogScene.js'
+import FightLens from '../../../combat/fightLens.js'
 
 // Synthetic GIDs for Skye figures (billboard, moon badge and card portrait
 // all resolve through these). 91xx are taken by the mainland NPCs.
@@ -64,8 +65,18 @@ export default class SkyeScene extends BogScene {
   get englishInk() { return true }
   // a painting: shown whole, standing on the horizon, not drifting (pgrSky.js)
   skyFitsHorizon() { return true }
-  // The painted sky doesn't work well with tilt shift blur — it diminishes the scene
-  getTiltShift()   { return false }
+  // The painted sky doesn't work well with tilt shift blur -- it diminishes the
+  // scene -- so at rest there is none: no blur, haze or vignette. It comes up
+  // only in dialogue (textPanel.js, skyeCaption.speak), when the world blurs
+  // round whoever is speaking.
+  getTiltShift() {
+    return {
+      focusY: 0.62, focusHeight: 0.20,
+      farBlur: 0, nearBlur: 0, hazeAmount: 0, vignette: 0,
+      combat: { focusHeight: 0.22, farBlur: 5, nearBlur: 3, farHold: 0.6, nearHold: 0.5, vignette: 0.30, dim: 0, saturate: 1.08, follow: true },
+      dialogue: { focusHeight: 0.12, farBlur: 9, nearBlur: 7, farHold: 0.7, nearHold: 0.7, vignette: 0.36, dim: 0.22, saturate: 1.12, follow: true },
+    }
+  }
   getMusicTrack()  { return null }
 
   // Sea, plus the bushes and rocks that stand in for brambles and
@@ -117,8 +128,37 @@ export default class SkyeScene extends BogScene {
   // No random encounter cards on Skye.
   _placeEncounterDeck() {}
 
+  // ── in conversation: blade away, camera in on the speaker ────────────────
+  // (the moon then shows the English instead of striking; FightLens reads
+  // lensFocus/lensSolo -- the same close-in as a bout)
+  _talkTile() {
+    if (this._speakTile) return this._speakTile                       // a spoken caption (skyeCaption.speak)
+    const z = this._encounterPanel?._isOpen ? this._encounterPanel._active : null
+    const lx = z?.getData?.('logicalX'), ly = z?.getData?.('logicalY')
+    if (lx == null) return null
+    const ts = this.tileSize
+    return [Math.round((lx - ts / 2) / ts), Math.round((ly - ts / 2) / ts)]
+  }
+  lensFocus() { return this._talkTile() }
+  lensSolo() { return !!this._talkTile() }
+  // scenes without a bout have no lens of their own: a bare one for conversations
+  _talkLensTick(delta) {
+    if (this._melee?.lens || !this.perspectiveGround) return
+    if (!this._talkLens) {
+      this._talkLens = new FightLens(this, { noFoe: true, combat: false, bout: { over: false } })
+      this.events?.once?.('shutdown', () => { this._talkLens?.destroy(); this._talkLens = null })
+    }
+    this._talkLens.update(delta)
+  }
+  _sheatheToTalk() {
+    const m = this._melee?.melee
+    if (m?.enGarde && (this._encounterPanel?._isOpen || this.textPanel?.isVisible)) m.setEnGarde(false)
+  }
+
   update(time, delta) {
     super.update(time, delta)
+    this._sheatheToTalk()
+    this._talkLensTick(delta)
     const p = this.player
     if (!p || this._moonOwner?.enGarde || p.currentHP >= p.maxHP || p.currentHP <= 0) { this._regenMs = 0; return }
     this._regenMs = (this._regenMs || 0) + delta

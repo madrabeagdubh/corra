@@ -120,6 +120,20 @@ export const TILT_SHIFT_DEFAULTS = {
     follow: true,
   },
 
+  // A bout (fightLens.js): the miniature look, lighter than a conversation so
+  // the fight stays readable, no dimming.
+  combat: {
+    focusHeight: 0.22,
+    farBlur: 5,
+    nearBlur: 3,
+    farHold: 0.6,
+    nearHold: 0.5,
+    vignette: 0.30,
+    dim: 0,
+    saturate: 1.08,
+    follow: true,
+  },
+
   // Saturation applied alongside the blur in the same backdrop-filter. Free,
   // and it pushes toward the miniature look — a macro shot of a small bright
   // thing is more saturated than a landscape, and the eye reads that as scale.
@@ -259,13 +273,19 @@ export class TiltShift {
     return this.apply()
   }
 
-  setDialogueMode(on, focusY) {
+  // profile: 'dialogue' (default) or 'combat' -- the cfg block applied
+  setDialogueMode(on, focusY, profile = 'dialogue') {
     on = !!on
-    if (on === this._dialogueMode) {
+    if (on === this._dialogueMode && (!on || profile === this._profile)) {
       if (on && focusY != null) this.setFocusTarget(focusY)
       return this
     }
+    if (on && this._dialogueMode) {                     // changing profile: back to the base first
+      if (this._preDialogue) Object.assign(this.cfg, this._preDialogue)
+      this._preDialogue = null; this._dialogueMode = false
+    }
     this._dialogueMode = on
+    this._profile = on ? profile : null
     if (!on) this._focusTarget = null
     else if (focusY != null) this._focusTarget = Math.max(0, Math.min(1, focusY))
 
@@ -281,7 +301,7 @@ export class TiltShift {
         saturate:    this.cfg.saturate,
         follow:      this.cfg.follow,
       }
-      Object.assign(this.cfg, this.cfg.dialogue || {})
+      Object.assign(this.cfg, this.cfg[profile] || {})
     } else if (this._preDialogue) {
       Object.assign(this.cfg, this._preDialogue)
       this._preDialogue = null

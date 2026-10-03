@@ -39,6 +39,21 @@ import MeleeBout, { prepareSword, SWORD_NOTE } from '../../../combat/meleeBout.j
 import { GameState } from '../../../systems/gameState.js'
 import { SoundBoard } from '../../../systems/soundBoard.js'
 
+// The far sea (pgrFarBackdrop.js). Layers sit d rows from the camera -- hundreds,
+// well past the tile vista -- h tall in tiles; fog 0..1 blends them toward the
+// horizon colour. Colours are guesses against skye.png: tune by eye.
+const FAR_SEA = {
+  sea:  { horizon: '#bcc4c1', mid: '#93abad', near: '#527a7a', glint: '#eef3ee' },
+  land: '#5d8758',
+  layers: [
+    { d: 100, h: 2.0,  freq: 0.055, cut: 0.56, sharp: 0.8, fog: 0.40, seed: 3 },    // low islands
+    { d: 150, h: 3.5,  freq: 0.036, cut: 0.48, sharp: 1.0, fog: 0.52, seed: 11 },
+    { d: 230, h: 5.5,  freq: 0.022, cut: 0.40, sharp: 1.1, fog: 0.62, seed: 17 },   // a highland coast
+    { d: 380, h: 8.5,  freq: 0.015, cut: 0.35, sharp: 1.2, fog: 0.74, seed: 23 },
+    { d: 650, h: 13.0, freq: 0.010, cut: 0.30, sharp: 1.2, fog: 0.85, seed: 29 },   // mountains at the edge of sight
+  ],
+}
+const VIEW = { horizon: 0.8, focal: 1.25, across: 1.1 }   // the high camera (getPGRConfig)
 const STUDENTS = 8                    // seven fall in for the drill; more will come with the tournament
 const RACK_GID0 = 9240                // the racks' pictures, for the moon's badge
 
@@ -58,6 +73,23 @@ export class SkyeFaiche extends SkyeScene {
   constructor() { super({ key: 'skye_faiche' }) }
   getMapKey() { return 'skye_faiche' }
 
+  // A high camera: the green is laid out below a vista of sea and islands, so
+  // we look down on it. Multipliers on the Skye baseline; tune by eye.
+  //   horizon  < 1  raises the camera (horizon climbs, more ground, less sky)
+  //   focal    > 1  zooms in on the middle distance
+  //   across   > 1  widens the view
+  getFarBackdrop() { return FAR_SEA }
+
+  getPGRConfig() {
+    const b = super.getPGRConfig()
+    return {
+      ...b,
+      HORIZON_Y_FRAC: b.HORIZON_Y_FRAC * VIEW.horizon,
+      FOCAL_LENGTH:   b.FOCAL_LENGTH   * VIEW.focal,
+      TILES_ACROSS:   b.TILES_ACROSS   * VIEW.across,
+    }
+  }
+
   async create(data) {
     await super.create(data)
     if (!this.player) return                    // base create failed (logged)
@@ -69,6 +101,14 @@ export class SkyeFaiche extends SkyeScene {
     const pgr = this.perspectiveGround
     pgr?.setStructures(this._grounds)
     pgr?.setEncounterFlags([...(pgr._encounterFlags || []), ...this._grounds.flags])
+    // Tune relief shading so terrain height/slope variations show color contrast
+    // matching the sky's palette. Stronger than bog defaults to emphasize the hills.
+    if (pgr?.tintManager) {
+      pgr.tintManager.reliefRange = 6    // terrain range for height shading
+      pgr.tintManager.reliefL = 12       // lightness swing on hilltops vs valleys
+      pgr.tintManager.slopeGain = 1.2    // slope steepness amplification
+      pgr.tintManager.slopeL = 10        // lightness swing on lit vs shadow slopes
+    }
     this._makeRackZones()
 
     prepareSword(this)                          // yours already? then it's in your pack

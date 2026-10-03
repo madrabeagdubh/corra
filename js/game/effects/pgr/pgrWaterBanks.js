@@ -7,6 +7,16 @@
 // so behaviour is identical to the pre-split code and PGR.destroy()
 // works untouched. Class statics are reached via pgr.constructor.
 
+// Where the water's surface meets a bank's front edge: the front edge of the
+// water tile at ground level, less however far the sea stands above it (a
+// scene whose tide is in sets mapData.tide.lift; every other scene: 0).
+const waterY = (pgr, tileRow, fallback) => {
+  const y = pgr._rowToScreenY(tileRow + 2)
+  if (y == null) return fallback
+  const lift = pgr.scene?.mapData?.tide?.lift || 0
+  return lift ? y - lift * (pgr._scaleAtRow(tileRow + 2) || 0) : y
+}
+
 // Only ever called for IN-MAP tiles (the phantom path skips banks by
 // design), so the original `inMap &&` guards are dropped here.
 
@@ -47,6 +57,8 @@ export function drawNorthWaterFace(pgr, ctx, layer0, tileCol, tileRow, tileAlpha
 // diagonals. Called AFTER the ground trapezoid is drawn, so later
 // (nearer) rows overdraw these in natural row order.
 export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, horizonPx, yBotClamped, _yTL, _yTR, _yBL, _yBR, _isGroundWater) {
+  // a scene can say a tile has no bank (a jetty's deck is not earth: skyeCladach.js)
+  if (pgr.scene?.noWaterBank?.(tileCol, tileRow)) return
   // South bank: ground tile with water to south
   const _southGid = layer0[tileRow + 1]?.[tileCol] ?? 0
   const _southIsWater = _southGid === 1625 || _southGid === 1679 || _southGid === 731
@@ -55,7 +67,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
     const _bxBR = pgr._colToScreenX(tileCol + 1, tileRow + 1)
     // yWater = front edge of the water tile. Draw inline (not deferred) so
     // grass tiles on the south bank naturally overdraw it in row order.
-    const _bYWater = pgr._rowToScreenY(tileRow + 2) ?? (yBotClamped + pgr._scaleAtRow(tileRow + 1))
+    const _bYWater = waterY(pgr, tileRow, yBotClamped + pgr._scaleAtRow(tileRow + 1))
     const _bankGap = _bYWater - Math.min(_yBL, _yBR)
     if (_bankGap > 4) {
       // Inline draw — same gradient as before but drawn now so later rows cover it
@@ -92,7 +104,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
     if (_eastCornerIsWater) {
       const _eXFront = pgr._colToScreenX(tileCol + 1, tileRow + 1)
       const _eXBack  = pgr._colToScreenX(tileCol + 1, tileRow)
-      const _eYWater = pgr._rowToScreenY(tileRow + 2) ?? (yBotClamped + pgr._scaleAtRow(tileRow + 1))
+      const _eYWater = waterY(pgr, tileRow, yBotClamped + pgr._scaleAtRow(tileRow + 1))
       const _eYTop   = Math.min(_yBR, _yTR)
       if (_eYWater - _eYTop > 4) {
         const _eLtR = _eXBack <= _eXFront
@@ -132,7 +144,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
     if (_westCornerIsWater) {
       const _wXFront = pgr._colToScreenX(tileCol, tileRow + 1)
       const _wXBack  = pgr._colToScreenX(tileCol, tileRow)
-      const _wYWater = pgr._rowToScreenY(tileRow + 2) ?? (yBotClamped + pgr._scaleAtRow(tileRow + 1))
+      const _wYWater = waterY(pgr, tileRow, yBotClamped + pgr._scaleAtRow(tileRow + 1))
       const _wYTop   = Math.min(_yBL, _yTL)
       if (_wYWater - _wYTop > 4) {
         const _wLtR = _wXBack <= _wXFront
@@ -174,7 +186,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
   if (_eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
     const _eXFront = pgr._colToScreenX(tileCol + 1, tileRow + 1)
     const _eXBack  = pgr._colToScreenX(tileCol + 1, tileRow)
-    const _eYWater = pgr._rowToScreenY(tileRow + 2) ?? (yBotClamped + pgr._scaleAtRow(tileRow + 1))
+    const _eYWater = waterY(pgr, tileRow, yBotClamped + pgr._scaleAtRow(tileRow + 1))
     const _eYTop   = Math.min(_yBR, _yTR)
     if (_eYWater - _eYTop > 4) {
       const _eLtR = _eXBack <= _eXFront
@@ -213,7 +225,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
   const _eastNIsWater = _eastGidN === 1625 || _eastGidN === 1679 || _eastGidN === 731
   if (_eastNIsWater && !_eastIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
     const _eX0 = pgr._colToScreenX(tileCol + 1, tileRow + 1)
-    const _eYWater = pgr._rowToScreenY(tileRow + 2) ?? yBotClamped
+    const _eYWater = waterY(pgr, tileRow, yBotClamped)
     if (_eYWater - _yBR > 4) {
       drawBankSide(ctx, _eX0, _eX0, _yBR, _eYWater, tileAlpha)
     }
@@ -226,7 +238,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
   if (_westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
     const _wXFront = pgr._colToScreenX(tileCol, tileRow + 1)
     const _wXBack  = pgr._colToScreenX(tileCol, tileRow)
-    const _wYWater = pgr._rowToScreenY(tileRow + 2) ?? (yBotClamped + pgr._scaleAtRow(tileRow + 1))
+    const _wYWater = waterY(pgr, tileRow, yBotClamped + pgr._scaleAtRow(tileRow + 1))
     const _wYTop   = Math.min(_yBL, _yTL)
     if (_wYWater - _wYTop > 4) {
       const _wLtR = _wXBack <= _wXFront
@@ -265,7 +277,7 @@ export function drawWaterBanks(pgr, ctx, layer0, tileCol, tileRow, tileAlpha, ho
   const _westNIsWater = _westGidN === 1625 || _westGidN === 1679 || _westGidN === 731
   if (_westNIsWater && !_westIsWater && !_isGroundWater && !_southIsWater && yBotClamped >= horizonPx + 4) {
     const _wX0 = pgr._colToScreenX(tileCol, tileRow + 1)
-    const _wYWater = pgr._rowToScreenY(tileRow + 2) ?? yBotClamped
+    const _wYWater = waterY(pgr, tileRow, yBotClamped)
     if (_wYWater - _yBL > 4) {
       drawBankSide(ctx, _wX0, _wX0, _yBL, _wYWater, tileAlpha)
     }

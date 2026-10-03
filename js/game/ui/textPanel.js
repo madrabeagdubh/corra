@@ -42,6 +42,7 @@ function rowIsSilence(r) {
   return SILENCE_RE.test(ga) && SILENCE_RE.test(en)
 }
 import { MoonPeek }     from '../systems/moonPeek.js'
+import { createContrast } from './textContrast.js'
 import {
   COLORS, FONTS, SIZES, TYPE, BUTTON,
   textStyle, createButton, pickLanguage,
@@ -544,6 +545,34 @@ export default class TextPanel {
 
   update() {}
 
+  // ── English that picks its own ink (ui/textContrast.js) ────────────────────
+  // A scene opts in with `get englishInk() { return true }`: its English lines
+  // are set crisp (no shadow, the return crossing's size) and recoloured a few
+  // times a second against whatever is behind them.
+  _inkOn() { return !!this.scene?.englishInk }
+  _inkAdd(el) {
+    ;(this._inkEls = this._inkEls || []).push(el)
+    el._inkShim = { style: { setProperty: (k, v) => { if (k === 'color') el.setColor(v) } } }
+    el.setColor('rgb(230,237,245)')
+    if (this._inkTimer) return
+    this._contrast = createContrast()
+    this._inkTimer = this.scene.time.addEvent({ delay: 220, loop: true, callback: () => this._inkTick() })
+  }
+  _inkTick() {
+    const pgr = this.scene?.perspectiveGround
+    const src = [pgr?._skyImg, pgr?._groundCanvas, pgr?._objectCanvas].filter(Boolean)
+    const cv = this.scene?.game?.canvas
+    if (!cv || !src.length) return
+    const r = cv.getBoundingClientRect(), kx = r.width / cv.width, ky = r.height / cv.height
+    for (const el of this._inkEls || []) {
+      if (!el?.active || el.alpha <= 0) continue
+      this._contrast.update(el._inkShim, src, () => {
+        const b = el.getBounds()
+        return { x: r.left + b.x * kx, y: r.top + b.y * ky, w: b.width * kx, h: b.height * ky }
+      })
+    }
+  }
+
   updateEnglishOpacity() {
     const a = GameSettings.englishOpacity
     if (this._contentItems) {
@@ -881,15 +910,17 @@ export default class TextPanel {
       }
 
       if (en) {
+        const ink = this._inkOn()
         const el = this.scene.add.text(rowX, bodyTop + cy, en, {
-          fontSize:   TYPE.cardBodyEn.size,
-          fontFamily: TYPE.cardBodyEn.font,
+          fontSize:   ink ? TYPE.domBodyEn.sizePx + 'px' : TYPE.cardBodyEn.size,
+          fontFamily: ink ? FONTS.english : TYPE.cardBodyEn.font,
           color:      ENGLISH_COLOR,
           wordWrap:   { width: blockW },
           align:      rowAlign,
           lineSpacing: TYPE.cardBodyEn.lineSpacing,
         }).setOrigin(rowOx, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
-        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
+        if (ink) this._inkAdd(el)
+        else el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)
@@ -1068,12 +1099,14 @@ export default class TextPanel {
       }
 
       if (en) {
+        const ink = this._inkOn()
         const el = this.scene.add.text(startX, centreY + cy, en, {
-          fontSize: enSize, fontFamily: enFont,
+          fontSize: ink ? TYPE.domBodyEn.sizePx + 'px' : enSize, fontFamily: ink ? FONTS.english : enFont,
           color: enColor,
           wordWrap: { width: textW }, lineSpacing: enSpacing
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(depth + 1).setAlpha(0)
-        el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
+        if (ink) this._inkAdd(el)
+        else el.setShadow(TEXT_SHADOW.x, TEXT_SHADOW.y, TEXT_SHADOW.color, TEXT_SHADOW.blur, false, TEXT_SHADOW.fill)
         el.setMask(mask)
         this._objects.push(el)
         this._enObjects.push(el)
@@ -1917,6 +1950,7 @@ if (this.currentPanelType === 'encounter_card') {
     this._buttons.forEach(b => b.destroy())
     this._buttons = []
     this._objects.forEach(o => { if (o?.active) o.destroy() })
+    this._inkTimer?.remove?.(); this._inkTimer = null; this._inkEls = []
     this._objects         = []
     this._enObjects       = []
     this._contentItems    = []

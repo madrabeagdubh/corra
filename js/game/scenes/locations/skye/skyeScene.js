@@ -35,6 +35,7 @@ export const SKYE_GID = {
   UATHACH: 9201,
   BOAT:    9202,   // badge/portrait only; ShoreProps draws the boat itself
   WARDEN:  9203,   // the sparring partner on the faiche (skyeFaiche.js)
+  OGHAM:   9204,   // badge only: a carved word on the cladach wall (oghamMarks.js)
 }
 
 // Art per figure. PLACEHOLDERS until real sprites exist.
@@ -59,8 +60,12 @@ export default class SkyeScene extends BogScene {
   getAmbient()     { return 0x2a3438 }
   getPlayerLight() { return { color: 0xfff5dd, intensity: 2.0, radius: 320 } }
   getSkyImage()    { return '/assets/skies/skye.png' }
+  // dialogue cards set their English in the return crossing's style (textPanel.js)
+  get englishInk() { return true }
   // a painting: shown whole, standing on the horizon, not drifting (pgrSky.js)
   skyFitsHorizon() { return true }
+  // The painted sky doesn't work well with tilt shift blur — it diminishes the scene
+  getTiltShift()   { return false }
   getMusicTrack()  { return null }
 
   // Sea, plus the bushes and rocks that stand in for brambles and

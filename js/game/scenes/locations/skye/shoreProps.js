@@ -40,6 +40,7 @@ export default class ShoreProps {
   // edge, then the planks on top, then a dark fascia along the front.
   _drawJettyRow(ctx, pgr, row) {
     const j = this.jetty
+    const deckH = j.deckH
     const yAt  = (r) => pgr._rowToScreenY(r)
     const lift = (r) => j.deckH * pgr._scaleAtRow(r)
     const yT = yAt(row), yB = yAt(row + 1)
@@ -48,11 +49,14 @@ export default class ShoreProps {
     const R = (r) => pgr._colToScreenX(j.x1 + 1, r)
     const s = pgr._scaleAtRow(row + 1)
 
-    // posts: at both edges of the row's south boundary
+    // posts: at both edges of the row's south boundary, standing in the sea
+    // (j.seaH: its level, which rises with the tide) and a little below it
+    const sea = (j.seaH || 0)
+    const post = (deckH - sea) * s + s * 0.3
     ctx.fillStyle = POST
     const pw = Math.max(2, s * 0.09)
     for (const x of [L(row + 1) + pw * 0.3, R(row + 1) - pw * 1.3]) {
-      ctx.fillRect(x, yB - lift(row + 1), pw, lift(row + 1) + s * 0.05)
+      ctx.fillRect(x, yB - lift(row + 1), pw, post)
     }
 
     // deck
@@ -78,6 +82,12 @@ export default class ShoreProps {
     if (row === j.y1) {
       ctx.fillStyle = POST
       ctx.fillRect(bl[0], bl[1], br[0] - bl[0], Math.max(2, s * 0.07))
+      // and, below it, the piled front of the head, down into the water
+      const face = (deckH - sea) * s + s * 0.3
+      ctx.fillStyle = PLANK2
+      ctx.fillRect(bl[0], bl[1] + Math.max(2, s * 0.07), br[0] - bl[0], face)
+      ctx.fillStyle = 'rgba(20,14,9,0.45)'
+      for (let k = 1; k < 4; k++) ctx.fillRect(bl[0] + (br[0] - bl[0]) * k / 4, bl[1], Math.max(1, s * 0.02), face)
     }
   }
 
@@ -96,7 +106,7 @@ export default class ShoreProps {
     const x = pgr._colToScreenX(b.x, b.y)
     const bob = Math.sin(t * 1.3) * s * 0.035
     ctx.save()
-    ctx.translate(x, y0 + bob)
+    ctx.translate(x, y0 + bob - (b.lift || 0) * pgr._scaleAtRow(b.y))   // rides the tide
     ctx.rotate(Math.sin(t * 0.9 + 1) * 0.025)
     ctx.imageSmoothingEnabled = false
     // sits IN the water: a third of the hull below the line

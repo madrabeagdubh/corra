@@ -158,11 +158,16 @@ export default class HarbourWall {
     const yT = pgr._rowToScreenY(row), yB = pgr._rowToScreenY(row + 1)
     if (yT == null || yB == null) return null
     const sT = pgr._scaleAtRow(row), sB = pgr._scaleAtRow(row + 1)
+    // drowned stonework keeps its own shape: the jetty's raised vertices
+    // (which the player's feet follow) mustn't skew it
+    const T = this.scene.mapData?.tide
+    const dry = T?.state === 'high' && row >= T.seaTop ? T.dry : null
+    const vh = (c, r) => dry ? (dry[r]?.[c] ?? 0) : pgr._vertexH(c, r)
     return {
-      tl: { x: pgr._colToScreenX(col,     row),     y: yT - pgr._vertexH(col,     row)     * sT },
-      tr: { x: pgr._colToScreenX(col + 1, row),     y: yT - pgr._vertexH(col + 1, row)     * sT },
-      bl: { x: pgr._colToScreenX(col,     row + 1), y: yB - pgr._vertexH(col,     row + 1) * sB },
-      br: { x: pgr._colToScreenX(col + 1, row + 1), y: yB - pgr._vertexH(col + 1, row + 1) * sB },
+      tl: { x: pgr._colToScreenX(col,     row),     y: yT - vh(col,     row)     * sT },
+      tr: { x: pgr._colToScreenX(col + 1, row),     y: yT - vh(col + 1, row)     * sT },
+      bl: { x: pgr._colToScreenX(col,     row + 1), y: yB - vh(col,     row + 1) * sB },
+      br: { x: pgr._colToScreenX(col + 1, row + 1), y: yB - vh(col + 1, row + 1) * sB },
     }
   }
 

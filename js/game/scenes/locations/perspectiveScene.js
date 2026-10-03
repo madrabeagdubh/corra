@@ -268,7 +268,8 @@ export default class PerspectiveScene extends BaseLocationScene {
     // Fire-and-forget -- if there's no north exit, or the fetch fails,
     // this silently does nothing and the renderer's existing flat-fill
     // fallback is unaffected.
-    const _northDest = this.mapData.exits?.north?.destination
+    // mapData.vista: a neighbour drawn beyond the north edge that can't be entered (Skye's sea view)
+    const _northDest = this.mapData.exits?.north?.destination ?? this.mapData.vista
     if (_northDest) {
       fetch(this.getNeighborMapPath(_northDest))
         .then(r => r.ok ? r.json() : null)
@@ -297,6 +298,8 @@ export default class PerspectiveScene extends BaseLocationScene {
             layer0:    neighborMapData.layers?.[0] ?? null,
             heightMap: neighborMapData.heightMap ?? null,
             pathDist:  neighborMapData.pathDist  ?? null,
+            stoneTint: neighborMapData.stoneTint ?? null,
+            tintGrid:  neighborMapData.tintGrid  ?? null,
             width:     neighborMapData.width,
             height:    neighborMapData.height,
             houses:    neighborMapData.houses ?? [],

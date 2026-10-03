@@ -76,6 +76,8 @@ export default class FaicheTournament {
     this.ref = { tileX: REF_AT[0], tileY: REF_AT[1], visual: { gid: SKYE_GID.WARDEN, flat: false }, offset: [0, 0], pose: { sx: 1 } }
     const pgr = scene.perspectiveGround
     pgr?.setEncounterFlags([...(pgr._encounterFlags || []), this.ref])
+    // the class was cut, so the students have stayed away: they come now
+    for (const s of crowd.students) if (s.out) crowd.restore(s)
     // the crowd's grown with every win so far
     for (let i = 0; i < Math.min(this.round, 2); i++) crowd.addStudent()
     grounds.marker = MARK

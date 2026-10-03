@@ -156,10 +156,10 @@ export function updateSkyAnimation(pgr) {
   // A painted sky (scene.skyFitsHorizon() -> true): the whole painting,
   // scaled to sit on the horizon -- its own horizon on ours -- and still.
   if (pgr._skyImg && pgr._skyImg.src && pgr.scene?.skyFitsHorizon?.()) {
-    // a little past the horizon: the far ground doesn't always reach it, and
-    // the painting's own foreground fills the gap better than black does
-    const st = pgr._skyImg.style, h = pgr._horizonPx() + Math.round(pgr._sh * 0.07)
-    st.height = h + 'px'; st.width = pgr._sw + 'px'
+    // Extend to full screen height so the painting's foreground fills the area
+    // below the horizon without exposing a black edge where it ends.
+    const st = pgr._skyImg.style
+    st.height = pgr._sh + 'px'; st.width = pgr._sw + 'px'
     st.objectFit = 'cover'; st.objectPosition = '50% 100%'
   } else if (pgr._skyImg && pgr._skyImg.src) {
     const driftX = 50 + Math.sin(pgr._cloudDrift) * 12 + (pgr._skyParallaxX ?? 0)

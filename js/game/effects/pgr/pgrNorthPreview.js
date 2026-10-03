@@ -183,7 +183,7 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
         h01 = neighborVertexH(pgr, mCol,     localRow + 1)
         h11 = neighborVertexH(pgr, mCol + 1, localRow + 1)
         const pd0 = nb.pathDist?.[localRow]?.[mCol] ?? null
-        tint0 = pgr.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0)
+        tint0 = pgr.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0, nb.stoneTint?.[localRow]?.[mCol] ?? 0)
       } else {
         tint0 = pgr.tintManager.getTint(gid0, mCol, localRow)
       }
@@ -191,6 +191,10 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
       // fall back to a neutral base so the haze blend still has
       // something sensible to work from.
       if (!tint0) tint0 = { h: 90, s: 20, l: 45, alpha: 0.5 }
+      // A neighbour that paints its own tiles (Skye's vista islands): explicit [h, s, l]
+      // for this tile, kept fairly opaque so the tileset's texture doesn't show through.
+      const _own = nb.tintGrid?.[localRow]?.[mCol]
+      if (_own) tint0 = { h: _own[0], s: _own[1], l: _own[2], alpha: Math.max(tint0.alpha ?? 0.5, 0.8) }
 
       // Blend toward the haze colour, AND boost the wash's own opacity
       // toward near-total coverage as hazeT approaches 1 -- otherwise

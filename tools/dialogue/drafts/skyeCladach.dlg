@@ -1,21 +1,20 @@
-# skyeCladach — Uathach on the shore of Skye
+# skyeCladach -- Conall on the shore of Skye
 #
-# The player's first conversation on the island. The lesson itself (the
-# step drill, her dust-dash, the bramble lane) is run by the scene, and
-# her lines during it are captions, not cards -- see
-# js/game/scenes/locations/skye/skyeCladach.js. This draft is only what
-# she says when you tap her.
+# The player's first conversation on the island. Conall, the Warden, keeps the
+# green for Uathach (who stays up on her dais until the tournament). He invites
+# them up the wall -- no drill, no orders: they find the stair themselves (the
+# scene nudges with the brooch if they stall). His lines are captions, not cards
+# -- see js/game/scenes/locations/skye/skyeCladach.js. This draft is only what
+# he says when you tap him.
 #
 # NOTES USED
-#   drill_start            -> "Ready." chosen; the scene starts the drill
-#   drill_done             -> (scene) drill finished
-#   lesson_movement        -> (scene) reached her at the top of the lane
-#   uathach_told_machaire  -> she has pointed them onward
-#   climb_clean / climb_rough -> (scene) how the climb went, before the pep talk
+#   climb_started         -> "I'm coming." chosen; he leaves them to the wall
+#   climb_top             -> (scene) they're on the top of the wall; opens the pep talk
 #   go_loch / go_garden    -> pep-talk choice; one-off, the scene clears it
-#   pep_done               -> (scene) the pep talk is over
+#   pep_done               -> (scene) the pep talk is over; he goes ahead and is gone
 #
-# IRISH IS A FIRST DRAFT -- check before shipping.
+# EVERYTHING HERE IS PLACEHOLDER -- the structure is the point. Irish is a first draft.
+# (The old "onward to the machaire" nodes are gone: once the pep talk is done he has left.)
 
 @file skye/skyeCladach
 
@@ -25,23 +24,47 @@
 @continue
 So. The sea gave you up.
 % Bhuel. Scaoil an fharraige uaithi thú.
-I am Uathach, daughter of Scáthach.
-% Is mise Uathach, iníon Scáthaí.
+I am Conall. I keep the green for Uathach, Scáthach's daughter.
+% Is mise Conall. Coimeádaim an fhaiche d'Uathach, iníon Scáthaí.
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 1 — first, an order
-@when !note drill_start
+# THE PEP TALK -- at the top of the wall, opened by the scene when they
+# arrive (climb_top). The subtext is the whole project: you came, and that
+# matters. He never says so.
+= node 1 — the top
+@when note climb_top
+@when !note pep_done
+@hold
+You found the stair.
+% Fuair tú an staighre.
+Welcome to Skye. Not many come this way. You did.
+% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
+There's a garden over west, where I teach the first lessons. Uathach won't come down for those. You'll see her at the tournament.
+% Tá gairdín thiar ansin, mar a mhúinim na chéad cheachtanna. Ní thiocfaidh Uathach anuas dóibh siúd. Feicfidh tú í ag an gcomórtas.
+
+* On to the loch.
+% Ar aghaidh chuig an loch.
+@note go_loch
+@exit
+
+* To the garden first.
+% Chuig an ngairdín ar dtús.
+@note go_garden
+@exit
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 2 — the invitation
+@when !note climb_started
 @hold
 @again Well? / Bhuel?
-My mother is waiting at the dún.
-% Tá mo mháthair ag fanacht ag an dún.
-But first, let's see if you can follow an order.
-% Ach ar dtús, feicfimid an féidir leat ordú a leanúint.
+The wall is old, and there's a stair in it somewhere. Come up when you're ready.
+% Tá an balla seo sean, agus staighre ann áit éigin. Tar aníos nuair a bheidh tú réidh.
 
-* Ready.
-% Réidh.
-@note drill_start
+* I'm coming.
+% Tagaim aníos.
+@note climb_started
 @exit
 
 * Who is Scáthach?
@@ -56,80 +79,8 @@ But first, let's see if you can follow an order.
 
 
 # ══════════════════════════════════════════════════════════════════════
-# THE PEP TALK -- at the top of the wall, opened by the scene. It sets
-# climb_clean (a correction or none) or climb_rough first. The subtext is
-# the whole project: you came, and that matters. She never says so.
-= node 1a — the top, a clean climb
-@when note climb_clean
-@when !note pep_done
+= node 2a — on the wall
+@when note climb_started
 @hold
-You didn't miss a step.
-% Níor chaill tú céim.
-Welcome to Skye. Not many come this way. You did.
-% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
-If that was easy, on we go. If you want more, there's always more.
-% Más furasta a bhí sé, ar aghaidh linn. Más mian leat tuilleadh, bíonn tuilleadh ann i gcónaí.
-
-* On to the loch.
-% Ar aghaidh chuig an loch.
-@note go_loch
-@exit
-
-* To the garden first.
-% Chuig an ngairdín ar dtús.
-@note go_garden
-@exit
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 1b — the top, a harder climb
-@when note climb_rough
-@when !note pep_done
-@hold
-That wasn't easy. No matter.
-% Ní raibh sé sin éasca. Is cuma.
-Welcome to Skye. Not many come this way. You did.
-% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
-There's a garden over west. We'll practise there as long as you like.
-% Tá gairdín thiar ansin. Cleachtfaimid ann chomh fada agus is mian leat.
-
-* To the garden.
-% Chuig an ngairdín.
-@note go_garden
-@exit
-
-* On to the loch.
-% Ar aghaidh chuig an loch.
-@note go_loch
-@exit
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 2 — mid-lesson
-@when note drill_start
-@when !note lesson_movement
-@hold
-Listen, and move.
-% Éist, agus bog.
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 3 — onward
-@when note lesson_movement
-@when !note uathach_told_machaire
-@note uathach_told_machaire
-@continue
-Beyond is the machaire. The other students idle there.
-% Thall ansin tá an machaire. Bíonn na daltaí eile ag díomhaoineas ann.
-Feardiad will show you how things are done here.
-% Taispeánfaidh Feardiad duit conas a dhéantar rudaí anseo.
-Past them is the long bridge, and my mother beyond it.
-% Taobh thall díobh tá an droichead fada, agus mo mháthair ar an taobh eile de.
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 4 — after
-@when note uathach_told_machaire
-@hold
-Go on. I'll not carry you.
-% Ar aghaidh leat. Ní iompróidh mé thú.
+Come up.
+% Tar aníos.

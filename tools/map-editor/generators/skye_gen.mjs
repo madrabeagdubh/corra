@@ -87,16 +87,48 @@ function pathDistFor(points, falloff = 3) {
 // ── per-map terrain ─────────────────────────────────────────────────────────
 // Each returns { tile(x,y) -> gid, height(vx,vy) -> number, trail: [[a,b],...], spawn? }
 
-const MAPS = {
-  skye_cladach: {
+// Skye's north coast: ragged. coastRecess(x) = how many rows of the faiche's
+// north edge fall away at column x (0 = a headland reaching the map edge, up to
+// ~4 = a deep cove). The faiche carries the cliff down to the sea; the vista map
+// picks it up at row 36, so the two meet without a step. Plain sines, not the
+// per-map noise, so both maps see the same coast.
+const COAST_DROP = 1.3                       // cliff height: land -> sea level (the vista's SEA_LVL)
+const coastRecess = x => {
+  const w = (k, o) => 0.5 + 0.5 * Math.sin(x * k + o)
+  const t = Math.max(0, Math.min(1, (Math.abs(x - 18.5) - 8) / 6))
+  const env = 1 + 1.1 * t * t * (3 - 2 * t)            // deeper coves on the flanks: the dais and drills need the middle
+  return Math.max(0, env * (5.2 * (0.45 * w(0.23, 4.0) + 0.3 * w(0.51, 0.8) + 0.25 * w(1.07, 2.1)) - 1.6))
+}
+// cliff below the coast; where the coast reaches the map edge, a grassy knoll rises instead
+const coastH = (x, y) => {
+  const r = coastRecess(x)
+  const knoll = 0.8 * Math.max(0, 1 - r / 0.6) * Math.max(0, 1 - y / 3)
+  return -Math.min(COAST_DROP, Math.max(0, r - y) * 1.1) + knoll
+}
+
+// ── the cladach, at two tides ───────────────────────────────────────────────
+// 'high' (arrival): the sea has climbed HIGH_TIERS tiers of the harbour wall.
+//   With 1 it stands at the foot of the second riser: the quay, the first
+//   riser and the first terrace (rows 25-29) are under water, and the jetty
+//   reaches in over them to the second stair. With 2 it is one stair further.
+// 'low'  (after the training): the sea has drawn back to row 30, the quay
+//   and strand lie bare, and the jetty stands at its low level.
+// skye_cladach.json is the high map, skye_cladach_ebb.json the low one;
+// skyeCladach.js picks between them. Both share the layout below, and the
+// drowned ground keeps its real shape (it is only made unwalkable, and the
+// scene paints the sea over it -- skye/tideWater.js).
+const HIGH_TIERS = 1
+const cladach = (tide) => ({
     // west, off the headland top (rows 16-20): Uathach's kata garden
     exits: { north: 'skye_loch', west: 'skye_gairdin' },
     // At the foot of the headland; jetty and boat behind (south).
     spawn: { x: MID, y: 28 },
     build(n, rng) {
+      const HIGH = tide === 'high'
       // ── Layout (keep in sync with skye/skyeCladach.js) ────────────────
-      //   rows 30+   sea; row 29 strand; jetty (18-19, 30-33), boat (34)
-      //   rows 27-28 the foot of the headland, rocky
+      //   rows 30+   sea; row 29 strand (high tide: sea up to row 25/23)
+      //   jetty (18-19, 30-33; high tide from the waterline), boat (34)
+      //   rows 27-28 the foot of the headland, rocky quay (flooded at high tide)
       //   THE WALL   three stone risers (rows 26, 24, 22) with one-row
       //              terraces between (25, 23). Every riser tile is solid
       //              (blockMask) except ONE per riser -- the hidden stair,
@@ -105,10 +137,16 @@ const MAPS = {
       //   rows 0-21 the headland top, open ground running north to the
       //              loch. Uathach waits at (17,20).
       const LV = [0.1, 1.1, 2.1, 3.1]              // foot, terrace 1, terrace 2, top
-      const FLOOR = 1.2                            // ravine floor
       const GAPS = { 26: 17, 24: 19, 22: 16 }      // riser row -> stair column
-      const JETTY = { x0: 18, x1: 19, y0: 30, y1: 33, deckH: 0.28 }
+      const OGHAM_STONES = [[11, 23], [19, 17], [25, 23], [11, 27], [14, 27], [25, 27]]   // oghamMarks.js (solid)
+      const FLOOD_ROW = HIGH_TIERS === 1 ? 25 : 23          // first drowned row
+      const LIFT = LV[HIGH_TIERS] + 0.2            // the high sea's surface, above the low sea
+      const JETTY = HIGH
+        ? { x0: 18, x1: 19, y0: FLOOD_ROW, y1: 33, deckH: 0.28 + LIFT }
+        : { x0: 18, x1: 19, y0: 30, y1: 33, deckH: 0.28 }
+      const SEA_TOP = HIGH ? FLOOD_ROW : 30
       const inBox = (b, x, y) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1
+      const flooded = (x, y) => HIGH && y >= FLOOD_ROW && y <= 29 && !inBox(JETTY, x, y)
 
       // Tile height by class. Risers belong to the level BELOW them; the
       // vertex rule below lifts their north edge, making each riser a
@@ -121,11 +159,21 @@ const MAPS = {
         if (y >= 22) return LV[2]
         return LV[3]                                 // the top, all the way north
       }
-      const isSea = (x, y) => !inBox(JETTY, x, y) && y >= 30
+      // the ground as it really is, jetty or no jetty
+      const dryH = (x, y) => {
+        if (y >= 30) return 0
+        const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
+        return h + (y >= 29 ? 0 : (n(x * 0.3, y * 0.3) + 1) * 0.02)
+      }
+      // the open sea's own level: at high tide the sea TILES stand at the surface, so
+      // the jetty is only its deck's height above them (not a tall cliff of grass)
+      const seaH = HIGH ? LIFT : 0
 
       return {
         tile: (x, y) => {
-          if (inBox(JETTY, x, y)) return GRASS[0]        // walkable; the deck is drawn over it
+          // walkable; the deck is drawn over it. (The head row is sea underneath: a raised
+          // grass tile there would show a tall green front face below the deck.)
+          if (inBox(JETTY, x, y)) return y === JETTY.y1 ? SEA : GRASS[0]
           if (y >= 30) return SEA
           if (y === 29) return STRAND
           return null
@@ -133,30 +181,43 @@ const MAPS = {
         overlay: () => 0,
         // vertex = the highest tile touching it (+ a whisper of noise)
         height: (x, y) => {
-          if (inBox({ ...JETTY, x1: JETTY.x1 + 1, y1: JETTY.y1 + 1 }, x, y)) return JETTY.deckH
-          if (y >= 30) return 0
-          const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
-          return h + (y >= 29 ? 0 : (n(x * 0.3, y * 0.3) + 1) * 0.02)
+          // (the last two deck rows are the boat's and blocked: a raised vertex under the
+          // sea tiles there would keep them from drawing)
+          if (inBox({ ...JETTY, x1: JETTY.x1 + 1, y1: JETTY.y1 - 1 }, x, y)) return JETTY.deckH
+          return y >= 30 ? seaH : dryH(x, y)
         },
         trail: [[[16, 21], [MID, 0]]],
         trailFalloff: 1.5,
         extra: {
           // solid: every riser tile but the stair, and the wall's two ends
-          // (so its narrow ledges don't lead off the map sideways)
+          // (so its narrow ledges don't lead off the map sideways); the
+          // drowned ground; but never the jetty, which crosses the first
+          // riser like a gangplank
           blockMask: grid(W, H, (x, y) =>
-            ((y in GAPS && x !== GAPS[y]) || (y >= 22 && y <= 26 && (x === 0 || x === W - 1))) ? 1 : 0),
+            (inBox(JETTY, x, y) ? y >= JETTY.y1 - 1 :                   // the head (two rows) is the boat's
+              (flooded(x, y) || (y in GAPS && x !== GAPS[y]) ||
+               (y >= 22 && y <= 26 && (x === 0 || x === W - 1)) ||
+               OGHAM_STONES.some(([sx, sy]) => sx === x && sy === y))) ? 1 : 0),
           // the wall, its terraces and its foot read as bare rock (the
           // risers also get SteepFaceRenderer's stone texture on top)
           stoneTint: grid(W, H, (x, y) =>
             (y >= 22 && y <= 28 && !inBox(JETTY, x, y)) ? 1 : 0),
           // Dressed as harbour stonework by skye/harbourWall.js
           wall: { risers: [26, 24, 22], ledges: [25, 23], quay: [27, 28], gaps: GAPS },
-          jetty: JETTY,
-          boat: { x: 18.9, y: 34.4, width: 2.3 },
+          jetty: { ...JETTY, seaH },                      // seaH: the water's level the posts stand in
+          boat: { x: 18.9, y: 34.4, width: 2.3, lift: HIGH ? LIFT : 0 },
+          // the tide: skye/tideWater.js paints the sea's surface from these.
+          // `dry` is the ground without the jetty's raised vertices, so the
+          // drowned stonework isn't skewed by them.
+          tide: { state: tide, lift: HIGH ? LIFT : 0, seaTop: SEA_TOP, quay: [27, 28], strand: 29,
+                  ...(HIGH ? { dry: grid(W + 1, H + 1, (x, y) => +dryH(x, y).toFixed(3)) } : {}) },
         },
       }
     },
-  },
+})
+
+const MAPS = {
+  skye_cladach: cladach('high'),
 
   skye_gairdin: {
     exits: { east: 'skye_cladach' },
@@ -270,6 +331,7 @@ const MAPS = {
 
   skye_faiche: {
     exits: { west: 'skye_machaire' },
+    vista: 'skye_farraige',      // drawn beyond row 0, never entered
     build(n) {
       // ── The practice green (keep in sync with skye/faicheGrounds.js) ──
       //   THE RING    one marked circle of worn ground: drills and bouts
@@ -304,33 +366,16 @@ const MAPS = {
         return d > RING.r ? 1 : d > RING.r - 1 ? 0.25 : 0.5
       }
       const trail = [[EDGE_PT.west, [Math.floor(RING.cx - RING.r), MID]]]
-      // The hills of Skye round the green: rough, rising ground to the north
-      // and up both sides, climbing behind the dais -- a skyline. None to the
-      // south: that's between the camera and you, and would hide you. The green
-      // itself -- the ring, the dais, the racks and dummies, the corners the
-      // pairs practise in -- stays flat. d: how far a vertex is outside it.
-      const boxOut = (x, y, b) => Math.max(b.x0 - x, x - b.x1, b.y0 - y, y - b.y1)
-      const FLAT = [
-        { x0: 9, x1: 32, y0: 5, y1: 13 },          // the dais, the racks, the pairs' corner to the north-east
-        { x0: -9, x1: 20, y0: 13, y1: 25 },        // the way in from the west
-        { x0: 5, x1: 33, y0: 13, y1: 29 },         // the ring, the dummies, the southern corners
-      ]
-      const greenOut = (x, y) => Math.min(...FLAT.map(b => boxOut(x, y, b)), Math.hypot(x - RING.cx, y - RING.cy) - (RING.r + 3))
-      const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
-      const hills = (x, y) => {
-        const d = greenOut(x, y)
-        if (d <= 0) return 0
-        const rise = smooth(0, 5, d) * (3.2 + 2.0 * n(x * 0.12 + 7, y * 0.12 - 3))            // the slopes
-        const crags = smooth(1.5, 4, d) * Math.max(0, n(x * 0.33 - 11, y * 0.33 + 4)) * 1.4 // rock knuckles
-        const near = 1 - smooth(21, 28, y)          // none in the south half: the camera looks north, from the south
-        return Math.max(0, (rise + crags) * near)
+      // The back lawn runs flat to the map's north edge. Beyond it the renderer
+      // draws the vista map (skye_farraige): a low sea, islets and highland
+      // ranges seen from a high camera. Nothing to build here but the green.
+      const vertexH = (x, y) => {
+        const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
+        return h + (n(x * 0.1, y * 0.1) + 1) * 0.03 + coastH(x, y)
       }
       return {
         tile: () => null,
-        height: (x, y) => {
-          const h = Math.max(tileH(x - 1, y - 1), tileH(x, y - 1), tileH(x - 1, y), tileH(x, y))
-          return h + (n(x * 0.1, y * 0.1) + 1) * 0.03 + hills(x, y)
-        },
+        height: vertexH,
         trail,
         extra: {
           // the trail from the west, and the ring's worn ground
@@ -338,14 +383,65 @@ const MAPS = {
             const t = pathDistFor(trail)
             return t.map((row, y) => row.map((v, x) => Math.min(v, ringWear(x, y))))
           })(),
-          blockMask: grid(W, H, (x, y) => ((onRing(x, y) && !isStair(x, y)) || isProp(x, y)) ? 1 : 0),
-          // the hillsides read as rock where they're steep
+          // the coves are cliff: not walkable
+          blockMask: grid(W, H, (x, y) => ((onRing(x, y) && !isStair(x, y)) || isProp(x, y) || y + 0.5 < coastRecess(x + 0.5)) ? 1 : 0),
+          // the cliffs read as rock where they're steep
           stoneTint: grid(W, H, (x, y) => {
-            const hs = [hills(x, y), hills(x + 1, y), hills(x, y + 1), hills(x + 1, y + 1)]
+            const hs = [vertexH(x, y), vertexH(x + 1, y), vertexH(x, y + 1), vertexH(x + 1, y + 1)]
             const steep = Math.max(...hs) - Math.min(...hs)
             return steep > 0.7 ? 1 : steep > 0.45 ? 0.5 : 0
           }),
           faiche: { ring: RING, dais: DAIS, stair: STAIR, racks: RACKS, dummies: DUMMIES, banners: BANNERS },
+        },
+      }
+    },
+  },
+
+  // Never entered: the faiche's north view (map.vista). The renderer draws it
+  // beyond the faiche's row 0, up to ~45 rows deep, hazing it toward the horizon.
+  // Local row 35 is nearest the faiche, row 0 farthest. Heights are absolute,
+  // and the faiche's land is 0: the sea sits BELOW it (-SEA_LVL), so from the
+  // high camera you look down over the lip to the water. Features taller than
+  // ~2 skip the haze, which is what lets the far highlands stand out.
+  skye_farraige: {
+    exits: {},
+    vista: true,
+    build(n) {
+      const SEA_LVL = 1.3
+      const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+      const ISLETS = [[7, 24, 1.8, 1.1], [17, 16, 2.0, 1.2], [28, 21, 1.6, 0.9], [12, 9, 1.4, 0.8]]  // x, y, r, h above the sea: a few, mid-distance. Keep them >4 tiles from x=0 and x=36: past the edges the preview mirrors the map, which cuts and reflects an island
+      // Rounded, hill-shaped islands: wide and low, a steep shore and a broad crown
+      // (t^0.55), not a cone. Radii are stretched so each island spans enough tiles to read as
+      // a hill rather than a few facets.
+      const islet = (x, y) => Math.max(0, ...ISLETS.map(([ix, iy, r, h]) => {
+        const R = r * 1.4
+        const t = 1 - ((x - ix) ** 2 + ((y - iy) * 1.7) ** 2) / (R * R)
+        return t > 0 ? 1.9 * h * Math.pow(t, 0.55) * (0.8 + 0.4 * (n(x * 0.4, y * 0.4) + 1) / 2) : 0
+      }))
+      // (the far coast and mountains are drawn in screen space: pgrFarBackdrop.js)
+      // the lip down from the faiche: starts at whatever height the faiche's coast leaves at row 36
+      const slope = (x, y) => { const lip = coastH(x, 0), t = Math.min(1, Math.max(0, (36 - y) / 2.5)); return lip + (-SEA_LVL - lip) * t * t * (3 - 2 * t) }
+      const vh = (x, y) => y >= 34 ? slope(x, y) : -SEA_LVL + islet(x, y) + (n(x * 0.3, y * 0.3) + 1) * 0.02
+      return {
+        tile: (x, y) => (y >= 34 || [[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => islet(x + dx, y + dy) > 0.18)) ? null : 0,
+        height: vh,
+        trail: [[EDGE_PT.south, [MID, MID]]],
+        extra: {
+          // Explicit [h, s, l] per tile for the preview (tintGrid): the island palette, taken from
+          // the walkable lawn (hue 85-112, sat 22-30, light 28-45) and its worn earth (hue ~30).
+          //   waterline: dark seaweed olive  ->  brown earth  ->  muted green crown
+          tintGrid: grid(W, H, (x, y) => {
+            if (y >= 34) return [30, 28, 27]
+            const vs = [vh(x, y), vh(x + 1, y), vh(x, y + 1), vh(x + 1, y + 1)].map(v => v + SEA_LVL)
+            const up = vs.reduce((a, b) => a + b, 0) / 4
+            if (Math.max(...vs) < 0.05) return null                       // open sea
+            const k = (n(x * 0.9 + 5, y * 0.9) + 1) / 2                     // 0..1 patchiness
+            const weed  = [68 + 14 * k, 24, 19 + 4 * k]                     // seaweed-slick rock at the waterline
+            const earth = [30 + 8 * k, 30, 28 + 5 * k]                      // brown earth
+            const turf  = [88 + 20 * k, 26, 31 + 5 * k]                     // muted green, as the lawn
+            const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t))
+            return mixc(mixc(weed, earth, smooth(0.08, 0.35, up)), turf, smooth(0.7, 1.15, up))
+          }),
         },
       }
     },
@@ -386,6 +482,8 @@ const MAPS = {
       }
     },
   },
+
+  skye_cladach_ebb: cladach('low'),
 }
 
 // ── build ───────────────────────────────────────────────────────────────────
@@ -449,7 +547,7 @@ for (const [name, m] of Object.entries(built)) {
     exits[dir] = { tiles, destination: dest, entryPoint: OPPOSITE[dir] }
   }
   // Arrivals keep the row/column they crossed at (see LAND).
-  for (const dir of ['north', 'south', 'east', 'west']) entries[dir] = ENTRIES[dir]
+  if (m.def.vista !== true) for (const dir of ['north', 'south', 'east', 'west']) entries[dir] = ENTRIES[dir]
 
   const t = m.t
   const map = {
@@ -458,6 +556,7 @@ for (const [name, m] of Object.entries(built)) {
     heightMap: m.heightMap, legend: LEGEND,
     spawns: { player: m.def.spawn ?? { x: MID, y: MID } },
     exits, entries,
+    ...(typeof m.def.vista === 'string' ? { vista: m.def.vista } : {}),
     pathDist: pathDistFor(t.trail, t.trailFalloff),
     ...(t.extra || {}),
     border: { openCols: [...openCols].sort((a, b) => a - b), openRows: [...openRows].sort((a, b) => a - b) },

@@ -137,6 +137,7 @@ const LINES = {
   sparLost:   L('Up. You will learn.'),
   uathachSpar: L('Good. Rest a while. When you are ready -- the tournament.'),
   backAgain:  L('Back again. Good.'),
+  notReady:   L('Not yet. The garden first: west of the shore, the ráth. I will teach you there.'),
 }
 const HINTS = {
   pack:   L('Hold the moon to open your pack, and put the sword in your hand.'),
@@ -159,7 +160,7 @@ export default class FaicheLesson {
     this.saluteDone = GameState.hasNote(LESSON_DONE)
     this.done = GameState.hasNote(KATA_DONE)               // the line's lessons are done
     this.allDone = GameState.hasNote(SPAR_DONE)            // and yours with him
-    this.phase = this.allDone ? 'done' : this.done ? 'waitWarden' : 'mill'
+    this.phase = this.allDone ? 'done' : this.done ? 'waitWarden' : 'notReady'
     this.points = 0; this.passes = 0; this.floats = []
     this.millMs = GameState.hasNote(BEGUN) ? MILL_AGAIN_MS : MILL_MS
     this.at = 0                                        // when the current phase began
@@ -169,7 +170,10 @@ export default class FaicheLesson {
     // Uathach: a figure on the PGR, walking, with a bright sword
     this.u = { c: U_START[0], r: U_START[1], from: null, t0: 0, ms: 0, path: [], face: -1,
                sword: new FigureSword({ gid: 2496, head: 0.9, rest: 0.42, shine: true }) }
-    if (this.done || this.saluteDone) { this.u.c = U_TOP[0]; this.u.r = U_TOP[1] }
+    // Uathach stays up on the dais, a distant figure, until the tournament
+    this.u.c = U_TOP[0]; this.u.r = U_TOP[1]
+    // the class is cut: the students stay away until the tournament calls them
+    if (!this.allDone) for (const s of crowd.students) crowd.withdraw(s)
     this.u.flag = { tileX: this.u.c, tileY: this.u.r, visual: { gid: SKYE_GID.UATHACH, flat: false }, offset: [0, 0], pose: null }
     const pgr = scene.perspectiveGround
     pgr?.setEncounterFlags([...(pgr._encounterFlags || []), this.u.flag])
@@ -253,6 +257,14 @@ export default class FaicheLesson {
     }
     this._lastTile = pt
     switch (this.phase) {
+      case 'notReady':
+        // the crash course (in the garden) comes first
+        if (GameState.hasNote(KATA_DONE)) { this.done = true; this._go('waitWarden'); break }
+        if (cheb(this._playerTile(), [this.m.foe.c, this.m.foe.r]) <= 4 && this.t >= (this.tellAt || 0)) {
+          this.tellAt = this.t + 18000
+          this._say(LINES.notReady, 4200)
+        }
+        break
       case 'mill':
         if (el >= this.millMs) this._gather()
         break

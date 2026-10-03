@@ -123,6 +123,15 @@ export class EncounterPanel {
   // What tapping the badge does. The brooch's stone does the same while lit
   // (see _showBadge), so either the portrait on the moon or the stone works.
   _activateBadge() {
+    // A card that brings its own action (the ogham stones): do it, then the badge goes
+    // until the scene offers it again. (card.onActivate; card.visual.glyph is its icon)
+    if (this._card?.onActivate) {
+      const act = this._card.onActivate
+      this._card.onActivate = null                 // once only: it is offered again when the scene re-notifies
+      this.clearNotify()
+      act()
+      return
+    }
     if (this._card?.id === 'disembark') {
       this._scene.boatSystem && this._scene._doDisembark?.()
       this.clearNotify()
@@ -172,6 +181,25 @@ clearNotify() {
     this._badgeVisible = true
     badge.style.display = 'block'
     this._scene?.joystick?.setStone?.(true, () => this._activateBadge())
+
+    // A glyph badge (ogham): a small icon on a clear ground, passing touches through
+    // to the moon, so its phases show and its swipes still work. A tap on the moon, or
+    // on the brooch's stone, is the press.
+    badge.style.pointerEvents = visual?.glyph ? 'none' : 'all'
+    if (visual?.glyph) {
+      const g = visual.glyph, ctx = badge.getContext('2d')
+      ctx.clearRect(0, 0, badge.width, badge.height)
+      ctx.imageSmoothingEnabled = true
+      const k = Math.min(badge.width * 0.8 / g.width, badge.height * 0.8 / g.height)
+      const w = g.width * k, h = g.height * k
+      ctx.globalAlpha = 0.95
+      ctx.drawImage(g, (badge.width - w) / 2, (badge.height - h) / 2, w, h)
+      ctx.globalAlpha = 1
+      requestAnimationFrame(() => { badge.style.opacity = '1' })
+      const audioCtx = this._scene?.sound?.context
+      if (audioCtx) SoundBoard.playWeb('BADGE_APPEAR', audioCtx)
+      return
+    }
 
     if (visual?.gid) {
       const src = this._scene.perspectiveGround?._getTileCanvas(visual.gid)
@@ -351,6 +379,7 @@ clearNotify() {
 
   _openPanel() {
     if (!this._card || this._isOpen) return
+    if (this._card.onActivate) return this._activateBadge()      // a tap on the moon does the same
 
     const zone = this._active
     const type = zone?.getData('type')

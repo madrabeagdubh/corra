@@ -74,6 +74,7 @@ import * as PGRTiles from './pgr/pgrTileCache.js'
 import * as PGRBuildings from './pgr/pgrBuildings.js'
 import * as PGRCliffs from './pgr/pgrCliffFaces.js'
 import * as PGRPreview from './pgr/pgrNorthPreview.js'
+import * as PGRFarBackdrop from './pgr/pgrFarBackdrop.js'
 import * as PGRBanks from './pgr/pgrWaterBanks.js'
 import * as PGRPlayer from './pgr/pgrPlayerBoat.js'
 import { backViewCanvas } from './backView.js'
@@ -897,6 +898,11 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
       this._gCtx.fillRect(0, sh - 40, sw, 40)
     }
 
+    // A scene that looks out over open water paints its far field here, in
+    // screen space, over the flat fill and under every tile (pgrFarBackdrop.js).
+    const _far = this.scene?.getFarBackdrop?.()
+    if (_far) PGRFarBackdrop.drawFarBackdrop(this, this._gCtx, _far, { horizonPx, lipY: this._rowToScreenY(0), sw })
+
     const _lastRowScreenY = this._rowToScreenY(mapH)
     if (_lastRowScreenY !== null && _lastRowScreenY < sh) {
       this._gCtx.fillStyle = _nearColor
@@ -1257,7 +1263,10 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
               this._drawTrapezoidTinted(this._gCtx, gid0, _qTL, _qTR, _qBL, _qBR, tint0)
             }
 
-            const _hasSouthFace = inMap && tileElev > 0 && southElev < tileElev
+            // a scene can say a tile is raised for the player's sake only (a jetty's
+            // deck, drawn by the scene itself): it gets no earth faces at its sides
+            const _noFaces = !!this.scene?.noElevationFaces?.(tileCol, tileRow)
+            const _hasSouthFace = inMap && !_noFaces && tileElev > 0 && southElev < tileElev
               && yBotClamped >= horizonPx + 30
               && !(layer3?.[tileRow]?.[tileCol])
 
@@ -1276,7 +1285,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
 
             const _eastElev = (tileCol + 1 < mapW)
               ? (this._elev?.[tileRow]?.[tileCol + 1] ?? 0) : 0
-            if (inMap && tileElev > 0 && _eastElev < tileElev
+            if (inMap && !_noFaces && tileElev > 0 && _eastElev < tileElev
                 && yBotClamped >= horizonPx + 30) {
               _deferredCliffs.push({
                 col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
@@ -1286,7 +1295,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
 
             const _westElev = (tileCol - 1 >= 0)
               ? (this._elev?.[tileRow]?.[tileCol - 1] ?? 0) : 0
-            if (inMap && tileElev > 0 && _westElev < tileElev
+            if (inMap && !_noFaces && tileElev > 0 && _westElev < tileElev
                 && yBotClamped >= horizonPx + 30) {
               _deferredCliffs.push({
                 col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,
@@ -1301,7 +1310,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
             // header note for why this didn't exist before.
             const _northElev = (tileRow - 1 >= 0)
               ? (this._elev?.[tileRow - 1]?.[tileCol] ?? 0) : 0
-            if (inMap && tileElev > 0 && _northElev < tileElev
+            if (inMap && !_noFaces && tileElev > 0 && _northElev < tileElev
                 && yBotClamped >= horizonPx + 30) {
               _deferredCliffs.push({
                 col: tileCol, row: tileRow, elev: tileElev, alpha: tileAlpha,

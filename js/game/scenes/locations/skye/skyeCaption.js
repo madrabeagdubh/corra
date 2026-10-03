@@ -87,6 +87,7 @@ export default class SkyeCaption {
     const y = box && pgr?._sh ? (box.y - box.h * 0.5) / pgr._sh : null
     ts?.setDialogueMode?.(true, y)
     this._speaking = !!ts
+    if (this._scene) this._scene._speakTile = at ? [at[0], at[1]] : null         // the camera comes in on the speaker
   }
 
   // For a moment the English line reads something else, then corrects
@@ -101,6 +102,7 @@ export default class SkyeCaption {
   _unfocus() {
     if (!this._speaking) return
     this._speaking = false
+    if (this._scene) this._scene._speakTile = null
     this._scene?.tiltShift?.setDialogueMode?.(false)
   }
 

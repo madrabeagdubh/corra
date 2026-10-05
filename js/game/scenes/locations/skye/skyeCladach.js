@@ -11,10 +11,10 @@
 //      something to discover yet. He welcomes them and invites them up.
 //   1. THE CLIMB -- no orders, no drill: the player finds the carved stairs
 //      (one per riser) and climbs. If they stall a while, the brooch
-//      flashes toward the next stair -- help, never a requirement. Carved
-//      ogham on standing stones (oghamMarks.js), each word
-//      a moon tile that can be read again, rewards wandering along the
-//      terraces.
+//      flashes toward the next stair -- help, never a requirement. Words
+//      engraved in Aonchlo on the wall (wallEngravings.js), each one
+//      a chisel on the moon tile that can be read again, reward looking
+//      along the wall from the terraces.
 //   2. THE PEP TALK -- on the top his conversation opens by itself: welcome
 //      to Skye, not many come this way, you did. Then the choice: on to the
 //      loch, or to the garden (skyeGairdin.js, west) to practise first.
@@ -25,10 +25,10 @@
 //
 // THE TIDE. Two maps, one scene: skye_cladach (sea in, quay under water)
 // and skye_cladach_ebb (sea out: quay, strand and weed laid bare, three
-// more words carved on the quay -- the foundations under the warriors'
-// fury, courage and strength). getMapKey() picks the ebb once the training
-// is done (faiche_tournament_done / brooch_silver). Sea, swell, weed and
-// carving: tideWater.js, oghamMarks.js.
+// more words engraved on the foot of the wall -- the foundations under the
+// warriors' fury, courage and strength). getMapKey() picks the ebb once the
+// training is done (faiche_tournament_done / brooch_silver). Sea, swell and
+// weed: tideWater.js. Engraving: wallEngravings.js.
 //
 // Tap-to-move is OFF on this map until `lesson_movement` (set by the tap
 // lesson in the garden).
@@ -37,8 +37,8 @@
 // from the tutorial to the main adventure). Its dialogue sets
 // `leave_skye`, a one-off trigger the scene clears as it acts on it.
 //
-// Her lines are captions (skyeCaption.js), not cards: cards hide the
-// d-pad, and here the player moves while she talks.
+// His lines are captions (skyeCaption.js), not cards: cards hide the
+// d-pad, and here the player moves while he talks.
 //
 // NOTES: climb_started (dialogue) -> climb_top -> pep_done; [garden] lesson_movement
 //        tide_out_seen  the ebb tide's one-off caption has been shown
@@ -51,7 +51,7 @@ import SkyeCaption from './skyeCaption.js'
 import { dash, dustPuff, figureBox, moveFigure } from './dustDash.js'
 import ShoreProps from './shoreProps.js'
 import TideWater from './tideWater.js'
-import OghamMarks, { WORDS } from './oghamMarks.js'
+import WallEngravings, { WORDS, isEngraved, fontReady } from './wallEngravings.js'
 import HarbourWall, { combineStructures } from './harbourWall.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { initReturnCrossing } from '../../returnCrossing.js'
@@ -60,7 +60,7 @@ import { GameSettings } from '../../../settings/gameSettings.js'
 const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
 const EXIT_DASH   = [18, 3]                         // north, toward the loch
 const GARDEN_DASH = [2, 19]                         // west, toward the garden
-const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // her walk before the dash
+const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // his walk before the dash
 const INTRO_DELAY_MS = 5000
 const STALL_MS = 10000                              // standing still this long, the brooch helps
 // The carved stairs, bottom to top: [riser row, stair column].
@@ -96,6 +96,7 @@ export class SkyeCladach extends SkyeScene {
   }
 
   async create(data) {
+    await fontReady()                           // the engravings are baked in Aonchlo
     await super.create(data)
     if (!this.player) return                    // base create failed (logged)
 
@@ -107,19 +108,19 @@ export class SkyeCladach extends SkyeScene {
 
     // The wall is dressed as harbour stonework (harbourWall.js); the
     // generic stone overlay handles any other steep face.
-    const wall = new HarbourWall(this, this.mapData.wall)
+    const wall = new HarbourWall(this, this.mapData.wall, { keepClear: isEngraved })
     // (the jetty's raised deck makes steep slopes at its edges that aren't rock)
     const J = this.mapData.jetty
     const nearJetty = (tx, ty) => !!J && tx >= J.x0 - 1 && tx <= J.x1 + 1 && ty >= J.y0 - 1 && ty <= J.y1 + 1
     this.steepFaces = new SteepFaceRenderer(this, { skip: (tx, ty) => wall.ownsRow(ty) || nearJetty(tx, ty) })
-    this._ogham = new OghamMarks(this)
-    this._setUpOgham()
+    this._engravings = new WallEngravings(this, wall)
+    this._engravedNear = {}
     // back to front within each row: the wall, then the tide over it (weed
-    // or water), then the carving, then the jetty and boat
+    // or water), then the engraving, then the jetty and boat
     this.perspectiveGround?.setStructures(combineStructures(
       wall,
-      this.mapData.tide ? new TideWater(this, this.mapData.tide, { ogham: this._ogham }) : null,
-      this._ogham,
+      this.mapData.tide ? new TideWater(this, this.mapData.tide) : null,
+      this._engravings,
       new ShoreProps(this, { jetty: this.mapData.jetty, boat: this.mapData.boat }),
     ))
 
@@ -143,7 +144,7 @@ export class SkyeCladach extends SkyeScene {
 
   update(time, delta) {
     this.steepFaces?.update()
-    // Arrival: the first d-pad press opens her conversation instead of
+    // Arrival: the first d-pad press opens his conversation instead of
     // walking. Checked before super.update() so the press never moves.
     if (this._phase === 'arrival' && this.joystick?.force > 10) {
       this.joystick.reset?.()
@@ -156,7 +157,7 @@ export class SkyeCladach extends SkyeScene {
     // The climb is free. Arriving on top opens the pep talk; standing about
     // at the foot of the wall for a while makes the brooch flash the way.
     if (panelOpen) this._stillSince = time           // a conversation isn't standing about
-    if (!panelOpen) this._readOgham()
+    if (!panelOpen) this._readEngravings()
     if (this._phase === 'free' && !GameState.hasNote('pep_done') && !panelOpen) {
       if (this._onTop()) this._pepTalk()
       else this._brooch(time)
@@ -166,8 +167,8 @@ export class SkyeCladach extends SkyeScene {
     if (GameState.hasNote('leave_skye') && !panelOpen) this._leaveSkye()
   }
 
-  // Taps: during arrival a tap opens her conversation; otherwise tap-to-
-  // move doesn't exist here until the loch has taught it.
+  // Taps: during arrival a tap opens his conversation; otherwise tap-to-
+  // move doesn't exist here until the garden has taught it (lesson_movement).
   _onTapBeforePath(canvasX, canvasY) {
     if (this._phase === 'arrival') { this._openIntro(); return false }
     return GameState.hasNote('lesson_movement')
@@ -235,7 +236,7 @@ export class SkyeCladach extends SkyeScene {
   _offToLoch() { this._offTo(EXIT_DASH, LINES.done) }
 
   // "Lean mé": a few unhurried steps west, a few quicker ones, then the
-  // dash -- the player sees which way she's going before she's gone.
+  // dash -- the player sees which way he's going before he's gone.
   _leadToGarden() {
     this._phase = 'dash'
     const u = this._conall
@@ -291,7 +292,7 @@ export class SkyeCladach extends SkyeScene {
     })
   }
 
-  // Gone: flag hidden, zone moved off the map so her badge can't appear.
+  // Gone: flag hidden, zone moved off the map so his badge can't appear.
   _vanishConall(puff) {
     const u = this._conall
     if (!u) return
@@ -336,32 +337,30 @@ export class SkyeCladach extends SkyeScene {
     }, 650)
   }
 
-  // The carved words are read by walking up to their stones: the word's ogham
-  // appears over the moon (clear ground, so the moon still shows and swipes pass
-  // through); a tap brings the word up as a caption (skyeCaption.js), and the
-  // icon goes until you step away and come back.
-  _setUpOgham() { this._oghamNear = {} }
-
-  _readOgham() {
-    if (!this._ogham || !this.player || this._phase === 'arrival') return
+  // The engraved words are read by standing below them (the terrace, the quay):
+  // a chisel appears over the moon (clear ground, so the moon still shows and
+  // swipes pass through); a tap brings the word up as a caption
+  // (skyeCaption.js), and the icon goes until you step away and come back.
+  _readEngravings() {
+    if (!this._engravings || !this.player || this._phase === 'arrival') return
     const panel = this._encounterPanel
     if (!panel) return
     const ts = this.tileSize, px = this.player.logicalX / ts, py = this.player.logicalY / ts
-    const spent = this._oghamNear
+    const spent = this._engravedNear
     let near = null, best = 2.2
     for (const w of WORDS) {
-      const d = Math.hypot(px - (w.at[0] + 0.5), py - (w.at[1] + 0.5))
+      const d = this._engravings.distance(w, px, py)
       if (d > 3.2) spent[w.id] = false                       // stepped away: it can be read again
-      if (!this._ogham.isShown(w) || spent[w.id]) continue
+      if (!this._engravings.isShown(w) || spent[w.id]) continue
       if (d < best) { best = d; near = w }
     }
-    const mine = panel._card?.id?.startsWith('ogham:')
+    const mine = panel._card?.id?.startsWith('engraving:')
     if (near) {
       if (panel._card && !mine) return                        // someone else's badge (Conall's)
-      if (panel._card?.id === 'ogham:' + near.id && panel._badgeVisible) return
+      if (panel._card?.id === 'engraving:' + near.id && panel._badgeVisible) return
       panel.notify({
-        id: 'ogham:' + near.id,
-        visual: { glyph: this._ogham.icon[near.id] },
+        id: 'engraving:' + near.id,
+        visual: { glyph: this._engravings.icon[near.id] },
         onActivate: () => {
           spent[near.id] = true
           this._caption?.setColor('#d6cdb4')

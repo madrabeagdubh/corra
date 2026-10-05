@@ -15,8 +15,7 @@
 //   • foam laid along the shore, and a surge that slides up the stone and
 //     back again;
 //   • at LOW tide, the exposed quay and strand: wet, darker, puddled and
-//     strewn with weed (thinner over the carved words, which it must not
-//     bury).
+//     strewn with weed.
 //
 // mapData.tide = { state: 'high'|'low', lift, seaTop, quay:[r0,r1], strand }
 // Painted per row, so nearer rows (the jetty, the boat, the player's own
@@ -36,12 +35,10 @@ const MORE_ROWS = 10                                   // phantom rows past the 
 export default class TideWater {
   /**
    * @param tide   mapData.tide
-   * @param opts   { ogham } an OghamMarks, to keep weed off the words
    */
-  constructor(scene, tide, opts = {}) {
+  constructor(scene, tide) {
     this.scene = scene
     this.tide = tide
-    this.ogham = opts.ogham || null
     this.t0 = performance.now()
     const mapH = scene.mapData?.height ?? 36
     this.lastRow = mapH + MORE_ROWS
@@ -245,7 +242,7 @@ export default class TideWater {
         ctx.beginPath(); ctx.ellipse(px, py, s * (0.16 + 0.12 * hash(col, row, 24)), s * 0.045, 0, 0, Math.PI * 2); ctx.fill()
       }
 
-      // weed -- thinned over the carved words, never quite clearing them
+      // weed
       let d = dens * (0.55 + 0.9 * hash(Math.floor(col / 2), row, 31))
       if (hash(col, row, 32) > d) continue
       const n = 2 + Math.floor(hash(col, row, 33) * 3)

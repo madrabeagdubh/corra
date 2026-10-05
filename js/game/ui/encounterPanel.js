@@ -123,7 +123,7 @@ export class EncounterPanel {
   // What tapping the badge does. The brooch's stone does the same while lit
   // (see _showBadge), so either the portrait on the moon or the stone works.
   _activateBadge() {
-    // A card that brings its own action (the ogham stones): do it, then the badge goes
+    // A card that brings its own action (the cladach engravings): do it, then the badge goes
     // until the scene offers it again. (card.onActivate; card.visual.glyph is its icon)
     if (this._card?.onActivate) {
       const act = this._card.onActivate
@@ -182,7 +182,7 @@ clearNotify() {
     badge.style.display = 'block'
     this._scene?.joystick?.setStone?.(true, () => this._activateBadge())
 
-    // A glyph badge (ogham): a small icon on a clear ground, passing touches through
+    // A glyph badge (the engravings' chisel): a small icon on a clear ground, passing touches through
     // to the moon, so its phases show and its swipes still work. A tap on the moon, or
     // on the brooch's stone, is the press.
     badge.style.pointerEvents = visual?.glyph ? 'none' : 'all'

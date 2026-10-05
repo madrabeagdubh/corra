@@ -104,7 +104,7 @@ export const skyeCladachContent = {
 
       ],
     },
-    // (the ogham stones have no encounters: the scene captions them as you walk up -- oghamMarks.js)
+    // (the engraved words have no encounters: the scene captions them as you stand below them -- wallEngravings.js)
     {
       id: 'boat',
       // The jetty head. The boat itself is drawn by ShoreProps (moored

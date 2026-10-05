@@ -131,8 +131,13 @@ function bakeStairs(seed) {
 }
 
 export default class HarbourWall {
-  constructor(scene, wall) {
+  /**
+   * @param opts  { keepClear(col, row) -> bool }: tiles to keep the ironwork off
+   *              (the engraved words, wallEngravings.js)
+   */
+  constructor(scene, wall, opts = {}) {
     this.scene  = scene
+    this.keepClear = opts.keepClear || null
     this.wall   = wall || null
     this.risers = new Set(wall?.risers || [])
     this.ledges = new Set(wall?.ledges || [])
@@ -239,6 +244,11 @@ export default class HarbourWall {
       const col2 = col + 2 + Math.floor(hash(col, row, 12) * 2)
       if (!byCol.has(col2)) continue
       if (gap != null && gap >= col - 1 && gap <= col2 + 1) continue   // keep the stair clear
+      if (this.keepClear) {                                              // and the carved words
+        let hit = false
+        for (let c = col - 1; c <= col2 + 1 && !hit; c++) hit = this.keepClear(c, row)
+        if (hit) continue
+      }
       const q1 = byCol.get(col), q2 = byCol.get(col2)
       const p1 = this._at(q1, 0.5, 0.3), p2 = this._at(q2, 0.5, 0.3)
       const r = Math.max(2, s * 0.07)

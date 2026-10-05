@@ -132,13 +132,12 @@ const cladach = (tide) => ({
       //   THE WALL   three stone risers (rows 26, 24, 22) with one-row
       //              terraces between (25, 23). Every riser tile is solid
       //              (blockMask) except ONE per riser -- the hidden stair,
-      //              drawn identically to the rest: only her calls find it.
+      //              drawn identically to the rest: only his calls find it.
       //                gaps: (17,26)  (19,24)  (16,22)
       //   rows 0-21 the headland top, open ground running north to the
-      //              loch. Uathach waits at (17,20).
+      //              loch. Conall waits at (17,20).
       const LV = [0.1, 1.1, 2.1, 3.1]              // foot, terrace 1, terrace 2, top
       const GAPS = { 26: 17, 24: 19, 22: 16 }      // riser row -> stair column
-      const OGHAM_STONES = [[11, 23], [19, 17], [25, 23], [11, 27], [14, 27], [25, 27]]   // oghamMarks.js (solid)
       const FLOOD_ROW = HIGH_TIERS === 1 ? 25 : 23          // first drowned row
       const LIFT = LV[HIGH_TIERS] + 0.2            // the high sea's surface, above the low sea
       const JETTY = HIGH
@@ -196,8 +195,7 @@ const cladach = (tide) => ({
           blockMask: grid(W, H, (x, y) =>
             (inBox(JETTY, x, y) ? y >= JETTY.y1 - 1 :                   // the head (two rows) is the boat's
               (flooded(x, y) || (y in GAPS && x !== GAPS[y]) ||
-               (y >= 22 && y <= 26 && (x === 0 || x === W - 1)) ||
-               OGHAM_STONES.some(([sx, sy]) => sx === x && sy === y))) ? 1 : 0),
+               (y >= 22 && y <= 26 && (x === 0 || x === W - 1)))) ? 1 : 0),
           // the wall, its terraces and its foot read as bare rock (the
           // risers also get SteepFaceRenderer's stone texture on top)
           stoneTint: grid(W, H, (x, y) =>

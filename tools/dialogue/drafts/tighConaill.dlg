@@ -1,0 +1,24 @@
+# tighConaill -- Conall's morning, in his cabin: hello
+#
+# The player wakes in his bed after the landfall. A word of greeting and a word about the
+# light; then the scene sends him to the window to draw the curtain (no note: it is just
+# what happens when this conversation ends). Read at the player's own pace.
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/tighConaill
+@encounter 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — awake
+@continue
+Ah, there you are.
+% Á, tá tú ann.
+You slept like a stone. I was beginning to wonder.
+% Chodail tú mar chloch. Bhí imní ag teacht orm.
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — the light
+Let us have some light on the matter.
+% Cuirimis solas ar an scéal.

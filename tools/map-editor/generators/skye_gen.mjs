@@ -135,7 +135,7 @@ const cladach = (tide) => ({
       //              drawn identically to the rest: only his calls find it.
       //                gaps: (17,26)  (19,24)  (16,22)
       //   rows 0-21 the headland top, open ground running north to the
-      //              loch. Conall waits at (17,20).
+      //              loch. Conall waits at (18,23).
       const LV = [0.1, 1.1, 2.1, 3.1]              // foot, terrace 1, terrace 2, top
       const GAPS = { 26: 17, 24: 19, 22: 16 }      // riser row -> stair column
       const FLOOD_ROW = HIGH_TIERS === 1 ? 25 : 23          // first drowned row

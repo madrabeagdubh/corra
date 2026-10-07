@@ -30,7 +30,11 @@ export function makeBackView({ width: w, height: h, data: d }) {
   if (top >= h) return { width: w, height: h, data: out }
   const headW0 = rowSpan(top)[1] - rowSpan(top)[0] + 1
   let bottom = top
-  for (let y = top + 1; y < h; y++) { const s = rowSpan(y); if (!s) break; if (s[1] - s[0] + 1 > Math.max(headW0 + 3, headW0 * 1.6)) break; bottom = y }
+  // The head ends where the shoulders begin: the width jumps. A bare champion's shoulders are barely wider
+  // than his head (a shirt, no armour), so the jump is small, and if it is missed the whole body is taken for
+  // head and painted hair-colour. So: a small jump will do, and a head is no taller than it is wide (+25%).
+  const headMaxH = Math.round(headW0 * 1.25)
+  for (let y = top + 1; y < h && y - top <= headMaxH; y++) { const s = rowSpan(y); if (!s) break; if (s[1] - s[0] + 1 > Math.max(headW0 + 3, headW0 * 1.25)) break; bottom = y }
   const hs = rowSpan(top), mid = Math.round((hs[0] + hs[1]) / 2)
   // hair = commonest colour on the top row(s); face = commonest colour in the head's lower half
   const commonest = (y0, y1) => { const m = new Map()

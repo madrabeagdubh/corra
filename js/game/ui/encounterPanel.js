@@ -132,6 +132,7 @@ export class EncounterPanel {
       act()
       return
     }
+    if ((this._card?.visual?.glyph || this._card?._isDoor) && !this._card.onActivate) return        // a look (or a door) already taken: a second tap before the badge fades is nothing
     if (this._card?.id === 'disembark') {
       this._scene.boatSystem && this._scene._doDisembark?.()
       this.clearNotify()
@@ -197,7 +198,7 @@ clearNotify() {
       ctx.globalAlpha = 1
       requestAnimationFrame(() => { badge.style.opacity = '1' })
       const audioCtx = this._scene?.sound?.context
-      if (audioCtx) SoundBoard.playWeb('BADGE_APPEAR', audioCtx)
+      if (audioCtx) SoundBoard.playWeb('HARP_CHIME', audioCtx)       // a thing to look at: a harp chord, not a blip
       return
     }
 
@@ -489,7 +490,8 @@ clearNotify() {
 
     // A node with questions loops back to itself after each answer, so it
     // needs a way out. If the content didn't provide one, add it.
-    if (opts.length && !opts.some(o => o.exit)) opts.push(DEFAULT_EXIT_OPTION)
+    // (an option marked `last` plays out and then ends the conversation, so it is a way out too)
+    if (opts.length && !opts.some(o => o.exit || o.last)) opts.push(DEFAULT_EXIT_OPTION)
 
     // Paging. `page` is per node, per conversation: leaving and returning
     // starts at the first page again.
@@ -559,6 +561,31 @@ clearNotify() {
               }
             }
             go()
+          })
+          return
+        }
+
+        // A node can carry a scripted exchange of its own (`>` / `<` lines straight under
+        // the node, no button): after the card, the turns play out card by card, and then go().
+        if (Array.isArray(d.exchange) && d.exchange.length) {
+          this._chainShow({
+            exchange:   d.exchange.map(t => ({
+              say:      this._fill(t.say),
+              sayEn:    this._fill(t.sayEn),
+              replyGa:  this._fill(t.replyGa),
+              replyEn:  this._fill(t.replyEn),
+            })),
+            irish:      '',
+            english:    '',
+            heroGa:     '',
+            heroEn:     '',
+            heroGraphicKey: this._resolveHeroGraphicKey(),
+            type:       'encounter_card',
+            bgKey:      this._resolveBgKey(),
+            graphicKey: this._resolveNpcGraphicKey(zone),
+            options:    null,
+            keepChromeOnHide: true,
+            onDismiss:  go,
           })
           return
         }
@@ -810,7 +837,8 @@ clearNotify() {
     // player comes back to the NEXT node's questions without the panel ever
     // closing. That is what makes a chain of questions feel like one
     // conversation instead of several.
-    const after = opt.exit
+    // `last`: the reply (or exchange) is shown, and then the conversation ends.
+    const after = (opt.exit || opt.last)
       ? () => this._onPanelClosed()
       : () => this._reopenDialogue(zone)
 

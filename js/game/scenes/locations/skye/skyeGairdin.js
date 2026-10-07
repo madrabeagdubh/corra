@@ -78,7 +78,7 @@ export class SkyeGairdin extends SkyeScene {
     return {
       species: ['mearacan', 'noinin', 'minscoth', 'crobhein', 'aiteanntor'],
       density: 0.4, perTile: 2, scaleJitter: 0.35, onGround: true,
-      allowAt: (key, col, row) => Math.hypot(col - c[0], row - c[1]) >= from,
+      allowAt: (key, col, row) => Math.hypot(col - c[0], row - c[1]) >= from && (this.mapData?.pathDist?.[row]?.[col] ?? 1) >= 0.55,   // not on the paths
       isWater: () => false,
     }
   }
@@ -97,8 +97,7 @@ export class SkyeGairdin extends SkyeScene {
   // Taps come with the tap lesson; a tap on the training dummy is a cut or a walk up to it.
   _onTapBeforePath(canvasX, canvasY) {
     if (this._course?.tapDummy?.(canvasX, canvasY)) return false
-    if (this._course) return this._course.tapsOn()
-    return true
+    return true  // tap-to-walk is always on; Conall's lesson still teaches it
   }
 
   // ── the training dummy, when the course has it out ───────────────────────

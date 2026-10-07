@@ -493,7 +493,12 @@ export default class TextPanel {
     if (!this.isVisible || this.isFading) return
     // Restore focus. Placed after the early return on purpose: a
     // no-op hide() must not un-blur a panel that is still up.
-    this.scene?.tiltShift?.setDialogueMode(false)
+    // A card that is only a step inside an ongoing conversation
+    // (keepChrome) leaves the world out of focus: releaseChrome() brings
+    // it back when the conversation ends. Any other panel restores here.
+    if (!(keepChrome && this.currentPanelType === 'encounter_card')) {
+      this.scene?.tiltShift?.setDialogueMode(false)
+    }
     this.isFading = true
     const _wasCard = (this.currentPanelType === 'encounter_card')
     this._killRevealTweens()
@@ -1923,6 +1928,9 @@ if (this.currentPanelType === 'encounter_card') {
    * once per card. Safe to call when there is no chrome.
    */
   releaseChrome() {
+    // The conversation is over: back into focus. (hide() leaves the
+    // blur up between cards, so the blur persists across a conversation.)
+    this.scene?.tiltShift?.setDialogueMode(false)
     if (!this._chrome.length) { this._chromeGeom = null; return }
     const targets = [...this._chrome]
     this._chrome     = []

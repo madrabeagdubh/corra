@@ -1,0 +1,20 @@
+# tighConaillDoor -- Conall at the door, going
+#
+# He has opened the door. One thing more: the brooch. The scene throws it onto the clothes
+# on the chair when the card closes (note tigh_brooch); he leaves and closes the door behind him.
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/tighConaill
+@encounter 2
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the brooch
+@note tigh_brooch
+Oh, one thing more.
+% Ó, rud amháin eile.
+Students at Dún Scáthach wear one of these.
+% Caitheann daltaí Dhún Scáthaigh ceann díobh seo.
+I'll leave it with your things.
+% Fágfaidh mé le do chuid éadaí é.

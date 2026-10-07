@@ -90,6 +90,7 @@ export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW
 
 export function drawPlayerAnimated(pgr, ctx, img, screenX, screenY, scaledTileW, heightMult) {
     if (!img) return
+    if (pgr._playerHidden) return        // a scene may keep the player out of the picture (asleep in a bed)
     ctx.globalAlpha = pgr._playerOcclusionAlpha ?? 1
     const t   = pgr._animT || 0
     const p   = pgr._player

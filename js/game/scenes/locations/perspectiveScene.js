@@ -1667,9 +1667,9 @@ perTile:        true,
         en:      door.en || 'The door',
         _isDoor: true,
         _door:   door,
+        onActivate: () => this._triggerDoor(door),     // the card carries its own action: nothing else's tap can fall through to the door
       }, nearest)
     }
-    this._encounterPanel._openPanel = () => this._triggerDoor(door)
     return true
   }
 

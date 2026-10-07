@@ -43,7 +43,13 @@
 //   % Cé thusa?                     Irish label
 //   @note knows_muireann            directives apply to the option
 //   @exit                           this option closes the conversation
+//   @last                           (options) shows its reply or exchange, THEN
+//                                   closes the conversation (an @exit option's
+//                                   reply is never shown). Counts as a way out.
 //   @silent                         no reply card
+//   > / <                           directly under a NODE (no option): an exchange
+//                                   the node plays out after its card, no button;
+//                                   then the conversation closes
 //   @easca playerName               (options) type a word; {playerName}
 //   @continue                       (nodes, no options) flow into the
 //                                   next node rather than closing
@@ -159,6 +165,7 @@ const LEGEND = (name) => `# ${name} — dialogue draft
 #   @hold               keep the card open rather than closing after this
 #   @first              (options) offer this only once
 #   @exit               (options) this one ends the conversation
+#   @last               (options) shows its reply, THEN ends the conversation
 #   @silent             (options) no reply card
 #   @again EN / GA      the nudge line when the player lingers
 #
@@ -221,6 +228,10 @@ if (EXPORT) {
     if (n.again)         L.push('@again ' + (n.again.en || '') +
                                 (n.again.ga ? ' / ' + n.again.ga : ''))
     pair(n.en, n.ga, '')
+    ;(n.exchange || []).forEach(tn => {
+      if (tn.sayEn)   pair(tn.sayEn, tn.say, '> ')
+      if (tn.replyEn) pair(tn.replyEn, tn.replyGa, '< ')
+    })
     L.push('')
     ;(n.options || []).forEach(o => {
       L.push('* ' + (o.en || ''))
@@ -228,6 +239,7 @@ if (EXPORT) {
       if (o.note)   L.push('@note ' + o.note)
       if (o.first)  L.push('@first')
       if (o.exit)   L.push('@exit')
+      if (o.last)   L.push('@last')
       if (o.silent) L.push('@silent')
       if (o.easca)  L.push('@easca ' + o.easca)
       if (o.eascaMatch) L.push('@eascaMatch ' + o.eascaMatch)
@@ -295,6 +307,7 @@ const setDirective = (target, word, rest, ln) => {
     case 'hold':   target.hold = true; return
     case 'first':  target.first = true; return
     case 'exit':   target.exit = true; return
+    case 'last':   target.last = true; return
     case 'silent': target.silent = true; return
     case 'easca':  target.easca = rest || 'playerName'; return
     case 'eascaMatch': target.eascaMatch = rest; return
@@ -377,8 +390,8 @@ raw.forEach((line, i) => {
 
   // ---- player line
   if (t.startsWith('>')) {
-    if (!opt) { fail(ln, '> player line outside an option'); return }
-    const turn = currentTurn(opt, true)
+    if (!opt && !node) { fail(ln, '> player line before any node'); return }
+    const turn = currentTurn(opt || node, true)
     addLine(turn, 'sayEn', t.slice(1).trim())
     last = { obj: turn, key: 'say' }
     return
@@ -386,8 +399,8 @@ raw.forEach((line, i) => {
 
   // ---- npc reply
   if (t.startsWith('<')) {
-    if (!opt) { fail(ln, '< reply line outside an option'); return }
-    const turn = currentTurn(opt, false)
+    if (!opt && !node) { fail(ln, '< reply line before any node'); return }
+    const turn = currentTurn(opt || node, false)
     addLine(turn, 'replyEn', t.slice(1).trim())
     last = { obj: turn, key: 'replyGa' }
     return
@@ -396,6 +409,7 @@ raw.forEach((line, i) => {
   // ---- plain speech, belongs to the node
   if (!node) { fail(ln, 'text before any node'); return }
   if (opt)   { fail(ln, 'text after an option — did you mean > or < ?'); return }
+  if (node.__turns) { fail(ln, 'plain text after the node\'s > / < lines — did you mean > or < ?'); return }
   addLine(node, 'en', t)
   last = { obj: node, key: 'ga' }
 })
@@ -404,6 +418,9 @@ raw.forEach((line, i) => {
 // before exchanges existed compiles byte-for-byte as it did. More than one
 // becomes an exchange the panel walks card by card.
 for (const n of nodes) {
+  // `>` / `<` lines straight under a node (no option): an exchange the node plays
+  // out after its own card, with no button. Always kept as an exchange.
+  if (n.__turns) { n.exchange = n.__turns; delete n.__turns }
   for (const o of n.options) {
     const turns = o.__turns || []
     delete o.__turns
@@ -427,6 +444,13 @@ for (const [i, n] of nodes.entries()) {
     }
   }
   check(n, 'ga', 'en', `node ${i} (${n.__name})`)
+  ;(n.exchange || []).forEach((tn, k) => {
+    check(tn, 'say', 'sayEn', `node ${i} turn ${k} (player line)`)
+    check(tn, 'replyGa', 'replyEn', `node ${i} turn ${k} (reply)`)
+  })
+  if (n.exchange && n.options.length) {
+    errors.push(`node ${i} (${n.__name}): has both > / < lines and options — pick one`)
+  }
   n.options.forEach((o, j) => {
     check(o, 'ga', 'en', `node ${i} option ${j}`)
     check(o, 'say', 'sayEn', `node ${i} option ${j} (player line)`)
@@ -436,8 +460,8 @@ for (const [i, n] of nodes.entries()) {
       check(tn, 'replyGa', 'replyEn', `node ${i} option ${j} turn ${k} (reply)`)
     })
   })
-  if (n.options.length && !n.options.some(o => o.exit)) {
-    errors.push(`node ${i} (${n.__name}): has options but none marked @exit — ` +
+  if (n.options.length && !n.options.some(o => o.exit || o.last)) {
+    errors.push(`node ${i} (${n.__name}): has options but none marked @exit (or @last) — ` +
                 `cards with buttons can't be swipe-dismissed, so the player is stuck`)
   }
 }
@@ -457,7 +481,7 @@ const q = s => "'" + String(s).replace(/\\/g, '\\\\')
 
 const KEY_ORDER = [
   'requires', 'note', 'setQuest', 'completeQuest', 'hold', 'first',
-  'exit', 'silent', 'easca', 'eascaMatch', 'continue', 'ga', 'en',
+  'exit', 'last', 'silent', 'easca', 'eascaMatch', 'continue', 'ga', 'en',
   'say', 'sayEn',
   'replyGa', 'replyEn',
   'exchange', 'again',

@@ -12,7 +12,7 @@ export function setBuildings(pgr, list) {
     for (const b of (list || [])) {
       const entry = {
         ...b,
-        anchorRow:    b.y + b.fh - 1,
+        anchorRow:    b.anchor ?? (b.y + b.fh - 1),
         centerColInt: Math.floor(b.x + b.fw / 2),
         canvas:       null,
       }
@@ -32,12 +32,24 @@ export function setBuildings(pgr, list) {
       }
       img.onerror = e => console.error('[PGR] building image failed:', b.src, e)
       img.src = '/' + b.src.replace(/^\//, '')
+      // cuboid faces: `top` and `side` are extra images (the front face is `src`)
+      for (const [key, field] of [['top', 'topCanvas'], ['side', 'sideCanvas']]) {
+        if (!b[key]) continue
+        const im = new Image()
+        im.onload = () => { entry[field] = im; pgr._lastCamX = null }
+        im.onerror = e => console.error('[PGR] building image failed:', b[key], e)
+        im.src = '/' + b[key].replace(/^\//, '')
+      }
       pgr._buildings.push(entry)
     }
     console.log('[PGR] buildings registered:', pgr._buildings.length)
   }
 
 export function drawBuilding(pgr, ctx, b, horizonPx, sw) {
+    if (b.hidden) return                                  // a scene can take a piece away (the sleeper, once he is up)
+    if (b.mode === 'cuboid')    return drawCuboid(pgr, ctx, b)
+    if (b.mode === 'wallplane') return drawWallPlane(pgr, ctx, b)
+    if (b.mode === 'diagplane') return drawDiagPlane(pgr, ctx, b)
     const frontRow   = b.anchorRow + 1
     const yBase      = pgr._rowToScreenY(frontRow)
     if (yBase === null || yBase < horizonPx) return
@@ -174,3 +186,68 @@ function drawBuildingDecal(pgr, ctx, b, cxTile, frontRow, os, horizonPx) {
     ]
   }
 
+
+
+// ── solid shapes seen in perspective (indoor rooms, furniture) ──────────────
+// A point on the ground (col, row) lifted `up` tiles.
+function lift(pgr, col, row, up) {
+  const y = pgr._rowToScreenY(row), sc = pgr._scaleAtRow(row)
+  if (y === null || !(sc > 0)) return null
+  return { x: pgr._colToScreenX(col, row), y: y - up * sc }
+}
+// An image over a quad (TL, TR, BR, BL on screen), as two triangles.
+function quad(pgr, ctx, img, sx, sy, sw, sh, TL, TR, BR, BL) {
+  pgr._drawAffineTriangle(ctx, img, { u: sx, v: sy }, { u: sx + sw, v: sy }, { u: sx + sw, v: sy + sh }, TL, TR, BR)
+  pgr._drawAffineTriangle(ctx, img, { u: sx, v: sy }, { u: sx + sw, v: sy + sh }, { u: sx, v: sy + sh }, TL, BR, BL)
+}
+// A vertical plane standing on column line `col`, from row r0 (u = 0) to row r1, `h` tiles high.
+function drawVertPlane(pgr, ctx, img, col, r0, r1, h, h0 = 0) {
+  const N = Math.max(4, Math.ceil((r1 - r0) * 3))
+  for (let i = 0; i < N; i++) {
+    const ra = r0 + (r1 - r0) * i / N, rb = r0 + (r1 - r0) * (i + 1) / N
+    const a0 = lift(pgr, col, ra, h0), a1 = lift(pgr, col, ra, h)
+    const b0 = lift(pgr, col, rb, h0), b1 = lift(pgr, col, rb, h)
+    if (!a0 || !b0) continue
+    quad(pgr, ctx, img, img.width * i / N, 0, img.width / N, img.height, a1, b1, b0, a0)
+  }
+}
+// The inside face of a side wall: b = { x: the column line, y: back row, fd: rows deep, h: tiles high, src }
+function drawWallPlane(pgr, ctx, b) {
+  ctx.globalAlpha = 1
+  drawVertPlane(pgr, ctx, b.canvas, b.x, b.y, b.y + b.fd, b.h)
+}
+// A vertical plane set slantwise across a corner, from ground point (x0, y0) to (x1, y1), `h` tiles high:
+// b = { x0, y0, x1, y1, h, src }
+function drawDiagPlane(pgr, ctx, b) {
+  ctx.globalAlpha = 1
+  const img = b.canvas, N = 8
+  for (let i = 0; i < N; i++) {
+    const ta = i / N, tb = (i + 1) / N
+    const pa = { c: b.x0 + (b.x1 - b.x0) * ta, r: b.y0 + (b.y1 - b.y0) * ta }
+    const pb = { c: b.x0 + (b.x1 - b.x0) * tb, r: b.y0 + (b.y1 - b.y0) * tb }
+    const a0 = lift(pgr, pa.c, pa.r, 0), a1 = lift(pgr, pa.c, pa.r, b.h)
+    const b0 = lift(pgr, pb.c, pb.r, 0), b1 = lift(pgr, pb.c, pb.r, b.h)
+    if (!a0 || !b0) continue
+    quad(pgr, ctx, img, img.width * i / N, 0, img.width / N, img.height, a1, b1, b0, a0)
+  }
+}
+// A box: b = { x, y (back row), fw, fd, h, src (front face), top, side, z0 (it floats on something: the bed's sleeper) }
+function drawCuboid(pgr, ctx, b) {
+  ctx.globalAlpha = 1
+  const x0 = b.x, x1 = b.x + b.fw, r0 = b.y, r1 = b.y + b.fd, h = b.h, z0 = b.z0 || 0
+  const camCol = pgr._perspCamCol()
+  const front = b.canvas, side = b.sideCanvas || b.canvas
+  if (x0 > camCol) drawVertPlane(pgr, ctx, side, x0, r0, r1, h, z0)      // its left face, when it is right of centre
+  if (x1 < camCol) drawVertPlane(pgr, ctx, side, x1, r0, r1, h, z0)
+  if (b.topCanvas) {
+    const t = b.topCanvas, N = Math.max(4, Math.ceil(b.fd * 4))
+    for (let i = 0; i < N; i++) {
+      const ra = r0 + b.fd * i / N, rb = r0 + b.fd * (i + 1) / N
+      const TL = lift(pgr, x0, ra, h), TR = lift(pgr, x1, ra, h), BR = lift(pgr, x1, rb, h), BL = lift(pgr, x0, rb, h)
+      if (!TL || !BL) continue
+      quad(pgr, ctx, t, 0, t.height * i / N, t.width, t.height / N, TL, TR, BR, BL)
+    }
+  }
+  const FL = lift(pgr, x0, r1, h), FR = lift(pgr, x1, r1, h), BRr = lift(pgr, x1, r1, z0), BLl = lift(pgr, x0, r1, z0)
+  if (FL && BRr) quad(pgr, ctx, front, 0, 0, front.width, front.height, FL, FR, BRr, BLl)
+}

@@ -14,7 +14,7 @@
 //      flashes toward the next stair -- help, never a requirement. Words
 //      engraved in Aonchlo on the wall (wallEngravings.js), each one
 //      a chisel on the moon tile that can be read again, reward looking
-//      along the wall from the terraces.
+//      along the wall from the terraces. (OFF for now: see ENGRAVINGS.)
 //   2. THE PEP TALK -- on the top his conversation opens by itself: welcome
 //      to Skye, not many come this way, you did. Then the choice: on to the
 //      loch, or to the garden (skyeGairdin.js, west) to practise first.
@@ -30,6 +30,11 @@
 // training is done (faiche_tournament_done / brooch_silver). Sea, swell and
 // weed: tideWater.js. Engraving: wallEngravings.js.
 //
+// THE LANDFALL (landfall.js) comes first: on a first arrival the cladach opens
+// with a cut-scene (Conall hails the champion, who staggers and falls; he
+// carries them off and it fades to black) in place of the welcome, climb and
+// pep talk described above, which stay in the code behind LANDFALL.
+//
 // Tap-to-move is OFF on this map until `lesson_movement` (set by the tap
 // lesson in the garden).
 //
@@ -42,6 +47,8 @@
 //
 // NOTES: climb_started (dialogue) -> climb_top -> pep_done; [garden] lesson_movement
 //        tide_out_seen  the ebb tide's one-off caption has been shown
+//        landfall_done  the opening cut-scene (landfall.js) has played
+//        landfall_talk  (set by landfall.js around Conall's hail: lets in his dialogue node 3)
 //
 // Layout constants must match skye_gen.mjs (skye_cladach).
 
@@ -56,6 +63,7 @@ import HarbourWall, { combineStructures } from './harbourWall.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { initReturnCrossing } from '../../returnCrossing.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
+import Landfall from './landfall.js'
 
 const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
 const EXIT_DASH   = [18, 3]                         // north, toward the loch
@@ -63,6 +71,15 @@ const GARDEN_DASH = [2, 19]                         // west, toward the garden
 const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // his walk before the dash
 const INTRO_DELAY_MS = 5000
 const STALL_MS = 10000                              // standing still this long, the brooch helps
+// The words engraved on the wall, and the chisel on the moon that reads them
+// (wallEngravings.js). OFF for now: too legible, and the chisel reads as
+// "engrave", not "read". Everything is kept; flip this to bring them back.
+const ENGRAVINGS = false
+// The landfall cut-scene (landfall.js) opens a first visit. false: the old
+// arrival (welcome, climb, pep talk). LANDFALL_REPLAY is for testing: play it
+// on every visit whatever the saved notes say, and don't record it as seen.
+const LANDFALL = true
+const LANDFALL_REPLAY = false
 // The carved stairs, bottom to top: [riser row, stair column].
 const STAIRS = [[26, 17], [24, 19], [22, 16]]
 
@@ -82,6 +99,10 @@ export class SkyeCladach extends SkyeScene {
   // done (the tournament fought, the brooch silver) the sea has drawn back.
   getMapKey() { return GameState.hasNote('faiche_tournament_done') || GameState.hasNote('brooch_silver') ? 'skye_cladach_ebb' : 'skye_cladach' }
 
+  // The champion stands as tall as Conall here (the default, 0.7, drew them
+  // about two thirds of his height beside him).
+  getPGRConfig() { return { ...super.getPGRConfig(), PLAYER_SCALE: 0.8 } }
+
   // The jetty's tiles are grass only so the player can stand on them; they must not
   // be painted with a bank of earth down to the water (pgrWaterBanks.js).
   noElevationFaces(tx, ty) { return this.noWaterBank(tx, ty) }
@@ -96,9 +117,13 @@ export class SkyeCladach extends SkyeScene {
   }
 
   async create(data) {
-    await fontReady()                           // the engravings are baked in Aonchlo
+    if (ENGRAVINGS) await fontReady()           // the engravings are baked in Aonchlo
     await super.create(data)
     if (!this.player) return                    // base create failed (logged)
+    // The sea runs on past the south edge. (Without this, the rows beyond the
+    // map mirror the real ones, jetty and all: a patch of grass floating in the
+    // sea, seen when the dialogue camera pulls up.)
+    if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = new Set(['south'])
 
     this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt(), color: '#c6d4ea' })
     this._conall = this._findFigure(SKYE_GID.WARDEN)
@@ -108,12 +133,12 @@ export class SkyeCladach extends SkyeScene {
 
     // The wall is dressed as harbour stonework (harbourWall.js); the
     // generic stone overlay handles any other steep face.
-    const wall = new HarbourWall(this, this.mapData.wall, { keepClear: isEngraved })
+    const wall = new HarbourWall(this, this.mapData.wall, ENGRAVINGS ? { keepClear: isEngraved } : {})
     // (the jetty's raised deck makes steep slopes at its edges that aren't rock)
     const J = this.mapData.jetty
     const nearJetty = (tx, ty) => !!J && tx >= J.x0 - 1 && tx <= J.x1 + 1 && ty >= J.y0 - 1 && ty <= J.y1 + 1
     this.steepFaces = new SteepFaceRenderer(this, { skip: (tx, ty) => wall.ownsRow(ty) || nearJetty(tx, ty) })
-    this._engravings = new WallEngravings(this, wall)
+    this._engravings = ENGRAVINGS ? new WallEngravings(this, wall) : null
     this._engravedNear = {}
     // back to front within each row: the wall, then the tide over it (weed
     // or water), then the engraving, then the jetty and boat
@@ -124,7 +149,15 @@ export class SkyeCladach extends SkyeScene {
       new ShoreProps(this, { jetty: this.mapData.jetty, boat: this.mapData.boat }),
     ))
 
-    if (GameState.hasNote('pep_done')) {
+    // A first arrival is the landfall cut-scene; later he's gone on ahead.
+    const landfall = LANDFALL && this._conall && (LANDFALL_REPLAY ||
+      !(GameState.hasNote('landfall_done') || GameState.hasNote('pep_done') ||
+        GameState.hasNote('climb_top') || GameState.hasNote('climb_started')))
+    if (landfall) {
+      this._phase = 'landfall'                   // none of the old arrival logic runs
+      this._landfall = new Landfall(this, this._conall, () => this._afterLandfall())
+      this._landfall.start()
+    } else if (GameState.hasNote('pep_done') || GameState.hasNote('landfall_done')) {
       this._vanishConall(false)                  // he's gone on ahead
       // sea out: the first time, say so (and so tell them to look down)
       if (this.mapData.tide?.state === 'low' && !GameState.hasNote('tide_out_seen')) {
@@ -143,6 +176,7 @@ export class SkyeCladach extends SkyeScene {
   }
 
   update(time, delta) {
+    this._landfall?.tick()                      // the cut-scene: before the player or camera move
     this.steepFaces?.update()
     // Arrival: the first d-pad press opens his conversation instead of
     // walking. Checked before super.update() so the press never moves.
@@ -158,7 +192,7 @@ export class SkyeCladach extends SkyeScene {
     // at the foot of the wall for a while makes the brooch flash the way.
     if (panelOpen) this._stillSince = time           // a conversation isn't standing about
     if (!panelOpen) this._readEngravings()
-    if (this._phase === 'free' && !GameState.hasNote('pep_done') && !panelOpen) {
+    if (this._phase === 'free' && !GameState.hasNote('pep_done') && !GameState.hasNote('landfall_done') && !panelOpen) {
       if (this._onTop()) this._pepTalk()
       else this._brooch(time)
     }
@@ -170,8 +204,20 @@ export class SkyeCladach extends SkyeScene {
   // Taps: during arrival a tap opens his conversation; otherwise tap-to-
   // move doesn't exist here until the garden has taught it (lesson_movement).
   _onTapBeforePath(canvasX, canvasY) {
+    if (this._phase === 'landfall') return false
     if (this._phase === 'arrival') { this._openIntro(); return false }
     return GameState.hasNote('lesson_movement')
+  }
+
+  // ── the landfall (landfall.js) ───────────────────────────────────────────
+  playerPose() { return this._landfall?.pose() ?? super.playerPose() }
+  hasContinuousAnimation() { return !!this._landfall?.alive || !!super.hasContinuousAnimation?.() }
+
+  // Black, and held: the next scene is Conall's cabin, where the eyes open (tighConaill.js).
+  // It takes the black over: it removes #landfall-veil itself, as the eyelids start to open.
+  _afterLandfall() {
+    if (!LANDFALL_REPLAY) GameState.addNote('landfall_done')
+    this.scene.start('skye_tigh_conaill', { champion: this.registry.get('selectedChampion') || window.selectedChampion })
   }
 
   // ── 0. arrival ───────────────────────────────────────────────────────────
@@ -397,6 +443,8 @@ export class SkyeCladach extends SkyeScene {
   _teardownLesson() {
     this.steepFaces?.destroy?.()
     this.steepFaces = null
+    this._landfall?.destroy()
+    this._landfall = null
     this._introTimer?.remove?.()
     this.joystick?.highlight?.(null)
     this._phase = 'free'

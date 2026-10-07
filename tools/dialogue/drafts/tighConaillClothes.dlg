@@ -1,0 +1,22 @@
+# tighConaillClothes -- Conall, after the curtain: the clothes, the stew, the training grounds
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/tighConaill
+@encounter 1
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the clothes, the stew
+@continue
+Your clothes are washed and dried, there on the chest.
+% Tá do chuid éadaí nite agus triomaithe, ansin ar an gcófra.
+Help yourself to the stew, and rest as long as you like.
+% Ith leat den stobhach, agus lig do scíth chomh fada agus is mian leat.
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — the training grounds
+When you are ready, come and find me in the training grounds.
+% Nuair a bheidh tú réidh, tar agus aimsigh mé ar an bhfaiche.
+The others are up at the castle. We will have the place to ourselves.
+% Tá na daoine eile thuas ag an gcaisleán. Beidh an áit againn dúinn féin.

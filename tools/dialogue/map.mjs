@@ -264,7 +264,7 @@ for (const file of dataFiles()) {
           const ow = `${at}.opt[${j}]`
           effects(o, ow); requires(o, ow)
 
-          const marks = [o.exit && 'exit', o.silent && 'silent', o.hold && 'hold']
+          const marks = [o.exit && 'exit', o.last && 'last', o.silent && 'silent', o.hold && 'hold']
             .filter(Boolean).join(',')
           say(`          · ${clip(o.en || o.ga, 30).padEnd(31)}` +
               `${marks ? '[' + marks + ']' : ''}` +
@@ -293,7 +293,7 @@ for (const file of dataFiles()) {
 
         // Cards with buttons cannot be swipe-dismissed, so options with no exit
         // trap the player. A node with NO options is dismissible and fine.
-        if (opts.length && !opts.some(o => o.exit)) {
+        if (opts.length && !opts.some(o => o.exit || o.last)) {
           addWarn('no way out — options but no exit', at)
         }
         opts.forEach((o, j) => {

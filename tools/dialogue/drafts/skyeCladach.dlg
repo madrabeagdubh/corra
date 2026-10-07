@@ -84,3 +84,37 @@ The wall is old, and there's a stair in it somewhere. Come up when you're ready.
 @hold
 Come up.
 % Tar aníos.
+
+
+# ══════════════════════════════════════════════════════════════════════
+# THE LANDFALL -- the cut-scene that opens a first arrival (landfall.js). The
+# scene sets landfall_talk and opens this itself, and clears it afterwards. The
+# cards are the player's to read at their own pace. There are no buttons: the
+# > / < lines straight under the node are an exchange it plays out, and then
+# the conversation closes. The last exchange is NOT here: it is played by the
+# scene as captions while Conall drags the champion off (landfall.js, LINES):
+#     (player)  I am coming.                    Tá mé ag teacht anois.
+#     (Conall)  I see that thou art.            Feicim go bhfuil.
+#     (Conall)  There is no need to narrate it. Ní gá é a rá
+# This node is last in the file on purpose: the saved npcProgress of anyone
+# who has already played the old welcome still points at the same nodes.
+= node 3 — the landfall
+@when note landfall_talk
+@hold
+Bright the brow above the oar!
+% Geal an éadan os cionn an maide!
+Hero's light sits on that forehead
+% Solas an ghaiscigh ar an éadain.
+Victory walks behind that shoulder
+% Gabhann an ghaiscíocht le hais na gualainne sin.
+
+> Long have I rowed, for Skye's grey shore.
+% Iomramh fada déanta agam, i gcomhair chladach oileánn an Cheo.
+> My back is telling me so.
+% Tá mo dhroim féin ag cur in iúl dom é.
+< Wilt thou come to the fire?
+% An dtiocfaidh tú chois tine?
+> I will come to the fire.
+% Tiocfadh mé chois tine.
+< Then come.
+% Tar, mar sin.

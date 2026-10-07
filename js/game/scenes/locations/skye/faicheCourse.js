@@ -45,6 +45,7 @@ import { DialogueHarp } from '../../../systems/music/dialogueHarp.js'
 import StepDrill from './stepDrill.js'
 import SkyeCaption from './skyeCaption.js'
 import GardenDummy from './gardenDummy.js'
+import { SKYE_GID } from './skyeScene.js'
 import { figureBox } from './dustDash.js'
 import { DUMMY_DONE, FOOT_DONE, SPAR_DONE } from './faicheLesson.js'
 import { SCRIPT, HINT_AFTER_MS, GIVE_UP_MS } from './courseScript.js'
@@ -70,6 +71,7 @@ const START = [18, 18]                     // the lár, the board's centre stone
 export const LEDGE_AT = [18, 7]            // where he waits: the ledge built into the earthen ring
 export const FIGHT_AT = [18, 14]           // where he stands to teach, and fights
 const TAP_SPOTS = [[20, 17], [16, 16], [16, 19], [18, 18]]   // four marks, all close and on screen from the lár
+const MEET_RANGE = 6                       // or this near the lár, whatever the camera shows
 const NEAR_FIGHT = 4                       // a bout starts within 5 tiles of him
 
 // the line he draws, and walks (waypoints; the tiles between are filled in)
@@ -313,7 +315,22 @@ export default class FaicheCourse {
   _meet() {
     const S = SCRIPT.meet
     this.m.HOME = [...LEDGE_AT]
-    this._later(2500, () => this._speech(S.intro, () => { GameState.addNote(MET); this._toMark(() => this._next()) }))
+    // he speaks when we come in sight of the ring, not while we are still a long way off
+    this._meetWait = () => this._speech(S.intro, () => { GameState.addNote(MET); this._toMark(() => this._next()) })
+  }
+
+  // He speaks once he is on the screen (or we are well into the ring), not while we are still a long way off.
+  _inSight() {
+    const sc = this.scene, pgr = sc.perspectiveGround, p = sc.player
+    if (!pgr || !p) return false
+    const ts = sc.tileSize, c = sc.mapData?.lar ?? [18, 18]
+    if (Math.hypot(p.logicalX / ts - c[0], p.logicalY / ts - c[1]) <= MEET_RANGE) return true
+    const f = (pgr._encounterFlags || []).find(o => o.visual?.gid === SKYE_GID.WARDEN)
+    if (!f) return true
+    const pr = pgr._projectLogical((f.tileX + 0.5) * pgr.tileDisplaySize, (f.tileY + 0.5) * pgr.tileDisplaySize)
+    if (!pr) return false
+    const W = sc.scale.width, H = sc.scale.height
+    return pr.screenX > 50 && pr.screenX < W - 50 && pr.screenY > H * 0.25 && pr.screenY < H * 0.8
   }
 
   // stand on the mark, then go on
@@ -844,6 +861,7 @@ export default class FaicheCourse {
   update(dt) {
     this.t += Math.min(50, dt)
     for (const q of this.queue.slice()) if (this.t >= q.at) { this.queue.splice(this.queue.indexOf(q), 1); q.fn() }
+    if (this._meetWait && !this.scene._encounterPanel?._isOpen && this._inSight()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
     this.drill?.update()
     this._carryTick()
     if (this.m.pa.onRoute()) this.routeT = this.t

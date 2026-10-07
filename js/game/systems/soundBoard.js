@@ -246,6 +246,26 @@ const SYNTH = {
     })
   },
 
+  // A soft harp chord, plucked low to high: what rings when something can be looked at.
+  // Three voicings (all of one pentatonic family) take turns, so it never tires.
+  HARP_CHIME(ctx, opts = {}) {
+    const CHORDS = [[293.66, 440.0, 587.33, 659.25], [329.63, 493.88, 659.25, 783.99], [246.94, 369.99, 493.88, 587.33]]
+    const notes = CHORDS[SYNTH._chimeIx = ((SYNTH._chimeIx ?? -1) + 1) % CHORDS.length]
+    const vol = opts.volume ?? 0.085, now = ctx.currentTime + 0.01
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200
+    lp.connect(ctx.destination)
+    notes.forEach((f, i) => {
+      const t = now + i * 0.075
+      for (const [mult, type, k, dur] of [[1, 'triangle', 1, 1.7], [2, 'sine', 0.3, 0.9]]) {
+        const o = ctx.createOscillator(), g = ctx.createGain()
+        o.type = type; o.frequency.setValueAtTime(f * mult, t)
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * k, t + 0.006)
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur)
+        o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur + 0.05)
+      }
+    })
+  },
+
   BADGE_APPEAR(ctx, opts = {}) {
     const now  = ctx.currentTime
     const vol  = opts.volume ?? 0.2

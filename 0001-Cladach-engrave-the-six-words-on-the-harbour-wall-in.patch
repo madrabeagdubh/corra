@@ -1,0 +1,792 @@
+From 791d6c5b15897c6c4dadeac0a3d70d0fc4925bb7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 5 Oct 2026 15:58:55 +0100
+Subject: [PATCH] Cladach: engrave the six words on the harbour wall in Aonchlo
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace the ogham standing stones with engravings cut into the wall:
+Neart, Misneach and Fearg on the top riser; Cineáltas, Trócaire and
+Foighne on the foot riser (visible at ebb). Tap-to-read behaviour is
+kept (stand below a word); the moon tile now shows a chisel icon.
+
+- oghamMarks.js -> wallEngravings.js (Aonchlo text baked per word,
+  laid along the riser face with PGR's affine helper)
+- harbourWall: keepClear option so ironwork avoids the words
+- tideWater: drop the unused ogham option
+- skye_gen: remove the solid stone tiles; maps regenerate identically
+- fix stale Uathach/"her" comments (Conall now meets the boat)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01E24zVp1VxoDYaBCxjaF3AX
+---
+ js/game/scenes/locations/skye/harbourWall.js  |  12 +-
+ js/game/scenes/locations/skye/oghamMarks.js   | 180 ---------------
+ js/game/scenes/locations/skye/skyeCladach.js  |  77 +++----
+ js/game/scenes/locations/skye/skyeScene.js    |   4 +-
+ js/game/scenes/locations/skye/tideWater.js    |   9 +-
+ .../scenes/locations/skye/wallEngravings.js   | 216 ++++++++++++++++++
+ js/game/ui/encounterPanel.js                  |   4 +-
+ public/data/skye/skyeCladach.js               |   2 +-
+ tools/map-editor/generators/skye_gen.mjs      |   8 +-
+ 9 files changed, 276 insertions(+), 236 deletions(-)
+ delete mode 100644 js/game/scenes/locations/skye/oghamMarks.js
+ create mode 100644 js/game/scenes/locations/skye/wallEngravings.js
+
+diff --git a/js/game/scenes/locations/skye/harbourWall.js b/js/game/scenes/locations/skye/harbourWall.js
+index 90f01d6..06fecd1 100644
+--- a/js/game/scenes/locations/skye/harbourWall.js
++++ b/js/game/scenes/locations/skye/harbourWall.js
+@@ -131,8 +131,13 @@ function bakeStairs(seed) {
+ }
+ 
+ export default class HarbourWall {
+-  constructor(scene, wall) {
++  /**
++   * @param opts  { keepClear(col, row) -> bool }: tiles to keep the ironwork off
++   *              (the engraved words, wallEngravings.js)
++   */
++  constructor(scene, wall, opts = {}) {
+     this.scene  = scene
++    this.keepClear = opts.keepClear || null
+     this.wall   = wall || null
+     this.risers = new Set(wall?.risers || [])
+     this.ledges = new Set(wall?.ledges || [])
+@@ -239,6 +244,11 @@ export default class HarbourWall {
+       const col2 = col + 2 + Math.floor(hash(col, row, 12) * 2)
+       if (!byCol.has(col2)) continue
+       if (gap != null && gap >= col - 1 && gap <= col2 + 1) continue   // keep the stair clear
++      if (this.keepClear) {                                              // and the carved words
++        let hit = false
++        for (let c = col - 1; c <= col2 + 1 && !hit; c++) hit = this.keepClear(c, row)
++        if (hit) continue
++      }
+       const q1 = byCol.get(col), q2 = byCol.get(col2)
+       const p1 = this._at(q1, 0.5, 0.3), p2 = this._at(q2, 0.5, 0.3)
+       const r = Math.max(2, s * 0.07)
+diff --git a/js/game/scenes/locations/skye/oghamMarks.js b/js/game/scenes/locations/skye/oghamMarks.js
+deleted file mode 100644
+index a1a1003..0000000
+--- a/js/game/scenes/locations/skye/oghamMarks.js
++++ /dev/null
+@@ -1,180 +0,0 @@
+-// oghamMarks.js
+-// Location: js/game/scenes/locations/skye/oghamMarks.js
+-//
+-// Six rough-hewn standing stones at the cladach (the garden's kind), each carved with one word in ogham. The upper three stand on the second terrace, where anyone who
+-// has climbed from the jetty will see them: what the warriors say they are.
+-// The lower three stand on the quay, which the sea covers until the training
+-// is done: what they stand on.
+-//
+-//     NEART (strength)   MISNEACH (courage)   FEARG (fury)       the terrace; courage
+-//                        raised, behind the stair, the others flank it
+-//     CINEÁLTAS (kindness)  TRÓCAIRE (compassion)  FOIGHNE (patience)   the quay, under them
+-//
+-// Ogham is cut up the edge of a stone and read from the bottom, so the
+-// letters here start at the foot and climb: a stem up the face, strokes to
+-// the right of it, to the left, across it, or notches on it.
+-//
+-// A PGR structure provider (see harbourWall.js for the pattern). Each word is
+-// baked once into a small pixel canvas and mapped onto the stone's face with
+-// PGR's affine helper, so it foreshortens with the ground.
+-//
+-// Reading them: walk up to one and its ogham appears over the moon, on a clear
+-// ground (the moon's phases still show, and swipes pass through). Tap and the
+-// word comes up as a caption (the scene does that: skyeCladach.js); the icon
+-// then goes until you step away.
+-
+-// at = the tile the stone stands on. Keep in sync with skye_gen.mjs (OGHAM_STONES).
+-export const WORDS = [
+-  // the terrace, left to right: Strength, Fury ... and Courage, raised and further back
+-  { id: 'neart',     text: 'neart',     ga: 'Neart',     en: 'Strength',   on: 'upper', at: [11, 23] },
+-  { id: 'misneach',  text: 'misneach',  ga: 'Misneach',  en: 'Courage',    on: 'upper', at: [19, 17] },
+-  { id: 'fearg',     text: 'fearg',     ga: 'Fearg',     en: 'Fury',       on: 'upper', at: [25, 23] },
+-  // the quay (under the sea at high tide), each below its pair
+-  { id: 'cinealtas', text: 'cinealtas', ga: 'Cineáltas', en: 'Kindness',   on: 'lower', at: [11, 27] },
+-  { id: 'trocaire',  text: 'trocaire',  ga: 'Trócaire',  en: 'Compassion', on: 'lower', at: [14, 27] },
+-  { id: 'foighne',   text: 'foighne',   ga: 'Foighne',   en: 'Patience',   on: 'lower', at: [25, 27] },
+-]
+-
+-// ── the script ──────────────────────────────────────────────────────────────
+-// Groups of five along a stem: strokes below, strokes above, strokes
+-// crossing, notches on it. Each letter is [group, count].
+-const LETTER = {}
+-;[['B', 'blfsn'], ['H', 'hdtcq'], ['M', 'mg?zr'], ['A', 'aouei']].forEach(([g, s]) =>
+-  [...s].forEach((ch, i) => { LETTER[ch] = [g, i + 1] }))
+-
+-const CELL = 22, HGT = 56, STEM = HGT / 2, STEP = 4
+-const CELLS = 9                       // every stone is the same height: room for the longest word
+-
+-// Bake a word along a horizontal stem (start at the left), cut dark then worn pale.
+-function bakeHorizontal(text, cells = CELLS) {
+-  const c = document.createElement('canvas')
+-  c.width = cells * CELL + CELL; c.height = HGT
+-  const ctx = c.getContext('2d')
+-  ctx.imageSmoothingEnabled = false
+-  ctx.lineCap = 'butt'
+-  const marks = [[2, STEM, c.width - 2, STEM, 3]]                       // the stem
+-  ;[...text].forEach((ch, i) => {
+-    const L = LETTER[ch]; if (!L) return
+-    const [g, k] = L, cx = CELL / 2 + i * CELL + CELL / 2
+-    const x0 = cx - ((k - 1) * STEP) / 2
+-    for (let j = 0; j < k; j++) {
+-      const x = Math.round(x0 + j * STEP)
+-      if (g === 'B') marks.push([x, STEM, x, STEM + 22, 2])
+-      if (g === 'H') marks.push([x, STEM - 22, x, STEM, 2])
+-      if (g === 'M') marks.push([x - 5, STEM + 20, x + 5, STEM - 20, 2])
+-      if (g === 'A') marks.push([x, STEM - 9, x, STEM + 9, 3])
+-    }
+-  })
+-  const pass = (grow, col) => {
+-    ctx.strokeStyle = col
+-    for (const [x0, y0, x1, y1, w] of marks) {
+-      ctx.lineWidth = w + grow
+-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+-    }
+-  }
+-  pass(1, '#15120e')
+-  pass(0, '#cfc7b0')
+-  return c
+-}
+-
+-// ...then stand it up: the start at the foot, strokes below the stem to the right.
+-function bakeWord(text, cells = CELLS) {
+-  const h = bakeHorizontal(text, cells)
+-  const c = document.createElement('canvas')
+-  c.width = h.height; c.height = h.width
+-  const ctx = c.getContext('2d')
+-  ctx.imageSmoothingEnabled = false
+-  ctx.translate(0, c.height); ctx.rotate(-Math.PI / 2)
+-  ctx.drawImage(h, 0, 0)
+-  return c
+-}
+-
+-function hash(x, y, s = 0) {
+-  let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (s | 0) * 2147483647
+-  h = (h ^ (h >>> 13)) * 1274126177
+-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+-}
+-
+-export default class OghamMarks {
+-  constructor(scene) {
+-    this.scene = scene
+-    this.tex = {}
+-    this.icon = {}
+-    this.byRow = new Map()
+-    for (const w of WORDS) {
+-      this.tex[w.id] = bakeWord(w.text)
+-      this.icon[w.id] = bakeWord(w.text.slice(0, 3), 3)        // the first letters, for the moon (it is small)
+-      const r = w.at[1]
+-      if (!this.byRow.has(r)) this.byRow.set(r, [])
+-      this.byRow.get(r).push(w)
+-    }
+-  }
+-
+-  /** At high tide the quay (and so the lower stones) is under the sea. */
+-  isShown(w) { return w.on === 'upper' || this.scene.mapData?.tide?.state !== 'high' }
+-
+-  getEntriesForRow(row) {
+-    const ws = this.byRow.get(row)
+-    if (!ws) return []
+-    return [{ draw: (ctx, pgr) => { for (const w of ws) if (this.isShown(w)) this._stone(ctx, pgr, w) } }]
+-  }
+-
+-  // A rough-hewn standing stone, like the garden's (standingStones.js): a tall,
+-  // tapering, slightly leaning slab with a rounded crown, lichen and a crack.
+-  // The word is cut up its face from the foot.
+-  _stone(ctx, pgr, w) {
+-    const [col, row] = w.at
+-    const y0 = pgr._rowToScreenY(row + 0.6)
+-    if (y0 == null) return
+-    const s = pgr._scaleAtRow(row + 0.6)
+-    if (s < 3) return
+-    const foot = y0 - pgr._tileHeightAt(col, row) * s
+-    const x = pgr._colToScreenX(col + 0.5, row + 0.6)
+-    const lerp = (a, b, t) => a + (b - a) * t
+-    const wd = s * (0.74 + hash(col, row) * 0.08)
+-    const h = s * (2.5 + hash(col, row, 1) * 0.2)
+-    const lean = (hash(col, row, 2) - 0.5) * wd * 0.35
+-    const top = wd * (0.7 + hash(col, row, 3) * 0.12)
+-    // the two edges, foot to crown (the crown's rim is where they end)
+-    const L = t => ({ x: lerp(x - wd / 2, x - top / 2 + lean, t), y: foot - h * t })
+-    const R = t => ({ x: lerp(x + wd / 2, x + top / 2 + lean, t), y: foot - h * t })
+-
+-    ctx.save()
+-    // shadow on the ground
+-    ctx.fillStyle = 'rgba(10,14,10,0.30)'
+-    ctx.beginPath(); ctx.ellipse(x + wd * 0.35, foot, wd * 0.9, wd * 0.2, 0, 0, Math.PI * 2); ctx.fill()
+-    // the slab
+-    const path = () => {
+-      ctx.beginPath()
+-      ctx.moveTo(x - wd / 2, foot)
+-      ctx.lineTo(x - top / 2 + lean, foot - h)
+-      ctx.quadraticCurveTo(x + lean, foot - h - wd * 0.28, x + top / 2 + lean, foot - h)
+-      ctx.lineTo(x + wd / 2, foot)
+-      ctx.closePath()
+-    }
+-    const g = ctx.createLinearGradient(x - wd / 2, 0, x + wd / 2, 0)
+-    g.addColorStop(0, '#8a877f'); g.addColorStop(0.55, '#6d6a64'); g.addColorStop(1, '#4e4c48')
+-    ctx.fillStyle = g; path(); ctx.fill()
+-    // the ogham, cut up the face: a quad inside the slab, mapped with PGR's affine helper
+-    const lo = 0.04, hi = 0.9, ul = 0.14, ur = 0.86
+-    const at = (u, v) => { const l = L(v), r = R(v); return { x: lerp(l.x, r.x, u), y: lerp(l.y, r.y, u) } }
+-    const a = at(ul, lo), b = at(ur, lo), c = at(ur, hi), d = at(ul, hi)
+-    const img = this.tex[w.id], W = img.width, H = img.height
+-    ctx.save(); path(); ctx.clip()
+-    ctx.globalAlpha = 0.97
+-    pgr._drawAffineTriangle(ctx, img, { u: 0, v: H }, { u: W, v: H }, { u: W, v: 0 }, a, b, c)
+-    pgr._drawAffineTriangle(ctx, img, { u: 0, v: H }, { u: W, v: 0 }, { u: 0, v: 0 }, a, c, d)
+-    ctx.restore()
+-    // weather: lichen and a crack
+-    for (let i = 0; i < 6; i++) {
+-      ctx.fillStyle = hash(col, row, 10 + i) < 0.5 ? 'rgba(176,184,110,0.5)' : 'rgba(210,205,170,0.4)'
+-      const t = 0.06 + hash(col, row, 20 + i) * 0.8
+-      const l = L(t), r = R(t)
+-      ctx.beginPath(); ctx.ellipse(lerp(l.x, r.x, hash(col, row, 30 + i)), l.y, wd * 0.09, wd * 0.06, 0, 0, Math.PI * 2); ctx.fill()
+-    }
+-    ctx.strokeStyle = 'rgba(40,38,34,0.6)'; ctx.lineWidth = Math.max(1, s * 0.012)
+-    ctx.beginPath(); ctx.moveTo(x + lean * 0.9, foot - h * 0.97)
+-    ctx.lineTo(x + lean * 0.7 + wd * 0.05, foot - h * 0.8); ctx.lineTo(x + lean * 0.6 - wd * 0.03, foot - h * 0.72); ctx.stroke()
+-    ctx.restore()
+-  }
+-}
+diff --git a/js/game/scenes/locations/skye/skyeCladach.js b/js/game/scenes/locations/skye/skyeCladach.js
+index 833d124..59ec897 100644
+--- a/js/game/scenes/locations/skye/skyeCladach.js
++++ b/js/game/scenes/locations/skye/skyeCladach.js
+@@ -11,10 +11,10 @@
+ //      something to discover yet. He welcomes them and invites them up.
+ //   1. THE CLIMB -- no orders, no drill: the player finds the carved stairs
+ //      (one per riser) and climbs. If they stall a while, the brooch
+-//      flashes toward the next stair -- help, never a requirement. Carved
+-//      ogham on standing stones (oghamMarks.js), each word
+-//      a moon tile that can be read again, rewards wandering along the
+-//      terraces.
++//      flashes toward the next stair -- help, never a requirement. Words
++//      engraved in Aonchlo on the wall (wallEngravings.js), each one
++//      a chisel on the moon tile that can be read again, reward looking
++//      along the wall from the terraces.
+ //   2. THE PEP TALK -- on the top his conversation opens by itself: welcome
+ //      to Skye, not many come this way, you did. Then the choice: on to the
+ //      loch, or to the garden (skyeGairdin.js, west) to practise first.
+@@ -25,10 +25,10 @@
+ //
+ // THE TIDE. Two maps, one scene: skye_cladach (sea in, quay under water)
+ // and skye_cladach_ebb (sea out: quay, strand and weed laid bare, three
+-// more words carved on the quay -- the foundations under the warriors'
+-// fury, courage and strength). getMapKey() picks the ebb once the training
+-// is done (faiche_tournament_done / brooch_silver). Sea, swell, weed and
+-// carving: tideWater.js, oghamMarks.js.
++// more words engraved on the foot of the wall -- the foundations under the
++// warriors' fury, courage and strength). getMapKey() picks the ebb once the
++// training is done (faiche_tournament_done / brooch_silver). Sea, swell and
++// weed: tideWater.js. Engraving: wallEngravings.js.
+ //
+ // Tap-to-move is OFF on this map until `lesson_movement` (set by the tap
+ // lesson in the garden).
+@@ -37,8 +37,8 @@
+ // from the tutorial to the main adventure). Its dialogue sets
+ // `leave_skye`, a one-off trigger the scene clears as it acts on it.
+ //
+-// Her lines are captions (skyeCaption.js), not cards: cards hide the
+-// d-pad, and here the player moves while she talks.
++// His lines are captions (skyeCaption.js), not cards: cards hide the
++// d-pad, and here the player moves while he talks.
+ //
+ // NOTES: climb_started (dialogue) -> climb_top -> pep_done; [garden] lesson_movement
+ //        tide_out_seen  the ebb tide's one-off caption has been shown
+@@ -51,7 +51,7 @@ import SkyeCaption from './skyeCaption.js'
+ import { dash, dustPuff, figureBox, moveFigure } from './dustDash.js'
+ import ShoreProps from './shoreProps.js'
+ import TideWater from './tideWater.js'
+-import OghamMarks, { WORDS } from './oghamMarks.js'
++import WallEngravings, { WORDS, isEngraved, fontReady } from './wallEngravings.js'
+ import HarbourWall, { combineStructures } from './harbourWall.js'
+ import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
+ import { initReturnCrossing } from '../../returnCrossing.js'
+@@ -60,7 +60,7 @@ import { GameSettings } from '../../../settings/gameSettings.js'
+ const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
+ const EXIT_DASH   = [18, 3]                         // north, toward the loch
+ const GARDEN_DASH = [2, 19]                         // west, toward the garden
+-const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // her walk before the dash
++const LEAD = { slow: 4, slowMs: 520, quick: 4, quickMs: 260 }   // his walk before the dash
+ const INTRO_DELAY_MS = 5000
+ const STALL_MS = 10000                              // standing still this long, the brooch helps
+ // The carved stairs, bottom to top: [riser row, stair column].
+@@ -96,6 +96,7 @@ export class SkyeCladach extends SkyeScene {
+   }
+ 
+   async create(data) {
++    await fontReady()                           // the engravings are baked in Aonchlo
+     await super.create(data)
+     if (!this.player) return                    // base create failed (logged)
+ 
+@@ -107,19 +108,19 @@ export class SkyeCladach extends SkyeScene {
+ 
+     // The wall is dressed as harbour stonework (harbourWall.js); the
+     // generic stone overlay handles any other steep face.
+-    const wall = new HarbourWall(this, this.mapData.wall)
++    const wall = new HarbourWall(this, this.mapData.wall, { keepClear: isEngraved })
+     // (the jetty's raised deck makes steep slopes at its edges that aren't rock)
+     const J = this.mapData.jetty
+     const nearJetty = (tx, ty) => !!J && tx >= J.x0 - 1 && tx <= J.x1 + 1 && ty >= J.y0 - 1 && ty <= J.y1 + 1
+     this.steepFaces = new SteepFaceRenderer(this, { skip: (tx, ty) => wall.ownsRow(ty) || nearJetty(tx, ty) })
+-    this._ogham = new OghamMarks(this)
+-    this._setUpOgham()
++    this._engravings = new WallEngravings(this, wall)
++    this._engravedNear = {}
+     // back to front within each row: the wall, then the tide over it (weed
+-    // or water), then the carving, then the jetty and boat
++    // or water), then the engraving, then the jetty and boat
+     this.perspectiveGround?.setStructures(combineStructures(
+       wall,
+-      this.mapData.tide ? new TideWater(this, this.mapData.tide, { ogham: this._ogham }) : null,
+-      this._ogham,
++      this.mapData.tide ? new TideWater(this, this.mapData.tide) : null,
++      this._engravings,
+       new ShoreProps(this, { jetty: this.mapData.jetty, boat: this.mapData.boat }),
+     ))
+ 
+@@ -143,7 +144,7 @@ export class SkyeCladach extends SkyeScene {
+ 
+   update(time, delta) {
+     this.steepFaces?.update()
+-    // Arrival: the first d-pad press opens her conversation instead of
++    // Arrival: the first d-pad press opens his conversation instead of
+     // walking. Checked before super.update() so the press never moves.
+     if (this._phase === 'arrival' && this.joystick?.force > 10) {
+       this.joystick.reset?.()
+@@ -156,7 +157,7 @@ export class SkyeCladach extends SkyeScene {
+     // The climb is free. Arriving on top opens the pep talk; standing about
+     // at the foot of the wall for a while makes the brooch flash the way.
+     if (panelOpen) this._stillSince = time           // a conversation isn't standing about
+-    if (!panelOpen) this._readOgham()
++    if (!panelOpen) this._readEngravings()
+     if (this._phase === 'free' && !GameState.hasNote('pep_done') && !panelOpen) {
+       if (this._onTop()) this._pepTalk()
+       else this._brooch(time)
+@@ -166,8 +167,8 @@ export class SkyeCladach extends SkyeScene {
+     if (GameState.hasNote('leave_skye') && !panelOpen) this._leaveSkye()
+   }
+ 
+-  // Taps: during arrival a tap opens her conversation; otherwise tap-to-
+-  // move doesn't exist here until the loch has taught it.
++  // Taps: during arrival a tap opens his conversation; otherwise tap-to-
++  // move doesn't exist here until the garden has taught it (lesson_movement).
+   _onTapBeforePath(canvasX, canvasY) {
+     if (this._phase === 'arrival') { this._openIntro(); return false }
+     return GameState.hasNote('lesson_movement')
+@@ -235,7 +236,7 @@ export class SkyeCladach extends SkyeScene {
+   _offToLoch() { this._offTo(EXIT_DASH, LINES.done) }
+ 
+   // "Lean mé": a few unhurried steps west, a few quicker ones, then the
+-  // dash -- the player sees which way she's going before she's gone.
++  // dash -- the player sees which way he's going before he's gone.
+   _leadToGarden() {
+     this._phase = 'dash'
+     const u = this._conall
+@@ -291,7 +292,7 @@ export class SkyeCladach extends SkyeScene {
+     })
+   }
+ 
+-  // Gone: flag hidden, zone moved off the map so her badge can't appear.
++  // Gone: flag hidden, zone moved off the map so his badge can't appear.
+   _vanishConall(puff) {
+     const u = this._conall
+     if (!u) return
+@@ -336,32 +337,30 @@ export class SkyeCladach extends SkyeScene {
+     }, 650)
+   }
+ 
+-  // The carved words are read by walking up to their stones: the word's ogham
+-  // appears over the moon (clear ground, so the moon still shows and swipes pass
+-  // through); a tap brings the word up as a caption (skyeCaption.js), and the
+-  // icon goes until you step away and come back.
+-  _setUpOgham() { this._oghamNear = {} }
+-
+-  _readOgham() {
+-    if (!this._ogham || !this.player || this._phase === 'arrival') return
++  // The engraved words are read by standing below them (the terrace, the quay):
++  // a chisel appears over the moon (clear ground, so the moon still shows and
++  // swipes pass through); a tap brings the word up as a caption
++  // (skyeCaption.js), and the icon goes until you step away and come back.
++  _readEngravings() {
++    if (!this._engravings || !this.player || this._phase === 'arrival') return
+     const panel = this._encounterPanel
+     if (!panel) return
+     const ts = this.tileSize, px = this.player.logicalX / ts, py = this.player.logicalY / ts
+-    const spent = this._oghamNear
++    const spent = this._engravedNear
+     let near = null, best = 2.2
+     for (const w of WORDS) {
+-      const d = Math.hypot(px - (w.at[0] + 0.5), py - (w.at[1] + 0.5))
++      const d = this._engravings.distance(w, px, py)
+       if (d > 3.2) spent[w.id] = false                       // stepped away: it can be read again
+-      if (!this._ogham.isShown(w) || spent[w.id]) continue
++      if (!this._engravings.isShown(w) || spent[w.id]) continue
+       if (d < best) { best = d; near = w }
+     }
+-    const mine = panel._card?.id?.startsWith('ogham:')
++    const mine = panel._card?.id?.startsWith('engraving:')
+     if (near) {
+       if (panel._card && !mine) return                        // someone else's badge (Conall's)
+-      if (panel._card?.id === 'ogham:' + near.id && panel._badgeVisible) return
++      if (panel._card?.id === 'engraving:' + near.id && panel._badgeVisible) return
+       panel.notify({
+-        id: 'ogham:' + near.id,
+-        visual: { glyph: this._ogham.icon[near.id] },
++        id: 'engraving:' + near.id,
++        visual: { glyph: this._engravings.icon[near.id] },
+         onActivate: () => {
+           spent[near.id] = true
+           this._caption?.setColor('#d6cdb4')
+diff --git a/js/game/scenes/locations/skye/skyeScene.js b/js/game/scenes/locations/skye/skyeScene.js
+index 26e8d24..0f6fae6 100644
+--- a/js/game/scenes/locations/skye/skyeScene.js
++++ b/js/game/scenes/locations/skye/skyeScene.js
+@@ -21,7 +21,7 @@
+ //             |
+ //        skye_machaire ---- skye_faiche   (sparring green, combat later)
+ //             |
+-//         skye_cladach       the shore -- landing, boat, Uathach
++//         skye_cladach       the shore -- landing, boat, Conall
+ //
+ // Terrain for all five is generated by
+ //   node tools/map-editor/generators/skye_gen.mjs
+@@ -36,7 +36,7 @@ export const SKYE_GID = {
+   UATHACH: 9201,
+   BOAT:    9202,   // badge/portrait only; ShoreProps draws the boat itself
+   WARDEN:  9203,   // the sparring partner on the faiche (skyeFaiche.js)
+-  OGHAM:   9204,   // badge only: a carved word on the cladach wall (oghamMarks.js)
++  OGHAM:   9204,   // (unused: the cladach engravings draw their own chisel icon, wallEngravings.js)
+ }
+ 
+ // Art per figure. PLACEHOLDERS until real sprites exist.
+diff --git a/js/game/scenes/locations/skye/tideWater.js b/js/game/scenes/locations/skye/tideWater.js
+index d359f2c..aee8894 100644
+--- a/js/game/scenes/locations/skye/tideWater.js
++++ b/js/game/scenes/locations/skye/tideWater.js
+@@ -15,8 +15,7 @@
+ //   • foam laid along the shore, and a surge that slides up the stone and
+ //     back again;
+ //   • at LOW tide, the exposed quay and strand: wet, darker, puddled and
+-//     strewn with weed (thinner over the carved words, which it must not
+-//     bury).
++//     strewn with weed.
+ //
+ // mapData.tide = { state: 'high'|'low', lift, seaTop, quay:[r0,r1], strand }
+ // Painted per row, so nearer rows (the jetty, the boat, the player's own
+@@ -36,12 +35,10 @@ const MORE_ROWS = 10                                   // phantom rows past the
+ export default class TideWater {
+   /**
+    * @param tide   mapData.tide
+-   * @param opts   { ogham } an OghamMarks, to keep weed off the words
+    */
+-  constructor(scene, tide, opts = {}) {
++  constructor(scene, tide) {
+     this.scene = scene
+     this.tide = tide
+-    this.ogham = opts.ogham || null
+     this.t0 = performance.now()
+     const mapH = scene.mapData?.height ?? 36
+     this.lastRow = mapH + MORE_ROWS
+@@ -245,7 +242,7 @@ export default class TideWater {
+         ctx.beginPath(); ctx.ellipse(px, py, s * (0.16 + 0.12 * hash(col, row, 24)), s * 0.045, 0, 0, Math.PI * 2); ctx.fill()
+       }
+ 
+-      // weed -- thinned over the carved words, never quite clearing them
++      // weed
+       let d = dens * (0.55 + 0.9 * hash(Math.floor(col / 2), row, 31))
+       if (hash(col, row, 32) > d) continue
+       const n = 2 + Math.floor(hash(col, row, 33) * 3)
+diff --git a/js/game/scenes/locations/skye/wallEngravings.js b/js/game/scenes/locations/skye/wallEngravings.js
+new file mode 100644
+index 0000000..4feb6d6
+--- /dev/null
++++ b/js/game/scenes/locations/skye/wallEngravings.js
+@@ -0,0 +1,216 @@
++// wallEngravings.js
++// Location: js/game/scenes/locations/skye/wallEngravings.js
++//
++// Six words cut into the face of the harbour wall at the cladach, in Aonchlo,
++// the old Irish letter. Three on the top riser, which anyone climbing from the
++// jetty sees from the second terrace: what the warriors say they are. Three on
++// the foot riser, which the sea covers until the training is done: what they
++// stand on.
++//
++//     NEART (strength)   MISNEACH (courage)   FEARG (fury)       row 22, the top riser
++//     CINEÁLTAS (kindness)  TRÓCAIRE (compassion)  FOIGHNE (patience)   row 26, the foot riser
++//
++// A PGR structure provider (see harbourWall.js for the pattern). Each word is
++// baked once into a small canvas and laid along the face tile by tile with
++// PGR's affine helper, so it follows the wall's perspective. It is drawn after
++// the wall and the tide, so it sits on top of both.
++//
++// Reading them: stand below one (on the terrace or the quay) and a chisel
++// appears over the moon, on a clear ground (the moon's phases still show, and
++// swipes pass through). Tap and the word comes up as a caption (the scene does
++// that: skyeCladach.js); the icon then goes until you step away.
++//
++// Keep the rows and columns clear of the stair gaps (skye_gen.mjs: GAPS) and,
++// for the foot riser, of the jetty's columns (18-19).
++
++// row  = the riser the word is cut into
++// from = its first column; span = how many columns it runs across
++export const WORDS = [
++  // the top riser, left to right: Strength, Courage (by the stair), Fury
++  { id: 'neart',     ga: 'Neart',     en: 'Strength',   on: 'upper', row: 22, from: 9,  span: 3 },
++  { id: 'misneach',  ga: 'Misneach',  en: 'Courage',    on: 'upper', row: 22, from: 18, span: 4 },
++  { id: 'fearg',     ga: 'Fearg',     en: 'Fury',       on: 'upper', row: 22, from: 25, span: 3 },
++  // the foot riser (under the sea at high tide)
++  { id: 'cinealtas', ga: 'Cineáltas', en: 'Kindness',   on: 'lower', row: 26, from: 3,  span: 4 },
++  { id: 'trocaire',  ga: 'Trócaire',  en: 'Compassion', on: 'lower', row: 26, from: 9,  span: 4 },
++  { id: 'foighne',   ga: 'Foighne',   en: 'Patience',   on: 'lower', row: 26, from: 22, span: 3 },
++]
++
++/** Is this wall tile cut with a word? (harbourWall.js keeps its ironwork off them.) */
++export function isEngraved(col, row) {
++  return WORDS.some(w => w.row === row && col >= w.from && col < w.from + w.span)
++}
++
++// ── baking ──────────────────────────────────────────────────────────────────
++const PX = 80          // texture pixels per tile of wall, across
++const TH = 60          // texture height: the band of the face the words fill
++const SIZE = 50        // the letters, before fitting
++// Where the band sits on the face (0 = its top edge, 1 = its foot). A riser is a 45-degree
++// slope, a tile across and about 1.41 up it, so 0.52 of it is 0.74 of a tile: TH / PX, and
++// the letters come out the shape they were drawn.
++const V0 = 0.24, V1 = 0.76
++
++// Opaque colours, so the two triangles that overlap along a tile's diagonal
++// (PGR bleeds each one outward) don't stack into a visible stripe.
++const CUT = '#17140f'
++const LIP = '#9a958a'
++
++function hash(x, y, s = 0) {
++  let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (s | 0) * 2147483647
++  h = (h ^ (h >>> 13)) * 1274126177
++  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
++}
++
++/** Aonchlo is loaded by the page's CSS; wait for it before baking, or the words come out in a fallback face. */
++export async function fontReady() {
++  try {
++    await Promise.race([document.fonts.load(`${SIZE}px Aonchlo`), new Promise(r => setTimeout(r, 2000))])
++  } catch (e) { /* bake with what there is */ }
++}
++
++// A word, cut: a dark groove with a pale lip on its lower right, and the odd
++// chip of weather taken out of it.
++export function bakeWord(w) {
++  const W = w.span * PX
++  const c = document.createElement('canvas')
++  c.width = W; c.height = TH
++  const ctx = c.getContext('2d')
++  const face = s => `${s}px Aonchlo, serif`
++  let size = SIZE
++  ctx.font = face(size)
++  let m = ctx.measureText(w.ga)
++  const tall = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
++  size *= Math.min(1, (W * 0.88) / m.width, (TH * 0.86) / tall)
++  ctx.font = face(size)
++  m = ctx.measureText(w.ga)
++  const x = (W - m.width) / 2
++  const y = (TH - (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent)) / 2 + m.actualBoundingBoxAscent
++
++  // Aonchlo is a fine line: thicken it so it reads as a chiselled groove.
++  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
++  ctx.lineWidth = Math.max(2, size * 0.075)
++  const pass = (dx, dy, col) => {
++    ctx.fillStyle = ctx.strokeStyle = col
++    ctx.strokeText(w.ga, x + dx, y + dy)
++    ctx.fillText(w.ga, x + dx, y + dy)
++  }
++  pass(1.5, 1.5, LIP)
++  pass(0, 0, CUT)
++
++  // weather: chips out of the cut, and out of the lip
++  ctx.globalCompositeOperation = 'destination-out'
++  ctx.fillStyle = '#000'
++  const chips = Math.round(W * TH / 70)
++  for (let i = 0; i < chips; i++) {
++    ctx.fillRect(Math.floor(hash(i, W, 1) * W), Math.floor(hash(i, TH, 2) * TH), 1 + (hash(i, 3, 3) > 0.75 ? 1 : 0), 1)
++  }
++  return c
++}
++
++// (ctx.roundRect is missing from older phones' browsers)
++function rrect(ctx, x, y, w, h, r) {
++  ctx.moveTo(x + r, y)
++  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r)
++  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r)
++  ctx.closePath()
++}
++
++// The moon's icon for an engraving: a mason's chisel, edge down and to the
++// left, with chips flying off the stone. One for all six words.
++export function bakeChisel() {
++  const S = 96
++  const c = document.createElement('canvas')
++  c.width = S; c.height = S
++  const ctx = c.getContext('2d')
++  const STEEL = '#bcc4cc', EDGE = '#8a929b', PALE = '#d9d0b6', MID = '#8f8a80', DARK = '#15120e', HAFT = '#b59a6a'
++
++  const body = (grow, fill) => {
++    ctx.fillStyle = fill; ctx.strokeStyle = fill
++    ctx.lineWidth = grow * 2; ctx.lineJoin = 'round'
++    ctx.beginPath(); rrect(ctx, -9 - grow, -46 - grow, 18 + grow * 2, 34 + grow * 2, 5); ctx.fill()              // the haft
++    ctx.beginPath(); ctx.rect(-8 - grow, -12 - grow, 16 + grow * 2, 6 + grow * 2); ctx.fill()                     // the collar
++    ctx.beginPath()
++    ctx.moveTo(-6 - grow, -6); ctx.lineTo(6 + grow, -6); ctx.lineTo(9 + grow, 26); ctx.lineTo(-9 - grow, 26)      // the blade, flaring
++    ctx.closePath(); ctx.fill()
++    ctx.beginPath(); ctx.moveTo(-9 - grow, 26); ctx.lineTo(9 + grow, 26); ctx.lineTo(9 + grow, 35 + grow); ctx.lineTo(-9 - grow, 31 + grow)
++    ctx.closePath(); ctx.fill()                                                                                   // the bevelled edge
++    if (grow) ctx.stroke()
++  }
++
++  ctx.save()
++  ctx.translate(54, 38); ctx.rotate(Math.PI / 5)
++  body(2.5, DARK)                                  // outline
++  body(0, STEEL)
++  ctx.fillStyle = HAFT; ctx.beginPath(); rrect(ctx, -9, -46, 18, 34, 5); ctx.fill()
++  ctx.fillStyle = PALE; ctx.fillRect(-5, -42, 3, 26)                              // light along the haft
++  ctx.fillStyle = MID; ctx.fillRect(-8, -12, 16, 6)
++  ctx.fillStyle = EDGE
++  ctx.beginPath(); ctx.moveTo(-9, 26); ctx.lineTo(9, 26); ctx.lineTo(9, 35); ctx.lineTo(-9, 31); ctx.closePath(); ctx.fill()
++  ctx.restore()
++
++  // chips flying from the point (it lands at about 33, 69), and the groove it has cut
++  ctx.lineCap = 'round'
++  const stroke = (pts, col, w) => {
++    ctx.strokeStyle = col; ctx.lineWidth = w
++    ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); ctx.lineTo(pts[2], pts[3]); ctx.stroke()
++  }
++  for (const p of [[26, 64, 14, 56], [24, 72, 10, 72], [28, 79, 18, 90]]) { stroke(p, DARK, 5); stroke(p, PALE, 2.5) }
++  stroke([8, 86, 40, 86], DARK, 6); stroke([8, 86, 40, 86], MID, 3)
++  return c
++}
++
++// ── the provider ────────────────────────────────────────────────────────────
++export default class WallEngravings {
++  /**
++   * @param wall  the HarbourWall: it knows the face's projected quads
++   */
++  constructor(scene, wall) {
++    this.scene = scene
++    this.wall = wall
++    this.tex = {}
++    this.byRow = new Map()
++    const chisel = bakeChisel()
++    this.icon = {}
++    for (const w of WORDS) {
++      this.tex[w.id] = bakeWord(w)
++      this.icon[w.id] = chisel
++      if (!this.byRow.has(w.row)) this.byRow.set(w.row, [])
++      this.byRow.get(w.row).push(w)
++    }
++  }
++
++  /** At high tide the foot of the wall (and so the lower words) is under the sea. */
++  isShown(w) { return w.on === 'upper' || this.scene.mapData?.tide?.state !== 'high' }
++
++  /**
++   * How far a point (in tiles) is from the word, or Infinity. The words face
++   * south, so they can only be read from below them.
++   */
++  distance(w, px, py) {
++    if (py < w.row + 1) return Infinity
++    const dx = Math.max(w.from - px, 0, px - (w.from + w.span))
++    return Math.hypot(dx, py - (w.row + 0.5))
++  }
++
++  getEntriesForRow(row) {
++    const ws = this.byRow.get(row)
++    if (!ws) return []
++    return [{ draw: (ctx, pgr) => { for (const w of ws) if (this.isShown(w)) this._engrave(ctx, pgr, w) } }]
++  }
++
++  // The word, slice by slice along the face, each slice on its tile's projected quad.
++  _engrave(ctx, pgr, w) {
++    const s = pgr._scaleAtRow(w.row + 1)
++    if (s == null || s < 3) return
++    const img = this.tex[w.id], H = img.height, slice = img.width / w.span
++    for (let i = 0; i < w.span; i++) {
++      const q = this.wall._quad(pgr, w.from + i, w.row)
++      if (!q) continue
++      const a = this.wall._at(q, 0, V0), b = this.wall._at(q, 1, V0)
++      const c = this.wall._at(q, 1, V1), d = this.wall._at(q, 0, V1)
++      const u0 = i * slice, u1 = u0 + slice
++      pgr._drawAffineTriangle(ctx, img, { u: u0, v: 0 }, { u: u1, v: 0 }, { u: u1, v: H }, a, b, c)
++      pgr._drawAffineTriangle(ctx, img, { u: u0, v: 0 }, { u: u1, v: H }, { u: u0, v: H }, a, c, d)
++    }
++  }
++}
+diff --git a/js/game/ui/encounterPanel.js b/js/game/ui/encounterPanel.js
+index 025d4b0..c5a9d2b 100644
+--- a/js/game/ui/encounterPanel.js
++++ b/js/game/ui/encounterPanel.js
+@@ -123,7 +123,7 @@ export class EncounterPanel {
+   // What tapping the badge does. The brooch's stone does the same while lit
+   // (see _showBadge), so either the portrait on the moon or the stone works.
+   _activateBadge() {
+-    // A card that brings its own action (the ogham stones): do it, then the badge goes
++    // A card that brings its own action (the cladach engravings): do it, then the badge goes
+     // until the scene offers it again. (card.onActivate; card.visual.glyph is its icon)
+     if (this._card?.onActivate) {
+       const act = this._card.onActivate
+@@ -182,7 +182,7 @@ clearNotify() {
+     badge.style.display = 'block'
+     this._scene?.joystick?.setStone?.(true, () => this._activateBadge())
+ 
+-    // A glyph badge (ogham): a small icon on a clear ground, passing touches through
++    // A glyph badge (the engravings' chisel): a small icon on a clear ground, passing touches through
+     // to the moon, so its phases show and its swipes still work. A tap on the moon, or
+     // on the brooch's stone, is the press.
+     badge.style.pointerEvents = visual?.glyph ? 'none' : 'all'
+diff --git a/public/data/skye/skyeCladach.js b/public/data/skye/skyeCladach.js
+index 988484d..1b2d5ac 100644
+--- a/public/data/skye/skyeCladach.js
++++ b/public/data/skye/skyeCladach.js
+@@ -104,7 +104,7 @@ export const skyeCladachContent = {
+ 
+       ],
+     },
+-    // (the ogham stones have no encounters: the scene captions them as you walk up -- oghamMarks.js)
++    // (the engraved words have no encounters: the scene captions them as you stand below them -- wallEngravings.js)
+     {
+       id: 'boat',
+       // The jetty head. The boat itself is drawn by ShoreProps (moored
+diff --git a/tools/map-editor/generators/skye_gen.mjs b/tools/map-editor/generators/skye_gen.mjs
+index c8aef01..20e3dcd 100644
+--- a/tools/map-editor/generators/skye_gen.mjs
++++ b/tools/map-editor/generators/skye_gen.mjs
+@@ -132,13 +132,12 @@ const cladach = (tide) => ({
+       //   THE WALL   three stone risers (rows 26, 24, 22) with one-row
+       //              terraces between (25, 23). Every riser tile is solid
+       //              (blockMask) except ONE per riser -- the hidden stair,
+-      //              drawn identically to the rest: only her calls find it.
++      //              drawn identically to the rest: only his calls find it.
+       //                gaps: (17,26)  (19,24)  (16,22)
+       //   rows 0-21 the headland top, open ground running north to the
+-      //              loch. Uathach waits at (17,20).
++      //              loch. Conall waits at (17,20).
+       const LV = [0.1, 1.1, 2.1, 3.1]              // foot, terrace 1, terrace 2, top
+       const GAPS = { 26: 17, 24: 19, 22: 16 }      // riser row -> stair column
+-      const OGHAM_STONES = [[11, 23], [19, 17], [25, 23], [11, 27], [14, 27], [25, 27]]   // oghamMarks.js (solid)
+       const FLOOD_ROW = HIGH_TIERS === 1 ? 25 : 23          // first drowned row
+       const LIFT = LV[HIGH_TIERS] + 0.2            // the high sea's surface, above the low sea
+       const JETTY = HIGH
+@@ -196,8 +195,7 @@ const cladach = (tide) => ({
+           blockMask: grid(W, H, (x, y) =>
+             (inBox(JETTY, x, y) ? y >= JETTY.y1 - 1 :                   // the head (two rows) is the boat's
+               (flooded(x, y) || (y in GAPS && x !== GAPS[y]) ||
+-               (y >= 22 && y <= 26 && (x === 0 || x === W - 1)) ||
+-               OGHAM_STONES.some(([sx, sy]) => sx === x && sy === y))) ? 1 : 0),
++               (y >= 22 && y <= 26 && (x === 0 || x === W - 1)))) ? 1 : 0),
+           // the wall, its terraces and its foot read as bare rock (the
+           // risers also get SteepFaceRenderer's stone texture on top)
+           stoneTint: grid(W, H, (x, y) =>
+-- 
+2.43.0
+

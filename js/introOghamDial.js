@@ -592,6 +592,10 @@ export function runOghamDial(opts = {}) {
       const HINT_URGE=9;
       let hintT=0, idleT=0, hintWas=false;
       let dead=false;
+      /* A caller that needs the dial gone before its first touch (a saved hero was
+         chosen from the strip over it) is handed a way to stop it: the same
+         handOff the dial ends with, and its loop's own flag. */
+      if(opts.onAbortable) opts.onAbortable(()=>{ dead=true; handOff(null); });
       
       /* English brightness = the fraction of the moon's disc that is actually lit,
          which is sin²(pπ/2), not the phase itself. The old curve reached full by

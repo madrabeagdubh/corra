@@ -229,9 +229,10 @@ export default class PerspectiveScene extends BaseLocationScene {
     this._setupTapToPath()
 
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
-    const _cid = champion?.id ?? champion?.nameGa ?? champion?.spriteKey
+    const _cid = GameState.heroIdOf(champion)
     if (_cid) GameState.init(_cid)
     GameState.setVisited(this.scene.key)
+    GameState.saveSpot(this.scene.key, this.entryData?.tile)      // "ar aghaidh" resumes here
 
     this.applyEntryPosition()
 
@@ -1455,6 +1456,24 @@ perTile:        true,
   }
 
   applyEntryPosition() {
+    // resume: land on the saved tile (GameState.saveSpot), if it is open ground
+    const spot = this.entryData?.tile
+    if (Array.isArray(spot) && this.player) {
+      const [sx, sy] = spot, ts = this.tileSize
+      if (sx >= 0 && sy >= 0 && sx < this.mapData.width && sy < this.mapData.height &&
+          !this.isColliding(sx * ts + ts / 2, sy * ts + ts / 2)) {
+        const px = sx * ts + ts / 2, py = sy * ts + ts / 2
+        this.player.logicalX = this.player.targetX = this.player.startX = px
+        this.player.logicalY = this.player.targetY = this.player.startY = py
+        const cam = this.cameras.main
+        cam.centerOn(px, py)
+        cam.fadeIn(180, 0, 0, 0)
+        import('../../ui/sceneTransition.js').then(m => m.transitionIn(180))
+        this.time.delayedCall(180, () => cam.startFollow(this._camProxy, true, 0.1, 0.1))
+        console.log(`[${this.scene.key}] resumed at tile [${sx}, ${sy}]`)
+        return
+      }
+    }
     const edge = this.entryData?.entryEdge
     if (!edge || !this.mapData.entries) return
     const entry = this.mapData.entries[edge]

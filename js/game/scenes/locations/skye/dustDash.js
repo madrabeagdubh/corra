@@ -53,7 +53,7 @@ export function dustPuff(scene, box, drift = 0, count = 10) {
   }
 }
 
-function speedLines(scene, box, ux, uy, ahead = false) {
+export function speedLines(scene, box, ux, uy, ahead = false) {
   const g = scene.add.graphics().setScrollFactor(0).setDepth(17)
   g.lineStyle(Math.max(1, box.w * 0.04), 0xf3ead2, 0.9)
   for (let i = 0; i < 7; i++) {

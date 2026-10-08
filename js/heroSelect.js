@@ -111,9 +111,10 @@ function _moonClearance() {
 
 // ── Stat descriptions ─────────────────────────────────────────────────────────
 const statDescriptions = {
-    attack:  { irish: 'Troid',   english: 'Fight'   },
-    defense: { irish: 'Cosain',  english: 'Defend'  },
-    health:  { irish: 'Sláinte', english: 'Health'  },
+    // Display names only: the keys stay attack / defense / health (they are the property names in champions.js).
+    attack:  { irish: 'Neart',     english: 'Strength' },
+    defense: { irish: 'Cosaint',   english: 'Defence'  },
+    health:  { irish: 'Sláinte',   english: 'Health'   },
 };
 
 const statIcons = {

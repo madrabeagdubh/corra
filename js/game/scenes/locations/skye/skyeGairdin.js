@@ -6,9 +6,9 @@
 // lár, the centre stone. Clear, quiet ground: the Warden's crash course
 // happens here, one to one (faicheCourse.js).
 //
-//   lessons  directions, tap-to-move, drawing a route (Conall demonstrates),
-//            the sword, the calls, cuts, fatigue, the strong blow, the training
-//            dummy (carried out into the garden), a gentle practice duel
+//   lessons  drawing a route (Conall demonstrates), the sword (he faces you
+//            from the left), draw / salute / swish / sheathe, fatigue, the
+//            strong blow, Conall as the training dummy, a gentle practice duel
 //            (faicheCourse.js runs them; courseScript.js has the words)
 //   board    the stones light as you step on the called ones
 //   after    Conall sends you across the loch to the green, where Uathach is
@@ -64,7 +64,9 @@ export class SkyeGairdin extends SkyeScene {
     this.boutCaptions = false
     prepareSword(this)                      // a sword you've been given is in your pack
 
-    if (!GameState.hasNote(COURSE_DONE)) this._course = new FaicheCourse(this)
+    // testing: ?course=<lesson> replays the course even on a save that has finished it
+    try { if (new URLSearchParams(window.location.search).get('course')) GameState.removeNote(COURSE_DONE) } catch (_) {}
+    this._course = new FaicheCourse(this, { practice: GameState.hasNote(COURSE_DONE) })      // finished: he only offers more practice
 
     this.events.once('shutdown', () => this._teardown())
   }
@@ -96,6 +98,7 @@ export class SkyeGairdin extends SkyeScene {
 
   // Taps come with the tap lesson; a tap on the training dummy is a cut or a walk up to it.
   _onTapBeforePath(canvasX, canvasY) {
+    if (this._course?.speaking) return false   // a tap that scrolls his words is not a step
     if (this._course?.tapDummy?.(canvasX, canvasY)) return false
     return true  // tap-to-walk is always on; Conall's lesson still teaches it
   }
@@ -112,14 +115,26 @@ export class SkyeGairdin extends SkyeScene {
   onBumpFigure(dx, dy) {
     const p = this.player, ts = this.tileSize
     const tx = Math.floor(p.logicalX / ts) + dx, ty = Math.floor(p.logicalY / ts) + dy
-    if (this._course?.occupies?.(tx, ty)) { this._course.bumpDummy(dx); return }
+    if (this._course?.occupies?.(tx, ty)) { this._course.bumpDummy(dx, dy); return }
     super.onBumpFigure(dx, dy)
   }
 
   onMeleeEvent(name, d) { this._course?.onMeleeEvent?.(name, d) }
+  onDialogueEvent(ev) { this._course?.onTalkEvent?.(ev) }
+  // squared up to Conall for the sword lessons: you look at him, not the way you last walked
+  playerFacing() { return this._melee?.view?.spinFacing?.() ?? this._course?.facing?.() ?? super.playerFacing() }
 
   // the sword in flight (the lesson draws it)
-  onPGRDrawComplete(ctx) { this._course?.draw?.(ctx) }
+  onPGRDrawComplete(ctx) { this._drawMarkTile(ctx); this._course?.draw?.(ctx) }
+  hasContinuousAnimation() { return !!this._marker || (super.hasContinuousAnimation?.() ?? false) }   // the mark pulses
+
+  // the marked tile, flat on the ground: the same projection and terrain lift as the fight's red tiles
+  _drawMarkTile(ctx) {
+    const mk = this._marker, v = this._melee?.view
+    if (!mk || !v?.pgr) return
+    const t = (Math.sin(performance.now() / PULSE_MS) + 1) / 2
+    v.tileQuad(ctx, mk, `rgba(245,208,96,${0.12 + 0.2 * t})`, `rgba(245,208,96,${0.55 + 0.4 * t})`, 3)
+  }
 
   // Conall's card for a musical dialogue (portrait, background), if the panel can give it
   conallCard() {
@@ -153,9 +168,7 @@ export class SkyeGairdin extends SkyeScene {
     const t = (Math.sin(time / PULSE_MS) + 1) / 2
     const box = figureBox(this, this._marker[0], this._marker[1])
     if (box && box.x > 24 && box.x < W - 24 && box.y > 24 && box.y < H - 150) {
-      g.lineStyle(Math.max(2, box.w * 0.05), 0xf5d060, 0.35 + 0.4 * t)
-      g.strokeEllipse(box.x, box.y - box.w * 0.08, box.w * 0.95, box.w * 0.34)
-      return
+      return                                    // on screen: drawn with the ground (onPGRDrawComplete), so it sits on the tile
     }
     // off screen: which way? (north is up the screen)
     const ts = this.tileSize

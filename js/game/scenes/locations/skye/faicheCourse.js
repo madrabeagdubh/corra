@@ -10,15 +10,13 @@
 // lessons in ORDER, each one asking for something and watching for it.
 //
 //   meet      he introduces himself; stand on the mark
-//   dirs      forward / left / back / right, one step each, the brooch glowing
-//   tap       tap-to-move: four marks near you (switches taps on: lesson_movement)
 //   drag      he draws a line on the ground and walks it; then you draw yours
-//   sword     he throws you a practice sword; you catch it (it's yours, equipped)
-//   calls     draw / salute / sheathe, called one at a time
-//   cuts      the cut, again, faster
+//   space     bare-handed: step off the red tile; then shove him back until he falls
+//   sword     you stand on the mark, he faces you from the left; he throws you a practice sword
+//   calls     draw / salute / swish (three cuts) / sheathe, one flow, answered as you go
 //   fatigue   cut until you're winded; stand still till it passes
 //   strong    hold the moon for a strong blow
-//   dummy     he carries the training dummy out; cut it, strike it, shove it
+//   dummy     he stands in for the dummy, parrying all; what would have landed counts
 //   feet      cut it while walking a drawn path, three passes
 //   duel      a brief, gentle bout, Conall coaching as it goes
 //   end       the green is open: join the others across the loch
@@ -41,10 +39,9 @@ import { VoiceSynth } from '../../../systems/voice/voiceSynth.js'
 import { PRESETS } from '../../../combat/melee.js'
 import { prepareSword, SWORD_ID } from '../../../combat/meleeBout.js'
 import { figureAt } from '../../../combat/figureSword.js'
+import { SALUTE_MS, DRAW_MS } from '../../../combat/meleeView.js'
 import { DialogueHarp } from '../../../systems/music/dialogueHarp.js'
-import StepDrill from './stepDrill.js'
 import SkyeCaption from './skyeCaption.js'
-import GardenDummy from './gardenDummy.js'
 import { SKYE_GID } from './skyeScene.js'
 import { figureBox } from './dustDash.js'
 import { DUMMY_DONE, FOOT_DONE, SPAR_DONE } from './faicheLesson.js'
@@ -63,39 +60,46 @@ export const DIRS_DONE = 'faiche_course_dirs'
 export const TAP_DONE = 'lesson_movement'
 export const COURSE_DONE = 'faiche_kata_done'      // the whole course (the green waits for it)
 
-export const ORDER = ['meet', 'dirs', 'tap', 'drag', 'sword', 'calls', 'cuts', 'fatigue', 'strong', 'dummy', 'feet', 'duel', 'end']
+export const ORDER = ['meet', 'drag', 'space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'duel', 'end']
 const NOTE = { meet: MET, dirs: DIRS_DONE, tap: TAP_DONE }
 const noteOf = id => NOTE[id] || `faiche_course_${id}`
 
 const START = [18, 18]                     // the lár, the board's centre stone
 export const LEDGE_AT = [18, 7]            // where he waits: the ledge built into the earthen ring
-export const FIGHT_AT = [18, 14]           // where he stands to teach, and fights
-const TAP_SPOTS = [[20, 17], [16, 16], [16, 19], [18, 18]]   // four marks, all close and on screen from the lár
+export const FIGHT_AT = [16, 18]           // where he stands to teach, and fights: two tiles west of the mark, facing you
+// lessons that start with you on the mark: if you have wandered, you are walked back
+const HOME_LESSONS = new Set(['space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'duel'])
 const MEET_RANGE = 6                       // or this near the lár, whatever the camera shows
 const NEAR_FIGHT = 4                       // a bout starts within 5 tiles of him
 
 // the line he draws, and walks (waypoints; the tiles between are filled in)
 const DEMO_FROM = [18, 12]
-const DEMO_PTS = [[18, 12], [21, 12], [21, 15], [19, 16], [16, 16], [15, 13], [18, 12]]   // all within four columns of the lár: on screen
+// a wandering path (not a loop) that ends on the tile he teaches from next (FIGHT_AT), so he walks it and is there
+const DEMO_PTS = [[18, 12], [21, 12], [21, 15], [18, 15], [15, 14], [14, 17], [16, 18]]   // all within four columns of the lár: on screen
+const DODGES = 4, SHOVES = 3                // the space lesson: steps off the red tile, shoves back
 const DRAW_STEP_MS = 120                   // the line grows a tile this often
 
-// the dummy: out of the store, down into the garden
-const STORE = [26, 14]                     // where it stands when it is put away
-const DUMMY_AT = [18, 15]                  // where he sets it down
-const WATCH = [22, 16]                     // where he stands to watch
+// the dummy: Conall stands in for it (see _standIn)
+const DUMMY_AT = [18, 15]                  // where he takes its place
 const DUMMY_GOAL = 30, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 3
 
 // the gentle duel: a novice, slowed right down, who goes down in three blows
-const DUEL_F = { ...PRESETS.novice, hp: 3, windMs: 1100, recoverMs: 1400, restMin: 1600, restMax: 2800 }
-const DUEL_GIVE_UP_MS = 180000
+// three rounds against Conall: quicker and a little stronger each time
+const DUEL_ROUNDS = [
+  { ...PRESETS.conall, atk: 5, def: 8,  mobile: 1, windMs: 1000, recoverMs: 1100, restMin: 1200, restMax: 1900 },
+  { ...PRESETS.conall, atk: 6, def: 9,  mobile: 2, windMs: 850,  recoverMs: 950,  restMin: 900,  restMax: 1500 },
+  { ...PRESETS.conall, atk: 7, def: 10, mobile: 3, windMs: 700,  recoverMs: 800,  restMin: 600,  restMax: 1100 },
+]
+const DUEL_GIVE_UP_MS = 420000
+const REMATCH_STAGE = 2                    // 'more practice' starts at his hardest
 
-// the brooch calls. glow: 1 = lit. One step each.
-const D = (dir, ga, en, glow) => ({ dir, ga, en, glow })
-const DIR_CALLS = [
-  D('forward', 'Ar aghaidh', 'Forward', 1),
-  D('left',    'Ar chlé',    'Left',    1),
-  D('back',    'Ar gcúl',    'Back',    1),
-  D('right',   'Ar dheis',   'Right',   1),
+// what he says when the lessons are done and you talk to him (the dialogue panel's format; `event` is handed to onTalkEvent)
+const CONALL_TALK = [
+  { hold: true, ga: 'An mian leat tuilleadh cleachta?', en: 'Would you like more practice?',
+    options: [
+      { ga: 'Is mian.', en: 'Yes.', replyGa: 'Ar aire, mar sin.', replyEn: 'On guard, then.', last: true, event: 'rematch' },
+      { ga: 'Níl, go raibh maith agat.', en: 'No, thank you.', replyGa: 'Ar aghaidh leat mar sin. Beir bua.', replyEn: 'Off you go, then. Victory be with you.', last: true },
+    ] },
 ]
 
 const same = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1]
@@ -112,11 +116,11 @@ const expand = pts => {
   return out
 }
 const DEMO_LINE = expand(DEMO_PTS)
-const DUMMY_LESSONS = ['dummy', 'feet']
 
 export default class FaicheCourse {
-  constructor(scene) {
+  constructor(scene, opts = {}) {
     this.scene = scene
+    this.practice = !!opts.practice          // the lessons are done: he only offers more practice
     this.t = 0
     this.queue = []
     this.finished = false
@@ -130,17 +134,73 @@ export default class FaicheCourse {
     this.dragStage = null
     this.speaking = false     // a musical dialogue is up
     this.dragUnlocked = false
-    this.carry = null         // the dummy on his shoulder
+    this.asDummy = false      // he stands where the dummy would, and parries
+    this.squareUp = false     // you face him, he on your left (the sword and the calls)
+    this.homing = null        // being walked back to the mark: { then, t0 }
+    this.m.returnsSalute = true   // he returns your salute, in the lessons as in a bout
+    this.standing = null      // walking to that place: { t0, then }
     this.dummyMode = null     // 'score' | 'pass' while it is there to be hit
     this.points = 0
     this.floats = []
-    this.dummy = new GardenDummy(scene, STORE)
+    GameState.addNote(TAP_DONE)   // the tap lesson is gone: tap-to-move counts as known (skyeCladach waits on this note)
+    if (this.practice) { this._talkMode(); return }
     this._wrapSetPath()
     this._wrapDrag()
+    this._skipTo()
     this._next()
   }
 
+  /** the lessons are over: he can be talked to, and will spar again if you ask */
+  _talkMode() {
+    this.practice = true
+    this.id = 'talk'; this.goal = null
+    this.m.HOME = [...LEDGE_AT]
+    try { const z = this._conallZone(); z?.setData('dialogues', CONALL_TALK); z?.setData('radius', this.scene.tileSize * 1.8) } catch (_) {}
+  }
+  /** the zone the moon looks for. The map has none for him (the bout draws him), so one is made here; it goes where he goes. */
+  _conallZone() {
+    if (this._zone) return this._zone
+    const sc = this.scene, ts = sc.tileSize, f = this.m.foe
+    const x = f.c * ts + ts / 2, y = f.r * ts + ts / 2
+    const z = sc.add.zone(x, y, ts, ts)
+    z.setData('id', 'conall_talk'); z.setData('type', 'fixed_encounter'); z.setData('stateKey', 'skye_gairdin.conall_talk')
+    z.setData('flagVisual', { gid: SKYE_GID.WARDEN, flat: false }); z.setData('visual', { gid: SKYE_GID.WARDEN, flat: false })
+    z.setData('radius', ts * 1.8); z.setData('dialogues', CONALL_TALK); z.setData('actions', [])
+    z.setData('logicalX', x); z.setData('logicalY', y)
+    sc.interactables?.push(z)
+    return (this._zone = z)
+  }
+  /** he can be talked to when nothing is going on: the zone is where he stands, and is put away (far off) while he is busy */
+  _zoneTick() {
+    if (!this.practice) return
+    const z = this._conallZone(), f = this.m.foe, m = this.m
+    const talk = this.id === 'talk' && !m.enGarde && !m.combat && !m.bout.over && !this.speaking && f.state === 'idle'
+    const ts = this.scene.tileSize, c = talk ? f.c : -30, r = talk ? f.r : -30
+    if (this._zc === c && this._zr === r) return
+    this._zc = c; this._zr = r
+    const px = c * ts + ts / 2, py = r * ts + ts / 2
+    z.x = px; z.y = py; z.setData('logicalX', px); z.setData('logicalY', py)
+  }
+  onTalkEvent(ev) {
+    if (ev !== 'rematch' || this.id !== 'talk') return
+    this.id = 'duel'
+    this._duel(true)
+  }
+
   get m() { return this.scene._melee.melee }
+
+  /** testing: ?course=<lesson> in the address starts there (earlier lessons done, this one and later reset) */
+  _skipTo() {
+    let id = null
+    try { id = new URLSearchParams(window.location.search).get('course') } catch (_) {}
+    const at = ORDER.indexOf(id)
+    if (!id || at < 0) return
+    ORDER.forEach((l, i) => {
+      if (l === 'end') return
+      if (i < at) GameState.addNote(noteOf(l)); else GameState.removeNote(noteOf(l))
+    })
+    if (at > ORDER.indexOf('sword')) this._giveSword()
+  }
 
   /** Tap-to-move works from the tap lesson on (or if it was learned before). */
   tapsOn() { return GameState.hasNote(TAP_DONE) || this.id === 'tap' }
@@ -195,6 +255,7 @@ export default class FaicheCourse {
     p._courseOrigSetPath = orig
     p._courseWrapped = true
     p.setPath = (steps) => {
+      if (this.speaking) return                 // a touch that scrolls his words is not a step
       // a step drill's walk-back is a route too: only count taps
       if (steps?.length && this.id === 'tap' && !this.drill) this.tapped = true
       return orig(steps)
@@ -209,7 +270,7 @@ export default class FaicheCourse {
     rd._courseOrigCommit = orig
     rd._courseWrapped = true
     rd._commit = (list) => {
-      if (!this.dragsOn()) return
+      if (!this.dragsOn() || this.speaking) return
       orig(list)
       if (this.id === 'drag' && this.dragStage === 'you' && list.length >= 3) this._goalAdd(1)
     }
@@ -218,7 +279,7 @@ export default class FaicheCourse {
     const move = rd.move.bind(rd), end = rd.end.bind(rd)
     rd._courseOrigMove = move; rd._courseOrigEnd = end
     rd.move = (x, y) => {
-      if (this.dragsOn()) return move(x, y)
+      if (this.dragsOn() && !this.speaking) return move(x, y)
       if (rd.p0 && Math.hypot(x - rd.p0.x, y - rd.p0.y) >= 14) rd._swallow = true
     }
     rd.end = (cancelled) => {
@@ -244,7 +305,7 @@ export default class FaicheCourse {
     const card = sc.conallCard?.() || {}
     try { sc.joystick?.reset(); sc.player.isMoving = false; sc.joystick?.hideDirections?.() } catch (_) {}
     try { DialogueHarp.open(sc.registry?.get('selectedChampion') || window.selectedChampion || null, sc, card.portrait || 'conall') } catch (_) {}
-    if (this.m.enGarde) this.m.setEnGarde(false)        // blade away: the moon is for the English now
+    if (this.m.enGarde) { if (this.m.bare) this._bare(false); else this.m.setEnGarde(false) }   // blade away: the moon is for the English now
     this.speaking = true
     let done = false
     const finish = () => {
@@ -288,7 +349,7 @@ export default class FaicheCourse {
     this._later(0, () => g.done?.())
   }
   onMeleeEvent(name, d) {
-    if (name === 'swing' && d?.air && this.dummy.at && this.dummyMode) this._swingAtDummy(d)
+    if (name === 'swing' && d?.air && this._dummyAt() && this.dummyMode) this._swingAtDummy(d)
     const g = this.goal
     if (!g) return
     const w = g.on?.(name, d)
@@ -296,17 +357,38 @@ export default class FaicheCourse {
     g.other?.(name, d)
   }
 
+  // ── back to the mark: walked there for you, between lessons ──────────────
+  _goHome(then) {
+    if (this._onTile(START)) return then()
+    const sc = this.scene, p = sc.player, me = this._tile()
+    let path = null
+    try { path = sc.pathFinder?.findPath?.(me[0], me[1], START[0], START[1]) } catch (_) {}
+    if (!path?.length || !p) return then()
+    try { sc.joystick?.reset?.() } catch (_) {}
+    this.m.pa.stopRoute?.()
+    const walk = p._courseOrigSetPath || p.setPath.bind(p)     // past the guard that ignores your own touches
+    walk(path.map(st => ({ dx: st.dx, dy: st.dy })))
+    this.homing = { then, t0: this.t }
+  }
+  _homeTick() {
+    const h = this.homing
+    if (!h) return
+    if (this._onTile(START) || this.t - h.t0 > 9000) { this.homing = null; h.then() }
+  }
+
   // ── which lesson next ────────────────────────────────────────────────────
   _next() {
     this.goal = null
     const id = ORDER.find(i => i !== 'end' && !GameState.hasNote(noteOf(i))) || 'end'
     this.id = id
-    if (!DUMMY_LESSONS.includes(id) && !this.carry && this.dummy.visible) this.dummy.hide()
-    this._lesson(id)
+    this.squareUp = id !== 'meet' && id !== 'end'      // you face him whenever you stand still (facing())
+    if (HOME_LESSONS.has(id)) this._goHome(() => { this.id = id; this._lesson(id) })
+    else this._lesson(id)
   }
   _finish(id, delay = 600) {
     GameState.addNote(noteOf(id))
     this.goal = null
+    if (this.practice) { this.id = 'talk'; return }
     this._later(delay, () => this._next())
   }
   _lesson(id) { this[`_${id}`]?.() }
@@ -342,59 +424,6 @@ export default class FaicheCourse {
     this._markHintAt = this.t + HINT_AFTER_MS
   }
 
-  // ── directions: four calls, one step each ────────────────────────────────
-  _dirs() {
-    if (!this._onTile(START)) return this._toMark(() => { this.id = 'dirs'; this._dirs() })
-    const S = SCRIPT.dirs
-    this._mark(null)
-    this._say(S.intro)
-    this.drill = new StepDrill(this.scene, {
-      caption: this._drillCaption(), steps: DIR_CALLS, onCorrect: (st, tile) => this.scene.courseLit?.(tile),
-      onDone: () => this._drillDone('dirs', S.done),
-    })
-    this._later(this._holdOf(S.intro) + 400, () => this.drill?.start())
-  }
-
-  _drillDone(id, doneLines) {
-    this.drill?.destroy(); this.drill = null
-    this.scene.courseLit?.(null)
-    GameState.addNote(noteOf(id))
-    this.id = 'between'
-    this._later(500, () => this._seq(doneLines, () => this._next()))
-  }
-
-  // ── tap-to-move: four marks near you ─────────────────────────────────────
-  _tap() {
-    this._mark(null)
-    this.round = 0
-    this.tapsDone = 0
-    this._call(SCRIPT.tap.intro)
-    this._later(this._holdOf(SCRIPT.tap.intro) + 300, () => this._tapRound())
-  }
-  _tapRound() {
-    this.tapped = false
-    // never ask for the tile you are standing on
-    if (same(this._tile(), TAP_SPOTS[this.round])) this.round = (this.round + 1) % TAP_SPOTS.length
-    this._mark([...TAP_SPOTS[this.round]])
-    this.tapHintAt = this.t + HINT_AFTER_MS
-    this.tapWait = true
-  }
-  _tapReached() {
-    const S = SCRIPT.tap
-    this.tapWait = false
-    this._mark(null)
-    this._say(this.tapped ? S.tapped : S.walked, 2400)
-    this.tapsDone++
-    this.round = (this.round + 1) % TAP_SPOTS.length
-    if (this.tapsDone >= TAP_SPOTS.length) {
-      GameState.addNote(TAP_DONE)
-      this.id = 'between'
-      this._later(2800, () => this._seq(S.done, () => this._next()))
-      return
-    }
-    this._later(2800, () => { this._say(this.tapsDone === 1 ? S.again : S.further, 1600); this._later(1800, () => this._tapRound()) })
-  }
-
   // ── drag: he draws a line on the ground and walks it; then you ───────────
   _drag() {
     this._mark(null)
@@ -419,11 +448,9 @@ export default class FaicheCourse {
     } else if (st === 'follow') {
       if (this._foeAt(m.HOME) || this.t - d.stepAt > 2600) {
         d.idx++; d.stepAt = this.t
-        if (d.idx >= DEMO_LINE.length) { this.dragStage = 'back'; d.t2 = this.t; m.HOME = [...FIGHT_AT] }
+        if (d.idx >= DEMO_LINE.length) this._dragInvite()      // the path ended where he teaches: nothing more to walk
         else m.HOME = [...DEMO_LINE[d.idx]]
       }
-    } else if (st === 'back') {
-      if (this._foeAt(FIGHT_AT) || this.t - d.t2 > 6000) this._dragInvite()
     }
   }
   _dragInvite() {
@@ -440,8 +467,13 @@ export default class FaicheCourse {
   }
 
   // ── the sword: thrown, caught, yours ─────────────────────────────────────
+  // You stand on the mark and he stands facing you, two tiles to your left, so
+  // your first cut at the air goes where you are looking: the tile between.
   _sword() {
     const S = SCRIPT.sword
+    if (!this._onTile(START)) return this._toMark(() => { this.id = 'sword'; this._sword() })
+    this._mark(null)
+    this._faceLeft()
     this.m.HOME = [...FIGHT_AT]
     this._speech(S.intro, () => {
       this._say(S.throw, 1400)
@@ -463,73 +495,71 @@ export default class FaicheCourse {
     } catch (e) { console.warn('[course] sword', e) }
   }
 
+  /** you face him (he is on your left): the cut at the air goes that way, and so does the sprite */
+  _faceLeft() {
+    const p = this.scene.player
+    if (p) p.moveDirection = { x: -1, y: 0 }
+    this.squareUp = true
+  }
+  /** the scene asks (PGR) which way you stand when you are not walking; null: as you walked */
+  facing() {
+    if (!this.squareUp) return null
+    const p = this.scene.player
+    if (!p || p.isMoving || this.m.pa.onRoute() || this.t - (this.routeT ?? -1e9) < 250) return null   // walking: the way you walk
+    const [pc, pr] = this._tile(), f = this.m.foe
+    return { away: f.r < pr, left: f.c < pc ? true : f.c > pc ? false : null }
+  }
+
   // ── the moon's gesture, shown (as the stars are in the constellation scene) ─
   _prompt(kind) { this.scene.moonPrompt?.(kind) }
   /** show `kind` on the moon while the blade is out, a swipe up while it is not */
   _promptFor(kind) { this._prompt(this.m.enGarde ? kind : 'up') }
 
-  // ── calls: how the blade is carried ──────────────────────────────────────
-  // draw, salute, sheathe, (good), draw: each said, the gesture shown on the
-  // moon, and done when you do it. He listens from the moment he says it.
+  // ── calls: draw, salute, swish, sheathe ──────────────────────────────────
+  // One flow. Each step is said, shown on the moon, and answered with "Good."
+  // the moment you get it right, so you never wonder whether it counted.
   _calls() {
     const S = SCRIPT.calls, m = this.m
     m.HOME = [...FIGHT_AT]
     if (m.enGarde) m.setEnGarde(false)             // start with the blade away
-    const is = {
-      draw: n => n === 'enGarde',
-      salute: (n, d) => n === 'salute' && d?.by === 'player',
-      sheathe: n => n === 'atEase',
-    }
+    this._faceLeft()
     const STEPS = [
-      { k: 'draw', ...S.draw, p: 'up' }, { k: 'salute', ...S.salute, p: 'up' },
-      { k: 'sheathe', ...S.sheathe, p: 'down' }, { k: 'good', good: true },
-      { k: 'draw', ...S.drawAgain, p: 'up' },
+      { say: S.draw.say, hint: S.draw.hint, p: 'up', on: n => n === 'enGarde' },
+      { say: S.salute.say, hint: S.salute.hint, p: 'up', on: (n, d) => n === 'salute' && d?.by === 'player' },
+      { say: S.sheathe.say, hint: S.sheathe.hint, p: 'down', on: n => n === 'atEase' },
     ]
     const run = i => {
       if (i >= STEPS.length) { this._prompt(null); return this._finish('calls', 300) }
       const st = STEPS[i]
-      if (st.good) { this._say(S.good); return this._later(1600, () => run(i + 1)) }
-      this._call(st.say); this._prompt(st.p)
-      this._goal({
-        hint: st.hint, on: is[st.k],
-        done: () => { this._prompt(null); this._later(700, () => run(i + 1)) },
+      // if the last gesture carried you off the mark, you are walked back first
+      this._goHome(() => {
+        this._faceLeft()
+        this._call(st.say)
+        if (st.p) this._prompt(st.p)
+        this._goal({
+          need: st.need || 1, hint: st.hint, on: st.on, onCount: st.onCount, tick: st.tick, after: this._holdOf(st.say),
+          done: () => { this._prompt(null); this._say(S.good); this._later(i === STEPS.length - 1 ? 1300 : 900, () => run(i + 1)) },
+        })
       })
     }
     this._seq(S.intro, null)
     this._later(this._holdOf(S.intro) + 500, () => run(0))
   }
 
-  // ── cuts: attack, again, again, faster ───────────────────────────────────
-  _cuts() {
-    const S = SCRIPT.cuts
-    this._heal()
-    this._call(S.intro)
-    this._goal({
-      need: 4, hint: S.hint, after: 2000,
-      on: (name, d) => name === 'swing' && !d.charged,
-      onCount: n => { if (n === 1 || n === 2) this._call(S.again); else if (n === 3) this._call(S.faster) },
-      tick: () => this._promptFor('tap'),
-      done: () => { this._prompt(null); this._say(S.good); this._later(1700, () => this._seq(S.hardWork, () => this._finish('cuts', 300))) },
-    })
-  }
-
   // ── fatigue: when to give everything, when to hold back ──────────────────
   _fatigue() {
     const S = SCRIPT.fatigue
-    this._speech(S.intro[0], () => {
-      this._say(S.intro[1])
+    this._speech(S.intro, () => {
       this._goal({
-        after: this._holdOf(S.intro[1]), hint: S.hint,
+        after: 1000, hint: S.hint,
         on: name => name === 'winded',
         tick: () => this._promptFor('tap'),
         done: () => {
           this._prompt(null)
-          this._seq(S.winded, () => {
-            this._say(S.rest)
-            this._goal({
-              hint: S.rest, on: name => name === 'unwinded',
-              done: () => this._speech([S.rested, S.done], () => this._finish('fatigue', 300)),
-            })
+          this._say(S.rest)
+          this._goal({
+            hint: S.rest, on: name => name === 'unwinded',
+            done: () => { this._say(S.done); this._finish('fatigue', 2600) },
           })
         },
       })
@@ -546,83 +576,220 @@ export default class FaicheCourse {
       on: (name, d) => name === 'swing' && d.charged,
       onCount: () => this._say(S.good),
       tick: () => {
-        const g = this.goal, m = this.m
         this._promptFor('hold')
-        if (g && (m.breath < 2 || m.winded()) && this.t >= (g.breatheAt || 0)) { g.breatheAt = this.t + 9000; this._say(S.breathe) }
       },
-      done: () => { this._prompt(null); this._later(2300, () => this._seq(S.done, () => this._finish('strong', 300))) },
+      done: () => { this._prompt(null); this._later(1200, () => this._seq(S.done, () => this._finish('strong', 300))) },
     })
   }
 
-  // ── the dummy: carried out, cut, shoved, passed ──────────────────────────
-  // He walks to the pick-up spot, lifts it onto his shoulder, carries it to the
-  // stand spot and sets it on the grass at `dropTile`.
-  _carry(pick, stand, dropTile, then, hideAfter = false) {
-    this.carry = { stage: 'go', pick, stand, dropTile, then, hideAfter, t0: this.t }
-    this.m.HOME = [...pick]
-  }
-  _carryTick() {
-    const c = this.carry, m = this.m
-    if (!c) return
-    if (c.stage === 'go' && (this._foeAt(c.pick) || this.t - c.t0 > 16000)) {
-      c.stage = 'bring'; c.t0 = this.t
-      this.dummy.show()
-      m.HOME = [...c.stand]
-    }
-    if (c.stage === 'bring') {
-      const [x, y] = m.foeDrawPos()
-      this.dummy.place(x - 0.45, y + 0.02, true)
-      if (this._foeAt(c.stand) || this.t - c.t0 > 16000) {
-        // wait if you are standing where it goes
-        if (same(this._tile(), c.dropTile) && this.t - c.t0 < 40000) {
-          if (this.t >= (c.sayAt || 0)) { c.sayAt = this.t + 5000; this._say(SCRIPT.dummy.clear, 2400) }
-          return
-        }
-        this.dummy.place(c.dropTile[0], c.dropTile[1], false)
-        if (c.hideAfter) this.dummy.hide()
-        SoundBoard.playWeb('BODY_FALL', this.scene, { volume: 0.25 })
-        this.carry = null
-        c.then?.()
-      }
+  // ── space: the ground, before any blade ──────────────────────────────────
+  // Both of you on guard, bare-handed (melee.bare). He steps up beside you, the
+  // tile under you turns red, he lunges: be off it. Then he comes to shove you
+  // about until you shove back (walk into him); the third shove puts him down.
+  _bare(on) {
+    const m = this.m, v = this.scene._melee?.view
+    if (on) {
+      if (this._peacefulWas === undefined) this._peacefulWas = m.peaceful
+      m.peaceful = true; m.bare = true; m.foeGuard = true
+      if (!m.enGarde) { m.enGarde = true; if (v) v.a.garde = v.now() - DRAW_MS * 2 }
+    } else {
+      m.bare = false; m.foeGuard = false
+      if (m.enGarde && !this.scene._melee?.swordInHand?.()) m.enGarde = false
+      if (this._peacefulWas !== undefined) { m.peaceful = this._peacefulWas; this._peacefulWas = undefined }
     }
   }
-  /** the dummy standing in the garden, whatever it takes */
-  _withDummy(then) {
-    if (same(this.dummy.at, DUMMY_AT)) return then()
-    this._say(SCRIPT.dummy.fetch, 3000)
-    this._carry([STORE[0] - 1, STORE[1]], [DUMMY_AT[0] + 1, DUMMY_AT[1]], DUMMY_AT, () => {
-      this.m.HOME = [...WATCH]
-      then()
+  _space() {
+    const S = SCRIPT.space, m = this.m
+    m.HOME = [...FIGHT_AT]
+    this._speech(S.intro, () => {
+      this._spaceRun('dodge', DODGES, S.dodgeHint, () => {
+        this._speech(S.mid, () => this._goHome(() => {
+          this._spaceRun('shove', SHOVES, S.shoveHint, () => {
+            this._goHome(() => this._speech(S.done, () => this._finish('space', 200)))
+          })
+        }))
+      })
     })
   }
-  _carryAway(then) {
-    this._carry([DUMMY_AT[0] + 1, DUMMY_AT[1]], [STORE[0] - 1, STORE[1]], STORE, () => {
-      this.m.HOME = [...FIGHT_AT]
-      then?.()
-    }, true)
+  _spaceRun(kind, need, hint, then) {
+    const S = SCRIPT.space
+    this._bare(true)
+    this.space = { kind, need, n: 0, phase: 'approach', t0: this.t, tile: null, goal: null, hits: 0, down: false }
+    this._say(kind === 'dodge' ? S.dodgeGo : S.shoveGo, 3200)
+    this._goal({
+      need, hint, after: 3500,
+      done: () => {
+        const down = this.space?.kind === 'shove'
+        if (this.space) this.space.phase = 'end'
+        this._later(down ? 2600 : 600, () => { this.space = null; this._bare(false); then() })
+      },
+    })
+  }
+  /** a free tile beside you, nearest to him */
+  _besideMe() {
+    const m = this.m, me = m.pa.tile(), f = m.foe
+    let best = null, bd = 1e9
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const c = me[0] + dc, r = me[1] + dr
+      if (!m.pa.free(c, r)) continue
+      const d = Math.abs(c - f.c) + Math.abs(r - f.r) + Math.random() * 1.2
+      if (d < bd) { bd = d; best = [c, r] }
+    }
+    return best
+  }
+  _spaceTick() {
+    const sp = this.space, m = this.m, v = this.scene._melee?.view, S = SCRIPT.space
+    if (!sp || sp.phase === 'end') return
+    if (!m.enGarde) m.enGarde = true                     // the stance stays up (a swipe down must not drop it)
+    const me = m.pa.tile(), f = m.foe, beside = cheb(me, [f.c, f.r]) === 1 && !f.from
+    const dur = this.t - sp.t0
+    if (sp.phase === 'approach') {
+      if (beside && !m.pa.onRoute() && dur > 500) {
+        sp.phase = 'tell'; sp.t0 = this.t; sp.ms = sp.kind === 'dodge' ? (sp.n < 2 ? 1500 : 1100) : 950
+        sp.tile = [...me]; v?.foeTell?.(sp.ms)
+      } else if (!sp.goal || cheb(sp.goal, me) !== 1 || dur > 7000) {
+        sp.goal = this._besideMe(); if (sp.goal) m.HOME = [...sp.goal]; if (dur > 7000) sp.t0 = this.t - 600
+      }
+    } else if (sp.phase === 'tell') {
+      if (dur >= sp.ms) {
+        sp.phase = 'strike'; sp.t0 = this.t
+        const dir = [Math.sign(sp.tile[0] - f.c), Math.sign(sp.tile[1] - f.r)]
+        sp.dir = dir
+        m.emit('shove', { by: 'foe', dir })
+        SoundBoard.playWeb('FOOT_SHUFFLE', this.scene, {})
+      }
+    } else if (sp.phase === 'strike') {
+      if (dur >= 140) {
+        const hit = same(m.pa.tile(), sp.tile)
+        if (hit) {                                       // still there: pushed back a tile, no harm
+          m.pa.forceStep(sp.dir); sp.hits++
+          if (v) v.a.hurt = v.now()
+          SoundBoard.playWeb('BLADE_THUD', this.scene, { hard: 0.2, volume: 0.4 })
+          if (sp.kind === 'dodge' && sp.hits === 2) { sp.hits = 0; this._say(S.tag, 2600) }
+        } else if (sp.kind === 'dodge') {
+          const line = S.good[sp.n % S.good.length]
+          this._goalAdd(1); if (this.space) { sp.n++; this._say(line, 1600) }
+        }
+        if (this.space && sp.phase !== 'end') { sp.phase = 'after'; sp.t0 = this.t; sp.goal = null }
+      }
+    } else if (sp.phase === 'after') {
+      if (dur >= (sp.kind === 'dodge' ? 900 : 700)) { sp.phase = 'approach'; sp.t0 = this.t }
+    } else if (sp.phase === 'stagger') {
+      if (dur >= 1100) { sp.phase = 'approach'; sp.t0 = this.t; sp.goal = null }
+    }
+  }
+  /** walked into him: a shoulder (the scene calls this). It only counts in the shoving half. */
+  _spaceShove(dx, dy) {
+    const sp = this.space, m = this.m
+    if (!sp || sp.kind !== 'shove' || sp.phase === 'end' || sp.down) return true
+    if (this.t - (this.lastShove || -1e9) < 450) return true
+    this.lastShove = this.t
+    const f = m.foe, S = SCRIPT.space
+    sp.n++
+    const last = sp.n >= sp.need
+    m.emit('shove', { dir: [dx, dy], down: last })
+    m._foeStepTo(f.c + dx, f.r + dy, 160)                // thrown back a tile
+    SoundBoard.playWeb('BLADE_THUD', this.scene, { hard: 0.25, volume: 0.45 })
+    SoundBoard.playWeb('FOOT_SHUFFLE', this.scene, {})
+    if (last) {
+      sp.down = true
+      m._setFoe('down', 2200); f.hurtUntil = m.t + 2200
+      m.emit('knockdown', { who: 'foe' })
+    } else {
+      m._setFoe('stagger', 700)
+      this._say(S.shoved[sp.n - 1], 1800)
+      sp.phase = 'stagger'; sp.t0 = this.t
+    }
+    this._goalAdd(1)
+    return true
+  }
+  /** the tile he is about to strike, red, deepening (drawn over the figures) */
+  _drawSpace(ctx) {
+    const sp = this.space, v = this.scene._melee?.view
+    if (!sp || !v || !sp.tile || (sp.phase !== 'tell' && sp.phase !== 'strike')) return
+    const k = sp.phase === 'strike' ? 1 : Math.min(1, (this.t - sp.t0) / Math.max(1, sp.ms))
+    v.tileQuad(ctx, sp.tile, `rgba(220,60,50,${0.12 + 0.35 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
+  }
+
+  // ── the dummy: Conall stands in for it ───────────────────────────────────
+  // He takes the dummy's place, blade out, and turns aside everything you throw.
+  // He cannot be hurt, but he knows an effective blow when he sees one and counts
+  // it as the straw post did. Nothing is shown: he is satisfied, or he is not.
+  /** the tile he stands on, when he is standing in for the dummy */
+  _dummyAt() {
+    const f = this.m.foe
+    return this.asDummy && !f.from ? [f.c, f.r] : null
+  }
+  _standIn(then) {
+    const m = this.m
+    if (this.asDummy && this._foeAt(DUMMY_AT)) return then()
+    this.asDummy = true
+    m.foeReady = true                       // his own blade comes out
+    m.foeGuard = true                       // and he holds it as a guard, not hanging
+    m.HOME = [...DUMMY_AT]
+    this._say(SCRIPT.dummy.fetch, 3000)
+    this.standing = { t0: this.t, then, sayAt: 0 }
+  }
+  _standTick() {
+    const s = this.standing
+    if (!s) return
+    const arrived = this._foeAt(DUMMY_AT)
+    // you are standing where he needs to be: ask, and wait
+    if (!arrived && same(this._tile(), DUMMY_AT) && this.t - s.t0 < 40000) {
+      if (this.t >= s.sayAt) { s.sayAt = this.t + 5000; this._say(SCRIPT.dummy.clear, 2400) }
+      return
+    }
+    if (!arrived && this.t - s.t0 < 16000) return
+    this.standing = null
+    s.then()
+  }
+  _standDown() {
+    this.asDummy = false; this.standing = null
+    this.m.foeReady = false; this.m.foeGuard = false
+    this.m.HOME = [...FIGHT_AT]
+  }
+  /** he turns a blow aside (a clack and a spark), and rocks back a little */
+  _parry(ms, clack = true) {
+    const m = this.m
+    m._setFoe('reel', ms)
+    if (clack) m.emit('parried', { by: 'foe', exchange: 0 })
   }
 
   _dummy() {
     const S = SCRIPT.dummy
     this.points = 0
-    this._withDummy(() => {
-      this._speech(S.intro, () => {
+    this._standIn(() => {
+      this._speech(S.intro, () => this._saluteFirst(() => {
         this.dummyMode = 'score'
         this._goal({
           need: DUMMY_GOAL, hint: S.hint, after: 1500,
           tick: () => this._dummyPrompt(),
           done: () => { this.dummyMode = null; this._prompt(null); this._speech(S.done, () => this._finish('dummy', 200)) },
         })
-      })
+      }))
+    })
+  }
+  /** he draws and offers his salute; the lesson waits for yours (and goes on anyway after 30 s) */
+  _saluteFirst(then) {
+    const m = this.m, S = SCRIPT.dummy, t0 = this.t, drawn = m.foeReady
+    m.foeReady = true
+    m._setFoe('salute', SALUTE_MS + (drawn ? 0 : DRAW_MS))
+    m.emit('salute', { by: 'foe', draw: !drawn })
+    this._say(S.saluteFirst, 3000)
+    this._goal({
+      hint: S.saluteHint, after: 3000,
+      on: (n, d) => n === 'salute' && d?.by === 'player',
+      tick: () => { this._prompt('up'); if (this.goal && this.t - t0 > 30000) this._goalDone() },
+      done: () => { this._prompt(null); this._say(S.saluteDone, 1600); this._later(1500, then) },
     })
   }
   _dummyPrompt() {
-    if (!this.m.enGarde && cheb(this._tile(), this.dummy.at || DUMMY_AT) <= 2) this._prompt('up'); else this._prompt(null)
+    if (!this.m.enGarde && cheb(this._tile(), this._dummyAt() || DUMMY_AT) <= 2) this._prompt('up'); else this._prompt(null)
   }
 
   _feet() {
     const S = SCRIPT.feet
-    this._withDummy(() => {
+    this._standIn(() => {
       this._speech(S.intro[0], () => {
         this._say(S.intro[1])
         this.dummyMode = 'pass'
@@ -632,66 +799,69 @@ export default class FaicheCourse {
           onCount: n => { if (n < PASSES) this._say(n === 1 ? S.passOne : S.passTwo, 1400) },
           done: () => {
             this.dummyMode = null; this._prompt(null)
-            this._seq(S.done, () => this._carryAway(() => this._finish('feet', 200)))
+            this._seq(S.done, () => { this._standDown(); this._finish('feet', 200) })
           },
         })
       })
     })
   }
 
-  // a cut at the air, beside the dummy: it hits the dummy
+  // a cut at the air, beside him: he parries it, and counts it if it would have landed
   _swingAtDummy(d) {
-    const at = this.dummy.at
+    const at = this._dummyAt()
     if (!at || !this.dummyMode) return
     const me = this._tile()
     if (cheb(me, at) !== 1) return
     const m = this.m
-    if (m.swing) m.swing.tile = [...at]                              // the cut goes at it, whichever way you last walked
+    if (m.swing) m.swing.tile = [...at]                              // the cut goes at him, whichever way you last walked
     const moving = !!m.pa.onRoute() || this.t - (this.routeT ?? -1e9) < 600   // on a drawn path, or just off the end of one
     this._later(160, () => {
       if (!this.dummyMode) return
-      this.dummy.hit(me[0] <= at[0] ? 1 : -1)
-      SoundBoard.playWeb('BLADE_THUD', this.scene, { hard: d.charged ? 0.9 : 0.35 })
+      this._parry(d.charged ? 600 : 380)
       if (this.dummyMode === 'score') this._score(d.charged ? PTS.strong : PTS.cut)
-      else if (this.dummyMode === 'pass' && moving) { this.floats.push({ text: '✓', t0: this.t }); this._goalAdd(1) }
+      else if (this.dummyMode === 'pass' && moving) this._goalAdd(1)
     })
   }
   _score(n) {
     this.points += n
-    this.floats.push({ text: '+' + n, t0: this.t })
     this._goalAdd(n)
   }
 
-  /** walked into it, en garde: a shove (the scene calls this) */
-  bumpDummy(dx) {
-    if (!this.dummy.at || !this.dummyMode) return false
+  /** walked into him, en garde: a shoulder. He plants his feet. (the scene calls this) */
+  bumpDummy(dx, dy = 0) {
+    if (this.space) return this._spaceShove(dx, dy)
+    if (!this._dummyAt() || !this.dummyMode) return false
     const m = this.m
     if (!m.enGarde || this.t - (this.lastShove || -1e9) < 450) return true
     this.lastShove = this.t
     if (m.winded() || m.breath < 1) { m.emit('spent', { lastHeart: m.pa.hp() <= 1 }); return true }
     m.spend(1)
-    this.dummy.hit(dx >= 0 ? 1 : -1)
+    this._parry(250, false)
     SoundBoard.playWeb('BLADE_THUD', this.scene, { hard: 0.25, volume: 0.45 })
     SoundBoard.playWeb('FOOT_SHUFFLE', this.scene, {})
     if (this.dummyMode === 'score') this._score(PTS.shove)
     return true
   }
 
-  // what the scene asks about the dummy
-  occupies(tx, ty) { return this.dummy.occupies(tx, ty) }
-  /** the camera closes in on you and the dummy (FightLens) */
+  // what the scene asks about the dummy: his tile, while a lesson is counting
+  occupies(tx, ty) {
+    if (this.space) { const f = this.m.foe; return f.c === tx && f.r === ty }
+    const a = this._dummyAt()
+    return !!a && !!this.dummyMode && a[0] === tx && a[1] === ty
+  }
+  /** the camera closes in on you and him (FightLens) */
   lensFocus() {
     if (this.speaking) { const f = this.m.foe; return [f.c, f.r] }       // in on him while he speaks
-    const at = this.dummy.at
+    const at = this._dummyAt()
     if (!at || !this.dummyMode) return null
     return cheb(this._tile(), at) <= 4 ? at : null
   }
-  /** a tap on the dummy: beside it, en garde, a cut; further off, walk up to it */
+  /** a tap on him: beside him, en garde, a cut; further off, walk up to him */
   tapDummy(x, y) {
-    const at = this.dummy.at
+    const at = this._dummyAt()
     if (!at || !this.dummyMode) return false
-    const b = figureAt(this.scene, at[0], at[1] - 0.5)
-    if (!b || Math.abs(x - b.x) > b.w * 0.6 || y < b.y - b.h * 1.15 || y > b.y + b.w * 0.35) return false
+    const b = this.scene._melee?.view?.foeFigure?.()
+    if (!b || Math.abs(x - b.x) > b.w * 0.65 || y < b.y - b.h * 1.1 || y > b.y + b.w * 0.3) return false
     const me = this._tile(), m = this.m
     if (cheb(me, at) === 1) { if (m.enGarde) m.act(() => m.strike(), 'strike'); return true }
     const sc = this.scene, ts = sc.tileSize
@@ -713,12 +883,14 @@ export default class FaicheCourse {
     m.F = { ...F }
     m.foe.hp = F.hp
     m.HOME = [...FIGHT_AT]
-    m.peaceful = false
+    m.peaceful = false; m.eager = true      // sword drawn = the bout is on
+    m.matchPause = false; m.resume = false; m.touches = 0
     this._heal()
   }
   _boutOff() {
     const m = this.m
-    m.peaceful = true
+    m.peaceful = true; m.eager = false
+    m.matchPause = false; m.resume = false; m.foeReady = false
     m._endCombat?.()
     m.bout = { over: false, until: 0, needLeave: false }
     m.p.lost = false
@@ -728,6 +900,50 @@ export default class FaicheCourse {
     m.HOME = [...FIGHT_AT]
     this._prompt(null)
     this._heal()
+  }
+  /** a touch: the action stops; you are walked back to your mark, he to his; and it goes on when you are both there */
+  _touched(d) {
+    const m = this.m
+    if (d.scorer === 'player') this._duelStrength(m.F.hp - m.foe.hp)
+    this._heal()
+    this.regroup = null
+    this._later(1500, () => {
+      if (this.id !== 'duel') return
+      this._goHome(() => { this.regroup = { t0: this.t } })
+    })
+  }
+  /** three stages over his hearts: the longer you hold, the quicker and harder he gets (and he calls 'Arís!') */
+  _phase() {
+    const m = this.m, lost = m.F.hp - m.foe.hp
+    const n = Math.max(this.floor || 0, lost >= Math.ceil(m.F.hp * 0.75) ? 2 : lost >= Math.ceil(m.F.hp * 0.375) ? 1 : 0)
+    if (n === this.round || m.foe.hp <= 0) return
+    this.round = n
+    m.F = { ...DUEL_ROUNDS[n] }
+    m.emit('phase', { n })
+  }
+  /** every touch you score, he steps up a little: quicker, and harder */
+  _duelStrength(n) {
+    this.round = n
+    this.m.F = { ...DUEL_ROUNDS[Math.min(n, DUEL_ROUNDS.length - 1)] }
+  }
+  /** the duel is going on in your hands: blade out, a bout under way, or you are mending */
+  _busyDuel() {
+    const m = this.m, p = this.scene.player
+    return m.enGarde || m.combat || m.bout.over || !!(p && p.currentHP < p.maxHP)
+  }
+  /** hurt, and with your blade away, you mend: a heart every 1.2 s */
+  _healTick() {
+    if (this.id !== 'duel' || this.m.enGarde || this.t < (this._healAt || 0)) return
+    const p = this.scene.player
+    if (p && p.currentHP < p.maxHP) { p.heal?.(1); this._healAt = this.t + 1200 }
+  }
+  _regroupTick() {
+    const r = this.regroup, m = this.m
+    if (!r || !m.enGarde) return                      // the prompt asks for your blade
+    if ((this._foeAt(FIGHT_AT) && this._onTile(START)) || this.t - r.t0 > 6000) {
+      this.regroup = null
+      this._later(400, () => m.resumeBout())
+    }
   }
   /** A bout starts only when you're within a few tiles of him: be on the mark first. */
   _atMark(fn) {
@@ -743,29 +959,35 @@ export default class FaicheCourse {
     this._call(line, 2800)
   }
 
-  _duel() {
+  _duel(again = false) {
     const S = SCRIPT.duel
     this._atMark(() => {
-      this.tells = 0; this.hitsMade = 0; this.coachAt = 0
-      this._speech(S.intro[0], () => {
+      this.tells = 0; this.hitsMade = 0; this.coachAt = 0; this.saluted = true
+      const open = go => again ? go() : this._speech(S.intro[0], go)
+      open(() => {
       this._call(S.intro[1])
-      this._boutOn(DUEL_F)
+      this.floor = again ? REMATCH_STAGE : 0
+      this.round = this.floor
+      this._boutOn(DUEL_ROUNDS[this.round])
       this._goal({
         need: 1, hint: S.hint, after: this._holdOf(S.intro[1]), giveUp: DUEL_GIVE_UP_MS,
         on: (name, d) => name === 'boutOver' && d.won,
-        tick: () => { if (!this.m.enGarde) this._prompt('up'); else this._prompt(null) },
+        tick: () => { const p = this.scene.player; if (!this.m.enGarde && !(p && p.currentHP < p.maxHP)) this._prompt('up'); else this._prompt(null) },     // no prompt while you mend
         other: (name, d) => {
-          if (name === 'hit' && d.on === 'player') { this._heal(); this._coach(S.coach.hurt) }
-          else if (name === 'boutOver' && !d.won) this._heal()
-          else if (name === 'tell') { if (this.tells++ < 3) this._coach(S.coach.tell, 2500) }
-          else if (name === 'dodge' || (name === 'miss' && d.by === 'foe')) this._coach(S.coach.miss)
-          else if (name === 'hit' && d.on === 'foe') this._coach(S.coach.hit[this.hitsMade++ % S.coach.hit.length])
-          else if (name === 'shove') this._coach(S.coach.shove)
+          // the first blow of a bout without a salute: he says so, once
+          if (name === 'boutStart') this.saluted = false
+          else if (name === 'salute' && d?.by === 'player') this.saluted = true
+          // (no scolding for a missing salute: he zooms off and salutes, up to three times: melee.js _remind)
+          // he says little in a bout: the warning once, a missing salute, and the sword business. (S.coach.hit/miss/hurt/shove are there for the next draft.)
+          if (name === 'touch') this._touched(d)
+          else if (name === 'hit' && d.on === 'foe') { this._later(0, () => this._phase()); if (Math.random() < 0.6) this._coach(S.coach.hit[this.hitsMade++ % S.coach.hit.length], 5000) }
+          else if (name === 'parried' && d.by === 'player') { if (Math.random() < 0.6) this._coach(S.coach.parry[this.hitsMade++ % S.coach.parry.length], 5000) }
+          else if (name === 'tell') { if (this.tells++ < 1) this._coach(S.coach.tell, 2500) }
           else if (name === 'disarm') this._say(S.disarm, 3600)
           else if (name === 'swordReturned') this._say(S.returned, 3000)
           else if (name === 'struckUnarmed') this._say(S.struck, 3600)
         },
-        done: () => { this._boutOff(); this._speech(S.won, () => this._finish('duel', 200)) },
+        done: () => { this.m.peaceful = true; this._later(4600, () => { this._boutOff(); if (again) this._finish('duel', 0); else this._speech(S.won, () => this._finish('duel', 200)) }) },    // let him bow, and salute, first
       })
       })
     })
@@ -779,7 +1001,7 @@ export default class FaicheCourse {
     this._speech(SCRIPT.end.intro, () => {
       // the green meets you with the class in session, and then the tournament
       for (const n of [COURSE_DONE, DUMMY_DONE, FOOT_DONE, SPAR_DONE]) GameState.addNote(n)
-      this.finished = true
+      this._talkMode()
     })
   }
 
@@ -787,6 +1009,7 @@ export default class FaicheCourse {
   draw(ctx) {
     this._drawThrow(ctx)
     this._drawLines(ctx)
+    this._drawSpace(ctx)
     this._drawDummy(ctx)
   }
 
@@ -817,7 +1040,7 @@ export default class FaicheCourse {
     if (!rd?._line) return
     ctx.save()
     const d = this.demo
-    if (d && d.shown > 0) {
+    if (d && d.shown > 0 && this.dragStage !== 'back') {      // shown once: drawn, then walked, then gone
       const from = this.dragStage === 'follow' ? Math.max(0, d.idx - 1) : 0
       const tiles = DEMO_LINE.slice(from, d.shown)
       rd._line(ctx, tiles, 'rgba(245,208,96,0.8)', 3, [2, 6])
@@ -832,53 +1055,41 @@ export default class FaicheCourse {
     ctx.restore()
   }
 
-  /** the tally over the dummy, what each blow added, the tile you strike at */
+  /** the tile you strike at, in gold, when you are beside him (no tally: he keeps it) */
   _drawDummy(ctx) {
-    const at = this.dummy.at
+    const at = this._dummyAt()
     if (!at || !this.dummyMode) return
     const view = this.scene._melee?.view
     if (this.m.enGarde && cheb(this._tile(), at) === 1) view?.tileQuad?.(ctx, at, 'rgba(245,208,96,0.12)', 'rgba(245,208,96,0.7)', 1.5)
-    const b = figureAt(this.scene, at[0], at[1] - 0.5)
-    if (!b) return
-    const fs = Math.max(11, b.w * 0.22)
-    ctx.save()
-    ctx.textAlign = 'center'; ctx.font = `bold ${fs}px 'Courier Prime','Courier New',monospace`
-    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.fillStyle = '#f3e6c4'
-    const label = this.dummyMode === 'score' ? `${Math.min(this.points, DUMMY_GOAL)} / ${DUMMY_GOAL}` : `${this.goal?.n ?? PASSES} / ${PASSES}`
-    const ty = b.y - b.h * 1.25
-    ctx.strokeText(label, b.x, ty); ctx.fillText(label, b.x, ty)
-    this.floats = this.floats.filter(f => this.t - f.t0 < 900)
-    for (const f of this.floats) {
-      const k = (this.t - f.t0) / 900
-      ctx.globalAlpha = 1 - k; ctx.fillStyle = '#ffd36b'
-      const y = ty - fs * (1 + k * 1.6)
-      ctx.strokeText(f.text, b.x + fs, y); ctx.fillText(f.text, b.x + fs, y)
-    }
-    ctx.restore()
   }
 
   // ── the frame ────────────────────────────────────────────────────────────
   update(dt) {
     this.t += Math.min(50, dt)
+    this._zoneTick()
     for (const q of this.queue.slice()) if (this.t >= q.at) { this.queue.splice(this.queue.indexOf(q), 1); q.fn() }
     if (this._meetWait && !this.scene._encounterPanel?._isOpen && this._inSight()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
     this.drill?.update()
-    this._carryTick()
+    this._standTick()
+    this._homeTick()
+    this._regroupTick()
+    this._healTick()
+    if (this.space && !this.speaking) this._spaceTick()
     if (this.m.pa.onRoute()) this.routeT = this.t
     if (this.id === 'drag' && this.demo) this._dragTick()
     if (this.id === 'mark') {
       if (this._onTile(START)) { const f = this._afterMark; this._afterMark = null; this.id = 'markDone'; this._mark(null); f?.() }
       else if (this.t >= this._markHintAt) { this._say(SCRIPT.meet.standAgain, 2400); this._markHintAt = this.t + HINT_AFTER_MS }
     }
-    if (this.id === 'tap' && this.tapWait) {
-      if (this._onTile(TAP_SPOTS[this.round])) this._tapReached()
-      else if (this.t >= this.tapHintAt) { this._hint(SCRIPT.tap.hint); this.tapHintAt = this.t + HINT_AFTER_MS }
-    }
     const g = this.goal
     if (g && this.speaking) { g.t0 = this.t; g.hintAt = this.t + HINT_AFTER_MS }
     if (g) {
       g.tick?.()
-      if (this.goal === g && g.hint && this.t >= g.hintAt) { this._hint(g.hint); g.hintAt = this.t + HINT_AFTER_MS }
+      if (this.id === 'duel' && this._busyDuel()) g.t0 = this.t         // a long fight is not a stall
+      if (this.goal === g && g.hint && this.t >= g.hintAt) {
+        if (this.id === 'duel' && this._busyDuel()) g.hintAt = this.t + HINT_AFTER_MS      // on guard, fighting or mending: no nagging
+        else { this._hint(g.hint); g.hintAt = this.t + HINT_AFTER_MS }
+      }
       if (this.goal === g && this.t - g.t0 >= (g.giveUp ?? GIVE_UP_MS)) {         // let it go
         this.goal = null
         this._prompt(null)
@@ -887,8 +1098,8 @@ export default class FaicheCourse {
         if (this.id === 'duel') this._boutOff()
         const id = this.id
         this._later(3200, () => {
-          if (id === 'feet') this._carryAway(() => this._finish(id, 0))
-          else this._finish(id, 0)
+          if (id === 'feet') this._standDown()
+          this._finish(id, 0)
         })
       }
     }
@@ -901,7 +1112,8 @@ export default class FaicheCourse {
     const rd = this.scene._routeDraw
     if (rd?._courseWrapped) { rd._commit = rd._courseOrigCommit; rd.move = rd._courseOrigMove; rd.end = rd._courseOrigEnd; rd._courseWrapped = false }
     if (this.id === 'duel') { try { this._boutOff() } catch (_) {} }
-    try { this.dummy.destroy() } catch (_) {}
+    try { this._bare(false) } catch (_) {}
+    try { this.m.foeReady = false; this.m.foeGuard = false; this.m.returnsSalute = false } catch (_) {}
     this._mark(null)
     this._prompt(null)
     try { this._voice?.stop() } catch (_) {}

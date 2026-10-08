@@ -38,6 +38,8 @@ export default class RouteDraw {
   }
 
   get ts() { return this.scene.tileSize }
+  // the clock a resting finger is timed on: slowed with the world in a bout (focus), so thinking is not 'wait here'
+  gnow() { return this.scene._melee?.melee?.clock ?? performance.now() }
   playerTile() { const p = this.scene.player; return [Math.floor(p.logicalX / this.ts), Math.floor(p.logicalY / this.ts)] }
   inFight() { return !!this.scene._melee?.melee?.combat }
   tileAt(x, y) { const t = PathFinder.screenToTile(x, y, this.scene.perspectiveGround, this.ts); return t ? [t.tx, t.ty] : null }
@@ -55,7 +57,7 @@ export default class RouteDraw {
   _add(x, y) {
     const t = this.tileAt(x, y)
     if (!t) return
-    const last = this.trail[this.trail.length - 1], now = performance.now()
+    const last = this.trail[this.trail.length - 1], now = this.gnow()
     if (!last) { this.trailAt = now; this.trail.push([t[0], t[1], 0]); return }
     if (last[0] === t[0] && last[1] === t[1]) return
     last[2] = dwellMs(now - this.trailAt)                  // the finger rested there: a wait
@@ -69,7 +71,7 @@ export default class RouteDraw {
     this.p0 = null; this.trail = null
     if (!list) return false
     if (cancelled || list.length < 2) return true
-    list[list.length - 1][2] = dwellMs(performance.now() - this.trailAt)
+    list[list.length - 1][2] = dwellMs(this.gnow() - this.trailAt)
     this._commit(list)
     return true
   }
@@ -143,7 +145,7 @@ export default class RouteDraw {
     ctx.save()
     if (this.trail?.length) {
       // while drawing: the wait under the resting finger grows
-      this.trail[this.trail.length - 1][2] = dwellMs(performance.now() - this.trailAt)
+      this.trail[this.trail.length - 1][2] = dwellMs(this.gnow() - this.trailAt)
       const pt = this.playerTile(), t0 = this.trail[0]
       if (this.startTooFar(this.trail)) {                    // a shape: shown where you'll walk it
         const sh = this.shifted(this.trail)

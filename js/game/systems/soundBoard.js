@@ -754,6 +754,23 @@ const SYNTH = {
     const now = ctx.currentTime, p = opts.pitch ?? 1, hard = opts.hard ?? 0.6
     const vol = (opts.volume ?? 0.5) * (0.6 + 0.4 * hard)
     const metal = opts.material === 'metal'
+    if (!metal) {                    // wood on wood: a short dry KLACK. No ring, no pitch glide: a hollow tok under a sharp crack
+      const rnd = (a, b) => a + Math.random() * (b - a)
+      const tone = (hz, a, decay, type = 'sine') => {
+        const o = ctx.createOscillator(), g = ctx.createGain()
+        o.type = type; o.frequency.value = hz * p * rnd(0.96, 1.04)
+        g.gain.setValueAtTime(vol * a, now); g.gain.exponentialRampToValueAtTime(0.0001, now + decay)
+        o.connect(g).connect(ctx.destination); o.start(now); o.stop(now + decay + 0.02)
+      }
+      tone(rnd(380, 440), 0.6, 0.08)
+      tone(rnd(900, 1050), 0.38, 0.04)
+      tone(rnd(2000, 2300), 0.2, 0.022, 'triangle')
+      const n = _bladeNoise(ctx, 0.03), f = ctx.createBiquadFilter(), g = ctx.createGain()
+      f.type = 'bandpass'; f.frequency.value = rnd(2600, 3600) * p; f.Q.value = 0.7
+      g.gain.setValueAtTime(vol * (0.7 + 0.5 * hard), now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.024)
+      n.connect(f).connect(g).connect(ctx.destination); n.start(now)
+      return
+    }
     const partials = metal ? [[2150, 0.9], [3420, 0.6], [5230, 0.35], [7600, 0.2]] : [[540, 1], [1310, 0.55], [2380, 0.18]]
     const ring = metal ? 0.9 + 0.5 * hard : 0.09 + 0.05 * hard
     for (const [hz, a] of partials) {
@@ -785,24 +802,45 @@ const SYNTH = {
     if (opts.material === 'metal') SYNTH.SWORD_SWISH(ctx, { pitch: 2.2, dur: 0.07, volume: vol * 0.25 })
   },
 
+  FOCUS(ctx, opts = {}) {
+    // Bullet time: a low swell that sinks as time slows, and rises back as it returns.
+    const now = ctx.currentTime, on = opts.on !== false, vol = opts.volume ?? 0.18
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter()
+    o.type = 'sine'; f.type = 'lowpass'; f.frequency.value = 600
+    o.frequency.setValueAtTime(on ? 260 : 70, now); o.frequency.exponentialRampToValueAtTime(on ? 70 : 240, now + 0.28)
+    g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(vol, now + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.32)
+    o.connect(f).connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.36)
+  },
+
+  FOCUS_BEAT(ctx, opts = {}) {
+    // A slow heartbeat, lub-dub, while time is slow.
+    const now = ctx.currentTime, vol = opts.volume ?? 0.22
+    for (const [t, v, hz] of [[0, 1, 62], [0.2, 0.7, 52]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain()
+      o.type = 'sine'; o.frequency.setValueAtTime(hz * 1.5, now + t); o.frequency.exponentialRampToValueAtTime(hz, now + t + 0.09)
+      g.gain.setValueAtTime(vol * v, now + t); g.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.26)
+      o.connect(g).connect(ctx.destination); o.start(now + t); o.stop(now + t + 0.3)
+    }
+  },
+
   SWORD_DRAW(ctx, opts = {}) {
     // Drawing the blade. Wood: out of a leather loop, a dry rasp and a tap.
     // Metal: the long rising shing of a scabbard.
     const now = ctx.currentTime, vol = opts.volume ?? 0.14, metal = opts.material === 'metal'
-    const dur = metal ? 0.42 : 0.26
+    const dur = metal ? 0.42 : 0.36
     const n = _bladeNoise(ctx, dur), f = ctx.createBiquadFilter(), g = ctx.createGain()
-    f.type = metal ? 'highpass' : 'bandpass'; f.Q.value = metal ? 0.7 : 2.2
-    f.frequency.setValueAtTime(metal ? 2400 : 700, now); f.frequency.exponentialRampToValueAtTime(metal ? 6800 : 1500, now + dur)
-    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + dur * 0.6)
-    g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    f.type = metal ? 'highpass' : 'bandpass'; f.Q.value = metal ? 0.7 : 0.8
+    f.frequency.setValueAtTime(metal ? 2400 : 900, now); f.frequency.exponentialRampToValueAtTime(metal ? 6800 : 2300, now + dur)
+    if (metal) {
+      g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + dur * 0.6)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    } else {
+      // wood: a soft hiss, eased in and out, no tap at the end
+      g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(vol * 1.1, now + dur * 0.4)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    }
     n.connect(f).connect(g).connect(ctx.destination); n.start(now)
     if (metal) SYNTH.BLADE_KNOCK(ctx, { material: 'metal', hard: 0.15, volume: vol * 1.2 })
-    else {
-      const o = ctx.createOscillator(), go = ctx.createGain(), t = now + dur * 0.9
-      o.type = 'triangle'; o.frequency.setValueAtTime(820, t)
-      go.gain.setValueAtTime(vol * 0.9, t); go.gain.exponentialRampToValueAtTime(0.0001, t + 0.05)
-      o.connect(go).connect(ctx.destination); o.start(t); o.stop(t + 0.07)
-    }
   },
 
   SWORD_SHEATHE(ctx, opts = {}) {

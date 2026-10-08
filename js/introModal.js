@@ -18,6 +18,7 @@ import IntroLevelScene from './game/scenes/locations/bog/introLevel.js';   // [i
 import { createStarField } from './game/effects/starField.js';
 import { requestFullscreenWithFade, resetFullscreenState, isScreenObscured } from './game/ui/fullscreenFade.js';
 import { armToastFog, clearToastFog } from './game/ui/toastFog.js';
+import { createIntroDrone } from './game/systems/music/introDrone.js';   // [introDrone]
 
 
 
@@ -316,6 +317,15 @@ function _nightNebula(scene, img) {
     }
 }
 
+// [wheelsEase] How long the star wheels take to wind down once the poem has ended.
+const WHEELS_EASE_MS = (() => {
+    const m = /[?&]wheelsEase=([0-9]+)/.exec((typeof location !== 'undefined' && location.search) || '');
+    return m ? parseInt(m[1], 10) : 5500;   // ?wheelsEase=0 gives back the old abrupt stop
+})();
+// The harp's load (soundfont parsing and decoding) is main-thread work in bursts, so it waits
+// until the wheels' speed has fallen below this fraction of full.
+const HARP_KICK_AT = 0.1;
+
 export class ConstellationScene extends Phaser.Scene {
     constructor() {
         super({ key: 'ConstellationScene' });
@@ -406,7 +416,7 @@ export class ConstellationScene extends Phaser.Scene {
                 onPhase   : (phase, cx, cy, d) => this._nightScape?.setMoon(cx, cy, phase, d),
                 onPullBack: (ms, target)       => this._nightScape?.pullBack(ms, target),
                 // The dolly rides the poem, so the land recedes as it is read.
-                onProgress : (u)               => this._nightScape?.setProgress(u),
+                onProgress : (u)               => { this._nightScape?.setProgress(u); this._drone?.progress(u); },   // [introDrone] the poem steers the drone
                 // The fullscreen request this same touch triggers below can
                 // cover the screen for the better part of a second. Without
                 // this, the poem's clock keeps running behind that overlay
@@ -420,6 +430,7 @@ export class ConstellationScene extends Phaser.Scene {
                 // visibly shifts everything anchored to the screen edges.
                 onFirstTouch: () => {
                     console.log('[ConstellationScene] onFirstTouch fired -- requesting fullscreen');
+                    this._warmDrone();   // [introDrone] the build-up begins with the poem
                     requestFullscreenWithFade(); _unlockAudio();
                 },
             })
@@ -754,17 +765,24 @@ if (wrapper) {
         // genuinely starts because the player reached for a star, not
         // automatically once the poem ends.
         this._initAudioContext();
+        this._startDrone();   // [introDrone] the run-up to the tune begins now
         // The slow part (fetching soundfont samples over the network) starts
         // now too, well ahead of time, so it's normally long finished by the
         // time the player reaches a star -- see the note on _prepareHarp()
         // for why loading and starting are split like this.
-        this._harpPrepPromise = this._prepareHarp();
+        // [wheelsEase] The soundfont parsing and decoding in the harp's load is main-thread work.
+        // It used to hide behind a sky that had just stopped; with the sky winding down it
+        // showed as stutter in the stars. So it waits until they are nearly still (see
+        // _easeWheelsToStill), and _startHarpOnSwipe starts it itself if the player is faster.
+        if (!(this._dialRan && WHEELS_EASE_MS > 0)) this._kickHarpPrep();
         // The sky still stills here, same moment as before: freezing it at
         // the first star touch instead reads as the player's own touch
         // having broken something (tried and reverted once already -- see
         // the note in _startHarpOnSwipe()). Decoupled from the harp actually
         // starting, which no longer happens at this point.
-        this._bgWheelsPaused = true;
+        // [wheelsEase] After the dial the sky has been turning behind the poem the whole
+        // time, so let it wind down rather than stop dead. With no dial, stop at once.
+        if (this._dialRan) this._easeWheelsToStill(); else this._bgWheelsPaused = true;
 
         /* Stilling the wheels makes the pan read as a deliberate camera move —
            but only when they were not already established. After the dial they
@@ -907,9 +925,34 @@ if (wrapper) {
     }
 
     // ── Spin ──────────────────────────────────────────────────────────────────
+    _kickHarpPrep() {   // [wheelsEase]
+        if (!this._harpPrepPromise) this._harpPrepPromise = this._prepareHarp();
+    }
+
+    _easeWheelsToStill() {   // [wheelsEase]
+        if (WHEELS_EASE_MS <= 0) { this._bgWheelsPaused = true; return; }   // [wheelsEase] ?wheelsEase=0: the old abrupt stop
+        if (this._bgWheelsPaused || this._wheelsEasing) return;
+        this._wheelsEasing = true;
+        this._bgWheelsSpeedMult = 1;
+        const k = { v: 1 };
+        // v falls 1 -> 0 as (1 - p)^2: friction, ending with no speed left to lose.
+        this.tweens.add({
+            targets: k, v: 0, duration: WHEELS_EASE_MS, ease: 'Quad.easeOut',
+            onUpdate: () => {
+                this._bgWheelsSpeedMult = k.v;
+                if (k.v < HARP_KICK_AT) this._kickHarpPrep();   // idempotent
+            },
+            onComplete: () => {
+                this._wheelsEasing = false;
+                this._bgWheelsPaused = true;
+                this._bgWheelsSpeedMult = 1;
+            },
+        });
+    }
+
     updateSpin(delta) {
         if (this._bgWheelsPaused) return;
-        const dt = delta * (this._bgWheelsSpeedMult || 1);
+        const dt = delta * (this._bgWheelsSpeedMult ?? 1);
         if (this._bgWheelRt)    this._bgWheelRt.angle    += this._bgWheelSpeed    * dt;
         if (this._driftWheelRt) this._driftWheelRt.angle += this._driftWheelSpeed * dt;
         if (this._fgWheelRt)    this._fgWheelRt.angle    += this._fgWheelSpeed    * dt;
@@ -918,6 +961,7 @@ if (wrapper) {
            a visible lurch at the handoff. The wheels turn regardless — that is
            the part the player sees behind the ogham. */
         if (!this._built) return;
+        if (this._wheelsEasing) return;   // [wheelsEase] the camera must not tilt while the sky winds down
         const camDeg = this._driftWheelSpeed * dt;
         this.spinAngle = (this.spinAngle || 0) + camDeg;
         this.cameras.main.setOrigin(0.5, 0.28);
@@ -1396,13 +1440,10 @@ if (wrapper) {
                 this.smoothX=pointer.x; this.smoothY=pointer.y;
                 this.trailPts=[this.screenToRotated(pointer.x,pointer.y)];
                 star.lit=true; this.tweens.killTweensOf(star); star.brightness=2.0;
-                // The music begins now, on the player's first real attempt to
-                // connect the constellation -- not automatically once the
-                // poem ends (see settleMoon()). The sky was already stilled
-                // there too, well before this, so this doesn't also read as
-                // the touch itself having done that; it's just sound
-                // arriving into a scene that was already quiet and still.
-                this._startHarpOnSwipe();
+                // [introDrone] The tune no longer begins on the touch: it begins
+                // on the first JOIN (see onPointerMove), so that the touch itself
+                // only leans the drone in, and the join is the release.
+                if (this._drone) this._drone.tension(true);
                 // Belt and braces: the wheels are normally already stilled by
                 // settleMoon(), well before this point. This only matters if
                 // a path reaches the stars without that having run.
@@ -1434,7 +1475,7 @@ if (wrapper) {
                 if (this.strokeHits.length>=2) {
                     const prev=this.strokeHits[this.strokeHits.length-2], a=prev.index, b=star.index;
                     if (c.connections.find(cn=>!cn.completed&&((cn.from===a&&cn.to===b)||(cn.from===b&&cn.to===a))))
-                        this._playConnectionChime();
+                        { this._playConnectionChime(); this._startHarpOnSwipe(); }   // [introDrone] the tune enters on the first join
                 }
             }
         }
@@ -1443,6 +1484,7 @@ if (wrapper) {
     onPointerUp() {
         if (!this.isDrawing) return;
         this.isDrawing=false; this.trailPts=[]; this.trailG.clear();
+        if (this._drone && !this._harpStarted) this._drone.tension(false);   // [introDrone]
         const c=this.constellations[this.currentIndex];
         if (c) this.evaluateStroke(c);
         // [starHint] still not done? show them again after a while.
@@ -1556,9 +1598,10 @@ if (wrapper) {
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     initAudio() {
-        this.audioContext=null; this._masterGain=null; this._sfxGain=null;
+        this.audioContext=this.audioContext||null; this._masterGain=this._masterGain||null; this._sfxGain=this._sfxGain||null;   // [introDrone] the first touch may already have made these: do not orphan them
         this._harpPlayer=null; this._harpStarted=false; this._harpSilentStarted=false;
         this._harpPrepared=false; this._harpPrepPromise=null;
+        this._drone=this._drone||null;   // [introDrone] the one built during the poem is THE drone
     }
 
     _initAudioContext() {
@@ -1624,6 +1667,7 @@ if (wrapper) {
         // Normally already resolved by now -- loading started well before
         // this touch, during settleMoon(). Only waits for real if the
         // player reached a star unusually fast.
+        this._kickHarpPrep();   // [wheelsEase] a no-op if it has already begun
         if (this._harpPrepPromise) await this._harpPrepPromise;
         const player = this._harpPlayer;
         if (!player) { console.warn('[audio] Harp not available'); return; }
@@ -1646,6 +1690,7 @@ if (wrapper) {
         mg.gain.cancelScheduledValues(now);
         mg.gain.setValueAtTime(0.0001, now);
         mg.gain.exponentialRampToValueAtTime(0.85, now + 0.06);
+        if (this._drone) this._drone.release();   // [introDrone] the release
 
         /* The sky freeze that used to live here (set the moment the harp
            actually started) moved to settleMoon(), which now runs
@@ -1657,7 +1702,30 @@ if (wrapper) {
     } catch(e) { console.warn('[audio] _startHarpOnSwipe error:', e); }
 } 
 
+    _warmDrone() {   // [introDrone] called on every touch the dial sees, so it is safe to repeat
+        try {
+            this._initAudioContext();
+            if (!this.audioContext) return;
+            if (this.audioContext.state==='suspended') this.audioContext.resume();
+            if (!this._drone && this._sfxGain) {
+                this._drone = createIntroDrone(this.audioContext, this._sfxGain);
+                this._drone.begin();
+            }
+        } catch(e) { console.warn('[audio] _warmDrone:', e); }
+    }
+
+    _startDrone() {   // [introDrone]
+        if (this._drone) { this._drone.progress(1, 1.3); return; }   // [introDrone] already building through the poem: bring it home
+        if (!this.audioContext || !this._sfxGain) return;
+        try {
+            if (this.audioContext.state==='suspended') this.audioContext.resume();
+            this._drone = createIntroDrone(this.audioContext, this._sfxGain);
+            this._drone.start();
+        } catch(e) { console.warn('[audio] _startDrone:', e); this._drone = null; }
+    }
+
     _stopAllAudio() {
+        try { if (this._drone) { this._drone.stop(); this._drone = null; } } catch(e) {}   // [introDrone]
         try{if(this._harpPlayer){this._harpPlayer.stop().catch(()=>{});this._harpPlayer=null;}}catch(e){}
     }
 
@@ -1746,6 +1814,7 @@ if (wrapper) {
 
     _setBgWheelPaused(paused) {
         if (paused&&!this._interactionStarted) return;
+        if (paused&&this._wheelsEasing) return;   // [wheelsEase] let the wind-down finish
         this._bgWheelsPaused=paused;
     }
 

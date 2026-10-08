@@ -1311,8 +1311,23 @@ export function runOghamDial(opts = {}) {
         lastX=p.clientX; lastY=p.clientY; lastT=t;
         e.preventDefault();
       }
+      function unlockOnRelease(){
+        /* Lifting the finger is the first moment a touch gesture is accepted
+           for fullscreen and audio (touchstart is not). A tap gets a second
+           chance from the browser's synthetic mousedown; a drag does not, so
+           this is what makes a first drag on the moon, the ring or the text
+           unlock the game the way a tap does. Both calls are safe to repeat. */
+        if(audioCtx && audioCtx.state==='suspended'){
+          try{ audioCtx.resume().catch(()=>{}); }catch(x){}
+        }
+        if(opts.onFirstTouch){
+          console.log('[ogd] dial: release, calling onFirstTouch');
+          try{ opts.onFirstTouch() }catch(x){ console.warn('[ogd] onFirstTouch threw:', x) }
+        }
+      }
       function up(){
         if(!dragging) return; dragging=false;
+        unlockOnRelease();
         /* A touch that went nowhere. Until the moon has been moved once, read
            it as the gesture people actually make at a glowing circle — a press
            — and answer it by sliding. */
@@ -1356,30 +1371,30 @@ export function runOghamDial(opts = {}) {
         o.connect(v); v.connect(audioCtx.destination); o.start(t0); o.stop(t0+d);
       }
       /* The chord that marks the game's actual beginning -- the first-ever
-         touch, same moment `started` flips true. D3-A3-D4-A4: root, fifth,
+         touch, same moment `started` flips true. C3-G3-C4-G4: root, fifth,
          octave, fifth-an-octave-up. No third, on purpose: a bare fifth/
          octave voicing reads as open and modal rather than pinning a major
          or minor tonality onto the very first sound the player hears --
          fitting company for the drone-and-mode-flavoured trad tunes
          elsewhere in the game (tradTuneConfig.js's own fallback key is D,
-         which is why this is rooted there too). Each note enters a few
+         which it used to be rooted on; it is now rooted on C instead, to agree with My Lagan Love, the tune the next scene starts, which is in C). Each note enters a few
          milliseconds after the last, a tight harp-roll rather than a flat
          synth stab, and decays slowly enough to still be sounding as the
          moon and the ring first come into view. */
       function introChord(){
         const notes=[
-          { f:146.83, g:0.075, t:0     },  // D3 — root
-          { f:220.00, g:0.065, t:0.02  },  // A3 — fifth
-          { f:293.66, g:0.060, t:0.045 },  // D4 — octave
-          { f:440.00, g:0.045, t:0.075 },  // A4 — fifth, an octave up
+          { f:130.81, g:0.075, t:0     },  // C3 - root
+          { f:196.00, g:0.065, t:0.02  },  // G3 - fifth
+          { f:261.63, g:0.060, t:0.045 },  // C4 - octave
+          { f:392.00, g:0.045, t:0.075 },  // G4 - fifth, an octave up
         ];
         notes.forEach(n=>tone(n.f,n.g,2.6,n.t));
       }
       /* A short plucked-string tone rather than a mechanical click -- the same
          general recipe as introChord() (a triangle wave through tone()), so
          dragging the moon sounds like the same instrument as the opening
-         chord, not a separate, unrelated UI sound. MOON_SCALE is D major
-         pentatonic across three octaves (D2..D5): pentatonic because it has
+         chord, not a separate, unrelated UI sound. MOON_SCALE is C major
+         pentatonic across three octaves (C2..C5): pentatonic because it has
          no interval that sounds "wrong" in any order, which matters here --
          a fast drag can land on any note in any sequence, and a scale with a
          leading tone or a tritone would risk an audibly sour moment doing
@@ -1387,8 +1402,9 @@ export function runOghamDial(opts = {}) {
          detents at once (see move()'s zone==='moon' branch) walks up or
          down through several notes in one gesture -- a glissando you
          actually play, not a fixed tone repeated. */
-      const MOON_SCALE=[73.42,82.41,92.50,110.00,123.47,146.83,164.81,185.00,220.00,246.94,293.66,329.63,369.99,440.00,493.88,587.33];
+      const MOON_SCALE=[65.41,73.42,82.41,98.00,110.00,130.81,146.83,164.81,196.00,220.00,261.63,293.66,329.63,392.00,440.00,523.25];
       function moonClick(clickUnit,offset=0){
+        if(audioCtx && audioCtx.state!=='running') return;   // not unlocked yet: do not queue a burst
         const idx=((clickUnit%MOON_SCALE.length)+MOON_SCALE.length)%MOON_SCALE.length;
         // 0.22s used to leave each note dead silent before the next one
         // fired -- percussive rather than musical. 0.6s lets each one
@@ -1402,7 +1418,7 @@ export function runOghamDial(opts = {}) {
          pitch falls fast (the body of the wood) with a brief, quiet upper
          partial on top (the strike), gone in ~90ms. Short and dry, so it sits
          under the moon's plucked notes rather than being mistaken for them.
-         RING_KNOCK_HZ is 260 rather than something lower because a phone
+         RING_KNOCK_HZ is 261.63 (C4) rather than something lower because a phone
          speaker gives up somewhere below 250Hz -- a deeper knock would lose
          its body and leave only the click.
          Two things keep a fast spin from becoming a rattle even so:
@@ -1413,9 +1429,10 @@ export function runOghamDial(opts = {}) {
              knocks a second however fast the wheel is thrown.
            - a few percent of random pitch on each, so a run of them reads as
              a hand on wood rather than one sample retriggered. */
-      const RING_KNOCK_HZ=260, RING_TICK_MIN_GAP=0.04;
+      const RING_KNOCK_HZ=261.63, RING_TICK_MIN_GAP=0.04;
       let lastRingTickAt=-1;
       function ringTick(offset=0){
+        if(audioCtx && audioCtx.state!=='running') return;   // not unlocked yet: do not queue a burst
         if(!audioCtx||!started) return;
         const t0=audioCtx.currentTime+offset;
         if(t0-lastRingTickAt<RING_TICK_MIN_GAP) return;

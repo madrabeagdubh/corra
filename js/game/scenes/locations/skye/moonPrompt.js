@@ -2,27 +2,37 @@
 // Location: js/game/scenes/locations/skye/moonPrompt.js
 //
 // Shows the gesture to make on the moon, the way the constellation scene
-// prompts the stars: a small light that does the thing, over and over, until
+// prompts the stars: something that does the thing, over and over, until
 // you do it.
 //
-//   up    a light rises from the moon's foot, past its crown, and fades
-//   down  the same, falling
+//   up    a dotted gold line is drawn up past the moon, a fingertip at its head
+//         (the same dotted line, and fingertip, that mark a drawn route)
+//   down  the same, drawn downward
 //   tap   a ring opens on the moon
-//   hold  a ring gathers slowly, then flashes (the strong blow)
+//   hold  a larger gold ring, centred on the moon, shrinks down onto it, then flashes
 //
 //   const mp = new MoonPrompt(scene);  mp.set('up');  mp.set(null);  mp.destroy()
 //
-// It sits just above the moon and never takes a tap, and it is a faint thing
-// (a light, a ring), so the English on the moon stays readable under it.
+// It sits just above the moon and never takes a tap, and it is a faint thing,
+// so the English on the moon stays readable under it.
 
 const STYLE_ID = 'moon-prompt-style'
+const GOLD = 'rgba(245,208,96,0.9)', GOLD_SOFT = 'rgba(245,208,96,0.35)', GOLD_FAINT = 'rgba(245,208,96,0.08)', FINGER = 'rgba(255,244,205,0.88)'
 const CSS = `
-@keyframes mpUp   { 0% { transform: translateY(46%);  opacity: 0 } 10% { opacity: 1 } 80% { opacity: 1 } 100% { transform: translateY(-62%); opacity: 0 } }
-@keyframes mpDown { 0% { transform: translateY(-62%); opacity: 0 } 10% { opacity: 1 } 80% { opacity: 1 } 100% { transform: translateY(46%);  opacity: 0 } }
+@keyframes mpDrawUp   { 0% { clip-path: inset(100% 0 0 0); opacity: 0 } 10% { opacity: 1 } 56% { clip-path: inset(0 0 0 0) } 84% { clip-path: inset(0 0 0 0); opacity: 1 } 100% { clip-path: inset(0 0 0 0); opacity: 0 } }
+@keyframes mpDrawDown { 0% { clip-path: inset(0 0 100% 0); opacity: 0 } 10% { opacity: 1 } 56% { clip-path: inset(0 0 0 0) } 84% { clip-path: inset(0 0 0 0); opacity: 1 } 100% { clip-path: inset(0 0 0 0); opacity: 0 } }
+@keyframes mpFingerUp   { 0% { transform: translateY(var(--mpL)); opacity: 0 } 10% { opacity: 1 } 56% { transform: translateY(0) } 84% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(0); opacity: 0 } }
+@keyframes mpFingerDown { 0% { transform: translateY(0); opacity: 0 } 10% { opacity: 1 } 56% { transform: translateY(var(--mpL)) } 84% { transform: translateY(var(--mpL)); opacity: 1 } 100% { transform: translateY(var(--mpL)); opacity: 0 } }
 @keyframes mpTap  { 0% { transform: scale(0.3); opacity: 0.9 } 100% { transform: scale(1.15); opacity: 0 } }
-@keyframes mpHold { 0% { transform: scale(0.2); opacity: 0.2 } 70% { transform: scale(0.95); opacity: 0.9 } 82% { transform: scale(1.05); opacity: 1; filter: brightness(1.8) } 100% { transform: scale(1.15); opacity: 0 } }
+@keyframes mpHold {
+  0%   { transform: scale(2.3); opacity: 0;    background-color: rgba(245,208,96,0) }
+  60%  { transform: scale(1);   opacity: 0.95; background-color: rgba(245,208,96,0) }
+  84%  { transform: scale(1);   opacity: 1;    background-color: rgba(245,208,96,0.78) }
+  93%  { transform: scale(1);   opacity: 1;    background-color: rgba(245,208,96,0.78) }
+  100% { transform: scale(1);   opacity: 0;    background-color: rgba(245,208,96,0.78) }
+}
 `
-const GLOW = 'rgba(153,204,255,0.9)', CORE = '#ddeeff'
+const BLUE_GLOW = 'rgba(153,204,255,0.9)', BLUE_CORE = '#ddeeff'
 
 export default class MoonPrompt {
   constructor(scene) {
@@ -59,22 +69,25 @@ export default class MoonPrompt {
     const d = this.d
     const mk = (css) => { const e = document.createElement('div'); e.style.cssText = css; this.el.appendChild(e); return e }
     if (kind === 'up' || kind === 'down') {
-      const dot = d * 0.24, tail = d * 0.7, dir = kind === 'up'
-      const wrap = mk(`position:absolute;left:${d / 2 - dot / 2}px;top:${d / 2 - tail / 2}px;width:${dot}px;height:${tail}px;` +
-        `animation:${dir ? 'mpUp' : 'mpDown'} 1.6s ease-in-out infinite`)
-      // the trail, then the light at its head
-      const trail = document.createElement('div')
-      trail.style.cssText = `position:absolute;left:${dot * 0.3}px;width:${dot * 0.4}px;height:${tail - dot}px;` +
-        `${dir ? `top:${dot}px;background:linear-gradient(to bottom,${GLOW},rgba(153,204,255,0))` : 'top:0;background:linear-gradient(to top,' + GLOW + ',rgba(153,204,255,0))'};border-radius:99px`
-      const head = document.createElement('div')
-      head.style.cssText = `position:absolute;left:0;${dir ? 'top:0' : `top:${tail - dot}px`};width:${dot}px;height:${dot}px;border-radius:50%;` +
-        `background:radial-gradient(circle,${CORE} 0%,${CORE} 35%,rgba(153,204,255,0.6) 70%,rgba(153,204,255,0) 100%);box-shadow:0 0 ${dot}px ${GLOW}`
-      wrap.append(trail, head)
+      // the dotted line a drawn route is shown with, and the fingertip drawing it
+      const up = kind === 'up', L = d * 1.1, top = d / 2 - d * 0.62, pitch = 8, f = Math.max(14, d * 0.2)
+      mk(`position:absolute;left:${d / 2 - pitch / 2}px;top:${top}px;width:${pitch}px;height:${L}px;` +
+        `background:radial-gradient(circle at 50% 50%, ${GOLD} 0, ${GOLD} 2.4px, transparent 3.1px) 0 0 / ${pitch}px ${pitch}px repeat-y;` +
+        `animation:${up ? 'mpDrawUp' : 'mpDrawDown'} 1.9s ease-in-out infinite`)
+      mk(`position:absolute;left:${d / 2 - f / 2}px;top:${top - f / 2}px;width:${f}px;height:${f}px;box-sizing:border-box;border-radius:50%;` +
+        `background:${FINGER};border:3px solid ${GOLD};--mpL:${L}px;` +
+        `animation:${up ? 'mpFingerUp' : 'mpFingerDown'} 1.9s ease-in-out infinite`)
+    } else if (kind === 'hold') {
+      // a gold ring, bigger than the moon and centred on it, closes down onto it
+      const s = d * 0.84
+      mk(`position:absolute;left:${d / 2 - s / 2}px;top:${d / 2 - s / 2}px;width:${s}px;height:${s}px;box-sizing:border-box;border-radius:50%;` +
+        `border:${Math.max(2, d * 0.022)}px solid ${GOLD};` +
+        `box-shadow:0 0 ${d * 0.12}px ${GOLD}, inset 0 0 ${d * 0.1}px ${GOLD_SOFT};` +
+        `animation:mpHold 2.8s ease-in-out infinite`)
     } else {
-      const hold = kind === 'hold'
-      mk(`position:absolute;inset:${d * 0.08}px;border-radius:50%;border:${Math.max(3, d * 0.06)}px solid ${CORE};` +
-        `box-shadow:0 0 ${d * 0.12}px ${GLOW}, inset 0 0 ${d * 0.1}px ${GLOW};` +
-        `animation:${hold ? 'mpHold 1.6s ease-in' : 'mpTap 1.1s ease-out'} infinite`)
+      mk(`position:absolute;inset:${d * 0.08}px;border-radius:50%;border:${Math.max(3, d * 0.06)}px solid ${BLUE_CORE};` +
+        `box-shadow:0 0 ${d * 0.12}px ${BLUE_GLOW}, inset 0 0 ${d * 0.1}px ${BLUE_GLOW};` +
+        `animation:mpTap 1.1s ease-out infinite`)
     }
   }
 

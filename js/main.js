@@ -103,7 +103,7 @@ function _createGame(selectedChampion, options) {
     console.log('[main.js] Starting scene:', sceneToStart)
     window.startGame = startGame
 
-    window.game.scene.start(sceneToStart, { champion: selectedChampion })
+    window.game.scene.start(sceneToStart, { champion: selectedChampion, ...(options.tile ? { tile: options.tile } : {}) })
 }
 
 window.startGame = startGame

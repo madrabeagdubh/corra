@@ -86,6 +86,19 @@ export function getPrewarmedPlayer() { return _prewarmedPlayer; }
 export function waitForHeroAssets()  { return _heroAssetsReady; }
 export function getPreloadedAssets() { return _preloadedAssets; }
 export function isAudioUnlocked()    { return _audioUnlocked; }
+export function unlockAudio()        { _unlockAudio(); }   // heroSlots: a tap on a saved hero is a first gesture too
+
+/* Take the running intro down in place, before the dial has had a first touch: a saved
+   hero was chosen from the strip over it (heroSlots.js) and the game starts from there.
+   True if it is down; false (nothing touched, or a partial teardown the caller should
+   answer with a reload) if it could not be. */
+export function abortIntro() {
+    const s = _activeIntro;
+    if (!s || s._built || s._aborted) return false;
+    _activeIntro = null;
+    try { s.abortIntro(); return true; }
+    catch (e) { console.warn('[ConstellationScene] abortIntro failed:', e); return false; }
+}
 
 function _unlockAudio() {
     if (_audioUnlocked) return;
@@ -102,6 +115,7 @@ function _unlockAudio() {
 }
 
 var _sceneInitialized = false;
+var _activeIntro = null;   // the ConstellationScene while its dial waits for a first touch (see abortIntro)
 
 // [introLevel v4] The live-rendered ground is the main version now (was ?level=1,
 // a spike gated behind that param while the procedural pipeline was being proven
@@ -408,6 +422,7 @@ export class ConstellationScene extends Phaser.Scene {
         }
         if (!this.registry.get('dialSeen')) {
             this.registry.set('dialSeen', true);
+            _activeIntro = this;
             runOghamDial({
                 parent: 'gameContainer',
                 showThrough: true,
@@ -423,6 +438,7 @@ export class ConstellationScene extends Phaser.Scene {
                 // and line 0 loses most of its visible time to a black
                 // screen before the player has even seen it once.
                 isObscured : ()                => isScreenObscured(),
+                onAbortable : (fn)             => { this._abortDial = fn; },
                 // Ask for fullscreen on the dial's own first touch, not whatever
                 // later touch first reaches the Phaser canvas -- by then the moon
                 // widget's rest position has already been computed against the
@@ -434,8 +450,9 @@ export class ConstellationScene extends Phaser.Scene {
                     requestFullscreenWithFade(); _unlockAudio();
                 },
             })
-                .then(phase => { this._dialPhase = phase; this._build(); })
-                .catch(() => this._build());     // never strand the player
+                .then(phase => { if (this._aborted) return;
+                    this._dialPhase = phase; this._build(); })
+                .catch(() => { if (!this._aborted) this._build(); });     // never strand the player
             return;
         }
         this._build();
@@ -1554,6 +1571,30 @@ if (wrapper) {
                 this._completionPlayer.start();
             });
         });
+    }
+
+    /* A saved hero was chosen from the strip (heroSlots.js) while the dial is still
+       waiting for its first touch. onAllComplete's tail, run from outside and without
+       going on to the hero select. Each step stands alone: a failure in one does not
+       stop the rest. */
+    abortIntro() {
+        if (this._aborted) return;
+        this._aborted = true;
+        try { if (this._abortDial) this._abortDial(); } catch (e) {}
+        try { this._destroyAllTextPlayers(); } catch (e) {}
+        try { this._stopAllAudio(); } catch (e) {}
+        try { this._closeSkipMenu(); } catch (e) {}
+        try { if (this._nightScape) { this._nightScape.destroy(); this._nightScape = null; } } catch (e) {}
+        try { if (this._starField) { this._starField.destroy(); this._starField = null; this._bgWheelRt = this._driftWheelRt = this._fgWheelRt = null; } } catch (e) {}
+        try { this.shutdown(); } catch (e) {}
+        try { if (this._moonWidget) { this._moonWidget.destroy(); this._moonWidget = null; } } catch (e) {}
+        try { this.scene.stop('intro_level'); } catch (e) {}
+        try { clearToastFog(); } catch (e) {}
+        const canvas = this.game.canvas;
+        this.game.destroy(true);
+        if (canvas) canvas.remove();
+        const gc = document.getElementById('gameContainer');
+        if (gc) gc.style.display = 'none';
     }
 
     _destroyAllTextPlayers() {

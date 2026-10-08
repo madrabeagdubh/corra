@@ -2,6 +2,7 @@ import { initConstellationScene, waitForHeroAssets, getPreloadedAssets, getPrewa
 import { startGame } from './main.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
+import { showHeroSlots } from './heroSlots.js';
 import '../css/heroSelect.css';
 import { allTunes } from './game/systems/music/allTunes.js';
 import { TradSessionPlayer } from './game/systems/music/tradSessionPlayerScheduled.js';
@@ -344,7 +345,11 @@ export function initHeroSelect() {
     console.log('[HeroSelect] initHeroSelect called, initialized:', initialized);
     if (initialized) return;
     initialized = true;
+    // saved heroes along the bottom of the intro (js/heroSlots.js); touching the moon is a new hero
+    const heroSlots = showHeroSlots();
+    if (heroSlots.resumed) return;   // this load is "Ar aghaidh": straight into the saved scene
     initConstellationScene(async (sliderValue, amerginLine) => {
+        heroSlots.dismiss();
         console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
         initialSliderValue = sliderValue;
         currentAmerginLineForExport = amerginLine;

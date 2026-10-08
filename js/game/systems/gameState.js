@@ -39,6 +39,7 @@ function defaultState() {
     notes:            [],   // arbitrary story notes/flags
     encounterLayouts: {},   // { mapKey: [{id, x, y}, ...] }
     boatPosition:     null,  // { mapKey, tileX, tileY } | null
+    spot:             null,  // { scene, tile: [x, y] | null, at } -- where "ar aghaidh" resumes
   }
 }
 
@@ -200,6 +201,53 @@ boatPosition: null,
     delete this._state.encounterLayouts[mapKey]
     this.save()
   },
+
+  // -- Heroes (save slots) --------------------------------------------------
+  // A hero is a champion. The save key is spriteKey|nameGa: nameGa alone is
+  // shared by several champions. A champion with an `id` (the dev champion)
+  // keeps it, and plain ids without a '|' are not listed as heroes.
+
+  heroIdOf(champion) {
+    if (!champion) return null
+    if (champion.id != null) return champion.id
+    if (champion.spriteKey && champion.nameGa) return champion.spriteKey + '|' + champion.nameGa
+    return champion.nameGa ?? champion.spriteKey ?? null
+  },
+
+  // Every saved hero, newest first: [{ id, scene, tile, at }]
+  listHeroes() {
+    const out = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !k.startsWith(STORAGE_PREFIX)) continue
+      const id = k.slice(STORAGE_PREFIX.length)
+      if (!id.includes('|')) continue
+      try {
+        const s = JSON.parse(localStorage.getItem(k))
+        out.push({ id, scene: s?.spot?.scene ?? null, tile: s?.spot?.tile ?? null, at: s?.spot?.at ?? 0 })
+      } catch (e) { /* an unreadable save is not listed */ }
+    }
+    return out.sort((a, b) => b.at - a.at)
+  },
+
+  // Permanent. A deleted (or dead) hero's progress is gone; the champion
+  // stays on the roster and can be picked again, from the start.
+  deleteHero(id) {
+    if (!id) return
+    localStorage.removeItem(STORAGE_PREFIX + id)
+    if (id === this._championId) { this._championId = null; this._state = null }
+    console.log(`[GameState] hero deleted: ${id}`)
+  },
+
+  // Where "ar aghaidh" resumes. Every scene entry saves it (tile null = the
+  // scene's usual spawn); a story beat can save a tile. The newest wins.
+  saveSpot(sceneKey, tile = null) {
+    if (!this._state || !sceneKey) return
+    this._state.spot = { scene: sceneKey, tile: tile ? [tile[0], tile[1]] : null, at: Date.now() }
+    this.save()
+  },
+
+  getSpot() { return this._state?.spot ?? null },
 
   // -- Boat position --------------------------------------------------------
   // Saves where the player moored their boat so it persists across map visits.

@@ -97,6 +97,8 @@ export default class Joystick {
     // onPressEnd now gets { dragged } -- true if the press swiped.
     this._onPressStart        = config.onPressStart         ?? null
     this._onSwipeVertical     = config.onSwipeVertical      ?? null
+    this._ringGestures        = config.ringGestures         ?? null     // () => true: swipes on the ring are the moon's gestures
+    this._onRingDrag          = config.onRingDrag           ?? null     // (pointerId) a drag from above the brooch onto it: swallow it
 
     const R = this.radius
 
@@ -170,6 +172,7 @@ export default class Joystick {
     ].join('')
     this._root.appendChild(this._pad)
     this._bindPad()
+    this._bindAbove()
 
     // -- Moon hub -------------------------------------------------------------
     this._hubDom = document.createElement('div')
@@ -340,10 +343,11 @@ export default class Joystick {
         this._hubAxis = Math.abs(my) > Math.abs(mx) ? 'v' : 'h'
       }
       if (this._hubAxis === 'v') {
+        const my = e.clientY - this._hubY0
+        if (!this._hubDragging && Math.abs(my) < 18) return          // a slip of the thumb is still a press
         if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
         if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
         if (!this._hubDragging) { this._hubDragging = true; if (this._onLongPressCancel) this._onLongPressCancel() }
-        const my = e.clientY - this._hubY0
         if (!this._hubVFired && Math.abs(my) >= 18) {
           this._hubVFired = true
           if (this._onSwipeVertical) this._onSwipeVertical(my < 0 ? 'up' : 'down')
@@ -351,7 +355,7 @@ export default class Joystick {
         return
       }
       const dx = e.clientX - this._hubSwipeStartX
-      if (Math.abs(dx) > 6) {
+      if (Math.abs(dx) > 20) {                                    // a real swipe, not a thumb settling
         if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
         if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
         this._hubDragging = true
@@ -429,10 +433,42 @@ export default class Joystick {
     return Math.hypot(x - sx, y - sy) < G.STONE * 1.8
   }
 
+  // A drag that starts on the ground just above the brooch and comes down onto it is the swipe down too
+  // (sheathe), when the ring gestures are on. The scene is told, so the drag is not also a route or a tap.
+  _bindAbove() {
+    let tr = null
+    const down = (e) => {
+      tr = null
+      if (!this._ringGestures?.() || !this._onSwipeVertical || this._root.contains(e.target)) return
+      const b = this._pad.getBoundingClientRect(), R = b.width / 2, cx = b.left + R, cy = b.top + R
+      if (e.clientY < cy - R * 0.9 && e.clientY > cy - R * 2.8 && Math.abs(e.clientX - cx) < R * 1.6) tr = { id: e.pointerId, y0: e.clientY, cx, cy, R }
+    }
+    const move = (e) => {
+      if (!tr || e.pointerId !== tr.id) return
+      if (Math.hypot(e.clientX - tr.cx, e.clientY - tr.cy) <= tr.R * 1.05 && e.clientY - tr.y0 > tr.R * 0.35) {
+        const id = tr.id; tr = null
+        this._onRingDrag?.(id)
+        this._onSwipeVertical('down')
+      }
+    }
+    const up = () => { tr = null }
+    window.addEventListener('pointerdown', down, true)
+    window.addEventListener('pointermove', move, true)
+    window.addEventListener('pointerup', up, true)
+    window.addEventListener('pointercancel', up, true)
+    this._unbindAbove = () => {
+      window.removeEventListener('pointerdown', down, true)
+      window.removeEventListener('pointermove', move, true)
+      window.removeEventListener('pointerup', up, true)
+      window.removeEventListener('pointercancel', up, true)
+    }
+  }
+
   _bindPad() {
     const pad = this._pad
-    this._padMode = null          // 'dir' | 'stone'
+    this._padMode = null          // 'dir' | 'stone' | 'pend' (waiting to see if it is a gesture) | 'gesture'
     this._padDown = null
+    this._padLast = null
 
     pad.addEventListener('pointerdown', (e) => {
       e.preventDefault()
@@ -444,6 +480,16 @@ export default class Joystick {
         this._padDown = { x: e.clientX, y: e.clientY }
         return
       }
+      // while something owns the moon, an up/down swipe from anywhere on the ring is its gesture:
+      // wait a moment to see which this is before steering
+      if (this._ringGestures?.() && this._onSwipeVertical) {
+        this._padMode = 'pend'
+        this._padDown = { x: e.clientX, y: e.clientY }
+        this._padLast = { x: p.x, y: p.y }
+        clearTimeout(this._padPendT)
+        this._padPendT = setTimeout(() => this._padCommit(), 70)
+        return
+      }
       this._padMode = 'dir'
       this._setDir(this._sector(p.x, p.y))
     }, { passive: false })
@@ -451,6 +497,17 @@ export default class Joystick {
     pad.addEventListener('pointermove', (e) => {
       if (!this._padMode) return
       const p = this._local(e)
+      if (this._padMode === 'gesture') return
+      if (this._padMode === 'pend') {
+        const dx = e.clientX - this._padDown.x, dy = e.clientY - this._padDown.y
+        this._padLast = { x: p.x, y: p.y }
+        if (Math.abs(dy) >= 18 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+          clearTimeout(this._padPendT); this._padPendT = null
+          this._padMode = 'gesture'
+          this._onSwipeVertical(dy < 0 ? 'up' : 'down')
+        } else if (Math.hypot(dx, dy) >= 12) this._padCommit()
+        return
+      }
       // A press that starts on the lit stone but slides becomes steering.
       if (this._padMode === 'stone') {
         if (Math.hypot(e.clientX - this._padDown.x, e.clientY - this._padDown.y) < 10) return
@@ -462,12 +519,27 @@ export default class Joystick {
 
     const end = () => {
       if (this._padMode === 'stone') this._stoneTap?.()
+      if (this._padMode === 'pend') {                       // a quick tap on the ring: one step
+        this._padCommit()
+        this._padMode = null
+        setTimeout(() => { if (!this._padMode) this._setDir(null) }, 90)
+        return
+      }
       this._padMode = null
+      clearTimeout(this._padPendT); this._padPendT = null
       this._setDir(null)
     }
     pad.addEventListener('pointerup', end)
     pad.addEventListener('pointercancel', end)
     pad.addEventListener('lostpointercapture', () => { if (this._padMode) end() })
+  }
+  // it was not a gesture: steer, from where the finger is now
+  _padCommit() {
+    clearTimeout(this._padPendT); this._padPendT = null
+    if (this._padMode !== 'pend') return
+    this._padMode = 'dir'
+    const q = this._padLast
+    if (q) this._setDir(this._sector(q.x, q.y))
   }
 
   _setDir(deg) {
@@ -767,6 +839,7 @@ export default class Joystick {
       document.removeEventListener('fullscreenchange',       this._onFsChange)
       document.removeEventListener('webkitfullscreenchange', this._onFsChange)
     }
+    this._unbindAbove?.()
     if (this._root?.parentNode)   this._root.parentNode.removeChild(this._root)
     if (this._fsIcon?.parentNode) this._fsIcon.parentNode.removeChild(this._fsIcon)
   }

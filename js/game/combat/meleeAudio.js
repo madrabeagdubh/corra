@@ -46,7 +46,11 @@ export default class MeleeAudio {
     this._timers = new Set()
   }
 
-  sfx(key, opts = {}) { SoundBoard.playWeb(key, this.scene, { material: this.material, ...opts }) }
+  sfx(key, opts = {}) {
+    const k = this.m.focusK ?? 1                      // in focus every sound is lower and drawn out
+    if (k < 0.9 && !key.startsWith('FOCUS')) opts = { ...opts, pitch: (opts.pitch ?? 1) * (0.4 + 0.6 * k), ...(opts.dur ? { dur: opts.dur * Math.min(5, 1 / Math.sqrt(k)) } : {}) }
+    SoundBoard.playWeb(key, this.scene, { material: this.material, ...opts })
+  }
   breath(opts) { if (BREATHING) this.sfx('BREATH', opts) }
   cough(opts) { if (BREATHING) this.sfx('COUGH', opts) }
   // a voice, never more than one every ~280 ms per fighter
@@ -64,16 +68,16 @@ export default class MeleeAudio {
     switch (name) {
       case 'swing':
         this.sfx('SWORD_SWISH', { pitch: (d.flip ? 1.3 : d.charged ? 0.8 : 1) * this.jitter(), dur: d.flip ? 0.12 : d.charged ? 0.22 : 0.17,
-                                  volume: d.air ? 0.24 : 0.32 })
+                                  volume: d.air ? 0.1 : 0.15 })
         if (d.charged || d.lunge) this.say('player', 'kiai')
         else if (d.patient && !d.air) this.say('player', 'grunt', 0.35)
         break
-      case 'foeSwing': this.sfx('SWORD_SWISH', { pitch: 0.9 * this.jitter(), dur: 0.15, volume: 0.3 }); this.say('foe', 'ha', 0.5); break
+      case 'foeSwing': this.sfx('SWORD_SWISH', { pitch: 0.9 * this.jitter(), dur: 0.15, volume: 0.14 }); this.say('foe', 'ha', 0.5); break
       case 'tell': this.sfx('BREATH', { inhale: true, kind: 'gasp', voice: 'male', effort: 0.5, volume: 0.15, wheeze: 0, pitch: 0.85 }); break   // he draws breath: the tell
       case 'chargeStart': this.breath({ inhale: true, kind: 'pant', voice: this.pBreath, effort: 0.6, volume: 0.2 }); break
       case 'enGarde': this.sfx('SWORD_DRAW'); this._later(520, () => this.breath({ kind: 'pant', voice: this.pBreath, effort: 0.3, volume: 0.1 }), 520); break
       case 'atEase': this.sfx('SWORD_SHEATHE'); break
-      case 'parried': this.sfx('BLADE_KNOCK', { hard: 0.35, pitch: this.jitter() * (1 + 0.04 * (d.exchange || 0)) }); break
+      case 'parried': this.sfx('BLADE_KNOCK', { hard: 0.9, pitch: this.jitter() * (1 + 0.04 * (d.exchange || 0)) }); break
       case 'clash': this.sfx('BLADE_KNOCK', { hard: 1, pitch: this.jitter() }); this.say('player', 'grunt', 0.5); break
       case 'hit':
         this.sfx('BLADE_THUD', { hard: d.charged || d.desperate ? 1 : 0.5 })
@@ -103,6 +107,7 @@ export default class MeleeAudio {
         break
       case 'dodge': this.sfx('SWORD_SWISH', { pitch: 1.7, dur: 0.08, volume: 0.16 }); break
       case 'knockdown':
+        if (d.steady) break                                   // a master bows; he doesn't fall
         this._later(120, () => this.sfx('BODY_FALL', { volume: d.hard ? 0.7 : 0.55 }))
         if (!d.hard) this.say(d.who === 'player' ? 'player' : 'foe', 'fall')
         if (d.who === 'foe' && !d.final && this.m.breath / this.m.cap() > 0.5) this._later(420, () => this.say('player', 'haha', 0.5))
@@ -123,6 +128,7 @@ export default class MeleeAudio {
         if (d.end) this._later(SALUTE_MS + 0.55 * 900, () => this.sfx('SWORD_SHEATHE', { volume: 0.08 }))   // and puts it away
         break
       }
+      case 'focus': this.sfx('FOCUS', { on: d.on }); break
       case 'cheapShot': this._later(200, () => this.say('foe', 'oh')); break
       case 'winded': this._breath.next = performance.now(); break                 // the splutter starts at once
     }
@@ -137,6 +143,7 @@ export default class MeleeAudio {
 
   update() {
     const m = this.m, now = performance.now()
+    if ((m.focusK ?? 1) < 0.5 && now >= (this._beatAt || 0)) { this._beatAt = now + 1500; this.sfx('FOCUS_BEAT') }     // a slow heartbeat
     // Breathing. A workout pant is steady -- in, a soft "hah" out -- and
     // quickens as you tire. An all-out gasp is ragged: a snatched, rasping
     // breath in, a long groan out, uneven gaps, now and then a second

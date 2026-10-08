@@ -44,13 +44,15 @@ const BR = { regenMs: 700, idleMs: 450, windedMs: 1200, windedBack: 2, lungeReco
 const BUFFER_MS = 200
 export const CHARGE = { startMs: 250, fullMs: 700, breath: 2 }
 // a patient cut is hauled from the shoulder; a quick backhand is shorter, lighter, and lands sooner
-const SW = { full: { vis: 380, hitAt: 215, rec: 300 }, quick: { vis: 250, hitAt: 141, rec: 240 } }
+const SW = { full: { vis: 380, hitAt: 215, rec: 300 }, quick: { vis: 250, hitAt: 141, rec: 240 },
+             spin: { vis: 420, hitAt: 140, rec: 300 } }   // a fully charged blow: a fast turn right round
 
 const BASE = {
-  hp: 6, dmg: 1, stepMs: 330, windMs: 650, strikeMs: 120, recoverMs: 750, reelMs: 480, staggerMs: 400,
+  hp: 6, dmg: 1, atk: 5, def: 5, stepMs: 330, windMs: 650, strikeMs: 120, recoverMs: 750, reelMs: 480, staggerMs: 400,
   counterWind0: 560, counterWindStep: 50, counterWindMin: 380,
   parryBase: 0.4, parryReel0: 0.3, parryReelStep: 0.12, parryMax: 0.8, restMin: 500, restMax: 1200,
   lead: 0, combo: 0, followWind: 400, rushWind: 330, ambush: false, style: null,
+  mercy: true,            // wooden swords: never below one heart -- the last heart is a knockdown, and the contest is over
 }
 export const PRESETS = {
   // reads your route, aims where you're going, follows a miss at once
@@ -68,6 +70,12 @@ export const PRESETS = {
   // and she never cuts you. She throws you down, and after the third time it's over.
   uathach: { ...BASE, style: 'shover', hp: 99, stepMs: 300, windMs: 420, recoverMs: 700, restMin: 300, restMax: 700,
              untouchable: true, throws: 3, swordGid: 2496 },
+  // Conall: a patient teacher, very hard to get past (def 9), who turns two blows in three aside
+  // (a master: `guard` is the chance he turns a blow aside in each state -- about 1 in 10 gets through;
+  //  `steady`: he can't be knocked down, shoved over or disarmed; `reminders`: salutes he'll offer before he attacks in earnest)
+  conall:  { ...BASE, style: 'warden', hp: 8, atk: 6, def: 9, stepMs: 420, windMs: 1000, strikeMs: 120, recoverMs: 1100, staggerMs: 520,
+             followWind: 700, counterWind0: 520, counterWindStep: 60, counterWindMin: 300, parryBase: 0.5, parryReel0: 0.35, parryReelStep: 0.1, parryMax: 0.72, restMin: 1200, restMax: 1900,
+             steady: true, mercy: true, keepBout: true, moveWindow: 600, match: false, reminders: 3, guard: { base: 0.55, wind: 0.5, reel: 0.4, recover: 0.3, stagger: 0.3 } },
   // no guard, fast, three cuts, wide open afterwards
   brawler: { ...BASE, style: 'brawler', hp: 5, stepMs: 250, windMs: 400, strikeMs: 110, recoverMs: 800, staggerMs: 120,
              followWind: 280, combo: 2, parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 120, restMax: 350 },
@@ -107,8 +115,15 @@ export default class Melee {
     this.press = null                      // { t0 } while a finger is on the moon
     this.hitStop = 0
     this.bout = { over: false, until: 0, needLeave: false }
+    this.saluted = false      // you have saluted this bout
+    this.matchPause = false   // between touches of a match: the fighters part and regroup
+    this.resume = false       // the next bout start is the match going on (no salute)
+    this.touches = 0
+    this.eager = false        // a drawn sword is enough: he starts a bout without waiting for you to step away
     this._lastTile = null
     this.peaceful = false                  // true: no bout starts, whatever you do (a lesson on the green)
+    this.returnsSalute = false             // true: out of a bout too, an idle partner returns your salute (the garden course)
+    this.bare = false                      // true: the stance without a blade (the space lesson): no cuts, no charge
   }
 
   // ── small helpers ────────────────────────────────────────────────────────
@@ -163,6 +178,7 @@ export default class Melee {
   setEnGarde(on) {
     if (on === this.enGarde) return
     this.enGarde = on
+    if (!on && this.matchPause) { this.matchPause = false; this.resume = false; this.foeReady = false; this.foe.hp = this.F.hp }   // the match is dropped
     if (!on) {
       if (this.combat && !this.bout.over) this._playerYields('Ghéill tú', 'You yielded', false)
       this._spoilCharge()
@@ -189,11 +205,16 @@ export default class Melee {
   salute() {
     if (!this.enGarde || !this.canAct() || this.p.downUntil > this.t) return false
     this.p.busyUntil = this.t + SALUTE_MS; this.p.busyKind = 'salute'
+    this.saluted = true
     this.emit('salute', { by: 'player' })
     const foe = this.foe
-    if (this.combat && foe.armed && this.cheb() >= 2 && ['idle', 'approach', 'rest'].includes(foe.state)) {
-      this._setFoe('salute', SALUTE_MS)
-      this.emit('salute', { by: 'foe', reply: true })
+    const inBout = this.combat && foe.armed && this.cheb() >= 2 && ['idle', 'approach', 'rest'].includes(foe.state)
+    // in a lesson he returns it too, drawing first if his sword is away
+    const inLesson = !this.combat && this.returnsSalute && foe.armed && foe.state === 'idle'
+    if (inBout || inLesson) {
+      const draw = inLesson && !this.foeReady
+      this._setFoe('salute', SALUTE_MS + (draw ? 900 : 0))
+      this.emit('salute', { by: 'foe', reply: true, draw })
     }
     return true
   }
@@ -201,7 +222,7 @@ export default class Melee {
   _nextFlip() { const f = this.t - this.lastSwing.t < 550 ? !this.lastSwing.flip : false; this.lastSwing = { t: this.t, flip: f }; return f }
 
   strike(opts = {}) {
-    if (!this.enGarde || this.p.lost || this.p.downUntil > this.t) return
+    if (!this.enGarde || this.bare || this.p.lost || this.p.downUntil > this.t) return
     const charged = !!opts.charged
     // every swing costs breath, in a bout or out of one: you feel your stamina
     if (this.winded() || this.breath < 1) {
@@ -212,7 +233,7 @@ export default class Melee {
     const desperate = this.pa.hp() <= 1                      // last heart: one blow that cannot be turned aside
     const inFlurry = !charged && this.t - this.lastSwing.t < 550
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
-    const base = flip ? SW.quick : SW.full
+    const base = charged ? SW.spin : flip ? SW.quick : SW.full
     const k0 = inFlurry ? 0.3 : 0, toHit = base.hitAt - k0 * base.vis, rec = inFlurry ? 140 : base.rec
     this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, hitDone: false, desperate, charged, flip,
                    vis: base.vis, hitAt: base.hitAt }
@@ -231,7 +252,7 @@ export default class Melee {
   _airSwing(charged) {
     const [c, r] = this.pa.tile(), d = this.pa.facing()
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
-    const base = flip ? SW.quick : SW.full
+    const base = charged ? SW.spin : flip ? SW.quick : SW.full
     this.swing = { tile: [c + d[0], r + d[1]], t0: this.t, hitDone: true, air: true, desperate: false, charged, flip,
                    vis: base.vis, hitAt: base.hitAt }
     const p = this.p
@@ -267,7 +288,7 @@ export default class Melee {
   }
 
   _beginCharge() {
-    if (this.charge || !this.enGarde || this.p.lost || this.p.downUntil > this.t) return
+    if (this.charge || !this.enGarde || this.bare || this.p.lost || this.p.downUntil > this.t) return
     if (this.winded() || this.breath < CHARGE.breath) return
     if (this.combat ? !this.canAct() : this.t < this.p.busyUntil) return
     this.charge = { t0: this.t }; this.pa.stopRoute(); this.queued = null
@@ -304,29 +325,36 @@ export default class Melee {
     if (foe.state === 'strike' && !foe.hitDone) return this._clash()               // both blows at once
     if (!foe.armed) return this._struckUnarmed()
     const open = ['wind', 'reel'].includes(foe.state)       // caught mid-move: a clean hit, and a breath back
-    const cheap = foe.state === 'salute'                     // struck as he salutes you: it lands, and everyone saw
+    const cheap = foe.state === 'salute' && !F.steady                     // struck as he salutes you: it lands, and everyone saw
     const chance = sw.desperate || sw.charged || cheap ? 0
                  : foe.state === 'recover' || foe.state === 'stagger' ? 0
                  : foe.state === 'reel' ? Math.min(F.parryMax, F.parryReel0 + F.parryReelStep * this.exchange)
                  : foe.state === 'wind' ? 0 : F.parryBase
-    if (Math.random() < chance) return this._foeParries()
-    const dmg = sw.desperate ? 2 : 1, exchange = this.exchange
-    foe.hurtUntil = this.t + 300; this.exchange = 0
+    const guard = F.guard && !cheap ? (F.guard[foe.state] ?? F.guard.base) : 0        // a master's floor: he turns most blows, whatever state he's in
+    const base = Math.max(chance, guard)
+    const edge = base > 0 ? 0.05 * (F.def - this.pa.atk()) : 0                    // his defence against your strength
+    let pp = Math.max(0, Math.min(F.parryMax, base + edge))
+    if (F.moveWindow && this.t - foe.movedAt < F.moveWindow) pp *= 0.35         // caught on the move
+    if (Math.random() < pp) return this._foeParries()
+    const dmg = sw.desperate && !F.match ? 2 : 1, exchange = this.exchange
+    foe.hurtUntil = this.t + 300; this.exchange = 0; foe.engaged = true
     if (open) this.refund()
     this.hitStop = sw.desperate ? 140 : 80
     this.emit('hit', { on: 'foe', dmg, desperate: sw.desperate, charged: sw.charged, exchange, fresh: this.breath / this.cap() >= 0.75 && !cheap })
     if (cheap) this.emit('cheapShot')
     if (foe.hp - dmg <= 0) { foe.hp = 0; return this._foeYields() }
     foe.hp -= dmg
-    if (sw.charged) {                                         // a full charged cut puts him on the ground
+    if (sw.charged && !F.steady) {                                         // a full charged cut puts him on the ground
       this._setFoe('down', DOWN_MS); foe.hurtUntil = this.t + DOWN_MS
       const [pc, pr] = this.pa.tile(); this._knockFoe([sign(foe.c - pc), sign(foe.r - pr)])
       this.emit('knockdown', { who: 'foe' }); return
     }
     if (foe.state === 'wind') this._setFoe('stagger', F.staggerMs)
     else if (foe.state === 'reel') this._setFoe('recover', 500)
+    else if (!['recover', 'stagger'].includes(foe.state)) this._setFoe('stagger', F.staggerMs * 1.2)    // the rhythm is broken: step in
     const [pc, pr] = this.pa.tile()
     this._knockFoe([sign(foe.c - pc), sign(foe.r - pr)])
+    if (F.match) this._touch('player')
   }
 
   // they turn your blow aside, and come straight back, a little faster each time
@@ -334,6 +362,8 @@ export default class Melee {
     const F = this.F, foe = this.foe
     this.exchange++; this.hitStop = 70
     this.p.busyUntil = this.t + P.reelMs; this.queued = null
+    if (this._remind()) { this.emit('parried', { by: 'foe', exchange: this.exchange }); return }     // not saluted: he steps back and reminds you, instead of countering
+    foe.engaged = true
     foe.target = [...this.pa.tile()]; foe.targets = [foe.target]
     foe.wind = Math.max(F.counterWindMin, F.counterWind0 - F.counterWindStep * this.exchange)
     if (F.style === 'shover') { foe.shoving = true; foe.wind = 380 }               // her answer: a throw
@@ -352,7 +382,7 @@ export default class Melee {
     this._setFoe('rest', 500)
     this.emit('clash', { exchange: this.exchange })
     // blades meeting hard -- your charged cut, or a long exchange -- can tear his from his hand
-    if (foe.armed && (charged || this.exchange >= 3) && Math.random() < DISARM_CHANCE) this._disarmFoe()
+    if (foe.armed && !this.F.steady && (charged || this.exchange >= 3) && Math.random() < DISARM_CHANCE) this._disarmFoe()
   }
 
   // ── his sword, flying ───────────────────────────────────────────────────
@@ -417,7 +447,7 @@ export default class Melee {
     this.spend(1)
     const offBalance = ['wind', 'recover', 'stagger', 'reel', 'unarmed'].includes(foe.state)
     const moved = this._foeStepTo(foe.c + dx, foe.r + dy, 160)
-    const down = Math.random() < (offBalance ? 0.5 : 0.15) + (moved ? 0 : 0.1)
+    const down = !this.F.steady && Math.random() < (offBalance ? 0.5 : 0.15) + (moved ? 0 : 0.1)
     this.p.busyUntil = this.t + 320; this.p.busyKind = 'other'
     this.exchange = 0
     if (down) { this._setFoe('down', DOWN_MS); foe.hurtUntil = this.t + DOWN_MS; this.emit('knockdown', { who: 'foe' }) }
@@ -440,18 +470,33 @@ export default class Melee {
       this.emit('dodge', { dir: deg(pr - foe.r, pc - foe.c) })
       this._foeAfterBlow(1); return
     }
+    if (Math.random() < this.playerParryP()) {                                       // you turn it aside, by instinct
+      this.exchange++; this.hitStop = 70; this.practice++
+      this.emit('parried', { by: 'player', exchange: this.exchange })
+      this.spend(0.5)                                                           // staying in the fray tires you
+      this._setFoe('reel', F.reelMs)
+      return
+    }
     this.pa.stopRoute(); this._spoilCharge()
     const dmg = F.dmg
     p.hurtUntil = this.t + P.hurtMs; this.exchange = 0
     this.hitStop = 110
     this.swing = null; this.queued = null; p.busyUntil = Math.max(p.busyUntil, this.t + 300); p.busyKind = 'other'
     this.emit('hit', { on: 'player', dmg, tired: !!this.breathState() })
-    if (this.pa.hp() - dmg <= 0) return this._playerYields('Buaileadh thú', 'You were beaten')
-    this.pa.hurt(dmg)
+    if (this.pa.hp() - dmg <= 0 && !F.mercy) return this._playerYields('Buaileadh thú', 'You were beaten')
+    const hurt = F.mercy ? Math.min(dmg, this.pa.hp() - 1) : dmg          // a master never takes you below one heart
+    if (hurt > 0) this.pa.hurt(hurt)
     this.pa.forceStep([sign(pc - foe.c), sign(pr - foe.r)])                            // a hit throws you back a tile
+    if (F.mercy && this.pa.hp() <= 1) return this._playerYields('Buaileadh thú', 'You were beaten')     // down on the last heart: he salutes, sheathes
     this._foeAfterBlow(0.6)
+    if (this.F.match) this._touch('foe')
   }
   dodgeP() { return Math.min(0.4, 0.05 + 0.01 * this.practice) }
+  // your own defence turning his blow aside: 20% + 6% per point of Cosaint over his Neart, 3..60% (half, winded)
+  playerParryP() {
+    const p = Math.max(0.03, Math.min(0.6, 0.2 + 0.06 * (this.pa.def() - this.F.atk)))
+    return this.winded() ? p / 2 : p
+  }
   // How you're breathing: null (fine), 'pant' (a good workout), or 'gasp'
   // (all-out: winded, nearly out of breath, or fighting on your last heart).
   // It carries on after you stand at ease, until your breath is back.
@@ -475,10 +520,11 @@ export default class Melee {
   // ── the bout ends ────────────────────────────────────────────────────────
   // He's down, then up on one knee, then on his feet to salute (update()).
   _foeYields() {
-    this._setFoe('beaten', 1e9)
+    const steady = !!this.F.steady                     // a master doesn't fall: he lowers his blade and bows
+    this._setFoe(steady ? 'nod' : 'beaten', steady ? 2200 : 1e9)
     this.bout = { over: true, until: this.t + 2600, needLeave: true, won: true }
     this.combat = false
-    this.emit('knockdown', { who: 'foe', final: true })
+    this.emit('knockdown', { who: 'foe', final: true, steady })
     this.emit('boutOver', { won: true })
   }
   // knocked: down on the grass if his blow ended it; a yield (swipe down) stays on your feet
@@ -502,13 +548,13 @@ export default class Melee {
     const foe = this.foe
     Object.assign(foe, { c: this.HOME[0], r: this.HOME[1], from: null, hp: this.noFoe ? 0 : this.F.hp, state: 'idle', st0: 0, until: 0,
       target: null, targets: [], hitDone: false, nextStep: 0, wind: 0, eye: 0, whiffAt: 0, feint: false, lungeNow: false,
-      comboN: 0, rush: 0, hurtUntil: 0, armed: true, shamed: false })
+      comboN: 0, rush: 0, hurtUntil: 0, armed: true, shamed: false, reminded: 0, startPending: false, returning: false, engaged: false, movedAt: -1e9, footAt: 0, readAt: 0 })
     this.dropped = null        // his sword on the ground: { c, r, from: [c, r], t0, ms } (it flies first)
     this.carrying = false      // you've picked it up
   }
   _setFoe(state, ms) {
     const foe = this.foe
-    foe.state = state; foe.st0 = this.t; foe.until = this.t + ms; foe.hitDone = false
+    foe.state = state; foe.st0 = this.t; foe.until = this.t + ms; foe.hitDone = false; foe.follow = false
     if (state !== 'wind' && state !== 'strike') { foe.comboN = 0; foe.rush = 0; foe.feint = false }
   }
   _foeStepTo(c, r, ms) {
@@ -569,7 +615,7 @@ export default class Melee {
     const [c, r] = this._aimPoint(Math.max(1, Math.min(5, Math.round((F.windMs + F.strikeMs * 0.5) / this.pa.stepMs()))))
     return Math.max(Math.abs(c - foe.c), Math.abs(r - foe.r)) === 1 ? [c, r] : null
   }
-  _startWind(ms = this.F.windMs) { this.foe.wind = ms; this._setFoe('wind', ms); this.emit('tell', { ms }) }
+  _startWind(ms = this.F.windMs) { this.foe.engaged = true; this.foe.wind = ms; this._setFoe('wind', ms); this.emit('tell', { ms }) }
   // after a blow: a combo's next cut, or the long recovery that leaves them open
   _foeAfterBlow(mult) {
     const foe = this.foe, F = this.F
@@ -578,6 +624,7 @@ export default class Melee {
       if (this.cheb() <= 1) { foe.comboN++; this._aimAttack(); this._startWind(F.followWind); return }
     }
     this._setFoe('recover', F.recoverMs * mult)
+    foe.follow = true                                            // he follows the cut through before he comes back to guard
   }
 
   // Disarmed: a moment's shock, a step back from you, then off to his sword
@@ -598,17 +645,122 @@ export default class Melee {
     }
   }
 
+  // a master's courtesy: you haven't saluted, so he steps back and salutes you again (a few times) before he comes in earnest
+  _remind() {
+    const F = this.F, foe = this.foe
+    if (!(F.reminders > 0) || this.saluted || foe.engaged || (foe.reminded || 0) >= F.reminders) return false     // only before the fight is on
+    foe.reminded = (foe.reminded || 0) + 1
+    this._foeDash(); foe.nextStep = 0; foe.returning = true
+    this._setFoe('salute', SALUTE_MS)
+    this.emit('salute', { by: 'foe', reminder: true })
+    return true
+  }
+
+  // a touch in a match: the action stops, the fighters part (the scene walks you to your mark; he walks to his),
+  // and it goes on when resumeBout() is called
+  _touch(scorer) {
+    this.touches++
+    this.emit('touch', { scorer, n: this.touches })
+    this.combat = false; this.exchange = 0; this._spoilCharge(); this.swing = null; this.queued = null
+    this.p.busyUntil = this.t; this.p.busyKind = 'other'
+    this.matchPause = true; this.foeReady = true              // his blade stays out
+    this._setFoe('idle', 0)
+  }
+  resumeBout() { this.matchPause = false; this.resume = true }
+
+  // he zooms off two or three tiles (dust and speed lines: meleeView), to salute you pointedly
+  _foeDash(far = false) {
+    const foe = this.foe, [pc, pr] = this.pa.tile()
+    let ax = sign(foe.c - pc), ay = sign(foe.r - pr)
+    if (!ax && !ay) ax = 1
+    const dirs = [[ax, ay]]
+    if (!ax) dirs.push([1, ay], [-1, ay]); else if (!ay) dirs.push([ax, 1], [ax, -1]); else dirs.push([ax, 0], [0, ay])
+    for (const k of far ? [6, 5, 4, 3] : [3, 2]) for (const [dx, dy] of dirs) {
+      const c = foe.c + dx * k, r = foe.r + dy * k
+      if (this.foeFree(c, r) && this._fromHome([c, r]) <= (far ? 9 : 6)) {
+        const from = [foe.c, foe.r]
+        this._foeStepTo(c, r, 190); this.emit('dash', { from, to: [c, r] }); return true
+      }
+    }
+    return this._foeRetreat()
+  }
+
   // the Warden: stands his ground, watches, and answers any cut that finds nothing
   _wardenThink(t) {
     const foe = this.foe, F = this.F, d = this.cheb()
     if (foe.whiffAt && t - foe.whiffAt < 700 && d <= 2) {
       foe.whiffAt = 0
+      if (this._remind()) return
       if (d === 2 && !this._stepIn(100)) return
       this._aimAttack(); this._startWind(F.followWind); return
     }
-    if (d <= 1) { if (!foe.eye) foe.eye = t + 800; if (t >= foe.eye) { foe.eye = 0; this._aimAttack(); this._startWind() } return }
+    if (F.mobile && this.combat && !foe.returning) { if (this._footwork(t, d) || d >= 2) return }     // no old approach timer: he is always working round you
+    if (d <= 1) { foe.returning = false; if (!foe.eye) foe.eye = t + 800; if (t >= foe.eye) { foe.eye = 0; if (this._remind()) return; this._aimAttack(); this._startWind() } return }
     foe.eye = 0
-    if (d <= 3 && t >= foe.nextStep) { foe.nextStep = t + 2600; this._foeStep(this.pa.tile()) }     // his patience runs out, slowly
+    if (d <= 5 && t >= foe.nextStep) { foe.nextStep = t + (foe.returning ? F.stepMs : 2600); this._foeStep(this.pa.tile(), false, !foe.returning) }     // his patience runs out, slowly
+  }
+  // Footwork v2 (F.mobile 1..3). He never just stands: closes on a curve beyond two tiles, circles at two (turning the same way
+  // for a while), backs off a tile when crowded, and now and then lunges (1: rarely, 2-3: often). 3 also slips away from the end of
+  // the line you have drawn. Returns true when it took the turn.
+  _footwork(t, d) {
+    const foe = this.foe, F = this.F
+    if (foe.returning || !this.combat || foe.from || t < foe.footAt) return false
+    const done = pause => { foe.movedAt = t; foe.footAt = t + pause; return true }
+    const home = () => this._fromHome([foe.c, foe.r])
+    const [pc, pr] = this.pa.tile()
+    const cheb = ([c, r]) => Math.max(Math.abs(c - pc), Math.abs(r - pr))
+    const free = ([c, r]) => this.foeFree(c, r) && this._fromHome([c, r]) <= LEASH + 1
+    if (F.mobile >= 3 && d >= 2 && t >= foe.readAt && this.pa.onRoute()) {
+      const [ec, er] = this.pa.ahead(8)
+      if (Math.max(Math.abs(ec - foe.c), Math.abs(er - foe.r)) <= 1) {
+        foe.readAt = t + 1800
+        const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(free)
+          .map(o => [o, Math.max(Math.abs(o[0] - ec), Math.abs(o[1] - er))]).filter(([, e]) => e >= 2)
+        if (opts.length) {
+          const best = opts.sort((a, b) => b[1] - a[1] || Math.random() - 0.5)[0][0]
+          if (this._foeStepTo(best[0], best[1], F.stepMs * 0.5)) return done(900)
+        }
+      }
+    }
+    if (d <= 1) {
+      foe.footAt = t + 900
+      if (Math.random() < 0.55 && home() <= LEASH + 1 && this._foeRetreat()) return done(900)
+      return false                                                   // not this time: he stands and cuts as before
+    }
+    // round you: keep the ring you are on, turning the same way (the way turns over now and then)
+    const circle = () => {
+      if (!foe.orbit || Math.random() < 0.12) foe.orbit = Math.random() < 0.5 ? 1 : -1
+      for (let tries = 0; tries < 2; tries++) {
+        let best = null, bs = 0
+        for (const v of D8) {
+          const o = [foe.c + v[0], foe.r + v[1]]
+          if (!free(o) || cheb(o) !== d) continue
+          const cross = ((foe.c - pc) * (o[1] - pr) - (foe.r - pr) * (o[0] - pc)) * foe.orbit
+          if (cross > bs) { bs = cross; best = o }
+        }
+        if (best) return this._foeStepTo(best[0], best[1], F.stepMs * 0.5)
+        foe.orbit = -foe.orbit
+      }
+      return false
+    }
+    if (d === 2) {
+      const lungeP = F.mobile >= 2 ? 0.4 : 0.22
+      if (Math.random() < lungeP) {
+        if (this._remind()) return true
+        if (this._stepIn(100)) { foe.movedAt = t; foe.footAt = t + 700; this._aimAttack(); this._startWind(F.followWind); return true }
+      }
+      circle()
+      return done(450 + Math.random() * 450)
+    }
+    // further off: close in, now straight, now round
+    if (Math.random() < 0.3 && circle()) return done(F.stepMs * 0.8)
+    const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(free).map(o => [o, cheb(o)]).filter(([, e]) => e < d)
+    if (opts.length) {
+      const least = Math.min(...opts.map(o => o[1])), pick = opts.filter(o => o[1] === least)
+      const o = pick[Math.floor(Math.random() * pick.length)][0]
+      this._foeStepTo(o[0], o[1], F.stepMs * 0.6)
+    } else circle()
+    return done(F.stepMs * 0.8)
   }
   // the Master: keeps two tiles off, circles, feints, and lunges when you commit
   _masterThink(t) {
@@ -676,9 +828,13 @@ export default class Melee {
       if (foe.state !== 'idle') this._setFoe('idle', 0)
       return
     }
+    // you are saluting: he holds off (a blow he has begun finishes)
+    if (this.combat && this.p.busyKind === 'salute' && t < this.p.busyUntil && ['idle', 'approach', 'rest'].includes(foe.state)) return
     switch (foe.state) {
       case 'idle': this._setFoe('approach', 5000); break
-      case 'salute': if (t >= foe.until) this._setFoe('approach', 5000); break
+      case 'salute':
+        if (t >= foe.until) { this._setFoe('approach', 5000); if (foe.startPending) { foe.startPending = false; this.emit('go') } }
+        break
       case 'down': if (t >= foe.until) { this._setFoe('rest', 600); this.emit('rise', { who: 'foe' }) } break
       case 'rest':
         if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs * 1.6; if (Math.random() < 0.5) this._foeStep(this.pa.tile(), true) }
@@ -750,11 +906,18 @@ export default class Melee {
     if (this.bout.needLeave && (d > ENGAGE || !this.enGarde)) this.bout.needLeave = false
 
     // swords drawn within ENGAGE tiles while en garde; put away beyond DISENGAGE
-    if (!this.combat && !this.peaceful && this.enGarde && !this.bout.over && !this.bout.needLeave && foe.hp > 0 && d <= ENGAGE) {
+    if (!this.combat && !this.peaceful && !this.matchPause && this.enGarde && !this.bout.over && (!this.bout.needLeave || (this.eager && this.bout.won && foe.state === 'idle')) && !(this.F.mercy && this.pa.hp() <= 1) && foe.hp > 0 && d <= ENGAGE) {
       this.combat = true; this.exchange = 0
-      foe.shamed = false
-      this._setFoe('salute', SALUTE_MS + 900); this.emit('boutStart')       // + his draw (meleeView DRAW_MS)
-    } else if (this.combat && d > DISENGAGE) this._endCombat()
+      if (this.resume) { this.resume = false; this.foeReady = false; this._setFoe('rest', 700); this.emit('boutResume') }     // the match goes on: no salute
+      else {
+        foe.shamed = false; this.saluted = false; foe.reminded = 0; foe.engaged = false; this.touches = 0; foe.startPending = true
+        this._setFoe('salute', SALUTE_MS + 900); this.emit('boutStart') }       // + his draw (meleeView DRAW_MS)
+    } else if (this.combat && d > (this.F.keepBout ? 14 : DISENGAGE)) this._endCombat()
+
+    // he will not fight a wounded man: if you keep coming at him with your blade out, he zooms off
+    if (this.F.mercy && !this.combat && !this.bout.over && this.enGarde && this.pa.hp() <= 1 && foe.hp > 0 && foe.armed && foe.state === 'idle' && d <= 2 && t >= (this.vanishAt || 0)) {
+      this.vanishAt = t + 2500; this._foeDash(true)
+    }
 
     // the player started a step
     const tile = this.pa.tile()

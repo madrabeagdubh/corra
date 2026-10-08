@@ -13,9 +13,10 @@ function ensureFontsLoaded(callback) {
 }
 
 const statDescriptions = {
-    attack:  { irish: 'Troid',   english: 'Fight'   },
-    defense: { irish: 'Cosain',  english: 'Defend'  },
-    health:  { irish: 'Slainte', english: 'Health'  },
+    // Display names only: the keys stay attack / defense / health (they are the property names in champions.js).
+    attack:  { irish: 'Neart',     english: 'Strength' },
+    defense: { irish: 'Cosaint',   english: 'Defence'  },
+    health:  { irish: 'Sláinte',   english: 'Health'   },
     speed:   { irish: 'Luas',    english: 'Speed'   },
     luck:    { irish: 'Adh',     english: 'Luck'    },
 };

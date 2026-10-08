@@ -195,7 +195,7 @@ getEquippedItem(equipSlotName) {
     console.log(`Drinking ${item.nameEn}`);
     // Apply healing logic to player
     if (item.stats && item.stats.healAmount) {
-        this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.stats.healAmount);
+        this.player.heal?.(item.stats.healAmount);   // Player has currentHP/maxHP, not hp/maxHp
     }
     
     // Remove one from stack or remove item

@@ -979,6 +979,7 @@ clearNotify() {
   _applyEffects(src) {
     if (!src) return
     if (src.note) GameState.addNote(src.note)
+    if (src.event) this._pendingEvent = src.event          // handed to the scene when the conversation closes
     if (src.setQuest && GameState.getQuest(src.setQuest) === 'inactive') {
       GameState.setQuest(src.setQuest, 'active')
       announceQuest(src.setQuest, 'active', this._scene)
@@ -1188,6 +1189,9 @@ clearNotify() {
     this._active     = null
     if (this._scene) this._scene._lastWasFar = false
     if (this._scene?.perspectiveGround) this._scene.perspectiveGround.forceRedraw()
+    const ev = this._pendingEvent, sc = this._scene
+    this._pendingEvent = null
+    if (ev && sc) setTimeout(() => { try { sc.onDialogueEvent?.(ev) } catch (_) {} }, 300)
   }
 
   // -- Language update -------------------------------------------------------

@@ -977,6 +977,8 @@ try {
       onPressStart: () => this._moonOwner?.pressStart?.(),
       onPressEnd: (info) => this._moonOwner?.pressEnd?.(info),
       onSwipeVertical: (dir) => this._moonOwner?.swipeVertical?.(dir),
+      onRingDrag: (id) => { this._gestureDown = id; this._routeDraw?.end?.(true) },       // from above the brooch down onto it: the swipe, not a route
+      ringGestures: () => !!this._moonOwner?.swordInHand?.(),     // with a weapon equipped, the whole brooch ring takes the draw / salute / sheathe swipe
       onLongPressProgress: (p) => {
         if (this._moonOwner?.claimsLongPress?.()) return
         this.joystick?.drawChargeGlow(p)
@@ -1106,6 +1108,7 @@ try {
     const up = (e, cancelled) => {
       if (!down || e.pointerId !== down.id) return
       const d = down; down = null
+      if (this._gestureDown === e.pointerId) { this._gestureDown = null; this._routeDraw.end(true); return }   // it was the sheathe swipe
       if (this._routeDraw.end(cancelled)) return            // it was a drag: a route
       if (!cancelled) tapAt(d.x, d.y)
     }

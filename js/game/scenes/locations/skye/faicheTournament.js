@@ -7,8 +7,8 @@
 //   marked at the south edge: stand on it and he calls the next student in.
 //   They walk out to the middle; go en garde and fight. Easiest first:
 //
-//     Ciarán   a beginner (novice)       Fial      fast, no guard (brawler)
-//     Bearach  reads your route (spar)   Laoise    stands firm (warden)
+//     Ciarán   a beginner (novice)       Laoise    stands firm (warden)
+//     Bearach  reads your route (spar)   Fial      fast, no guard (brawler)
 //     Fer Diad the best of them (master)
 //
 //   Win and they yield; your hearts come back, a few more students come to
@@ -33,10 +33,10 @@ export const TOURNEY_DONE = 'faiche_tournament_done'
 const WON = i => `faiche_tourney_${i}`
 
 const OPPONENTS = [
-  { id: 'ciaran',  kind: 'novice',  name: 'Ciarán' },
-  { id: 'fial',    kind: 'brawler', name: 'Fial' },
-  { id: 'bearach', kind: 'spar',    name: 'Bearach' },
+  { id: 'ciaran',  kind: 'novice',  name: 'Ciarán' },     // in order of how hard they are for a casual player (the combat review)
   { id: 'laoise',  kind: 'warden',  name: 'Laoise' },
+  { id: 'bearach', kind: 'spar',    name: 'Bearach' },
+  { id: 'fial',    kind: 'brawler', name: 'Fial' },
   { id: 'ferdiad', kind: 'master',  name: 'Fer Diad' },
 ]
 const REF_AT = [18, 11]                 // the Warden, refereeing from the north edge

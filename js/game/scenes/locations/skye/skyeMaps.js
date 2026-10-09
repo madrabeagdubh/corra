@@ -11,6 +11,7 @@ import { SkyeGairdin } from './skyeGairdin.js'
 import { SkyeFaiche } from './skyeFaiche.js'
 import { TighConaill } from './tighConaill.js'
 import { TighAmuigh } from './tighAmuigh.js'
+import skyeFlora from './skyeFlora.js'
 
 // SkyeCladach (the shore) and SkyeLoch carry Uathach's movement lesson:
 // see skyeCladach.js and skyeLoch.js
@@ -18,6 +19,7 @@ import { TighAmuigh } from './tighAmuigh.js'
 export class SkyeMachaire extends SkyeScene {
   constructor() { super({ key: 'skye_machaire' }) }
   getMapKey() { return 'skye_machaire' }
+  getVegetation() { return skyeFlora(this) }
 }
 
 // SkyeFaiche (the practice green, the Warden) is in skyeFaiche.js

@@ -5,6 +5,7 @@
 // (drawing) to the real Player, the brooch and PGR.
 //
 //   const bout = new MeleeBout(scene, { kind: 'warden', home: [18, 13], gid: 9203 })
+//   const bout = new MeleeBout(scene, { F: GARBHAN, home: [18, 13], gid })   (enemies.js; bout.melee.engage() when he charges)
 //   bout.update(delta)            every frame, after super.update()
 //   bout.draw(ctx)                from onPGRDrawComplete(ctx)
 //   bout.occupies(tx, ty)         for Player.startNewStep (scene.isOccupied)
@@ -23,6 +24,7 @@ import MeleeView from './meleeView.js'
 import MeleeAudio from './meleeAudio.js'
 import StaminaMoon from './staminaMoon.js'
 import FightLens from './fightLens.js'
+import { backViewCanvas } from '../effects/backView.js'
 import PathFinder from '../systems/pathFinder.js'
 import { GameState } from '../systems/gameState.js'
 import { createItem } from '../ui/inventory/itemDefinitions.js'
@@ -67,7 +69,7 @@ const NOJOY = { force: 0, angle: 0 }
 
 export default class MeleeBout {
   // kind null (the default): no sparring partner -- just your sword, in any scene
-  constructor(scene, { kind = null, home, gid, voice } = {}) {
+  constructor(scene, { kind = null, F = null, home, gid, voice } = {}) {
     this.scene = scene
     const player = scene.player, ts = scene.tileSize
     const tileOf = (x, y) => [Math.floor(x / ts), Math.floor(y / ts)]
@@ -115,9 +117,11 @@ export default class MeleeBout {
       maxHp: () => player.maxHP,
       hurt: (n) => { const k = Math.min(n, player.currentHP - 1); if (k > 0) player.takeDamage(k, 'wooden sword') },
       free: (c, r) => c >= 0 && r >= 0 && c < W && r < H && !scene.isColliding(c * ts + ts / 2, r * ts + ts / 2) && !scene.figureAt?.(c, r),
+      wet: (c, r) => !!scene.isWet?.(c, r),                  // water you'd drown in (skyeLoch)
+      kill: () => { if (player.currentHP > 0) player.takeDamage(player.currentHP, 'knife') },
     }
 
-    this.melee = new Melee({ kind, home, pa, emit: (n, d) => this._onEvent(n, d) })
+    this.melee = new Melee({ kind, F, home, pa, emit: (n, d) => this._onEvent(n, d) })
     this.view = new MeleeView(scene, this.melee)
     this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
@@ -128,8 +132,17 @@ export default class MeleeBout {
       this.flag = { tileX: home[0], tileY: home[1], visual: { gid, flat: false }, offset: [0, 0] }
       // PGR calls this in its depth-sorted pass: his figure, then his sword with it (so you can stand in front of either)
       this.flag.draw = (ctx, x, y, w, pgr) => {
-        const img = pgr._getTileCanvas(gid)
-        if (img) pgr._drawBillboard(ctx, img, x, y, w, 1.2)
+        let img = pgr._getTileCanvas(gid)
+        // He faces you; when he stands nearer the camera than you, we are looking at his back (generated, once per sprite)
+        if (img) {
+          const pf = this.view.playerFigure()
+          if (pf && y > pf.y + 6) {
+            this._backs = this._backs || new WeakMap()
+            if (!this._backs.has(img)) { let c = null; try { c = backViewCanvas(img) } catch (_) {} this._backs.set(img, c) }
+            img = this._backs.get(img) || img
+          }
+          pgr._drawBillboard(ctx, img, x, y, w, 1.2)
+        }
         this.view.foeSword(ctx, { x, y, w, h: w * 1.2 })
       }
       const pgr = scene.perspectiveGround
@@ -285,7 +298,7 @@ export default class MeleeBout {
     const cap = this.scene.boutCaptions === false ? null : this.scene._caption   // a lesson does its own talking
     if (name === 'enGarde') cap?.show('Ar aire!', 'On guard!', 1200)
     if (name === 'atEase') cap?.show('Seas ar ais', 'At ease', 1200)
-    if (name === 'boutOver') {
+    if (name === 'boutOver' && !d.how) {                      // a fight that ends its own way (d.how) is the scene's to tell
       if (d.won) cap?.show('Bua!', 'Victory! He yields.', 2400)
       else cap?.show(d.ga || 'Buaileadh thú', d.en || 'You were beaten', 2400)
     }

@@ -55,6 +55,17 @@ const CONALL_SCALE = 1.5
 const CAM_ROWS = 5
 const FOCAL = 6
 const HORIZON = 0.06
+// What Conall says when you wake here after Garbhán (garbhan.js): knocked out, or half drowned. PLACEHOLDERS: English in both fields.
+const w2 = (s) => ({ ga: s, en: s })
+const WAKE = {
+  ko: [w2('There you are. Face down in the grass, and Garbhán\'s boots going the other way.'),
+       w2('No shame in it. He has three years on you and no manners at all.'),
+       w2('Hearts come back. Rest, eat, think about your feet. Then go and have another look at him.'),
+       w2('He\'ll still be there. He always is.')],
+  drowned: [w2('There you are. Half the loch came home with you.'),
+            w2('Water is no friend to a man with a sword in his hand. Mind where he stands.'),
+            w2('And mind where you stand. Rest. When you\'re ready, he\'ll still be there.')],
+}
 const ZOOM = 1.3                                        // a small room: come in close, so the champion is not a child in it
 
 export class TighConaill extends SkyeScene {
@@ -120,6 +131,7 @@ export class TighConaill extends SkyeScene {
 
     this.player.setArmorVisible?.(false)                  // he sleeps in his shirt
     const done = GameState.hasNote('tigh_done')            // he has been out of the door: coming back, the morning is over
+    if (data?.wake === 'garbhan' && this._conall) return this._wakeUp(data.how)      // carried home from the loch
     const scripted = (this._q.get('script') === '1' || (this._q.get('script') !== '0' && !done)) && !!this._conall
     if (!scripted) {
       this._sleeper(false)
@@ -146,6 +158,26 @@ export class TighConaill extends SkyeScene {
     this._paintHead()
     if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._run() }
     else this._openEyes(() => this._run())
+  }
+
+  // Knocked out or half drowned on the loch (garbhan.js, which holds the black over the screen): Conall has carried
+  // you home. You wake dressed, he has a few words, and then the door is yours.
+  _wakeUp(how) {
+    this._sleeper(false)
+    this.player.setArmorVisible?.(true)
+    const i = this.interactables.indexOf(this._clothes); if (i > -1) this.interactables.splice(i, 1)
+    this._clothes?.destroy(); this._clothes = null
+    this._setTop('seat', 'assets/tigh/seatTopEmpty.png'); this._setTop('bed', 'assets/tigh/bedTopEmpty.png')
+    this._placePlayer(MAP.bed)
+    this._conall.tileX = MAP.bed[0] + 1; this._conall.tileY = MAP.bed[1]
+    this._conall.pose = { dy: 0, sy: 1, sx: -1 }
+    this._giveBrooch()
+    this.joystick?.hideDirections?.()
+    const lines = WAKE[how] || WAKE.ko
+    this._openEyes(async () => {
+      for (const l of lines) { if (this._dead) return; this._caption?.show(l.ga, l.en, 3400); await this.wait(3700) }
+      if (!this._dead) this.joystick?.showDirections?.()
+    })
   }
 
   _teardown(across, focal) {

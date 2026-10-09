@@ -1,18 +1,94 @@
-# skyeLoch — Uathach at the loch
+# skyeLoch -- Garbhán, on the loch's island
 #
-# The lesson (stepping stones, dunks, the ring) is run by the scene and
-# spoken in captions -- see js/game/scenes/locations/skye/skyeLoch.js.
-# This is only what she says if the player taps her badge.
-#
-# IRISH IS A FIRST DRAFT -- check before shipping.
+# Format: the English line, then `% the Irish` under it.
+#   plain lines = Garbhán's opening card;  > = the hero;  < = Garbhán's answers.
+#   Lines in a row (> > or < <) share one turn; a new > starts the next turn.
 
 @file skye/skyeLoch
+@encounter 0
+
+# ══ first meeting ══════════════════════════════════════════════
+= first meeting
+@when !note garbhan_met
+And where is it, o little grey sparrow
+% Agus cá háit, a gealbhan beag liath
+
+< do you think to fly today?
+% a ceapann tú eitilt inniu?
+> To the tournament. 
+% Go dtí an comórtas.
+> I would be grateful if you let me pass, friend.
+% Bheinn buíoch dá bhfágfá an bealach a chara.
+
+< Friend! Did ye hear that, water? 
+% A chara! An gcuala tú é sin, uisce? 
+
+< Did ye hear that, sky? 
+% An gcuala tú é sin, spéir? 
+< Friend, says the sparrow. Friend!
+% A chara, arsa an gealbhan. A chara!
 
 
-# ══════════════════════════════════════════════════════════════════════
-= node 0 — at the loch
-@hold
-Not at your feet.
-% Ní ar do chosa.
-Look where you're going.
-% Féach ar an áit a bhfuil tú ag dul.
+< Turn back, little one, turn back.
+% Cas síar, a chréatúir, cas síar.
+
+< Theres no place in the tournament for the likes of you.
+% Níl áit sa comórtas dá leithead.
+
+> That is not your decision.
+% Ní fútsa an cinneadh sin.
+
+< Come across then if ye dare it. 
+% Tar trasna mar sin má tá an chroí ionat.
+
+< Come and let me have a look at that fine wooden sword.
+% Tar go bhfeice mé an claíomh maith adhmaid sin.
+
+
+> I will go round.
+% Rachaidh mé timpeall.
+
+< Ye will not,
+% Ní rachaidh tú,
+
+< for I will be there before you.
+% óir beidh mise ansin romhat.
+
+< My legs are longer.
+% Tá mo chosa níos faide.
+
+> No harm done yet.
+% Níl aon dochar deanta fós.
+
+> Stand aside
+% Seas ar leataobh
+> and I will stand aside in my turn.
+% agus seasfaidh mise ar leataobh duitse, lá éigin.
+
+
+< Is that some charm? A spell, is it?
+% An piseog ab ea? Geasróg an ea?
+
+> It is only the gentle word
+% Níl ann ach an focal lách
+
+> and the truth
+% agus an fhirine
+
+< Well,
+% Más ea,
+
+< I've no use for the like.
+% Níl aon úsáid agam dá leithead.
+
+< Come try Garbhóg the Thick-Necked!
+% Tar is bain triail as Garbhóg an Muineál Mór!
+
+> Come then.
+% Tar, mar sin.
+
+# ══ he has had you before ══════════════════════════════════════
+= again
+@when note garbhan_met
+Back again? Good.
+% Ar ais arís? Go maith.

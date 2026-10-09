@@ -301,7 +301,8 @@ export default class Player {
     // A wait drawn into a route (input/routeDraw.js): stand here till it's done.
     const head = this.pathQueue[0];
     if (head.wait) {
-      const now = performance.now();
+      // the fight's clock (slowed with the world in bullet time; routeDraw measured the wait on it too)
+      const now = this.scene?._melee?.melee?.clock ?? performance.now();
       if (!this._waitUntil) { this._waitStart = now; this._waitUntil = now + head.wait; }
       if (now < this._waitUntil) return;
       this._waitUntil = 0;

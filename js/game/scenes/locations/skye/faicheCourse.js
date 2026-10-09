@@ -29,9 +29,10 @@
 // the harp card (_speech) -- with the d-pad put away and the camera racked
 // onto him; short asides are silent captions.
 //
-// The duel is a real bout with a safety net: a blow that hurts you heals at
-// once (you cannot lose), a stalled lesson gets a plain hint, and a lesson
-// that goes on too long is let go (courseScript HINT_AFTER_MS, GIVE_UP_MS).
+// The duel is a real bout with a safety net: lose it and you mend with your
+// blade away (a heart every 1.2 s) and go again; a stalled lesson gets a plain
+// hint, and a lesson that goes on too long is let go (courseScript
+// HINT_AFTER_MS, GIVE_UP_MS).
 
 import { GameState } from '../../../systems/gameState.js'
 import { SoundBoard } from '../../../systems/soundBoard.js'
@@ -877,7 +878,7 @@ export default class FaicheCourse {
   }
 
   // ── the duel: brief, slow, gentle; he coaches as it goes ─────────────────
-  // A real bout, but a blow that lands heals at once: you can't lose.
+  // A real bout: you can lose it (he stops on your last heart); you mend with your blade away and go again.
   _boutOn(F) {
     const m = this.m
     m.F = { ...F }

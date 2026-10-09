@@ -105,7 +105,7 @@ export default class MeleeView {
     const pf = this.playerFigure()
     const now = this.now(), A = this.a
     const fs = pf && pf.x < ff.x ? -1 : 1
-    const drawnNow = m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady    // foeReady: held out, a drill
+    const drawnNow = (m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady) && !foe.sheathed    // foeReady: held out, a drill; sheathed: he only shoves
     if (drawnNow !== A.foeDrawn) { A.foeDrawn = drawnNow; if (drawnNow) A.foeDrawT = now; else A.foeSheatheT = now }
     const aim = foe.target ? this.screenAngle([foe.c, foe.r], foe.target) : this.screenAngle([foe.c, foe.r], m.pa.tile())
     const raised = -90 + Math.max(-45, Math.min(45, ((aim + 90 + 540) % 360) - 180)) * 0.5
@@ -325,7 +325,9 @@ export default class MeleeView {
     // their target: red, deepening through the wind-up
     if (foe.state === 'wind' || foe.state === 'strike') {
       const k = foe.state === 'strike' ? 1 : Math.min(1, (t - foe.st0) / Math.max(1, foe.wind))
-      for (const tg of foe.targets) this.tileQuad(ctx, tg, `rgba(220,60,50,${0.12 + 0.35 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
+      for (const tg of foe.targets) foe.pushing
+        ? this.tileQuad(ctx, tg, `rgba(120,170,255,${0.12 + 0.35 * k})`, `rgba(190,220,255,${0.4 + 0.6 * k})`)     // a shove: blue
+        : this.tileQuad(ctx, tg, `rgba(220,60,50,${0.12 + 0.35 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
     }
 
     const ff = this.foeFigure(), pf = this.playerFigure()

@@ -1567,18 +1567,35 @@ perTile:        true,
     const T = this.tileSize
     const px = this.player.logicalX, py = this.player.logicalY
     const sourceTileX = Math.floor(px / T), sourceTileY = Math.floor(py / T)
-    const WALK = T * 3, DUR = 320
+    // North: they walk on up the map, into what the preview shows of the next one, with the camera left behind
+    // so the perspective carries them away and they keep getting smaller (perspectiveGroundRenderer
+    // _playerDrawW); the fade comes up over the second half of the walk. Other edges: the short walk and cut.
+    const north = dir === 'north'
+    const WALK = north ? T * 4 : T * 3, DUR = north ? 900 : 320
+    if (north) {
+      this._exitRecede = true
+      this._exitShrink = 1
+      this.tweens.add({ targets: this, _exitShrink: 0.4, duration: DUR, ease: 'Sine.easeIn' })
+    }
     const tx = px + (dir === 'east' ? WALK : dir === 'west' ? -WALK : 0)
     const ty = py + (dir === 'south' ? WALK : dir === 'north' ? -WALK : 0)
     this.player.isMoving = true
+    if (north) this.time.delayedCall(DUR * 0.5, () => {
+      this.cameras.main.fadeOut(DUR * 0.5, 0, 0, 0)
+      import('../../ui/sceneTransition.js').then(m => m.transitionOut(DUR * 0.5))
+    })
     this.tweens.add({
-      targets: this.player, logicalX: tx, logicalY: ty, duration: DUR, ease: 'Sine.easeIn',
+      targets: this.player, logicalX: tx, logicalY: ty, duration: DUR, ease: north ? 'Linear' : 'Sine.easeIn',
       onUpdate:   () => { this.player.targetX = this.player.logicalX; this.player.targetY = this.player.logicalY },
       onComplete: () => {
         this.player.isMoving = false
-        this.cameras.main.fadeOut(180, 0, 0, 0)
-        import('../../ui/sceneTransition.js').then(m => m.transitionOut(180))
-        this.time.delayedCall(200, () => {
+        if (!north) {
+          this.cameras.main.fadeOut(180, 0, 0, 0)
+          import('../../ui/sceneTransition.js').then(m => m.transitionOut(180))
+        }
+        this.time.delayedCall(north ? 30 : 200, () => {
+          this._exitRecede = false
+          this._exitShrink = 1
           this.scene.start(exitData.destination, {
             entryEdge: exitData.entryPoint,
             sourceTile: { x: sourceTileX, y: sourceTileY },

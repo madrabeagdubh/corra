@@ -37,6 +37,7 @@ export const SKYE_GID = {
   BOAT:    9202,   // badge/portrait only; ShoreProps draws the boat itself
   WARDEN:  9203,   // the sparring partner on the faiche (skyeFaiche.js)
   OGHAM:   9204,   // (unused: the cladach engravings draw their own chisel icon, wallEngravings.js)
+  GARBHAN: 9205,   // the bully on the loch's middle bank (garbhan.js)
 }
 
 // Art per figure. PLACEHOLDERS until real sprites exist.
@@ -44,6 +45,7 @@ const SKYE_ART = {
   [SKYE_GID.UATHACH]: '/assets/npcs/sorcha.png',
   [SKYE_GID.BOAT]:    '/assets/boat.png',
   [SKYE_GID.WARDEN]:  '/assets/npcs/othran.png',
+  [SKYE_GID.GARBHAN]: '/assets/npcs/fearghus.png',   // placeholder until he has a face of his own
 }
 
 // Hearts come back on their own on Skye, one every REGEN_MS, while you're

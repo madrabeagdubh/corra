@@ -214,6 +214,27 @@ const cladach = (tide) => ({
     },
 })
 
+// ── the lake country (skye_loch, skye_machaire) ─────────────────────────────
+const smooth01 = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+const gauss = (x, y, cx, cy, s, p) => p * Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * s * s))
+// distance (tiles) from every tile to the nearest tile where isW is true
+const distTo = (isW) => {
+  const pts = []
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isW(x, y)) pts.push([x, y])
+  return grid(W, H, (x, y) => { let d = 99; for (const [a, b] of pts) d = Math.min(d, Math.hypot(a - x, b - y)); return d })
+}
+// Dot `count` things over the map: random tiles that `ok(x, y)` accepts, no two closer than `gap`
+// (and none closer than `avoidGap` to the points in `avoid`).
+function scatterTiles(rng, count, gap, ok, avoid = [], avoidGap = gap) {
+  const out = []
+  for (let tries = 0; tries < 6000 && out.length < count; tries++) {
+    const x = 1 + Math.floor(rng() * (W - 2)), y = 1 + Math.floor(rng() * (H - 2))
+    if (!ok(x, y)) continue
+    if (out.some(([a, b]) => Math.hypot(a - x, b - y) < gap) || avoid.some(([a, b]) => Math.hypot(a - x, b - y) < avoidGap)) continue
+    out.push([x, y])
+  }
+  return out
+}
 const MAPS = {
   skye_cladach: cladach('high'),
 
@@ -268,49 +289,105 @@ const MAPS = {
   skye_loch: {
     exits: { north: 'skye_machaire', south: 'skye_cladach' },
     spawn: { x: MID, y: 27 },
-    build(n) {
-      // ── Layout (keep in sync with skye/skyeLoch.js) ───────────────────
-      //   rows 25+   south bank (arrival from the shore)
-      //   POOL A     rows 17-24, stepping stones from (18,24) to (19,17)
-      //   rows 11-16 middle bank; Uathach waits first at (18,15)
-      //   POOL B     rows 5-10, stepping stones from (18,10) to (19,5)
-      //   rows 0-4   north bank; her second spot (18,3); exit to machaire
-      // Pool water is LOCH (1679): walkable for the d-pad (step off a stone
-      // and you go in -- skyeLoch.js dunks you) but blocked for the
-      // pathfinder, so a tapped route only ever lands on stones.
+    build(n, rng) {
+      // ── Layout (keep in sync with skye/skyeLoch.js and skye/garbhan.js) ─
+      //   rows 26-35  the south shore: a bowl's rim of hillocks and gorse; you arrive from the cladach
+      //   THE LAKE    water right across the map at its waist (no walking round it), the lowest ground
+      //   THE ISLAND  an oval of dry ground in the middle, about 13 x 9: Garbhán's
+      //               (mapData.garbhanHome). Flowers gather at its two ends, away from the traffic,
+      //               thickest at the east, round a shattered standing stone (mapData.standingStones)
+      //   two straight lines of stepping stones (column 18), south shore -> island -> north shore
+      //   rows 0-5    the north shore, hillocks all round; the exit to the machaire
+      // Water is LOCH (1679): walkable for the d-pad (step off a stone and you are
+      // in -- skyeLoch.js dunks you, and in Garbhán's fight you drown) but blocked
+      // for the pathfinder, so a tapped route only ever lands on stones.
       const LOCH = 1679
-      const inPool = (y) => (y >= 17 && y <= 24) || (y >= 5 && y <= 10)
-      // Every diagonal hop also has a corner stone, so the d-pad can always
-      // cross in straight steps (longer, and easy to misstep); a tap takes
-      // the diagonal shortcuts.
-      const STONES = [
-        // pool A
-        [18,24],[18,23],[17,23],[16,23],[16,22],[16,21],[16,20],[17,20],[17,19],
-        [18,19],[18,18],[19,18],[19,17],
-        // pool B
-        [18,10],[18,9],[18,8],[19,8],[20,8],[20,7],[20,6],[19,6],[19,5],
-      ]
-      const stoneSet = new Set(STONES.map(([x, y]) => `${x},${y}`))
+      const lakeD = (x, y) => Math.hypot((x + 0.5 - 18) / 19.5, (y + 0.5 - 15.5) / 10.2) + 0.09 * n(x * 0.17, y * 0.17) + 0.05 * n(x * 0.43 + 9, y * 0.43)
+      const islD = (x, y) => Math.hypot((x + 0.5 - 18) / 6.9, (y + 0.5 - 15.5) / 4.5) + 0.14 * n(x * 0.3 + 3, y * 0.3 - 2) + 0.07 * n(x * 0.7, y * 0.7)
+      const lake = grid(W, H, (x, y) => lakeD(x, y) < 1 && islD(x, y) >= 1)             // water, stones included
+      const HOME = [18, 14]
+      // tidy the island's edge: no one-tile islets, no pools inside it (the stone column is left alone)
+      for (let pass = 0; pass < 2; pass++) for (let y = 7; y <= 24; y++) for (let x = 2; x < W - 2; x++) {
+        if (Math.abs(x - 18) <= 1) continue
+        const dry = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].filter(([a, b]) => !lake[b][a]).length
+        if (!lake[y][x] && dry <= 1 && lakeD(x, y) < 1) lake[y][x] = true
+        else if (lake[y][x] && dry >= 3 && islD(x, y) < 1.3) lake[y][x] = false
+      }
+
+      // The stones: a straight line of them (one tile wide, so the d-pad can always cross) over each stretch
+      // of open water at column 18, on the south and on the north side of the island.
+      const stoneSet = new Set()
+      const crossing = (yFar, yNear) => {                 // the water rows from the shore side (yFar) to the island side (yNear)
+        const step = yNear > yFar ? 1 : -1
+        for (let y = yFar; ; y += step) { stoneSet.add(`18,${y}`); if (y === yNear) break }
+      }
+      let yS = H - 1; while (!lake[yS][18]) yS--          // the lowest water at column 18: the south shore's edge
+      let yI = yS;     while (lake[yI][18]) yI--          // up from it, the first dry ground: the island's south edge
+      let yIn = yI;    while (!lake[yIn][18]) yIn--       // up across the island, the first water again
+      let yN = yIn;    while (lake[yN][18]) yN--          // and the north shore
+      crossing(yS, yI + 1)
+      crossing(yN + 1, yIn)
       const isStone = (x, y) => stoneSet.has(`${x},${y}`)
+      const STONES = [...stoneSet].map(s => s.split(',').map(Number)).filter(([x, y]) => lake[y]?.[x]).sort((a, b) => a[1] - b[1] || a[0] - b[0])
+      const wet = (x, y) => !!lake[y]?.[x] && !isStone(x, y)                                // open water
+
+      const D = distTo((x, y) => lake[y][x])               // tiles from the water, for the slope of the banks and the planting
+      const stoneD = distTo((x, y) => isStone(x, y))
+      const landD = distTo((x, y) => !lake[y][x])          // tiles from dry ground, for the water
+
+      // Gorse (hedgeMask, drawn by Vegetation), the island's flowers and its ruined stone
+      const corridor = (x, y) => Math.abs(x - 18) <= 2 && (y <= 7 || y >= 24)               // the way in and out stays open
+      const landOk = (x, y) => !lake[y][x] && y >= 4 && y <= 31 && !corridor(x, y) && stoneD[y][x] > 2
+      const onIsland = (x, y) => !lake[y][x] && islD(x, y) < 1.15 && y >= 8 && y <= 23
+      const gorseAt = scatterTiles(rng, 12, 5, (x, y) => landOk(x, y) && !onIsland(x, y) && D[y][x] >= 2 && D[y][x] <= 11)
+      const hedge = grid(W, H, (x, y) => {
+        if (lake[y][x] || y < 4 || y > 31 || corridor(x, y)) return 0
+        return gorseAt.some(([gx, gy], i) => Math.hypot(gx - x, (gy - y) * 1.2) < 1.15 + 0.6 * ((i * 7 % 5) / 4)) ? 1 : 0
+      })
+      // Flowers on the island: scarce along the fairway (x = 18, where everyone walks), thick toward the
+      // two ends, thickest at the east. 0 = not the island (the ordinary planting).
+      const bed = grid(W, H, (x, y) => {
+        if (lake[y][x] || islD(x, y) >= 1.15 || y < 8 || y > 23) return 0
+        const far = smooth01(2, 6, Math.abs(x - 18)) * (x > 18 ? 1 : 0.65)
+        return Math.round((0.12 + 0.88 * far) * 100) / 100
+      })
+      // The ruin: a shattered standing stone in the east end's thick of flowers, a tile in from the water
+      let SX = 18, SY = 15; for (let x = 18; x < W; x++) if (!lake[SY][x] && D[SY][x] >= 2) SX = x
+      const STANDING = [[SX, SY, 2]]                                                          // x, y, style (2: shattered, overgrown)
+
+      // A bowl: the water is the lowest ground and the land climbs from it, with hillocks round the rim.
+      const hillocks = []
+      for (let tries = 0; tries < 400 && hillocks.length < 11; tries++) {
+        const x = 1 + rng() * (W - 2), y = 1 + rng() * (H - 2)
+        if (lakeD(x, y) < 1.5 || (Math.abs(x - 18) < 4.5 && (y < 9 || y > 22)) || hillocks.some(([a, b]) => Math.hypot(a - x, b - y) < 6)) continue
+        hillocks.push([x, y, 2 + rng() * 1.6, 0.35 + rng() * 0.45])
+      }
+      // The camera sits low and behind you, so high ground near the south edge would stand up over the water in
+      // front of you: the rim climbs round the sides and the far (north) end, and stays low across the south.
+      const rimW = y => 1 - 0.72 * smooth01(25, 32, y)
+      const hills = (x, y) => (gauss(x, y, 4, 4, 5, 0.7) + gauss(x, y, 32, 3, 4.5, 0.6) + gauss(x, y, 3, 31, 5, 0.55) + gauss(x, y, 32, 31, 4.5, 0.7) +
+                               hillocks.reduce((a, [hx, hy, hs, hp]) => a + gauss(x, y, hx, hy, hs, hp), 0)) * smooth01(0, 5, y) * smooth01(0, 5, H - y)
       return {
-        tile: (x, y) => inPool(y) ? LOCH : null,
+        tile: (x, y) => lake[y][x] ? LOCH : null,
         overlay: () => 0,
         height: (x, y) => {
-          // vertex: water if any touching tile is open water; stones stand
-          // a little proud of it
-          const touch = [[x - 1, y - 1], [x, y - 1], [x - 1, y], [x, y]]
-          const wet = touch.some(([tx, ty]) => inPool(ty) && !isStone(tx, ty))
-          const stone = touch.some(([tx, ty]) => isStone(tx, ty))
-          if (wet && !stone) return 0
-          if (stone) return 0.12
-          return 0.22 + (n(x * 0.2, y * 0.2) + 1) * 0.06
+          // a vertex is water if any tile touching it is open water; stones stand a little proud of it
+          const touch = [[x - 1, y - 1], [x, y - 1], [x - 1, y], [x, y]].filter(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H)
+          if (touch.some(([tx, ty]) => wet(tx, ty))) return touch.some(([tx, ty]) => isStone(tx, ty)) ? 0.12 : 0
+          if (touch.some(([tx, ty]) => isStone(tx, ty))) return 0.12
+          const d = touch.reduce((a, [tx, ty]) => a + D[ty][tx], 0) / touch.length
+          const dome = 0.2 * Math.max(0, 1 - islD(x, y)) * (d > 1 ? 1 : 0)                     // the island rises a little in the middle
+          return 0.1 + (0.06 * Math.min(d, 10) + hills(x, y)) * rimW(y) + dome + (n(x * 0.2, y * 0.2) + 1) * 0.03
         },
-        trail: [[[MID, 35], [MID, 25]], [[19, 16], [MID, 11]], [[19, 4], [MID, 0]]],
+        trail: [[[MID, 35], [MID, yS + 1]], [[MID, yI], [MID, yIn + 1]], [[MID, yN], [MID, 0]]],
         trailFalloff: 1.3,
         extra: {
           stones: STONES,
-          uathachSpots: [[18, 15], [18, 3]],
-          poolStarts: { A: [18, 25], B: [18, 11] },
+          standingStones: STANDING,
+          blockMask: grid(W, H, (x, y) => STANDING.some(([sx, sy]) => sx === x && sy === y) ? 1 : 0),
+          hedgeMask: hedge,
+          flowerBed: bed,
+          garbhanHome: HOME,
         },
       }
     },
@@ -318,11 +395,34 @@ const MAPS = {
 
   skye_machaire: {
     exits: { north: 'skye_droichead', south: 'skye_loch', east: 'skye_faiche' },
-    build(n) {
+    build(n, rng) {
+      // ── The machaire: a meadow valley (keep in sync with skye/skyeMaps.js) ─
+      //   in from the loch's north shore (south edge), climbing east to the green
+      //   (east edge, as high as the green's own ground); a drove-road between, in a
+      //   valley: hillocks all round it, gorse on the slopes.
+      const ROAD = [[MID, H - 1], [MID, 24], [24, 20], [W - 1, MID]]           // south edge -> bend -> east edge
+      const road = grid(W, H, (x, y) => { let d = 99; for (let i = 0; i + 1 < ROAD.length; i++) d = Math.min(d, segDist(x, y, ROAD[i], ROAD[i + 1])); return d })
+      const rise = x => 0.6 * smooth01(18, W - 1, x)                              // the green's ground is higher
+      const hillocks = []
+      for (let tries = 0; tries < 600 && hillocks.length < 16; tries++) {
+        const x = 1 + rng() * (W - 2), y = 3 + rng() * (H - 6)
+        if (road[Math.floor(y)][Math.floor(x)] < 4.5 || hillocks.some(([a, b]) => Math.hypot(a - x, b - y) < 5)) continue
+        hillocks.push([x, y, 2.2 + rng() * 1.8, 0.35 + rng() * 0.45])
+      }
+      const hills = (x, y) => gauss(x, y, 6, 8, 6, 0.7) + gauss(x, y, 29, 6, 5, 0.6) + gauss(x, y, 7, 28, 5, 0.45) + gauss(x, y, 30, 30, 4, 0.4) +
+                              hillocks.reduce((a, [hx, hy, hs, hp]) => a + gauss(x, y, hx, hy, hs, hp), 0)
+      const keep = (x, y) => road[y][x] > 2.2 && y >= 4 && y <= 31 && x >= 1 && x <= 33
+      const gorseAt = scatterTiles(rng, 12, 5, (x, y) => keep(x, y) && road[y][x] > 3.5)
+      const hedge = grid(W, H, (x, y) => y < 4 || y > 31 || road[y][x] <= 2.2 ? 0
+        : gorseAt.some(([gx, gy], i) => Math.hypot(gx - x, (gy - y) * 1.2) < 1.2 + 0.6 * ((i * 7 % 5) / 4)) ? 1 : 0)
       return {
         tile: () => null,
-        height: (x, y) => (n(x * 0.12, y * 0.12) + 1) * 0.12,
-        trail: [[EDGE_PT.south, [MID, MID]], [[MID, MID], EDGE_PT.north], [[MID, MID], EDGE_PT.east]],
+        height: (x, y) => 0.12 + rise(x) * smooth01(0, 10, x) + (0.05 * Math.min(road[Math.min(H - 1, y)][Math.min(W - 1, x)], 9) + hills(x, y)) * smooth01(0, 6, H - y) * (1 - 0.6 * smooth01(24, 32, y)) * smooth01(0, 5, y) * smooth01(2, 8, road[Math.min(H - 1, y)][Math.min(W - 1, x)]) + (n(x * 0.12, y * 0.12) + 1) * 0.06,
+        trail: [...ROAD.slice(0, -1).map((p, i) => [p, ROAD[i + 1]]), [[MID, 24], EDGE_PT.north]],
+        trailFalloff: 1.6,
+        extra: {
+          hedgeMask: hedge,
+        },
       }
     },
   },

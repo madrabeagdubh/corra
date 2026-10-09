@@ -506,6 +506,14 @@ _horizonPx() {
     return this._pxPerTileAtPlayer() * (FL + PD) / (FL + d)
   }
 
+  // The width the player is drawn at. Normally the scale of the tile row they stand on (so it holds steady
+  // through a step); while the scene is walking them off the map (perspectiveScene._triggerExit) it follows
+  // their exact position instead, so they keep shrinking smoothly as they recede.
+  _playerDrawW(playerTileRow, proj) {
+    if (this.scene?._exitRecede && proj) return proj.scale * this.tileDisplaySize * (this.scene._exitShrink ?? 1)
+    return this._scaleAtRow(playerTileRow + 1)
+  }
+
   _colToScreenX(worldCol, worldRow) {
     return this._sw / 2 + (worldCol - this._perspCamCol()) * this._scaleAtRow(worldRow)
   }
@@ -938,6 +946,7 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
     let playerTileRow = -1
     let playerScreenX = sw / 2
     let playerScreenY = sh / 2
+    let playerProj    = null
     let playerDrawn   = false
 
     if (p) {
@@ -951,9 +960,10 @@ const proj  = this._projectLogical(p.logicalX, p.logicalY)
         const _ptGid     = this.scene.mapData?.layers?.[0]?.[_ptRow]?.[_ptCol] ?? 0
         const _ptIsWater = _ptGid === 1625 || _ptGid === 1679 || _ptGid === 731
         const _pHt       = _ptIsWater ? 0
-          : (this._vertexH(_ptCol, _ptRow + 1) + this._vertexH(_ptCol + 1, _ptRow + 1)) * 0.5
+          : (this._vertexH(_ptCol, Math.max(0, _ptRow + 1)) + this._vertexH(_ptCol + 1, Math.max(0, _ptRow + 1))) * 0.5
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY
+        playerProj    = proj
         this._playerTerrainLift = _pHt * this._scaleAtRow(_ptRow + 1)
         playerTileRow = _ptRow
         this.playerScreenX = playerScreenX
@@ -1358,7 +1368,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
 
         // Player
         if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
-          const scaledTileW = this._scaleAtRow(playerTileRow + 1)
+          const scaledTileW = this._playerDrawW(playerTileRow, playerProj)
           const playerHM    = (this._playerHeightMult ?? 1.8) * (this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE)
           this.playerSpriteH = scaledTileW * playerHM
           this._lastPlayerScale = this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE
@@ -1682,7 +1692,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       }
 
       if (!playerDrawn && tileRow === playerTileRow && this._playerCanvas && p) {
-        const scaledTileW = this._scaleAtRow(playerTileRow + 1)
+        const scaledTileW = this._playerDrawW(playerTileRow, playerProj)
         const playerHM2   = (this._playerHeightMult ?? 1.8) * PerspectiveGroundRenderer.PLAYER_SCALE
         const _drawX2 = playerScreenX
         const _waveOff2 = this._boatActive ? (this._waveRideOffset ?? 0) : 0
@@ -1753,12 +1763,22 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       }
     }
 
+    // The player is past the map's own rows (walking off its north edge into the preview, whose rows skip the
+    // loop above): drawn here, in the same way and at the same size as in the loop -- at a size that follows
+    // their exact position, so they shrink as they recede. (This used to be a bare billboard at the full,
+    // unscaled size: the brief "looks big" when stepping off the north edge.)
     if (!playerDrawn && this._playerCanvas && p) {
       const proj = this._projectLogical(p.logicalX, p.logicalY)
       if (proj) {
-        const scaledTileW = this._scaleAtRow(playerTileRow + 1)
-        this._drawBillboard(this._oCtx, this._playerCanvas,
-          proj.screenX, proj.screenY, scaledTileW, 1.8)
+        const scaledTileW = this._playerDrawW(-1, proj)
+        const _fy = proj.screenY - (this._playerTerrainLift ?? 0)
+        const playerHM    = (this._playerHeightMult ?? 1.8) * (this._playerScale ?? PerspectiveGroundRenderer.PLAYER_SCALE)
+        const _pose = this._boatActive ? null : this.scene?.playerPose?.()
+        if (_pose) { this._oCtx.save(); this._applyPose(this._oCtx, proj.screenX, _fy, _pose, scaledTileW) }
+        this._drawWeaponOverlay(proj.screenX, _fy, scaledTileW, null, 'behind')
+        this._drawPlayerAnimated(this._oCtx, this._playerCanvas, proj.screenX, _fy, scaledTileW, playerHM)
+        this._drawWeaponOverlay(proj.screenX, _fy, scaledTileW, null, 'front')
+        if (_pose) this._oCtx.restore()
       }
     }
 

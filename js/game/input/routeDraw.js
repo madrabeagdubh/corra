@@ -168,8 +168,8 @@ export default class RouteDraw {
         this._line(ctx, this.route, gold, 3, [2, 6])
         this._waits(ctx, this.route)
         // standing out a wait: a ring round your feet runs down
-        if (p._waitUntil > performance.now()) {
-          const q = this._ground(pt[0] + 0.5, pt[1] + 0.5), k = (p._waitUntil - performance.now()) / Math.max(1, p._waitUntil - p._waitStart)
+        if (p._waitUntil > this.gnow()) {
+          const q = this._ground(pt[0] + 0.5, pt[1] + 0.5), k = (p._waitUntil - this.gnow()) / Math.max(1, p._waitUntil - p._waitStart)
           if (q) { const rad = sc.perspectiveGround._scaleAtRow(pt[1] + 0.5) * 0.45
             ctx.beginPath(); ctx.ellipse(q[0], q[1], rad, rad * 0.45, 0, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * k)
             ctx.strokeStyle = 'rgba(245,208,96,0.9)'; ctx.lineWidth = 3; ctx.stroke() }

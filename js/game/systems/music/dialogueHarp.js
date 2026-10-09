@@ -36,6 +36,7 @@ const NPC_TUNES = {
  // '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
   //'/assets/npcs/othran.png': 'swallowtailThe',
   '/assets/npcs/muireann.png': 'outOnTheOcean',
+  '/assets/npcs/garbhan.png': 'blackthornStickThe',     // the bully on the loch's island: his own stick's tune
 
 }
 import { getTuneKeyForChampion } from './championTuneMapping.js'

@@ -13,12 +13,76 @@
 # ══════════════════════════════════════════════════════════════════════
 = node 0 — awake
 @continue
-Ah, there you are.
-% Á, tá tú ann.
-You slept like a stone. I was beginning to wonder.
-% Chodail tú mar chloch. Bhí imní ag teacht orm.
+
+
+
+
+# skyeLoch -- Meeting Conall after the sea
+
+@file skye/conallHearth
+@encounter 0
+
+= rescued
+
+> Drowning!
+% Ag bá!
+
+> The black water has me,
+% ga_2: Tá mé i ngreim ag an uisce dubh,
+
+> It fills my throat.
+% ga_1: líonan sé mo scornach.
+
+< Lie still.
+% ga_2: Bí socair.
+
+> I was drowning. I was surely drowning.
+% ga_1: Bhí mé  báite. Bhí mé báite gan amhras.
+
+< Thou art weary, nothing more.
+% ga_1: Níl ort ach tuirse.
+
+> Where is this place?
+% ga_2: Cá bhfuil mé anois?
+
+< Thou art my guest. I am Conall.
+% ga_1: Mo aoi thú. Conall is ainm dom.
+
+< And this is the mark of a student of Dún Scáthach. It is thine.
+% ga_1: Chaitheann dhaltí Dhún Scáthach íad seo. Is leatsa é.
+
+> I bring no cattle, no fine tribute of silver.
+% ga_1: Níor thugas liom eallach, ná tiarnas breá airgid.
+
+< Ease now thy troubled mind
+% Bí socair
+
+< Thou hast made thy case already upon the shore, senseless and half-drowned,
+% ga_1: Rinne tú do chás cheana féin nuair a bhain tú amach an trá,  gan aithne, leathbáite,
+
+< with the sea still running from thee.
+% ga_1: agus an fharraige fós ag sileadh uait.
+
+< Take thy rest,
+% ga_1: Lig do scíth,
+
+< Then shall I, set thee on the path of the blade,
+% ga_1: Ansin cuirfidh mé ar bhóthar an chlaímh thú,
+
+< Is that not why all Gaelic Chieftains come to Skye?
+% ga_1: Nach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?
+
+
+
+
+
+
+
 
 # ══════════════════════════════════════════════════════════════════════
 = node 1 — the light
-Let us have some light on the matter.
-% Cuirimis solas ar an scéal.
+
+
+< Thou hast slept the better part of two days,
+% ga_1: Chodail tú dhá lá nach mór.
+

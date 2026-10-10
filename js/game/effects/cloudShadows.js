@@ -43,6 +43,7 @@
 //   this.cloudShadows.destroy()
 
 import { wind } from './wind.js'
+import { weather } from './weather.js'
 
 export const CLOUD_SHADOW_DEFAULTS = {
   enabled: true,
@@ -244,6 +245,9 @@ export class CloudShadows {
 
     this._tex = buildTextureCanvas(this.cfg)
     this._pattern = null   // built lazily against the ground ctx
+    // Weather, refreshed every update(). These defaults reproduce the
+    // pre-weather look exactly (cloud 0.5 = untouched coverage).
+    this._wx = { k: 1, sun: 1, cloud: 0.5 }
     this._bandKey = null
     this._bandCache = []
     this._buildRamp()
@@ -253,6 +257,7 @@ export class CloudShadows {
   update(delta) {
     if (!this.cfg.enabled) return
     const dt = (delta || 16) / 1000
+    this._applyWeather()
     const v = this.cfg.speed * wind.strength
     this._wCol += wind.dirX * v * dt
     this._wRow += wind.dirY * v * dt
@@ -371,12 +376,20 @@ export class CloudShadows {
     // _elev null, so reading _elev there gives 0 on every tile and the whole
     // effect silently does nothing however high shiftPerHeight is set.
     const e = (elev || 0) * cfg.shiftPerHeight
-    const c = this._coverAt(
+    let c = this._coverAt(
       col + this._wCol + e * cfg.sunDirX,
       row + this._wRow + e * cfg.sunDirY)
 
-    const sunRatio = this._sunRatio
-    const a = (c + (1 - c) * sunRatio) * cfg.intensity * (tileAlpha ?? 1)
+    // Weather: cloud 0.5 leaves the field as authored. Above it the gaps
+    // close up towards solid overcast; below it the cloud thins out.
+    const wx = this._wx
+    c = wx.cloud < 0.5 ? c * (wx.cloud * 2)
+                       : c + (1 - c) * ((wx.cloud - 0.5) * 2)
+
+    // Shadow and sun are scaled separately so a sunless day can lose the warm
+    // tint while its shadows get darker. With k = sun = 1 this is the old sum.
+    const a = (c * cfg.intensity * wx.k +
+               (1 - c) * this._sunRatio * cfg.intensity * wx.sun) * (tileAlpha ?? 1)
     if (a < 0.02) return
 
     const col3 = this._mixColour(c)
@@ -392,6 +405,15 @@ export class CloudShadows {
     ctx.closePath()
     ctx.fill()
     ctx.restore()
+  }
+
+  /** Pull the current weather into the few numbers the draw path needs. */
+  _applyWeather() {
+    const s = weather.state
+    const wx = this._wx
+    wx.cloud = s.cloud
+    wx.sun   = s.sun
+    wx.k     = 1 + s.gloom * weather.tuning.shadowBoost
   }
 
   _mixColour(c) {
@@ -424,7 +446,7 @@ export class CloudShadows {
     if (typeof DOMMatrix === 'undefined' || !this._pattern.setTransform) return
 
     const bands = this._bands(pgr, horizonPx, sh)
-    const base = this.cfg.debug ? 1 : this.cfg.intensity
+    const base = this.cfg.debug ? 1 : this.cfg.intensity * this._wx.k
 
     ctx.save()
     ctx.globalCompositeOperation = 'source-atop'

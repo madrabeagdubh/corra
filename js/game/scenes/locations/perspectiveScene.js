@@ -72,6 +72,9 @@ import Joystick              from '../../input/joystick.js'
 import ForestEffects         from '../../effects/forestEffects.js'
 import { TiltShift }         from '../../effects/tiltShift.js'
 import { wind }              from '../../effects/wind.js'
+import { weather }           from '../../effects/weather.js'
+import { WeatherVeil }       from '../../effects/weatherVeil.js'
+import { RainSound }         from '../../systems/weatherAudio.js'
 import { CloudShadows }      from '../../effects/cloudShadows.js'
 import { Vegetation }        from '../../effects/vegetation.js'
 import MeleeBout, { prepareSword } from '../../combat/meleeBout.js'
@@ -371,8 +374,18 @@ export default class PerspectiveScene extends BaseLocationScene {
 
 if (this.perspectiveGround) this.perspectiveGround.update()
     if (this.tiltShift) this.tiltShift.update(this.perspectiveGround)
+    weather.update(delta)
     wind.update(delta)
     if (this.cloudShadows) this.cloudShadows.update(delta)
+    if (this._weatherVeil) this._weatherVeil.update()
+    // Rain you can hear: outdoors under the veil, on the roof in an interior
+    // (a map with no cloud shadows and no veil). Opt out: getRainSound() { return false }
+    if (!this._rainSound && this.getRainSound?.() !== false) this._rainSound = new RainSound(this)
+    if (this._rainSound) {
+      this._rainSound.update(
+        this._weatherVeil ? 'outdoor' : (this.getCloudShadows?.() === false ? 'roof' : 'none'),
+        this.terrainManager?.currentTerrain?.name)
+    }
 if (this.forestEffects) this.forestEffects.update()
 
 this._updatePlayerOcclusionFade()
@@ -792,6 +805,8 @@ this._updateCameraTerrainAvoidance()
     if (this.forestEffects)     { this.forestEffects.destroy();         this.forestEffects    = null }
     if (this.tiltShift)         { this.tiltShift.destroy();             this.tiltShift        = null }
     if (this.cloudShadows)      { this.cloudShadows.destroy();          this.cloudShadows     = null }
+    if (this._weatherVeil)      { this._weatherVeil.destroy();          this._weatherVeil     = null }
+    if (this._rainSound)        { this._rainSound.destroy();            this._rainSound       = null }
     if (this.vegetation)        { this.vegetation.destroy();            this.vegetation       = null }
     if (this.fogRenderer)       { this.fogRenderer.destroy();           this.fogRenderer      = null }
     if (this.itemSheet)         { this.itemSheet.clear();               this.itemSheet        = null }
@@ -1310,6 +1325,13 @@ try {
           pgr: this.perspectiveGround,
           ...csOpts
         })
+      }
+
+      // Weather veil: open-sky maps only (the same rule as cloud shadows).
+      // A map opts out with getWeatherVeil() { return false }
+      if (this._weatherVeil) { this._weatherVeil.destroy(); this._weatherVeil = null }
+      if (csOpts && this.getWeatherVeil?.() !== false) {
+        this._weatherVeil = new WeatherVeil(this, { pgr: this.perspectiveGround })
       }
 
       if (this.vegetation) { this.vegetation.destroy(); this.vegetation = null }

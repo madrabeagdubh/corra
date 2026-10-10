@@ -2,6 +2,7 @@ import RiverScene from '../riverScene.js'
 import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 
 import NpcCloak from '../../../effects/npcCloak.js'
+import { weather } from '../../../effects/weather.js'
 
 // Synthetic GID for Muireann's sprite -- see registerCustomTile() in create().
 // Keep in sync with visual.gid in public/data/bog/d3Sea.js.
@@ -47,6 +48,19 @@ hasNorthFallback() { return false }
 
   async create(data) {
     await super.create(data)
+    // The tail end of the return crossing: we come down out of the cloud into a
+    // drizzle, grey and wet and hardly any wind. Set at once (no fade), so it is
+    // the same grey the crossing ended on; the cloud over the screen then
+    // dissolves into it. Released when we leave, so the weather carries on from
+    // here.
+    weather.lock({ cloud: 1, gloom: 0.7, mist: 0.5, rain: 0.09, wind: 0.12, sun: 0 }, { fade: 0 })
+    this.events.once('shutdown', () => weather.unlock())
+    const cloud = document.getElementById('cloudHandover')
+    if (cloud) {
+      cloud.style.transition = 'opacity 4s ease'
+      requestAnimationFrame(() => requestAnimationFrame(() => { cloud.style.opacity = '0' }))
+      setTimeout(() => cloud.remove(), 4400)
+    }
     // Prevent the phantom-mirror system (which extends the map visually
     // past its true edge) from bleeding real shoreline land past the
     // east/south borders -- those lead to open sea / map boundary, so

@@ -12,6 +12,7 @@ import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
 import { createContrast } from '../ui/textContrast.js';
 import { createSeaWorld, RETURN } from './crossing/seaWorld.js';
+import { RainSound } from '../systems/weatherAudio.js';
 
 // used by the sound hooks (tickSounds); the world has its own helpers
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -362,9 +363,10 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         const t = boatAC.currentTime;
         rain.last = now;
         const swell = 0.75 + 0.25 * Math.sin(now / 1000 * 0.55) * Math.sin(now / 1000 * 0.23 + 1);   // waves of intensity
-        rain.crackle.gain.setTargetAtTime(0.5 * near * near, t, 0.3);          // leads close by, fades first
-        rain.wash.gain.setTargetAtTime((0.02 + 0.07 * near) * swell, t, 0.6);  // softer, lingering
-        rain.body.gain.setTargetAtTime(0.05 * near, t, 0.6);
+        // (turned down: the weather system's soundscape, below, carries the rain now)
+        rain.crackle.gain.setTargetAtTime(0.2 * near * near, t, 0.3);          // leads close by, fades first
+        rain.wash.gain.setTargetAtTime((0.02 + 0.07 * near) * 0.4 * swell, t, 0.6);  // softer, lingering
+        rain.body.gain.setTargetAtTime(0.02 * near, t, 0.6);
     }
 
 
@@ -554,6 +556,7 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         if (sceneDone) return;
         sceneDone = true;
         if (wind && boatAC) wind.out.gain.setTargetAtTime(0, boatAC.currentTime, 0.4);
+        try { rainSnd && rainSnd.destroy() } catch (e) {}
         clearTimeout(textTimer);
         clearTimeout(hardCap);
         if (textPlayer) { textPlayer.destroy(); textPlayer = null; }
@@ -574,14 +577,15 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
         const veil = document.createElement('div');
         veil.style.cssText = [
             'position:fixed;inset:0;z-index:1000000;',
-            'background:#0a120e;opacity:0;transition:opacity 2.8s ease;pointer-events:none;',
+            'background:#8b9097;opacity:0;transition:opacity 2.8s ease;pointer-events:none;',
         ].join('');
+        veil.id = 'cloudHandover';      // d3_sea dissolves it (see its create())
         document.body.appendChild(veil);
 
         setTimeout(() => {
             cancelAnimationFrame(rafId);
             requestAnimationFrame(() => { veil.style.opacity = '1'; });
-            transitionOut(2800);
+            // (no transitionOut: the exit is a fade into grey cloud, not into black)
         }, 500);
 
         setTimeout(() => {
@@ -594,11 +598,12 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
 
             document.querySelectorAll('body > div').forEach(el => {
                 const z = parseInt(el.style.zIndex || '0', 10);
-                if (z >= 1000000) el.remove();
+                if (z >= 1000000 && el.id !== 'cloudHandover') el.remove();
             });
 
-            veil.remove();
-            transitionIn();
+            // The grey stays over the new scene until d3_sea has built itself and
+            // dissolves it; if nothing does, it goes by itself.
+            setTimeout(() => { try { veil.remove() } catch (e) {} }, 15000);
 
             const gc = document.getElementById('gameContainer');
             if (gc) {
@@ -616,11 +621,26 @@ export function initReturnCrossing(champion, sliderValue, onComplete) {
     // ── The crossing itself: the shared sea world (crossing/seaWorld.js) ──────
     const world = createSeaWorld({ canvas, ctx, champion, tickSounds, config: RETURN,
         onEvent: (type, e) => { if (type === 'glassHit') playGlassTap(e.x, e.size) } })
+    // The weather system's rain soundscape (systems/weatherAudio.js), on this
+    // scene's own audio context and out through its master gain, so it rises as
+    // the storm arrives (world.rain) and goes as we climb into the cloud (the
+    // master gain follows world.near). It is all on the water here.
+    let rainSnd = null
+    function tickRainSound() {
+        if (sceneDone || !boatAC || !masterOut) return
+        if (!rainSnd) {
+            rainSnd = new RainSound(null, { ctx: boatAC, out: masterOut, duck: false, global: false, prepare: true, water: 1,
+                source: () => ({ rain: world.rain, mist: 0.3, wind: 0.4 }) })
+        }
+        rainSnd.update('outdoor', 'Water')
+    }
+
     let rafId = null
     function draw(now) {
         rafId = requestAnimationFrame(draw)
         world.draw(now)
         tickRain(now, world.rain)
+        tickRainSound()
         tickWind(now, world.climb)
         // everything but the wind fades as we rise into the cloud
         if (boatAC && masterOut && !sceneDone) masterOut.gain.setTargetAtTime(0.55 * Math.max(0, world.near), boatAC.currentTime, 0.5)

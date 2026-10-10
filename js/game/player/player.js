@@ -1,4 +1,5 @@
 import { SoundBoard } from '../systems/soundBoard.js'
+import { wetStep } from '../systems/weatherAudio.js'
 import Inventory from '../ui/inventory/inventory.js';
 import { createItem } from '../ui/inventory/itemDefinitions.js';
 
@@ -254,6 +255,7 @@ export default class Player {
         } else {
           SoundBoard.playWeb('FOOTSTEP_GRASS')
         }
+        wetStep(window._phaserAudioContext, terrain)    // squelch, when it is wet
         this.moveProgress = 0;
         if (force > 10) {
           this.pathQueue = [];

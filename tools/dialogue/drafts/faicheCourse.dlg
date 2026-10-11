@@ -1,0 +1,457 @@
+# faicheCourse — Conall's crash course in the garden (skyeGairdin)
+#
+# THIS FILE IS THE SOURCE. js/game/scenes/locations/skye/courseLines.js is
+# GENERATED from it and overwritten on every compile. Edit here, not there.
+#
+#   node tools/dialogue/course.mjs tools/dialogue/drafts/faicheCourse.dlg --check
+#   node tools/dialogue/course.mjs tools/dialogue/drafts/faicheCourse.dlg
+#
+# The LOGIC (when each slot is said, what the player must do) is in
+# faicheCourse.js. This file is only the words.
+#
+# ── SYMBOLS ───────────────────────────────────────────────────────────────
+#
+#   == NAME   a lesson. The names are the code's; don't rename them.
+#   =  NAME   a slot in the lesson: a moment the code says something.
+#             Plain lines under it are Conall's (or the narrator's, in a
+#             *Hint slot). One line per line on screen.
+#   *  TEXT   a button the player presses, ending that slot's card.
+#   >  TEXT   (under a *) what the player SAYS, if longer than the button.
+#             Without one, the button's own words are shown as theirs.
+#   <  TEXT   (under a *) what Conall says back.
+#   %  TEXT   the Irish for the line directly above. For now each one
+#             repeats the English (a placeholder: not shown as Irish, not
+#             voiced). Write over it when the Irish is ready.
+#   @value X  (under a *) what the button means to the course:
+#               on     go on (the default)
+#               again  have the lesson once more
+#               wait   (meet only) not ready yet: no call to the mark
+#   @goto S   (under a *) Conall's reply is slot S of this lesson (a card
+#             of its own, which may have buttons of its own)
+#   #         a comment
+#
+# A slot left out, or emptied, is simply not said. A slot ending in Hint (or
+# called hint) is the NARRATOR: grey plain instructions, not Conall.
+#
+# Slots with buttons are cards. Others are cards or captions as the logic
+# decides (captions are short, over the action).
+
+@out js/game/scenes/locations/skye/courseLines.js
+
+
+# ══════════════════════════════════════════════════════════════════════
+== meet
+# He is waiting in the ráth; this card opens when you come in sight.
+
+= intro
+Well now. Here thou art, upon thy feet.
+% Well now. Here thou art, upon thy feet.
+Speak, then. Art thou ready to begin?
+% Speak, then. Art thou ready to begin?
+* I am.
+% I am.
+< Good.
+% Good.
+< Here is ground beneath thy feet. Feel it.
+% Here is ground beneath thy feet. Feel it.
+< That is the first lesson, and thou hast not drawn blade yet.
+% That is the first lesson, and thou hast not drawn blade yet.
+* Not yet.
+% Not yet.
+@value wait
+
+# a caption, as he calls you to the marked stone
+= stand
+Now. Come here.
+% Now. Come here.
+
+= standHint
+Stand on the marked stone.
+% Stand on the marked stone.
+
+# a card, once you are on it
+= stance
+Stand thus, neither too wide, nor too narrow.
+% Stand thus, neither too wide, nor too narrow.
+Thy weight not on thy heels, nor on thy toes.
+% Thy weight not on thy heels, nor on thy toes.
+Neither planted nor perched.
+% Neither planted nor perched.
+Here is where it begins. Here, at the feet.
+% Here is where it begins. Here, at the feet.
+All else is built upon it.
+% All else is built upon it.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== drag
+# He draws a line on the ground and walks it; then you draw yours, twice.
+
+= intro
+Now. I will show thee how to move
+% Now. I will show thee how to move
+Watch.
+% Watch.
+
+# as he walks the line
+= following
+See how I move?
+% See how I move?
+
+= you
+Now thy turn. Move as I moved.
+% Now thy turn. Move as I moved.
+
+
+# after the first line you draw
+= good
+Again.
+% Again.
+
+= after
+Aye. Good enough for now.
+% Aye. Good enough for now.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== space
+# Bare-handed. He lunges at the tile you stand on (it reddens): step off.
+# Then you shove him until he goes down on one knee.
+
+= intro
+Thy work is simple: do not let me reach thee.
+% Thy work is simple: do not let me reach thee.
+Move. But do not flee.
+% Move. But do not flee.
+Find space between us.
+% Find space between us.
+
+# each time you get clear (one picked in turn)
+= good
+Again.
+% Again.
+
+= mid
+There.
+% There.
+That is the beginning of it.
+% That is the beginning of it.
+Now we turn it about. Now thou wilt come at me.
+% Now we turn it about. Now thou wilt come at me.
+As I advanced upon thee, press me, until I have no ground left and am brought to my knee.
+% As I advanced upon thee, press me, until I have no ground left and am brought to my knee.
+
+= shoveGo
+Come, then. Make me move.
+% Come, then. Make me move.
+
+# each shove that lands, before the last
+= shoved
+Again.
+% Again.
+
+= after
+There it is. Thou hast done it, and no blade yet drawn between us.
+% There it is. Thou hast done it, and no blade yet drawn between us.
+Bring them to poor footing, and half the fight is won.
+% Bring them to poor footing, and half the fight is won.
+
+Rest now a moment. We have more yet to do.
+% Rest now a moment. We have more yet to do.
+I would speak to thee of a matter that bears upon all of this.
+% I would speak to thee of a matter that bears upon all of this.
+* Speak.
+% Speak.
+@goto fianna
+* Another time.
+% Another time.
+* Once more.
+% Once more.
+@value again
+
+= fianna
+Thou hast heard tell of the Fianna, I do not doubt.
+% Thou hast heard tell of the Fianna, I do not doubt.
+The Fianna are no mere warband.
+% The Fianna are no mere warband.
+They are the great free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort.
+% They are the great free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort.
+They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order.
+% They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order.
+
+They train in the hard places, in the wet and the dark and the wind.
+% They train in the hard places, in the wet and the dark and the wind.
+To them, cold and hardship are no punishment. They are simply the nature of things.
+% To them, cold and hardship are no punishment. They are simply the nature of things.
+
+
+A man must learn twelve books of poetry before they will admit him to their fellowship.
+% A man must learn twelve books of poetry before they will admit him to their fellowship.
+
+
+There are those who think the Fianna naught but swords and blood. They are wrong in it.
+% There are those who think the Fianna naught but swords and blood. They are wrong in it.
+
+
+
+# ══════════════════════════════════════════════════════════════════════
+== sword
+# You on the mark, he two tiles to your left. He throws you a practice sword.
+
+# a caption, then the throw
+= intro
+Now. On thy feet.
+% Now. On thy feet.
+
+# a card, once you've caught it
+= caught
+Mark well what thou holdest.
+% Every sword drawn, even wooden sword,  is a declaration.
+% Every sword drawn, even wooden sword,  is a declaration.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== calls
+# The salute. A card, then: draw, salute, again, again, again. No buttons:
+# the blade stays out and the fatigue lesson follows straight on.
+
+= intro
+
+First we salute,
+%First, we salute
+
+Because the sword is no instrument of fury.
+% Becaues the sword is no instrument of fury.
+Nay, nor of pride.
+% Nay, nor of pride.
+
+Salute not to honour thine enemy.
+% Salute not to honour thine enemy.
+
+The salute is the closing of a gate behind thee.
+% The salute is the closing of a gate behind thee.
+A salute is a word spoken inward, to thyself alone.
+% A salute is a word spoken inward, to thyself alone.
+
+I enter this place with clear mind and clean intent.
+% I enter this place with clear mind and clean intent.
+Whatever blood I spill here, I spill with open eyes.
+% Whatever blood I spill here, I spill with open eyes.
+Once drawn, the blade does not sheathe itself from fear.
+% Once drawn, the blade does not sheathe itself from fear.
+
+
+# the first call
+= salute
+Salute.
+% Salute.
+
+
+# each call after the first (four salutes in all: faicheCourse.js SALUTES)
+= again
+Again.
+% Again.
+
+= enough
+It will do.
+% It will do.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== fatigue
+# Strike until you're winded. "Stop." Then what you learned.
+
+# captions: the blade stays out
+= intro
+Come at me, then.
+% Come at me, then.
+Strike, strike, strike again.
+% Strike, strike, strike again.
+
+= stop
+Stop.
+% Stop.
+
+= after
+What hast thou taught thyself this hour?
+% What hast thou taught thyself this hour?
+* That I tire.
+% That I tire.
+@goto core
+* That every blow costs.
+% That every blow costs.
+@goto core
+* I do not know.
+% I do not know.
+@goto core
+
+= core
+This is the core of it.
+% This is the core of it.
+Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.
+% Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.
+Strength is not the gift we seek.
+% Strength is not the gift we seek.
+We seek the stillness behind the eyes.
+% We seek the stillness behind the eyes.
+The great sin of the Gaelic blade is not cowardice. It is waste.
+% The great sin of the Gaelic blade is not cowardice. It is waste.
+Better strike once and truly, rather than ten times in hope.
+% Better to strike once and truly, rather than ten times in hope.
+* I am ready.
+% I am ready.
+* Once more.
+% Once more.
+@value again
+
+
+# ══════════════════════════════════════════════════════════════════════
+== strong
+# A strong blow (hold the moon). The first is corrected; the second goes on.
+
+
+# a card, after the first strong blow
+= notThus
+Nay, not thus.
+% Nay, not thus.
+Not with the arm locked tight as a gate-bar.
+% Not with the arm locked tight as a gate-bar.
+The blow that kills a man is not the blow of iron. It is the blow of water.
+% The blow that kills a man is not the blow of iron. It is the blow of water.
+Loose thy wrist. Let the wood fall where it will fall.
+% Loose thy wrist. Let the wood fall where it will fall.
+
+# (no `after` slot: it runs on into the dummy. Add one, with buttons, and it will be used.)
+
+
+# ══════════════════════════════════════════════════════════════════════
+== dummy
+# He stands in for the training dummy, turns everything aside, and knows
+# what would have landed.
+
+= intro
+Thy wrist. Loosen it. The blade must speak for thee, and no tongue speaks well when the jaw is clenched tight.
+% Thy wrist. Loosen it. The blade must speak for thee, and no tongue speaks well when the jaw is clenched tight.
+Loose it as thou wouldst loose a hound from leash.
+% Loose it as thou wouldst loose a hound from leash.
+The iron-gripped man is a dead man, for his stroke goes where his fear sends it, not where his wit would have it go.
+% The iron-gripped man is a dead man, for his stroke goes where his fear sends it, not where his wit would have it go.
+The sword is not thine enemy. Hold it so.
+% The sword is not thine enemy. Hold it so.
+
+
+# captions, over the play: the first blow that would have landed
+= landed
+Thus. Dost thou see?
+% Thus. Dost thou see?
+Not the crown of the head, but the root of the wrist.
+% Not the crown of the head, but the root of the wrist.
+It is near. It is weak.
+% It is near. It is weak.
+It is where thine enemy's strength lives. Take it from them.
+% It is where thine enemy's strength lives. Take it from them.
+
+= after
+Thy feet betray thee.
+% Thy feet betray thee.
+Look. Rooted as an oak. No. No.
+% Look. Rooted as an oak. No. No.
+Move thus. And thus.
+% Move thus. And thus.
+* I am ready.
+% I am ready.
+* Once more.
+% Once more.
+@value again
+
+
+# ══════════════════════════════════════════════════════════════════════
+== feet
+# Cut him while walking a drawn line past him: three passes. He counts.
+
+= intro
+Now hear me. The blow is nothing, nothing, I say, if the foot hath not gone before it.
+% Now hear me. The blow is nothing, nothing, I say, if the foot hath not gone before it.
+Thy foot is thy truth. Strike from the heel.
+% Thy foot is thy truth. Strike from the heel.
+
+= go
+Come at me.
+% Come at me.
+
+# the first and second passes (the third opens the card below)
+= count
+One.
+% One.
+Two.
+% Two.
+
+= after
+Three.
+% Three.
+Dost thou see? I have not retreated from thee once.
+% Dost thou see? I have not retreated from thee once.
+A man who steps backward loses ground he may never recover.
+% A man who steps backward loses ground he may never recover.
+Step to the side. Step to the inside of his blade-arm, and thou art safe while he swings at empty air.
+% Step to the side. Step to the inside of his blade-arm, and thou art safe while he swings at empty air.
+* I am ready.
+% I am ready.
+* Once more.
+% Once more.
+@value again
+
+
+# ══════════════════════════════════════════════════════════════════════
+== duel
+# A real bout, three rounds, gently. Lose and you mend and go again.
+
+= intro
+Now. Thy footwork. Once more.
+% Now. Thy footwork. Once more.
+Heel first. Wrist loose. Step to the inside.
+% Heel first. Wrist loose. Step to the inside.
+Again. From the beginning.
+% Again. From the beginning.
+And this time let thy wrist remember what thy ears have heard.
+% And this time let thy wrist remember what thy ears have heard.
+
+= go
+Come at me.
+% Come at me.
+
+
+# when he turns your blow aside (twice at most)
+= read
+Thy foot is telling me where thou art going before thy arm has thought of it.
+% Thy foot is telling me where thou art going before thy arm has thought of it.
+
+= disarmHint
+His sword is down. Walk into him to hand it back.
+% His sword is down. Walk into him to hand it back.
+
+= after
+Thou hast the making of it.
+% Thou hast the making of it.
+Enough to begin.
+% Enough to begin.
+* Thank you.
+% Thank you.
+* Once more.
+% Once more.
+@value again
+
+
+# ══════════════════════════════════════════════════════════════════════
+== end
+# The course is done: the green is open. (Narrator until Conall has words for it.)
+
+
+
+# ══════════════════════════════════════════════════════════════════════
+== generic
+
+# when you press "Once more"
+= again
+Again.
+% Again.

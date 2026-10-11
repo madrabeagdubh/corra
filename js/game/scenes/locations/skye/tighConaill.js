@@ -22,7 +22,7 @@
 // come up as a caption (no dialogue, no blur, nothing locked).
 //
 // The dialogue is tools/dialogue/drafts/tighConaill*.dlg -> public/data/skye/tighConaill.js
-// (three conversations: hello; the clothes; the door). What can be looked at is
+// (two conversations: the light at the curtain; the rescue). What can be looked at is
 // public/data/skye/skyeTigh.js.
 
 import Phaser from 'phaser'
@@ -156,8 +156,8 @@ export class TighConaill extends SkyeScene {
     this._conall.pose = { dy: 0, sy: 1, sx: -1 }            // turned to the bed (to the west)
     this._camBias = { x: -0.9 * TS, y: 0, k: 1 }            // the camera between him and the bed, so both are seen
     this._paintHead()
-    if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._run() }
-    else this._openEyes(() => this._run())
+    if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._run(false) }
+    else this._run(true)                                  // the dream first: black, rain, the drowning; then the eyes open
   }
 
   // Knocked out or half drowned on the loch (garbhan.js, which holds the black over the screen): Conall has carried
@@ -186,7 +186,8 @@ export class TighConaill extends SkyeScene {
     PerspectiveGroundRenderer.CLIP_TOP_FRAC = null
     PerspectiveGroundRenderer.TILES_ACROSS = across
     if (this.perspectiveGround) this.perspectiveGround._playerHidden = false
-    for (const id of ['tigh-eyes', 'tigh-fade']) document.getElementById(id)?.remove()
+    for (const id of ['tigh-eyes', 'tigh-fade', 'tigh-dark']) document.getElementById(id)?.remove()
+    try { this._rainHandle?.stop(300) } catch (_) {}; this._rainHandle = null
     const box = document.getElementById('gameContainer'); if (box) { box.style.filter = ''; box.style.transition = '' }
     this._brooch?.parts.forEach(o => o.destroy()); this._brooch = null
     this._caption?.destroy(); this._caption = null
@@ -387,7 +388,7 @@ export class TighConaill extends SkyeScene {
   }
 
   // ── a conversation of the game's own: the card is the reader's ─────────────
-  async _talk(which) {
+  async _talk(which, from = 0) {
     const panel = this._encounterPanel
     const { tighConaillContent } = await import(/* @vite-ignore */ `/data/${DATA_DIR}/${DATA_KEY}.js`)
     const enc = tighConaillContent.fixedEncounters[which]
@@ -395,7 +396,7 @@ export class TighConaill extends SkyeScene {
     const f = this._conall
     const d = { type: 'fixed_encounter', stateKey, dialogues: enc.dialogues, portrait: enc.portrait, logicalX: mid(f.tileX), logicalY: mid(f.tileY) }
     const zone = { getData: k => d[k], setData() {} }
-    GameState.setNPCProgress(stateKey, 0)
+    GameState.setNPCProgress(stateKey, from)                // from: the node to begin at
     panel._card = { id: 'fixed:' + enc.id, visual: enc.visual }
     panel._active = zone
     panel._openPanel()
@@ -411,28 +412,82 @@ export class TighConaill extends SkyeScene {
     this._lockBrooch()                                    // the panel gives the hoop back: not yet
   }
 
+  // ── soft rain, heard from indoors (no file: filtered noise, like the creaks and latches) ─────────
+  // Brown noise rolled off to a hush, with the odd drop on the sill. Swells in over fadeMs; stop(ms) fades it out.
+  _cabinRain(fadeMs = 2500, level = 0.07) {
+    const c = this._audio(); if (!c) return { stop() {} }
+    const n = c.sampleRate * 3, buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0)
+    let last = 0
+    for (let i = 0; i < n; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5 }
+    const src = c.createBufferSource(); src.buffer = buf; src.loop = true
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 220
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = 1500    // indoors: the high hiss is shut out
+    const g = c.createGain(), t = c.currentTime
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(level, t + fadeMs / 1000)
+    src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(c.destination); src.start()
+    let alive = true
+    const drip = () => {
+      if (!alive || this._dead) return
+      try { this._tone(c, 'sine', 1400 + Math.random() * 600, 700, c.currentTime, 0.05, 0.012) } catch (_) {}
+      this.time.delayedCall(700 + Math.random() * 1800, drip)
+    }
+    this.time.delayedCall(1500, drip)
+    return {
+      stop: (ms = 3000) => {
+        alive = false
+        try {
+          const now = c.currentTime
+          g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), now)
+          g.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000); src.stop(now + ms / 1000 + 0.1)
+        } catch (_) {}
+      },
+    }
+  }
+
+  // ── the dream: black, soft rain, the drowning and "Lie still"; then the eyes open on the rest ────
+  // The black is a DOM sheet UNDER the Phaser canvas (z 9: the ground layers are 2-3, the canvas 10), so the cards
+  // show on it. _openEyes lays its own black over everything and removes this one, so there is no seam.
+  async _dream() {
+    const dark = document.createElement('div')
+    dark.id = 'tigh-dark'
+    dark.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9;pointer-events:none'
+    document.body.appendChild(dark)
+    document.getElementById('landfall-veil')?.remove()     // the landfall's black (over everything) hands over to this
+    this._rainHandle = this._cabinRain(2600)
+    await this.wait(3000)                                   // the rain comes up in the dark
+    if (this._dead) return
+    await this._talk(1, 0)                                  // the drowning; "Lie still."
+    if (this._dead) return
+    await new Promise(res => this._openEyes(res))           // the eyes open
+    if (this._dead) return
+    await this._talk(1, 1)                                  // half-woken: "where is this place", "I am Conall"
+    if (this._dead) return
+    await this._talk(1, 2)                                  // "the mark of a student of Dún Scáthach. It is thine."
+    if (this._dead) return
+    await this._throwBrooch()                               // ...and the brooch is thrown, onto the clothes
+    if (this._dead) return
+    await this._talk(1, 3)                                  // no cattle, no silver; the path of the blade
+    this._rainHandle?.stop(4000)
+  }
+
   // ── the morning ────────────────────────────────────────────────────────────
-  async _run() {
+  async _run(dream = false) {
     GameState.removeNote('tigh_brooch')
-    await this.wait(700)
+    if (dream) await this._dream()
+    else await this.wait(700)
+    if (this._dead) return
 
-    await this._talk(0)                                   // hello
     this._camBias = { x: 0, y: 0 }
-    await this._walk([MAP.window[0], MAP.window[1] + 1])
-    await this._openCurtain(2200)
+    await this._walk([MAP.window[0], MAP.window[1] + 1])  // he crosses to the window...
+    await this._talk(0)                                   // ...the line about the two days
+    await this._openCurtain(2200)                         // ...and draws the curtain
     await this.wait(900)
-
-    await this._walk(MAP.clothes)                         // the clothes, the stew, the training grounds
-    await this._talk(1)
-    await this.wait(300)
 
     await this._walk([MAP.door[0], MAP.door[1] - 1])      // to the door, and open it
     this._setDoor(DOOR_OPEN)
     await this.wait(700)
 
-    await this._talk(2)                                   // one thing more: the brooch
-    await this._throwBrooch()
-    await this.wait(900)
+    await this.wait(900)                                  // (the brooch was thrown in the rescue, _dream)
 
     await this._walk(MAP.door)                            // out, and the door shut behind him
     this._conall.hidden = true
@@ -639,6 +694,7 @@ export class TighConaill extends SkyeScene {
     }
     draw(0)
     document.getElementById('landfall-veil')?.remove()    // the eyelid is black too: no seam
+    document.getElementById('tigh-dark')?.remove()        // (the dream's black, under the cards: this svg is over it)
 
     const H = window.innerHeight
     const beats = [                                       // [half-height, ms, ease, then wait]: quick as a blink

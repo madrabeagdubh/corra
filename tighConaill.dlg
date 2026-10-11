@@ -1,0 +1,16 @@
+# tighConaill -- Conall's cabin: the light
+#
+# Plays after the rescue (tighConaillRescue.dlg), as the morning comes: one card, and then the
+# scene sends him to the window to draw the curtain (no note: it is just what happens when
+# this conversation ends). Read at the player's own pace.
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/tighConaill
+@encounter 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — the light
+Thou hast slept the better part of two days,
+% Chodail tú dhá lá nach mór.

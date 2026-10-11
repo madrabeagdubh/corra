@@ -524,16 +524,10 @@ clearNotify() {
       return
     }
 
-    this._scene.textPanel.show({
-      // again-line applies to option-less nodes too
-      irish:   this._fill(line.ga || line.irish   || ''),
-      english: this._fill(line.en || line.english || ''),
-      type:    'encounter_card',
-      bgKey,
-      graphicKey,
-      keepChromeOnHide: true,
-      options: null,
-      onDismiss: () => {
+    // A node with no card of its own but an exchange (a `>` / `<` scene with nothing said first) goes
+    // straight to the exchange: an empty card would stand there with nothing on it.
+    const hasCard = !!(line.ga || line.irish || line.en || line.english)
+    const afterCard = () => {
         // Where an option-less node leads. @continue flows into the next
         // node with the panel still standing, so a run of them reads as one
         // person speaking rather than as several separate encounters.
@@ -591,7 +585,18 @@ clearNotify() {
         }
 
         go()
-      }
+    }
+    if (!hasCard && Array.isArray(d.exchange) && d.exchange.length) { afterCard(); return }
+    this._scene.textPanel.show({
+      // again-line applies to option-less nodes too
+      irish:   this._fill(line.ga || line.irish   || ''),
+      english: this._fill(line.en || line.english || ''),
+      type:    'encounter_card',
+      bgKey,
+      graphicKey,
+      keepChromeOnHide: true,
+      options: null,
+      onDismiss: afterCard,
     })
   }
 

@@ -1,17 +1,15 @@
 // tighConaill.js
 // Location: public/data/skye/tighConaill.js
 //
-// Conall's cabin (js/game/scenes/locations/skye/tighConaill.js, tighPlay.js). Three short
-// conversations, all his, all read at the player's own pace, with the room's own doings
-// (he draws the curtain, he throws the brooch) between them:
-//   0  hello, and a word about the light (then he goes and draws the curtain)
-//   1  the clothes and the stew, the training grounds
-//   2  at the door, as he leaves: "students at Dún Scáthach wear one of these"
+// Conall's cabin (js/game/scenes/locations/skye/tighConaill.js, tighPlay.js). Two conversations, both his, both
+// read at the player's own pace, with the room's own doings (the brooch is thrown, he draws the curtain) between:
+//   0  at the window, as he draws the curtain: "thou hast slept the better part of two days"
+//   1  the rescue, played first, in the dark (tighConaill.js _dream): the drowning, "I am Conall",
+//      "the mark of a student of Dún Scáthach" (the brooch is thrown), the path of the blade
 //
 // The dialogues arrays are generated from
 //   tools/dialogue/drafts/tighConaill.dlg         (encounter 0)
-//   tools/dialogue/drafts/tighConaillClothes.dlg  (encounter 1)
-//   tools/dialogue/drafts/tighConaillDoor.dlg     (encounter 2)
+//   tools/dialogue/drafts/tighConaillRescue.dlg   (encounter 1)
 // Do not hand-edit them: edit the drafts and recompile, e.g.
 //   node tools/dialogue/compile.mjs tools/dialogue/drafts/tighConaill.dlg
 // Keep `dialogues` the last field of each speaker.
@@ -30,55 +28,67 @@ export const tighConaillContent = {
       portrait: '/assets/npcs/othran.png',
       dialogues: [
 
-        // ── node 0 — awake ────────────────────────────────────────
+        // ── node 0 — the light ────────────────────────────────────
         {
-          continue: true,
-          ga: 'Á, tá tú ann.\nChodail tú mar chloch. Bhí imní ag teacht orm.',
-          en: 'Ah, there you are.\nYou slept like a stone. I was beginning to wonder.',
-        },
-
-        // ── node 1 — the light ────────────────────────────────────
-        {
-          ga: 'Cuirimis solas ar an scéal.',
-          en: 'Let us have some light on the matter.',
+          ga: 'Chodail tú dhá lá nach mór.',
+          en: 'Thou hast slept the better part of two days,',
         },
 
       ],
     },
     {
-      id: 'conall_clothes',
+      id: 'conall_rescue',
       x: 0, y: 0, radius: 1,
       visual:   { gid: 9203, flat: false },
       portrait: '/assets/npcs/othran.png',
       dialogues: [
 
-        // ── node 0 — the clothes, the stew ────────────────────────
+        // ── node 0 — in the dark ──────────────────────────────────
         {
-          continue: true,
-          ga: 'Tá do chuid éadaí nite agus triomaithe, ansin ar an gcófra.\nIth leat den stobhach, agus lig do scíth chomh fada agus is mian leat.',
-          en: 'Your clothes are washed and dried, there on the chest.\nHelp yourself to the stew, and rest as long as you like.',
+          exchange: [
+            {
+              say: 'Ag bá!\nTá mé i ngreim ag an uisce dubh,\nlíonann sé mo scornach.',
+              sayEn: 'Drowning!\nThe black water has me,\nIt fills my throat.',
+              replyGa: 'Bí socair.',
+              replyEn: 'Lie still.',
+            },
+          ],
         },
 
-        // ── node 1 — the training grounds ─────────────────────────
+        // ── node 1 — half-woken ───────────────────────────────────
         {
-          ga: 'Nuair a bheidh tú réidh, tar agus aimsigh mé ar an bhfaiche.\nTá na daoine eile thuas ag an gcaisleán. Beidh an áit againn dúinn féin.',
-          en: 'When you are ready, come and find me in the training grounds.\nThe others are up at the castle. We will have the place to ourselves.',
+          exchange: [
+            {
+              say: 'Bhí mé báite. Bhí mé báite gan amhras.',
+              sayEn: 'I was drowning. I was surely drowning.',
+              replyGa: 'Níl ort ach tuirse.',
+              replyEn: 'Thou art weary, nothing more.',
+            },
+            {
+              say: 'Cá bhfuil mé anois?',
+              sayEn: 'Where is this place?',
+              replyGa: 'Mo aoi thú. Conall is ainm dom.',
+              replyEn: 'Thou art my guest. I am Conall.',
+            },
+          ],
         },
 
-      ],
-    },
-    {
-      id: 'conall_door',
-      x: 0, y: 0, radius: 1,
-      visual:   { gid: 9203, flat: false },
-      portrait: '/assets/npcs/othran.png',
-      dialogues: [
-
-        // ── node 0 — the brooch ───────────────────────────────────
+        // ── node 2 — the mark ─────────────────────────────────────
         {
-          note: 'tigh_brooch',
-          ga: 'Ó, rud amháin eile.\nCaitheann daltaí Dhún Scáthaigh ceann díobh seo.\nFágfaidh mé le do chuid éadaí é.',
-          en: 'Oh, one thing more.\nStudents at Dún Scáthach wear one of these.\nI\'ll leave it with your things.',
+          ga: 'Chaitheann dhaltaí Dhún Scáthach iad seo. Is leatsa é.',
+          en: 'And this is the mark of a student of Dún Scáthach. It is thine.',
+        },
+
+        // ── node 3 — the path of the blade ────────────────────────
+        {
+          exchange: [
+            {
+              say: 'Níor thugas liom eallach, ná tiarnas breá airgid.',
+              sayEn: 'I bring no cattle, no fine tribute of silver.',
+              replyGa: 'Bí socair\nRinne tú do chás cheana féin nuair a bhain tú amach an trá, gan aithne, leathbáite,\nagus an fharraige fós ag sileadh uait.\nLig do scíth,\nAnsin cuirfidh mé ar bhóthar an chlaímh thú,\nNach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?',
+              replyEn: 'Ease now thy troubled mind\nThou hast made thy case already upon the shore, senseless and half-drowned,\nwith the sea still running from thee.\nTake thy rest,\nThen shall I set thee on the path of the blade,\nIs that not why all Gaelic Chieftains come to Skye?',
+            },
+          ],
         },
 
       ],

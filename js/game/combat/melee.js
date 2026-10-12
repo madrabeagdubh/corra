@@ -240,7 +240,7 @@ export default class Melee {
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
     const base = charged ? SW.spin : flip ? SW.quick : SW.full
     const k0 = inFlurry ? 0.3 : 0, toHit = base.hitAt - k0 * base.vis, rec = inFlurry ? 140 : base.rec
-    this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, hitDone: false, desperate, charged, flip,
+    this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, born: this.t, hitDone: false, desperate, charged, flip,
                    vis: base.vis, hitAt: base.hitAt }
     // on the move, the cut rides on the stride: no recovery, the walk carries on
     const p = this.p
@@ -258,7 +258,7 @@ export default class Melee {
     const [c, r] = this.pa.tile(), d = this.pa.facing()
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
     const base = charged ? SW.spin : flip ? SW.quick : SW.full
-    this.swing = { tile: [c + d[0], r + d[1]], t0: this.t, hitDone: true, air: true, desperate: false, charged, flip,
+    this.swing = { tile: [c + d[0], r + d[1]], t0: this.t, born: this.t, hitDone: true, air: true, desperate: false, charged, flip,
                    vis: base.vis, hitAt: base.hitAt }
     const p = this.p
     if (!(this.moving() && p.busyKind === 'hop')) { p.busyUntil = this.t + base.hitAt + base.rec * 0.7; p.busyKind = 'strike'; p.cancelAt = this.t + base.hitAt }
@@ -273,7 +273,7 @@ export default class Melee {
     if (this.winded() || this.breath < 2) return this.act(() => this.pa.forceStep(d), 'move')
     if (!this.pa.forceStep(d)) return
     const step = this.pa.stepMs()
-    this.swing = { tile: [this.foe.c, this.foe.r], t0: this.t + step, hitDone: false, desperate: false, lunge: true, flip: false,
+    this.swing = { tile: [this.foe.c, this.foe.r], t0: this.t + step, born: this.t + step, hitDone: false, desperate: false, lunge: true, flip: false,
                    vis: SW.full.vis, hitAt: SW.full.hitAt }
     this.lastSwing = { t: this.t, flip: false }
     const p = this.p

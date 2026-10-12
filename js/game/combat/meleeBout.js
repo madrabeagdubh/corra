@@ -32,8 +32,16 @@ import { createItem } from '../ui/inventory/itemDefinitions.js'
 export const SWORD_ID = 'wooden_sword'
 export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is yours, in every scene
 
-// Focus (bullet time): drawing a line in a bout slows the world to `scale`. `cap`/`regen`: ms of real time you may hold it, and how fast it refills
-const FOCUS = { scale: 0.18, far: 4, cap: 15000, regen: 0.4, relock: 0.25, grade: true }     // scale: speed at blade range; far: tiles at which it is all gone
+// Focus (bullet time): a line drawn in a bout slows the world, more the nearer you are to him: nothing at `far`
+// tiles, down to `scale` at blade range. ONCE PER LINE: it comes on when the line (drawing it, or walking it)
+// brings you inside `far`; from then on it only DEEPENS as you come nearer, never lifts, until the line is done
+// (or he is `release` tiles off, or it runs out). It used to follow the distance both ways, frame by frame, so a
+// line that wandered in and out sped the world up and slowed it down over and over.
+//   gapMs     a pause this short between drawing a line and walking it is still the same line
+//   cap/regen ms of real time you may hold it, and how fast it refills; relock: how full before it can come on again
+//   ghosts    YOUR afterimages as you move in it: how many, how often one is left (world ms), how strong the newest is, their colour
+const FOCUS = { scale: 0.18, far: 4, release: 7, gapMs: 180, cap: 15000, regen: 0.4, relock: 0.25, grade: true,
+                ghosts: 8, ghostEvery: 45, ghostAlpha: 0.6, ghostTint: 'rgb(110,185,255)' }
 
 // The pack is rebuilt with every scene, so a sword you've been given is put
 // back in it on arrival. Also makes its inventory icon (no art yet: the
@@ -162,7 +170,16 @@ export default class MeleeBout {
 
     scene._moonOwner = this
     this._last = performance.now()
-    this.focus = { k: 1, left: FOCUS.cap, on: false }
+    this.focus = { k: 1, left: FOCUS.cap, on: false, latched: false, used: false, gap: Infinity, depth: 1 }
+    // your afterimages while time is slow: [{ x, y, t }], each drawn by a figure of its own on the map (PGR sorts
+    // them with everything else, so a ghost behind you is behind you)
+    this.ghosts = []
+    this.ghostFlags = Array.from({ length: FOCUS.ghosts }, (_, i) => {
+      const fl = { tileX: 0, tileY: 0, visual: { flat: false }, offset: [0, 0], hidden: true }
+      fl.draw = (ctx, x, y, w, pgr) => this._drawGhost(ctx, x, y, w, pgr, fl.alpha || 0)
+      return fl
+    })
+    { const pgr = scene.perspectiveGround; pgr?.setEncounterFlags([...(pgr._encounterFlags || []), ...this.ghostFlags]) }
     this.melee.clock = performance.now()                   // the look's clock: real time, slowed with the world
   }
 
@@ -202,7 +219,7 @@ export default class MeleeBout {
     }
     return onBody || onTile ? this.melee.tapFoe() : false
   }
-  // Bullet time: a finger drawing a line in a bout slows the world; lifting it sends you off at full speed.
+  // Bullet time: a line drawn in a bout slows the world (FOCUS, above); lifting the finger, you walk it in the slow.
   // Returns the (scaled) time the fight and the view live by this frame.
   _focusStep(real) {
     const m = this.melee, f = this.focus, rd = this.scene._routeDraw
@@ -210,25 +227,84 @@ export default class MeleeBout {
     const onRoute = !!(rd?.route && (m.pa.onRoute() || p?.isMoving))        // still walking the line you drew: the slow holds, and you can fight in it
     if (f.left <= 0) f.lock = true
     else if (f.lock && f.left >= FOCUS.cap * FOCUS.relock) f.lock = false
-    const want = !!(m.combat && m.enGarde && (rd?.trail || onRoute) && !f.lock)
-    // the nearer he is, the slower the world: smoothstep from nothing at `far` tiles to full depth beside him
-    let target = 1
-    if (want) {
-      const s = Math.max(0, Math.min(1, (FOCUS.far - m.cheb()) / (FOCUS.far - 1))), e = s * s * (3 - 2 * s)
-      target = 1 - e * (1 - FOCUS.scale)
-    }
+    // a LINE runs from the finger going down to the last step of it walked
+    const drawing = !!(m.combat && m.enGarde && (rd?.trail || onRoute))
+    f.gap = drawing ? 0 : f.gap + real
+    const inLine = drawing || f.gap < FOCUS.gapMs
+    if (!inLine) f.used = false                                             // that line is over: the next may slow time again
+    // the nearer he is, the slower: smoothstep from nothing at `far` tiles to full depth beside him
+    const s = Math.max(0, Math.min(1, (FOCUS.far - m.cheb()) / (FOCUS.far - 1))), e = s * s * (3 - 2 * s)
+    const near = 1 - e * (1 - FOCUS.scale)
+    if (!f.latched) {
+      if (drawing && !f.used && !f.lock && near < 1) { f.latched = true; f.used = true; f.depth = near }   // once per line
+    } else if (!inLine || f.lock || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false
+    if (f.latched) f.depth = Math.min(f.depth, near)                        // deepens as you close, never lifts mid-line
+    const target = f.latched ? f.depth : 1
     if (target < 1) f.left = Math.max(0, f.left - real * (1 - target) / (1 - FOCUS.scale))
     else f.left = Math.min(FOCUS.cap, f.left + real * FOCUS.regen)
     f.k += (target - f.k) * Math.min(1, real / (target < f.k ? 110 : 190))        // in quickly, out in one smooth ramp
     if (Math.abs(f.k - target) < 0.005) f.k = target
-    const on = f.on ? f.k < 0.9 : f.k < 0.7
-    if (on !== f.on) { f.on = on; m.emit('focus', { on }) }
+    if (f.latched !== f.on) { f.on = f.latched; m.emit('focus', { on: f.on }) }   // one entry, one exit, per line
     this._grade((1 - f.k) / (1 - FOCUS.scale))
     m.focusK = f.k; m.focusLeft = f.left / FOCUS.cap
     try { this.scene.tweens.timeScale = f.k } catch (_) {}
     const dt = real * f.k
     m.clock += dt
+    this._ghostStep()
     return dt
+  }
+  /** how deep the slow is now: 0 (none) .. 1 (full) */
+  _focusU() { return Math.max(0, Math.min(1, (1 - this.focus.k) / (1 - FOCUS.scale))) }
+
+  // your afterimages: while time is slow and you move, a trail of you (on the world's clock)
+  _ghostStep() {
+    const g = this.ghosts, now = this.melee.clock, p = this.scene.player, ts = this.scene.tileSize
+    while (g.length && now - g[0].t > FOCUS.ghostEvery * FOCUS.ghosts) g.shift()
+    if (p && this._focusU() >= 0.3) {
+      const x = p.logicalX / ts - 0.5, y = p.logicalY / ts - 0.5, last = g[g.length - 1]
+      const here = this._ghostHere
+      this._ghostHere = [x, y]
+      const moved = here && Math.hypot(x - here[0], y - here[1]) > 0.002
+      if (moved && (!last || now - last.t >= FOCUS.ghostEvery)) g.push({ x, y, t: now })
+    }
+    // put the figures where the ghosts are (the newest last)
+    const span = FOCUS.ghostEvery * FOCUS.ghosts, u = this._focusU()
+    this.ghostFlags.forEach((fl, i) => {
+      const gh = g[g.length - 1 - i]
+      if (!gh || u <= 0) { fl.hidden = true; return }
+      const c = Math.round(gh.x), r = Math.round(gh.y)
+      fl.tileX = c; fl.tileY = r; fl.offset[0] = gh.x - c; fl.offset[1] = gh.y - r
+      fl.alpha = FOCUS.ghostAlpha * u * Math.max(0, 1 - (now - gh.t) / span)
+      fl.hidden = fl.alpha <= 0.01
+    })
+  }
+  // one afterimage: your figure as it is now, in one cool colour, flipped the way you face
+  _drawGhost(ctx, x, y, w, pgr, alpha) {
+    const img = pgr._playerCanvas
+    if (!img?.width || alpha <= 0) return
+    const tint = this._tintFrame(img, pgr)
+    const PS = pgr.constructor.PLAYER_SCALE ?? 1, W = w * PS, H = W * img.height / img.width
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.imageSmoothingEnabled = false
+    ctx.translate(x, y)
+    if (pgr._facingLeft) ctx.scale(-1, 1)
+    ctx.drawImage(tint, -W / 2, -H, W, H)
+    ctx.restore()
+  }
+  // the current frame of you, tinted (once per frame drawn, shared by every ghost)
+  _tintFrame(img, pgr) {
+    const key = pgr._animT
+    if (this._tint && this._tint.key === key && this._tint.src === img) return this._tint.c
+    let c = this._tint?.c
+    try {
+      if (!c || c.width !== img.width || c.height !== img.height) { c = document.createElement('canvas'); c.width = img.width; c.height = img.height }
+      const g = c.getContext('2d')
+      g.globalCompositeOperation = 'copy'; g.drawImage(img, 0, 0)
+      g.globalCompositeOperation = 'source-in'; g.fillStyle = FOCUS.ghostTint; g.fillRect(0, 0, c.width, c.height)
+    } catch (_) { return img }
+    this._tint = { key, src: img, c }
+    return c
   }
 
   // the whole picture goes cool, drained and a little dark while time is slow
@@ -309,7 +385,7 @@ export default class MeleeBout {
     const p = this.scene.player
     if (p && this._origUpdate) p.update = this._origUpdate
     const pgr = this.scene.perspectiveGround
-    if (this.flag && pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(f => f !== this.flag))
+    if (pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(f => f !== this.flag && !this.ghostFlags?.includes(f)))
     if (this.scene._moonOwner === this) this.scene._moonOwner = null
     this.view.destroy()
     this.audio.destroy()

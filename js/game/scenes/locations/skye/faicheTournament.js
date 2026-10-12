@@ -28,6 +28,7 @@ import { SoundBoard } from '../../../systems/soundBoard.js'
 import { VoiceSynth } from '../../../systems/voice/voiceSynth.js'
 import { SKYE_GID } from './skyeScene.js'
 import MeleeBout from '../../../combat/meleeBout.js'
+import { INK } from '../../../ui/speakers.js'
 
 export const TOURNEY_DONE = 'faiche_tournament_done'
 const WON = i => `faiche_tourney_${i}`
@@ -58,7 +59,7 @@ const LINES = {
   coin:     L('Keep it. You will do.'),
   done:     L('That is the tournament. The green is yours, whenever you want it.'),
 }
-const WARDEN_COLOR = '#c6d4ea', UATHACH_COLOR = '#ffb25c'
+const WARDEN_COLOR = INK.conall, UATHACH_COLOR = INK.uathach
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
 
 export default class FaicheTournament {

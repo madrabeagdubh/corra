@@ -21,12 +21,12 @@ import { GameSettings } from '../../../settings/gameSettings.js'
 import { TYPE, FONTS } from '../../../systems/gameTypography.js'
 import { createContrast } from '../../../ui/textContrast.js'
 import { figureBox } from './dustDash.js'
+import { INK } from '../../../ui/speakers.js'
 
-// Speaker colours for the Irish line: each Skye teacher gets one vivid,
-// readable colour so you know who's calling before you've read a word.
-export const SPEAKER = {
-  uathach: '#ffb25c',      // warm amber -- quick, bright, a little fierce
-}
+// Speaker colours for the Irish line: one per speaker, shared with the
+// dialogue cards (ui/speakers.js), so you know who's speaking before you've
+// read a word, whichever way they speak.
+export const SPEAKER = INK
 
 export default class SkyeCaption {
   // opts.color:   the Irish line's colour (default Uathach's)
@@ -61,6 +61,9 @@ export default class SkyeCaption {
 
     this._onOpacity = (e) => { this._en.style.opacity = String(e.detail.opacity) }
     window.addEventListener('englishOpacityChange', this._onOpacity)
+    // a dialogue card is going up: out of its way (the two never overlay)
+    this._onCard = () => this.hide()
+    window.addEventListener('textPanelShow', this._onCard)
   }
 
   // what is behind the English line: the game's canvases, back to front
@@ -126,6 +129,9 @@ export default class SkyeCaption {
     if (this._el) this._el.style.opacity = '0'
   }
 
+  /** Up on screen now (or still fading out)? */
+  get visible() { return !!this._el && this._el.style.opacity !== '0' }
+
   /** Reading time for a line, roughly. */
   static holdFor(text) { return 2200 + text.length * 55 }
 
@@ -134,6 +140,7 @@ export default class SkyeCaption {
     clearInterval(this._inkTimer)
     this._unfocus()
     window.removeEventListener('englishOpacityChange', this._onOpacity)
+    window.removeEventListener('textPanelShow', this._onCard)
     this._el?.remove()
     this._el = null
   }

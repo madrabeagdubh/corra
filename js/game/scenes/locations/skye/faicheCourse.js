@@ -12,21 +12,24 @@
 // says only what the draft gives him; plain instructions are the narrator's
 // (the *Hint slots, grey). A slot left out of the draft is simply not said.
 //
-//   meet      "art thou ready?" (you answer); stand on the mark; how to stand
-//   drag      he draws a line on the ground and walks it; then you draw yours
-//   space     bare-handed: step off the red tile; then shove him back until he falls;
-//             a rest, and (if you ask) his talk of the Fianna
-//   sword     you stand on the mark, he faces you from the left; he throws you a practice sword
-//   calls     the salute explained; draw, then salute four times ("Again.")
-//   fatigue   strike until you're winded; "Stop."; he asks what you learned
-//   strong    a strong blow; "Nay, not thus" -- the blow of water; another
-//   dummy     he stands in for the dummy, parrying all; what would have landed counts
-//   feet      cut it while walking a drawn path, three passes
-//   duel      a brief, gentle bout, Conall coaching as it goes
+//   meet      "art thou ready?" -- "I am" (to the mark, how to stand) or "not yet"
+//             (free to wander; he asks again when you come back to him)
+//   space     bare-handed, on the d-pad: step off the red tile; then shove him till he kneels
+//   sword     he throws you a practice sword: draw, sheathe, draw, sheathe, draw -- he
+//             has something to say about every one (the salute is held back meanwhile)
+//   calls     the salute, talked through with the blade out; then three of them
+//   fatigue   he stands in as a target and turns everything aside till you're winded;
+//             "Stop." -- and what it was for
+//   strong    gather a strong blow, hold it, let it go (too soon is only a cut)
+//   dummy     still standing in: what would have landed counts
+//   feet      cut him as you pass, on the move
+//   drag      only now, drawing a line to walk: he draws one and walks it; then you
+//   duel      a bout: draw a line at him, time slows as you near him -- land a blow in
+//             that slow, and he is done with you
 //   end       the green is open: join the others across the loch
 //
-// Most lessons END IN BUTTONS (_wrapUp: courseScript `after`): go on, or have
-// the lesson once more. Nothing runs on into the next lesson until you say so.
+// Lesson ends are plain cards (no buttons) unless the draft gives them buttons
+// (_wrapUp: courseScript `after`).
 //
 // Progress is kept in notes (faiche_course_<id>; tap uses lesson_movement), so
 // coming back picks up at the first lesson not yet done.
@@ -55,13 +58,14 @@ import { SKYE_GID } from './skyeScene.js'
 import { figureBox } from './dustDash.js'
 import { DUMMY_DONE, FOOT_DONE, SPAR_DONE } from './faicheLesson.js'
 import { SCRIPT, SALUTES, HINT_AFTER_MS, GIVE_UP_MS } from './courseScript.js'
+import { INK } from '../../../ui/speakers.js'
 
 // the host scene (skyeGairdin.js) provides: _caption, _melee (Conall's bout),
 // _routeDraw, player, tileSize, and
 //   courseMarker(tile|null)   a pulsing ring on a tile
 //   courseLit(tile)           light a stone of the board (null clears them all)
 const VOICE = ['ronnie', 'Ador']
-const WARDEN_COLOR = '#c6d4ea', HINT_COLOR = '#a9b3bd'
+const WARDEN_COLOR = INK.conall, HINT_COLOR = INK.narrator     // the same colours as his cards (ui/speakers.js)
 
 export const WARDEN_NAME = 'Conall'
 export const MET = 'faiche_course_met'
@@ -69,7 +73,7 @@ export const DIRS_DONE = 'faiche_course_dirs'
 export const TAP_DONE = 'lesson_movement'
 export const COURSE_DONE = 'faiche_kata_done'      // the whole course (the green waits for it)
 
-export const ORDER = ['meet', 'drag', 'space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'duel', 'end']
+export const ORDER = ['meet', 'space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'drag', 'duel', 'end']
 const NOTE = { meet: MET, dirs: DIRS_DONE, tap: TAP_DONE }
 const noteOf = id => NOTE[id] || `faiche_course_${id}`
 
@@ -77,20 +81,23 @@ const START = [18, 18]                     // the lár, the board's centre stone
 export const LEDGE_AT = [18, 7]            // where he waits: the ledge built into the earthen ring
 export const FIGHT_AT = [16, 18]           // where he stands to teach, and fights: two tiles west of the mark, facing you
 // lessons that start with you on the mark: if you have wandered, you are walked back
-const HOME_LESSONS = new Set(['space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'duel'])
+const HOME_LESSONS = new Set(['space', 'sword', 'calls', 'duel'])   // (the target lessons start where you are: by him)
 const MEET_RANGE = 6                       // or this near the lár, whatever the camera shows
+const ASK_AGAIN_NEAR = 2, ASK_AGAIN_AWAY = 5   // "not yet": he asks again once you have been this far off, and come back this near
+const STAND_IN = new Set(['fatigue', 'strong', 'dummy', 'feet'])   // lessons he stands in as a target for
+const DRAWS = 3                             // the sword lesson: draw, (sheathe, draw) x2
 const NEAR_FIGHT = 4                       // a bout starts within 5 tiles of him
 
 // the line he draws, and walks (waypoints; the tiles between are filled in)
 const DEMO_FROM = [18, 12]
 // a wandering path (not a loop) that ends on the tile he teaches from next (FIGHT_AT), so he walks it and is there
 const DEMO_PTS = [[18, 12], [21, 12], [21, 15], [18, 15], [15, 14], [14, 17], [16, 18]]   // all within four columns of the lár: on screen
-const DODGES = 4, SHOVES = 3                // the space lesson: steps off the red tile, shoves back
+const DODGES = 3, SHOVES = 3                // the space lesson: steps off the red tile, shoves back
 const DRAW_STEP_MS = 120                   // the line grows a tile this often
 
 // the dummy: Conall stands in for it (see _standIn)
 const DUMMY_AT = [18, 15]                  // where he takes its place
-const DUMMY_GOAL = 30, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 3
+const DUMMY_GOAL = 12, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 2
 
 // the gentle duel: a novice, slowed right down, who goes down in three blows
 // three rounds against Conall: quicker and a little stronger each time
@@ -219,6 +226,7 @@ export default class FaicheCourse {
   // ── plumbing ─────────────────────────────────────────────────────────────
   _later(ms, fn) { this.queue.push({ at: this.t + ms, fn }) }
   _say(line, ms, color = WARDEN_COLOR, voiced = false) {
+    if (this.speaking) return                                 // a card is up: no caption over it (it would sit on top of his words)
     const cap = this.scene._caption
     if (Array.isArray(line)) {                                // a slot: several lines run one after another
       if (line.length > 1) return this._seq(line, null, 350, color, voiced)
@@ -336,6 +344,10 @@ export default class FaicheCourse {
     try { DialogueHarp.open(sc.registry?.get('selectedChampion') || window.selectedChampion || null, sc, card.portrait || 'conall') } catch (_) {}
     if (this.m.enGarde && !opts.keepBlade) { if (this.m.bare) this._bare(false); else this.m.setEnGarde(false) }   // blade away: the moon is for the English now
     sc._keepBladeInTalk = !!opts.keepBlade          // (the scene sheathes it for any words on screen, otherwise)
+    // a caption still up (a word over the action): let it fade before the card comes, so the two never overlay
+    const cap = sc._caption, wait = cap?.visible ? 320 : 0
+    if (wait) cap.hide()
+    tp.setSpeakerInk?.(INK.conall)
     this.speaking = true
     let value = null, ended = false
     // released: the last card closed the conversation itself (a plain dismiss);
@@ -349,6 +361,7 @@ export default class FaicheCourse {
       }
       this.speaking = false
       sc._keepBladeInTalk = false
+      tp.setSpeakerInk?.(null)
       try { sc.joystick?.showDirections?.() } catch (_) {}
       then?.(value)
     }
@@ -378,12 +391,15 @@ export default class FaicheCourse {
         },
       })
     }
-    show(node, null)
-    // rack the focus onto him
-    try {
-      const m = this.m, box = figureBox(sc, m.foe.c, m.foe.r), pgr = sc.perspectiveGround
-      if (box && pgr?._sh) sc.tiltShift?.setDialogueMode(true, (box.y - box.h * 0.5) / pgr._sh)
-    } catch (_) {}
+    const begin = () => {
+      show(node, null)
+      // rack the focus onto him
+      try {
+        const m = this.m, box = figureBox(sc, m.foe.c, m.foe.r), pgr = sc.perspectiveGround
+        if (box && pgr?._sh) sc.tiltShift?.setDialogueMode(true, (box.y - box.h * 0.5) / pgr._sh)
+      } catch (_) {}
+    }
+    if (wait) sc.time.delayedCall(wait, begin); else begin()
   }
 
   /** The end of a lesson: his last word, and your answer. 'again' runs the lesson once more. */
@@ -453,7 +469,7 @@ export default class FaicheCourse {
     const id = ORDER.find(i => i !== 'end' && !GameState.hasNote(noteOf(i))) || 'end'
     this.id = id
     this.squareUp = id !== 'meet' && id !== 'end'      // you face him whenever you stand still (facing())
-    if (this.asDummy && id !== 'dummy' && id !== 'feet') this._standDown()     // done standing in for the dummy
+    if (this.asDummy && !STAND_IN.has(id)) this._standDown()     // done standing in as a target
     if (HOME_LESSONS.has(id)) this._goHome(() => { this.id = id; this._lesson(id) })
     else this._lesson(id)
   }
@@ -469,13 +485,23 @@ export default class FaicheCourse {
   // ── meet ─────────────────────────────────────────────────────────────────
   _meet() {
     const S = SCRIPT.meet
+    this.id = 'meet'
     this.m.HOME = [...LEDGE_AT]
     // he speaks when we come in sight of the ring, not while we are still a long way off.
-    // "Art thou ready?" -- either answer leads to the mark; "not yet" without being summoned to it.
+    // "Art thou ready?" -- "I am": to the mark. "Not yet": you are free to go about the place;
+    // he asks again when you have been away from him and come back (see _waitTick).
     this._meetWait = () => this._converse(S.intro, v => {
+      if (v === 'wait') { this.id = 'waiting'; this._wandered = false; return }
       GameState.addNote(MET)
-      this._toMark(() => this._speech(S.stance, () => this._next()), v === 'wait')
+      this._toMark(() => this._speech(S.stance, () => this._next()))
     })
+  }
+  /** "not yet": once you have gone off and come back to him, he asks again */
+  _waitTick() {
+    if (this.id !== 'waiting' || this.speaking || this.scene._encounterPanel?._isOpen) return
+    const f = this.m.foe, d = cheb(this._tile(), [f.c, f.r])
+    if (d >= ASK_AGAIN_AWAY) this._wandered = true
+    else if (this._wandered && d <= ASK_AGAIN_NEAR) { this._meet(); const go = this._meetWait; this._meetWait = null; this._later(300, go) }
   }
 
   // He speaks once he is on the screen (or we are well into the ring), not while we are still a long way off.
@@ -536,8 +562,9 @@ export default class FaicheCourse {
     this.demo = null
     this.dragUnlocked = true
     this._say(S.you)
+    this._later(this._holdOf(S.you) + 300, () => this._hint(S.hint))      // drawing a line isn't obvious: the narrator says how, at once
     this._goal({
-      need: 2, hint: S.hint, after: this._holdOf(S.you),
+      need: 2, hint: S.hint, after: this._holdOf(S.you) + this._holdOf(S.hint),
       onCount: n => { if (n < 2) this._say(S.good) },
       done: () => { this.dragStage = null; this._wrapUp('drag') },
     })
@@ -561,21 +588,43 @@ export default class FaicheCourse {
       })
     })
   }
-  /** "Draw now." (the draw slot's first line), and once you have, the rest of it: what he makes of how you did it */
+  /** The draw, drilled: "Draw." / what he makes of it / "Put it away." -- DRAWS times, ending drawn.
+   *  The salute is held back till the next lesson, so a second swipe up can't salute by accident. */
   _drawNow() {
-    const S = SCRIPT.sword, lines = asList(S.draw || []).filter(Boolean)
-    if (!lines.length || this.m.enGarde) return this._finish('sword', 200)
-    this._faceLeft()
-    this._call(lines[0])
-    this._prompt('up')
-    this._goal({
-      hint: S.drawHint, after: this._holdOf(lines[0]),
-      on: n => n === 'enGarde',
-      done: () => {
-        this._prompt(null)
-        this._later(600, () => this._seq(lines.slice(1), () => this._finish('sword', 200)))     // captions: the blade stays out
-      },
-    })
+    const S = SCRIPT.sword, m = this.m
+    const call = asList(S.draw || [])[0], away = asList(S.sheathe || [])[0], said = asList(S.drawn || []).filter(Boolean)
+    if (!call) return this._finish('sword', 200)
+    m.noSalute = true
+    const step = i => {
+      if (i >= DRAWS) return this._finish('sword', 200)
+      const last = i === DRAWS - 1
+      this._faceLeft()
+      if (m.enGarde) { m.setEnGarde(false) }                    // (only if you were ahead of him)
+      this._call(call)
+      this._prompt('up')
+      this._goal({
+        hint: S.drawHint, after: this._holdOf(call),
+        on: n => n === 'enGarde',
+        done: () => {
+          this._prompt(null)
+          // what he makes of it: the next of his words; the last draw gets all that is left
+          const words = last ? said.slice(i) : said.slice(i, i + 1)
+          const t = this._seq(words)
+          if (last) return this._later(t + 200, () => step(i + 1))
+          this._later(t + 300, () => {
+            if (!away) return step(i + 1)
+            this._call(away)
+            this._prompt('down')
+            this._goal({
+              hint: S.sheatheHint, after: this._holdOf(away),
+              on: n => n === 'atEase',
+              done: () => { this._prompt(null); this._later(500, () => step(i + 1)) },
+            })
+          })
+        },
+      })
+    }
+    step(0)
   }
   _giveSword() {
     const sc = this.scene
@@ -614,6 +663,7 @@ export default class FaicheCourse {
   // No buttons at the end: the blade stays out, and the fatigue lesson follows.
   _calls() {
     const S = SCRIPT.calls, m = this.m
+    m.noSalute = false                               // now it is taught
     m.HOME = [...FIGHT_AT]
     this._faceLeft()
     const saluted = (n, d) => n === 'salute' && d?.by === 'player'
@@ -642,39 +692,57 @@ export default class FaicheCourse {
   }
 
   // ── fatigue: waste ───────────────────────────────────────────────────────
-  // "Come at me, then. Strike, strike, strike again." -- until you are winded.
-  // "Stop." And he asks what you learned (the card puts your blade away).
+  // He stands in as a target and turns every cut aside, till you are winded.
+  // "Stop." -- then what it was for (a card: no question, no buttons).
   _fatigue() {
     const S = SCRIPT.fatigue
-    this._faceLeft()
-    this._seq(S.intro)                             // captions: the blade stays out
-    this._goal({
-      after: this._lengthOf(S.intro), hint: S.hint,
-      on: name => name === 'winded',
-      tick: () => this._promptFor('tap'),
-      done: () => {
-        this._prompt(null)
-        this._call(S.stop)
-        this._later(this._holdOf(S.stop) + 300, () => this._wrapUp('fatigue'))
-      },
+    this._standIn(() => {
+      this._faceLeft()
+      this.dummyMode = 'parry'
+      this._seq(S.intro)
+      this._later(this._lengthOf(S.intro), () => this._hint(S.hint))
+      this._goal({
+        after: this._lengthOf(S.intro) + this._holdOf(S.hint), hint: S.hint,
+        on: name => name === 'winded',
+        tick: () => this._promptFor('tap'),
+        done: () => {
+          this.dummyMode = null
+          this._prompt(null)
+          this._call(S.stop)
+          this._later(this._holdOf(S.stop) + 300, () => this._wrapUp('fatigue'))
+        },
+      })
     })
   }
 
-  // ── strong: ready a strong attack ────────────────────────────────────────
-  // The first strong blow is corrected in a card ("Nay, not thus... the blow of
-  // water"); a blow struck after it counts as the second, and the lesson is done.
+  // ── strong: gather it, hold it, let it go ────────────────────────────────
+  // His words first (a card, the blade kept out), then one strong blow at him.
+  // Let go too soon and it is only a cut: he says so (tooSoon).
   _strong() {
     const S = SCRIPT.strong
     this._heal()
-    this._faceLeft()
-    if (S.intro) this._call(S.intro)
-    this._later(S.intro ? this._holdOf(S.intro) + 300 : 0, () => this._hint(S.hint))
-    this._goal({
-      need: 2, hint: S.hint, after: this._holdOf(S.intro) + this._holdOf(S.hint),
-      on: (name, d) => name === 'swing' && d.charged && !this.speaking,
-      onCount: n => { if (n === 1) this._later(700, () => this._speech(S.notThus, () => this._faceLeft(), { keepBlade: true })) },   // let the blow land first
-      tick: () => this._promptFor('hold'),
-      done: () => { this._prompt(null); this._later(900, () => this._wrapUp('strong')) },     // no `after` in the draft: straight on
+    this._standIn(() => {
+      this._faceLeft()
+      this.dummyMode = 'parry'
+      this._speech(S.intro, () => {
+        this._faceLeft()
+        this._hint(S.hint)
+        let gathering = false
+        this._goal({
+          hint: S.hint, after: this._holdOf(S.hint),
+          on: (name, d) => name === 'swing' && d.charged && !this.speaking,
+          other: (name, d) => {
+            if (name === 'chargeStart') gathering = true
+            else if (name === 'swing') { if (gathering && !d?.charged) this._say(S.tooSoon); gathering = false }
+          },
+          tick: () => this._promptFor('hold'),
+          done: () => {
+            this.dummyMode = null
+            this._prompt(null)
+            this._later(500, () => { this._say(S.good); this._later(this._holdOf(S.good) + 300, () => this._wrapUp('strong')) })
+          },
+        })
+      }, { keepBlade: true })
     })
   }
 
@@ -917,6 +985,7 @@ export default class FaicheCourse {
       this._parry(d.charged ? 600 : 380)
       if (this.dummyMode === 'score') this._score(d.charged ? PTS.strong : PTS.cut)
       else if (this.dummyMode === 'pass' && moving) this._goalAdd(1)
+      // 'parry': he turns it aside, and that is all (fatigue, strong)
     })
   }
   _score(n) {
@@ -1058,34 +1127,50 @@ export default class FaicheCourse {
     this._call(line, 2800)
   }
 
+  // The course's last lesson: a bout, and his work is done the moment you land a
+  // blow while time is slowed (bullet time: a line drawn at him, near him).
+  // Winning the bout another way counts too. `again`: the rematch, after the
+  // course -- win the bout, as it always was.
   _duel(again = false) {
     const S = SCRIPT.duel
     this._atMark(() => {
-      this.tells = 0; this.hitsMade = 0; this.coachAt = 0; this.saluted = true; this.reads = 0
-      // his talk before it, the first time only (not for a rematch, nor a bout had once more)
+      this.tells = 0; this.hitsMade = 0; this.coachAt = 0; this.saluted = true; this.reads = 0; this.plainHits = 0
       const open = go => (again || this.repeating === 'duel') ? go() : this._speech(S.intro, go)
       open(() => {
       this._call(S.go)
+      if (!again) this._later(this._holdOf(S.go) + 300, () => this._hint(S.focusHint))
       this.floor = again ? REMATCH_STAGE : 0
       this.round = this.floor
       this._boutOn(DUEL_ROUNDS[this.round])
+      const slowed = () => !!this.scene._melee?.focus?.on
       this._goal({
-        need: 1, hint: S.hint, after: this._holdOf(S.go), giveUp: DUEL_GIVE_UP_MS,
-        on: (name, d) => name === 'boutOver' && d.won,
+        need: 1, hint: again ? S.hint : (S.focusHint || S.hint), after: this._holdOf(S.go) + this._holdOf(S.focusHint), giveUp: DUEL_GIVE_UP_MS,
+        on: (name, d) => (name === 'boutOver' && d.won) || (!again && name === 'hit' && d.on === 'foe' && slowed()),
         tick: () => { const p = this.scene.player; if (!this.m.enGarde && !(p && p.currentHP < p.maxHP)) this._prompt('up'); else this._prompt(null) },     // no prompt while you mend
         other: (name, d) => {
-          // the first blow of a bout without a salute: he says so, once
           if (name === 'boutStart') this.saluted = false
           else if (name === 'salute' && d?.by === 'player') this.saluted = true
-          // (no scolding for a missing salute: he zooms off and salutes, up to three times: melee.js _remind)
           // he says little in a bout: only what the draft gives him. The sword business is the narrator's.
           if (name === 'touch') this._touched(d)
-          else if (name === 'hit' && d.on === 'foe') this._later(0, () => this._phase())
+          else if (name === 'hit' && d.on === 'foe') {
+            this._later(0, () => this._phase())
+            // landing blows without the slow: now and then, the narrator reminds you how to find it
+            if (!again && !slowed() && ++this.plainHits % 2 === 0) this._hint(S.focusHint)
+          }
           // your blow turned aside (not the salute reminder, which has no wind-up): "thy foot is telling me..." -- twice at most
           else if (name === 'parried' && d.by === 'foe' && d.wind !== undefined) { if (this.reads < 2 && Math.random() < 0.5) { this.reads++; this._coach(S.read, 6000) } }
           else if (name === 'disarm') this._hint(S.disarmHint)
         },
-        done: () => { this.m.peaceful = true; this._later(4600, () => { this._boutOff(); if (again) this._finish('duel', 0); else this._wrapUp('duel') }) },    // let him bow, and salute, first
+        done: () => {
+          this.m.peaceful = true
+          this._later(again ? 4600 : 1400, () => {
+            this._boutOff()
+            if (again) return this._finish('duel', 0)
+            // "There! Thou wert in the moment..." -- then the end of the lesson
+            const after = S.after
+            this._wrapUp('duel', { say: [...asList(S.moment || []), ...asList(after?.say ?? after ?? [])].filter(Boolean), ask: after?.ask })
+          })
+        },
       })
       })
     })
@@ -1168,6 +1253,7 @@ export default class FaicheCourse {
     this._zoneTick()
     for (const q of this.queue.slice()) if (this.t >= q.at) { this.queue.splice(this.queue.indexOf(q), 1); q.fn() }
     if (this._meetWait && !this.scene._encounterPanel?._isOpen && this._inSight()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
+    this._waitTick()
     this.drill?.update()
     this._standTick()
     this._homeTick()

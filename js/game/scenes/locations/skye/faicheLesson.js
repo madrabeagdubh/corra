@@ -56,6 +56,7 @@ import FigureSword, { figureAt } from '../../../combat/figureSword.js'
 import { SALUTE_MS, DRAW_MS } from '../../../combat/meleeView.js'
 import { SWORD_ID } from '../../../combat/meleeBout.js'
 import { VoiceSynth } from '../../../systems/voice/voiceSynth.js'
+import { INK } from '../../../ui/speakers.js'
 
 // Who speaks with what voice (voiceSynth.js), and in what key. The caption's
 // Irish line is what's spoken.
@@ -147,7 +148,7 @@ const HINTS = {
   form:   L('Step with the brooch; tap the moon to cut; hold it and let go for a strong blow.'),
   feet:   L('Drag a finger from yourself across the grass, past the dummy. Tap the moon as you go by.'),
 }
-const WARDEN_COLOR = '#c6d4ea', UATHACH_COLOR = '#ffb25c', HINT_COLOR = '#a9b3bd'
+const WARDEN_COLOR = INK.conall, UATHACH_COLOR = INK.uathach, HINT_COLOR = INK.narrator
 
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
 

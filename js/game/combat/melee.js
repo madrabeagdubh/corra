@@ -208,6 +208,7 @@ export default class Melee {
   // A salute (swipe up again, en garde). Between blows, at a distance, he
   // returns it. It takes the time it takes: you're open while you do it.
   salute() {
+    if (this.noSalute) return false                         // a lesson that hasn't taught it yet (the draw drill)
     if (!this.enGarde || !this.canAct() || this.p.downUntil > this.t) return false
     this.p.busyUntil = this.t + SALUTE_MS; this.p.busyKind = 'salute'
     this.saluted = true

@@ -64,6 +64,7 @@ import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { initReturnCrossing } from '../../returnCrossing.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import Landfall from './landfall.js'
+import { INK } from '../../../ui/speakers.js'
 
 const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
 const EXIT_DASH   = [18, 3]                         // north, toward the loch
@@ -125,7 +126,7 @@ export class SkyeCladach extends SkyeScene {
     // sea, seen when the dialogue camera pulls up.)
     if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = new Set(['south'])
 
-    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt(), color: '#c6d4ea' })
+    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt(), color: INK.conall })
     this._conall = this._findFigure(SKYE_GID.WARDEN)
     this._boat    = this._findFigure(SKYE_GID.BOAT)
     if (this._boat) this._boat.flag.hidden = true   // ShoreProps draws the boat; the flag is just for talking

@@ -21,6 +21,6 @@ import { LINES } from './courseLines.js'
 
 export const SCRIPT = LINES
 
-export const SALUTES = 4                   // how many salutes the calls lesson asks for ("Salute." then "Again." x3)
+export const SALUTES = 3                   // how many salutes the calls lesson asks for ("Salute." then "Again." x2)
 export const HINT_AFTER_MS = 14000         // a plain instruction, if a lesson stalls this long
 export const GIVE_UP_MS = 90000            // and after this, he lets it go and moves on

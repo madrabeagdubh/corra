@@ -297,7 +297,13 @@ export default class TextPanel {
 
   // -- Public --
 
+  /** The colour of the speaker's Irish in cards, for this conversation (ui/speakers.js inkFor); null for the default. */
+  setSpeakerInk(ink) { this._speakerInk = ink || null }
+
   show(config) {
+    // Words in a card: any caption over the action steps aside first, so the
+    // two never overlay (SkyeCaption listens).
+    try { window.dispatchEvent(new CustomEvent('textPanelShow')) } catch (_) {}
     // Throw the world out of focus so the text is the only sharp thing.
     // Safe if the scene has no tilt-shift; safe to call repeatedly.
     this.scene?.tiltShift?.setDialogueMode(true)
@@ -899,7 +905,7 @@ export default class TextPanel {
         const el = this.scene.add.text(rowX, bodyTop + cy, ga, {
           fontSize:   TYPE.cardBody.size,
           fontFamily: TYPE.cardBody.font,
-          color:      isHero ? SPEAKER_COLOR : IRISH_COLOR,
+          color:      isHero ? SPEAKER_COLOR : (this._speakerInk || IRISH_COLOR),   // the speaker's own colour (ui/speakers.js), if they have one
           wordWrap:   { width: blockW },
           align:      rowAlign,
           lineSpacing: TYPE.cardBody.lineSpacing,

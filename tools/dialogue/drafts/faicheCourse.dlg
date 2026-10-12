@@ -52,6 +52,9 @@ Art thou ready?
 % Tá mé.
 < Good.
 % Go maith.
+* Not yet.
+% Ní go fóil.
+@value wait
 
 # a caption, as he calls you to the marked stone
 = stand
@@ -61,45 +64,11 @@ Now. Stand here.
 
 # a card, once you are on it
 = stance
-Stand thus, neither too wide, nor too narrow.
-% Seas mar seo, ní ró-leathan, is ní ró-chúng.
 Stand not on thy heels, nor on thy toes.
 % Ná seas ar do shále, ná ar do bharraicíní.
 
-Stand upon the ground, if you get me.
-%Seas ar an tallamh, a dtuigeann tú.
-
 All else is built upon it.
 % Sin an bunchloch
-
-# ══════════════════════════════════════════════════════════════════════
-== drag
-# He draws a line on the ground and walks it; then you draw yours, twice.
-
-= intro
-Now. The movement.
-% Anois. An ghluaiseact.
-
-
-# as he walks the line
-= following
-See it?
-% An bhfeiceann tú?
-
-= you
-Now thy turn. 
-% Tusa anois. 
-
-
-# after the first line you draw
-= good
-Again.
-% Arís.
-
-= after
-Good enough
-% Sásúil
-
 
 # ══════════════════════════════════════════════════════════════════════
 == space
@@ -110,8 +79,6 @@ Good enough
 
 Move. But do not flee.
 % Gluais. Ach ná teith.
-Find space between us.
-% Aimsigh spás eadrainn.
 
 # each time you get clear (one picked in turn)
 = good
@@ -130,14 +97,15 @@ Now press me, until I am brought to my knee.
 Come, then. Knock me down.
 % Ar aghaidh, mar sin. Leag mé.
 
+
 # each shove that lands, before the last
 = shoved
 Again.
 % Arís.
 
 = after
-There it is. Thou hast done it, and no blade yet drawn between us.
-% Sin agat é. D'éirigh leat, gan aon chlaíomh tarraingthe eádrainn fós.
+There it is. 
+% Sin agat é. 
 Poor footing, half the battle.
 % Droch-sheasamh, leath an chatha.
 # ══════════════════════════════════════════════════════════════════════
@@ -152,14 +120,23 @@ Now.
 # a card, once you've caught it (empty: none)
 = caught
 
-# the first line is the call: you draw. The rest come once you have, as captions,
-# with the blade out -- and it stays out through the salute lesson that follows.
+# THE DRAW, DRILLED: draw / (his word on it) / put it away -- three draws, ending
+# drawn. The salute is held back till the next lesson. The moon shows each gesture.
+
+# the call, each time
 = draw
 Draw now.
 % Tarraing anois.
 
-Too much wrist. Too much shoulder. Art thou pulling a net from the sea?
-% An iomarca ón caol. An iomarca ón gualainn. An ag tarraingt líon ón bhfarraige atá tú?
+# the call to put it away, between draws
+= sheathe
+Sheathe it.
+% Truaill é.
+
+# after each draw, the next of these (a caption); the last draw gets all that's left
+= drawn
+Too much wrist.
+% An iomarca ón caol. 
 
 Thy feet! Where are thy feet?
 % Do chosa! Cá bhfuil do chosa?
@@ -167,9 +144,6 @@ Thy feet! Where are thy feet?
 
 Stand with esteem. 
 % Seas le gean. 
-
-Once drawn, the blade does not sheathe itself from fear.
-% Nuair a tharraingítear í, ní théann an lann ar ais ina truaill le heagla.
 
 
 #
@@ -184,15 +158,12 @@ Once drawn, the blade does not sheathe itself from fear.
 Now we salute
 % Anois, beannaímid
 
-Salute not to thine enemy's honour.
-% Ní chuig honóir do namhaid a bheannaíonn tú.
+Salute inward, salute in the heart.
+% Beannaigh go hinmheánach, beannaigh sa chroí.
 
-A salute is a word spoken inward, to thyself alone.
-% Is é an beannú focal a labhraítear isteach i do chroí féin amháin.
-
-I enter with clear mind and clean intent.
-% Ar aghaidh liom le aigne ghlan is le intinn soléir.
-Whatever blood I spill here, I do so with open eyes.
+I enter with clean intent.
+% Ar aghaidh liom le intinn glan.
+What blood I spill here, I do so with open eyes.
 % Cibé fuil a dhoirtim anseo, deanaim sin le shúile oscailte.
 
 # the first call
@@ -208,17 +179,18 @@ Again.
 
 = enough
 It will do.
-% Déanfaidh sé an gnó.
+% Is leoir sin.
 
 
 # ══════════════════════════════════════════════════════════════════════
 == fatigue
-# Strike until you're winded. "Stop." Then what you learned.
+# He stands in as a target and turns every cut aside, till you're winded. "Stop."
+# Then what it was for.
 
 # captions: the blade stays out
 = intro
-Come at me, then.
-% Tar orm, mar sin.
+Come to me, then.
+% Tar chugam, mar sin.
 Strike, strike, strike again.
 % Buail, buail, buail arís.
 
@@ -226,73 +198,24 @@ Strike, strike, strike again.
 Stop.
 % Stad.
 
+
+# a card, once you're winded and he's said "Stop." (no buttons)
 = after
-What hast thou taught thyself this hour?
-% Cén ceacht a mhúin tú duit féin san uair seo?
-* That I tire.
-% Go dtagann an tuirse orm.
-@goto core
-* That every blow costs.
-% Go bhfuil costas ar gach buille.
-@goto core
-* I do not know.
-% Níl fhios agam.
-@goto core
+That is the point.
+% Sin an pointe.
+It is not a question of strength.
+% Ní hé an neart an cheist.
+Seek stillness, not frenzy.
+% Lorg suaimhneas, ní mire.
+The great sin of the Gaelic blade is not cowardice 
+% Ní hé an téagala an peaca ar chlaíomh na nGael 
 
-= core
-This is the heart of it.
-% Sin é croí na ceiste.
-Strength is not the gift we seek.
-% Ní hí an neart an bua a lorgaimid.
-We seek the stillness behind the eyes.
-% Lorgaimid an t-suaimhneas atá taobh thiar de na súile.
-The great sin of the Gaelic blade is not cowardice. It is waste.
-% Ní hé an t-eagala an peaca ar claíomh na nGael. Is é an cur amú é.
-Better strike once and truly, rather than ten times in hope.
-% Is fearr buille amháin cruinn a bhualadh ná deich mbuille le dóchas.
-* I am ready.
-% Tá mé réidh.
-* Once more.
-% Arís amháin.
-@value again
-
-
-# ══════════════════════════════════════════════════════════════════════
-== strong
-# A strong blow (hold the moon). The first is corrected; the second goes on.
-
-
-# a card, after the first strong blow
-= notThus
-Nay, not thus.
-% Ní mar sin, ní hea.
-Not with the arm locked tight as a gate-bar.
-% Ní leis an ngéag glasáilte chomh daingean le barra geata.
-Loose thy wrist.
-% Scaoil chaol do láimhe. 
-
-# (no `after` slot: it runs on into the dummy. Add one, with buttons, and it will be used.)
-
+But wastefulness
+%Ach diomailt
 
 # ══════════════════════════════════════════════════════════════════════
 == dummy
-# He stands in for the training dummy, turns everything aside, and knows
-# what would have landed.
 
-= intro
-Thy wrist. Loosen it. The blade must speak
-% Chaol do láimhe. Scaoil é. Caithfidh an lann labhairt ar do shon
-
-and no tongue speaks well 
-% is ní labhrann aon teanga go maith 
-
-through a clenched jaw.
-% tríd giall fásctha.
-
-
-
-Loose it as thou wouldst loose a hound from leash.
-% Scaoil é mar a scaoilfeá cú ó iall.
 
 # captions, over the play: the first blow that would have landed
 = landed
@@ -300,38 +223,21 @@ Thus. Dost thou see?
 % Mar seo. An bhfeiceann tú?
 
 = after
-Thy feet betray thee.
-% Feallann do chosa ort.
 Look. Rooted as an oak. No. No.
 % Féach. Fastaithe mar dhair. Ní hea. Ní hea.
 Move thus. And thus.
 % Bog mar seo. Agus mar seo.
-* I am ready.
-% Tá mé réidh.
-* Once more.
-% Arís amháin.
-@value again
 
 
 # ══════════════════════════════════════════════════════════════════════
 == feet
-# Cut him while walking a drawn line past him: three passes. He counts.
+# Cut him as you pass, on the move (the d-pad will do): two passes. He counts.
 
 = intro
-Tell me this, What use is a fine blade to a standing stone?
-% Cén mhaith lann bhreá do chloch sheasaimh?
 
 Move, and move again.
 % Gluais, agus gluais arís.
 
-Step left when their eye says right.
-% Céim ar chlé nuair a deir a súil ar dheis.
-
-Step back when their shoulders say forward.
-% Céim ar gcúl nuair a deir a nguaillí ar aghaidh.
-
-Great the fool who stands to trade blow for blow with the foe of equal iron.
-% Mór an amadán a sheasann buille ar bhuille i gcoinne naimhead an comh-iarainn.
 
 Woe to him who remains where the sword expects to find him.
 % Is mairg an té ag feiteamh áit a bhfuil an lann ag súil leis.
@@ -340,67 +246,104 @@ Woe to him who remains where the sword expects to find him.
 Come at me.
 % Tar chugam.
 
-# the first and second passes (the third opens the card below)
+
+# the first pass (the second opens the card below)
 = count
 One.
 % A haon.
-Two.
-% A dó.
 
 = after
-Three.
-% A trí.
-Dost thou see? I have not retreated from thee.
-% An bhfeiceann tú? Níor chúlaigh mé uait.
-A man who steps backward loses ground he may never recover.
-% An ti a thógas céim ar gcúl, cailleann sé talamh nach ngabhfaidh sé ar ais go deo b'fhéidir.
-Step to the side. Step to the inside of his blade-arm, and thou art safe while he swings at empty air.
-% Tóg céim ar leataobh. Tóg céim chuig taobh istigh dá ghéag claoímh, is tá tú slán fad a bhíonn seisean ag luascadh i gcoinne an taer fholamh.
-* I am ready.
-% Tá mé réidh.
-* Once more.
-% Arís amháin.
-@value again
+Two.
+% A dó.
+Step to the side. 
+Tóg céim ar leataobh.
+
+Step outside his blade-arm, 
+Tóg céim chuig taobh amuigh dá ghéag claoímh, 
+
+and thou art safe.
+% is beidh tú slán.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== drag
+# Only now, near the end: drawing a line to walk. He draws one on the ground and
+# walks it; then you draw yours, twice. (Till this lesson a drawn line does nothing,
+# so it can't carry you off by accident in the lessons before.)
+
+= intro
+Now. The movement.
+% Anois. An ghluaiseact.
+
+
+# as he walks the line
+= following
+See it?
+% An bhfeiceann tú?
+
+= you
+Now thy turn. 
+% Tusa anois. 
+
+
+
+# after the first line you draw
+= good
+Again.
+% Arís.
+
+= after
+Good enough
+% Sásúil
 
 
 # ══════════════════════════════════════════════════════════════════════
 == duel
-# A real bout, three rounds, gently. Lose and you mend and go again.
+# The last lesson: a bout. Draw a line at him; as you near him, time slows
+# (bullet time). Land a blow in that slow, and his work is done.
 
 = intro
-Now. Thy footwork. Once more.
-% Anois. Do shaothar coise. Arís amháin.
-Heel first. Wrist loose. Step to the inside.
-% An tsáil ar dtús. An caol láimhe scaoilte. Tóg céim ar an taobh istigh.
-Again. From the beginning.
-% Arís. Ón tús.
+Now. Thy footwork.
+% Anois. Do shaothar coise.
+
 
 = go
-Come at me.
+Come to me.
 % Tar chugam.
 
 
-# when he turns your blow aside (twice at most)
-= read
-Thy foot is telling me where you are going.
-% Tá do chos ag insint dom cá bhfuil do thríal.
 
 
-= after
+# the blow landed in the slow: these, then `after`, as one card
+# (NEW LINES: English placeholders)
+= moment
+There! Thou wert there.
+% Mar sin! Bhí tú ann.
+Time is a roaring chaos,
+% búiríl chíor thuathail an t-ám
+yet strange the mystery of it. 
+% ach is aisteach an t-iontas é.
+Battle may be as the rushing of the Boyne 
+% Beidh an cath mar tulce na Bóinne
+
+And yet in the red work,
+% Ach fós i measc an obair dhearg,
+
+The mind becomes a dwelling that others cannot reach.
+% Seasann an aigne i nglan-radharc ar an taobh eile.
+
+after
 Thou hast the making of it.
 % Tá an t-ábhar ionat.
 Enough.
 % Is leoir sin.
-* Thank you.
-% Go raibh maith agat.
-* Again.
-% Arís.
-@value again
 
 
 # ══════════════════════════════════════════════════════════════════════
 == end
-# The course is done: the green is open. (Narrator until Conall has words for it.)
+# The course is done: the green is open. Give Conall an `= intro` (a card) to
+# say it himself; the narrator's line follows it either way.
+
 
 
 

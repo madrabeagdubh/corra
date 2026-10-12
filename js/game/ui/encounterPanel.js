@@ -31,6 +31,7 @@ import { SoundBoard }    from '../systems/soundBoard.js'
 import { announceQuest } from '../systems/quests.js'
 import { DialogueHarp } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
+import { inkForZone }   from './speakers.js'
 import { MoonPeek }     from '../systems/moonPeek.js'
 
 const BADGE_FADE_MS   = 400
@@ -383,6 +384,7 @@ clearNotify() {
     if (this._card.onActivate) return this._activateBadge()      // a tap on the moon does the same
 
     const zone = this._active
+    try { this._scene?.textPanel?.setSpeakerInk?.(inkForZone(zone)) } catch (e) {}     // their Irish in their own colour
     const type = zone?.getData('type')
 
     // The tune's home note instead of the old synth buzz: it sets the key for
@@ -1188,6 +1190,7 @@ clearNotify() {
     // background fade out (it is deliberately kept alive between choices).
     this._scene?.joystick?.showDirections?.()
     this._scene?.textPanel?.releaseChrome?.()
+    this._scene?.textPanel?.setSpeakerInk?.(null)
     this._isOpen     = false
     this._choiceMade = false
     this._card       = null

@@ -810,6 +810,14 @@ const SYNTH = {
     o.frequency.setValueAtTime(on ? 260 : 70, now); o.frequency.exponentialRampToValueAtTime(on ? 70 : 240, now + 0.28)
     g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(vol, now + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.32)
     o.connect(f).connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.36)
+    if (!on) return
+    // and going in, one low string, left to ring through the slow
+    for (const [hz, type, k] of [[73.42, 'triangle', 1], [146.83, 'sine', 0.35], [220.0, 'sine', 0.12]]) {
+      const so = ctx.createOscillator(), sg = ctx.createGain(), t = now + 0.03
+      so.type = type; so.frequency.setValueAtTime(hz, t)
+      sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(vol * 0.7 * k, t + 0.008); sg.gain.exponentialRampToValueAtTime(0.0005, t + 2.6)
+      so.connect(sg).connect(ctx.destination); so.start(t); so.stop(t + 2.7)
+    }
   },
 
   FOCUS_BEAT(ctx, opts = {}) {

@@ -12,7 +12,7 @@
 // over the finished frame, so it sits on top of figures. The foe himself is
 // a real PGR billboard (meleeBout.js), sorted with the player as normal.
 
-import { rig, SWORD_SCALE, drawHeldSword } from './swordRig.js'
+import { rig, SWORD_SCALE, drawHeldSword, cutPose, guardPose, cutSmear } from './swordRig.js'
 import { figureBox, dustPuff, speedLines, whoosh } from '../scenes/locations/skye/dustDash.js'
 // the Skye figures are billboards 1.2 tiles tall with the hand ~0.42 up; this
 // scale puts swordRig's hand and sword where they belong on them
@@ -108,7 +108,7 @@ export default class MeleeView {
     const drawnNow = (m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady) && !foe.sheathed    // foeReady: held out, a drill; sheathed: he only shoves
     if (drawnNow !== A.foeDrawn) { A.foeDrawn = drawnNow; if (drawnNow) A.foeDrawT = now; else A.foeSheatheT = now }
     const aim = foe.target ? this.screenAngle([foe.c, foe.r], foe.target) : this.screenAngle([foe.c, foe.r], m.pa.tile())
-    const raised = -90 + Math.max(-45, Math.min(45, ((aim + 90 + 540) % 360) - 180)) * 0.5
+    const gp = guardPose(aim, fs, now), raised = gp.angle                         // on guard: the point at you, breathing
     const R = rig(fs, FOE_PS)
     let pose = null
     if (!foe.armed) pose = 'none'                                                 // it's in the grass, or in your hand
@@ -122,25 +122,30 @@ export default class MeleeView {
       if (kg < 0.35) pose = { sheath: easeOut(kg / 0.35) }
       else { const k = easeOut((kg - 0.35) / 0.65), st = R.gripAt(1); pose = { angle: lerp(R.axisDeg, raised - fs * 360, k), hand: [st[0] * (1 - k), st[1] * (1 - k)] } }
     } else {
-      let ang
-      if (foe.state === 'wind') {                                                // the tile is red: the blade comes up and back to the cutting position
-        const tgt = aim + 150 * fs, k = easeOut(clamp01((t - foe.st0) / Math.max(1, (foe.until - foe.st0) * 0.5)))
-        ang = raised + wrap180(tgt - raised) * k
+      let ang, hand = null, smear = null
+      const cut = q => cutPose(q, aim, fs, false)
+      if (foe.state === 'wind') {                                                // the tile is red: the blade lifts, high and back
+        const p = cutPose(0.36 * easeOut(clamp01((t - foe.st0) / Math.max(1, (foe.until - foe.st0) * 0.6))), aim, fs, false)
+        ang = p.angle; hand = p.hand
       }
-      else if (foe.state === 'strike') ang = this.swingAngle(aim, 0.4 + 0.6 * Math.min(1, (t - foe.st0) / m.F.strikeMs), false)
+      else if (foe.state === 'strike') {                                         // driven through you, and round
+        const k = 0.36 + 0.64 * Math.min(1, (t - foe.st0) / m.F.strikeMs), p = cut(k)
+        ang = p.angle; hand = p.hand; smear = cutSmear(cut, k, 0.36)
+      }
       else if (foe.state === 'recover' && foe.follow) {                           // the cut carried through, held a moment, then back to guard
-        const end = this.swingAngle(aim, 1, false), k = clamp01((t - foe.st0) / Math.max(1, foe.until - foe.st0))
-        ang = end + wrap180(raised - end) * easeIO(clamp01((k - 0.3) / 0.5))
+        const end = cut(1), k = easeIO(clamp01((clamp01((t - foe.st0) / Math.max(1, foe.until - foe.st0)) - 0.3) / 0.5))
+        ang = end.angle + wrap180(raised - end.angle) * k; hand = [lerp(end.hand[0], gp.hand[0], k), lerp(end.hand[1], gp.hand[1], k)]
       }
       else if (foe.state === 'recover' || foe.state === 'stagger') ang = 90 + fs * 30   // dropped: open
       else if (foe.state === 'reel') ang = m.foeGuard ? this._parryAngle(foe, raised) : aim + 120 * fs   // turned aside; as a target, a parry
       else if (foe.state === 'salute') ang = this._saluteAngle(now - A.foeSaluteT, fs, raised)
       else if (foe.state === 'down') ang = 90 + fs * 60                           // on the ground with him
-      else ang = m.combat || m.foeGuard ? raised : 90 + fs * 20
+      else if (m.combat || m.foeGuard) { ang = raised; hand = gp.hand }
+      else ang = 90 + fs * 20
       const pk = (now - A.foeParryT) / 260                                          // turning your blow aside
       if (pk >= 0 && pk < 1) ang = this._cross(raised, fs, pk, A.foeParryHigh)
       const sh = foe.state === 'salute' ? this._saluteHand(now - A.foeSaluteT, fs, 0.9, 0.42) : [0, 0]
-      pose = { angle: ang, hand: [sh[0] * ff.h / ff.w, sh[1] * ff.h / ff.w] }      // the rig takes the hand in tile widths
+      pose = { angle: ang, hand: hand && !(pk >= 0 && pk < 1) ? hand : [sh[0] * ff.h / ff.w, sh[1] * ff.h / ff.w], smear }      // the rig takes the hand in tile widths
     }
     const img = this.scene.itemSheet?.getCanvas?.(m.F.swordGid || 2492)
     if (pose !== 'none' && img) drawHeldSword(ctx, img, { x: ff.x, y: ff.y, w: ff.w, ps: FOE_PS, side: fs, pose })
@@ -156,11 +161,47 @@ export default class MeleeView {
     ctx.fillStyle = `rgba(30,60,120,${0.12 * u})`; ctx.fillRect(0, 0, W, H)           // a cool wash over everything
   }
 
+  // ── focus: motes hanging in the air ──────────────────────────────────────
+  // Specks of dust and seed in the air round the two of you, fixed to the
+  // ground (tile, and height above it) so they stay put as you move and the
+  // camera follows, drifting on the world's slow clock: time, nearly stopped.
+  _spawnMotes() {
+    const [pc, pr] = this.m.pa.tile(), [fc, fr] = this.m.noFoe ? [pc, pr] : this.m.foeDrawPos()
+    const mc = (pc + fc) / 2 + 0.5, mr = (pr + fr) / 2 + 0.5
+    this.motes = Array.from({ length: 14 }, () => ({
+      c: mc + (Math.random() * 2 - 1) * 3, r: mr + (Math.random() * 2 - 1) * 2.5,   // tiles
+      h: 0.15 + Math.random() * 1.6,                                                // above the ground, in tile widths
+      vc: (Math.random() * 2 - 1) * 0.05, vr: (Math.random() * 2 - 1) * 0.03, vh: -(0.02 + Math.random() * 0.05),   // tiles a (world) second
+      size: 0.01 + Math.random() * 0.018, ph: Math.random() * Math.PI * 2, warm: Math.random() < 0.3,
+    }))
+    this._moteT = this.now()
+  }
+  _drawMotes(ctx) {
+    if (!this.motes) return
+    const u = Math.min(1, (1 - (this.m.focusK ?? 1)) / 0.82)
+    if (u <= 0.01) { this.motes = null; return }
+    const g = this.pgr, now = this.now(), dt = Math.min(0.1, (now - this._moteT) / 1000)
+    this._moteT = now
+    ctx.save()
+    for (const d of this.motes) {
+      d.c += d.vc * dt; d.r += d.vr * dt; d.h += d.vh * dt
+      if (d.h < 0.05) d.h += 1.6                                 // settled: another, up in the air
+      const p = this.ground(d.c + 0.04 * Math.sin(now / 1100 + d.ph), d.r)
+      if (!p) continue
+      const sc = g._scaleAtRow(d.r)
+      const tw = 0.55 + 0.45 * Math.sin(now / 700 + d.ph * 3)   // a slow twinkle, on the world's clock
+      ctx.fillStyle = d.warm ? `rgba(255,236,190,${0.45 * u * tw})` : `rgba(215,232,255,${0.45 * u * tw})`
+      ctx.beginPath(); ctx.arc(p[0], p[1] - d.h * sc, Math.max(0.7, d.size * sc), 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.restore()
+  }
+
   // ── events from the fight ────────────────────────────────────────────────
   onEvent(name, d = {}) {
     const buzz = ms => { try { navigator.vibrate?.(ms) } catch (_) {} }, A = this.a, now = this.now()
     if (['swing', 'chargeStart', 'enGarde', 'atEase'].includes(name)) A.idleSince = now
     switch (name) {
+      case 'focus': if (d.on) this._spawnMotes(); break
       case 'swing': buzz(d.flip ? 7 : 12); break
       case 'enGarde': A.garde = now; A.nextFlourish = now + 5000 + Math.random() * 4000; break
       case 'atEase': A.ease = now; break
@@ -319,6 +360,7 @@ export default class MeleeView {
     if (!this.pgr) return
     ctx.save()
     if (m.focusK < 0.97) this.focusVeil(ctx)
+    this._drawMotes(ctx)
 
     // your target: a quiet gold outline
     if (m.combat) this.tileQuad(ctx, m.targetTile(), null, 'rgba(245,208,96,0.6)', 1.5)
@@ -332,12 +374,7 @@ export default class MeleeView {
 
     const ff = this.foeFigure(), pf = this.playerFigure()
     // (his sword is painted with his billboard -- foeSword, from flag.draw -- so it sorts against you; here only the smear of his cut)
-    if (ff && !m.noFoe && (foe.hp > 0 || m.F.steady) && foe.state === 'strike' && foe.armed && this.a.foeDrawn && this.now() - this.a.foeDrawT >= DRAW_MS) {
-      const fs = pf && pf.x < ff.x ? -1 : 1
-      const hand = [ff.x + fs * ff.w * 0.14, ff.y - ff.h * 0.42]
-      const aim = foe.target ? this.screenAngle([foe.c, foe.r], foe.target) : this.screenAngle([foe.c, foe.r], m.pa.tile())
-      this.swingArc(ctx, hand, aim, 0.4 + 0.6 * Math.min(1, (t - foe.st0) / m.F.strikeMs), ff.w * 1.1, false, false)
-    }
+    // (the blur of his cut is swept by his blade itself: foeSword's pose.smear)
     // his sword: flying, spinning, from his hand to where it lands -- then lying in the grass
     if (m.dropped) {
       const d = m.dropped, k = clamp01((t - d.t0) / d.ms)
@@ -361,12 +398,10 @@ export default class MeleeView {
       const side = this.side(), PS = this.pgr.constructor.PLAYER_SCALE ?? 1
       this.sword(ctx, [pf.x - side * pf.w * 0.22 * PS, pf.y - pf.h * 0.38], 90 - side * 12, pf.w * PS)
     }
-    // your cut: the smear only -- PGR draws your sword, posed by weaponPose()
-    if (m.swing && pf) {
+    // your spin: its ring of blur (a cut's blur is swept by the blade itself: weaponPose().smear; PGR draws your sword)
+    if (m.swing?.charged && pf) {
       const k = Math.max(0, Math.min(1, (t - m.swing.t0) / m.swing.vis))
-      const sdir = this.screenAngle(m.pa.tile(), m.swing.tile)
-      if (m.swing.charged) this.spinSmear(ctx, [pf.x, pf.y - pf.h * 0.4], sdir, k, pf.w * 0.95)      // a full turn: a ring round you
-      else this.swingArc(ctx, this.playerHand(pf), sdir, k, pf.w * 1.15, m.swing.flip, false)
+      this.spinSmear(ctx, [pf.x, pf.y - pf.h * 0.4], this.screenAngle(m.pa.tile(), m.swing.tile), k, pf.w * 0.95)
     }
     this._drawClangs(ctx, pf, ff)
     // the charge: a ring round your feet, white and pulsing when full
@@ -675,7 +710,14 @@ export default class MeleeView {
     const lowered = 90 + side * 20
     const [fc, fr] = [m.foe.c, m.foe.r]
     const toFoe = this.screenAngle(m.pa.tile(), [fc, fr])
-    const guard = m.combat ? -90 + Math.max(-45, Math.min(45, wrap180(toFoe + 90))) * 0.45 : -90 + side * 15
+    // on guard near him: the point at his eyes, breathing, a feint now and then; further off, held high
+    const facing = !m.noFoe && m.foe.hp > 0 && (m.combat || m.cheb() <= 5)
+    if (facing && m.combat && !m.swing && !m.moving() && now >= (A.nextFeint || 0) && now - A.idleSince > 1500) {
+      A.feint = now; A.nextFeint = now + 3500 + Math.random() * 3500
+    }
+    const fk = (now - (A.feint ?? -1e9)) / 380, feint = fk >= 0 && fk < 1 ? Math.sin(Math.PI * fk) : 0
+    const gp = facing ? guardPose(toFoe, side, now, feint) : { angle: -90 + side * (15 + 3 * Math.sin(now / 650)), hand: [0, -0.012 * Math.sin(now / 650 + 1)] }
+    const guard = gp.angle
     // Putting it away: the point turned down onto the scabbard's line, the
     // hand brought to its mouth -- then the blade slid home.
     if (!m.enGarde) {
@@ -691,11 +733,19 @@ export default class MeleeView {
     const pk = (now - A.pParryT) / 260                                              // turning his blow aside
     if (pk >= 0 && pk < 1 && !m.swing) return { angle: this._cross(guard, this.foeSide() > 0 ? 1 : -1, pk, A.pParryHigh), hand: [0, (A.pParryHigh ? -0.04 : 0.1) * Math.sin(Math.PI * Math.min(1, pk * 1.4))] }
     if (m.swing) {
-      const k = (m.t - m.swing.t0) / m.swing.vis
-      const dir = this.screenAngle(m.pa.tile(), m.swing.tile)
-      // the spin: the blade right round, its hand brought in to the middle of the body
-      if (m.swing.charged) return { angle: this._squash(dir + SPIN_FROM + 360 * spinS(k)), hand: [-side * 0.2 * (this.pgr?.constructor.PLAYER_SCALE ?? 1), 0] }
-      return { angle: this.swingAngle(dir, k, m.swing.flip) }
+      const sw = m.swing, k = (m.t - sw.t0) / sw.vis, kMin = ((sw.born ?? sw.t0) - sw.t0) / sw.vis
+      const dir = this.screenAngle(m.pa.tile(), sw.tile)
+      // the spin: the blade right round, its hand brought in to the middle of the body (its blur: spinSmear, in draw)
+      if (sw.charged) {
+        const pose = { angle: this._squash(dir + SPIN_FROM + 360 * spinS(k)), hand: [-side * 0.2 * (this.pgr?.constructor.PLAYER_SCALE ?? 1), 0] }
+        A.swEnd = { pose, t: now }
+        return pose
+      }
+      // a cut: lifted high, driven through, carried round; the backhand rises back to high
+      const at = q => cutPose(q, dir, side, sw.flip)
+      const pose = { ...at(k), smear: cutSmear(at, k, kMin) }
+      A.swEnd = { pose: at(k), t: now }
+      return pose
     }
     if (m.charge) return { angle: -90 - side * (35 + 35 * m.chargeK()) }
     // Drawing it: the blade slid clear of the scabbard first, then swept up
@@ -715,8 +765,15 @@ export default class MeleeView {
     // standing en garde out of a bout a while: now and then, a flourish
     if (!m.combat && !m.charge && now >= A.nextFlourish && now - A.idleSince > 3500 && !m.moving()) { A.flourish = now; A.nextFlourish = now + 6000 + Math.random() * 5000 }
     const kf = (now - A.flourish) / 650
-    if (kf < 1) return { angle: guard + side * 360 * easeIO(kf) }
-    return { angle: guard }
+    if (kf < 1) return { angle: guard + side * 360 * easeIO(kf), hand: gp.hand }
+    return this._recover(gp)
+  }
+  // a cut just finished (or broken off): the blade comes back to guard rather than jumping there
+  _recover(target) {
+    const e = this.a.swEnd, u = e ? (this.now() - e.t) / 240 : 1
+    if (!e || u >= 1 || u < 0) return target
+    const k = easeIO(u), from = e.pose, fh = from.hand || [0, 0], th = target.hand || [0, 0]
+    return { angle: from.angle + wrap180(target.angle - from.angle) * k, hand: [lerp(fh[0], th[0], k), lerp(fh[1], th[1], k)] }
   }
 
   // The camera sits behind you, so a foe straight ahead is hidden by your

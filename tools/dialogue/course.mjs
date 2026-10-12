@@ -46,6 +46,10 @@ let lesson = null, slot = null, opt = null
 let last = null            // the line a % would translate: { obj } with en/ga
 
 const line = en => ({ en, ga: en })
+const warnings = []
+const warn = (n, msg) => warnings.push(`${SRC}:${n}: ${msg}`)
+const untranslated = []          // [lineNo, text]: English lines with no % under them
+let pendingEn = null
 
 src.forEach((raw, i) => {
   const n = i + 1
@@ -53,6 +57,7 @@ src.forEach((raw, i) => {
   if (!s || s.startsWith('#')) return
 
   if (s.startsWith('%')) {
+    pendingEn = null
     if (!last) return err(n, '% with no line above it to translate')
     const ga = s.slice(1).trim()
     if (ga) last.ga = ga
@@ -60,6 +65,9 @@ src.forEach((raw, i) => {
     return
   }
   last = null
+  if (pendingEn) untranslated.push(pendingEn)
+  pendingEn = null
+  if (s.includes('\\')) warn(n, 'a backslash -- shown on screen as it is (no escaping is needed here)')
 
   if (s.startsWith('@out ')) { out = s.slice(5).trim(); return }
   if (s.startsWith('== ')) {
@@ -79,13 +87,13 @@ src.forEach((raw, i) => {
 
   if (s.startsWith('* ')) {
     opt = { ...line(s.slice(2).trim()), value: 'on', _speak: [], _reply: [], _goto: null, _n: n }
-    slot.ask.push(opt); last = opt
+    slot.ask.push(opt); last = opt; pendingEn = [n, s]
     return
   }
   if (s.startsWith('> ') || s.startsWith('< ')) {
     if (!opt) return err(n, `${s[0]} outside a button (*)`)
     const l = line(s.slice(2).trim())
-    ;(s[0] === '>' ? opt._speak : opt._reply).push(l); last = l
+    ;(s[0] === '>' ? opt._speak : opt._reply).push(l); last = l; pendingEn = [n, s]
     return
   }
   if (s.startsWith('@value ')) { if (!opt) return err(n, '@value outside a button'); opt.value = s.slice(7).trim(); return }
@@ -94,8 +102,15 @@ src.forEach((raw, i) => {
 
   if (opt) return err(n, 'a plain line after a button: put Conall\'s reply on a < line, or start a new slot')
   const l = line(s)
-  slot.say.push(l); last = l
+  slot.say.push(l); last = l; pendingEn = [n, s]
 })
+if (pendingEn) untranslated.push(pendingEn)
+
+// a draft that has Irish elsewhere: an English line with none is probably a slip (a comment missing its #?)
+const translated = src.filter(l => l.trim().startsWith('%') && l.trim().length > 1).length
+if (translated) for (const [n, t] of untranslated) warn(n, `no % line under "${t.slice(0, 50)}" -- a comment missing its # ?`)
+for (const [ln, slots] of Object.entries(lessons))
+  for (const [sn, sl] of Object.entries(slots)) if (!sl.say.length && !sl.ask.length) warnings.push(`${SRC}: ${ln}.${sn} is empty (it will not be said)`)
 
 if (!out) errors.push(`${SRC}: no @out line`)
 
@@ -126,6 +141,7 @@ for (const [ln, slots] of Object.entries(lessons)) {
   for (const sn of Object.keys(slots)) LINES[ln][sn] = node(ln, sn)
 }
 
+warnings.forEach(w => console.warn('warning: ' + w))
 if (errors.length) { errors.forEach(e => console.error(e)); process.exit(1) }
 
 const count = Object.values(LINES).reduce((a, l) => a + Object.keys(l).length, 0)

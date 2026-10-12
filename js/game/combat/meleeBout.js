@@ -35,12 +35,14 @@ export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is
 // Focus (bullet time): a line drawn in a bout slows the world, more the nearer you are to him: nothing at `far`
 // tiles, down to `scale` at blade range. ONCE PER LINE: it comes on when the line (drawing it, or walking it)
 // brings you inside `far`; from then on it only DEEPENS as you come nearer, never lifts, until the line is done
-// (or he is `release` tiles off, or it runs out). It used to follow the distance both ways, frame by frame, so a
+// (or he is `release` tiles off, or YOU run out: winded, the stillness goes first -- and a new line is needed
+// to find it again). It costs BREATH while it holds -- one every `drainMs` of real time at full depth, less when
+// shallower -- so the moon empties as you hold the slow, and seeing clearly competes with cutting. It used to follow the distance both ways, frame by frame, so a
 // line that wandered in and out sped the world up and slowed it down over and over.
 //   gapMs     a pause this short between drawing a line and walking it is still the same line
-//   cap/regen ms of real time you may hold it, and how fast it refills; relock: how full before it can come on again
+//   drainMs   real ms of full-depth slow that cost one breath
 //   ghosts    YOUR afterimages as you move in it: how many, how often one is left (world ms), how strong the newest is, their colour
-const FOCUS = { scale: 0.18, far: 4, release: 7, gapMs: 180, cap: 15000, regen: 0.4, relock: 0.25, grade: true,
+const FOCUS = { scale: 0.18, far: 4, release: 7, gapMs: 180, drainMs: 1500, grade: true,
                 ghosts: 8, ghostEvery: 45, ghostAlpha: 0.6, ghostTint: 'rgb(110,185,255)' }
 
 // The pack is rebuilt with every scene, so a sword you've been given is put
@@ -170,7 +172,7 @@ export default class MeleeBout {
 
     scene._moonOwner = this
     this._last = performance.now()
-    this.focus = { k: 1, left: FOCUS.cap, on: false, latched: false, used: false, gap: Infinity, depth: 1 }
+    this.focus = { k: 1, on: false, latched: false, used: false, gap: Infinity, depth: 1 }
     // your afterimages while time is slow: [{ x, y, t }], each drawn by a figure of its own on the map (PGR sorts
     // them with everything else, so a ghost behind you is behind you)
     this.ghosts = []
@@ -225,8 +227,6 @@ export default class MeleeBout {
     const m = this.melee, f = this.focus, rd = this.scene._routeDraw
     const p = this.scene.player
     const onRoute = !!(rd?.route && (m.pa.onRoute() || p?.isMoving))        // still walking the line you drew: the slow holds, and you can fight in it
-    if (f.left <= 0) f.lock = true
-    else if (f.lock && f.left >= FOCUS.cap * FOCUS.relock) f.lock = false
     // a LINE runs from the finger going down to the last step of it walked
     const drawing = !!(m.combat && m.enGarde && (rd?.trail || onRoute))
     f.gap = drawing ? 0 : f.gap + real
@@ -235,18 +235,18 @@ export default class MeleeBout {
     // the nearer he is, the slower: smoothstep from nothing at `far` tiles to full depth beside him
     const s = Math.max(0, Math.min(1, (FOCUS.far - m.cheb()) / (FOCUS.far - 1))), e = s * s * (3 - 2 * s)
     const near = 1 - e * (1 - FOCUS.scale)
+    const spent = m.winded() || m.breath < 1                                // out of breath: no slow
     if (!f.latched) {
-      if (drawing && !f.used && !f.lock && near < 1) { f.latched = true; f.used = true; f.depth = near }   // once per line
-    } else if (!inLine || f.lock || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false
+      if (drawing && !f.used && !spent && near < 1) { f.latched = true; f.used = true; f.depth = near }   // once per line
+    } else if (!inLine || spent || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false
     if (f.latched) f.depth = Math.min(f.depth, near)                        // deepens as you close, never lifts mid-line
     const target = f.latched ? f.depth : 1
-    if (target < 1) f.left = Math.max(0, f.left - real * (1 - target) / (1 - FOCUS.scale))
-    else f.left = Math.min(FOCUS.cap, f.left + real * FOCUS.regen)
+    if (target < 1) m.spend(real / FOCUS.drainMs * (1 - target) / (1 - FOCUS.scale))   // the slow costs breath (and holds its refilling off)
     f.k += (target - f.k) * Math.min(1, real / (target < f.k ? 110 : 190))        // in quickly, out in one smooth ramp
     if (Math.abs(f.k - target) < 0.005) f.k = target
     if (f.latched !== f.on) { f.on = f.latched; m.emit('focus', { on: f.on }) }   // one entry, one exit, per line
     this._grade((1 - f.k) / (1 - FOCUS.scale))
-    m.focusK = f.k; m.focusLeft = f.left / FOCUS.cap
+    m.focusK = f.k
     try { this.scene.tweens.timeScale = f.k } catch (_) {}
     const dt = real * f.k
     m.clock += dt
@@ -339,7 +339,7 @@ export default class MeleeBout {
       this.flag.pose = this.view.flagPose = this.view.foePose()
     }
     this.audio.update()
-    this.moon.update(m, this.scene.player)
+    this.moon.update(m, this.scene.player, this._talking())
     this.lens?.update(delta)
     this._dt = delta
   }

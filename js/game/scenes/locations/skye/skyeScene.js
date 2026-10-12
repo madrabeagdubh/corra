@@ -154,7 +154,7 @@ export default class SkyeScene extends BogScene {
   }
   _sheatheToTalk() {
     const m = this._melee?.melee
-    if (m?.enGarde && (this._encounterPanel?._isOpen || this.textPanel?.isVisible)) m.setEnGarde(false)
+    if (m?.enGarde && !this._keepBladeInTalk && (this._encounterPanel?._isOpen || this.textPanel?.isVisible)) m.setEnGarde(false)   // a lesson card may keep it out (faicheCourse keepBlade)
   }
 
   update(time, delta) {

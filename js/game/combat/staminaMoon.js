@@ -45,8 +45,8 @@ export default class StaminaMoon {
     return true
   }
 
-  update(m, player) {
-    const want = m.enGarde ? 1 : 0
+  update(m, player, talking = false) {
+    const want = m.enGarde && !talking ? 1 : 0          // words on screen: the moon is the language balance again
     this.alpha += (want - this.alpha) * 0.12
     if (this.alpha < 0.01 && !want) { if (this.canvas) this.canvas.style.opacity = '0'; return }
     if (!this._ensure()) return

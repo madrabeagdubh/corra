@@ -52,7 +52,6 @@ Art thou ready?
 % Tá mé.
 < Good.
 % Go maith.
-@value wait
 
 # a caption, as he calls you to the marked stone
 = stand
@@ -150,8 +149,11 @@ Poor footing, half the battle.
 Now.
 % Anois.
 
-# a card, once you've caught it
+# a card, once you've caught it (empty: none)
 = caught
+
+# the first line is the call: you draw. The rest come once you have, as captions,
+# with the blade out -- and it stays out through the salute lesson that follows.
 = draw
 Draw now.
 % Tarraing anois.
@@ -182,7 +184,7 @@ Once drawn, the blade does not sheathe itself from fear.
 Now we salute
 % Anois, beannaímid
 
-Salute not to thine enemy\'s honour.
+Salute not to thine enemy's honour.
 % Ní chuig honóir do namhaid a bheannaíonn tú.
 
 A salute is a word spoken inward, to thyself alone.
@@ -192,7 +194,8 @@ I enter with clear mind and clean intent.
 % Ar aghaidh liom le aigne ghlan is le intinn soléir.
 Whatever blood I spill here, I do so with open eyes.
 % Cibé fuil a dhoirtim anseo, deanaim sin le shúile oscailte.
- the first call
+
+# the first call
 = salute
 Salute.
 % Beannaigh.

@@ -8,546 +8,207 @@ export const LINES = {
     "intro": {
       "say": [
         {
-          "en": "Well now. Here thou art, upon thy feet.",
-          "ga": "Well now. Here thou art, upon thy feet."
+          "en": "Óró! Thou art upon thy feet again.",
+          "ga": "Óró! Tá tú ar do chosa arís."
         },
         {
-          "en": "Speak, then. Art thou ready to begin?",
-          "ga": "Speak, then. Art thou ready to begin?"
+          "en": "Art thou ready?",
+          "ga": "An bhfuil tú ullamh?"
         }
       ],
       "ask": [
         {
           "en": "I am.",
-          "ga": "I am.",
+          "ga": "Tá mé.",
           "value": "on",
           "next": {
             "say": [
               {
                 "en": "Good.",
-                "ga": "Good."
-              },
-              {
-                "en": "Then put from thee the crossing.",
-                "ga": "Then put from thee the crossing."
-              },
-              {
-                "en": "Put from thee the cold, and the fear of it.",
-                "ga": "Put from thee the cold, and the fear of it."
-              },
-              {
-                "en": "Here is ground beneath thy feet. Feel it.",
-                "ga": "Here is ground beneath thy feet. Feel it."
-              },
-              {
-                "en": "That is the first lesson, and thou hast not drawn blade yet.",
-                "ga": "That is the first lesson, and thou hast not drawn blade yet."
+                "ga": "Go maith."
               }
             ]
           }
-        },
-        {
-          "en": "Not yet.",
-          "ga": "Not yet.",
-          "value": "wait"
         }
       ]
     },
     "stand": [
       {
-        "en": "Now. Come here.",
-        "ga": "Now. Come here."
-      }
-    ],
-    "standHint": [
-      {
-        "en": "Stand on the marked stone.",
-        "ga": "Stand on the marked stone."
+        "en": "Now. Stand here.",
+        "ga": "Anois. Seas anseo."
       }
     ],
     "stance": [
       {
         "en": "Stand thus, neither too wide, nor too narrow.",
-        "ga": "Stand thus, neither too wide, nor too narrow."
+        "ga": "Seas mar seo, ní ró-leathan, is ní ró-chúng."
       },
       {
-        "en": "Thy weight not on thy heels, nor on thy toes.",
-        "ga": "Thy weight not on thy heels, nor on thy toes."
+        "en": "Stand not on thy heels, nor on thy toes.",
+        "ga": "Ná seas ar do shále, ná ar do bharraicíní."
       },
       {
-        "en": "Neither planted nor perched.",
-        "ga": "Neither planted nor perched."
-      },
-      {
-        "en": "Here is where it begins. Here, at the feet.",
-        "ga": "Here is where it begins. Here, at the feet."
+        "en": "Stand upon the ground, if you get me.",
+        "ga": "Seas ar an tallamh, a dtuigeann tú."
       },
       {
         "en": "All else is built upon it.",
-        "ga": "All else is built upon it."
+        "ga": "Sin an bunchloch"
       }
     ]
   },
   "drag": {
     "intro": [
       {
-        "en": "Now. I will show thee how to move upon the ground.",
-        "ga": "Now. I will show thee how to move upon the ground."
-      },
-      {
-        "en": "Watch.",
-        "ga": "Watch."
+        "en": "Now. The movement.",
+        "ga": "Anois. An ghluaiseact."
       }
     ],
     "following": [
       {
-        "en": "See how I move, and yet am still.",
-        "ga": "See how I move, and yet am still."
+        "en": "See it?",
+        "ga": "An bhfeiceann tú?"
       }
     ],
     "you": [
       {
-        "en": "Now thy turn. Move as I moved.",
-        "ga": "Now thy turn. Move as I moved."
-      },
-      {
-        "en": "I ask nothing of thee yet but this move, and do not fall.",
-        "ga": "I ask nothing of thee yet but this move, and do not fall."
-      }
-    ],
-    "hint": [
-      {
-        "en": "Drag a finger across the ground: your feet follow the line.",
-        "ga": "Drag a finger across the ground: your feet follow the line."
+        "en": "Now thy turn.",
+        "ga": "Tusa anois."
       }
     ],
     "good": [
       {
         "en": "Again.",
-        "ga": "Again."
+        "ga": "Arís."
       }
     ],
-    "after": {
-      "say": [
-        {
-          "en": "Aye. Good enough for now.",
-          "ga": "Aye. Good enough for now."
-        }
-      ],
-      "ask": [
-        {
-          "en": "I am ready.",
-          "ga": "I am ready.",
-          "value": "on"
-        },
-        {
-          "en": "Once more.",
-          "ga": "Once more.",
-          "value": "again"
-        }
-      ]
-    }
+    "after": [
+      {
+        "en": "Good enough",
+        "ga": "Sásúil"
+      }
+    ]
   },
   "space": {
     "intro": [
       {
-        "en": "Now we will use it for something.",
-        "ga": "Now we will use it for something."
-      },
-      {
-        "en": "I will come at thee.",
-        "ga": "I will come at thee."
-      },
-      {
-        "en": "Thy work is simple: do not let me reach thee.",
-        "ga": "Thy work is simple: do not let me reach thee."
-      },
-      {
         "en": "Move. But do not flee.",
-        "ga": "Move. But do not flee."
+        "ga": "Gluais. Ach ná teith."
       },
       {
-        "en": "Use the ground. Find space between us.",
-        "ga": "Use the ground. Find space between us."
-      },
-      {
-        "en": "Thou needst not be swift. Thou must be timely. There is a difference.",
-        "ga": "Thou needst not be swift. Thou must be timely. There is a difference."
-      }
-    ],
-    "dodgeHint": [
-      {
-        "en": "When the ground under you reddens, step off it.",
-        "ga": "When the ground under you reddens, step off it."
+        "en": "Find space between us.",
+        "ga": "Aimsigh spás eadrainn."
       }
     ],
     "good": [
       {
         "en": "Again.",
-        "ga": "Again."
+        "ga": "Arís."
       }
     ],
     "mid": [
       {
         "en": "There.",
-        "ga": "There."
+        "ga": "Sin é."
       },
       {
-        "en": "That is the beginning of it.",
-        "ga": "That is the beginning of it."
-      },
-      {
-        "en": "Now we turn it about. Now thou wilt come at me.",
-        "ga": "Now we turn it about. Now thou wilt come at me."
-      },
-      {
-        "en": "As I advanced upon thee, press me, until I have no ground left and am brought to my knee.",
-        "ga": "As I advanced upon thee, press me, until I have no ground left and am brought to my knee."
+        "en": "Now press me, until I am brought to my knee.",
+        "ga": "Anois brúigh orm, go dtí go mbeidh mé ar mo ghlúin."
       }
     ],
     "shoveGo": [
       {
-        "en": "Come, then. Make me move.",
-        "ga": "Come, then. Make me move."
-      }
-    ],
-    "shoveHint": [
-      {
-        "en": "Walk into him to shove him back.",
-        "ga": "Walk into him to shove him back."
+        "en": "Come, then. Knock me down.",
+        "ga": "Ar aghaidh, mar sin. Leag mé."
       }
     ],
     "shoved": [
       {
         "en": "Again.",
-        "ga": "Again."
+        "ga": "Arís."
       }
     ],
-    "after": {
-      "say": [
-        {
-          "en": "There it is. Thou hast done it, and no blade yet drawn between us.",
-          "ga": "There it is. Thou hast done it, and no blade yet drawn between us."
-        },
-        {
-          "en": "Bring him to poor footing: to a ditch, to a wall at his back, to a slope beneath his heel. And half the fight is won before it is begun.",
-          "ga": "Bring him to poor footing: to a ditch, to a wall at his back, to a slope beneath his heel. And half the fight is won before it is begun."
-        },
-        {
-          "en": "When the sword comes out, men forget all else in the shock of it.",
-          "ga": "When the sword comes out, men forget all else in the shock of it."
-        },
-        {
-          "en": "But the sword is only the end of the thing.",
-          "ga": "But the sword is only the end of the thing."
-        },
-        {
-          "en": "The ground is where it starts.",
-          "ga": "The ground is where it starts."
-        },
-        {
-          "en": "Rest now a moment. We have more yet to do.",
-          "ga": "Rest now a moment. We have more yet to do."
-        },
-        {
-          "en": "I would speak to thee of a matter that bears upon all of this.",
-          "ga": "I would speak to thee of a matter that bears upon all of this."
-        }
-      ],
-      "ask": [
-        {
-          "en": "Speak.",
-          "ga": "Speak.",
-          "value": "on",
-          "next": {
-            "say": [
-              {
-                "en": "Thou hast heard tell of the Fianna, I do not doubt.",
-                "ga": "Thou hast heard tell of the Fianna, I do not doubt."
-              },
-              {
-                "en": "Every man from the youngest to the oldest has heard their name spoken, and not a few have spoken it wrongly, with the loud boastfulness of those who were not there, who knew nothing of the weight of it.",
-                "ga": "Every man from the youngest to the oldest has heard their name spoken, and not a few have spoken it wrongly, with the loud boastfulness of those who were not there, who knew nothing of the weight of it."
-              },
-              {
-                "en": "The Fianna are no mere warband.",
-                "ga": "The Fianna are no mere warband."
-              },
-              {
-                "en": "They are the great brotherhood of free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort.",
-                "ga": "They are the great brotherhood of free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort."
-              },
-              {
-                "en": "They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order.",
-                "ga": "They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order."
-              },
-              {
-                "en": "Hard men. Hard-made men.",
-                "ga": "Hard men. Hard-made men."
-              },
-              {
-                "en": "They trained in the hard places, in the wet and the dark and the wind.",
-                "ga": "They trained in the hard places, in the wet and the dark and the wind."
-              },
-              {
-                "en": "Cold and hardship are not punishment. They are simply the nature of things.",
-                "ga": "Cold and hardship are not punishment. They are simply the nature of things."
-              },
-              {
-                "en": "The Fianna take it into themselves as an ordinary person takes food, and are stronger for it.",
-                "ga": "The Fianna take it into themselves as an ordinary person takes food, and are stronger for it."
-              },
-              {
-                "en": "A man must learn twelve books of poetry before they will admit him to their fellowship.",
-                "ga": "A man must learn twelve books of poetry before they will admit him to their fellowship."
-              },
-              {
-                "en": "Mark that well, for there are those who think the Fianna naught but swords and blood. They are wrong in it.",
-                "ga": "Mark that well, for there are those who think the Fianna naught but swords and blood. They are wrong in it."
-              },
-              {
-                "en": "And it is to this Isle that the finest of them have come, in every age that men can reckon. Dost thou know why?",
-                "ga": "And it is to this Isle that the finest of them have come, in every age that men can reckon. Dost thou know why?"
-              }
-            ],
-            "ask": [
-              {
-                "en": "I do not.",
-                "ga": "I do not.",
-                "value": "on",
-                "next": {
-                  "say": [
-                    {
-                      "en": "Because it is here that the great teachers dwell.",
-                      "ga": "Because it is here that the great teachers dwell."
-                    },
-                    {
-                      "en": "Women-warriors, some call them.",
-                      "ga": "Women-warriors, some call them."
-                    },
-                    {
-                      "en": "It is here that the truest craft of arms has been kept since time immemorial.",
-                      "ga": "It is here that the truest craft of arms has been kept since time immemorial."
-                    },
-                    {
-                      "en": "Cuchulain himself came here.",
-                      "ga": "Cuchulain himself came here."
-                    },
-                    {
-                      "en": "The bond between the Fianna and Skye is not the bond of conquest.",
-                      "ga": "The bond between the Fianna and Skye is not the bond of conquest."
-                    },
-                    {
-                      "en": "The Fianna came with open hands, and so the Isle gave back what it was asked.",
-                      "ga": "The Fianna came with open hands, and so the Isle gave back what it was asked."
-                    },
-                    {
-                      "en": "Craft. Patience.",
-                      "ga": "Craft. Patience."
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        {
-          "en": "Another time.",
-          "ga": "Another time.",
-          "value": "on"
-        },
-        {
-          "en": "Once more.",
-          "ga": "Once more.",
-          "value": "again"
-        }
-      ]
-    },
-    "fianna": {
-      "say": [
-        {
-          "en": "Thou hast heard tell of the Fianna, I do not doubt.",
-          "ga": "Thou hast heard tell of the Fianna, I do not doubt."
-        },
-        {
-          "en": "Every man from the youngest to the oldest has heard their name spoken, and not a few have spoken it wrongly, with the loud boastfulness of those who were not there, who knew nothing of the weight of it.",
-          "ga": "Every man from the youngest to the oldest has heard their name spoken, and not a few have spoken it wrongly, with the loud boastfulness of those who were not there, who knew nothing of the weight of it."
-        },
-        {
-          "en": "The Fianna are no mere warband.",
-          "ga": "The Fianna are no mere warband."
-        },
-        {
-          "en": "They are the great brotherhood of free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort.",
-          "ga": "They are the great brotherhood of free warriors, owing fealty to no lord of a single tuath, bound to no one hearth or one hillfort."
-        },
-        {
-          "en": "They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order.",
-          "ga": "They winter with kings, aye, but in the summer months they are the forest's own, and the mountain's own, answering only to their captain and to the law of their order."
-        },
-        {
-          "en": "Hard men. Hard-made men.",
-          "ga": "Hard men. Hard-made men."
-        },
-        {
-          "en": "They trained in the hard places, in the wet and the dark and the wind.",
-          "ga": "They trained in the hard places, in the wet and the dark and the wind."
-        },
-        {
-          "en": "Cold and hardship are not punishment. They are simply the nature of things.",
-          "ga": "Cold and hardship are not punishment. They are simply the nature of things."
-        },
-        {
-          "en": "The Fianna take it into themselves as an ordinary person takes food, and are stronger for it.",
-          "ga": "The Fianna take it into themselves as an ordinary person takes food, and are stronger for it."
-        },
-        {
-          "en": "A man must learn twelve books of poetry before they will admit him to their fellowship.",
-          "ga": "A man must learn twelve books of poetry before they will admit him to their fellowship."
-        },
-        {
-          "en": "Mark that well, for there are those who think the Fianna naught but swords and blood. They are wrong in it.",
-          "ga": "Mark that well, for there are those who think the Fianna naught but swords and blood. They are wrong in it."
-        },
-        {
-          "en": "And it is to this Isle that the finest of them have come, in every age that men can reckon. Dost thou know why?",
-          "ga": "And it is to this Isle that the finest of them have come, in every age that men can reckon. Dost thou know why?"
-        }
-      ],
-      "ask": [
-        {
-          "en": "I do not.",
-          "ga": "I do not.",
-          "value": "on",
-          "next": {
-            "say": [
-              {
-                "en": "Because it is here that the great teachers dwell.",
-                "ga": "Because it is here that the great teachers dwell."
-              },
-              {
-                "en": "Women-warriors, some call them.",
-                "ga": "Women-warriors, some call them."
-              },
-              {
-                "en": "It is here that the truest craft of arms has been kept since time immemorial.",
-                "ga": "It is here that the truest craft of arms has been kept since time immemorial."
-              },
-              {
-                "en": "Cuchulain himself came here.",
-                "ga": "Cuchulain himself came here."
-              },
-              {
-                "en": "The bond between the Fianna and Skye is not the bond of conquest.",
-                "ga": "The bond between the Fianna and Skye is not the bond of conquest."
-              },
-              {
-                "en": "The Fianna came with open hands, and so the Isle gave back what it was asked.",
-                "ga": "The Fianna came with open hands, and so the Isle gave back what it was asked."
-              },
-              {
-                "en": "Craft. Patience.",
-                "ga": "Craft. Patience."
-              }
-            ]
-          }
-        }
-      ]
-    }
+    "after": [
+      {
+        "en": "There it is. Thou hast done it, and no blade yet drawn between us.",
+        "ga": "Sin agat é. D'éirigh leat, gan aon chlaíomh tarraingthe eádrainn fós."
+      },
+      {
+        "en": "Poor footing, half the battle.",
+        "ga": "Droch-sheasamh, leath an chatha."
+      }
+    ]
   },
   "sword": {
     "intro": [
       {
-        "en": "Now. On thy feet.",
-        "ga": "Now. On thy feet."
+        "en": "Now.",
+        "ga": "Anois."
       }
     ],
-    "caught": [
+    "caught": [],
+    "draw": [
       {
-        "en": "Mark well what thou holdest.",
-        "ga": "Mark well what thou holdest."
+        "en": "Draw now.",
+        "ga": "Tarraing anois."
       },
       {
-        "en": "Wood it is, aye. But every sword drawn is a declaration.",
-        "ga": "Wood it is, aye. But every sword drawn is a declaration."
+        "en": "Too much wrist. Too much shoulder. Art thou pulling a net from the sea?",
+        "ga": "An iomarca ón caol. An iomarca ón gualainn. An ag tarraingt líon ón bhfarraige atá tú?"
+      },
+      {
+        "en": "Thy feet! Where are thy feet?",
+        "ga": "Do chosa! Cá bhfuil do chosa?"
+      },
+      {
+        "en": "Stand with esteem.",
+        "ga": "Seas le gean."
+      },
+      {
+        "en": "Once drawn, the blade does not sheathe itself from fear.",
+        "ga": "Nuair a tharraingítear í, ní théann an lann ar ais ina truaill le heagla."
       }
     ]
   },
   "calls": {
     "intro": [
       {
-        "en": "Take heed now.",
-        "ga": "Take heed now."
+        "en": "Now we salute",
+        "ga": "Anois, beannaímid"
       },
       {
-        "en": "The sword is no instrument of fury.",
-        "ga": "The sword is no instrument of fury."
-      },
-      {
-        "en": "Nay, nor of pride.",
-        "ga": "Nay, nor of pride."
-      },
-      {
-        "en": "Salute not to honour thine enemy.",
-        "ga": "Salute not to honour thine enemy."
-      },
-      {
-        "en": "Nor to display pride before them.",
-        "ga": "Nor to display pride before them."
-      },
-      {
-        "en": "It is the closing of a gate behind thee.",
-        "ga": "It is the closing of a gate behind thee."
+        "en": "Salute not to thine enemy's honour.",
+        "ga": "Ní chuig honóir do namhaid a bheannaíonn tú."
       },
       {
         "en": "A salute is a word spoken inward, to thyself alone.",
-        "ga": "A salute is a word spoken inward, to thyself alone."
+        "ga": "Is é an beannú focal a labhraítear isteach i do chroí féin amháin."
       },
       {
-        "en": "I enter this place with clear mind and clean intent.",
-        "ga": "I enter this place with clear mind and clean intent."
+        "en": "I enter with clear mind and clean intent.",
+        "ga": "Ar aghaidh liom le aigne ghlan is le intinn soléir."
       },
       {
-        "en": "Whatever blood I spill here, I spill with open eyes.",
-        "ga": "Whatever blood I spill here, I spill with open eyes."
-      },
-      {
-        "en": "Once made, thou dost not unmake it.",
-        "ga": "Once made, thou dost not unmake it."
-      },
-      {
-        "en": "Once drawn, the blade does not sheathe itself from fear.",
-        "ga": "Once drawn, the blade does not sheathe itself from fear."
-      }
-    ],
-    "drawHint": [
-      {
-        "en": "Draw your sword: swipe up on the moon.",
-        "ga": "Draw your sword: swipe up on the moon."
+        "en": "Whatever blood I spill here, I do so with open eyes.",
+        "ga": "Cibé fuil a dhoirtim anseo, deanaim sin le shúile oscailte."
       }
     ],
     "salute": [
       {
         "en": "Salute.",
-        "ga": "Salute."
-      }
-    ],
-    "saluteHint": [
-      {
-        "en": "On guard, swipe up on the moon again.",
-        "ga": "On guard, swipe up on the moon again."
+        "ga": "Beannaigh."
       }
     ],
     "again": [
       {
         "en": "Again.",
-        "ga": "Again."
+        "ga": "Arís."
       }
     ],
     "enough": [
       {
         "en": "It will do.",
-        "ga": "It will do."
+        "ga": "Déanfaidh sé an gnó."
       }
     ]
   },
@@ -555,73 +216,63 @@ export const LINES = {
     "intro": [
       {
         "en": "Come at me, then.",
-        "ga": "Come at me, then."
+        "ga": "Tar orm, mar sin."
       },
       {
         "en": "Strike, strike, strike again.",
-        "ga": "Strike, strike, strike again."
-      }
-    ],
-    "hint": [
-      {
-        "en": "Keep cutting: tap the moon, again and again.",
-        "ga": "Keep cutting: tap the moon, again and again."
+        "ga": "Buail, buail, buail arís."
       }
     ],
     "stop": [
       {
         "en": "Stop.",
-        "ga": "Stop."
+        "ga": "Stad."
       }
     ],
     "after": {
       "say": [
         {
           "en": "What hast thou taught thyself this hour?",
-          "ga": "What hast thou taught thyself this hour?"
+          "ga": "Cén ceacht a mhúin tú duit féin san uair seo?"
         }
       ],
       "ask": [
         {
           "en": "That I tire.",
-          "ga": "That I tire.",
+          "ga": "Go dtagann an tuirse orm.",
           "value": "on",
           "next": {
             "say": [
               {
-                "en": "This is the core of it.",
-                "ga": "This is the core of it."
-              },
-              {
-                "en": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.",
-                "ga": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it."
+                "en": "This is the heart of it.",
+                "ga": "Sin é croí na ceiste."
               },
               {
                 "en": "Strength is not the gift we seek.",
-                "ga": "Strength is not the gift we seek."
+                "ga": "Ní hí an neart an bua a lorgaimid."
               },
               {
                 "en": "We seek the stillness behind the eyes.",
-                "ga": "We seek the stillness behind the eyes."
+                "ga": "Lorgaimid an t-suaimhneas atá taobh thiar de na súile."
               },
               {
                 "en": "The great sin of the Gaelic blade is not cowardice. It is waste.",
-                "ga": "The great sin of the Gaelic blade is not cowardice. It is waste."
+                "ga": "Ní hé an t-eagala an peaca ar claíomh na nGael. Is é an cur amú é."
               },
               {
-                "en": "The strike that is made once and made truly, rather than ten times made in hope.",
-                "ga": "The strike that is made once and made truly, rather than ten times made in hope."
+                "en": "Better strike once and truly, rather than ten times in hope.",
+                "ga": "Is fearr buille amháin cruinn a bhualadh ná deich mbuille le dóchas."
               }
             ],
             "ask": [
               {
                 "en": "I am ready.",
-                "ga": "I am ready.",
+                "ga": "Tá mé réidh.",
                 "value": "on"
               },
               {
                 "en": "Once more.",
-                "ga": "Once more.",
+                "ga": "Arís amháin.",
                 "value": "again"
               }
             ]
@@ -629,44 +280,40 @@ export const LINES = {
         },
         {
           "en": "That every blow costs.",
-          "ga": "That every blow costs.",
+          "ga": "Go bhfuil costas ar gach buille.",
           "value": "on",
           "next": {
             "say": [
               {
-                "en": "This is the core of it.",
-                "ga": "This is the core of it."
-              },
-              {
-                "en": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.",
-                "ga": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it."
+                "en": "This is the heart of it.",
+                "ga": "Sin é croí na ceiste."
               },
               {
                 "en": "Strength is not the gift we seek.",
-                "ga": "Strength is not the gift we seek."
+                "ga": "Ní hí an neart an bua a lorgaimid."
               },
               {
                 "en": "We seek the stillness behind the eyes.",
-                "ga": "We seek the stillness behind the eyes."
+                "ga": "Lorgaimid an t-suaimhneas atá taobh thiar de na súile."
               },
               {
                 "en": "The great sin of the Gaelic blade is not cowardice. It is waste.",
-                "ga": "The great sin of the Gaelic blade is not cowardice. It is waste."
+                "ga": "Ní hé an t-eagala an peaca ar claíomh na nGael. Is é an cur amú é."
               },
               {
-                "en": "The strike that is made once and made truly, rather than ten times made in hope.",
-                "ga": "The strike that is made once and made truly, rather than ten times made in hope."
+                "en": "Better strike once and truly, rather than ten times in hope.",
+                "ga": "Is fearr buille amháin cruinn a bhualadh ná deich mbuille le dóchas."
               }
             ],
             "ask": [
               {
                 "en": "I am ready.",
-                "ga": "I am ready.",
+                "ga": "Tá mé réidh.",
                 "value": "on"
               },
               {
                 "en": "Once more.",
-                "ga": "Once more.",
+                "ga": "Arís amháin.",
                 "value": "again"
               }
             ]
@@ -674,44 +321,40 @@ export const LINES = {
         },
         {
           "en": "I do not know.",
-          "ga": "I do not know.",
+          "ga": "Níl fhios agam.",
           "value": "on",
           "next": {
             "say": [
               {
-                "en": "This is the core of it.",
-                "ga": "This is the core of it."
-              },
-              {
-                "en": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.",
-                "ga": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it."
+                "en": "This is the heart of it.",
+                "ga": "Sin é croí na ceiste."
               },
               {
                 "en": "Strength is not the gift we seek.",
-                "ga": "Strength is not the gift we seek."
+                "ga": "Ní hí an neart an bua a lorgaimid."
               },
               {
                 "en": "We seek the stillness behind the eyes.",
-                "ga": "We seek the stillness behind the eyes."
+                "ga": "Lorgaimid an t-suaimhneas atá taobh thiar de na súile."
               },
               {
                 "en": "The great sin of the Gaelic blade is not cowardice. It is waste.",
-                "ga": "The great sin of the Gaelic blade is not cowardice. It is waste."
+                "ga": "Ní hé an t-eagala an peaca ar claíomh na nGael. Is é an cur amú é."
               },
               {
-                "en": "The strike that is made once and made truly, rather than ten times made in hope.",
-                "ga": "The strike that is made once and made truly, rather than ten times made in hope."
+                "en": "Better strike once and truly, rather than ten times in hope.",
+                "ga": "Is fearr buille amháin cruinn a bhualadh ná deich mbuille le dóchas."
               }
             ],
             "ask": [
               {
                 "en": "I am ready.",
-                "ga": "I am ready.",
+                "ga": "Tá mé réidh.",
                 "value": "on"
               },
               {
                 "en": "Once more.",
-                "ga": "Once more.",
+                "ga": "Arís amháin.",
                 "value": "again"
               }
             ]
@@ -722,149 +365,105 @@ export const LINES = {
     "core": {
       "say": [
         {
-          "en": "This is the core of it.",
-          "ga": "This is the core of it."
-        },
-        {
-          "en": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it.",
-          "ga": "Remember it above all else I shall teach thee, or unlearn all I teach thee for want of it."
+          "en": "This is the heart of it.",
+          "ga": "Sin é croí na ceiste."
         },
         {
           "en": "Strength is not the gift we seek.",
-          "ga": "Strength is not the gift we seek."
+          "ga": "Ní hí an neart an bua a lorgaimid."
         },
         {
           "en": "We seek the stillness behind the eyes.",
-          "ga": "We seek the stillness behind the eyes."
+          "ga": "Lorgaimid an t-suaimhneas atá taobh thiar de na súile."
         },
         {
           "en": "The great sin of the Gaelic blade is not cowardice. It is waste.",
-          "ga": "The great sin of the Gaelic blade is not cowardice. It is waste."
+          "ga": "Ní hé an t-eagala an peaca ar claíomh na nGael. Is é an cur amú é."
         },
         {
-          "en": "The strike that is made once and made truly, rather than ten times made in hope.",
-          "ga": "The strike that is made once and made truly, rather than ten times made in hope."
+          "en": "Better strike once and truly, rather than ten times in hope.",
+          "ga": "Is fearr buille amháin cruinn a bhualadh ná deich mbuille le dóchas."
         }
       ],
       "ask": [
         {
           "en": "I am ready.",
-          "ga": "I am ready.",
+          "ga": "Tá mé réidh.",
           "value": "on"
         },
         {
           "en": "Once more.",
-          "ga": "Once more.",
+          "ga": "Arís amháin.",
           "value": "again"
         }
       ]
     }
   },
   "strong": {
-    "hint": [
-      {
-        "en": "Hold the moon until the ring is full, then let go.",
-        "ga": "Hold the moon until the ring is full, then let go."
-      }
-    ],
     "notThus": [
       {
         "en": "Nay, not thus.",
-        "ga": "Nay, not thus."
+        "ga": "Ní mar sin, ní hea."
       },
       {
         "en": "Not with the arm locked tight as a gate-bar.",
-        "ga": "Not with the arm locked tight as a gate-bar."
+        "ga": "Ní leis an ngéag glasáilte chomh daingean le barra geata."
       },
       {
-        "en": "The blow that kills a man is not the blow of iron. It is the blow of water.",
-        "ga": "The blow that kills a man is not the blow of iron. It is the blow of water."
-      },
-      {
-        "en": "Loose thy wrist. Let the wood fall where it will fall.",
-        "ga": "Loose thy wrist. Let the wood fall where it will fall."
+        "en": "Loose thy wrist.",
+        "ga": "Scaoil chaol do láimhe."
       }
     ]
   },
   "dummy": {
-    "clearHint": [
-      {
-        "en": "Step aside: Conall needs that ground.",
-        "ga": "Step aside: Conall needs that ground."
-      }
-    ],
     "intro": [
       {
-        "en": "Thy wrist. Loosen it. The blade must speak for thee, and no tongue speaks well when the jaw is clenched tight.",
-        "ga": "Thy wrist. Loosen it. The blade must speak for thee, and no tongue speaks well when the jaw is clenched tight."
+        "en": "Thy wrist. Loosen it. The blade must speak",
+        "ga": "Chaol do láimhe. Scaoil é. Caithfidh an lann labhairt ar do shon"
+      },
+      {
+        "en": "and no tongue speaks well",
+        "ga": "is ní labhrann aon teanga go maith"
+      },
+      {
+        "en": "through a clenched jaw.",
+        "ga": "tríd giall fásctha."
       },
       {
         "en": "Loose it as thou wouldst loose a hound from leash.",
-        "ga": "Loose it as thou wouldst loose a hound from leash."
-      },
-      {
-        "en": "The iron-gripped man is a dead man, for his stroke goes where his fear sends it, not where his wit would have it go.",
-        "ga": "The iron-gripped man is a dead man, for his stroke goes where his fear sends it, not where his wit would have it go."
-      },
-      {
-        "en": "The sword is not thine enemy. Hold it so.",
-        "ga": "The sword is not thine enemy. Hold it so."
-      }
-    ],
-    "saluteHint": [
-      {
-        "en": "He salutes. Draw, and return it: swipe up on the moon, and up again.",
-        "ga": "He salutes. Draw, and return it: swipe up on the moon, and up again."
-      }
-    ],
-    "hint": [
-      {
-        "en": "Stand beside Conall, draw, and tap the moon. Hold it for a strong blow.",
-        "ga": "Stand beside Conall, draw, and tap the moon. Hold it for a strong blow."
+        "ga": "Scaoil é mar a scaoilfeá cú ó iall."
       }
     ],
     "landed": [
       {
         "en": "Thus. Dost thou see?",
-        "ga": "Thus. Dost thou see?"
-      },
-      {
-        "en": "Not the crown of the head, but the root of the wrist.",
-        "ga": "Not the crown of the head, but the root of the wrist."
-      },
-      {
-        "en": "It is near. It is weak.",
-        "ga": "It is near. It is weak."
-      },
-      {
-        "en": "It is where thine enemy's strength lives. Take it from them.",
-        "ga": "It is where thine enemy's strength lives. Take it from them."
+        "ga": "Mar seo. An bhfeiceann tú?"
       }
     ],
     "after": {
       "say": [
         {
           "en": "Thy feet betray thee.",
-          "ga": "Thy feet betray thee."
+          "ga": "Feallann do chosa ort."
         },
         {
           "en": "Look. Rooted as an oak. No. No.",
-          "ga": "Look. Rooted as an oak. No. No."
+          "ga": "Féach. Fastaithe mar dhair. Ní hea. Ní hea."
         },
         {
           "en": "Move thus. And thus.",
-          "ga": "Move thus. And thus."
+          "ga": "Bog mar seo. Agus mar seo."
         }
       ],
       "ask": [
         {
           "en": "I am ready.",
-          "ga": "I am ready.",
+          "ga": "Tá mé réidh.",
           "value": "on"
         },
         {
           "en": "Once more.",
-          "ga": "Once more.",
+          "ga": "Arís amháin.",
           "value": "again"
         }
       ]
@@ -873,64 +472,74 @@ export const LINES = {
   "feet": {
     "intro": [
       {
-        "en": "Now hear me. The blow is nothing, nothing, I say, if the foot hath not gone before it.",
-        "ga": "Now hear me. The blow is nothing, nothing, I say, if the foot hath not gone before it."
+        "en": "Tell me this, What use is a fine blade to a standing stone?",
+        "ga": "Cén mhaith lann bhreá do chloch sheasaimh?"
       },
       {
-        "en": "Thy foot is thy truth. Strike from the heel.",
-        "ga": "Thy foot is thy truth. Strike from the heel."
+        "en": "Move, and move again.",
+        "ga": "Gluais, agus gluais arís."
+      },
+      {
+        "en": "Step left when their eye says right.",
+        "ga": "Céim ar chlé nuair a deir a súil ar dheis."
+      },
+      {
+        "en": "Step back when their shoulders say forward.",
+        "ga": "Céim ar gcúl nuair a deir a nguaillí ar aghaidh."
+      },
+      {
+        "en": "Great the fool who stands to trade blow for blow with the foe of equal iron.",
+        "ga": "Mór an amadán a sheasann buille ar bhuille i gcoinne naimhead an comh-iarainn."
+      },
+      {
+        "en": "Woe to him who remains where the sword expects to find him.",
+        "ga": "Is mairg an té ag feiteamh áit a bhfuil an lann ag súil leis."
       }
     ],
     "go": [
       {
         "en": "Come at me.",
-        "ga": "Come at me."
-      }
-    ],
-    "hint": [
-      {
-        "en": "Drag a line past Conall, and tap the moon as you pass him. Three times.",
-        "ga": "Drag a line past Conall, and tap the moon as you pass him. Three times."
+        "ga": "Tar chugam."
       }
     ],
     "count": [
       {
         "en": "One.",
-        "ga": "One."
+        "ga": "A haon."
       },
       {
         "en": "Two.",
-        "ga": "Two."
+        "ga": "A dó."
       }
     ],
     "after": {
       "say": [
         {
           "en": "Three.",
-          "ga": "Three."
+          "ga": "A trí."
         },
         {
-          "en": "Dost thou see? I have not retreated from thee once.",
-          "ga": "Dost thou see? I have not retreated from thee once."
+          "en": "Dost thou see? I have not retreated from thee.",
+          "ga": "An bhfeiceann tú? Níor chúlaigh mé uait."
         },
         {
           "en": "A man who steps backward loses ground he may never recover.",
-          "ga": "A man who steps backward loses ground he may never recover."
+          "ga": "An ti a thógas céim ar gcúl, cailleann sé talamh nach ngabhfaidh sé ar ais go deo b'fhéidir."
         },
         {
           "en": "Step to the side. Step to the inside of his blade-arm, and thou art safe while he swings at empty air.",
-          "ga": "Step to the side. Step to the inside of his blade-arm, and thou art safe while he swings at empty air."
+          "ga": "Tóg céim ar leataobh. Tóg céim chuig taobh istigh dá ghéag claoímh, is tá tú slán fad a bhíonn seisean ag luascadh i gcoinne an taer fholamh."
         }
       ],
       "ask": [
         {
           "en": "I am ready.",
-          "ga": "I am ready.",
+          "ga": "Tá mé réidh.",
           "value": "on"
         },
         {
           "en": "Once more.",
-          "ga": "Once more.",
+          "ga": "Arís amháin.",
           "value": "again"
         }
       ]
@@ -940,83 +549,60 @@ export const LINES = {
     "intro": [
       {
         "en": "Now. Thy footwork. Once more.",
-        "ga": "Now. Thy footwork. Once more."
+        "ga": "Anois. Do shaothar coise. Arís amháin."
       },
       {
         "en": "Heel first. Wrist loose. Step to the inside.",
-        "ga": "Heel first. Wrist loose. Step to the inside."
+        "ga": "An tsáil ar dtús. An caol láimhe scaoilte. Tóg céim ar an taobh istigh."
       },
       {
         "en": "Again. From the beginning.",
-        "ga": "Again. From the beginning."
-      },
-      {
-        "en": "And this time let thy wrist remember what thy ears have heard.",
-        "ga": "And this time let thy wrist remember what thy ears have heard."
+        "ga": "Arís. Ón tús."
       }
     ],
     "go": [
       {
         "en": "Come at me.",
-        "ga": "Come at me."
-      }
-    ],
-    "hint": [
-      {
-        "en": "Draw your sword (swipe up on the moon), and come at him.",
-        "ga": "Draw your sword (swipe up on the moon), and come at him."
+        "ga": "Tar chugam."
       }
     ],
     "read": [
       {
-        "en": "Thy foot is telling me where thou art going before thy arm has thought of it.",
-        "ga": "Thy foot is telling me where thou art going before thy arm has thought of it."
-      }
-    ],
-    "disarmHint": [
-      {
-        "en": "His sword is down. Walk into him to hand it back.",
-        "ga": "His sword is down. Walk into him to hand it back."
+        "en": "Thy foot is telling me where you are going.",
+        "ga": "Tá do chos ag insint dom cá bhfuil do thríal."
       }
     ],
     "after": {
       "say": [
         {
           "en": "Thou hast the making of it.",
-          "ga": "Thou hast the making of it."
+          "ga": "Tá an t-ábhar ionat."
         },
         {
-          "en": "Enough to begin.",
-          "ga": "Enough to begin."
+          "en": "Enough.",
+          "ga": "Is leoir sin."
         }
       ],
       "ask": [
         {
           "en": "Thank you.",
-          "ga": "Thank you.",
+          "ga": "Go raibh maith agat.",
           "value": "on"
         },
         {
-          "en": "Once more.",
-          "ga": "Once more.",
+          "en": "Again.",
+          "ga": "Arís.",
           "value": "again"
         }
       ]
     }
   },
-  "end": {
-    "hint": [
-      {
-        "en": "Go back across the loch to the green. Uathach is taking a class there.",
-        "ga": "Go back across the loch to the green. Uathach is taking a class there."
-      }
-    ]
-  },
+  "end": {},
   "generic": {
     "again": [
       {
         "en": "Again.",
-        "ga": "Again."
+        "ga": "Arís."
       }
     ]
   }

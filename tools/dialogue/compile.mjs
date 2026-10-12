@@ -113,6 +113,16 @@ if (!SRC) {
   process.exit(1)
 }
 
+// A COURSE draft (lessons and slots, with an @out line: faicheCourse.dlg) is
+// not NPC dialogue: it belongs to course.mjs, so hand it over rather than
+// reporting its format as fifteen errors.
+if (!EXPORT && fs.existsSync(SRC) && /^@out\s/m.test(fs.readFileSync(SRC, 'utf8'))) {
+  const course = path.join(path.dirname(url.fileURLToPath(import.meta.url)), 'course.mjs')
+  console.log('(a course draft: compiling with course.mjs)')
+  const { status } = (await import('node:child_process')).spawnSync(process.execPath, [course, ...args], { stdio: 'inherit' })
+  process.exit(status ?? 1)
+}
+
 // The legend that goes at the top of every exported draft. Anyone opening one
 // of these six months from now should not have to find this file to read it.
 const LEGEND = (name) => `# ${name} — dialogue draft

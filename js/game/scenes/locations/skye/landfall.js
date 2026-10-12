@@ -44,8 +44,9 @@ import { GameState } from '../../../systems/gameState.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import { createDomButton } from '../../../systems/gameTypography.js'
 import { moveFigure, figureBox, dustPuff } from './dustDash.js'
+import { INK } from '../../../ui/speakers.js'
 
-const CONALL = '#c6d4ea'
+const CONALL = INK.conall
 const PLAYER = '#e8cf8a'
 
 // The last exchange: muttered and answered while Conall drags them off.

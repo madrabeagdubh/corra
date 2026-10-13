@@ -1,32 +1,34 @@
-
 export const constellationTexts = {
 
-    // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────
+    // ── Cú na Féinne — The Hound of the Fianna (Orion) ──────────────────────                                                                           
     cu: {
         waiting: [
-        /* Silenced: the first constellation is now approached without
-           narration. The druid and queen wait in a still sky until the
-           player starts connecting. Kept here rather than deleted. */
-        // {
-        // ga: 'Tríd oichí fada gan codladh a bhanríonn,',
-        // en: 'Through long and sleepless nights o queen,',
-        // speaker: 'druid',
-        // },{
-        // ga: 'tá córthaí na spéire cúrtaithe agam',
-        // en: 'I have searched the signs of the sky',
-        // speaker: 'druid',
-        // },
-        // {
-        // ga: 'Éist go maith le mo léamh!',
-        // en: 'Heed well my reading.',
-        // speaker: 'druid',
-        // },
+            {
+                ga: 'Trí oícheanta fada gan codladh, a bhanríon,',
+                en: 'Through long and sleepless nights o queen,',
+                speaker: 'druid',
+            },
+            {
+                ga: 'tá comharthaí na spéire cuardaithe agam.',
+                en: 'I have searched the signs of the sky.',
+                speaker: 'druid',
+            },
+            {
+                ga: 'Éist go maith le mo léamh!',
+                en: 'Heed well my reading.',
+                speaker: 'druid',
+            },
         ],
         completion: [
             {
-                ga: 'Féach Cú na Féinne, ag drannadh fiachal anocht',
-                en: 'See the hound of the fianna, tonight he snarls',
+                ga: 'Feicim Cú na Féinne ag drannadh a fhiacla.',
+                en: 'I see the hound of the fianna snarling.',
                 speaker: 'druid',
+            },
+            {
+                ga: 'Cad is cúis lena fhearg?',
+                en: 'What is the cause of his anger?',
+                speaker: 'queen',
             },
         ],
     },
@@ -35,69 +37,68 @@ export const constellationTexts = {
     naomhog: {
         waiting: [
             {
-                ga: 'Agus ar muir? Cad deir bealach na Bó Finne, a Chonaill na súile géire?',
-                en: 'And at sea? What says the river of heaven, o keen-eyed wolf?',
-                speaker: 'queen',
+                ga: 'Breathnaigh ansin, a bhanríon,',
+                en: 'Look there, o queen,',
+                speaker: 'druid',
+            },
+            {
+                ga: 'faoi Bheallach na Bó Finne.',
+                en: 'beneath the Sea of Heaven.',
+                speaker: 'druid',
             },
         ],
         completion: [
             {
-                ga: 'Corraíonn slua na Fomhóraigh faoín naomhóg.',
-                en: 'The Fomorian host stirs beneath the curragh.',
-                speaker: 'druid',
-            },
-            {
-                ga: 'Leathaíonn Tethra tiarnas sa dorchadas.',
-                en: 'Tethra spreads his dominion in the darkness.',
+                ga: 'Éiríonn Tethra, Rí na bhFomhórach.',
+                en: 'Tethra, King of the Fomorians rises.',
                 speaker: 'druid',
             },
         ],
     },
 
-    // ── An Carr Mór — The Great Chariot / Plough (Ursa Major) ───────────────
-    // Queen sees hope in the northern stars; druid delivers the bitter opening.
+    // ── An Carr Mór — The Great Chariot / Plough ────────────────────────────
     carr: {
         waiting: [
             {
-                ga: 'Ach feach an carr ar an bóthar dubh!',
-                en: 'But see the chariot on the dark road!',
+                ga: 'Nach ceanglaíonn an Carr Mór é faoin bhfarraige?',
+                en: 'Does the Great Chariot not bind Him under the ocean?',
                 speaker: 'queen',
             },
-
-            {
-                ga: 'Gille na réaltaí ó Thúaidh, scíath na féine.',
-                en: 'Brightness of the northern stars, shield of fenians',
-                speaker: 'queen',
-            }
- 
         ],
         completion: [
             {
-                ga: 'Tá insint searbh ar an scéal nach tugann sásamh dom.',
-                en: 'I am not glad to tell a thing so bitter...',
-                speaker: 'druid',
+                ga: 'Thuigeas gur mar sin a dhíbir an Dagda é,',
+                en: 'So I understood did Dagda banished Tethra,',
+                speaker: 'queen',
+            },
+            {
+                ga: 'Fadó fadó in Éireann',
+                en: 'Long long ago in Ireland.',
+                speaker: 'queen',
             },
         ],
     },
 
     // ── An Torc — The Wild Boar (Scorpius) ──────────────────────────────────
-    // The druid reads the Boar's rising: war and doom beneath its red star.
     torc: {
         waiting: [
             {
-                ga: '...ach eiríonn an Torc faoin réalt dearg.',
-                en: 'But the Boar does rise with war.',
+                ga: 'Is dorcha an tuar.',
+                en: 'Dark is the omen.',
                 speaker: 'druid',
-            }
-           
+            },
         ],
         completion: [
-           
- {
-                ga: 'Feicim Taoisigh fomhórach cogairsithe, dúr agus ulamh.',
-                en: 'I see Fomorian chiefains arrayed for battle, grim and ready.',
+            {
+                ga: 'Tá láimh fhuar ag síneadh trí na réalta,',
+                en: 'A cold hand reaches through the stars,',
                 speaker: 'druid',
-            }
+            },
+            {
+                ga: 'Tagann ufás orm ag faire na spéire',
+                en: 'And terror seizes me at my watching',
+                speaker: 'druid',
+            },
         ],
     },
 
@@ -105,46 +106,71 @@ export const constellationTexts = {
     cuirt: {
         waiting: [
             {
-                ga: 'Draoí faiteach! An deanfainn umhlú go talamh meas tú? Mar beith-gheal lá stoirme?',
-                en: 'Frightened druid! Think ye I shall bend my neck? Like birch on a stormy day?',
+                ga: 'A dhraoi fhaiteach!',
+                en: 'Frightened druid!',
+                speaker: 'queen',
+            },
+
+            {
+                ga: 'Is mairg don spéir a éiríonn',
+                en: 'Woe to the sky that rises',
                 speaker: 'queen',
             },
             {
-                ga: 'Nó an amhlaidh go leagfainn an Chraobh Rua ag cosa naimhde?',
-                en: 'Or that I who hold the Red Branch should let it fall at the feet of foes?',
+                ga: 'in aghaidh mo ghaiscígh sciathghela!',
+                en: 'against my shield-bright warriors!',
                 speaker: 'queen',
             },
-        ],
+                               {
+                ga: 'Ní chasfaidh neamh iad',
+                en: 'Heaven will not turn them',
+                speaker: 'queen',
+            },
+
+
+
+	],
         completion: [
-            {
-                ga: 'Ní dhéanaim tarcaisne don Chraobh Rua, ná dá ceannaireacht.',
-                en: 'I cast no scorn upon the branch, nor the chief who weilds it.',
-                speaker: 'druid',
-            },
-            {
-                ga: 'Tá Seacht réalta ina bhfinnéithe ar an tuar dorcha seo:',
-                en: 'Seven stars stand witness to this dark foretelling:',
-                speaker: 'druid',
-            },
-            {
-                ga: 'Feicim cúirt ár mbith-naimhde, agus gach suíochán lán.',
-                en: 'I see the court of Tethra, and every seat is full.',
-                speaker: 'druid',
-            },
-        ],
+   
+
+
+
+			{
+        ga: 'Gabh do chlaíomh geal in aghaidh Thethra, mar sin',
+        en: 'Take up your bright sword against Tethra',
+        speaker: 'druid',
+    },	{
+        ga: 'Ach caoin anois do ghaiscígh sciathghela',
+        en: 'But mourn now for your bright-shielded champions',
+        speaker: 'druid',
+    },
+     {
+        ga: 'Déan caoineadh ar do shluatha cróga',
+        en: 'Mourn your valiant hosts',
+        speaker: 'druid',
+    },
+    {
+        ga: 'Sin a thaispeánann na réalta fuaire dom',
+        en: 'Such is what the cold stars show me',
+        speaker: 'druid',
+    },
+     //  
+]
     },
 
     // ── An Draoi — The Druid (Boötes) ───────────────────────────────────────
-    // The queen pleads for any sign of hope; the druid silences her.
     draoi: {
         waiting: [
-             { ga: 'Chíoraim shúile soir faoi bhrón, Siar chomh maith, is os mo chionn;', en: 'Eastward sweep my eyes in grief, Westward too and over-head;', speaker: 'queen' },
-            { ga: 'Cá bhfuil dóchas i measc na húisle, a Chonaill dhíl?', en: 'Where among the high-placed ones o faithful wolf, dwells a sign of hope?', speaker: 'queen' },
-            { ga: 'An bhfuil na spéartha balbh?', en: 'Shall not heaven hear my need?', speaker: 'queen' },
+            
+            {
+                ga: 'Aimsigh réalt in aghaidh an áir, a Chonaill dhíl.',
+                en: 'Find a star against the ruin, o faithful wolf.',
+                speaker: 'queen',
+            },
         ],
         completion: [
             {
-                ga: 'Fan. Fan. Ná caoin go fóil',
+                ga: 'Fan. Fan. Ná caoin go fóill.',
                 en: 'Hold. Hold. Let not thy voice rise further.',
                 speaker: 'druid',
             },
@@ -152,32 +178,29 @@ export const constellationTexts = {
     },
 
     // ── An Cláirseach — The Harp (Lyra) ─────────────────────────────────────
-    // The druid glimpses the unknown star rising beside the Harp of heaven.
     clairseach: {
         waiting: [
             {
-                ga: 'Tá neach sa spéir anocht, Nach raibh ann aréir.',
-                en: 'There is a thing upon the sky this night That was not there the night before.',
+                ga: 'Tá neach sa spéir anocht, nach raibh ann aréir.',
+                en: 'There is a thing upon the sky this night that was not there the night before.',
                 speaker: 'druid',
             },
         ],
         completion: [
             {
-                ga: 'In aice na cláirsí,  réalt anaithnid dom le linn mo bhlianta faire',
-                en: 'By the harp, a star unknown to me in all my years of watching',
+                ga: 'In aice na cláirsí, réalt anaithnid dom le linn mo bhlianta faire,',
+                en: 'By the harp, a star unknown to me in all my years of watching,',
                 speaker: 'druid',
             },
-        
-             {
-                ga: 'Réalt le ainm nach bhfuil ráite, laoch nar chan aon bard fáilte.',
-                en: 'A star whose name is not yet spoken, a hero unsung as yet by any bard.',
+            {
+                ga: 'réalt le hainm nach bhfuil ráite, laoch nár chan aon bhard fáilte.',
+                en: 'a star whose name is not yet spoken, a hero unsung as yet by any bard.',
                 speaker: 'druid',
             },
         ],
     },
 
     // ── An Laoch — The Warrior (Perseus) ────────────────────────────────────
-    // The queen demands a name; the druid has given all he can.
     laoch: {
         waiting: [
             {
@@ -188,8 +211,8 @@ export const constellationTexts = {
         ],
         completion: [
             {
-                ga: 'Sin mo léargais, a bhanríon. Tá an chuid eile i ndán dúinn.',
-                en: 'I have hidden nothing o queen.  What remains is written in our stars.',
+                ga: 'Sin mo léargas, a bhanríon. Tá an chuid eile i ndán dúinn.',
+                en: 'I have hidden nothing o queen. What remains is written in our stars.',
                 speaker: 'druid',
             },
         ],

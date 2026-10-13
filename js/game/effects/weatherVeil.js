@@ -7,6 +7,8 @@
 //   WeatherSky   overcast sky replacing the painted one   (weatherSky.js)
 //   the grade    this file: haze, slate, mist and wet-ground sheen, z-index 4
 //   WeatherRain  rings and curtains of rain               (weatherRain.js)
+//   WeatherRainbow  rain giving way to sun, now and then: a swirl of rainbow
+//                   light across the edges of the screen   (weatherRainbow.js)
 //
 // ── The grade: grey day vs fog ───────────────────────────────────────────────
 // Two different looks, driven by two different numbers:
@@ -47,6 +49,7 @@
 import { weather } from './weather.js'
 import { WeatherSky } from './weatherSky.js'
 import { WeatherRain } from './weatherRain.js'
+import { WeatherRainbow } from './weatherRainbow.js'
 
 const ROOT_ID = 'pgr-wx-veil'
 const EPS = 0.003
@@ -62,6 +65,7 @@ export class WeatherVeil {
     this._clock = null
     this.sky = null
     this.rain = null
+    this.rainbow = null
 
     if (!this.container) return
 
@@ -136,6 +140,7 @@ export class WeatherVeil {
 
     this.sky = new WeatherSky(this.pgr)
     this.rain = new WeatherRain(this.pgr)
+    this.rainbow = new WeatherRainbow(this.pgr, scene)
     this.update()
   }
 
@@ -206,11 +211,13 @@ export class WeatherVeil {
 
     this.sky?.update(dt)
     this.rain?.update(dt)
+    this.rainbow?.update(dt)
   }
 
   destroy() {
     this.sky?.destroy(); this.sky = null
     this.rain?.destroy(); this.rain = null
+    this.rainbow?.destroy(); this.rainbow = null
     if (this._grey?.parentNode) this._grey.parentNode.removeChild(this._grey)
     this._grey = null
     if (this._root?.parentNode) this._root.parentNode.removeChild(this._root)

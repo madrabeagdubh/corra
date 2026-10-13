@@ -124,6 +124,12 @@ class Weather {
       curtainGrain:   0.40,   // flicker inside the curtains
       grainAlpha:     0.07,   // flicker of fine grain over the whole view
       sheen:          0.80,   // wet-ground sheen once the ground is soaked
+      // ── the rainbow (weatherRainbow.js) ─────────────────────────────────
+      rainbowChance:  0.4,    // how often rain giving way to sun brings one (0..1)
+      rainbowIn:      15,     // seconds fading in
+      rainbowHold:    10,     // seconds at its height
+      rainbowOut:     15,     // seconds fading out
+      rainbowAlpha:   0.6,    // how strong it is at its height
     }
 
     this._from    = { ...this.state }

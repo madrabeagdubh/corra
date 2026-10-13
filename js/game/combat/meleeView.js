@@ -124,7 +124,13 @@ export default class MeleeView {
     } else {
       let ang, hand = null, smear = null
       const cut = q => cutPose(q, aim, fs, false)
-      if (foe.state === 'wind') {                                                // the tile is red: the blade lifts, high and back
+      const dc = this.demoCut, dk = dc ? (now - dc.t0) / dc.ms : 2           // a cut he shows you (a lesson's demonstration): the look only
+      if (dc && dk >= 1.2) this.demoCut = null
+      if (dc && dk < 1.2) {
+        const show = q => cutPose(q, dc.aim, fs, dc.flip), p = show(Math.min(1, dk))
+        ang = p.angle; hand = p.hand; smear = cutSmear(show, Math.min(1, dk), 0)
+      }
+      else if (foe.state === 'wind') {                                                // the tile is red: the blade lifts, high and back
         const p = cutPose(0.36 * easeOut(clamp01((t - foe.st0) / Math.max(1, (foe.until - foe.st0) * 0.6))), aim, fs, false)
         ang = p.angle; hand = p.hand
       }

@@ -20,9 +20,11 @@
 //   calls     the salute, talked through with the blade out; then three of them
 //   fatigue   he stands in as a target and turns everything aside till you're winded;
 //             "Stop." -- and what it was for
-//   strong    gather a strong blow, hold it, let it go (too soon is only a cut)
+//   (strong)  gather a strong blow, hold it, let it go -- not in the garden any more:
+//             the tournament teaches it. The lesson is kept (_strong) for whoever wants it back.
 //   dummy     still standing in: what would have landed counts
-//   feet      cut him as you pass, on the move
+//   feet      he shows you first -- back, in, cut; aside, in, cut -- then you: a step, then a
+//             cut (each pass a fresh step; a cut from where you stand, he turns aside)
 //   drag      only now, drawing a line to walk: he draws one and walks it; then you
 //   duel      a bout: draw a line at him, time slows as you near him -- land a blow in
 //             that slow, and he is done with you
@@ -73,7 +75,8 @@ export const DIRS_DONE = 'faiche_course_dirs'
 export const TAP_DONE = 'lesson_movement'
 export const COURSE_DONE = 'faiche_kata_done'      // the whole course (the green waits for it)
 
-export const ORDER = ['meet', 'space', 'sword', 'calls', 'fatigue', 'strong', 'dummy', 'feet', 'drag', 'duel', 'end']
+// (the strong blow -- _strong -- is left for the tournament to teach: not in the order)
+export const ORDER = ['meet', 'space', 'sword', 'calls', 'fatigue', 'dummy', 'feet', 'drag', 'duel', 'end']
 const NOTE = { meet: MET, dirs: DIRS_DONE, tap: TAP_DONE }
 const noteOf = id => NOTE[id] || `faiche_course_${id}`
 
@@ -98,6 +101,7 @@ const DRAW_STEP_MS = 120                   // the line grows a tile this often
 // the dummy: Conall stands in for it (see _standIn)
 const DUMMY_AT = [18, 15]                  // where he takes its place
 const DUMMY_GOAL = 12, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 2
+const PASS_AFTER_STEP_MS = 900              // a cut this soon after a step is a cut on the move
 
 // the gentle duel: a novice, slowed right down, who goes down in three blows
 // three rounds against Conall: quicker and a little stronger each time
@@ -953,7 +957,7 @@ export default class FaicheCourse {
 
   _feet() {
     const S = SCRIPT.feet
-    this._standIn(() => {
+    this._standIn(() => this._feetDemo(() => {
       this._speech(S.intro, () => {
         this._call(S.go)
         this._later(this._holdOf(S.go) + 200, () => this._hint(S.hint))
@@ -968,7 +972,54 @@ export default class FaicheCourse {
           },
         })
       })
-    })
+    }))
+  }
+  /** a cut from where you stand, in the passing lesson: he turns it aside, and now and then says so */
+  _stillCut() {
+    const S = SCRIPT.feet
+    if (this.t < (this.stillAt || 0)) return
+    this.stillAt = this.t + 5000
+    if (S.still) this._call(S.still); else this._hint(S.hint)
+  }
+
+  /** "Move thus. And thus.": he shows you. Back a step, in again, a cut; aside, in, a cut; then home.
+   *  (feet.demo: one line with each cut.) The look only -- nothing in it can touch you. */
+  _feetDemo(then) {
+    const m = this.m, v = this.scene._melee?.view, words = asList(SCRIPT.feet.demo || []).filter(Boolean)
+    const home = [...DUMMY_AT], me = this._tile()
+    let away = [Math.sign(home[0] - me[0]), Math.sign(home[1] - me[1])]
+    if (!away[0] && !away[1]) away = [0, -1]
+    const aside = [-away[1], away[0]], toYou = [-away[0], -away[1]]
+    const plus = (a, b) => [a[0] + b[0], a[1] + b[1]]
+    const plan = [
+      { go: plus(home, away) }, { go: home }, { cut: 0 },
+      { go: plus(home, aside) }, { go: plus(plus(home, aside), toYou) }, { cut: 1 },
+      { go: home },
+    ]
+    this.dummyMode = null
+    const ok = t => !same(t, this._tile()) && (same(t, home) || m.pa.free(t[0], t[1]))
+    const run = i => {
+      if (i >= plan.length) { m.HOME = [...home]; if (v) v.demoCut = null; return this._waitFoe(home, then) }
+      const s = plan[i]
+      if (s.go) {
+        if (!ok(s.go)) return run(i + 1)
+        m.HOME = [...s.go]
+        return this._waitFoe(s.go, () => this._later(150, () => run(i + 1)))
+      }
+      // a cut toward you, forehand then backhand
+      if (v) v.demoCut = { t0: v.now(), ms: 420, aim: v.screenAngle([m.foe.c, m.foe.r], this._tile()), flip: s.cut % 2 === 1 }
+      try { SoundBoard.playWeb('SWORD_SWISH', this.scene, { material: 'wood' }) } catch (_) {}
+      if (words[s.cut]) this._call(words[s.cut])
+      this._later(Math.max(800, this._holdOf(words[s.cut]) * 0.6), () => run(i + 1))
+    }
+    run(0)
+  }
+  /** wait for him to arrive on a tile (or a moment, if he can't) */
+  _waitFoe(tile, then) { this.foeWait = { tile: [...tile], then, t0: this.t } }
+  _foeWaitTick() {
+    const w = this.foeWait
+    if (!w) return
+    if (this._foeAt(w.tile) || this.t - w.t0 > 1600) { this.foeWait = null; w.then() }
   }
 
   // a cut at the air, beside him: he parries it, and counts it if it would have landed
@@ -979,12 +1030,15 @@ export default class FaicheCourse {
     if (cheb(me, at) !== 1) return
     const m = this.m
     if (m.swing) m.swing.tile = [...at]                              // the cut goes at him, whichever way you last walked
-    const moving = m.moving() || this.t - (this.routeT ?? -1e9) < 600   // walking (a drawn line or the d-pad), or just off the end of a line
+    // on the move: walking, or a moment after a step (the moon is in the middle of the d-pad: you step, then cut)
+    const fresh = this.stepN !== this.passStep && this.t - (this.stepT ?? -1e9) < PASS_AFTER_STEP_MS
+    const moving = m.moving() || this.t - (this.routeT ?? -1e9) < 600 || fresh
     this._later(160, () => {
       if (!this.dummyMode) return
       this._parry(d.charged ? 600 : 380)
       if (this.dummyMode === 'score') this._score(d.charged ? PTS.strong : PTS.cut)
-      else if (this.dummyMode === 'pass' && moving) this._goalAdd(1)
+      else if (this.dummyMode === 'pass' && moving) { this.passStep = this.stepN; this._goalAdd(1) }    // one pass per step
+      else if (this.dummyMode === 'pass') this._stillCut()
       // 'parry': he turns it aside, and that is all (fatigue, strong)
     })
   }
@@ -1254,6 +1308,10 @@ export default class FaicheCourse {
     for (const q of this.queue.slice()) if (this.t >= q.at) { this.queue.splice(this.queue.indexOf(q), 1); q.fn() }
     if (this._meetWait && !this.scene._encounterPanel?._isOpen && this._inSight()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
     this._waitTick()
+    this._foeWaitTick()
+    { const tl = this._tile(), lt = this._lastTile                            // your steps, counted (the passing lesson)
+      if (lt && (tl[0] !== lt[0] || tl[1] !== lt[1])) { this.stepT = this.t; this.stepN = (this.stepN || 0) + 1 }
+      this._lastTile = tl }
     this.drill?.update()
     this._standTick()
     this._homeTick()

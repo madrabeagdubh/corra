@@ -224,14 +224,20 @@ export const LINES = {
       {
         "en": "Look. Rooted as an oak. No. No.",
         "ga": "Féach. Fastaithe mar dhair. Ní hea. Ní hea."
-      },
-      {
-        "en": "Move thus. And thus.",
-        "ga": "Bog mar seo. Agus mar seo."
       }
     ]
   },
   "feet": {
+    "demo": [
+      {
+        "en": "Move thus.",
+        "ga": "Bog mar seo."
+      },
+      {
+        "en": "And thus.",
+        "ga": "Agus mar seo."
+      }
+    ],
     "intro": [
       {
         "en": "Move, and move again.",
@@ -248,6 +254,18 @@ export const LINES = {
         "ga": "Tar chugam."
       }
     ],
+    "hint": [
+      {
+        "en": "Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.",
+        "ga": "Take a step beside him, then tap the moon. A cut from where you stand, he turns aside."
+      }
+    ],
+    "still": [
+      {
+        "en": "No. Move first.",
+        "ga": "No. Move first."
+      }
+    ],
     "count": [
       {
         "en": "One.",
@@ -261,18 +279,10 @@ export const LINES = {
       },
       {
         "en": "Step to the side.",
-        "ga": "Step to the side."
-      },
-      {
-        "en": "Tóg céim ar leataobh.",
         "ga": "Tóg céim ar leataobh."
       },
       {
         "en": "Step outside his blade-arm,",
-        "ga": "Step outside his blade-arm,"
-      },
-      {
-        "en": "Tóg céim chuig taobh amuigh dá ghéag claoímh,",
         "ga": "Tóg céim chuig taobh amuigh dá ghéag claoímh,"
       },
       {
@@ -350,11 +360,9 @@ export const LINES = {
       {
         "en": "The mind becomes a dwelling that others cannot reach.",
         "ga": "Seasann an aigne i nglan-radharc ar an taobh eile."
-      },
-      {
-        "en": "after",
-        "ga": "after"
-      },
+      }
+    ],
+    "after": [
       {
         "en": "Thou hast the making of it.",
         "ga": "Tá an t-ábhar ionat."

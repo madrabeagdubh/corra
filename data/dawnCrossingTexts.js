@@ -10,22 +10,6 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
 
-	        {
-            ga: 'Breathíonn dhá rón orm ag imeacht, ó na carraigreacha dubha',
-            en: 'Two seals from the black rocks watch me go',
-            speaker: 'hero',
-        },
-
-        
-        {
-            ga: 'Péire ghainéad cosúl le shleánna bána chaite ós mo chionn',
-            en: 'Two gannets above like thrown spears white',
-            speaker: 'hero',
-        },{
-            ga: 'Bád beag, croí cróga, agus sin uile.',
-            en: 'Small boat, brave heart, and nothing more.',
-            speaker: 'hero',
-        },
         {
             ga: 'Fada an turas treasna an t-uisce',
             en: 'Long is the journey across the water',
@@ -52,18 +36,13 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'A thiomáineann an bád beag ar aghaidh, agus ar aghaidh.',
-            en: 'That drives the small boat ever on.',
+            ga: 'a thiomáineann an bád beag ar aghaidh, agus ar aghaidh...',
+            en: 'that drives the small boat ever on...',
             speaker: 'hero',
         },
-        {
-            ga: 'Ní bóthar éasca é, bóthar an léinn,\nNíl cosán an feasa gan praghas,',
-            en: 'Not an easy road, that leads to learning,\nNo path to wisdom without cost.',
-            speaker: 'hero',
-        },
-        {
-            ga: 'Ach tá an fharraige ciúin agus tá an mhaidin séimh,\nAgus leagaim romham Oileánn an Cheo.',
-            en: 'But the sea is peaceful and the dawn is gentle,\nAnd I set before me the Isle of Skye.',
+              {
+            ga: '...go h-Oileánn an Cheo.',
+            en: '...to the Isle of Skye.',
             speaker: 'hero',
         },
     ],

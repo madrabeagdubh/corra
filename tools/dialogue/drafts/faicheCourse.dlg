@@ -225,13 +225,20 @@ Thus. Dost thou see?
 = after
 Look. Rooted as an oak. No. No.
 % Féach. Fastaithe mar dhair. Ní hea. Ní hea.
-Move thus. And thus.
-% Bog mar seo. Agus mar seo.
 
 
 # ══════════════════════════════════════════════════════════════════════
 == feet
-# Cut him as you pass, on the move (the d-pad will do): two passes. He counts.
+# He shows you first: back a step, in again, a cut; aside, in, a cut. Then you:
+# a step, then a cut (tap the moon just after a step). Each pass needs a fresh
+# step; a cut from where you stand, he turns aside. Two passes. He counts.
+
+# said with each of his two cuts, as he shows you
+= demo
+Move thus.
+% Bog mar seo.
+And thus.
+% Agus mar seo.
 
 = intro
 
@@ -246,6 +253,15 @@ Woe to him who remains where the sword expects to find him.
 Come at me.
 % Tar chugam.
 
+# the narrator, as you begin (and if you stall)
+= hint
+Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.
+% Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.
+
+# a cut from where you stand (now and then) -- NEW: English placeholder
+= still
+No. Move first.
+% No. Move first.
 
 # the first pass (the second opens the card below)
 = count
@@ -256,10 +272,10 @@ One.
 Two.
 % A dó.
 Step to the side. 
-Tóg céim ar leataobh.
+% Tóg céim ar leataobh.
 
 Step outside his blade-arm, 
-Tóg céim chuig taobh amuigh dá ghéag claoímh, 
+% Tóg céim chuig taobh amuigh dá ghéag claoímh, 
 
 and thou art safe.
 % is beidh tú slán.
@@ -332,7 +348,7 @@ And yet in the red work,
 The mind becomes a dwelling that others cannot reach.
 % Seasann an aigne i nglan-radharc ar an taobh eile.
 
-after
+= after
 Thou hast the making of it.
 % Tá an t-ábhar ionat.
 Enough.

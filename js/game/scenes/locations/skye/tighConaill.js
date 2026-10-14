@@ -33,6 +33,7 @@ import SkyeCaption from './skyeCaption.js'
 import { setupTapOnly } from './skyeTapOnly.js'
 import { checkLook, lookIcon, LOOK_KINDS } from './skyeLook.js'
 import { hearthFire } from './skyeFx.js'
+import { weather } from '../../../effects/weather.js'
 
 const DATA_DIR = 'skye', DATA_KEY = 'tighConaill'
 const TS = 48                                           // the map's tile, in logical px
@@ -92,7 +93,7 @@ export class TighConaill extends SkyeScene {
     PerspectiveGroundRenderer.CLIP_TOP_FRAC = 0
     const across = PerspectiveGroundRenderer.TILES_ACROSS, focal = PerspectiveGroundRenderer.FOCAL_LENGTH
     PerspectiveGroundRenderer._psDefault ??= PerspectiveGroundRenderer.PLAYER_SCALE
-    this.events.once('shutdown', () => { PerspectiveGroundRenderer.PLAYER_SCALE = PerspectiveGroundRenderer._psDefault; this._teardown(across, focal) })
+    this.events.once('shutdown', () => { PerspectiveGroundRenderer.PLAYER_SCALE = PerspectiveGroundRenderer._psDefault; this._teardown(across, focal); if (this._rainLock) { this._rainLock = false; weather.unlock() } })
     await super.create(data)
     const pgr = this.perspectiveGround
     if (!pgr || !this.player) return
@@ -156,6 +157,9 @@ export class TighConaill extends SkyeScene {
     this._conall.pose = { dy: 0, sy: 1, sx: -1 }            // turned to the bed (to the west)
     this._camBias = { x: -0.9 * TS, y: 0, k: 1 }            // the camera between him and the bed, so both are seen
     this._paintHead()
+    // Two days on from the landing, the rain has eased to a drizzle. There is no sky to see in here, so it eases
+    // over the morning, and is the director's again when he leaves (the shutdown below).
+    if (!weather.locked) { weather.lock('drizzle', { fade: 45 }); this._rainLock = true }
     if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._run(false) }
     else this._run(true)                                  // the dream first: black, rain, the drowning; then the eyes open
   }
@@ -447,11 +451,13 @@ export class TighConaill extends SkyeScene {
   // ── the dream: black, soft rain, the drowning and "Lie still"; then the eyes open on the rest ────
   // The black is a DOM sheet UNDER the Phaser canvas (z 9: the ground layers are 2-3, the canvas 10), so the cards
   // show on it. _openEyes lays its own black over everything and removes this one, so there is no seam.
+  // It goes INSIDE #gameContainer: in the real game that is a fixed layer at z 999999 (tutorialOrAdventure.js), and a
+  // sheet on <body> at z 9 lies beneath the whole of it -- the world showed through the "dark".
   async _dream() {
     const dark = document.createElement('div')
     dark.id = 'tigh-dark'
-    dark.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9;pointer-events:none'
-    document.body.appendChild(dark)
+    dark.style.cssText = 'position:absolute;inset:0;background:#000;z-index:9;pointer-events:none'
+    ;(document.getElementById('gameContainer') || document.body).appendChild(dark)
     document.getElementById('landfall-veil')?.remove()     // the landfall's black (over everything) hands over to this
     this._rainHandle = this._cabinRain(2600)
     await this.wait(3000)                                   // the rain comes up in the dark

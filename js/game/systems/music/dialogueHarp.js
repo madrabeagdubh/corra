@@ -257,7 +257,12 @@ class DialogueHarpImpl {
     // Deliberately does NOT touch the NPC voice. That's setNpc()'s business,
     // and keeping them separate is what makes call order irrelevant -- this
     // used to reset the NPC a moment after it had been resolved.
-    if (npcKey) this.setNpc(npcKey)
+    if (npcKey) {
+      this.setNpc(npcKey)
+      // a fresh conversation starts at the top of the NPC's tune too (setNpc
+      // leaves a character it already has where it was)
+      this.npc.idx = 0; this.npc.baseBar = null
+    }
     else if (this._npcId) this._resolveNpc()
   }
 
@@ -641,8 +646,13 @@ class DialogueHarpImpl {
    * and if it moved the tune then "a long exchange gets further into your
    * theme" would stop being true.
    */
-  open(champion, scene = null) {
-    this.begin(champion, scene)
+  open(champion, scene = null, npcKey = null) {
+    // The NPC must be settled BEFORE the flourish below: it is rooted on
+    // whatever tune is speaking. Callers have always passed the NPC here, but
+    // it was dropped, and on a path where the card is built after the panel
+    // opens (the cladach landfall) the flourish sounded in the champion's key
+    // and the melody that followed in the NPC's -- two tunes at once.
+    this.begin(champion, scene, npcKey)
     if (!this.on) return
     const ctx = this._ctx()
     const root = this._root()

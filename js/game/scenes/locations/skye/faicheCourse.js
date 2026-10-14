@@ -100,7 +100,7 @@ const DRAW_STEP_MS = 120                   // the line grows a tile this often
 
 // the dummy: Conall stands in for it (see _standIn)
 const DUMMY_AT = [18, 15]                  // where he takes its place
-const DUMMY_GOAL = 12, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 2
+const DUMMY_GOAL = 12, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 5
 const PASS_AFTER_STEP_MS = 900              // a cut this soon after a step is a cut on the move
 
 // the gentle duel: a novice, slowed right down, who goes down in three blows

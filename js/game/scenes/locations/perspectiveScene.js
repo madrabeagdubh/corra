@@ -1599,8 +1599,10 @@ perTile:        true,
       this._exitShrink = 1
       this.tweens.add({ targets: this, _exitShrink: 0.4, duration: DUR, ease: 'Sine.easeIn' })
     }
-    const tx = px + (dir === 'east' ? WALK : dir === 'west' ? -WALK : 0)
-    const ty = py + (dir === 'south' ? WALK : dir === 'north' ? -WALK : 0)
+    // exitData.walk: [dx, dy], a way on in a direction of its own (the tomb in d2: into the hill)
+    const wk = exitData.walk
+    const tx = px + (wk ? wk[0] * WALK : dir === 'east' ? WALK : dir === 'west' ? -WALK : 0)
+    const ty = py + (wk ? wk[1] * WALK : dir === 'south' ? WALK : dir === 'north' ? -WALK : 0)
     this.player.isMoving = true
     if (north) this.time.delayedCall(DUR * 0.5, () => {
       this.cameras.main.fadeOut(DUR * 0.5, 0, 0, 0)

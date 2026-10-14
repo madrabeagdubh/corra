@@ -329,6 +329,9 @@ export default class MeleeBout {
   update(delta) {
     const m = this.melee
     if (m.enGarde && !m.bare && !this.swordInHand()) m.setEnGarde(false)     // the sword was put away in the menu
+    // en garde, or in a fight (from engage() to endFight()), you step at fighting pace (as the fights
+    // were tuned); otherwise, walking
+    this.scene.player?.setWalkPace?.(m.enGarde || m.fight || m.combat ? 1 : null)
     if (this.scene._encounterPanel?._isOpen) return               // a conversation: the fight holds its breath
     delta = this._focusStep(delta)
     m.update(delta)
@@ -383,6 +386,7 @@ export default class MeleeBout {
 
   destroy() {
     const p = this.scene.player
+    p?.setWalkPace?.(null)
     if (p && this._origUpdate) p.update = this._origUpdate
     const pgr = this.scene.perspectiveGround
     if (pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(f => f !== this.flag && !this.ghostFlags?.includes(f)))

@@ -254,12 +254,6 @@ export const LINES = {
         "ga": "Tar chugam."
       }
     ],
-    "hint": [
-      {
-        "en": "Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.",
-        "ga": "Take a step beside him, then tap the moon. A cut from where you stand, he turns aside."
-      }
-    ],
     "still": [
       {
         "en": "No. Move first.",
@@ -270,12 +264,24 @@ export const LINES = {
       {
         "en": "One.",
         "ga": "A haon."
+      },
+      {
+        "en": "Two.",
+        "ga": "A dó."
+      },
+      {
+        "en": "Three.",
+        "ga": "A trí."
+      },
+      {
+        "en": "Four.",
+        "ga": "A ceathair."
       }
     ],
     "after": [
       {
-        "en": "Two.",
-        "ga": "A dó."
+        "en": "Five.",
+        "ga": "A cúig."
       },
       {
         "en": "Step to the side.",

@@ -7,9 +7,21 @@
 @file skye/skyeLoch
 @encounter 0
 
+# ══ he has had you before ══════════════════════════════════════
+# (first in the list on purpose: a returning player never sees the first meeting)
+= again
+@when note garbhan_met
+Back again? Good.
+% Ar ais arís? Go maith.
+
 # ══ first meeting ══════════════════════════════════════════════
+# THREE PARTS (garbhan.js plays them): the taunts, then an OUT -- a choice -- and, if you stand your
+# ground, the rest. garbhan.js sets garbhan_stand (you stood your ground) and garbhan_armed (you have
+# your sword) while it plays the rest, and clears them after.
+
 = first meeting
-@when !note garbhan_met
+@when !note garbhan_stand
+@continue
 And where is it, o little grey sparrow
 % Agus cá háit, a gealbhan beag liath
 
@@ -28,22 +40,40 @@ And where is it, o little grey sparrow
 < Friend, says the sparrow. Friend!
 % A chara, arsa an gealbhan. A chara!
 
-
-< Turn back, little one, turn back.
+# ── the out ──────────────────────────────────────────────────
+= the out
+@when !note garbhan_stand
+@hold
+Turn back, little one, turn back.
 % Cas síar, a chréatúir, cas síar.
-
-< Theres no place in the tournament for the likes of you.
+Theres no place in the tournament for the likes of you.
 % Níl áit sa comórtas dá leithead.
 
-> That is not your decision.
+* That is not your decision.
 % Ní fútsa an cinneadh sin.
+@note garbhan_stand
+@exit
 
-< Come across then if ye dare it. 
-% Tar trasna mar sin má tá an chroí ionat.
+# NEW: English placeholders
+* Very well. I will turn back.
+% Very well. I will turn back.
+@note garbhan_backoff
+@last
+< Aye. Off home with ye, sparrow.
+% Aye. Off home with ye, sparrow.
 
-< Come and let me have a look at that fine wooden sword.
+# ── you stood your ground ─────────────────────────────────────
+# only if you have your sword (garbhan.js sets garbhan_armed)
+= the sword
+@when note garbhan_armed
+@continue
+Come and let me have a look at that fine wooden sword.
 % Tar go bhfeice mé an claíomh maith adhmaid sin.
 
+= the rest
+@when note garbhan_stand
+Come across then if ye dare it.
+% Tar trasna mar sin má tá an chroí ionat.
 
 > I will go round.
 % Rachaidh mé timpeall.
@@ -86,9 +116,3 @@ And where is it, o little grey sparrow
 
 > Come then.
 % Tar, mar sin.
-
-# ══ he has had you before ══════════════════════════════════════
-= again
-@when note garbhan_met
-Back again? Good.
-% Ar ais arís? Go maith.

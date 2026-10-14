@@ -26,6 +26,8 @@ import TestForest from './game/scenes/locations/forest/testForest.js'
 import ElevationTest  from './game/scenes/locations/forest/elevationTest.js'
 import ElevationMoatTest  from './game/scenes/locations/forest/elevationMoatTest.js'
 import Grove from './game/scenes/locations/forest/grove.js'
+import CaveTest from './game/scenes/locations/cave/caveTest.js'
+import Otherside1 from './game/scenes/locations/cave/otherside1.js'
 import PlatesScene from './game/scenes/locations/bog/plates.js'
 import IntroLevelScene from './game/scenes/locations/bog/introLevel.js'
 import { SKYE_SCENES } from './game/scenes/locations/skye/skyeMaps.js'
@@ -80,7 +82,7 @@ function _createGame(selectedChampion, options) {
             BogB1, BogB2, BogB3, BogB4,
             BogC1, BogC2, BogC3, BogC4,
             BogD1, BogD2, BogD3, BogD4, BogD3Sea, D3OpenSea,
-            VillageHall,TestForest,Grove,ElevationTest,ElevationMoatTest,
+            VillageHall,TestForest,Grove,ElevationTest,ElevationMoatTest,CaveTest,Otherside1,
             PlatesScene,
             IntroLevelScene,
             ...SKYE_SCENES

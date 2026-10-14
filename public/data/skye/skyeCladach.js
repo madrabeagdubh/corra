@@ -43,13 +43,6 @@ export const skyeCladachContent = {
       portrait: '/assets/npcs/othran.png',
       dialogues: [
 
-        // ── node 0 — the landing ──────────────────────────────────
-        {
-          continue: true,
-          ga: 'Bhuel. Scaoil an fharraige uaithi thú.\nIs mise Conall. Coimeádaim an fhaiche d\'Uathach, iníon Scáthaí.',
-          en: 'So. The sea gave you up.\nI am Conall. I keep the green for Uathach, Scáthach\'s daughter.',
-        },
-
         // ── node 1 — the top ──────────────────────────────────────
         {
           requires: { note: 'climb_top', noteAbsent: 'pep_done' },
@@ -70,40 +63,6 @@ export const skyeCladachContent = {
               en: 'To the garden first.',
             },
           ],
-        },
-
-        // ── node 2 — the invitation ───────────────────────────────
-        {
-          requires: { noteAbsent: 'climb_started' },
-          hold: true,
-          ga: 'Tá an balla seo sean, agus staighre ann áit éigin. Tar aníos nuair a bheidh tú réidh.',
-          en: 'The wall is old, and there\'s a stair in it somewhere. Come up when you\'re ready.',
-          again: { ga: 'Bhuel?', en: 'Well?' },
-          options: [
-            {
-              note: 'climb_started',
-              exit: true,
-              ga: 'Tagaim aníos.',
-              en: 'I\'m coming.',
-            },
-            {
-              first: true,
-              ga: 'Cé hí Scáthach?',
-              en: 'Who is Scáthach?',
-              say: 'Cé hí Scáthach?',
-              sayEn: 'Who is Scáthach?',
-              replyGa: 'An múinteoir arm is fearr ar domhan.\nAgus an ceann is crua.',
-              replyEn: 'The finest teacher of arms in the world.\nAnd the hardest.',
-            },
-          ],
-        },
-
-        // ── node 2a — on the wall ─────────────────────────────────
-        {
-          requires: { note: 'climb_started' },
-          hold: true,
-          ga: 'Tar aníos.',
-          en: 'Come up.',
         },
 
         // ── node 3 — the landfall ─────────────────────────────────

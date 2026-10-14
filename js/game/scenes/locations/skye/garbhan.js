@@ -5,7 +5,9 @@
 // the GARBHAN preset (combat/enemies.js); this runs everything around the fight:
 //
 //   wait    he stands on the bank; come within TALK_AT tiles (on dry ground) and
-//   talk    he speaks, on the game's conversation card (_talk below). Having been here before, he only sneers. Then
+//   talk    he speaks, on the game's conversation card (_talk below). Having been here before, he only sneers. The first time
+//           you are offered an OUT after his threats: turn back, and he lets you go (nothing begins; he talks again if you come
+//           back). Stand your ground and the rest is said (the line about your wooden sword only if you carry one). Then
 //   fight   m.engage(): he shoves you (at the water's edge, into the loch), then the wooden sword,
 //           then, on his last wooden heart, a knife. Draw your sword or run: nothing is drawn for you.
 //   over    boutOver carries how it ended:
@@ -24,7 +26,7 @@
 // All the words are PLACEHOLDERS: English in both fields until an Irish speaker has been at them.
 // His fight barks (L below) are one-line captions; the conversation is the card.
 
-import MeleeBout from '../../../combat/meleeBout.js'
+import MeleeBout, { SWORD_ID } from '../../../combat/meleeBout.js'
 import { GARBHAN, GARBHAN_KNIFE } from '../../../combat/enemies.js'
 import { GameState } from '../../../systems/gameState.js'
 import { SKYE_GID } from './skyeScene.js'
@@ -33,7 +35,8 @@ import { figureBox, splash, dustPuff } from './dustDash.js'
 // the knife is drawn as the Oryx knife (TILES.KNIFE); the fight's numbers are enemies.js's
 const F = { ...GARBHAN, next: { ...GARBHAN_KNIFE, swordGid: 2495 } }
 export const HOME = [18, 14]            // the map's own (mapData.garbhanHome) wins
-export const NOTES = { met: 'garbhan_met', ko: 'garbhan_ko', gone: 'garbhan_gone', ambush: 'garbhan_ambush' }
+export const NOTES = { met: 'garbhan_met', ko: 'garbhan_ko', gone: 'garbhan_gone', ambush: 'garbhan_ambush',
+  stand: 'garbhan_stand', armed: 'garbhan_armed', backoff: 'garbhan_backoff' }      // (while he talks only: the out, skyeLoch.dlg)
 const DATA_DIR = 'skye', DATA_KEY = 'skyeLoch'      // public/data/skye/skyeLoch.js (a template, so vite leaves it be)
 const TALK_AT = 4            // tiles
 const REARM = 6              // after you ran, he talks again once you've been this far off
@@ -109,6 +112,7 @@ export default class Garbhan {
     this.state = 'talk'
     s.joystick?.reset?.()
     s.player.clearPath?.()
+    this._clearTalkNotes()
     if (!panel) return this._charge()
     let enc
     try {
@@ -118,16 +122,29 @@ export default class Garbhan {
     if (this.state !== 'talk') return                       // the scene went while it loaded
     if (!enc) return this._charge()
     const stateKey = 'skye_loch.garbhan'
-    const d = { type: 'fixed_encounter', stateKey, dialogues: enc.dialogues, portrait: enc.portrait, logicalX: 0, logicalY: 0 }
+    const d = { type: 'fixed_encounter', stateKey, dialogues: enc.dialogues, portrait: enc.portrait, visual: enc.visual, logicalX: 0, logicalY: 0 }
     const zone = { getData: k => d[k], setData() {} }
+    // The taunts, and then an OUT: a choice (skyeLoch.dlg). Turn back, and he lets you go; stand your ground, and
+    // the rest is played (with the line about your sword only if you have one), and then the fight.
+    this._play(panel, zone, stateKey, () => {
+      if (GameState.hasNote(NOTES.backoff)) return this._backOff()
+      if (!GameState.hasNote(NOTES.stand)) return this._charge()
+      if (this._hasSword()) GameState.addNote(NOTES.armed)
+      this._later(500, () => { if (this.state === 'talk') this._play(panel, zone, stateKey, () => this._charge()) })
+    })
+  }
+
+  /** open his card at the top of the file and call done() when the conversation closes */
+  _play(panel, zone, stateKey, done) {
+    const s = this.scene
     GameState.setNPCProgress(stateKey, 0)
-    panel._card = { id: 'fixed:garbhan', visual: enc.visual }
+    panel._card = { id: 'fixed:garbhan', visual: zone.getData('visual') }
     panel._active = zone
     panel._openPanel()
     let idle = 0
     const poll = () => {
       if (this.state !== 'talk') return
-      if (!panel._isOpen) return this._charge()
+      if (!panel._isOpen) return done()
       // Safety net (as in tighConaill.js): a card gone and no next one coming -- show it ourselves
       const tp = s.textPanel
       idle = (!tp.isVisible && !tp.isFading && !panel._chainTimer) ? idle + 200 : 0
@@ -137,7 +154,23 @@ export default class Garbhan {
     this._later(200, poll)
   }
 
+  _hasSword() {
+    const p = this.scene.player
+    return !!p?.inventory?.slots?.some(it => it?.id === SWORD_ID) || p?.inventory?.getEquippedItem?.('rightHand')?.id === SWORD_ID
+  }
+  _clearTalkNotes() { for (const n of [NOTES.stand, NOTES.armed, NOTES.backoff]) GameState.removeNote(n) }
+
+  // You turned back, and he let you. Nothing is begun: he waits, and talks again if you come back
+  // (once you've been REARM tiles off, as after a run).
+  _backOff() {
+    this._clearTalkNotes()
+    this.state = 'wait'; this._armed = false
+    this.scene._caption?.hide?.()
+    this.scene.joystick?.showDirections?.()
+  }
+
   _charge() {
+    this._clearTalkNotes()
     GameState.addNote(NOTES.met)
     this.state = 'fight'; this.fighting = true
     this._ending = null; this._waking = false

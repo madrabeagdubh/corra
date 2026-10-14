@@ -3,6 +3,14 @@ import { wetStep } from '../systems/weatherAudio.js'
 import Inventory from '../ui/inventory/inventory.js';
 import { createItem } from '../ui/inventory/itemDefinitions.js';
 
+const BUMP_MS = 230       // a refused step: out toward it and back
+const BUMP_TILES = 0.3    // ...this far
+
+// Walking pace: every step takes this many times as long as the speed stat alone would make it
+// (speed 6: 160ms -> 240ms a tile). A sword fight puts it back to 1 while you're en garde or fighting
+// (MeleeBout.update), so combat's timing is the same as it was.
+export const WALK_PACE = 1.5
+
 export default class Player {
 
   constructor(scene, x, y, champion) {
@@ -34,6 +42,7 @@ export default class Player {
     this.moveDirection = { x: 0, y: 0 };
 
     this.baseStepDuration     = 150;
+    this.walkPace             = WALK_PACE;
     this.stepDuration         = this.calculateStepDuration();
     this.terrainSpeedModifier = 1.0;
     this.terrainSinkOffset    = 0;
@@ -65,8 +74,16 @@ export default class Player {
   }
 
   calculateStepDuration() {
-    const duration = 250 - (this.stats.speed * 15);
+    const duration = (250 - (this.stats.speed * 15)) * (this.walkPace ?? WALK_PACE);
     return Math.max(50, duration / this.terrainSpeedModifier);
+  }
+
+  // pace: a multiplier on every step's time (WALK_PACE walking; 1 in a fight); null puts walking back
+  setWalkPace(pace) {
+    const p = pace ?? WALK_PACE
+    if (p === this.walkPace) return
+    this.walkPace = p
+    this.stepDuration = this.calculateStepDuration();
   }
 
   setTerrainSpeedModifier(modifier) {
@@ -235,6 +252,21 @@ export default class Player {
 
     const force = joystick.force;
 
+    // a bump (see bumpAgainst): out toward what blocked the step and back. A held press doesn't bump again.
+    if (force <= 10) this._blockedKey = null;
+    if (this._bump) {
+      const b = this._bump;
+      b.t += Math.min(delta, 100) / BUMP_MS;
+      if (b.t >= 1) {
+        this.logicalX = b.x; this.logicalY = b.y;
+        this._bump = null;
+      } else {
+        const o = Math.sin(Math.PI * Math.pow(b.t, 0.8)) * BUMP_TILES * this.tileSize;
+        this.logicalX = b.x + b.dx * o;
+        this.logicalY = b.y + b.dy * o;
+      }
+    }
+
     if (this.isMoving) {
       this.moveProgress += Math.min(delta, 100) / this.stepDuration;
 
@@ -242,7 +274,7 @@ export default class Player {
         this.logicalX     = this.targetX;
         this.logicalY     = this.targetY;
         this.isMoving     = false;
-        const terrain = this.scene?.terrainManager?.currentTerrain?.name
+        const terrain = this.scene?.footTerrain?.() ?? this.scene?.terrainManager?.currentTerrain?.name
         const tm      = this.scene?.terrainManager
         const armor   = this.inventory?.getItem(2)
         const hasArmor = !!(armor && armor.type === 'armor')
@@ -338,6 +370,15 @@ export default class Player {
     return worldRow * tileSize;
   }
 
+  // The step was refused (rock, a tree, a figure, too steep): the press was heard, so lean into it and
+  // come back, rather than a dead stop. Held, it leans once, not on every frame.
+  bumpAgainst(dx, dy) {
+    if (!dx && !dy) return;
+    const n = Math.hypot(dx, dy);
+    this._blockedKey = this._rawKey;
+    this._bump = { t: 0, dx: dx / n, dy: dy / n, x: this.startX, y: this.startY };
+  }
+
   startNewStep(joystick) {
     const angle = joystick.angle;
     let dx = 0, dy = 0;
@@ -359,12 +400,25 @@ export default class Player {
     // player would visually drift toward the top-left of its tile instead
     // of staying centred. Fixed by computing the tile INDEX first, then
     // re-applying the same +tileSize/2 centring offset spawn uses.
+    // still held against the same obstacle: stay put (the bump has played, or is playing)
+    const rawKey = dx + ',' + dy;
+    if (this._blockedKey === rawKey) return;
+    this._bump = null;
+
     const startTileX = Math.round((this.logicalX - this.tileSize / 2) / this.tileSize);
     const startTileY = Math.round((this.logicalY - this.tileSize / 2) / this.tileSize);
     this.startX   = startTileX * this.tileSize + this.tileSize / 2;
     this.startY   = startTileY * this.tileSize + this.tileSize / 2;
     this.logicalX = this.startX;
     this.logicalY = this.startY;
+
+    // a scene may adjust the step from where the player stands (a cave: a diagonal that would catch a
+    // corner of rock slides along it instead of stopping dead). Returns [dx, dy], or null to leave it.
+    this._rawKey = rawKey;
+    const want = [dx, dy];
+    const adj = this.scene?.adjustStep?.(this.startX, this.startY, dx, dy, angle);
+    if (adj) { dx = adj[0]; dy = adj[1]; }
+    if (dx === 0 && dy === 0) { this.isMoving = false; this.bumpAgainst(want[0], want[1]); return; }
 
     this.targetX = this.startX + dx * this.tileSize;
     this.targetY = this.startY + dy * this.tileSize;
@@ -374,6 +428,7 @@ if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetX = this.startX;
       this.targetY = this.startY;
       this.isMoving = false;
+      this.bumpAgainst(dx, dy);
       return;
     }
 
@@ -385,6 +440,7 @@ if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetY = this.startY;
       this.isMoving = false;
       this.pathQueue = [];
+      this.bumpAgainst(dx, dy);
       this.scene?.onBumpFigure?.(dx, dy);   // e.g. a shove, in a sword fight
       return;
     }
@@ -395,6 +451,7 @@ if (this.scene?.isColliding?.(this.targetX, this.targetY)) {
       this.targetX = this.startX;
       this.targetY = this.startY;
       this.isMoving = false;
+      this.bumpAgainst(dx, dy);
       return;
     }
     const pgr = this.scene.perspectiveGround;

@@ -231,7 +231,8 @@ Look. Rooted as an oak. No. No.
 == feet
 # He shows you first: back a step, in again, a cut; aside, in, a cut. Then you:
 # a step, then a cut (tap the moon just after a step). Each pass needs a fresh
-# step; a cut from where you stand, he turns aside. Two passes. He counts.
+# step; a cut from where you stand, he turns aside. Five passes. He counts them:
+# One. Two. Three. Four. (the fifth opens the card below). No narrator, no hints.
 
 # said with each of his two cuts, as he shows you
 = demo
@@ -253,24 +254,25 @@ Woe to him who remains where the sword expects to find him.
 Come at me.
 % Tar chugam.
 
-# the narrator, as you begin (and if you stall)
-= hint
-Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.
-% Take a step beside him, then tap the moon. A cut from where you stand, he turns aside.
-
 # a cut from where you stand (now and then) -- NEW: English placeholder
 = still
 No. Move first.
 % No. Move first.
 
-# the first pass (the second opens the card below)
+# the first four passes, one line each (the fifth opens the card below)
 = count
 One.
 % A haon.
-
-= after
 Two.
 % A dó.
+Three.
+% A trí.
+Four.
+% A ceathair.
+
+= after
+Five.
+% A cúig.
 Step to the side. 
 % Tóg céim ar leataobh.
 

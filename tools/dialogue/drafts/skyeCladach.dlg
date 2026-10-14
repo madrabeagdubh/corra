@@ -13,19 +13,13 @@
 #   go_loch / go_garden    -> pep-talk choice; one-off, the scene clears it
 #   pep_done               -> (scene) the pep talk is over; he goes ahead and is gone
 #
+# (The old welcome -- "The sea gave you up" -- and the invitation up the wall, with its "Who is Scáthach?", are gone:
+# the landfall cut-scene (node 3) is the welcome now.)
+#
 # EVERYTHING HERE IS PLACEHOLDER -- the structure is the point. Irish is a first draft.
 # (The old "onward to the machaire" nodes are gone: once the pep talk is done he has left.)
 
 @file skye/skyeCladach
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 0 — the landing
-@continue
-So. The sea gave you up.
-% Bhuel. Scaoil an fharraige uaithi thú.
-I am Conall. I keep the green for Uathach, Scáthach's daughter.
-% Is mise Conall. Coimeádaim an fhaiche d'Uathach, iníon Scáthaí.
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -52,38 +46,6 @@ There's a garden over west, where I teach the first lessons. Uathach won't come 
 % Chuig an ngairdín ar dtús.
 @note go_garden
 @exit
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 2 — the invitation
-@when !note climb_started
-@hold
-@again Well? / Bhuel?
-The wall is old, and there's a stair in it somewhere. Come up when you're ready.
-% Tá an balla seo sean, agus staighre ann áit éigin. Tar aníos nuair a bheidh tú réidh.
-
-* I'm coming.
-% Tagaim aníos.
-@note climb_started
-@exit
-
-* Who is Scáthach?
-% Cé hí Scáthach?
-@first
-> Who is Scáthach?
-% Cé hí Scáthach?
-< The finest teacher of arms in the world.
-% An múinteoir arm is fearr ar domhan.
-< And the hardest.
-% Agus an ceann is crua.
-
-
-# ══════════════════════════════════════════════════════════════════════
-= node 2a — on the wall
-@when note climb_started
-@hold
-Come up.
-% Tar aníos.
 
 
 # ══════════════════════════════════════════════════════════════════════

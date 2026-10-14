@@ -951,7 +951,11 @@ if (this._player && !this._player.isMoving && this._lastMoveTime && !hasContinuo
 
     if (p) {
      
-const proj  = this._projectLogical(p.logicalX, p.logicalY)
+// scene.playerFootShift (tiles): draw the player that much further north than the front edge of
+// their tile -- 0.5 stands them in its middle (a cave seen from above: a wall that blocks you is
+// right in front of you, not a tile off)
+const _footY = p.logicalY - (this.scene?.playerFootShift ?? 0) * this.tileDisplaySize
+const proj  = this._projectLogical(p.logicalX, _footY)
 
 
 	    if (proj) {
@@ -1768,7 +1772,7 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
     // their exact position, so they shrink as they recede. (This used to be a bare billboard at the full,
     // unscaled size: the brief "looks big" when stepping off the north edge.)
     if (!playerDrawn && this._playerCanvas && p) {
-      const proj = this._projectLogical(p.logicalX, p.logicalY)
+      const proj = this._projectLogical(p.logicalX, p.logicalY - (this.scene?.playerFootShift ?? 0) * this.tileDisplaySize)
       if (proj) {
         const scaledTileW = this._playerDrawW(-1, proj)
         const _fy = proj.screenY - (this._playerTerrainLift ?? 0)
@@ -1803,7 +1807,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       const hlTileY = Math.floor(_hlLY / ts)
       const _hlBaseT = this._rowToScreenY(hlTileY)
       const _hlBaseB = this._rowToScreenY(hlTileY + 1)
-      if (_hlBaseT !== null && _hlBaseB !== null) {
+      // a scene can do without the pale square under your feet (a cave: it glows in the dark)
+      if (_hlBaseT !== null && _hlBaseB !== null && this.scene?.tileHighlight !== false) {
         const _hlSTop = this._scaleAtRow(hlTileY)
         const _hlSBot = this._scaleAtRow(hlTileY + 1)
         const hxTL = this._colToScreenX(hlTileX,     hlTileY)

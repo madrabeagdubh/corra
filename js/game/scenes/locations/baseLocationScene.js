@@ -222,30 +222,9 @@ if (this.textures.exists('heart')) {
 
       // Tile-step movement — skipped when in boat.
       // BoatSystem.update() handles all movement via momentum when inBoat is true.
-      if (!this.player.inBoat && this.joystick.force > 10) {
-        const angle = this.joystick.angle;
-        let dx = 0, dy = 0;
-
-        if      (angle >= -22.5  && angle <  22.5)  dx =  1;
-        else if (angle >=  22.5  && angle <  67.5)  { dx =  1; dy =  1; }
-        else if (angle >=  67.5  && angle < 112.5)  dy =  1;
-        else if (angle >= 112.5  && angle < 157.5)  { dx = -1; dy =  1; }
-        else if (angle >=  157.5 || angle < -157.5) dx = -1;
-        else if (angle >= -157.5 && angle < -112.5) { dx = -1; dy = -1; }
-        else if (angle >= -112.5 && angle <  -67.5) dy = -1;
-        else if (angle >=  -67.5 && angle <  -22.5) { dx =  1; dy = -1; }
-
-        const currentX = Math.floor(this.player.logicalX / this.player.tileSize) * this.player.tileSize + this.player.tileSize / 2;
-        const currentY = Math.floor(this.player.logicalY / this.player.tileSize) * this.player.tileSize + this.player.tileSize / 2;
-        const targetX  = currentX + dx * this.player.tileSize;
-        const targetY  = currentY + dy * this.player.tileSize;
-
-        if (this.isColliding(targetX, targetY)) {
-          this.joystick.force = 0;
-          if (this.player.isMoving) this.player.isMoving = false;
-          dx = 0; dy = 0;
-        }
-      }
+      // (A held brooch pointing at something solid used to be cancelled here, from the tile beyond the
+      // one you were standing on -- mid-step too, so it let go at every bend. The player's own step
+      // checks the target tile and leans against what blocks it, see Player.bumpAgainst.)
 
       // When in boat, skip player.update() entirely — BoatSystem owns all movement.
       // Calling player.update() even with null joystick still advances tween steps.

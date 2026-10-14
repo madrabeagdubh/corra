@@ -12,7 +12,7 @@ export const champions = [
       "health": 6,
       "attack": 3,
       "defense": 9,
-      "speed": 6,
+      "speed": 4,
       "magic": 5,
       "luck": 2
     },

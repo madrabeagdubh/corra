@@ -6,10 +6,10 @@
 // an abstract herald of the sunny spell, in the manner of the other veils.
 //
 // ── When ─────────────────────────────────────────────────────────────────────
-// It ARMS once it has really rained (state.rain >= ARM_RAIN). It FIRES when the
+// It ARMS once it has rained (a drizzle will do: state.rain >= ARM_RAIN). It FIRES when the
 // rain has stopped and the sun has come through (rain < DRY_RAIN, sun >=
-// SUN_IN) -- with weather.tuning.rainbowChance, so not every time. Either way
-// it disarms until the next rain. It waits out a dialogue card or bullet time
+// SUN_IN) -- with weather.tuning.rainbowChance (1: every time; lower it to make them rarer).
+// It disarms until the next rain. It waits out a dialogue card or bullet time
 // (and gives up if they go on long), so it never talks over either.
 //
 // ── How it looks ─────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@
 
 import { weather } from './weather.js'
 
-const ARM_RAIN = 0.2, DRY_RAIN = 0.02, SUN_IN = 0.15
+const ARM_RAIN = 0.05, DRY_RAIN = 0.02, SUN_IN = 0.15     // a drizzle (0.09) arms it
 const WAIT_MAX = 30            // seconds it will wait for a card or bullet time to end
 const SCALE = 0.25             // canvas resolution, of the screen's (small: the upscale is part of the haze)
 const BAND = 0.042              // one band's width, as a fraction of the screen's diagonal (all seven: ~0.3)
@@ -73,10 +73,10 @@ export class WeatherRainbow {
     const s = weather.state, T = weather.tuning
 
     // rain arms it; sun after rain fires it (now and then)
-    if (s.rain >= ARM_RAIN) this.armed = true
+    if (s.rain >= ARM_RAIN && weather.name !== 'fogbank') this.armed = true      // (a fog bank's 0.10 is not rain)
     else if (this.armed && s.rain < DRY_RAIN && s.sun >= SUN_IN) {
       this.armed = false
-      if (Math.random() < (T.rainbowChance ?? 0.4)) this.pending = 0
+      if (Math.random() < (T.rainbowChance ?? 1)) this.pending = 0
     }
 
     // wait for a quiet moment: no card up, no bullet time

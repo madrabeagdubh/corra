@@ -14,6 +14,8 @@
 //
 // ── NOTES ─────────────────────────────────────────────────────────────────
 //   garbhan_met    -- set when the fight begins: the next time he only says "Back for more?"
+//   garbhan_stand / garbhan_armed / garbhan_backoff -- while he talks only (garbhan.js clears them): you stood your
+//                     ground at the out / you carry your sword (so the line about it is said) / you turned back
 //
 // His tune: js/game/systems/music/dialogueHarp.js, NPC_TUNES, keyed by the portrait below.
 // Keep `dialogues` the last field.
@@ -30,9 +32,17 @@ export const skyeLochContent = {
       portrait: '/assets/npcs/garbhan.png',
       dialogues: [
 
+        // ── again ─────────────────────────────────────────────────
+        {
+          requires: { note: 'garbhan_met' },
+          ga: 'Ar ais arís? Go maith.',
+          en: 'Back again? Good.',
+        },
+
         // ── first meeting ─────────────────────────────────────────
         {
-          requires: { noteAbsent: 'garbhan_met' },
+          requires: { noteAbsent: 'garbhan_stand' },
+          continue: true,
           ga: 'Agus cá háit, a gealbhan beag liath',
           en: 'And where is it, o little grey sparrow',
           exchange: [
@@ -43,15 +53,50 @@ export const skyeLochContent = {
             {
               say: 'Go dtí an comórtas.\nBheinn buíoch dá bhfágfá an bealach a chara.',
               sayEn: 'To the tournament.\nI would be grateful if you let me pass, friend.',
-              replyGa: 'A chara! An gcuala tú é sin, uisce?\nAn gcuala tú é sin, spéir?\nA chara, arsa an gealbhan. A chara!\nCas síar, a chréatúir, cas síar.\nNíl áit sa comórtas dá leithead.',
-              replyEn: 'Friend! Did ye hear that, water?\nDid ye hear that, sky?\nFriend, says the sparrow. Friend!\nTurn back, little one, turn back.\nTheres no place in the tournament for the likes of you.',
+              replyGa: 'A chara! An gcuala tú é sin, uisce?\nAn gcuala tú é sin, spéir?\nA chara, arsa an gealbhan. A chara!',
+              replyEn: 'Friend! Did ye hear that, water?\nDid ye hear that, sky?\nFriend, says the sparrow. Friend!',
+            },
+          ],
+        },
+
+        // ── the out ───────────────────────────────────────────────
+        {
+          requires: { noteAbsent: 'garbhan_stand' },
+          hold: true,
+          ga: 'Cas síar, a chréatúir, cas síar.\nNíl áit sa comórtas dá leithead.',
+          en: 'Turn back, little one, turn back.\nTheres no place in the tournament for the likes of you.',
+          options: [
+            {
+              note: 'garbhan_stand',
+              exit: true,
+              ga: 'Ní fútsa an cinneadh sin.',
+              en: 'That is not your decision.',
             },
             {
-              say: 'Ní fútsa an cinneadh sin.',
-              sayEn: 'That is not your decision.',
-              replyGa: 'Tar trasna mar sin má tá an chroí ionat.\nTar go bhfeice mé an claíomh maith adhmaid sin.',
-              replyEn: 'Come across then if ye dare it.\nCome and let me have a look at that fine wooden sword.',
+              note: 'garbhan_backoff',
+              last: true,
+              ga: 'Very well. I will turn back.',
+              en: 'Very well. I will turn back.',
+              replyGa: 'Aye. Off home with ye, sparrow.',
+              replyEn: 'Aye. Off home with ye, sparrow.',
             },
+          ],
+        },
+
+        // ── the sword ─────────────────────────────────────────────
+        {
+          requires: { note: 'garbhan_armed' },
+          continue: true,
+          ga: 'Tar go bhfeice mé an claíomh maith adhmaid sin.',
+          en: 'Come and let me have a look at that fine wooden sword.',
+        },
+
+        // ── the rest ──────────────────────────────────────────────
+        {
+          requires: { note: 'garbhan_stand' },
+          ga: 'Tar trasna mar sin má tá an chroí ionat.',
+          en: 'Come across then if ye dare it.',
+          exchange: [
             {
               say: 'Rachaidh mé timpeall.',
               sayEn: 'I will go round.',
@@ -75,13 +120,6 @@ export const skyeLochContent = {
               sayEn: 'Come then.',
             },
           ],
-        },
-
-        // ── again ─────────────────────────────────────────────────
-        {
-          requires: { note: 'garbhan_met' },
-          ga: 'Ar ais arís? Go maith.',
-          en: 'Back again? Good.',
         },
 
       ],

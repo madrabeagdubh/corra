@@ -65,6 +65,7 @@ import { initReturnCrossing } from '../../returnCrossing.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import Landfall from './landfall.js'
 import { INK } from '../../../ui/speakers.js'
+import { weather } from '../../../effects/weather.js'
 
 const TOP = { x0: 1, x1: 34, y0: 0, y1: 21 }        // the headland top
 const EXIT_DASH   = [18, 3]                         // north, toward the loch
@@ -156,6 +157,9 @@ export class SkyeCladach extends SkyeScene {
         GameState.hasNote('climb_top') || GameState.hasNote('climb_started')))
     if (landfall) {
       this._phase = 'landfall'                   // none of the old arrival logic runs
+      // The landing is in the rain: more dramatic. (It eases to a drizzle by Conall's cabin, two days on --
+      // tighConaill.js -- and the weather is the director's again once it has gone on from there.)
+      if (!weather.locked) { weather.lock('rain', { fade: 0 }); this._rainLock = true }
       this._landfall = new Landfall(this, this._conall, () => this._afterLandfall())
       this._landfall.start()
     } else if (GameState.hasNote('pep_done') || GameState.hasNote('landfall_done')) {
@@ -173,7 +177,7 @@ export class SkyeCladach extends SkyeScene {
     }
     this._stillSince = null
 
-    this.events.once('shutdown', () => this._teardownLesson())
+    this.events.once('shutdown', () => { this._teardownLesson(); if (this._rainLock) { this._rainLock = false; weather.unlock() } })
   }
 
   update(time, delta) {

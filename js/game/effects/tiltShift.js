@@ -45,7 +45,7 @@
 //     game.scene.getScene('b0').tiltShift.configure({ farBlur: 6 })
 //     game.scene.getScene('b0').tiltShift.setEnabled(false)
 
-const IDS = ['pgr-ts-far', 'pgr-ts-near', 'pgr-ts-haze', 'pgr-ts-vig']
+const IDS = ['pgr-ts-far', 'pgr-ts-far2', 'pgr-ts-far3', 'pgr-ts-near', 'pgr-ts-haze', 'pgr-ts-vig']
 
 export const TILT_SHIFT_DEFAULTS = {
   enabled: true,
@@ -173,6 +173,17 @@ function rgba(hex, a) {
 
 const clamp01 = v => Math.max(0, Math.min(1, v))
 
+// smoothstep: 0 below a, 1 above b, no kink at either end
+const sstep = (a, b, v) => { const t = clamp01((v - a) / (b - a || 1e-6)); return t * t * (3 - 2 * t) }
+
+// A CSS gradient (black, alpha = fn(p)) sampled at n+1 points down (or up) the element, p 0..1.
+// Eased by sampling rather than by two stops, so the edges of a blurred band have no visible start.
+function ramp(fn, dir = 'to bottom', n = 12) {
+  const st = []
+  for (let i = 0; i <= n; i++) { const p = i / n; st.push(`rgba(0,0,0,${clamp01(fn(p)).toFixed(3)}) ${(p * 100).toFixed(1)}%`) }
+  return `linear-gradient(${dir}, ${st.join(', ')})`
+}
+
 export class TiltShift {
   constructor(scene, opts = {}) {
     this.scene = scene
@@ -231,7 +242,12 @@ export class TiltShift {
   }
 
   _build() {
+    // The far blur is three layers stacked, each fading out over a different stretch of the band, so the
+    // blur grows gradually toward the top instead of one blurred copy being faded over the sharp picture
+    // (which shows as a line where the fade ends).
     this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 5, true)  : null
+    this.far2 = this.hasBackdrop ? this._makeDiv('pgr-ts-far2', 5, true) : null
+    this.far3 = this.hasBackdrop ? this._makeDiv('pgr-ts-far3', 5, true) : null
     this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 5, true) : null
     this.haze = this._makeDiv('pgr-ts-haze', 5, true)
     this.vig  = this._makeDiv('pgr-ts-vig', 6, false)
@@ -368,21 +384,26 @@ export class TiltShift {
     if (this.far) {
       const top  = Math.max(0, Math.min(c.farTop || 0, farBottom))
       const hPct = (farBottom - top) * 100
-      const hold = Math.round(c.farHold * 100)
-      // The mask fades the blurred layer out toward the sharp band. Partial
-      // opacity over the sharp original reads as a lighter blur, giving a
-      // smooth falloff for free. With a farTop it also fades IN from its top.
-      const mask = top > 0
-        ? `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 30%, rgba(0,0,0,1) ${Math.max(hold, 40)}%, rgba(0,0,0,0) 100%)`
-        : `linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${hold}%, rgba(0,0,0,0) 100%)`
-      this._style(this.far, {
-        top: (top * 100) + '%',
-        height: hPct + '%',
-        display: (off || hPct <= 0 || c.farBlur <= 0) ? 'none' : 'block',
-        backdropFilter: `blur(${c.farBlur}px) saturate(${c.saturate ?? 1})`,
-        WebkitBackdropFilter: `blur(${c.farBlur}px) saturate(${c.saturate ?? 1})`,
-        maskImage: mask,
-        WebkitMaskImage: mask,
+      const hold = c.farHold
+      const showFar = !(off || hPct <= 0 || c.farBlur <= 0)
+      // Each layer takes a share of the blur; where all three are at full strength they add up to about
+      // farBlur. The nearer the sharp band, the fewer of them are still there.
+      const layers = [this.far, this.far2, this.far3]
+      layers.forEach((el, k) => {
+        if (!el) return
+        const a0 = [Math.min(0.9, hold + 0.35), hold, hold * 0.4][k], b0 = [1, 0.95, 0.85][k]
+        const fadeIn = top > 0 ? 0.3 : 0
+        const mask = ramp(p => (1 - sstep(a0, b0, p)) * (fadeIn ? sstep(0, fadeIn, p) : 1))
+        const blur = c.farBlur * 0.58
+        this._style(el, {
+          top: (top * 100) + '%',
+          height: hPct + '%',
+          display: showFar ? 'block' : 'none',
+          backdropFilter: `blur(${blur}px) saturate(${k === 0 ? (c.saturate ?? 1) : 1})`,
+          WebkitBackdropFilter: `blur(${blur}px) saturate(${k === 0 ? (c.saturate ?? 1) : 1})`,
+          maskImage: mask,
+          WebkitMaskImage: mask,
+        })
       })
     }
 
@@ -390,7 +411,7 @@ export class TiltShift {
     if (this.near) {
       const hPct = (1 - focusBottom) * 100
       const hold = Math.round(c.nearHold * 100)
-      const mask = `linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${hold}%, rgba(0,0,0,0) 100%)`
+      const mask = ramp(p => 1 - sstep(hold / 100, 1, p), 'to top')
       this._style(this.near, {
         top: (focusBottom * 100) + '%',
         height: hPct + '%',
@@ -407,12 +428,23 @@ export class TiltShift {
       const horizon = c.hazeTop != null
         ? c.hazeTop
         : (this.pgr?.constructor?.HORIZON_Y_FRAC ?? 0.28)
-      const hPct = Math.max(0, focusBottom - horizon) * 100
+      // The haze rises a little above the horizon and fades in, so it has no top edge to show as a line there
+      const rise = Math.min(horizon, 0.07)
+      const top = horizon - rise
+      const hPct = Math.max(0, focusBottom - top) * 100
+      const span = Math.max(1e-6, focusBottom - top), pH = rise / span          // where the horizon falls in the layer
+      const [hr, hg, hb] = hexToRgb(c.hazeColor)
+      const stops = []
+      for (let i = 0; i <= 14; i++) {
+        const q = i / 14
+        const al = c.hazeAmount * sstep(0, pH, q) * (1 - sstep(pH, 1, q))
+        stops.push(`rgba(${hr},${hg},${hb},${al.toFixed(4)}) ${(q * 100).toFixed(1)}%`)
+      }
       this._style(this.haze, {
-        top: (horizon * 100) + '%',
+        top: (top * 100) + '%',
         height: hPct + '%',
         display: (off || hPct <= 0 || c.hazeAmount <= 0) ? 'none' : 'block',
-        background: `linear-gradient(to bottom, ${rgba(c.hazeColor, c.hazeAmount)} 0%, ${rgba(c.hazeColor, 0)} 100%)`,
+        background: `linear-gradient(to bottom, ${stops.join(', ')})`,
       })
     }
 
@@ -437,7 +469,7 @@ export class TiltShift {
 
   destroy() {
     this._removeExisting()
-    this.far = this.near = this.haze = this.vig = null
+    this.far = this.far2 = this.far3 = this.near = this.haze = this.vig = null
     this.container = null
   }
 }

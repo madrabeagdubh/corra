@@ -53,7 +53,7 @@ export default class MeleeView {
     this.sparky = false     // sparks where blades meet: for steel. The wooden blades only knock.
     // animation clocks, in performance.now() ms (the look runs on real time;
     // the fight's own clock is m.t)
-    this.a = { garde: -1e9, ease: -1e9, flourish: -1e9, nextFlourish: 0, salute: -1e9, hurt: -1e9, fall: -1e9, rise: -1e9,
+    this.a = { garde: -1e9, ease: -1e9, flourish: -1e9, spent: false, salute: -1e9, hurt: -1e9, fall: -1e9, rise: -1e9,
                foeHurt: -1e9, foeFall: -1e9, foeRise: -1e9, idleSince: 0, shove: -1e9, shoveDir: [0, 0],
                foeDrawn: false, foeDrawT: -1e9, foeSheatheT: -1e9, foeShoveT: -1e9, foeShoveDir: [0, 0], tellT0: -1e9, tellMs: 0, foeParryT: -1e9, foeParryHigh: true, pParryT: -1e9, pParryHigh: true, crossHigh: false, spinSeen: -1e9, spinT0: null, spinFrom: 0, parryT: null, parrySide: 1 }
   }
@@ -209,7 +209,7 @@ export default class MeleeView {
     switch (name) {
       case 'focus': if (d.on) this._spawnMotes(); break
       case 'swing': buzz(d.flip ? 7 : 12); break
-      case 'enGarde': A.garde = now; A.nextFlourish = now + 5000 + Math.random() * 4000; break
+      case 'enGarde': A.garde = now; A.spent = false; break
       case 'atEase': A.ease = now; break
       case 'salute': if (d.by === 'player') A.salute = now; break   // yours only when you choose to (swipe up again)
       case 'knockdown': if (d.steady) break; if (d.who === 'player') A.fall = now; else A.foeFall = now; buzz(60); break
@@ -724,6 +724,13 @@ export default class MeleeView {
     const fk = (now - (A.feint ?? -1e9)) / 380, feint = fk >= 0 && fk < 1 ? Math.sin(Math.PI * fk) : 0
     const gp = facing ? guardPose(toFoe, side, now, feint) : { angle: -90 + side * (15 + 3 * Math.sin(now / 650)), hand: [0, -0.012 * Math.sin(now / 650 + 1)] }
     const guard = gp.angle
+    // The flourish is the sign that your breath is all back (the stamina circle full again): once, when it
+    // fills after you've spent some; held over till you are standing quiet if you're mid-bout, winded or moving.
+    if (m.enGarde) {
+      const cap = m.cap()
+      if (m.breath <= cap - 1 || m.winded()) A.spent = true
+      else if (A.spent && m.breath >= cap - 1e-6 && !m.combat && !m.charge && !m.swing && !m.moving() && now - A.idleSince > 500 && now - A.flourish > 1500) { A.flourish = now; A.spent = false }
+    }
     // Putting it away: the point turned down onto the scabbard's line, the
     // hand brought to its mouth -- then the blade slid home.
     if (!m.enGarde) {
@@ -768,8 +775,7 @@ export default class MeleeView {
       return { angle: this._saluteAngle(ms, side, guard), hand: [h[0] * hw, h[1] * hw] }     // PGR takes the hand in tile widths
     }
     if (m.winded()) return { angle: 90 - side * 30 }                            // point drooping
-    // standing en garde out of a bout a while: now and then, a flourish
-    if (!m.combat && !m.charge && now >= A.nextFlourish && now - A.idleSince > 3500 && !m.moving()) { A.flourish = now; A.nextFlourish = now + 6000 + Math.random() * 5000 }
+    // the flourish (breath all back, see above)
     const kf = (now - A.flourish) / 650
     if (kf < 1) return { angle: guard + side * 360 * easeIO(kf), hand: gp.hand }
     return this._recover(gp)

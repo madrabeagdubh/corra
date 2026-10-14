@@ -63,12 +63,14 @@ const GRAPH = {
   fine:     { bright: 1, soft: 2 },
   bright:   { soft: 3, overcast: 1 },
   soft:     { overcast: 3, bright: 3, mist: 1.5, drizzle: 1.5 },
-  overcast: { soft: 2, mist: 2, drizzle: 3, rain: 1, bright: 1 },
+  overcast: { soft: 2, mist: 2, drizzle: 3, bright: 1 },
   mist:     { overcast: 2, drizzle: 2, fogbank: 1.2, soft: 1.5 },
   fogbank:  { mist: 3, overcast: 1.5 },
-  drizzle:  { rain: 2.5, overcast: 2.5, mist: 1.5, soft: 1.5 },
-  rain:     { downpour: 1.2, drizzle: 3, overcast: 1.5 },
-  downpour: { rain: 4, drizzle: 1 },
+  drizzle:  { overcast: 3, mist: 1.5, soft: 2 },
+  // Heavy rain is not part of the wandering weather: a scene asks for it (weather.lock('rain'), as the landing at the
+  // cladach does). These two only say where it goes once the director has it again: down to a drizzle.
+  rain:     { drizzle: 1 },
+  downpour: { drizzle: 1 },
 }
 
 // Seconds spent at a preset before moving on, and seconds taken to get there.
@@ -125,7 +127,7 @@ class Weather {
       grainAlpha:     0.07,   // flicker of fine grain over the whole view
       sheen:          0.80,   // wet-ground sheen once the ground is soaked
       // ── the rainbow (weatherRainbow.js) ─────────────────────────────────
-      rainbowChance:  0.4,    // how often rain giving way to sun brings one (0..1)
+      rainbowChance:  1,      // how often a drizzle giving way to sun brings one (0..1): every time
       rainbowIn:      15,     // seconds fading in
       rainbowHold:    10,     // seconds at its height
       rainbowOut:     15,     // seconds fading out

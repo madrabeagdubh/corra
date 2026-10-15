@@ -10,6 +10,7 @@
 //   const w = new Watchers(scene, cave, { count: 4, onAttack })
 //   w.update(dtMs)                  every frame, after cave.update
 //   w.busy = true                   a fight is on: nothing opens, whatever is open shuts
+//   w.challenge()                   the player has saluted: the nearest open pair steps forward (a fight, as onAttack)
 //   w.destroy()
 //
 // The camera looks north and sees only about three and a half tiles across, so they open ahead of you, in the
@@ -73,6 +74,23 @@ export default class Watchers {
     w.post = p; w.state = 'opening'; w.life = rnd(12, 24); w.prevD = Math.hypot(p.x - c.px, p.y - c.py); w.probe = 0.3; w.away = 0
     this.audio?.eyeOpen(this._pan(p))
     return true
+  }
+
+  // You salute the eyes (swipe up, en garde): the nearest that is open steps forward and the fight begins, as if the light
+  // had reached it. Returns its post {x, y, z}, or null if none is open.
+  challenge() {
+    if (this.busy || !this.onAttack) return null
+    const c = this.cave
+    let best = null, bd = Infinity
+    for (const w of this.list) {
+      if ((w.state !== 'opening' && w.state !== 'watching') || w.a < 0.3 || !w.post) continue
+      const d = Math.hypot(w.post.x - c.px, w.post.y - c.py)
+      if (d < bd) { bd = d; best = w }
+    }
+    if (!best) return null
+    best.state = 'attacking'
+    this.onAttack(best, best.post)
+    return best.post
   }
 
   _pan(p) { return Math.max(-1, Math.min(1, (p.x - this.cave.px) / 8)) }

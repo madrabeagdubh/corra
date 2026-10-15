@@ -153,6 +153,23 @@ export default class UnderworldAudio {
     o.start(); this._stop(o, 0.4)
   }
 
+  // a ghoul shows itself: a long rasp of breath and a low growl under it, before it runs
+  ghoulHiss(pan = 0) {
+    if (this.dead) return
+    const c = this.c, t0 = c.currentTime
+    const src = c.createBufferSource(); src.buffer = this.noise
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(2200, t0); f.frequency.linearRampToValueAtTime(4200, t0 + 0.7); f.Q.value = 1.6
+    const g = c.createGain(); this._env(g, 0.11, 0.2, 0.7)
+    src.connect(f); f.connect(g); this._route(g, pan, 0.8, 0.9)
+    src.start(t0, Math.random() * 3); this._stop(src, 1.2)
+    const o = c.createOscillator(), lp = c.createBiquadFilter(), og = c.createGain()
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(64, t0); o.frequency.linearRampToValueAtTime(48, t0 + 0.9)
+    lp.type = 'lowpass'; lp.frequency.value = 240
+    this._env(og, 0.07, 0.25, 0.7)
+    o.connect(lp); lp.connect(og); this._route(og, pan, 0.7, 1)
+    o.start(t0); this._stop(o, 1.2)
+  }
+
   _rumble() {
     const c = this.c
     const src = c.createBufferSource(); src.buffer = this.noise

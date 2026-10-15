@@ -40,7 +40,9 @@ export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is
 // shallower -- so the moon empties as you hold the slow, and seeing clearly competes with cutting. It used to follow the distance both ways, frame by frame, so a
 // line that wandered in and out sped the world up and slowed it down over and over.
 //   gapMs     a pause this short between drawing a line and walking it is still the same line
-//   drainMs   real ms of full-depth slow that cost one breath
+//   drainMs   real ms of full-depth slow that cost one breath (a foe's preset may set its own: F.drainMs)
+// A foe's preset with F.flow (the otherside's ghouls) lets it play out: being struck does not end the line, and nor does the
+// line's last step: the slow holds until your breath is gone, he is `release` tiles off, or the fight is over.
 //   ghosts    YOUR afterimages as you move in it: how many, how often one is left (world ms), how strong the newest is, their colour
 const FOCUS = { scale: 0.18, far: 4, release: 7, gapMs: 180, drainMs: 1500, grade: true,
                 ghosts: 8, ghostEvery: 45, ghostAlpha: 0.6, ghostTint: 'rgb(110,185,255)' }
@@ -79,7 +81,8 @@ const NOJOY = { force: 0, angle: 0 }
 
 export default class MeleeBout {
   // kind null (the default): no sparring partner -- just your sword, in any scene
-  constructor(scene, { kind = null, F = null, home, gid, voice } = {}) {
+  // lens false: the camera does not close in on this bout (the otherside's fights come at you without a jump cut)
+  constructor(scene, { kind = null, F = null, home, gid, voice, lens = true } = {}) {
     this.scene = scene
     const player = scene.player, ts = scene.tileSize
     const tileOf = (x, y) => [Math.floor(x / ts), Math.floor(y / ts)]
@@ -135,7 +138,7 @@ export default class MeleeBout {
     this.view = new MeleeView(scene, this.melee)
     this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
-    this.lens = this.melee.noFoe ? null : new FightLens(scene, this.melee)   // the camera closes in on a bout
+    this.lens = this.melee.noFoe || !lens ? null : new FightLens(scene, this.melee)   // the camera closes in on a bout
 
     // the foe is a PGR billboard, sorted with the player like any figure
     if (!this.melee.noFoe) {
@@ -238,10 +241,10 @@ export default class MeleeBout {
     const spent = m.winded() || m.breath < 1                                // out of breath: no slow
     if (!f.latched) {
       if (drawing && !f.used && !spent && near < 1) { f.latched = true; f.used = true; f.depth = near }   // once per line
-    } else if (!inLine || spent || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false
+    } else if ((!inLine && !m.F.flow) || spent || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false      // flow: the line's end does not end the slow
     if (f.latched) f.depth = Math.min(f.depth, near)                        // deepens as you close, never lifts mid-line
     const target = f.latched ? f.depth : 1
-    if (target < 1) m.spend(real / FOCUS.drainMs * (1 - target) / (1 - FOCUS.scale))   // the slow costs breath (and holds its refilling off)
+    if (target < 1) m.spend(real / (m.F.drainMs ?? FOCUS.drainMs) * (1 - target) / (1 - FOCUS.scale))   // the slow costs breath (and holds its refilling off)
     f.k += (target - f.k) * Math.min(1, real / (target < f.k ? 110 : 190))        // in quickly, out in one smooth ramp
     if (Math.abs(f.k - target) < 0.005) f.k = target
     if (f.latched !== f.on) { f.on = f.latched; m.emit('focus', { on: f.on }) }   // one entry, one exit, per line

@@ -289,7 +289,7 @@ export default class MeleeView {
   // now), held by the grip at hand = [x, y], pointing angDeg (screen; -90 up).
   // Same drawing as PGR's weapon overlay, so his sword and yours match.
   sword(ctx, [x, y], angDeg, tileW) {
-    const img = this.scene.itemSheet?.getCanvas?.(2492)
+    const img = this.scene.itemSheet?.getCanvas?.(this.scene.player?.inventory?.getEquippedItem?.('rightHand')?.itemGid || 2492)
     if (!img) return
     const s = tileW * SWORD_SCALE / img.width, gx = img.width * 0.75, gy = img.height * 0.75
     ctx.save(); ctx.translate(x, y); ctx.rotate(rad(angDeg + 135))

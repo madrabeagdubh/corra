@@ -23,6 +23,7 @@
 import PathFinder from '../systems/pathFinder.js'
 
 const DRAG_PX = 14
+const SNAP = 2          // a line that begins within this many tiles of you is taken to begin at you (no walk to its start)
 const sign = v => (v > 0) - (v < 0)
 const dwellMs = ms => ms < 500 ? 0 : Math.min(8000, Math.round(ms / 500) * 500)
 
@@ -35,6 +36,7 @@ export default class RouteDraw {
     this.route = null       // the committed route, for drawing: [[c, r, waitMs], ...]
     this.lead = null        // the walk to its start: [[c, r], ...]
     this.reject = null
+    this.bad = null         // the part of a drawn route that can't be walked (red)
   }
 
   get ts() { return this.scene.tileSize }
@@ -42,8 +44,32 @@ export default class RouteDraw {
   gnow() { return this.scene._melee?.melee?.clock ?? performance.now() }
   playerTile() { const p = this.scene.player; return [Math.floor(p.logicalX / this.ts), Math.floor(p.logicalY / this.ts)] }
   inFight() { return !!this.scene._melee?.melee?.combat }
+  blocked(c, r) { const sc = this.scene, ts = this.ts; return sc.isColliding(c * ts + ts / 2, r * ts + ts / 2) || !!sc.isOccupied?.(c * ts + ts / 2, r * ts + ts / 2) }
+  // a line cut where it first meets something you can't stand on: [what you can walk, from the last good tile on (or null)]
+  split(list) {
+    const i = list.findIndex(e => this.blocked(e[0], e[1]))
+    return i < 0 ? [list, null] : [list.slice(0, i), list.slice(Math.max(0, i - 1))]
+  }
   tileAt(x, y) { const t = PathFinder.screenToTile(x, y, this.scene.perspectiveGround, this.ts); return t ? [t.tx, t.ty] : null }
 
+  // The line, begun at your own tile if it started close by and the way there is clear: a finger never lands exactly
+  // on the player, and walking to the start first looked like an unsure wander. Else the list as it was.
+  snapped(list) {
+    if (!list.length) return list
+    const [pc, pr] = this.playerTile()
+    // a line that starts behind you and runs on past you would have you step back and forth: begin it where it passes you
+    let i = 0
+    while (i < list.length - 1 && Math.max(Math.abs(list[i][0] - pc), Math.abs(list[i][1] - pr)) <= SNAP &&
+      (list[i][0] - pc) * (list[i + 1][0] - list[i][0]) + (list[i][1] - pr) * (list[i + 1][1] - list[i][1]) < 0) i++
+    const full = list; list = i ? list.slice(i) : list
+    const [c0, r0] = list[0]
+    if (Math.max(Math.abs(c0 - pc), Math.abs(r0 - pr)) > SNAP || (c0 === pc && r0 === pr)) return i ? list : full
+    const lead = [[pc, pr, 0]]
+    let c = pc, r = pr
+    while (c !== c0 || r !== r0) { c += sign(c0 - c); r += sign(r0 - r); lead.push([c, r, 0]) }
+    lead.pop()                                              // the line's own first tile follows
+    return lead.some(e => this.blocked(e[0], e[1])) ? full : lead.concat(list)
+  }
   begin(x, y) { this.p0 = { x, y }; this.trail = null }
   move(x, y) {
     if (!this.p0) return
@@ -88,10 +114,9 @@ export default class RouteDraw {
   _commit(list) {
     const sc = this.scene, ts = this.ts
     if (this.startTooFar(list)) list = this.shifted(list)
-    const blocked = (c, r) => sc.isColliding(c * ts + ts / 2, r * ts + ts / 2) || !!sc.isOccupied?.(c * ts + ts / 2, r * ts + ts / 2)
-    // the line stops at the first tile you can't stand on
-    const route = []
-    for (const e of list) { if (blocked(e[0], e[1])) break; route.push(e) }
+    else list = this.snapped(list)
+    // the line stops at the first tile you can't stand on; the rest stays on show in red while you walk what's left
+    const [route, bad] = this.split(list)
     if (!route.length) return
     // walk to where it begins
     const [pc, pr] = this.playerTile()
@@ -110,6 +135,7 @@ export default class RouteDraw {
     }
     sc.player.setPath(steps)
     this.route = route.map(e => [...e])
+    this.bad = bad && bad.map(e => [...e])
     this.lead = lead.length > 1 ? lead : null
     sc._flashTargetTile?.(route[route.length - 1][0], route[route.length - 1][1])
   }
@@ -149,23 +175,29 @@ export default class RouteDraw {
       const pt = this.playerTile(), t0 = this.trail[0]
       if (this.startTooFar(this.trail)) {                    // a shape: shown where you'll walk it
         const sh = this.shifted(this.trail)
+        const [ok, bad] = this.split(sh)
         this._line(ctx, this.trail, dim, 2, [1, 5])
-        this._line(ctx, sh, gold, 3, [2, 6])
-        this._waits(ctx, sh)
+        this._line(ctx, ok, gold, 3, [2, 6])
+        if (bad) this._line(ctx, bad, red, 3, [4, 4])
+        this._waits(ctx, ok)
       } else {
-        if (t0[0] !== pt[0] || t0[1] !== pt[1]) this._line(ctx, [pt, t0], dim, 2, [1, 5])
-        this._line(ctx, this.trail, gold, 3, [2, 6])
-        this._waits(ctx, this.trail)
+        const tr = this.snapped(this.trail)
+        if (tr === this.trail && (t0[0] !== pt[0] || t0[1] !== pt[1])) this._line(ctx, [pt, t0], dim, 2, [1, 5])
+        const [ok, bad] = this.split(tr)
+        this._line(ctx, ok, gold, 3, [2, 6])
+        if (bad) this._line(ctx, bad, red, 3, [4, 4])
+        this._waits(ctx, ok)
       }
     } else if (this.route) {
       // the route still ahead: drop what's been walked, forget it when it's done or dropped
       const p = sc.player, pt = this.playerTile()
-      if (!p.pathQueue?.length && !p.isMoving) { this.route = this.lead = null }
+      if (!p.pathQueue?.length && !p.isMoving && !(performance.now() < this.keepUntil)) { this.route = this.lead = this.bad = null }
       else {
         if (this.lead) { const i = this.lead.findIndex(([c, r]) => c === pt[0] && r === pt[1]); if (i >= 0) this.lead = this.lead.slice(i); if (this.lead.length < 2) this.lead = null }
         if (!this.lead) { const i = this.route.findIndex(([c, r]) => c === pt[0] && r === pt[1]); if (i > 0) this.route = this.route.slice(i) }
         if (this.lead) this._line(ctx, this.lead, dim, 2, [1, 5])
         this._line(ctx, this.route, gold, 3, [2, 6])
+        if (this.bad) this._line(ctx, this.bad, red, 3, [4, 4])
         this._waits(ctx, this.route)
         // standing out a wait: a ring round your feet runs down
         if (p._waitUntil > this.gnow()) {

@@ -79,6 +79,7 @@ import { CloudShadows }      from '../../effects/cloudShadows.js'
 import { Vegetation }        from '../../effects/vegetation.js'
 import MeleeBout, { prepareSword } from '../../combat/meleeBout.js'
 import RouteDraw             from '../../input/routeDraw.js'
+import PGRView              from '../../effects/pgrView.js'
 
 // Above the conversation card, which sits around 2000.
 const PROMPT_EASCA_DEPTH = 100000
@@ -392,6 +393,7 @@ this._updatePlayerOcclusionFade()
 this._updateCameraTerrainAvoidance()
     super.update(time, delta)
     this._melee?.update(delta)
+    this._pgrView?.update(delta)
 
     if (this.fovSystem && this.player) {
       const tx  = Math.floor(this.player.logicalX / this.tileSize)
@@ -789,6 +791,7 @@ this._updateCameraTerrainAvoidance()
   // create() above. Harmless to call more than once (every branch is
   // null-guarded), so leaving it directly callable here too is safe.
   shutdown() {
+    if (this._pgrView)          { this._pgrView.destroy();         this._pgrView         = null }
     if (this._melee)            { this._melee.destroy();           this._melee           = null }
     if (this._encounterPanel)   { this._encounterPanel.destroy();  this._encounterPanel  = null }
     if (this._moonWidget)       { this._moonWidget.destroy();      this._moonWidget      = null }
@@ -1077,6 +1080,11 @@ try {
   // aims, so a tap walks at once, as it always did.
   _setupTapToPath() {
     const canvas = this.game.canvas
+    // a scene started again calls this again on the same canvas: the last run's listeners go, or each would act on every touch
+    for (const [t, f, o] of canvas._corraTap || []) canvas.removeEventListener(t, f, o)
+    const mine = canvas._corraTap = [], add = canvas.addEventListener
+    canvas.addEventListener = function (t, f, o) { mine.push([t, f, o]); return add.call(this, t, f, o) }
+    queueMicrotask(() => { delete canvas.addEventListener })
     const toCanvas = (e) => {
       const rect = canvas.getBoundingClientRect()
       return [(e.clientX - rect.left) * canvas.width / rect.width, (e.clientY - rect.top) * canvas.height / rect.height]
@@ -1091,6 +1099,7 @@ try {
       if (this._eascaPending)                               return true
       return false
     }
+    this._tapBlocked = blocked
     const tapAt = (canvasX, canvasY) => {
       if (this._melee?.fieldTap?.(canvasX, canvasY)) return   // a strike at a sparring partner, not a walk
       if (this._onTapBeforePath?.(canvasX, canvasY) === false) return
@@ -1108,9 +1117,19 @@ try {
     }
     this._routeDraw = new RouteDraw(this)
     let down = null
+    let stopped = null       // the path a touch has just stopped, put back if that touch turns out to be the first finger of a pinch
+    this._cancelTap = () => {
+      if (down) { try { this._routeDraw.end(true) } catch (_) {} down = null }     // a second finger: not a walk
+      if (stopped && performance.now() - stopped.t < 1000) this.player.setPath(stopped.q)
+      stopped = null
+    }
     canvas.addEventListener('pointerdown', (e) => {
       const [x, y] = toCanvas(e)
       if (blocked(x, y)) return
+      // following a path, any touch stops it and does nothing more (no new walk): you needn't ride a route into trouble
+      if (this.player?.pathQueue?.length && !this._routeDraw.inFight()) {
+        stopped = { q: this.player.pathQueue, t: performance.now() }; this.player.setPath([]); this._routeDraw.keepUntil = performance.now() + 1000; return
+      }
       if (this.player?.inventory?.getEquippedItem?.('rightHand')?.id === 'simple_bow') return tapAt(x, y)
       down = { id: e.pointerId, x, y }
       try { canvas.setPointerCapture(e.pointerId) } catch (_) {}
@@ -1130,7 +1149,13 @@ try {
     }
     canvas.addEventListener('pointerup',     (e) => up(e, false))
     canvas.addEventListener('pointercancel', (e) => up(e, true))
+    // pinch to zoom, two fingers to look around (effects/pgrView.js); ?pinch=0 turns it off
+    this._pgrView?.destroy()
+    this._pgrView = new URLSearchParams(window.location.search).get('pinch') === '0' ? null : new PGRView(this)
   }
+
+  // The pinch/pan view (effects/pgrView.js) is for the open world. A room that small (the b0 hall, Conall's cabin) is already all in view.
+  allowPinchView() { return (this.mapWidth / this.tileSize) * (this.mapHeight / this.tileSize) >= 600 }
 
   _onTapBeforePath(canvasX, canvasY) { return true }
 

@@ -487,7 +487,8 @@ export default class Melee {
       this._setFoe('reel', F.reelMs)
       return
     }
-    this.pa.stopRoute(); this._spoilCharge()
+    if (!F.flow) this.pa.stopRoute()                       // (flow: a blow does not end the line you are walking, nor the slow it holds)
+    this._spoilCharge()
     const dmg = F.dmg
     p.hurtUntil = this.t + P.hurtMs; this.exchange = 0
     this.hitStop = 110

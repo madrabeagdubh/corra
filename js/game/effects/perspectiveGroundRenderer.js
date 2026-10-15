@@ -92,6 +92,10 @@ export default class PerspectiveGroundRenderer {
   static CAMERA_ROW_OFFSET    = 14.0
   static PLAYER_DIST_TILES    = 1.2
   static FOCAL_LENGTH         = 12.0
+  // Trees, buildings and plants this close to the camera melt in: invisible at NEAR_FADE_D0 rows in front of the lens (where
+  // a row first gets drawn), solid at NEAR_FADE_D1, so nothing pops into the frame as a step brings its row past the camera.
+  static NEAR_FADE_D0         = 1.0
+  static NEAR_FADE_D1         = 2.0
   static HEIGHT_MULTIPLIER    = 1.2
   static PLAYER_SCALE         = 0.7
 
@@ -396,6 +400,24 @@ export default class PerspectiveGroundRenderer {
 
   _drawBuilding(ctx, b, horizonPx, sw) { PGRBuildings.drawBuilding(this, ctx, b, horizonPx, sw) }
 
+  // 0..1: how much of what stands on this row shows, by its distance from the camera (see NEAR_FADE_D0)
+  _nearFade(tileRow) {
+    const K = PerspectiveGroundRenderer, t = Math.max(0, Math.min(1, (this._perspCamRow() - tileRow - K.NEAR_FADE_D0) / (K.NEAR_FADE_D1 - K.NEAR_FADE_D0)))
+    return t * t * (3 - 2 * t)
+  }
+
+  // fn(ctx) draws something that sets its own alpha; it is drawn to a scratch canvas and laid on at `a`
+  _drawFaded(ctx, a, fn) {
+    if (a >= 0.998) return fn(ctx)
+    if (a <= 0.004) return
+    const cv = this._fadeCv || (this._fadeCv = document.createElement('canvas'))
+    if (cv.width !== ctx.canvas.width || cv.height !== ctx.canvas.height) { cv.width = ctx.canvas.width; cv.height = ctx.canvas.height }
+    const s = cv.getContext('2d')
+    s.imageSmoothingEnabled = false; s.clearRect(0, 0, cv.width, cv.height)
+    fn(s)
+    ctx.save(); ctx.globalAlpha = a; ctx.drawImage(cv, 0, 0); ctx.restore()
+  }
+
 
 
 
@@ -443,6 +465,8 @@ _horizonPx() {
     let f = this._horizonYFrac ?? PerspectiveGroundRenderer.HORIZON_Y_FRAC
     const L = this._lens
     if (L?.horizon != null) f += (L.horizon - f) * L.w        // the lens tilts the camera down
+    const V = this._view, vm = V ? 1 - (L?.w || 0) : 0       // the player's own zoom (pgrView.js), which a fight lens overrides
+    if (V && vm > 0.002 && V.hw) f += (V.horizon - f) * V.hw * vm
     return Math.floor(this._sh * f)
   }
 
@@ -451,7 +475,9 @@ _horizonPx() {
  _groundH()   { return this._sh - this._horizonPx() }
 
   _pxPerTileAtPlayer() {
-    return (this._sw * this._zoom() * (this._lens?.mag || 1)) / PerspectiveGroundRenderer.TILES_ACROSS
+    const V = this._view, vm = V ? 1 - (this._lens?.w || 0) : 0
+    const vmag = V && vm > 0.002 ? 1 + (V.mag - 1) * vm : 1
+    return (this._sw * this._zoom() * (this._lens?.mag || 1) * vmag) / PerspectiveGroundRenderer.TILES_ACROSS
   }
 
   // A lens over the camera (e.g. a sword fight's close-up, combat/fightLens.js):
@@ -470,7 +496,9 @@ _horizonPx() {
     const off = this._cameraRowOffset ?? PerspectiveGroundRenderer.CAMERA_ROW_OFFSET
     const row = (c.scrollY + this._sh / (2 * zoom)) / this.tileDisplaySize + off
     const L = this._lens
-    return L ? row + (L.row + off - row) * L.w - (L.dolly || 0) : row
+    const r = L ? row + (L.row + off - row) * L.w - (L.dolly || 0) : row
+    const V = this._view, vm = V ? 1 - (L?.w || 0) : 0
+    return V && vm > 0.002 ? r + (V.dRow - V.dolly) * vm : r
   }
 
   _perspCamCol() {
@@ -478,7 +506,9 @@ _horizonPx() {
     const c = this.scene.cameras.main, zoom = this._zoom()
     const col = (c.scrollX + this._sw / (2 * zoom)) / this.tileDisplaySize
     const L = this._lens
-    return L ? col + (L.col - col) * L.w : col
+    const c2 = L ? col + (L.col - col) * L.w : col
+    const V = this._view, vm = V ? 1 - (L?.w || 0) : 0
+    return V && vm > 0.002 ? c2 + V.dCol * vm : c2
   }
 
   _screenYToWorldRow(screenY) {
@@ -1671,8 +1701,9 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       // always-on-top overlay canvas.
       if (this._forestEffects) {
         const rowTrunks = this._forestEffects.getTrunksForRow(tileRow)
+        const nearFade = rowTrunks.length ? this._nearFade(tileRow) : 1
         for (const trunk of rowTrunks) {
-          this._forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow)
+          this._forestEffects.drawTrunk(this._gCtx, trunk, this, playerTileRow, nearFade)
         }
       }
 
@@ -1684,14 +1715,14 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       // drawn after this whole loop finishes.
       if (this._structures) {
         const rowEntries = this._structures.getEntriesForRow(tileRow)
-        for (const entry of rowEntries) entry.draw(this._gCtx, this)
+        if (rowEntries.length) this._drawFaded(this._gCtx, this._nearFade(tileRow), (c) => { for (const entry of rowEntries) entry.draw(c, this) })
       }
 
       if (this._buildings?.length) {
         for (const b of this._buildings) {
           if (b.anchorRow !== tileRow || !b.canvas) continue
           if (fov && fov.isHidden(b.centerColInt, b.anchorRow)) continue
-          this._drawBuilding(this._oCtx, b, horizonPx, sw)
+          this._drawFaded(this._oCtx, this._nearFade(tileRow), (c) => this._drawBuilding(c, b, horizonPx, sw))
         }
       }
 
@@ -1732,7 +1763,10 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
       // behind them, so raised terrain occludes them properly. Off by
       // default: plants on the objects canvas interleave with trunks/NPCs.
       const _veg = this.scene?.vegetation
-      _veg?.renderRow(this, _veg.cfg?.onGround ? this._gCtx : this._oCtx, tileRow)
+      if (_veg) {
+        const _vc = _veg.cfg?.onGround ? this._gCtx : this._oCtx, _vf = this._nearFade(tileRow), _va = _vc.globalAlpha
+        _vc.globalAlpha = _va * _vf; _veg.renderRow(this, _vc, tileRow); _vc.globalAlpha = _va
+      }
 
     } // tileRow
 

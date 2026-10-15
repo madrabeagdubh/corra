@@ -10,6 +10,7 @@
 //   const w = new Watchers(scene, cave, { count: 4, onAttack })
 //   w.update(dtMs)                  every frame, after cave.update
 //   w.busy = true                   a fight is on: nothing opens, whatever is open shuts
+//   w.recruit(n)                    the posts of up to n other open pairs (they join a fight)
 //   w.challenge()                   the player has saluted: the nearest open pair steps forward (a fight, as onAttack)
 //   w.destroy()
 //
@@ -91,6 +92,13 @@ export default class Watchers {
     best.state = 'attacking'
     this.onAttack(best, best.post)
     return best.post
+  }
+
+  // Other eyes that are open, nearest first (up to n): the ghouls that join a fight another began. Call before `busy` shuts them.
+  recruit(n) {
+    const c = this.cave
+    return this.list.filter(w => (w.state === 'opening' || w.state === 'watching') && w.a >= 0.3 && w.post)
+      .map(w => ({ p: w.post, d: Math.hypot(w.post.x - c.px, w.post.y - c.py) })).sort((a, b) => a.d - b.d).slice(0, n).map(o => ({ x: o.p.x, y: o.p.y }))
   }
 
   _pan(p) { return Math.max(-1, Math.min(1, (p.x - this.cave.px) / 8)) }

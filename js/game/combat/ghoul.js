@@ -19,11 +19,13 @@ export const GHOUL_GID = 9301
 
 export const GHOUL = {
   ...BASE, ...stats({ health: 3, attack: 6, defense: 2, speed: 4, stamina: 4 }),
+  stepMs: 380,                        // they lurch: one tile in 380 ms (speed 4 gave 190, nearly as fast as you)
+  edged: true, dice: [1, 6, 0],        // live blades (melee.js): a cut is 1d6 hearts owed, and a deep one opens a wound
   style: 'rusher', aggressor: true, salutes: false, noShove: true, swordGid: 2495,
   windMs: 360, strikeMs: 100, recoverMs: 560, followWind: 260, combo: 2,
   parryBase: 0, parryReel0: 0, parryReelStep: 0, parryMax: 0, restMin: 80, restMax: 300,
   stamCut: 1, stamStep: 0.25, stamRegen: 0.9, blownMs: 2200, staggerMs: 300,
-  flow: true, drainMs: 3000,          // bullet time plays out down here, and costs half the breath it does on Skye (meleeBout.js FOCUS)
+  flow: true, drainMs: 6000,          // bullet time plays out down here, and costs a quarter of the breath it does on Skye (meleeBout.js FOCUS)
 }
 
 // 40 x 48: the figure's box is 1 wide to 1.2 tall. A slender, gaunt black figure (the "Brainsss..." dead of 1985): all

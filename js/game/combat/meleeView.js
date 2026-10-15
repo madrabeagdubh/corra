@@ -24,6 +24,7 @@ const easeIO = u => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, u)))) / 2
 // Hearts and breath drawn over the fighters' heads: hidden for now (it read
 // as clutter); the floating numbers and your body tell the story instead.
 const SHOW_HUD = false
+const PRESS_SHOW = 2500       // = melee.js PRESS_MS: the ring round your feet as you steady a wound
 export const DRAW_MS = 900, SHEATHE_MS = 900
 export const SALUTE_MS = 1600
 const clamp01 = u => Math.max(0, Math.min(1, u))
@@ -50,13 +51,23 @@ export default class MeleeView {
     this.sparks = []
     this.floats = []
     this.flash = 0
-    this.sparky = false     // sparks where blades meet: for steel. The wooden blades only knock.
+    this.blood = []         // stains on the ground: { c, r (tiles), rad (tiles), a }
     // animation clocks, in performance.now() ms (the look runs on real time;
     // the fight's own clock is m.t)
     this.a = { garde: -1e9, ease: -1e9, flourish: -1e9, spent: false, salute: -1e9, hurt: -1e9, fall: -1e9, rise: -1e9,
                foeHurt: -1e9, foeFall: -1e9, foeRise: -1e9, idleSince: 0, shove: -1e9, shoveDir: [0, 0],
                foeDrawn: false, foeDrawT: -1e9, foeSheatheT: -1e9, foeShoveT: -1e9, foeShoveDir: [0, 0], tellT0: -1e9, tellMs: 0, foeParryT: -1e9, foeParryHigh: true, pParryT: -1e9, pParryHigh: true, crossHigh: false, spinSeen: -1e9, spinT0: null, spinFrom: 0, parryT: null, parrySide: 1 }
+    // Each foe keeps his own clocks (foeHurt, foeFall, ...): these read and write those of the foe the fight is looking at (m.foe).
+    this._fa0 = {}
+    for (const k of ['foeHurt', 'foeFall', 'foeRise', 'foeDrawn', 'foeDrawT', 'foeSheatheT', 'foeShoveT', 'tellT0', 'tellMs', 'foeParryT', 'foeParryHigh', 'foeSaluteT', 'foeSaluteState', 'foeDashT']) {
+      this._fa0[k] = this.a[k]; delete this.a[k]
+      Object.defineProperty(this.a, k, { enumerable: true, get: () => this._fa()[k], set: v => { this._fa()[k] = v } })
+    }
+    this._fa0.foeShoveDir = [0, 0]; delete this.a.foeShoveDir
+    Object.defineProperty(this.a, 'foeShoveDir', { enumerable: true, get: () => this._fa().foeShoveDir, set: v => { this._fa().foeShoveDir = v } })
   }
+  _fa() { const f = this.m.foe; return f.anim || (f.anim = { ...this._fa0, foeShoveDir: [0, 0] }) }
+  get sparky() { return this.m.steel() }       // sparks where blades meet: for steel. The wooden blades only knock.
   now() { return this.m.clock ?? performance.now() }          // real time, slowed with the world when you focus (meleeBout._focusStep)
   // the player's facing side on screen: -1 left, 1 right (as PGR flips the sprite)
   side() { return this.pgr?._facingLeft ? -1 : 1 }
@@ -88,7 +99,7 @@ export default class MeleeView {
     const PS = this.pgr.constructor.PLAYER_SCALE ?? 1
     return this.figure(p.logicalX / ts - 0.5, p.logicalY / ts - 0.5, (this.pgr._playerHeightMult ?? 1.8) * PS)
   }
-  foeFigure() { const [x, y] = this.m.foeDrawPos(); return this.figure(x, y) }
+  foeFigure(f) { const [x, y] = this.m.foeDrawPos(f); return this.figure(x, y) }
   // screen angle from tile a to tile b (centres)
   screenAngle([ac, ar], [bc, br]) {
     const a = this.ground(ac + 0.5, ar + 0.5), b = this.ground(bc + 0.5, br + 0.5)
@@ -212,7 +223,9 @@ export default class MeleeView {
       case 'enGarde': A.garde = now; A.spent = false; break
       case 'atEase': A.ease = now; break
       case 'salute': if (d.by === 'player') A.salute = now; break   // yours only when you choose to (swipe up again)
-      case 'knockdown': if (d.steady) break; if (d.who === 'player') A.fall = now; else A.foeFall = now; buzz(60); break
+      case 'knockdown': if (d.steady) break; if (d.who === 'player') A.fall = now; else A.foeFall = now; if (d.final && this.m.steel()) this.pool(d.who); buzz(60); break
+      case 'bleed': this._float('player', '−1', '#ff8a7a'); this.gore('player', 0); buzz(12); break         // a heart paid: the blow's toll, or a drip from a wound
+      case 'steady': this._float('player', 'steady', '#dfe8ee'); break
       case 'rise': if (d.who === 'player') A.rise = now; else A.foeRise = now; break
       case 'parried':
         A.crossHigh = !A.crossHigh                                       // the exchange alternates: crossing high, crossing low
@@ -229,6 +242,7 @@ export default class MeleeView {
         buzz(d.on === 'player' ? 45 : d.desperate ? 45 : 25)
         if (d.on === 'player') A.hurt = now; else A.foeHurt = now
         this._spray(d.on, d.on === 'player' ? '240,120,100' : d.desperate || d.charged ? '255,210,90' : '240,225,190')
+        if (this.m.steel()) this.gore(d.on, d.dmg || 1)
         this._float(d.on, '−' + d.dmg, d.on === 'player' ? '#ff8a7a' : '#f5d060')
         if (d.on === 'player') this.flash = 1
         break
@@ -251,6 +265,29 @@ export default class MeleeView {
       dustPuff(sc, b0, -ux * 0.6, 12)
       setTimeout(() => { try { dustPuff(sc, b1, ux * 0.7, 8) } catch (_) {} }, 170)
     } catch (_) {}
+  }
+  // blood: a spray, and stains on the ground where it fell
+  _tilePos(who) { if (who === 'player') { const p = this.scene.player, ts = this.scene.tileSize; return [p.logicalX / ts - 0.5, p.logicalY / ts - 0.5] } return this.m.foeDrawPos() }
+  gore(who, dmg) {
+    this._spray(who, '175,20,20', 6 + dmg * 2); this._spray(who, '140,12,12', 3 + dmg)
+    const [x, y] = this._tilePos(who)
+    for (let i = 0; i < 2 + dmg; i++) this.blood.push({ c: x + (Math.random() - 0.5) * 0.8, r: y + (Math.random() - 0.5) * 0.8, rad: 0.03 + Math.random() * (0.05 + dmg * 0.012), a: 0.35 + Math.random() * 0.35 })
+    while (this.blood.length > 260) this.blood.shift()
+  }
+  pool(who) {                                                // one that falls leaves a pool
+    const [x, y] = this._tilePos(who)
+    for (let i = 0; i < 12; i++) this.blood.push({ c: x + (Math.random() - 0.5) * 0.9, r: y + (Math.random() - 0.5) * 0.9, rad: 0.1 + Math.random() * 0.22, a: 0.5 })
+  }
+  _drawBlood(ctx) {
+    if (!this.blood.length) return
+    ctx.save(); ctx.fillStyle = '#6b0f12'
+    for (const b of this.blood) {
+      const g = this.ground(b.c + 0.5, b.r + 0.5)
+      if (!g) continue
+      const w = this.pgr._scaleAtRow(b.r + 0.5) * b.rad
+      ctx.globalAlpha = b.a; ctx.beginPath(); ctx.ellipse(g[0], g[1], w, w * 0.45, 0, 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.restore()
   }
   _anchor(who) {
     const f = who === 'player' ? this.playerFigure() : this.foeFigure()
@@ -338,16 +375,17 @@ export default class MeleeView {
     ctx.beginPath(); outer.slice(Math.floor(N * 0.4)).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))
     ctx.strokeStyle = `rgba(255,250,235,${0.8 * alpha})`; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke()
   }
-  hearts(ctx, x, y, n, of, size, desperate = false) {
+  hearts(ctx, x, y, n, of, size, desperate = false, owed = 0) {
     const gap = size * 1.25, x0 = x - of * gap / 2, t = performance.now()
     for (let i = 0; i < of; i++) {
       const cx = x0 + i * gap + size / 2, s = size / 2
       ctx.beginPath(); ctx.moveTo(cx, y + s * 0.9)
       ctx.bezierCurveTo(cx - s * 1.4, y - s * 0.1, cx - s * 0.6, y - s * 1.1, cx, y - s * 0.35)
       ctx.bezierCurveTo(cx + s * 0.6, y - s * 1.1, cx + s * 1.4, y - s * 0.1, cx, y + s * 0.9)
-      const lit = i < n
-      ctx.fillStyle = lit ? (desperate ? `rgba(255,70,50,${0.6 + 0.4 * Math.sin(t / 110)})` : '#e0443a') : 'rgba(255,255,255,0.15)'
+      const lit = i < n, due = lit && i >= n - owed          // a heart you are owed to lose: dark, and beating
+      ctx.fillStyle = due ? `rgba(120,18,14,${0.55 + 0.35 * Math.sin(t / 120 + i)})` : lit ? (desperate ? `rgba(255,70,50,${0.6 + 0.4 * Math.sin(t / 110)})` : '#e0443a') : 'rgba(255,255,255,0.15)'
       ctx.fill()
+      if (due) { ctx.strokeStyle = 'rgba(224,68,58,0.55)'; ctx.lineWidth = 1; ctx.stroke() }
     }
   }
   pips(ctx, x, y, breath, of, hp, winded, r = 3.2) {
@@ -367,13 +405,14 @@ export default class MeleeView {
     ctx.save()
     if (m.focusK < 0.97) this.focusVeil(ctx)
     this._drawMotes(ctx)
+    this._drawBlood(ctx)
 
     // your target: a quiet gold outline
     if (m.combat) this.tileQuad(ctx, m.targetTile(), null, 'rgba(245,208,96,0.6)', 1.5)
     // their target: red, deepening through the wind-up
-    if (foe.state === 'wind' || foe.state === 'strike') {
-      const k = foe.state === 'strike' ? 1 : Math.min(1, (t - foe.st0) / Math.max(1, foe.wind))
-      for (const tg of foe.targets) foe.pushing
+    for (const fx of m.foes) if (fx.state === 'wind' || fx.state === 'strike') {
+      const k = fx.state === 'strike' ? 1 : Math.min(1, (t - fx.st0) / Math.max(1, fx.wind))
+      for (const tg of fx.targets) fx.pushing
         ? this.tileQuad(ctx, tg, `rgba(120,170,255,${0.12 + 0.35 * k})`, `rgba(190,220,255,${0.4 + 0.6 * k})`)     // a shove: blue
         : this.tileQuad(ctx, tg, `rgba(220,60,50,${0.12 + 0.35 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
     }
@@ -418,13 +457,30 @@ export default class MeleeView {
       ctx.lineWidth = full ? 4 : 3; ctx.lineCap = 'round'; ctx.stroke()
     }
     // hearts over the foe while it matters
-    if (SHOW_HUD && ff && !m.noFoe && (m.combat || m.bout.over || foe.hp < m.foeMax())) this.hearts(ctx, ff.x, ff.y - ff.h - 8, foe.hp, m.foeMax(), Math.max(6, ff.w * 0.16))
+    for (const fx of m.foes) {
+      const fz = fx === foe ? ff : this.foeFigure(fx)
+      if (SHOW_HUD && fz && !m.noFoe && (fx.state !== 'beaten' || m.foes.length < 2) && (m.combat || m.bout.over || fx.hp < m.foeMax())) this.hearts(ctx, fz.x, fz.y - fz.h - 8, fx.hp, m.foeMax(), Math.max(6, fz.w * 0.16))
+    }
     // yours, and your breath, under your feet while en garde (over your head
     // they'd collide with his: he's usually the figure just beyond you)
     if (SHOW_HUD && pf && m.enGarde && (m.combat || m.bout.over)) {
       const p = this.scene.player, hy = pf.y + Math.max(9, pf.w * 0.22)
-      this.hearts(ctx, pf.x, hy, p.currentHP, p.maxHP, Math.max(7, pf.w * 0.17), m.desperate())
+      this.hearts(ctx, pf.x, hy, p.currentHP, p.maxHP, Math.max(7, pf.w * 0.17), m.desperate(), m.owed)
       this.pips(ctx, pf.x, hy + Math.max(10, pf.w * 0.2), m.breath, p.maxHP, p.currentHP, m.winded())
+    }
+    // a wound: the time to its next drip under your hearts, and a ring round your feet as you stand still to steady it
+    if (pf && m.steel() && (m.wounds > 0 || m.owed > 0)) {
+      const hy = pf.y + Math.max(9, pf.w * 0.22), bw = Math.max(40, pf.w * 0.9)
+      if (m.owed > 0) this.hearts(ctx, pf.x, hy + Math.max(8, pf.w * 0.2), m.owed, m.owed, Math.max(7, pf.w * 0.17), false, m.owed)       // the hearts still to be paid
+      if (m.wounds > 0) {
+        const f = Math.max(0, Math.min(1, 1 - (m.bleedAt - t) / m._bleedMs()))
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(pf.x - bw / 2, hy + Math.max(20, pf.w * 0.4), bw, 4)
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(pf.x - bw / 2, hy + Math.max(20, pf.w * 0.4), bw * f, 4)
+      }
+      if (m.press > 0) {
+        ctx.beginPath(); ctx.ellipse(pf.x, pf.y, pf.w * 0.8, pf.w * 0.32, 0, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, m.press / PRESS_SHOW))
+        ctx.strokeStyle = 'rgba(230,236,240,0.9)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke()
+      }
     }
     // the exchange count, while one is going
     if (m.exchange >= 2 && ff && pf) {
@@ -442,11 +498,13 @@ export default class MeleeView {
       ctx.globalAlpha = Math.max(0, f.life); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'
       ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y); ctx.globalAlpha = 1
     }
-    // struck: the edges go red for a moment
-    if (this.flash > 0) {
+    // struck: the edges go red for a moment; with live blades, and badly hurt, they stay red
+    const miss = m.steel() && m.combat ? 1 - Math.max(0, m.eff()) / Math.max(1, this.scene.player?.maxHP || 6) : 0
+    const hurtGlow = miss > 0.4 ? 0.1 + (miss - 0.4) * 0.45 : 0
+    if (this.flash > 0 || hurtGlow > 0.01) {
       const W = ctx.canvas.width, H = ctx.canvas.height, e = Math.min(W, H) * 0.2
       const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.5 - e, W / 2, H / 2, Math.max(W, H) * 0.75)
-      g.addColorStop(0, 'rgba(170,20,15,0)'); g.addColorStop(1, `rgba(170,20,15,${0.45 * this.flash})`)
+      g.addColorStop(0, 'rgba(170,20,15,0)'); g.addColorStop(1, `rgba(170,20,15,${Math.max(0.45 * this.flash, hurtGlow)})`)
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
       this.flash = Math.max(0, this.flash - s * 3)
     }

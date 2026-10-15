@@ -29,7 +29,7 @@ export default class MeleeAudio {
   constructor(scene, melee, { material = 'wood', foeVoice = VOICES.foe, foeKey = 'Ador' } = {}) {
     this.scene = scene
     this.m = melee
-    this.material = material
+    this._material = material
     const ac = SoundBoard.ctx(scene)
     this.ac = ac
     this.pv = ac ? new VoiceSynth({ audioContext: ac, volume: 0.5 }) : null
@@ -45,6 +45,8 @@ export default class MeleeAudio {
     this._feet = { player: 0, foe: 0 }
     this._timers = new Set()
   }
+
+  get material() { return this.m.steel() ? 'metal' : this._material }       // live blades ring
 
   sfx(key, opts = {}) {
     const k = this.m.focusK ?? 1                      // in focus every sound is lower and drawn out

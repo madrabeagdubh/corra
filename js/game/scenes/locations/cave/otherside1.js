@@ -28,6 +28,8 @@ import SkyeCaption from '../skye/skyeCaption.js'
 
 const Q = new URLSearchParams(window.location.search)
 const REVEAL_MS = 1000      // a ghoul stands seen this long before it charges
+const PACK = 3              // how many come at you (the first, and the rest out of the dark: &pack=N)
+const JOIN_MS = 1500        // the others arrive this long apart
 const RELIC_AT = [89, 21.5] // the bronze sword lies in the northern east crypt, north of the passage that leads in (the chamber round [88, 22])
 
 export default class Otherside1 extends CaveTest {
@@ -37,7 +39,7 @@ export default class Otherside1 extends CaveTest {
 
   onEnter() {
     super.onEnter()
-    this.fighting = false; this._waking = false; this._reveal = null     // the scene object is reused when you wake in the ring again
+    this.fighting = false; this._waking = false; this._reveal = null; this._joins = []     // the scene object is reused when you wake in the ring again
     const md = this.mapData
     if (Q.get('sound') !== '0') {
       this.audio = new UnderworldAudio(this)
@@ -64,6 +66,11 @@ export default class Otherside1 extends CaveTest {
     if (this._reveal && ((this._reveal.t -= delta) <= 0)) {          // seen long enough: it charges
       const b = this._reveal.bout; this._reveal = null
       if (this._melee === b) b.melee.engage()
+    }
+    for (const fl of this._melee?.flags || []) if (fl.fadeIn > 0) fl.fadeIn = Math.max(0, fl.fadeIn - delta)
+    if (this._joins.length && this.fighting && !this._reveal) {      // the rest of the pack comes out of the dark, one by one
+      const j = this._joins[0]
+      if ((j.t -= delta) <= 0) { this._joins.shift(); this._ghoulJoins(j.at) }
     }
     if (this.audio) {
       this.audio.update(delta)
@@ -139,27 +146,65 @@ export default class Otherside1 extends CaveTest {
     const at = this._freeNear(p.x, p.y)
     if (!at || this.fighting) { return }
     this.fighting = true
+    const want = Math.max(1, Number(Q.get('pack') || PACK)) - 1
+    const others = this.watchers ? this.watchers.recruit(want) : []        // the eyes still open: they come too (before busy shuts them)
     if (this.watchers) this.watchers.busy = true
     const garde = !!this._melee?.melee?.enGarde                // the sword you have ready stays ready (the new bout starts at ease)
     this._melee?.destroy()
     const bout = this._melee = new MeleeBout(this, { F: GHOUL, home: at, gid: GHOUL_GID, lens: false })
     if (garde) bout.melee.setEnGarde(true)
     bout.melee.foe.c = at[0]; bout.melee.foe.r = at[1]
-    this._dimFigure(bout)
+    bout.flag.fadeIn = REVEAL_MS
+    this._dimFigure(bout, bout.flag)
     this._reveal = { t: REVEAL_MS, bout }                  // it shows itself first; update() sends it
+    // where the rest will stand: the other eyes' posts, then anywhere free near the first
+    this._joins = []
+    const taken = [at]
+    for (let i = 0; i < want; i++) {
+      let spot = others[i] ? this._freeNear(others[i].x, others[i].y) : null
+      if (!spot || taken.some(o => o[0] === spot[0] && o[1] === spot[1]) || this._nearPlayer(spot, 3)) spot = this._ringTile(at, taken)
+      if (!spot) break
+      taken.push(spot)
+      this._joins.push({ t: i === 0 ? 700 : JOIN_MS, at: spot })
+    }
+    this.audio?.ghoulHiss(Math.max(-1, Math.min(1, (at[0] - this.cave.px) / 8)))
+  }
+
+  _nearPlayer([c, r], d) {
+    const ts = this.tileSize, p = this.player
+    return Math.max(Math.abs(c - Math.floor(p.logicalX / ts)), Math.abs(r - Math.floor(p.logicalY / ts))) < d
+  }
+  // a free tile 2..4 from the first ghoul, not on another's tile and not up against you
+  _ringTile(at, taken) {
+    const ts = this.tileSize, opts = []
+    for (let dr = -4; dr <= 4; dr++) for (let dc = -4; dc <= 4; dc++) {
+      const d = Math.max(Math.abs(dc), Math.abs(dr)), c = at[0] + dc, r = at[1] + dr
+      if (d < 2 || this.isColliding((c + 0.5) * ts, (r + 0.5) * ts) || this._nearPlayer([c, r], 3)) continue
+      if (taken.some(o => Math.max(Math.abs(o[0] - c), Math.abs(o[1] - r)) < 2)) continue
+      opts.push([c, r])
+    }
+    return opts.length ? opts[Math.floor(Math.random() * opts.length)] : null
+  }
+  // another ghoul steps out of the dark and into the fight
+  _ghoulJoins(at) {
+    const bout = this._melee
+    if (!bout || !this.fighting || bout.melee.bout.over || !bout.melee.fight) return
+    const fl = bout.addFoe(at[0], at[1], REVEAL_MS)
+    fl.fadeIn = REVEAL_MS
+    this._dimFigure(bout, fl)
     this.audio?.ghoulHiss(Math.max(-1, Math.min(1, (at[0] - this.cave.px) / 8)))
   }
 
   // the figure is seen as far as your light shows it: in the dark it is only two green points
-  _dimFigure(bout) {
-    const f = bout.flag, orig = f.draw, cave = this.cave
+  _dimFigure(bout, f) {
+    const orig = f.draw, cave = this.cave
     f.draw = (ctx, x, y, w, pgr) => {
-      const [fx, fy] = bout.melee.foeDrawPos()
+      const [fx, fy] = bout.melee.foeDrawPos(f.foe)
       const lit = cave.brightSmooth(fx + 0.5, fy + 0.5)
       let k = 0.08 + 0.92 * Math.max(0, Math.min(1, (lit - 0.02) / 0.38))
-      const rv = this._reveal
-      if (rv && rv.bout === bout) k = Math.max(k, Math.min(1, 1 - rv.t / REVEAL_MS * 1.2 + 0.2))        // it steps into view
+      if (f.fadeIn > 0) k = Math.max(k, Math.min(1, 1 - f.fadeIn / REVEAL_MS * 1.2 + 0.2))        // it steps into view
       ctx.save(); ctx.globalAlpha *= k; orig(ctx, x, y, w, pgr); ctx.restore()
+      if (f.foe.hp <= 0 || f.foe.state === 'beaten') return        // a fallen one has no eyes
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       const hy = y - w * 1.2 * 0.74, rad = w * 0.045
       for (const sx of [-0.09, 0.09]) {
@@ -187,7 +232,7 @@ export default class Otherside1 extends CaveTest {
   }
 
   _ghoulGone() {
-    this._reveal = null
+    this._reveal = null; this._joins = []
     const garde = !!this._melee?.melee?.enGarde
     this._melee?.destroy()
     this._melee = new MeleeBout(this)

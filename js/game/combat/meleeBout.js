@@ -30,6 +30,7 @@ import { GameState } from '../systems/gameState.js'
 import { createItem } from '../ui/inventory/itemDefinitions.js'
 
 export const SWORD_ID = 'wooden_sword'
+const EDGED_IDS = ['bronze_sword']
 export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is yours, in every scene
 
 // Focus (bullet time): a line drawn in a bout slows the world, more the nearer you are to him: nothing at `far`
@@ -132,6 +133,8 @@ export default class MeleeBout {
       free: (c, r) => c >= 0 && r >= 0 && c < W && r < H && !scene.isColliding(c * ts + ts / 2, r * ts + ts / 2) && !scene.figureAt?.(c, r),
       wet: (c, r) => !!scene.isWet?.(c, r),                  // water you'd drown in (skyeLoch)
       kill: () => { if (player.currentHP > 0) player.takeDamage(player.currentHP, 'knife') },
+      // an edged blade in the right hand (the bronze sword): it cuts. The wooden one bruises.
+      edged: () => { const it = player.inventory?.getEquippedItem?.('rightHand'); return !!it && (it.edged === true || EDGED_IDS.includes(it.id)) },
     }
 
     this.melee = new Melee({ kind, F, home, pa, emit: (n, d) => this._onEvent(n, d) })
@@ -139,28 +142,10 @@ export default class MeleeBout {
     this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
     this.lens = this.melee.noFoe || !lens ? null : new FightLens(scene, this.melee)   // the camera closes in on a bout
+    this.gid = gid; this.flags = []
 
     // the foe is a PGR billboard, sorted with the player like any figure
-    if (!this.melee.noFoe) {
-      this.flag = { tileX: home[0], tileY: home[1], visual: { gid, flat: false }, offset: [0, 0] }
-      // PGR calls this in its depth-sorted pass: his figure, then his sword with it (so you can stand in front of either)
-      this.flag.draw = (ctx, x, y, w, pgr) => {
-        let img = pgr._getTileCanvas(gid)
-        // He faces you; when he stands nearer the camera than you, we are looking at his back (generated, once per sprite)
-        if (img) {
-          const pf = this.view.playerFigure()
-          if (pf && y > pf.y + 6) {
-            this._backs = this._backs || new WeakMap()
-            if (!this._backs.has(img)) { let c = null; try { c = backViewCanvas(img) } catch (_) {} this._backs.set(img, c) }
-            img = this._backs.get(img) || img
-          }
-          pgr._drawBillboard(ctx, img, x, y, w, 1.2)
-        }
-        this.view.foeSword(ctx, { x, y, w, h: w * 1.2 })
-      }
-      const pgr = scene.perspectiveGround
-      pgr?.setEncounterFlags([...(pgr._encounterFlags || []), this.flag])
-    }
+    if (!this.melee.noFoe) this.flag = this._makeFlag(this.melee.foe, home)
 
     // While a hop or a blow is still settling, the feet wait. The Player
     // walks itself; this only stops it starting the next step too soon.
@@ -188,6 +173,37 @@ export default class MeleeBout {
     this.melee.clock = performance.now()                   // the look's clock: real time, slowed with the world
   }
 
+  // One foe's billboard. PGR calls its draw in the depth-sorted pass: his figure, then his sword with it (so you can stand in front
+  // of either). The fight looks at one foe at a time (melee.foe), so his draw turns it to him for the moment.
+  _makeFlag(foe, home) {
+    const gid = this.gid
+    const flag = { tileX: home[0], tileY: home[1], visual: { gid, flat: false }, offset: [0, 0], foe }
+    flag.draw = (ctx, x, y, w, pgr) => {
+      const m = this.melee, keep = m.foe
+      m.foe = foe
+      try {
+        let img = pgr._getTileCanvas(gid)
+        // He faces you; when he stands nearer the camera than you, we are looking at his back (generated, once per sprite)
+        if (img) {
+          const pf = this.view.playerFigure()
+          if (pf && y > pf.y + 6) {
+            this._backs = this._backs || new WeakMap()
+            if (!this._backs.has(img)) { let c = null; try { c = backViewCanvas(img) } catch (_) {} this._backs.set(img, c) }
+            img = this._backs.get(img) || img
+          }
+          pgr._drawBillboard(ctx, img, x, y, w, 1.2)
+        }
+        this.view.foeSword(ctx, { x, y, w, h: w * 1.2 })
+      } finally { m.foe = keep }
+    }
+    this.flags.push(flag)
+    const pgr = this.scene.perspectiveGround
+    pgr?.setEncounterFlags([...(pgr._encounterFlags || []), flag])
+    return flag
+  }
+  // another foe joins the fight at (c, r); returns his flag (flag.foe is his state)
+  addFoe(c, r, delay = 0) { return this._makeFlag(this.melee.addFoe(c, r, delay), [c, r]) }
+
   get enGarde() { return this.melee.enGarde }
   swordInHand() { return this.scene.player?.inventory?.getEquippedItem?.('rightHand')?.subtype === 'sword' }
   // a conversation card is up: the moon is for the words
@@ -211,18 +227,19 @@ export default class MeleeBout {
   // ── the field ────────────────────────────────────────────────────────────
   fieldTap(canvasX, canvasY) {
     if (!this.melee.combat) return false
-    const foe = this.melee.foe
     // his figure stands up from his tile, so a tap on his body is over the
     // ground BEHIND him: test the figure on screen, with a little slack,
-    // and fall back to the tile he stands on
-    const f = this.view.foeFigure()
-    const onBody = f && Math.abs(canvasX - f.x) <= f.w * 0.65 && canvasY <= f.y + f.w * 0.3 && canvasY >= f.y - f.h * 1.1
-    let onTile = false
-    if (!onBody) {
-      const tile = PathFinder.screenToTile(canvasX, canvasY, this.scene.perspectiveGround, this.scene.tileSize)
-      onTile = !!tile && tile.tx === foe.c && tile.ty === foe.r
+    // and fall back to the tile he stands on. Of several, the one nearest the camera gets it.
+    const tile = PathFinder.screenToTile(canvasX, canvasY, this.scene.perspectiveGround, this.scene.tileSize)
+    let hit = null
+    for (const foe of this.melee.foes) {
+      if (foe.hp <= 0 && this.melee.foes.length > 1) continue
+      const f = this.view.foeFigure(foe)
+      const onBody = f && Math.abs(canvasX - f.x) <= f.w * 0.65 && canvasY <= f.y + f.w * 0.3 && canvasY >= f.y - f.h * 1.1
+      const onTile = !onBody && !!tile && tile.tx === foe.c && tile.ty === foe.r
+      if ((onBody || onTile) && (!hit || foe.r > hit.r)) hit = foe
     }
-    return onBody || onTile ? this.melee.tapFoe() : false
+    return hit ? this.melee.tapFoe(hit) : false
   }
   // Bullet time: a line drawn in a bout slows the world (FOCUS, above); lifting the finger, you walk it in the slow.
   // Returns the (scaled) time the fight and the view live by this frame.
@@ -326,7 +343,7 @@ export default class MeleeBout {
 
   // the Player walked into him (Player.startNewStep -> scene.onBumpFigure)
   bump(dx, dy) { this.melee.bump([dx, dy]) }
-  occupies(tx, ty) { return !this.melee.noFoe && tx === this.melee.foe.c && ty === this.melee.foe.r }
+  occupies(tx, ty) { const m = this.melee; return !m.noFoe && m.foes.some(f => (f.hp > 0 || m.foes.length < 2) && f.c === tx && f.r === ty) }
 
   // ── the frame ────────────────────────────────────────────────────────────
   update(delta) {
@@ -338,11 +355,12 @@ export default class MeleeBout {
     if (this.scene._encounterPanel?._isOpen) return               // a conversation: the fight holds its breath
     delta = this._focusStep(delta)
     m.update(delta)
-    if (this.flag) {
-      const [x, y] = m.foeDrawPos()
-      this.flag.tileX = m.foe.c; this.flag.tileY = m.foe.r
-      this.flag.offset[0] = x - m.foe.c; this.flag.offset[1] = y - m.foe.r
-      this.flag.pose = this.view.flagPose = this.view.foePose()
+    for (const fl of this.flags) {
+      const foe = fl.foe, [x, y] = m.foeDrawPos(foe)
+      fl.tileX = foe.c; fl.tileY = foe.r
+      fl.offset[0] = x - foe.c; fl.offset[1] = y - foe.r
+      m.foe = foe
+      try { fl.pose = this.view.flagPose = this.view.foePose() } finally { m.foe = m.tgt }
     }
     this.audio.update()
     this.moon.update(m, this.scene.player, this._talking())
@@ -368,7 +386,7 @@ export default class MeleeBout {
     return { away: f.r < pr ? true : f.r > pr ? false : null, left: f.c < pc ? true : f.c > pc ? false : null }
   }
   // PGR skips idle redraws; the fight must keep drawing while it's live
-  animating() { const m = this.melee; return !!this.lens?.active || m.enGarde || m.combat || m.bout.over || !!m.foe.from || m.foe.state !== 'idle' || this.focus.k < 1 || this.view.now() - this.view.a.ease < 1000 }
+  animating() { const m = this.melee; return !!this.lens?.active || m.enGarde || m.combat || m.bout.over || m.foes.some(f => f.from || f.state !== 'idle') || this.focus.k < 1 || this.view.now() - this.view.a.ease < 1000 }
 
   _onEvent(name, d) {
     this.view.onEvent(name, d)
@@ -389,10 +407,11 @@ export default class MeleeBout {
 
   destroy() {
     const p = this.scene.player
+    if (this.melee.owed > 0) this.melee.pa.hurt(this.melee.owed)       // the fight is over: what you were still owed is paid (never your last heart)
     p?.setWalkPace?.(null)
     if (p && this._origUpdate) p.update = this._origUpdate
     const pgr = this.scene.perspectiveGround
-    if (pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(f => f !== this.flag && !this.ghostFlags?.includes(f)))
+    if (pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(f => !this.flags.includes(f) && !this.ghostFlags?.includes(f)))
     if (this.scene._moonOwner === this) this.scene._moonOwner = null
     this.view.destroy()
     this.audio.destroy()

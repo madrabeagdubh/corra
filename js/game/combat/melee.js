@@ -44,6 +44,11 @@ const DISARM_CHANCE = 0.45, SHAMED_DOWN_MS = 5200, SWORD_FLIGHT_MS = 650     // 
 
 const P = { hopRest: 110, swingMs: 150, strikeRecover: 320, reelMs: 200, hurtMs: 650 }
 const BR = { regenMs: 700, idleMs: 450, windedMs: 1200, windedBack: 2, lungeRecover: 140 }
+// Live blades. A wooden blade bruises: one heart a blow, nobody dies. An edged one (yours: pa.edged(); his: F.edged) rolls dice, and a
+// deep blow is not paid at once -- it is OWED, a heart a second (TOLL_MS), and you fight on while it comes due. A blow of 3+ opens a
+// WOUND that drips a heart every 12 s (faster with more); stand still PRESS_MS without being hit and you steady yourself: the wound
+// stops and so does any blow still owed. Bleeding slows your breath. The last blow owed that takes your last heart ends it.
+const TOLL_MS = 1000, PRESS_MS = 2500
 const BUFFER_MS = 200
 export const CHARGE = { startMs: 250, fullMs: 700, breath: 2 }
 // a patient cut is hauled from the shoulder; a quick backhand is shorter, lighter, and lands sooner
@@ -105,6 +110,13 @@ export default class Melee {
     this.enGarde = false
     this.foe = { c: home[0], r: home[1], from: null, t0: 0, ms: 0, face: 90, hurtUntil: 0 }
     this._resetFoe()
+    // A pack (addFoe): every foe has a state of his own, and `foe` is the one the fight is looking at -- his own while his turn is
+    // being thought, the one you are addressing (tgt) the rest of the time. You, your breath and your blade are one.
+    this.foes = [this.foe]; this.tgt = this.foe; this.tgtLock = 0
+    this.owed = 0; this.tollAt = 0; this.wounds = 0; this.bleedAt = 0; this.press = 0      // live blades (yours alone, whoever cuts you)
+    // A pack (addFoe): every foe has a state of his own, and `foe` is the one the fight is looking at -- his own while his turn is
+    // being thought, the one you are addressing (tgt) the rest of the time. You, your breath and your blade are one.
+    this.foes = [this.foe]; this.tgt = this.foe; this.tgtLock = 0
     this.p = { busyUntil: 0, busyKind: 'other', cancelAt: 0, hurtUntil: 0, lost: false, downUntil: 0 }
     this.combat = false
     this.exchange = 0
@@ -137,7 +149,7 @@ export default class Melee {
   targetTile() { const [c, r] = this.pa.tile(), d = this.towardFoe(); return [c + d[0], r + d[1]] }
   winded() { return this.t < this.windedUntil }
   cap() { return Math.max(1, this.pa.hp()) }                       // breath can't exceed your hearts
-  desperate() { return this.combat && this.pa.hp() <= 1 }           // last heart: the moon glows red
+  desperate() { return this.combat && this.eff() <= (this.steel() ? 2 : 1) }           // last heart (two, with live blades): the moon glows red
   chargeK() { return this.charge ? Math.min(1, (this.t - this.charge.t0) / CHARGE.fullMs) : 0 }
   moving() { return this.pa.onRoute() || !!this.pa.held() }
   foeMax() { return this.F.hp }
@@ -146,7 +158,10 @@ export default class Melee {
     const a = this.pa.tile(), b = this.pa.fromTile()
     return (a[0] === c && a[1] === r) || (b[0] === c && b[1] === r)
   }
-  foeFree(c, r) { return this.pa.free(c, r) && !this.playerOn(c, r) && !this.pa.wet?.(c, r) }
+  foeFree(c, r) {
+    return this.pa.free(c, r) && !this.playerOn(c, r) && !this.pa.wet?.(c, r) &&
+      !(this.foes.length > 1 && this.foes.some(f => f !== this.foe && f.hp > 0 && f.state !== 'beaten' && f.c === c && f.r === r))     // nor on another of them
+  }
 
   // a foe on the ground only matters in a bout; your sword is yours to swing anywhere
   canAct() { const p = this.p; return !p.lost && !this.charge && this.t >= p.busyUntil && (this.foe.hp > 0 || !this.combat) }
@@ -236,13 +251,14 @@ export default class Melee {
       this.emit('spent', { lastHeart: this.pa.hp() <= 1 }); return
     }
     if (!this.combat) return this._airSwing(charged)
-    const desperate = this.pa.hp() <= 1                      // last heart: one blow that cannot be turned aside
+    const desperate = this.eff() <= (this.steel() ? 2 : 1)   // last heart: one blow that cannot be turned aside
     const inFlurry = !charged && this.t - this.lastSwing.t < 550
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
     const base = charged ? SW.spin : flip ? SW.quick : SW.full
     const k0 = inFlurry ? 0.3 : 0, toHit = base.hitAt - k0 * base.vis, rec = inFlurry ? 140 : base.rec
     this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, born: this.t, hitDone: false, desperate, charged, flip,
-                   vis: base.vis, hitAt: base.hitAt }
+                   vis: base.vis, hitAt: base.hitAt,
+                   power: (flip ? -1 : inFlurry ? 0 : 2) + (this.moving() && this.p.busyKind === 'hop' ? -1 : 0) }      // a patient cut bites; on the move, or a backhand, it is lighter
     // on the move, the cut rides on the stride: no recovery, the walk carries on
     const p = this.p
     if (!(this.moving() && p.busyKind === 'hop')) {
@@ -275,7 +291,7 @@ export default class Melee {
     if (!this.pa.forceStep(d)) return
     const step = this.pa.stepMs()
     this.swing = { tile: [this.foe.c, this.foe.r], t0: this.t + step, born: this.t + step, hitDone: false, desperate: false, lunge: true, flip: false,
-                   vis: SW.full.vis, hitAt: SW.full.hitAt }
+                   vis: SW.full.vis, hitAt: SW.full.hitAt, power: 1 }
     this.lastSwing = { t: this.t, flip: false }
     const p = this.p
     p.busyUntil = this.t + step + SW.full.hitAt + SW.full.rec + BR.lungeRecover; p.busyKind = 'other'
@@ -284,8 +300,9 @@ export default class Melee {
   }
 
   // tapping the foe on the field
-  tapFoe() {
+  tapFoe(f) {
     if (!this.combat) return false
+    if (f && f !== this.tgt && f.hp > 0 && f.state !== 'beaten') { this.tgt = this.foe = f; this.tgtLock = this.t + 1800 }      // a tap picks him
     const d = this.cheb()
     if (this.carrying && d <= 1) { this._returnSword(); return true }     // hand it back
     if (d === 1) { this.act(() => this.strike(), 'strike'); return true }
@@ -343,7 +360,8 @@ export default class Melee {
     let pp = Math.max(0, Math.min(F.parryMax, base + edge))
     if (F.moveWindow && this.t - foe.movedAt < F.moveWindow) pp *= 0.35         // caught on the move
     if (Math.random() < pp) return this._foeParries()
-    const dmg = sw.desperate && !F.match ? 2 : 1, exchange = this.exchange
+    const dmg = this.edged() ? this.roll(1, 8, (sw.power || 0) + (open ? 2 : 0) + (sw.charged ? 2 : 0)) * (sw.desperate ? 2 : 1)
+      : sw.desperate && !F.match ? 2 : 1, exchange = this.exchange
     foe.hurtUntil = this.t + 300; this.exchange = 0; foe.engaged = true
     if (open) this.refund()
     this.hitStop = sw.desperate ? 140 : 80
@@ -444,6 +462,10 @@ export default class Melee {
   // otherwise he staggers, open for a moment. Carrying his sword, it's
   // handed back instead.
   bump([dx, dy]) {
+    if (this.foes.length > 1) {
+      const [pc, pr] = this.pa.tile(), f = this.foes.find(o => o.hp > 0 && o.state !== 'beaten' && o.c === pc + dx && o.r === pr + dy)
+      if (f && f !== this.foe) { try { this.foe = f; return this.bump([dx, dy]) } finally { this.foe = this.tgt } }
+    }
     const foe = this.foe
     if (!this.combat || foe.hp <= 0 || this.p.lost) return
     if (this.carrying && this.cheb() <= 1) return this._returnSword()
@@ -489,11 +511,20 @@ export default class Melee {
     }
     if (!F.flow) this.pa.stopRoute()                       // (flow: a blow does not end the line you are walking, nor the slow it holds)
     this._spoilCharge()
-    const dmg = F.dmg
+    const dmg = F.edged ? this.roll(...(F.dice || [1, 8, 0])) : F.dmg
     p.hurtUntil = this.t + P.hurtMs; this.exchange = 0
     this.hitStop = 110
     this.swing = null; this.queued = null; p.busyUntil = Math.max(p.busyUntil, this.t + 300); p.busyKind = 'other'
     this.emit('hit', { on: 'player', dmg, tired: !!this.breathState() })
+    if (F.edged) {                                                  // a live blade: the blow is owed, and a deep one opens a wound
+      this.press = 0
+      if (!(this.owed > 0)) this.tollAt = this.t + TOLL_MS
+      this.owed = Math.min(this.pa.hp(), this.owed + dmg)
+      if (dmg >= 3 && this.eff() > 0) { this.wounds = Math.min(3, this.wounds + 1); if (this.wounds === 1) this.bleedAt = this.t + this._bleedMs() }
+      const away = [sign(pc - foe.c), sign(pr - foe.r)]
+      this._knockPlayer(away); if (dmg >= 5) this._knockPlayer(away)       // any wound throws you back, a heavy one two tiles
+      this._foeAfterBlow(0.6); return
+    }
     if (this.pa.hp() - dmg <= 0 && F.lethal) return this._playerKilled()
     if (this.pa.hp() - dmg <= 0 && !F.mercy) return this._playerYields('Buaileadh thú', 'You were beaten')
     const hurt = F.mercy ? Math.min(dmg, this.pa.hp() - 1) : dmg          // a master never takes you below one heart
@@ -535,7 +566,8 @@ export default class Melee {
     if (this.F.next) return this._nextPhase()
     if (this.F.aggressor) {
       this._setFoe('beaten', 1e9)
-      if (!this.F.flees) this.emit('knockdown', { who: 'foe', final: true })
+      if (!this.F.flees) this.emit('knockdown', { who: 'foe', final: !this._othersLive() })
+      if (this._othersLive()) { this.emit('foeDown', { left: this.foes.filter(f => f.hp > 0 && f.state !== 'beaten').length - (this.foe.hp > 0 ? 1 : 0) }); this._retarget(); return }   // the rest fight on
       return this._fightOver({ won: true, how: this.F.flees ? 'fled' : 'beaten' })   // fled: he drops it and runs (the scene)
     }
     const steady = !!this.F.steady                     // a master doesn't fall: he lowers his blade and bows
@@ -574,7 +606,7 @@ export default class Melee {
   endFight() { this.fight = false; this.drown = null }
   _fightOver(d) {
     this.combat = false; this.exchange = 0; this._spoilCharge(); this.swing = null; this.queued = null
-    if (this.foe.state !== 'beaten') this._setFoe('rest', 1e9)              // he stands where it ended; the scene moves him
+    { const keep = this.foe; for (const f of this.foes) if (f.state !== 'beaten') { this.foe = f; this._setFoe('rest', 1e9) } this.foe = keep }   // they stand where it ended; the scene moves them
     this.bout = { over: true, until: Infinity, needLeave: true, won: !!d.won, how: d.how }
     if (!d.won) this.p.lost = true
     this.emit('boutOver', d)
@@ -1120,27 +1152,105 @@ export default class Melee {
       this.windedUntil = 0; this.breath = Math.max(this.breath, Math.min(this.cap(), BR.windedBack)); this.lastSpend = t
       this.emit('unwinded')
     } else if (!this.winded() && !this.charge && this.breath < this.cap() && t - this.lastSpend > BR.idleMs) {
-      this.breath = Math.min(this.cap(), this.breath + dt / BR.regenMs)
+      this.breath = Math.min(this.cap(), this.breath + dt / (BR.regenMs * (this.wounds ? 2 : 1)))     // a wound slows it
     }
     this.breath = Math.min(this.breath, this.cap())
+    this._tollTick(dt)
 
     if (this.fight && this.F.drown) this._drownTick(t)
     if (this.swing) {
       const el = t - this.swing.t0
-      if (el >= this.swing.hitAt && !this.swing.hitDone) { this.swing.hitDone = true; this._playerStrikeLands() }
+      if (el >= this.swing.hitAt && !this.swing.hitDone) { this.swing.hitDone = true; this._strikeAt() }
       if (this.swing && el >= this.swing.vis) this.swing = null
     }
-    if (this.noFoe) { /* no one to fight */ }
-    else if (!this.bout.over || (!foe.armed && foe.state !== 'down')) this._foeThink()
-    else if (!this.F.aggressor && foe.state !== 'beaten' && !locked(foe.state) && (foe.c !== this.HOME[0] || foe.r !== this.HOME[1]) && t >= foe.nextStep) {
-      foe.nextStep = t + this.F.stepMs; this._foeStep(this.HOME, false, false)        // a beaten player watches him walk back
+    try {
+      for (const f of this.foes) {
+        this.foe = f
+        if (this.noFoe) { /* no one to fight */ }
+        else if (this.foes.length > 1 && f.state === 'beaten') { /* down for good */ }
+        else if (!this.bout.over || (!f.armed && f.state !== 'down')) this._foeThink()
+        else if (!this.F.aggressor && f.state !== 'beaten' && !locked(f.state) && (f.c !== this.HOME[0] || f.r !== this.HOME[1]) && t >= f.nextStep) {
+          f.nextStep = t + this.F.stepMs; this._foeStep(this.HOME, false, false)        // a beaten player watches him walk back
+        }
+        if (f.from && t - f.t0 >= f.ms) f.from = null
+      }
+    } finally { this.foe = this.tgt }
+    this._retarget()
+  }
+
+  // ── live blades ──────────────────────────────────────────────────────────
+  edged() { return !!this.pa.edged?.() }                         // the blade in your hand cuts
+  steel() { return this.edged() || !!this.F.edged }              // somebody here is fighting with an edge
+  eff() { return this.pa.hp() - this.owed }                      // your hearts less what you are owed to pay
+  roll(n, sides, bonus = 0) { let t = bonus; for (let i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * sides); return Math.max(1, t) }
+  _bleedMs(w = this.wounds) { return 12000 / (1 + Math.max(0, w - 1) * 0.6) }
+  // what you are owed comes due a heart a second; a wound drips; standing still presses it shut
+  _tollTick(dt) {
+    const t = this.t
+    if (this.p.lost || this.bout.over || !(this.owed > 0 || this.wounds > 0)) { this.press = 0; return }
+    if (this.owed > 0 && t >= this.tollAt) {
+      this.tollAt = t + TOLL_MS; this.owed--; this.emit('bleed', { toll: true })
+      if (this.pa.hp() <= 1) return this._steelDown('The blow caught up with you')
+      this.pa.hurt(1)
     }
-    if (foe.from && t - foe.t0 >= foe.ms) foe.from = null
+    if (this.wounds > 0 && t >= this.bleedAt) {
+      this.bleedAt = t + this._bleedMs(); this.emit('bleed', { drip: true })
+      if (this.pa.hp() <= 1) return this._steelDown('You bled out')
+      this.pa.hurt(1)
+    }
+    const still = !this.moving() && !this.swing && !this.charge && t >= this.p.busyUntil && t >= this.p.hurtUntil &&
+      this.pa.tile()[0] === this.pa.fromTile()[0] && this.pa.tile()[1] === this.pa.fromTile()[1]
+    this.press = still ? this.press + dt : 0
+    if (this.press >= PRESS_MS) { this.wounds = 0; this.owed = 0; this.press = 0; this.bleedAt = 0; this.emit('steady') }
+  }
+  _steelDown(en) {
+    this.owed = 0; this.wounds = 0; this.press = 0
+    if (this.F.lethal) return this._playerKilled()
+    this._playerYields('Buaileadh thú', en, true)
+  }
+
+  // ── a pack ───────────────────────────────────────────────────────────────
+  // another foe joins at (c, r). In a fight already on he is engaged at once (but holds his first step for `delay` ms).
+  addFoe(c, r, delay = 0) {
+    const f = { c, r, from: null, t0: 0, ms: 0, face: 90, hurtUntil: 0 }
+    this.foes.push(f)
+    try {
+      this.foe = f; this._resetFoe(); f.c = c; f.r = r
+      if (this.fight) {
+        const F = this.F
+        Object.assign(f, { phase: F.shoves ? 'shove' : 'wood', sheathed: !!F.shoves, pushes: 0, stam: F.stamina || 0, stamAt: this.t, blown: false, engaged: true, nextStep: this.t + delay })
+        this._setFoe('approach', 5000)
+        this.emit('charge', { phase: f.phase })
+      }
+    } finally { this.foe = this.tgt }
+    return f
+  }
+  _othersLive() { return this.foes.some(f => f !== this.foe && f.hp > 0 && f.state !== 'beaten') }
+  // Your blow arrives at the tile it was aimed at: whoever stands there takes it.
+  _strikeAt() {
+    const sw = this.swing
+    if (!sw) return
+    const f = this.foes.length > 1 ? this.foes.find(o => o.hp > 0 && o.state !== 'beaten' && o.c === sw.tile[0] && o.r === sw.tile[1]) : null
+    try { if (f) this.foe = f; this._playerStrikeLands() } finally { this.foe = this.tgt }
+  }
+  // Who you are addressing: the nearest, or -- on a line you are walking -- the one nearest the line's end; one winding up to cut you
+  // counts a little nearer; you keep whom you have unless another is plainly nearer (a tap keeps him longer).
+  _retarget() {
+    if (this.foes.length > 1) {
+      const live = this.foes.filter(f => f.hp > 0 && f.state !== 'beaten')
+      if (live.length && !(this.t < this.tgtLock && live.includes(this.tgt))) {
+        const [pc, pr] = this.pa.tile(), ch = (f, c, r) => Math.max(Math.abs(f.c - c), Math.abs(f.r - r))
+        let pool = live
+        if (this.pa.onRoute()) { const [ac, ar] = this.pa.ahead(8), near = live.filter(f => ch(f, ac, ar) <= 2); if (near.length) pool = near }
+        const score = f => ch(f, pc, pr) - (f.state === 'wind' || f.state === 'strike' ? 0.3 : 0) - (f === this.tgt ? 0.45 : 0)
+        this.tgt = pool.reduce((a, b) => score(b) < score(a) ? b : a)
+      }
+    }
+    this.foe = this.tgt
   }
 
   // where the foe is drawn, in tiles (smooth between steps)
-  foeDrawPos() {
-    const foe = this.foe
+  foeDrawPos(foe = this.foe) {
     if (!foe.from) return [foe.c, foe.r]
     const k = Math.min(1, (this.t - foe.t0) / foe.ms), e = 1 - (1 - k) * (1 - k)
     return [foe.from[0] + (foe.c - foe.from[0]) * e, foe.from[1] + (foe.r - foe.from[1]) * e]

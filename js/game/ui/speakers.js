@@ -6,7 +6,7 @@
 // over the action (SkyeCaption), a lesson. The English beneath stays neutral:
 // it is the translation layer, not a voice.
 //
-//   inkFor('conall')        -> '#7fd6a3'   (null for a speaker with no colour of their own)
+//   inkFor('conall')        -> '#dff2e4'   (null for a speaker with no colour of their own)
 //   speakerOf(zone)         -> 'conall'    an encounter zone's speaker: its data 'speaker',
 //                                          else its id ('conall_rescue' -> 'conall'), else its sprite
 //   inkForZone(zone)        -> the colour, or null
@@ -15,9 +15,10 @@
 // known by sprite, to BY_GID).
 
 export const INK = {
-  conall:   '#7fd6a3',   // fresh leaf-green: the Warden of the garden, steady and plain-spoken
-  uathach:  '#ffb25c',   // warm amber: quick, bright, a little fierce
+  conall:   '#dff2e4',   // pale mint: the Warden of the garden, steady and plain-spoken
+  uathach:  '#fbe3c8',   // pale peach: quick, bright, a little fierce
   narrator: '#d8e8f0',   // pale blue-white: the voice that is no one (hints, the sea crossings)
+  player:   '#f5ecc9',   // pale cream-gold: the champion, in cards and captions alike
 }
 
 // encounters known by their sprite (Skye's figures: skyeScene SKYE_GID)

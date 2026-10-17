@@ -43,38 +43,16 @@ export const skyeCladachContent = {
       portrait: '/assets/npcs/othran.png',
       dialogues: [
 
-        // ── node 1 — the top ──────────────────────────────────────
-        {
-          requires: { note: 'climb_top', noteAbsent: 'pep_done' },
-          hold: true,
-          ga: 'Fuair tú an staighre.\nFáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.\nTá gairdín thiar ansin, mar a mhúinim na chéad cheachtanna. Ní thiocfaidh Uathach anuas dóibh siúd. Feicfidh tú í ag an gcomórtas.',
-          en: 'You found the stair.\nWelcome to Skye. Not many come this way. You did.\nThere\'s a garden over west, where I teach the first lessons. Uathach won\'t come down for those. You\'ll see her at the tournament.',
-          options: [
-            {
-              note: 'go_loch',
-              exit: true,
-              ga: 'Ar aghaidh chuig an loch.',
-              en: 'On to the loch.',
-            },
-            {
-              note: 'go_garden',
-              exit: true,
-              ga: 'Chuig an ngairdín ar dtús.',
-              en: 'To the garden first.',
-            },
-          ],
-        },
-
         // ── node 3 — the landfall ─────────────────────────────────
         {
           requires: { note: 'landfall_talk' },
           hold: true,
-          ga: 'Geal an éadan os cionn an maide!\nSolas an ghaiscigh ar an éadain.\nGabhann an ghaiscíocht le hais na gualainne sin.',
-          en: 'Bright the brow above the oar!\nHero\'s light sits on that forehead\nVictory walks behind that shoulder',
+          ga: 'Geal an éadan os cionn an maide!\nAn ghaiscíocht le hais na gualainne.',
+          en: 'Bright the brow above the oar!\nVictory behind those shoulders',
           exchange: [
             {
-              say: 'Iomramh fada déanta agam, i gcomhair chladach oileánn an Cheo.\nTá mo dhroim féin ag cur in iúl dom é.',
-              sayEn: 'Long have I rowed, for Skye\'s grey shore.\nMy back is telling me so.',
+              say: 'Iomramh fada déanta agam,\ni gcomhair chladach oileánn an Cheo.\nTá mo dhroim ag cur in iúl dom é.',
+              sayEn: 'Long have I rowed,\nfor Skye\'s grey shore.\nMy back is telling me so.',
               replyGa: 'An dtiocfaidh tú chois tine?',
               replyEn: 'Wilt thou come to the fire?',
             },

@@ -21,6 +21,7 @@ import { GameSettings } from '../settings/gameSettings.js'
 import { SoundBoard } from '../systems/soundBoard.js'
 import { DialogueHarp } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
+import { INK }          from './speakers.js'
 
 // A line made only of dots is SILENCE, not speech. The card still holds its
 // beat -- the pause is the point -- but no harp fragment is played over it.
@@ -905,7 +906,7 @@ export default class TextPanel {
         const el = this.scene.add.text(rowX, bodyTop + cy, ga, {
           fontSize:   TYPE.cardBody.size,
           fontFamily: TYPE.cardBody.font,
-          color:      isHero ? SPEAKER_COLOR : (this._speakerInk || IRISH_COLOR),   // the speaker's own colour (ui/speakers.js), if they have one
+          color:      isHero ? INK.player : (this._speakerInk || IRISH_COLOR),   // the speaker's own colour (ui/speakers.js), if they have one
           wordWrap:   { width: blockW },
           align:      rowAlign,
           lineSpacing: TYPE.cardBody.lineSpacing,
@@ -1625,6 +1626,8 @@ if (this.currentPanelType === 'encounter_card') {
     this._scrollY = Math.max(0, Math.min(this._maxScroll, this._scrollY))
   }
   this._applyScroll()
+  // swiped until the card is empty (a glide can carry it there after the lift): it goes
+  if (!this._dragging && this._cardEmptied()) { this.hide(this._keepChromeOnHide); return }
   // Keep ticking only while there's still momentum
   if (Math.abs(this._velocity) > 0.01 || this._dragging) {
     this._rafId = requestAnimationFrame(this._tick.bind(this))
@@ -1651,6 +1654,13 @@ if (this.currentPanelType === 'encounter_card') {
     }
     this._applyScroll()
     this._rafId = requestAnimationFrame(this._tick.bind(this))
+  }
+
+  // An overflowing card swiped until nothing is left on screen is finished with. Cards with buttons never
+  // are: the choice is the way on.
+  _cardEmptied() {
+    return this.currentPanelType === 'encounter_card' && this.isVisible && !this.isFading &&
+      this._maxScroll > 0 && this._scrollY >= this._maxScroll - 0.5 && !(this._buttons && this._buttons.length)
   }
 
   _onReachTop() {
@@ -1743,7 +1753,7 @@ if (this.currentPanelType === 'encounter_card') {
   if (tap) return
   const hasButtons     = this._buttons.length > 0
   const fullyScrolled  = this._maxScroll <= 0 || this._scrollY >= this._maxScroll
-  if (!hasButtons && savedVel < -DISMISS_VEL && fullyScrolled) {
+  if (!hasButtons && fullyScrolled && (this._maxScroll > 0 || savedVel < -DISMISS_VEL)) {
     // This is how a reply card gets dismissed. If the conversation loops
     // back afterwards, keep the background alive so only the text swaps.
     this.hide(this._keepChromeOnHide)

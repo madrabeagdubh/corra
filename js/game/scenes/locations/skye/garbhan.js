@@ -41,7 +41,7 @@ const DATA_DIR = 'skye', DATA_KEY = 'skyeLoch'      // public/data/skye/skyeLoch
 const TALK_AT = 4            // tiles
 const REARM = 6              // after you ran, he talks again once you've been this far off
 const RUN_MS = 150           // one of his steps, running off
-const INK = { garbhan: '#e0876a' }
+const INK = { garbhan: '#f6dcd2' }
 
 const both = (s) => ({ ga: s, en: s })
 

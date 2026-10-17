@@ -22,31 +22,6 @@
 @file skye/skyeCladach
 
 
-# ══════════════════════════════════════════════════════════════════════
-# THE PEP TALK -- at the top of the wall, opened by the scene when they
-# arrive (climb_top). The subtext is the whole project: you came, and that
-# matters. He never says so.
-= node 1 — the top
-@when note climb_top
-@when !note pep_done
-@hold
-You found the stair.
-% Fuair tú an staighre.
-Welcome to Skye. Not many come this way. You did.
-% Fáilte go Scí. Ní thagann mórán an bealach seo. Tháinig tusa.
-There's a garden over west, where I teach the first lessons. Uathach won't come down for those. You'll see her at the tournament.
-% Tá gairdín thiar ansin, mar a mhúinim na chéad cheachtanna. Ní thiocfaidh Uathach anuas dóibh siúd. Feicfidh tú í ag an gcomórtas.
-
-* On to the loch.
-% Ar aghaidh chuig an loch.
-@note go_loch
-@exit
-
-* To the garden first.
-% Chuig an ngairdín ar dtús.
-@note go_garden
-@exit
-
 
 # ══════════════════════════════════════════════════════════════════════
 # THE LANDFALL -- the cut-scene that opens a first arrival (landfall.js). The
@@ -65,18 +40,23 @@ There's a garden over west, where I teach the first lessons. Uathach won't come 
 @hold
 Bright the brow above the oar!
 % Geal an éadan os cionn an maide!
-Hero's light sits on that forehead
-% Solas an ghaiscigh ar an éadain.
-Victory walks behind that shoulder
-% Gabhann an ghaiscíocht le hais na gualainne sin.
+Victory behind those shoulders
+% An ghaiscíocht le hais na gualainne.
 
-> Long have I rowed, for Skye's grey shore.
-% Iomramh fada déanta agam, i gcomhair chladach oileánn an Cheo.
+> Long have I rowed,
+% Iomramh fada déanta agam, 
+
+%i gcomhair chladach oileánn an Cheo.
+ >for Skye's grey shore.
+
 > My back is telling me so.
-% Tá mo dhroim féin ag cur in iúl dom é.
+% Tá mo dhroim ag cur in iúl dom é.
+
 < Wilt thou come to the fire?
 % An dtiocfaidh tú chois tine?
+
 > I will come to the fire.
 % Tiocfadh mé chois tine.
+
 < Then come.
 % Tar, mar sin.

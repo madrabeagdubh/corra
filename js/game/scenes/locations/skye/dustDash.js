@@ -53,6 +53,26 @@ export function dustPuff(scene, box, drift = 0, count = 10) {
   }
 }
 
+// A quiet impact on wet ground (the fall at the landfall, in the rain): thin rings spreading flat along the
+// ground, each fainter and slower than the last. No dust -- nothing here to raise it.
+const RING = 0xdfe5e6
+export function impactRing(scene, box, count = 2) {
+  if (!box) return
+  const W = Math.max(10, box.w * 1.5), H = W * 0.3         // flat: the ground seen from the side
+  const LW = Math.max(1, box.w * 0.025)                    // the stroke scales with the ring, so it thins in then thickens out
+  for (let i = 0; i < count; i++) {
+    scene.time.delayedCall(i * 170, () => {
+      const e = scene.add.ellipse(box.x, box.y - box.h * 0.04, W, H)
+        .setStrokeStyle(LW, RING, 1).setScrollFactor(0).setDepth(16).setScale(0.3).setAlpha(0.42 - i * 0.14)
+      scene.tweens.add({
+        targets: e, scale: 1.5 + i * 0.35, alpha: 0,
+        duration: 950 + i * 250, ease: 'Sine.easeOut',
+        onComplete: () => e.destroy(),
+      })
+    })
+  }
+}
+
 export function speedLines(scene, box, ux, uy, ahead = false) {
   const g = scene.add.graphics().setScrollFactor(0).setDepth(17)
   g.lineStyle(Math.max(1, box.w * 0.04), 0xf3ead2, 0.9)

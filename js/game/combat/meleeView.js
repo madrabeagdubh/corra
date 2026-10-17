@@ -477,8 +477,8 @@ export default class MeleeView {
         ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(pf.x - bw / 2, hy + Math.max(20, pf.w * 0.4), bw, 4)
         ctx.fillStyle = '#c0392b'; ctx.fillRect(pf.x - bw / 2, hy + Math.max(20, pf.w * 0.4), bw * f, 4)
       }
-      if (m.press > 0) {
-        ctx.beginPath(); ctx.ellipse(pf.x, pf.y, pf.w * 0.8, pf.w * 0.32, 0, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, m.press / PRESS_SHOW))
+      if (m.steady > 0) {
+        ctx.beginPath(); ctx.ellipse(pf.x, pf.y, pf.w * 0.8, pf.w * 0.32, 0, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, m.steady / PRESS_SHOW))
         ctx.strokeStyle = 'rgba(230,236,240,0.9)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke()
       }
     }

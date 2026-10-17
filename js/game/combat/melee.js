@@ -113,7 +113,7 @@ export default class Melee {
     // A pack (addFoe): every foe has a state of his own, and `foe` is the one the fight is looking at -- his own while his turn is
     // being thought, the one you are addressing (tgt) the rest of the time. You, your breath and your blade are one.
     this.foes = [this.foe]; this.tgt = this.foe; this.tgtLock = 0
-    this.owed = 0; this.tollAt = 0; this.wounds = 0; this.bleedAt = 0; this.press = 0      // live blades (yours alone, whoever cuts you)
+    this.owed = 0; this.tollAt = 0; this.wounds = 0; this.bleedAt = 0; this.steady = 0     // live blades (yours alone, whoever cuts you); steady = ms stood still pressing a wound shut
     // A pack (addFoe): every foe has a state of his own, and `foe` is the one the fight is looking at -- his own while his turn is
     // being thought, the one you are addressing (tgt) the rest of the time. You, your breath and your blade are one.
     this.foes = [this.foe]; this.tgt = this.foe; this.tgtLock = 0
@@ -517,7 +517,7 @@ export default class Melee {
     this.swing = null; this.queued = null; p.busyUntil = Math.max(p.busyUntil, this.t + 300); p.busyKind = 'other'
     this.emit('hit', { on: 'player', dmg, tired: !!this.breathState() })
     if (F.edged) {                                                  // a live blade: the blow is owed, and a deep one opens a wound
-      this.press = 0
+      this.steady = 0
       if (!(this.owed > 0)) this.tollAt = this.t + TOLL_MS
       this.owed = Math.min(this.pa.hp(), this.owed + dmg)
       if (dmg >= 3 && this.eff() > 0) { this.wounds = Math.min(3, this.wounds + 1); if (this.wounds === 1) this.bleedAt = this.t + this._bleedMs() }
@@ -1187,7 +1187,7 @@ export default class Melee {
   // what you are owed comes due a heart a second; a wound drips; standing still presses it shut
   _tollTick(dt) {
     const t = this.t
-    if (this.p.lost || this.bout.over || !(this.owed > 0 || this.wounds > 0)) { this.press = 0; return }
+    if (this.p.lost || this.bout.over || !(this.owed > 0 || this.wounds > 0)) { this.steady = 0; return }
     if (this.owed > 0 && t >= this.tollAt) {
       this.tollAt = t + TOLL_MS; this.owed--; this.emit('bleed', { toll: true })
       if (this.pa.hp() <= 1) return this._steelDown('The blow caught up with you')
@@ -1200,11 +1200,11 @@ export default class Melee {
     }
     const still = !this.moving() && !this.swing && !this.charge && t >= this.p.busyUntil && t >= this.p.hurtUntil &&
       this.pa.tile()[0] === this.pa.fromTile()[0] && this.pa.tile()[1] === this.pa.fromTile()[1]
-    this.press = still ? this.press + dt : 0
-    if (this.press >= PRESS_MS) { this.wounds = 0; this.owed = 0; this.press = 0; this.bleedAt = 0; this.emit('steady') }
+    this.steady = still ? this.steady + dt : 0
+    if (this.steady >= PRESS_MS) { this.wounds = 0; this.owed = 0; this.steady = 0; this.bleedAt = 0; this.emit('steady') }
   }
   _steelDown(en) {
-    this.owed = 0; this.wounds = 0; this.press = 0
+    this.owed = 0; this.wounds = 0; this.steady = 0
     if (this.F.lethal) return this._playerKilled()
     this._playerYields('Buaileadh thú', en, true)
   }

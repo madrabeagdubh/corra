@@ -38,22 +38,22 @@
 //     parked off the map so no badge can open; it opens the hail itself.
 //   * the drag: the champion's logical position trails Conall's along the
 //     route, LAG tiles behind (so PGR draws them in front of him), still
-//     propped at their angle. (Dust only where they fall.)
+//     propped at their angle. (Only a quiet ring where they fall: it is raining.)
 
 import { GameState } from '../../../systems/gameState.js'
 import { GameSettings } from '../../../settings/gameSettings.js'
 import { createDomButton } from '../../../systems/gameTypography.js'
-import { moveFigure, figureBox, dustPuff } from './dustDash.js'
+import { moveFigure, figureBox, impactRing } from './dustDash.js'
 import { INK } from '../../../ui/speakers.js'
 
 const CONALL = INK.conall
-const PLAYER = '#e8cf8a'
+const PLAYER = '#f5ecc9'
 
 // The last exchange: muttered and answered while Conall drags them off.
 export const LINES = {
-  coming:  { ga: 'Tá mé ag teacht anois.', en: 'I am coming.' },
-  see:     { ga: 'Feicim go bhfuil.',      en: 'I see that thou art.' },
-  narrate: { ga: 'Ní gá é a rá',           en: 'There is no need to narrate it.' },
+   coming:  { ga: 'Tá mé ar mo bhealach anois.', en: 'I am on my way now.' },
+ see:     { ga: 'Feicim go bhfuil.',      en: 'I see that thou art.' },
+  narrate: { ga: ' ',           en: ' ' },
 }
 
 // Tiles (skye_gen.mjs: the jetty is cols 18-19, rows 25-33, the last two rows
@@ -294,13 +294,13 @@ export default class Landfall {
     await this._until(() => !p.isMoving && !p.pathQueue.length)
   }
 
-  // Knees, then over onto the side, and a little dust.
+  // Knees, then over onto the side, and a quiet ring in the wet.
   async _collapse() {
     const sc = this.scene, q = this.q
     await Promise.all([this._tw(q, { sy: 0.8, dy: 0.04 }, 200, 'Quad.easeOut'), this._tw(this, { sway: 0 }, 200)])
     await this._tw(q, { rot: 1.45, dx: -0.9, dy: 0.06, sy: 1 }, 380, 'Quad.easeIn')   // onto the back, head toward the east
     const ts = sc.tileSize, p = sc.player
-    dustPuff(sc, figureBox(sc, Math.floor(p.logicalX / ts), Math.floor(p.logicalY / ts)), 0.2, 8)
+    impactRing(sc, figureBox(sc, Math.floor(p.logicalX / ts), Math.floor(p.logicalY / ts)))
     await this._wait(500)
   }
 

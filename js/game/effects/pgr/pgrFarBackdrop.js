@@ -35,12 +35,16 @@ const css = (c, a = 1) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.r
  * @param {object} g    { horizonPx, lipY, sw }
  */
 export function drawFarBackdrop(pgr, ctx, cfg, g) {
-  const { horizonPx, lipY, sw } = g
-  if (lipY == null || lipY <= horizonPx + 2) return
+  const { lipY, sw } = g
+  if (lipY == null || lipY <= g.horizonPx + 2) return
+  // cfg.lift (a share of the ground's height) raises the whole far sea -- its horizon, hills and haze --
+  // so the far hills stand against the sky painting rather than sinking below it
+  const lift = (cfg.lift ?? 0) * (pgr._sh - g.horizonPx)
+  const horizonPx = g.horizonPx - lift
 
   const K = pgr.constructor
   const FL = K.FOCAL_LENGTH, PD = K.PLAYER_DIST_TILES
-  const groundH = pgr._groundH()
+  const groundH = pgr._groundH() + lift
   const ppt = pgr._pxPerTileAtPlayer()
   const camCol = pgr._perspCamCol()
   const yAtD = d => horizonPx + groundH * FL / (FL + d)
@@ -57,10 +61,17 @@ export function drawFarBackdrop(pgr, ctx, cfg, g) {
   // (the lawn's tiles are drawn over the spare strip)
   const lipEnd = lipY + (cfg.coveReach ?? 48)
   const y0 = horizonPx - 1, y1 = lipEnd + 2
-  const grad = ctx.createLinearGradient(0, y0, 0, y1)
+  const yS = horizonPx + lift                                // the ground's own horizon
+  if (lift > 1) {                                            // the lifted part of the sea: haze only, thin at the top,
+    const up = ctx.createLinearGradient(0, y0, 0, yS)        // so the sky painting shows through it and the hills
+    up.addColorStop(0, css(cH, 0)); up.addColorStop(1, css(cH, 1))   // stand against the sky
+    ctx.fillStyle = up
+    ctx.fillRect(0, y0, sw, yS - y0)
+  }
+  const grad = ctx.createLinearGradient(0, yS - 1, 0, y1)
   grad.addColorStop(0, css(cH)); grad.addColorStop(0.4, css(cM)); grad.addColorStop(1, css(cN))
   ctx.fillStyle = grad
-  ctx.fillRect(0, y0, sw, y1 - y0)
+  ctx.fillRect(0, yS - 1, sw, y1 - yS + 1)
 
   // ── glints: short streaks, rows bunched toward the horizon ──
   const rows = cfg.glintRows ?? 64

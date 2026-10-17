@@ -394,13 +394,17 @@ const MAPS = {
   },
 
   skye_machaire: {
-    exits: { north: 'skye_droichead', south: 'skye_loch', east: 'skye_faiche' },
+    exits: { south: 'skye_loch', east: 'skye_faiche' },
+    vista: 'skye_farraige_w',    // the north is the sea now: islets and ships, drawn beyond row 0, never entered
     build(n, rng) {
       // ── The machaire: a meadow valley (keep in sync with skye/skyeMaps.js) ─
       //   in from the loch's north shore (south edge), climbing east to the green
       //   (east edge, as high as the green's own ground); a drove-road between, in a
       //   valley: hillocks all round it, gorse on the slopes.
-      const ROAD = [[MID, H - 1], [MID, 24], [24, 20], [W - 1, MID]]           // south edge -> bend -> east edge
+      // south edge -> bend -> east edge; the corners rounded off so it is one curving road
+      const chaikin = (pts, k) => { for (let i = 0; i < k; i++) { const o = [pts[0]]; for (let j = 0; j + 1 < pts.length; j++) { const [a, b] = [pts[j], pts[j + 1]]; o.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]], [0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]) } o.push(pts[pts.length - 1]); pts = o } return pts }
+      // a quadratic sweep: straight up the middle from the loch, then bending right in one long curve to the green
+      const ROAD = Array.from({ length: 41 }, (_, i) => { const t = i / 40, u = 1 - t; return [u * u * MID + 2 * u * t * MID + t * t * (W - 1), u * u * (H - 1) + 2 * u * t * 17 + t * t * 18.5] })
       const road = grid(W, H, (x, y) => { let d = 99; for (let i = 0; i + 1 < ROAD.length; i++) d = Math.min(d, segDist(x, y, ROAD[i], ROAD[i + 1])); return d })
       const rise = x => 0.6 * smooth01(18, W - 1, x)                              // the green's ground is higher
       const hillocks = []
@@ -411,17 +415,22 @@ const MAPS = {
       }
       const hills = (x, y) => gauss(x, y, 6, 8, 6, 0.7) + gauss(x, y, 29, 6, 5, 0.6) + gauss(x, y, 7, 28, 5, 0.45) + gauss(x, y, 30, 30, 4, 0.4) +
                               hillocks.reduce((a, [hx, hy, hs, hp]) => a + gauss(x, y, hx, hy, hs, hp), 0)
-      const keep = (x, y) => road[y][x] > 2.2 && y >= 4 && y <= 31 && x >= 1 && x <= 33
-      const gorseAt = scatterTiles(rng, 12, 5, (x, y) => keep(x, y) && road[y][x] > 3.5)
-      const hedge = grid(W, H, (x, y) => y < 4 || y > 31 || road[y][x] <= 2.2 ? 0
+      const keep = (x, y) => road[y][x] > 3.6 && y >= 4 && y <= 31 && x >= 1 && x <= 33 && !(x >= 12 && x <= 24 && y >= 13 && y <= 25)   // the bend, and the open ground ahead of it, stay clear: the road reads as turning, not as running into a bush
+      const gorseAt = scatterTiles(rng, 12, 5, (x, y) => keep(x, y) && road[y][x] > 4.2)
+      const hedge = grid(W, H, (x, y) => y < 4 || y > 31 || road[y][x] <= 3.6 || (x >= 12 && x <= 24 && y >= 13 && y <= 25) ? 0
         : gorseAt.some(([gx, gy], i) => Math.hypot(gx - x, (gy - y) * 1.2) < 1.2 + 0.6 * ((i * 7 % 5) / 4)) ? 1 : 0)
       return {
         tile: () => null,
-        height: (x, y) => 0.12 + rise(x) * smooth01(0, 10, x) + (0.05 * Math.min(road[Math.min(H - 1, y)][Math.min(W - 1, x)], 9) + hills(x, y)) * smooth01(0, 6, H - y) * (1 - 0.6 * smooth01(24, 32, y)) * smooth01(0, 5, y) * smooth01(2, 8, road[Math.min(H - 1, y)][Math.min(W - 1, x)]) + (n(x * 0.12, y * 0.12) + 1) * 0.06,
-        trail: [...ROAD.slice(0, -1).map((p, i) => [p, ROAD[i + 1]]), [[MID, 24], EDGE_PT.north]],
+        // the land falls away to the north coast (the same coast as the green's: coastH), and the
+        // vista skye_farraige_w picks it up at the lip, so the two meet without a step
+        height: (x, y) => coastH(x, y) + smooth01(0, 5, y) * (0.12 + rise(x) * smooth01(0, 10, x) + (0.05 * Math.min(road[Math.min(H - 1, y)][Math.min(W - 1, x)], 9) + hills(x, y)) * smooth01(0, 6, H - y) * (1 - 0.6 * smooth01(24, 32, y)) * smooth01(0, 5, y) * smooth01(2, 8, road[Math.min(H - 1, y)][Math.min(W - 1, x)]) + (n(x * 0.12, y * 0.12) + 1) * 0.06),
+        // the one road: no branch north (there is no map there; the sea is)
+        trail: ROAD.slice(0, -1).map((p, i) => [p, ROAD[i + 1]]),
         trailFalloff: 1.6,
         extra: {
           hedgeMask: hedge,
+          blockMask: grid(W, H, (x, y) => y + 0.5 < coastRecess(x + 0.5) ? 1 : 0),          // the coves are cliff
+          stoneTint: grid(W, H, (x, y) => y + 0.5 < coastRecess(x + 0.5) + 1.2 ? 0.7 : 0),
         },
       }
     },
@@ -507,7 +516,7 @@ const MAPS = {
     build(n) {
       const SEA_LVL = 1.3
       const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
-      const ISLETS = [[7, 24, 1.8, 1.1], [17, 16, 2.0, 1.2], [28, 21, 1.6, 0.9], [12, 9, 1.4, 0.8]]  // x, y, r, h above the sea: a few, mid-distance. Keep them >4 tiles from x=0 and x=36: past the edges the preview mirrors the map, which cuts and reflects an island
+      const ISLETS = [[7, 6.5, 1.8, 1.1], [17, 3.5, 2.0, 1.2], [29, 6, 1.6, 0.9], [12, 1.4, 1.4, 0.8]]  // x, y, r, h above the sea: a few, mid-distance. Keep them >4 tiles from x=0 and x=36: past the edges the preview mirrors the map, which cuts and reflects an island
       // Rounded, hill-shaped islands: wide and low, a steep shore and a broad crown
       // (t^0.55), not a cone. Radii are stretched so each island spans enough tiles to read as
       // a hill rather than a few facets.
@@ -516,20 +525,41 @@ const MAPS = {
         const t = 1 - ((x - ix) ** 2 + ((y - iy) * 1.7) ** 2) / (R * R)
         return t > 0 ? 1.9 * h * Math.pow(t, 0.55) * (0.8 + 0.4 * (n(x * 0.4, y * 0.4) + 1) / 2) : 0
       }))
+      // The training headland: a long, flat-topped promontory across the water, where the host
+      // drills (js/game/effects/farHost.js). Its footprint is a flat, boxy superellipse; the host's field
+      // sits well inside the flat top. Keep FAR_HOST in skyeFaiche.js in step with these numbers.
+      const HL = { cx: 18, cy: 19.5, rx: 13.8, ry: 11, top: 1.8 }   // top: height above the sea
+      // South of its centre the headland narrows to a neck (half-width rx -> 55%) and runs on to the
+      // faiche's lip, so it is one piece of land with the faiche: no strip of water between.
+      const headland = (x, y) => {
+        const rxy = y > HL.cy ? HL.rx * (1 - 0.45 * smooth(27.5, 34, y)) : HL.rx
+        const ex = Math.abs(x - HL.cx) / rxy, ey = y > HL.cy ? 0 : Math.abs(y - HL.cy) / HL.ry
+        const d = Math.pow(Math.pow(ex, 8) + Math.pow(ey, 8), 1 / 8) + 0.05 * n(x * 0.5 + 40, y * 0.5)
+        return HL.top * smooth(1.0, 0.84, d)
+      }
+      const land = (x, y) => Math.max(islet(x, y), headland(x, y))
+      // the headland's absolute height: flat on top, easing down to the faiche's own lip height over its last rows
+      const landAbs = (x, y) => {
+        const hl = headland(x, y), il = islet(x, y)
+        if (hl < il || hl <= 0) return -SEA_LVL + Math.max(hl, il)
+        const w = smooth(30, 35, y), frac = Math.min(1, hl / HL.top)
+        return (-SEA_LVL + hl) * (1 - w) + (-SEA_LVL + frac * (coastH(x, 0) + SEA_LVL)) * w
+      }
       // (the far coast and mountains are drawn in screen space: pgrFarBackdrop.js)
       // the lip down from the faiche: starts at whatever height the faiche's coast leaves at row 36
       const slope = (x, y) => { const lip = coastH(x, 0), t = Math.min(1, Math.max(0, (36 - y) / 2.5)); return lip + (-SEA_LVL - lip) * t * t * (3 - 2 * t) }
-      const vh = (x, y) => y >= 34 ? slope(x, y) : -SEA_LVL + islet(x, y) + (n(x * 0.3, y * 0.3) + 1) * 0.02
+      const vh = (x, y) => (y >= 34 ? Math.max(slope(x, y), landAbs(x, y)) : landAbs(x, y)) + (n(x * 0.3, y * 0.3) + 1) * 0.02
       return {
-        tile: (x, y) => (y >= 34 || [[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => islet(x + dx, y + dy) > 0.18)) ? null : 0,
+        tile: (x, y) => (y >= 34 || [[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => land(x + dx, y + dy) > 0.18)) ? null : 0,
         height: vh,
         trail: [[EDGE_PT.south, [MID, MID]]],
         extra: {
+          headland: HL,
           // Explicit [h, s, l] per tile for the preview (tintGrid): the island palette, taken from
           // the walkable lawn (hue 85-112, sat 22-30, light 28-45) and its worn earth (hue ~30).
           //   waterline: dark seaweed olive  ->  brown earth  ->  muted green crown
           tintGrid: grid(W, H, (x, y) => {
-            if (y >= 34) return [30, 28, 27]
+            if (y >= 34 && land(x, y) <= 0.18) return [30, 28, 27]
             const vs = [vh(x, y), vh(x + 1, y), vh(x, y + 1), vh(x + 1, y + 1)].map(v => v + SEA_LVL)
             const up = vs.reduce((a, b) => a + b, 0) / 4
             if (Math.max(...vs) < 0.05) return null                       // open sea
@@ -582,6 +612,53 @@ const MAPS = {
   },
 
   skye_cladach_ebb: cladach('low'),
+
+  // Never entered: the machaire's north view (map.vista) -- open water to the Dal Riata coast, a scatter of
+  // islets, near and far. (The ships that sail it are drawn by js/game/effects/farShips.js; the far mountains
+  // by pgrFarBackdrop.js.) Same conventions as skye_farraige: local row 35 is nearest the machaire.
+  skye_farraige_w: {
+    exits: {},
+    vista: true,
+    build(n) {
+      const SEA_LVL = 1.3
+      const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+      // x, y, r, h above the sea. Kept >4 tiles from x=0 and x=36 (the preview mirrors past the edges), and
+      // open water right out from the machaire's coast (nothing nearer than row ~19): a sparse ridge of small bare-rock
+      // islets (h < 0.7), then a few green islands further out.
+      const ISLETS = [[20, 19, 1.0, 0.3], [9, 17.5, 0.8, 0.28], [27, 14.5, 1.1, 0.32], [15, 10.5, 1.2, 0.34], [30, 6.5, 1.2, 0.36], [7, 7, 1.1, 0.3], [22, 3.5, 1.3, 0.38]]
+      const islet = (x, y) => Math.max(0, ...ISLETS.map(([ix, iy, r, h]) => {
+        const R = r * 1.4
+        const t = 1 - ((x - ix) ** 2 + ((y - iy) * 1.7) ** 2) / (R * R)
+        return t > 0 ? 1.9 * h * Math.pow(t, 0.55) * (0.8 + 0.4 * (n(x * 0.4, y * 0.4) + 1) / 2) : 0
+      }))
+      const landAbs = (x, y) => -SEA_LVL + islet(x, y)
+      const slope = (x, y) => { const lip = coastH(x, 0), t = Math.min(1, Math.max(0, (36 - y) / 2.5)); return lip + (-SEA_LVL - lip) * t * t * (3 - 2 * t) }
+      const vh = (x, y) => (y >= 34 ? Math.max(slope(x, y), landAbs(x, y)) : landAbs(x, y)) + (n(x * 0.3, y * 0.3) + 1) * 0.02
+      return {
+        tile: (x, y) => (y >= 34 || [[0, 0], [1, 0], [0, 1], [1, 1]].some(([dx, dy]) => islet(x + dx, y + dy) > 0.18)) ? null : 0,
+        height: vh,
+        trail: [[EDGE_PT.south, [MID, MID]]],
+        extra: {
+          ships: [[12, -30, 1], [27, -20, -1], [19.5, -46, 1]],    // (x, row, heading) -- see farShips.js; open water, well out
+          tintGrid: grid(W, H, (x, y) => {
+            if (y >= 34 && islet(x, y) <= 0.18) return [30, 28, 27]
+            const vs = [vh(x, y), vh(x + 1, y), vh(x, y + 1), vh(x + 1, y + 1)].map(v => v + SEA_LVL)
+            const up = vs.reduce((a, b) => a + b, 0) / 4
+            if (Math.max(...vs) < 0.05) return null
+            const k = (n(x * 0.9 + 5, y * 0.9) + 1) / 2
+            const weed  = [68 + 14 * k, 24, 19 + 4 * k]
+            const earth = [30 + 8 * k, 30, 28 + 5 * k]
+            const turf  = [88 + 20 * k, 26, 31 + 5 * k]
+            const rock  = [32 + 10 * k, 7, 30 + 9 * k]                       // bare grey rock, weed-slick at the waterline
+            const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t))
+            const low = ISLETS.some(([ix, iy, r, h]) => h < 0.7 && Math.hypot(x + 0.5 - ix, (y + 0.5 - iy) * 1.7) < r * 1.6)
+            if (low) return mixc(weed, rock, smooth(0.05, 0.3, up))
+            return mixc(mixc(weed, earth, smooth(0.08, 0.35, up)), turf, smooth(0.7, 1.15, up))
+          }),
+        },
+      }
+    },
+  },
 }
 
 // ── build ───────────────────────────────────────────────────────────────────

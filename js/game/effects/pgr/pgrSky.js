@@ -52,30 +52,13 @@ export function initSky(pgr, container) {
   container.appendChild(mtn)
   pgr._mountainImg = mtn
 
+  // The sky and mountain images are DOM elements sized in CSS pixels. They are re-fitted whenever the
+  // canvas's displayed size differs from the size they were last fitted to (not from pgr._sw/_sh: the
+  // renderer's update() has usually adopted the new size already, which made this handler decide there was
+  // nothing to do and leave the sky at its old size and the horizon out of step with it).
   pgr._resizeHandler = () => {
-    setTimeout(() => {
-      const canvas = pgr.scene?.game?.canvas
-      if (!canvas) return
-      console.log('[PGR resize]', 'clientW/H:', canvas.clientWidth, canvas.clientHeight, '| backbuffer:', canvas.width, canvas.height, '| dpr:', window.devicePixelRatio)
-      const nw = canvas.clientWidth || canvas.width
-      const nh = canvas.clientHeight || canvas.height
-      if (nw === pgr._sw && nh === pgr._sh) return
-      pgr._sw = nw; pgr._sh = nh
-
-      const newSkyH   = Math.floor(nh * 0.85)
-      const horizonPx = Math.floor(nh * pgr.constructor.HORIZON_Y_FRAC)
-      const newMtnH   = horizonPx
-      const newMtnTop = horizonPx - Math.floor(newMtnH * 0.35)
-      if (pgr._skyImg) {
-        pgr._skyImg.style.width  = nw + 'px'
-        pgr._skyImg.style.height = newSkyH + 'px'
-      }
-      if (pgr._mountainImg) {
-        pgr._mountainImg.style.width  = nw + 'px'
-        pgr._mountainImg.style.height = newMtnH + 'px'
-        pgr._mountainImg.style.top    = newMtnTop + 'px'
-      }
-    }, 150)
+    setTimeout(() => syncSkySize(pgr), 150)
+    setTimeout(() => syncSkySize(pgr), 700)           // the scale manager can settle late, e.g. after fullscreen
   }
   window.addEventListener('resize', pgr._resizeHandler)
   document.addEventListener('fullscreenchange', pgr._resizeHandler)
@@ -159,7 +142,11 @@ export function updateSkyAnimation(pgr) {
     // Extend to full screen height so the painting's foreground fills the area
     // below the horizon without exposing a black edge where it ends.
     const st = pgr._skyImg.style
-    st.height = pgr._sh + 'px'; st.width = pgr._sw + 'px'
+    // sized to the canvas as DISPLAYED (CSS px): when the canvas's buffer is not the size it is shown at
+    // (after a fullscreen or window change), the buffer's size would leave the painting out of step with
+    // the horizon drawn on the canvas
+    const cv = pgr.scene?.game?.canvas
+    st.height = (cv?.clientHeight || pgr._sh) + 'px'; st.width = (cv?.clientWidth || pgr._sw) + 'px'
     st.objectFit = 'cover'; st.objectPosition = '50% 100%'
   } else if (pgr._skyImg && pgr._skyImg.src) {
     const driftX = 50 + Math.sin(pgr._cloudDrift) * 12 + (pgr._skyParallaxX ?? 0)
@@ -256,3 +243,26 @@ function avgPixels(imageData) {
   }
 }
 
+
+// Fit the sky and mountain images to the canvas's displayed size (see initSky's resize handler). Cheap to
+// call: it does nothing unless the size has changed since the last fit.
+export function syncSkySize(pgr) {
+  const canvas = pgr?.scene?.game?.canvas
+  if (!canvas) return
+  const nw = canvas.clientWidth || canvas.width
+  const nh = canvas.clientHeight || canvas.height
+  if (nw === pgr._skyFitW && nh === pgr._skyFitH) return
+  pgr._skyFitW = nw; pgr._skyFitH = nh
+  const horizonPx = Math.floor(nh * pgr.constructor.HORIZON_Y_FRAC)
+  const newMtnH   = horizonPx
+  const newMtnTop = horizonPx - Math.floor(newMtnH * 0.35)
+  if (pgr._skyImg) {
+    pgr._skyImg.style.width  = nw + 'px'
+    pgr._skyImg.style.height = Math.floor(nh * 0.85) + 'px'
+  }
+  if (pgr._mountainImg) {
+    pgr._mountainImg.style.width  = nw + 'px'
+    pgr._mountainImg.style.height = newMtnH + 'px'
+    pgr._mountainImg.style.top    = newMtnTop + 'px'
+  }
+}

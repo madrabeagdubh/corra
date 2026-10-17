@@ -31,10 +31,13 @@
 
 import SkyeScene, { SKYE_GID } from './skyeScene.js'
 import SkyeCaption from './skyeCaption.js'
+import CastleShadow from './faicheCastleShadow.js'
+import FaicheBattlement from './faicheBattlement.js'
 import FaicheGrounds from './faicheGrounds.js'
 import FaicheCrowd from './faicheCrowd.js'
 import FaicheLesson, { SPAR_DONE } from './faicheLesson.js'
 import FaicheTournament, { TOURNEY_DONE } from './faicheTournament.js'
+import FarHost from '../../../effects/farHost.js'
 import MeleeBout, { prepareSword, SWORD_NOTE } from '../../../combat/meleeBout.js'
 import { GameState } from '../../../systems/gameState.js'
 import { SoundBoard } from '../../../systems/soundBoard.js'
@@ -45,6 +48,7 @@ import { SoundBoard } from '../../../systems/soundBoard.js'
 const FAR_SEA = {
   sea:  { horizon: '#bcc4c1', mid: '#93abad', near: '#527a7a', glint: '#eef3ee' },
   land: '#5d8758',
+  lift: 0.1,        // the far sea and its hills ride this much (of the ground's height) above the horizon, against the sky painting
   layers: [
     { d: 100, h: 2.0,  freq: 0.055, cut: 0.56, sharp: 0.8, fog: 0.40, seed: 3 },    // low islands
     { d: 150, h: 3.5,  freq: 0.036, cut: 0.48, sharp: 1.0, fog: 0.52, seed: 11 },
@@ -53,6 +57,12 @@ const FAR_SEA = {
     { d: 650, h: 13.0, freq: 0.010, cut: 0.30, sharp: 1.2, fog: 0.85, seed: 29 },   // mountains at the edge of sight
   ],
 }
+// The host at training on the vista's headland (farHost.js). col0/row0 are LOCAL tiles in
+// skye_farraige where the field's corner sits (the flat top spans x 4.2-31.8, y 8.5-30.5; the
+// field is 360 x 250 units, `unit` tiles per unit across and `unitY` rows per unit deep: a little
+// deeper than true scale, so the formations read from this low angle); top is the headland's height in the map's
+// own terms (-SEA_LVL + 1.8). Tune figScale / speed / haze / fps by eye.
+const FAR_HOST = { col0: 9, row0: 10.75, unit: 0.05, unitY: 0.07, top: 0.5, figScale: 1.5, count: 130, speed: 0.9, fps: 20, simHz: 20, haze: 0.3, volume: 0.55 }
 const VIEW = { horizon: 0.8, focal: 1.25, across: 1.1 }   // the high camera (getPGRConfig)
 const STUDENTS = 8                    // seven fall in for the drill; more will come with the tournament
 const RACK_GID0 = 9240                // the racks' pictures, for the moon's badge
@@ -79,6 +89,7 @@ export class SkyeFaiche extends SkyeScene {
   //   focal    > 1  zooms in on the middle distance
   //   across   > 1  widens the view
   getFarBackdrop() { return FAR_SEA }
+  drawFarHost(ctx, pgr) { this._farHost?.draw(ctx, pgr, !!this._encounterPanel?._isOpen && !this._battle) }
 
   getPGRConfig() {
     const b = super.getPGRConfig()
@@ -96,6 +107,9 @@ export class SkyeFaiche extends SkyeScene {
     const layout = this.mapData.faiche || {}
     const ring = layout.ring || { cx: 18.5, cy: 19.5, r: 7 }
     this._caption = new SkyeCaption({ scene: this })
+    this._farHost = new FarHost(this, FAR_HOST)
+    this._castleShadow = new CastleShadow()
+    if (new URLSearchParams(location.search).has('battlement')) setTimeout(() => this.startBattlement(true), 3500)
 
     this._grounds = new FaicheGrounds(this, layout)
     const pgr = this.perspectiveGround
@@ -121,6 +135,7 @@ export class SkyeFaiche extends SkyeScene {
 
     this.events.once('shutdown', () => {
       this._caption?.destroy(); this._caption = null
+      this._farHost?.destroy(); this._farHost = null
       this._tourney?.destroy(); this._tourney = null
       this._lesson?.destroy(); this._lesson = null
       this._crowd?.destroy(); this._crowd = null
@@ -173,9 +188,25 @@ export class SkyeFaiche extends SkyeScene {
     }
   }
 
+  // the end of the level: the high battlement, Scáthach and Uathach looking down
+  startBattlement(force = false) {
+    if (this._battle) return
+    this._battle = new FaicheBattlement(this, { force, onDone: () => { this._battle = null } })
+  }
+
+  // the end of the level: the high battlement, Scáthach and Uathach looking down
+  startBattlement() {
+    if (this._battle) return
+    this._battle = new FaicheBattlement(this, { onDone: () => { this._battle = null } })
+  }
+
   // the students' swords and Uathach's, over the figures
-  onPGRDrawComplete(ctx) {
-    this._crowd?.drawSwords(ctx)
+ 
+
+onPGRDrawComplete(ctx) {
+    this._farHost?.drawOverlay(ctx, this.perspectiveGround)
+    this._castleShadow?.draw(ctx, this.perspectiveGround, (this.game.loop.delta || 16) / 1000)
+   this._crowd?.drawSwords(ctx)
     this._lesson?.draw(ctx)
     this._tourney?.draw(ctx)
   }

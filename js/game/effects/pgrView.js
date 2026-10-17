@@ -43,10 +43,7 @@ export default class PGRView {
     // without this a phone's browser keeps two-finger gestures for itself (page zoom and scroll) and cancels ours
     this._ta = canvas.style.touchAction
     canvas.style.touchAction = 'none'
-    if (!TOLD) {
-      TOLD = true
-      this.scene.time.delayedCall(1800, () => this.scene._caption?.show?.('Zoom: pinch', 'Pinch to zoom, two fingers to look around', 2600))
-    }
+    // (no on-screen hint: the view is explained in-game, in dialogue, or not at all)
     const at = (e) => {
       const r = canvas.getBoundingClientRect()
       return [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height]

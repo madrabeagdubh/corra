@@ -178,10 +178,15 @@ export function drawNorthPreviewRow(pgr, tileRow, camCol, sw, horizonPx, playerT
       let h00 = 0, h10 = 0, h01 = 0, h11 = 0
       const isGroundGid = nb.heightMap && GID_CATEGORIES_GROUND.has(gid0)
       if (isGroundGid) {
-        h00 = neighborVertexH(pgr, mCol,     localRow)
-        h10 = neighborVertexH(pgr, mCol + 1, localRow)
-        h01 = neighborVertexH(pgr, mCol,     localRow + 1)
-        h11 = neighborVertexH(pgr, mCol + 1, localRow + 1)
+        // A mirrored (reflected) column runs the other way: its screen-left edge is the neighbour's
+        // vertex mCol+1 and its screen-right edge is mCol. Reading them the unreflected way mismatched
+        // the heights of adjacent tiles, tearing the land into skewed slivers at the map's edges.
+        const _per = 2 * neighborW, _mi = (((tileCol + (nb.columnOffset ?? 0)) % _per) + _per) % _per
+        const _vl = _mi >= neighborW ? mCol + 1 : mCol, _vr = _mi >= neighborW ? mCol : mCol + 1
+        h00 = neighborVertexH(pgr, _vl, localRow)
+        h10 = neighborVertexH(pgr, _vr, localRow)
+        h01 = neighborVertexH(pgr, _vl, localRow + 1)
+        h11 = neighborVertexH(pgr, _vr, localRow + 1)
         const pd0 = nb.pathDist?.[localRow]?.[mCol] ?? null
         tint0 = pgr.tintManager.getGroundTint(gid0, mCol, localRow, h00, h10, h01, h11, pd0, nb.stoneTint?.[localRow]?.[mCol] ?? 0)
       } else {

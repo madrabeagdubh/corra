@@ -210,6 +210,7 @@ export default class FaicheTournament {
     const pgr = this.scene.perspectiveGround
     if (pgr?._encounterFlags) pgr.setEncounterFlags(pgr._encounterFlags.filter(fl => fl !== this.ref))
     this._later(2000, () => this._say(LINES.done, 3200))
+    this._later(6200, () => this.scene.startBattlement?.())
   }
 
   // ── drawing ──────────────────────────────────────────────────────────────

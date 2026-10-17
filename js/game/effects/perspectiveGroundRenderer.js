@@ -761,6 +761,7 @@ _horizonPx() {
       this._hlX = null
       this._hlY = null
       this._resizeCanvases(_newSw, _newSh)
+      PGRSky.syncSkySize(this)
     }
     this._sw = _newSw
     this._sh = _newSh
@@ -1017,6 +1018,9 @@ const proj  = this._projectLogical(p.logicalX, _footY)
         this._drawNorthPreviewRow(tileRow, camCol, sw, horizonPx, playerTileRow)
         continue
       }
+
+      // a far scene (the faiche's training headland) draws between the preview rows and the real ones
+      if (tileRow === 0) this.scene?.drawFarHost?.(this._gCtx, this)
 
       const yTop = this._rowToScreenY(tileRow)
       const yBot = this._rowToScreenY(tileRow + 1)

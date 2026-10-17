@@ -56,7 +56,7 @@ export default function skyeFlora(scene, { density = 0.55 } = {}) {
       const thicket = HEDGE.includes(key)
       if (thicket) return hedgeAt(c, r)
       if (hedgeAt(c, r) || blockedAt(c, r)) return false
-      if ((md().pathDist?.[r]?.[c] ?? 1) < 0.5) return false           // the trodden way
+      if ((md().pathDist?.[r]?.[c] ?? 1) < 1) return false             // the trodden way, and its verges: the whole width of the path
       const p = scene.player, ts = scene.tileSize
       if (TALL.has(key) && p && r >= Math.floor(p.logicalY / ts) - 1) return false       // nothing tall between you and the view
       const bed = bedAt(c, r)

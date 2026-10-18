@@ -69,6 +69,17 @@ const WAKE = {
 }
 const ZOOM = 1.3                                        // a small room: come in close, so the champion is not a child in it
 
+// The light in the room: a CSS filter on the two world canvases, with the hearth's glow over it.
+// Waking is dark, the fire the only light; when the curtain is drawn the day comes in, but it is raining, so it is grey.
+const LIGHT_DARK = 'brightness(0.34) contrast(1.08) saturate(0.85)'
+const LIGHT_DAY  = 'brightness(1.16) contrast(0.94) saturate(0.45)'
+const FIRE_LIT   = { dark: 0.85, day: 0.3, reach: 3.2 }   // the hearth's glow: strength (waking / curtain open), reach in tiles
+const DAY_WASH   = { color: 0xa7b6c2, alpha: 0.12 }       // a faint cool cast over the room when the day is in
+
+// Looking at things in here: each is offered only from its own spot (px from the spot; a tile is 48). A thing on a blocked
+// tile (the bed, the firewood) is looked at from the tile beside it. The clothes keep the island's wider reach.
+const LOOK_RANGE = { default: 40, bed: 52, wood: 52 }
+
 export class TighConaill extends SkyeScene {
   constructor() { super({ key: 'skye_tigh_conaill' }) }
   getMapKey() { return 'skye_tigh' }
@@ -129,6 +140,7 @@ export class TighConaill extends SkyeScene {
     this._caption = new SkyeCaption({ scene: this, color: '#e6dcc0' })
     this._spent = {}
     this._clothesZone()
+    for (const z of this.interactables) if (z.getData?.('type') === 'examine') z.setData('range', LOOK_RANGE[z.getData('id')] ?? LOOK_RANGE.default)
 
     this.player.setArmorVisible?.(false)                  // he sleeps in his shirt
     const done = GameState.hasNote('tigh_done')            // he has been out of the door: coming back, the morning is over
@@ -151,6 +163,8 @@ export class TighConaill extends SkyeScene {
     this._locked = true
     this.narrativeInProgress = true
     pgr._playerHidden = true
+    this._worldLight(LIGHT_DARK)                            // waking: dark, the hearth the only light
+    this._makeFirelight()
     this._placePlayer(MAP.bed)
     this._lockBrooch()
     this._conall.tileX = MAP.conall[0]; this._conall.tileY = MAP.conall[1]
@@ -160,7 +174,7 @@ export class TighConaill extends SkyeScene {
     // Two days on from the landing, the rain has eased to a drizzle. There is no sky to see in here, so it eases
     // over the morning, and is the director's again when he leaves (the shutdown below).
     if (!weather.locked) { weather.lock('drizzle', { fade: 45 }); this._rainLock = true }
-    if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._run(false) }
+    if (this._q.get('eyes') === '0') { document.getElementById('landfall-veil')?.remove(); this._fireUp(1); this._run(false) }
     else this._run(true)                                  // the dream first: black, rain, the drowning; then the eyes open
   }
 
@@ -194,8 +208,11 @@ export class TighConaill extends SkyeScene {
     try { this._rainHandle?.stop(300) } catch (_) {}; this._rainHandle = null
     const box = document.getElementById('gameContainer'); if (box) { box.style.filter = ''; box.style.transition = '' }
     this._brooch?.parts.forEach(o => o.destroy()); this._brooch = null
+    if (this._hintOn) { this._hintOn = false; try { this.joystick?.highlight?.(null) } catch (_) {} }
     this._caption?.destroy(); this._caption = null
     this._day?.glow?.destroy(); this._day = null
+    this._wash?.destroy(); this._wash = null
+    this._firelight?.destroy(); this._firelight = null
     for (const el of [this.perspectiveGround?._groundCanvas, this.perspectiveGround?._objectCanvas]) if (el) { el.style.filter = ''; el.style.transition = '' }
     this._tapOff?.()
   }
@@ -303,9 +320,9 @@ export class TighConaill extends SkyeScene {
   // ── looking at things (skyeLook.js): the moonTile offers a ? (a tunic for the clothes); a tap shows the words as a caption ──
   checkProximityInteractions() {                          // nothing happens by itself here: it is offered, not forced
     if (!this.player || this._locked || this._dead || !this._spent) return
-    if (this._dressed && this._checkDoorProximity()) return      // the door, once he is dressed
+    if (this._walkIntoDoor()) return                              // the door, once he is dressed: walk into it
     checkLook(this, {
-      types: ['examine', 'clothes'],
+      types: this._dressed ? ['examine', 'clothes'] : ['clothes'],      // dressing first: nothing else is offered until then
       icon: (id) => lookIcon(LOOK_KINDS[id] || 'look'),
       onLook: (id, zone) => {
         if (id !== 'clothes') return false
@@ -316,11 +333,46 @@ export class TighConaill extends SkyeScene {
     })
   }
 
+  // the room's lighting is a CSS filter on the two world canvases; the English line's ink is chosen by sampling those
+  // canvases, and a sample cannot see a filter. This says how much the filter changes what is seen (textContrast gain).
+  inkGain() {
+    if (document.getElementById('tigh-dark')) return 0                // the dream's black sheet: all dark, whatever is under it
+    const el = this.perspectiveGround?._groundCanvas
+    const m = el && /brightness\(([\d.]+)\)/.exec(getComputedStyle(el).filter || '')
+    return m ? Math.pow(Number(m[1]), 2.2) : 1                        // (brightness scales sRGB; luminance goes as its 2.2 power)
+  }
+
+  // the door is used by walking into it: standing on its tile is the way out (nothing is offered on the moonTile)
+  _walkIntoDoor() {
+    if (this._exiting || !this.player || !this._dressed) return false
+    const c = Math.floor(this.player.logicalX / TS), r = Math.floor(this.player.logicalY / TS)
+    if (c !== MAP.door[0] || r !== MAP.door[1]) return false
+    const door = this._doorZones?.[0]?.getData?.('door')
+    if (!door) return false
+    this._triggerDoor(door)
+    return true
+  }
+
+  // the first time the hoop is his: its south arc pulses (the way out is south) until he takes a step that way
+  _southHint() {
+    const j = this.joystick
+    if (!j?.highlight) return
+    this.time.delayedCall(1300, () => {                               // after the brooch has flown in and flared
+      if (this._dead || !this.player) return
+      this._hintRow = Math.floor(this.player.logicalY / TS)
+      this._hintOn = true; j.highlight('down', 1)
+    })
+  }
+  _southHintTick() {
+    if (!this._hintOn) return
+    if (Math.floor(this.player.logicalY / TS) > this._hintRow) { this._hintOn = false; this.joystick?.highlight?.(null) }
+  }
+
   // out of the door: the morning is over for good, and the way is lit
   _triggerDoor(door) {
     if (this._exiting) return
     try { GameState.addNote('tigh_done') } catch (_) {}
-    this._doorSound(true)
+    this._setDoor(DOOR_OPEN)                              // it swings open (and sounds) as he goes
     super._triggerDoor(door)
   }
 
@@ -337,7 +389,7 @@ export class TighConaill extends SkyeScene {
     j.showDirections = () => {}
     j.hideDirections()
   }
-  _giveBrooch() {
+  _giveBrooch(first = false) {                            // first: the hoop has just become his (not a return to the room)
     const j = this.joystick
     this._hoopGiven = true
     this._dressed = true
@@ -345,6 +397,7 @@ export class TighConaill extends SkyeScene {
     delete j.showDirections
     if (j._canvas) j._canvas.style.transition = 'opacity 1.6s ease'
     j.showDirections()
+    if (first) this._southHint()
   }
 
   // ── Conall on the floor ────────────────────────────────────────────────────
@@ -392,7 +445,8 @@ export class TighConaill extends SkyeScene {
   }
 
   // ── a conversation of the game's own: the card is the reader's ─────────────
-  async _talk(which, from = 0) {
+  // cue: an action the scene starts the moment the card opens; it plays under the words, and we wait for both
+  async _talk(which, from = 0, cue = null) {
     const panel = this._encounterPanel
     const { tighConaillContent } = await import(/* @vite-ignore */ `/data/${DATA_DIR}/${DATA_KEY}.js`)
     const enc = tighConaillContent.fixedEncounters[which]
@@ -404,6 +458,7 @@ export class TighConaill extends SkyeScene {
     panel._card = { id: 'fixed:' + enc.id, visual: enc.visual }
     panel._active = zone
     panel._openPanel()
+    const acting = cue ? Promise.resolve().then(cue).catch(e => console.warn('[tigh] cue failed', e)) : null
     // Safety net. If a card has gone and the next never comes (the chrome standing with nothing on it), show the
     // next one ourselves rather than wait on a swipe at an empty field.
     const tp = this.textPanel
@@ -413,6 +468,7 @@ export class TighConaill extends SkyeScene {
       idle = (!tp.isVisible && !tp.isFading && !panel._chainTimer) ? idle + 200 : 0
       if (idle >= 1500) { idle = 0; console.warn('[tigh] dialogue stalled: showing the next card'); panel._reopenDialogue(zone) }
     }
+    if (acting) await acting                              // (the card may close before the action ends)
     this._lockBrooch()                                    // the panel gives the hoop back: not yet
   }
 
@@ -466,34 +522,43 @@ export class TighConaill extends SkyeScene {
     if (this._dead) return
     await new Promise(res => this._openEyes(res))           // the eyes open
     if (this._dead) return
-    await this._talk(1, 1)                                  // half-woken: "where is this place", "I am Conall"
+    await this._talk(1, 1)                                  // "I was drowning" / "Thou art weary, nothing more."
     if (this._dead) return
-    await this._talk(1, 2)                                  // "the mark of a student of Dún Scáthach. It is thine."
+    await this._morning()                                   // the window, the curtain, "the better part of two days"
     if (this._dead) return
-    await this._throwBrooch()                               // ...and the brooch is thrown, onto the clothes
+    await this._walk(MAP.conall)                            // back to the bedside
     if (this._dead) return
-    await this._talk(1, 3)                                  // no cattle, no silver; the path of the blade
-    this._rainHandle?.stop(4000)
+    await this._talk(1, 2)                                  // "Where is this place?" / "Thou art my guest. I am Conall."
+    if (this._dead) return
+    await this._throwBrooch()                               // the brooch is tossed onto the clothes...
+    if (this._dead) return
+    await this._talk(1, 3)                                  // ..."Students of Dún Scáthach wear these. This one is for you."
+    if (this._dead) return
+    await this._talk(1, 4)                                  // no cattle, no silver; "...the path of the blade,"
+  }
+
+  // he crosses to the window and draws the curtain as the line about the two days opens
+  async _morning() {
+    await this._walk([MAP.window[0], MAP.window[1] + 1])
+    if (this._dead) return
+    await this._talk(0, 0, () => this._openCurtain(2200))
+    await this.wait(900)
   }
 
   // ── the morning ────────────────────────────────────────────────────────────
   async _run(dream = false) {
     GameState.removeNote('tigh_brooch')
-    if (dream) await this._dream()
-    else await this.wait(700)
-    if (this._dead) return
-
     this._camBias = { x: 0, y: 0 }
-    await this._walk([MAP.window[0], MAP.window[1] + 1])  // he crosses to the window...
-    await this._talk(0)                                   // ...the line about the two days
-    await this._openCurtain(2200)                         // ...and draws the curtain
-    await this.wait(900)
+    if (dream) await this._dream()                        // (the window, the curtain and the brooch all happen in the talk)
+    else { await this.wait(700); if (!this._dead) await this._morning() }
+    if (this._dead) return
 
     await this._walk([MAP.door[0], MAP.door[1] - 1])      // to the door, and open it
     this._setDoor(DOOR_OPEN)
     await this.wait(700)
-
-    await this.wait(900)                                  // (the brooch was thrown in the rescue, _dream)
+    if (dream) await this._talk(1, 5)                     // at the door: "Is that not why all Gaelic Chieftains come to Skye?"
+    if (this._dead) return
+    await this.wait(900)                                  // ...and the pause
 
     await this._walk(MAP.door)                            // out, and the door shut behind him
     this._conall.hidden = true
@@ -501,6 +566,7 @@ export class TighConaill extends SkyeScene {
     if (z > -1) { this.interactables[z].destroy(); this.interactables.splice(z, 1) }
     await this.wait(250)
     this._setDoor(DOOR_CLOSED)
+    this._rainHandle?.stop(4000)
     await this.wait(1300)
 
     this._getUp()
@@ -521,17 +587,53 @@ export class TighConaill extends SkyeScene {
     }))
   }
 
-  // The curtain is drawn and the day comes in: the room brightens (a filter on the two world canvases), the dark
-  // edges draw back, and a patch of sun lies across the floor from the little window, its mullions casting bars.
+  // The curtain is drawn and the day comes in, a grey one (it is raining): the room brightens a little and loses its
+  // colour (a filter on the two world canvases), a faint cool cast settles over it, the dark edges draw back, and a pale
+  // light lies across the floor from the little window, its mullions barely there.
   _daylight(ms) {
     const pgr = this.perspectiveGround
-    for (const el of [pgr._groundCanvas, pgr._objectCanvas]) if (el) { el.style.transition = `filter ${ms}ms ease-in-out`; el.style.filter = 'brightness(1.55) contrast(1.06) saturate(1.12)' }
+    this._worldLight(LIGHT_DAY, ms)
+    this._wash = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, DAY_WASH.color, 0).setScrollFactor(0).setDepth(37)
+    this.tweens.add({ targets: this._wash, alpha: DAY_WASH.alpha, duration: ms, ease: 'Sine.easeInOut' })
     if (this._edges) this.tweens.add({ targets: this._edges, alpha: 0.28, scale: 1.45, duration: ms, ease: 'Sine.easeInOut' })
     const glow = this.add.graphics().setScrollFactor(0).setDepth(39)
     this._day = { glow, k: 0 }
     this.tweens.add({ targets: this._day, k: 1, duration: ms * 1.2, ease: 'Sine.easeInOut' })
   }
-  // the sun patch: a quad from the window on the back wall, down across the floor, in four panes (the mullions are the gaps)
+  // the light on the two world canvases (ms: ease to it; 0: at once)
+  _worldLight(filter, ms = 0) {
+    const pgr = this.perspectiveGround
+    for (const el of [pgr?._groundCanvas, pgr?._objectCanvas]) if (el) { el.style.transition = ms ? `filter ${ms}ms ease-in-out` : 'none'; el.style.filter = filter }
+  }
+  // the hearth's light on the room: one warm additive glow, flickering, drawn over the dark world
+  _makeFirelight() {
+    const c = document.createElement('canvas'); c.width = c.height = 256
+    const x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128)
+    g.addColorStop(0, 'rgba(255,170,80,0.9)'); g.addColorStop(0.35, 'rgba(255,120,40,0.45)'); g.addColorStop(1, 'rgba(255,90,20,0)')
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256)
+    if (this.textures.exists('tigh_firelight')) this.textures.remove('tigh_firelight')
+    this.textures.addCanvas('tigh_firelight', c)
+    this._firelight = this.add.image(0, 0, 'tigh_firelight').setScrollFactor(0).setDepth(38).setBlendMode(Phaser.BlendModes.ADD).setVisible(false)
+    this._fireOn = false; this._fireK = 0                 // hidden until the eyes open (_fireUp)
+  }
+  // the hearth shows with the eyes (until then the screen is black, and so is the fire)
+  _fireUp(ms = 900) {
+    if (this._fireOn) return
+    this._fireOn = true; this._fireK = 0
+    this.tweens.addCounter({ from: 0, to: 1, duration: ms, ease: 'Sine.easeOut', onUpdate: t => { this._fireK = t.getValue() } })
+  }
+  _drawFirelight(time) {
+    const f = this._firelight; if (!f) return
+    if (!this._fireOn) { f.setVisible(false); return }
+    f.setVisible(true)
+    const p = this._scr(5.0, 3.5, 0.66)                   // the logs (skyeFx hearthFire's defaults)
+    if (!p || !(p.s > 0) || !isFinite(p.x) || !isFinite(p.y)) return
+    const k = this._day?.k ?? 0                           // 0 in the dark .. 1 with the curtain open
+    const flick = 0.82 + (0.1 * Math.sin(time * 0.013) + 0.08 * Math.sin(time * 0.041 + 1.3)) * (1 - k)   // the flicker settles as the day comes in
+    f.setPosition(p.x, p.y).setScale((FIRE_LIT.reach * 2 * p.s / 256) * flick).setAlpha((FIRE_LIT.dark + (FIRE_LIT.day - FIRE_LIT.dark) * k) * flick * this._fireK)
+  }
+
+  // the window light: a quad from the window on the back wall, down across the floor, in four panes (the mullions are the gaps)
   _drawSun() {
     const D = this._day; if (!D) return
     const g = D.glow; g.clear()
@@ -552,10 +654,10 @@ export class TighConaill extends SkyeScene {
     }
     const fill = (pts, col, a) => { g.fillStyle(col, a); g.fillPoints(pts, true) }
     for (const [q, n, m, gap] of [[floor, 2, 2, 0.035]]) {
-      fill(paneQuad(floor, 0, 0, 1, 1, -0.06), 0xfff0b0, 0.07 * D.k)      // a soft spread behind the panes
-      for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) fill(paneQuad(q, i, j, n, m, gap), 0xfff2b8, 0.3 * D.k)
+      fill(paneQuad(floor, 0, 0, 1, 1, -0.06), 0xe3eaf0, 0.05 * D.k)      // a soft spread behind the panes
+      for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) fill(paneQuad(q, i, j, n, m, gap), 0xe6edf2, 0.13 * D.k)
     }
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) fill(paneQuad(wall, i, j, 2, 2, 0.03), 0xfff8d8, 0.55 * D.k)   // the window itself, blazing
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) fill(paneQuad(wall, i, j, 2, 2, 0.03), 0xf0f5f8, 0.42 * D.k)   // the window itself, pale and grey
   }
 
   // The brooch: a small bronze square, tossed from Conall's hand across the room onto the clothes on the
@@ -571,7 +673,7 @@ export class TighConaill extends SkyeScene {
     const end = () => this._scr(ch.col, ch.row, ch.up)
     this._camPoint = { x: (f.tileX + 0.5 + ch.col) / 2 * TS, y: (f.tileY + 0.5 + ch.row) / 2 * TS }      // the camera between his hand and the chest: the whole flight is seen
     edge.setVisible(false); gem.setVisible(false)
-    await this.wait(750)
+    await this.wait(350)                                   // the words appear, then it leaves his hand
     edge.setVisible(true); gem.setVisible(true)
     await new Promise(res => this.tweens.addCounter({
       from: 0, to: 1, duration: 1050, ease: 'Linear',
@@ -623,6 +725,8 @@ export class TighConaill extends SkyeScene {
       }
     }
     this._drawSun()
+    this._drawFirelight(time)
+    this._southHintTick()
     const B = this._brooch
     if (B?.landed && !B.flying) {                         // it lies on the clothes, winking now and then
       const p = this._scr(MAP.chest.col, MAP.chest.row, MAP.chest.up)
@@ -653,7 +757,7 @@ export class TighConaill extends SkyeScene {
     try { GameState.addNote('tigh_dressed') } catch (_) {}
     this.events.emit('tigh-wear', 'clothes')
     const B = this._brooch
-    if (!B) return this._giveBrooch()
+    if (!B) return this._giveBrooch(true)
     this.time.delayedCall(1100, () => { if (!this._dead) this._broochToHim(B) })        // a beat: dressed first, then the brooch
   }
   _broochToHim(B) {
@@ -670,7 +774,7 @@ export class TighConaill extends SkyeScene {
       onComplete: () => {
         this.tweens.add({ targets: [B.edge, B.gem], scale: 2.6, alpha: 0, duration: 650, ease: 'Sine.easeOut',
           onComplete: () => { B.parts.forEach(o => o.destroy()); this._brooch = null } })
-        this._giveBrooch()
+        this._giveBrooch(true)
         this._caption?.show('Agus dealg. Is dalta anois mé, is dócha!', 'And a brooch. A student now, I suppose!', 4800)
       },
     })
@@ -701,6 +805,7 @@ export class TighConaill extends SkyeScene {
     draw(0)
     document.getElementById('landfall-veil')?.remove()    // the eyelid is black too: no seam
     document.getElementById('tigh-dark')?.remove()        // (the dream's black, under the cards: this svg is over it)
+    this._fireUp()                                        // ...and the hearth shows with the eyes
 
     const H = window.innerHeight
     const beats = [                                       // [half-height, ms, ease, then wait]: quick as a blink

@@ -1,12 +1,17 @@
 # tighConaillRescue -- the champion, half-drowned, in Conall's cabin
 #
-# Plays BEFORE the curtain (tighConaill.dlg), in four parts (tighConaill.js, _dream):
+# Plays in six parts (tighConaill.js, _dream and _run). Every node closes the conversation; the scene plays
+# them with _talk(1, n), and the actions are the scene's:
 #   node 0 -- in the dark: black screen, soft rain, the drowning, "Lie still."   (the eyes then open)
-#   node 1 -- half-woken: "where is this place", "I am Conall"
-#   node 2 -- "the mark of a student of Dún Scáthach. It is thine."              (the brooch is thrown when this card closes)
-#   node 3 -- "I bring no cattle" ... "the path of the blade"
-# Nodes 0, 1 and 3 have no card of their own, only the exchange. Every node closes the
-# conversation; the scene plays them with _talk(1, 0) ... _talk(1, 3).
+#   node 1 -- "I was drowning" / "Thou art weary, nothing more."
+#            [he crosses to the window; tighConaill.dlg "the better part of two days", as he draws the curtain]
+#            [he comes back to the bed]
+#   node 2 -- "Where is this place?" / "Thou art my guest. I am Conall."
+#            [the brooch is tossed onto the clothes]
+#   node 3 -- the mark: "Student of Dún Scáthach wear these. This one is for you."
+#   node 4 -- "I bring no cattle" ... "the path of the blade,"
+#            [he goes to the door and opens it; a pause]
+#   node 5 -- at the door: "Is that not why all Gaelic Chieftains come to Skye?"   [the pause; out]
 #
 # IRISH IS A FIRST DRAFT -- check before shipping.
 
@@ -19,7 +24,7 @@
 
 > Drowning!
 % Ag bá!
-> The black water has me,
+> I am in the grip of black water,
 % Tá mé i ngreim ag an uisce dubh,
 > It fills my throat.
 % líonann sé mo scornach.
@@ -32,10 +37,14 @@
 = node 1 — half-woken
 
 > I was drowning. I was surely drowning.
-% Bhí mé báite. Bhí mé báite gan amhras.
+% Bhí mé ag bá. Bhí mé báite gan amhras.
 
 < Thou art weary, nothing more.
 % Níl ort ach tuirse.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 2 — where is this place
 
 > Where is this place?
 % Cá bhfuil mé anois?
@@ -45,19 +54,27 @@
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 2 — the mark
-And this is the mark of a student of Dún Scáthach. It is thine.
-% Chaitheann dhaltaí Dhún Scáthach iad seo. Is leatsa é.
+= node 3 — the mark
+< Students wear the brooch of Skye. 
+% Chaitheann daltaí dealg an Cheo.
+
+< This one is for you.
+% Duitse an ceann seo.
 
 
 # ══════════════════════════════════════════════════════════════════════
-= node 3 — the path of the blade
+= node 4 — the path of the blade
 
-> I bring no cattle, no fine tribute of silver.
-% Níor thugas liom eallach, ná tiarnas breá airgid.
+> I brought no cattle with me,
+% Níor thugas liom eallach, 
 
-< Ease now thy troubled mind
+
+> nor fine tribute of silver.
+% ná tiarnas breá airgid.
+
+< Be still
 % Bí socair
+
 < Thou hast made thy case already upon the shore, senseless and half-drowned,
 % Rinne tú do chás cheana féin nuair a bhain tú amach an trá, gan aithne, leathbáite,
 < with the sea still running from thee.
@@ -66,5 +83,9 @@ And this is the mark of a student of Dún Scáthach. It is thine.
 % Lig do scíth,
 < Then shall I set thee on the path of the blade,
 % Ansin cuirfidh mé ar bhóthar an chlaímh thú,
-< Is that not why all Gaelic Chieftains come to Skye?
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 5 — at the door
+Is that not why all Gaelic Chieftains come to Skye?
 % Nach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?

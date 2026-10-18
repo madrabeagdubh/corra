@@ -169,20 +169,22 @@ export function textStyleWrapped(variant, width, overrides = {}) {
 // -- Speaker colour lookup --
 export function speakerColor(speaker) {
   const map = {
-    queen:          COLORS.queen,
-    druid:          COLORS.druid,
+    // Off-white pastels, each tinted its speaker's colour (as ui/speakers.js INK). COLORS.queen etc. stay the
+    // saturated UI / name-label colours.
+    queen:          '#f3e6b8',   // pale gold
+    druid:          '#e0e0ee',   // pale lavender
     hero:           COLORS.hero,
-    spirit:         COLORS.spirit,
-    bean_si:        COLORS.spirit,
-    skull:          COLORS.skull,
-    skull_north:    COLORS.skull,
-    skull_south:    COLORS.skull,
-    villain:        COLORS.villain,
+    spirit:         '#e6e6fb',   // pale periwinkle
+    bean_si:        '#e6e6fb',
+    skull:          '#e6ddd2',   // pale bone
+    skull_north:    '#e6ddd2',
+    skull_south:    '#e6ddd2',
+    villain:        '#f2d3c5',   // pale clay
 
     manannan: '#d8fff5',   // pastel teal-white — moonlight on deep water
-    player:   '#fdf8e0',   // pale near-white gold — mortal defiance
+    player:   '#f5ecc9',   // pale cream-gold (= INK.player in ui/speakers.js)
   }
-  return map[speaker?.toLowerCase?.()] || COLORS.npc
+  return map[speaker?.toLowerCase?.()] || '#dcebdc'   // any other NPC: pale sage
 }
 
 export function speakerGlow(speaker) {

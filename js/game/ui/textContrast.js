@@ -58,7 +58,8 @@ export function createContrast({ everyMs = 220, easeMs = 600 } = {}) {
     return n ? sum / n : null
   }
 
-  function update(el, sources, rect, now = performance.now()) {
+  // gain: what the scene's lighting does to what is seen (a CSS filter the sampler cannot see); 1 = nothing
+  function update(el, sources, rect, now = performance.now(), gain = 1) {
     if (!el) return
     let s = state.get(el)
     if (!s) {
@@ -69,8 +70,9 @@ export function createContrast({ everyMs = 220, easeMs = 600 } = {}) {
     if (now - s.last < everyMs) return
     s.last = now
     // rect may be a function, so layout is only read when it's time to sample
-    const lum = sample(sources, typeof rect === 'function' ? rect() : rect)
-    if (lum == null) return
+    const raw = sample(sources, typeof rect === 'function' ? rect() : rect)
+    if (raw == null) return
+    const lum = raw * gain
     // hysteresis: switch to dark ink above 0.20, back to light below 0.14
     // (relative luminance: mid-grey is ~0.18)
     const darkInk = s.dark ? lum > 0.14 : lum > 0.20

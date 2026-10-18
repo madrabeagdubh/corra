@@ -251,6 +251,8 @@ export default class TextPanel {
     this._scrolling         = false
     this._scrollY           = 0
     this._maxScroll         = 0
+    this._minScroll         = 0                 // below 0 on a short card: how far its text may be dragged down
+    this._short             = false             // a card that fits, with no buttons: its text scrolls off the top and the card goes
     this._velocity          = SCROLL_PX_PER_SEC / 60
     this._paused            = false
     this._pauseTimer        = null
@@ -576,12 +578,13 @@ export default class TextPanel {
     const cv = this.scene?.game?.canvas
     if (!cv || !src.length) return
     const r = cv.getBoundingClientRect(), kx = r.width / cv.width, ky = r.height / cv.height
+    const gain = this.scene?.inkGain ? this.scene.inkGain() : 1        // a scene whose lighting the sampler cannot see says so
     for (const el of this._inkEls || []) {
       if (!el?.active || el.alpha <= 0) continue
       this._contrast.update(el._inkShim, src, () => {
         const b = el.getBounds()
         return { x: r.left + b.x * kx, y: r.top + b.y * ky, w: b.width * kx, h: b.height * ky }
-      })
+      }, undefined, gain)
     }
   }
 
@@ -951,7 +954,11 @@ export default class TextPanel {
 
     // Determine scrollability: only scroll if content overflows body region
     const overflow = Math.max(0, cy - bodyH)
-    this._maxScroll = overflow > 0 ? overflow + bodyH : 0
+    this._short = overflow <= 0 && !options?.length
+    this._maxScroll = overflow > 0 ? overflow + bodyH : (this._short ? bodyH : 0)
+    // A card that fits has nothing to scroll, but its text can still be moved down through the empty body (and back),
+    // to sit on a calmer part of the picture. Long cards scroll as before.
+    this._minScroll = overflow > 0 ? 0 : -Math.max(0, Math.round(bodyH - cy))
 
     // -- Buttons (single-language, docked at bottom) --
     this._buttons = []
@@ -988,15 +995,6 @@ export default class TextPanel {
         this._objects.push(btn.bg)
         this._objects.push(btn.text)
       })
-    }
-
-    // -- Hint (only show if scrollable) --
-    if (this._maxScroll > 0) {
-      const hint = this.scene.add.text(
-        panelX, bodyTop + bodyH - 4, '↕',
-        { fontSize: '12px', fontFamily: FONTS.ui, color: COLORS.hint }
-      ).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 6).setAlpha(0.4)
-      this._objects.push(hint)
     }
 
     this._beginScroll()
@@ -1045,11 +1043,6 @@ export default class TextPanel {
       0, 0, DIALOGUE_BG_ALPHA, DIALOGUE_BG_ALPHA)
     fade.fillRect(panelX - panelW/2, fadeY, panelW, fadeH)
     this._objects.push(fade)
-
-    const hint = this.scene.add.text(panelX, panelTop + panelH - 6, '↑ swipe up to dismiss', {
-      fontSize: SIZES.hint, fontFamily: FONTS.english, color: COLORS.hint
-    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(depth + 2).setAlpha(0.15)
-    this._objects.push(hint)
 
     const maskGfx = this.scene.add.graphics().setScrollFactor(0).setDepth(depth - 1)
       // Geometry masks need the SHAPE, not the rendering. Left visible,
@@ -1131,6 +1124,8 @@ export default class TextPanel {
     const visibleH  = panelH - padding * 2
     const overflow  = Math.max(0, cy - visibleH)
     this._maxScroll = panelH / 2 + overflow
+    this._minScroll = 0
+    this._short = false
 
     this._beginScroll()
     this._bindInput()
@@ -1623,7 +1618,8 @@ if (this.currentPanelType === 'encounter_card') {
   if (!this._dragging && Math.abs(this._velocity) > 0.01) {
     this._scrollY += this._velocity
     this._velocity *= 0.88  // friction
-    this._scrollY = Math.max(0, Math.min(this._maxScroll, this._scrollY))
+    this._scrollY = Math.max(this._minScroll || 0, Math.min(this._maxScroll, this._scrollY))
+    if (this._short && this._scrollY >= this._maxScroll) { this.hide(this._keepChromeOnHide); return }   // its text has left the card
   }
   this._applyScroll()
   // swiped until the card is empty (a glide can carry it there after the lift): it goes
@@ -1713,10 +1709,10 @@ if (this.currentPanelType === 'encounter_card') {
       if (dt > 0) this._dragVelocity = this._dragVelocity * 0.6 + (dy / dt) * 0.4
 
       // For encounter cards, only scroll body when content overflows
-      if (this.currentPanelType === 'encounter_card' && this._maxScroll === 0) {
+      if (this.currentPanelType === 'encounter_card' && this._maxScroll === 0 && !this._minScroll) {
         // Track velocity for swipe-up dismiss but don't scroll content
       } else {
-        this._scrollY = Math.max(0, Math.min(this._maxScroll,
+        this._scrollY = Math.max(this._minScroll || 0, Math.min(this._maxScroll,
           this._dragStartScroll + (this._dragStartY - p.y)))
         this._applyScroll()
       }
@@ -1752,15 +1748,16 @@ if (this.currentPanelType === 'encounter_card') {
 if (this.currentPanelType === 'encounter_card') {
   if (tap) return
   const hasButtons     = this._buttons.length > 0
-  const fullyScrolled  = this._maxScroll <= 0 || this._scrollY >= this._maxScroll
+  const fullyScrolled  = this._maxScroll <= 0 || this._short || this._scrollY >= this._maxScroll
+  if (this._short && !hasButtons && this._scrollY >= this._maxScroll) { this.hide(this._keepChromeOnHide); return }
   if (!hasButtons && fullyScrolled && (this._maxScroll > 0 || savedVel < -DISMISS_VEL)) {
     // This is how a reply card gets dismissed. If the conversation loops
     // back afterwards, keep the background alive so only the text swaps.
     this.hide(this._keepChromeOnHide)
     return
   }
-  // Feed swipe velocity into the scroll tick for momentum
-  if (Math.abs(savedVel) > 0.05) {
+  // Feed swipe velocity into the scroll tick for momentum (a short card's text stays where it is dropped)
+  if (Math.abs(savedVel) > 0.05 && this._maxScroll > 0) {
     const fv = -(savedVel * (1000 / 60))
     this._velocity = Math.max(-(SCROLL_PX_PER_SEC / 60) * 2,
                     Math.min((SCROLL_PX_PER_SEC / 60) * 14, fv))

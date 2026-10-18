@@ -48,7 +48,7 @@ export const tighConaillContent = {
           exchange: [
             {
               say: 'Ag bá!\nTá mé i ngreim ag an uisce dubh,\nlíonann sé mo scornach.',
-              sayEn: 'Drowning!\nThe black water has me,\nIt fills my throat.',
+              sayEn: 'Drowning!\nI am in the grip of black water,\nIt fills my throat.',
               replyGa: 'Bí socair.',
               replyEn: 'Lie still.',
             },
@@ -59,11 +59,17 @@ export const tighConaillContent = {
         {
           exchange: [
             {
-              say: 'Bhí mé báite. Bhí mé báite gan amhras.',
+              say: 'Bhí mé ag bá. Bhí mé báite gan amhras.',
               sayEn: 'I was drowning. I was surely drowning.',
               replyGa: 'Níl ort ach tuirse.',
               replyEn: 'Thou art weary, nothing more.',
             },
+          ],
+        },
+
+        // ── node 2 — where is this place ──────────────────────────
+        {
+          exchange: [
             {
               say: 'Cá bhfuil mé anois?',
               sayEn: 'Where is this place?',
@@ -73,22 +79,32 @@ export const tighConaillContent = {
           ],
         },
 
-        // ── node 2 — the mark ─────────────────────────────────────
-        {
-          ga: 'Chaitheann dhaltaí Dhún Scáthach iad seo. Is leatsa é.',
-          en: 'And this is the mark of a student of Dún Scáthach. It is thine.',
-        },
-
-        // ── node 3 — the path of the blade ────────────────────────
+        // ── node 3 — the mark ─────────────────────────────────────
         {
           exchange: [
             {
-              say: 'Níor thugas liom eallach, ná tiarnas breá airgid.',
-              sayEn: 'I bring no cattle, no fine tribute of silver.',
-              replyGa: 'Bí socair\nRinne tú do chás cheana féin nuair a bhain tú amach an trá, gan aithne, leathbáite,\nagus an fharraige fós ag sileadh uait.\nLig do scíth,\nAnsin cuirfidh mé ar bhóthar an chlaímh thú,\nNach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?',
-              replyEn: 'Ease now thy troubled mind\nThou hast made thy case already upon the shore, senseless and half-drowned,\nwith the sea still running from thee.\nTake thy rest,\nThen shall I set thee on the path of the blade,\nIs that not why all Gaelic Chieftains come to Skye?',
+              replyGa: 'Chaitheann daltaí dealg an Cheo.\nDuitse an ceann seo.',
+              replyEn: 'Students wear the brooch of Skye.\nThis one is for you.',
             },
           ],
+        },
+
+        // ── node 4 — the path of the blade ────────────────────────
+        {
+          exchange: [
+            {
+              say: 'Níor thugas liom eallach,\nná tiarnas breá airgid.',
+              sayEn: 'I brought no cattle with me,\nnor fine tribute of silver.',
+              replyGa: 'Bí socair\nRinne tú do chás cheana féin nuair a bhain tú amach an trá, gan aithne, leathbáite,\nagus an fharraige fós ag sileadh uait.\nLig do scíth,\nAnsin cuirfidh mé ar bhóthar an chlaímh thú,',
+              replyEn: 'Be still\nThou hast made thy case already upon the shore, senseless and half-drowned,\nwith the sea still running from thee.\nTake thy rest,\nThen shall I set thee on the path of the blade,',
+            },
+          ],
+        },
+
+        // ── node 5 — at the door ──────────────────────────────────
+        {
+          ga: 'Nach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?',
+          en: 'Is that not why all Gaelic Chieftains come to Skye?',
         },
 
       ],

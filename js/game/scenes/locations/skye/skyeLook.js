@@ -98,14 +98,15 @@ export function checkLook(scene, opts = {}) {
   const panel = scene._encounterPanel
   if (!panel || !scene.player || !scene._spent) return
   const px = scene.player.logicalX, py = scene.player.logicalY
-  let near = null, best = range
+  let near = null, best = Infinity
   for (const z of scene.interactables || []) {
     const t = z.getData?.('type'), id = z.getData?.('id')
     if (!types.includes(t)) continue
     const d = Phaser.Math.Distance.Between(px, py, z.getData('logicalX') ?? z.x, z.getData('logicalY') ?? z.y)
     if (d > again) scene._spent[id] = false                // stepped away: it can be looked at again
     if (scene._spent[id]) continue
-    if (d < best) { best = d; near = z }
+    const zr = z.getData?.('range') ?? range                 // a zone may ask to be looked at from nearer
+    if (d < best && d <= zr) { best = d; near = z }
   }
   const mine = panel._card?.id?.startsWith('look:')
   if (!near) { if (mine) panel.clearNotify(); return }

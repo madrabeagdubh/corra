@@ -806,6 +806,40 @@ const SYNTH = {
     n.connect(f).connect(g).connect(ctx.destination); n.start(now)
   },
 
+  BLADE_CRACK(ctx, opts = {}) {
+    // Two blades meeting at once (the 'clash'). Wood: a mighty KRAKK -- a hard double crack, a hollow boom under it, and then
+    // the echo coming back off far walls, k-k-kk, each return fainter and duller: it rings out over the fields. Now and then
+    // (opts.muffled, otherwise a roll) it is heard through thick air instead: the same, dulled, quieter, and the echo short.
+    // Metal rings instead (the knock, harder). opts.volume, opts.pitch as the others.
+    const now = ctx.currentTime, p = opts.pitch ?? 1, rnd = (a, b) => a + Math.random() * (b - a)
+    const muffled = opts.muffled ?? Math.random() < 0.3
+    const vol = (opts.volume ?? 0.45) * (muffled ? 0.55 : 1)
+    if (opts.material === 'metal') return SYNTH.BLADE_KNOCK(ctx, { material: 'metal', hard: 1, volume: vol * 1.3, pitch: p })
+    const top = ctx.createBiquadFilter(), out = ctx.createGain()                    // everything goes through `top` (dulled when muffled)
+    top.type = 'lowpass'; top.frequency.value = muffled ? 1500 : 14000
+    top.connect(out); out.connect(ctx.destination)
+    const dly = ctx.createDelay(1), fb = ctx.createGain(), lp = ctx.createBiquadFilter(), wet = ctx.createGain()
+    dly.delayTime.value = rnd(0.17, 0.24); fb.gain.value = muffled ? 0.28 : 0.43     // each return darker and fainter than the last
+    lp.type = 'lowpass'; lp.frequency.value = muffled ? 800 : 1600
+    wet.gain.value = muffled ? 0.3 : 0.5
+    out.connect(dly); dly.connect(lp); lp.connect(fb); fb.connect(dly); lp.connect(wet); wet.connect(ctx.destination)
+    setTimeout(() => { for (const n of [top, out, dly, fb, lp, wet]) { try { n.disconnect() } catch (_) {} } }, 3200)
+    const burst = (at, dur, hz, q, amp) => {                                         // a click of filtered noise
+      const n = _bladeNoise(ctx, dur), f = ctx.createBiquadFilter(), g = ctx.createGain(), t = now + at
+      f.type = 'bandpass'; f.frequency.value = hz * p; f.Q.value = q
+      g.gain.setValueAtTime(vol * amp, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+      n.connect(f).connect(g).connect(top); n.start(t)
+    }
+    burst(0, 0.06, rnd(2200, 3000), 0.5, 1.7)                                         // KRAK
+    burst(rnd(0.012, 0.02), 0.04, rnd(3200, 4200), 0.6, 0.9)                          // -K
+    burst(rnd(0.05, 0.065), 0.02, rnd(2600, 3400), 0.9, 0.4)                          // k
+    burst(rnd(0.09, 0.11), 0.015, rnd(2400, 3000), 1.0, 0.22)                         // k
+    const boom = ctx.createOscillator(), bg = ctx.createGain()                       // the hollow body of two staves
+    boom.type = 'sine'; boom.frequency.setValueAtTime(rnd(300, 340) * p, now); boom.frequency.exponentialRampToValueAtTime(120 * p, now + 0.2)
+    bg.gain.setValueAtTime(vol * 1.1, now); bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.22)
+    boom.connect(bg).connect(top); boom.start(now); boom.stop(now + 0.25)
+  },
+
   BLADE_THUD(ctx, opts = {}) {
     // Blade on a body: a dull blow through cloth. Deeper and longer for a
     // heavy one (opts.hard 0..1). Metal adds a short bright scrape.

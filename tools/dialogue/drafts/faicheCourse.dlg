@@ -65,8 +65,12 @@ Now. Stand here.
 = stance
 Stand as the heron stands.
 % Seas ar nós na chorra
-Not rigid. Not slack.
-% Ní righin, ní bog
+
+Not rigid. 
+% Ní righin,
+
+Not slack.
+% ní bog
 
 # a second card straight after
 = stance2
@@ -166,11 +170,8 @@ Draw now.
 
 # the call to put it away, between draws (one for each, as with the draws)
 = sheathe
-The returning of the blade is not lesser 
-% Ní lú é filleadh an chlaímh
-
-than the drawing
-%ná a tharraingt
+The returning of the blade is not lesser than the drawing.
+% Ní lú é filleadh an chlaímh ná a tharraingt.
 
 Sheathe it.
 % Truaill é.
@@ -185,8 +186,12 @@ Sheathe it.
 = drawn
 
 
-#
-#
+# ══════════════════════════════════════════════════════════════════════
+== calls
+# The salute. A card, then: draw, salute, again, again, again. No buttons:
+# the blade stays out and the fatigue lesson follows straight on.
+
+= intro
 # In the order of the gesture, so that it can be said along with it: the hilt to the brow (the eyes: what he says to
 # his own heart), the blade to the sky, the point down and out (the clean intent).
 
@@ -331,7 +336,8 @@ Raise thy sword now.
 = saluted
 Good.
 % Go maith. 
-                                                                                                                                                        # and the work begins                                                                                                                                   = go
+# and the work begins
+= go
 Hold it with sureness.
 % Bíodh do greidhm cinnte. 
 

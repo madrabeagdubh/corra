@@ -49,8 +49,12 @@ export const LINES = {
         "ga": "Seas ar nós na chorra"
       },
       {
-        "en": "Not rigid. Not slack.",
-        "ga": "Ní righin, ní bog"
+        "en": "Not rigid.",
+        "ga": "Ní righin,"
+      },
+      {
+        "en": "Not slack.",
+        "ga": "ní bog"
       }
     ],
     "stance2": [
@@ -171,12 +175,8 @@ export const LINES = {
     ],
     "sheathe": [
       {
-        "en": "The returning of the blade is not lesser",
-        "ga": "Ní lú é filleadh an chlaímh"
-      },
-      {
-        "en": "than the drawing",
-        "ga": "ná a tharraingt"
+        "en": "The returning of the blade is not lesser than the drawing.",
+        "ga": "Ní lú é filleadh an chlaímh ná a tharraingt."
       },
       {
         "en": "Sheathe it.",
@@ -184,7 +184,10 @@ export const LINES = {
       }
     ],
     "sheathed": [],
-    "drawn": [
+    "drawn": []
+  },
+  "calls": {
+    "intro": [
       {
         "en": "Now we salute.",
         "ga": "Beannaímid anois"
@@ -346,7 +349,9 @@ export const LINES = {
       {
         "en": "Good.",
         "ga": "Go maith."
-      },
+      }
+    ],
+    "go": [
       {
         "en": "Hold it with sureness.",
         "ga": "Bíodh do greidhm cinnte."

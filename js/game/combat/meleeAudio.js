@@ -83,7 +83,7 @@ export default class MeleeAudio {
       case 'enGarde': this.sfx('SWORD_DRAW'); this._later(520, () => this.breath({ kind: 'pant', voice: this.pBreath, effort: 0.3, volume: 0.1 }), 520); break
       case 'atEase': this.sfx('SWORD_SHEATHE'); break
       case 'parried': this.sfx('BLADE_KNOCK', { hard: 0.9, pitch: this.jitter() * (1 + 0.04 * (d.exchange || 0)) }); break
-      case 'clash': this.sfx('BLADE_KNOCK', { hard: 1, pitch: this.jitter() }); this.say('player', 'grunt', 0.5); break
+      case 'clash': this.sfx('BLADE_CRACK', { pitch: this.jitter() }); this.say('player', 'grunt', 0.5); break      // both blows at once: the loud one (soundBoard.js)
       case 'hit':
         this.sfx('BLADE_THUD', { hard: d.charged || d.desperate ? 1 : 0.5 })
         if (d.unarmed) { this.say('foe', 'distress'); break }

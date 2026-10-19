@@ -955,6 +955,7 @@ export default class TextPanel {
     // Determine scrollability: only scroll if content overflows body region
     const overflow = Math.max(0, cy - bodyH)
     this._short = overflow <= 0 && !options?.length
+    this._contentH = cy                                   // where the text ends, down the body (a short card is done when this has gone up past its top)
     this._maxScroll = overflow > 0 ? overflow + bodyH : (this._short ? bodyH : 0)
     // A card that fits has nothing to scroll, but its text can still be moved down through the empty body (and back),
     // to sit on a calmer part of the picture. Long cards scroll as before.
@@ -1619,7 +1620,7 @@ if (this.currentPanelType === 'encounter_card') {
     this._scrollY += this._velocity
     this._velocity *= 0.88  // friction
     this._scrollY = Math.max(this._minScroll || 0, Math.min(this._maxScroll, this._scrollY))
-    if (this._short && this._scrollY >= this._maxScroll) { this.hide(this._keepChromeOnHide); return }   // its text has left the card
+    if (this._shortGone()) { this.hide(this._keepChromeOnHide); return }   // its text has left the card
   }
   this._applyScroll()
   // swiped until the card is empty (a glide can carry it there after the lift): it goes
@@ -1655,8 +1656,15 @@ if (this.currentPanelType === 'encounter_card') {
   // An overflowing card swiped until nothing is left on screen is finished with. Cards with buttons never
   // are: the choice is the way on.
   _cardEmptied() {
-    return this.currentPanelType === 'encounter_card' && this.isVisible && !this.isFading &&
-      this._maxScroll > 0 && this._scrollY >= this._maxScroll - 0.5 && !(this._buttons && this._buttons.length)
+    if (this.currentPanelType !== 'encounter_card' || !this.isVisible || this.isFading || (this._buttons && this._buttons.length)) return false
+    if (this._short) return this._shortGone()
+    return this._maxScroll > 0 && this._scrollY >= this._maxScroll - 0.5
+  }
+  /** A short card (text that fits, no buttons) goes when its text has left it -- or all but gone (the last of it is
+   *  already inside the fade at the top edge) -- and not before, however far or fast it was swiped. */
+  _shortGone() {
+    if (!this._short || (this._buttons && this._buttons.length)) return false
+    return this._scrollY >= (this._contentH || 0) - 40
   }
 
   _onReachTop() {
@@ -1748,8 +1756,16 @@ if (this.currentPanelType === 'encounter_card') {
 if (this.currentPanelType === 'encounter_card') {
   if (tap) return
   const hasButtons     = this._buttons.length > 0
-  const fullyScrolled  = this._maxScroll <= 0 || this._short || this._scrollY >= this._maxScroll
-  if (this._short && !hasButtons && this._scrollY >= this._maxScroll) { this.hide(this._keepChromeOnHide); return }
+  const fullyScrolled  = this._maxScroll <= 0 || this._scrollY >= this._maxScroll
+  if (this._shortGone()) { this.hide(this._keepChromeOnHide); return }
+  if (this._short) {       // not gone yet: a swipe that stopped short leaves it where it is; a flick carries it on (below)
+    if (Math.abs(savedVel) > 0.05) {
+      const fv = -(savedVel * (1000 / 60))
+      this._velocity = Math.max(-(SCROLL_PX_PER_SEC / 60) * 2, Math.min((SCROLL_PX_PER_SEC / 60) * 14, fv))
+      if (!this._rafId && this._scrolling) this._rafId = requestAnimationFrame(this._tick.bind(this))
+    }
+    return
+  }
   if (!hasButtons && fullyScrolled && (this._maxScroll > 0 || savedVel < -DISMISS_VEL)) {
     // This is how a reply card gets dismissed. If the conversation loops
     // back afterwards, keep the background alive so only the text swaps.

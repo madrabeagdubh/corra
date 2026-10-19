@@ -12,8 +12,11 @@
 //   audio.update()              every frame (breathing, footwork)
 
 import { SoundBoard } from '../systems/soundBoard.js'
+import { WorldBus } from '../systems/worldBus.js'
 import { VoiceSynth, championVoice } from '../systems/voice/voiceSynth.js'
 import { SALUTE_MS, DRAW_MS } from './meleeView.js'
+
+const ROAR_VOL = 0.05              // the roar of bullet time: a bed, not a feature
 
 // Who sounds like whom. 'ronnie' is the hall bard's gravel, 'dallan' a
 // younger man, 'peig' a woman. Change freely.
@@ -130,7 +133,7 @@ export default class MeleeAudio {
         if (d.end) this._later(SALUTE_MS + 0.55 * 900, () => this.sfx('SWORD_SHEATHE', { volume: 0.08 }))   // and puts it away
         break
       }
-      case 'focus': this.sfx('FOCUS', { on: d.on }); break
+      case 'focus': this.sfx('FOCUS', { on: d.on }); this._roar(!!d.on); break
       case 'cheapShot': this._later(200, () => this.say('foe', 'oh')); break
       case 'winded': this._breath.next = performance.now(); break                 // the splutter starts at once
     }
@@ -143,9 +146,40 @@ export default class MeleeAudio {
 
   _later(ms, fn) { const id = setTimeout(() => { this._timers.delete(id); fn() }, ms); this._timers.add(id) }
 
+  // The roar of the Boyne under bullet time: a rush of low noise, swelling in as time slows and gone when it returns.
+  // (White noise, filtered: a loop of it has no seam to hear.) It goes round the world's muffling (WorldBus.dry).
+  _roar(on) {
+    const ac = this.ac
+    if (!ac) return
+    try {
+      const now = ac.currentTime
+      if (on) {
+        if (this._rr) return
+        const len = Math.round(ac.sampleRate * 2), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0)
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
+        const src = ac.createBufferSource(); src.buffer = buf; src.loop = true
+        const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.6
+        const g = ac.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(ROAR_VOL, now + 0.6)
+        const sw = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain()      // the swell and fall of it, slowly (its own stage, so the fade-out takes all of it)
+        sw.gain.value = 1; lfo.frequency.value = 0.17; lg.gain.value = 0.35; lfo.connect(lg); lg.connect(sw.gain)
+        src.connect(lp); lp.connect(sw); sw.connect(g); g.connect(WorldBus.dry(ac))
+        src.start(now); lfo.start(now)
+        this._rr = { src, lfo, g }
+      } else if (this._rr) {
+        const { src, lfo, g } = this._rr
+        this._rr = null
+        g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now); g.gain.linearRampToValueAtTime(0.0001, now + 0.5)
+        src.stop(now + 0.6); lfo.stop(now + 0.6)
+      }
+    } catch (_) {}
+  }
+
   update() {
     const m = this.m, now = performance.now()
-    if ((m.focusK ?? 1) < 0.5 && now >= (this._beatAt || 0)) { this._beatAt = now + 1500; this.sfx('FOCUS_BEAT') }     // a slow heartbeat
+    if ((m.focusK ?? 1) < 0.5 && now >= (this._beatAt || 0)) {
+      this._beatAt = now + 1500; this.sfx('FOCUS_BEAT')                                   // a slow heartbeat ...
+      try { navigator.vibrate?.([16, 184, 22]) } catch (_) {}                              // ... which the phone beats too: lub, dub
+    }
     // Breathing. A workout pant is steady -- in, a soft "hah" out -- and
     // quickens as you tire. An all-out gasp is ragged: a snatched, rasping
     // breath in, a long groan out, uneven gaps, now and then a second
@@ -195,5 +229,6 @@ export default class MeleeAudio {
     for (const id of this._timers) clearTimeout(id)
     this._timers.clear()
     try { this.pv?.stop(); this.fv?.stop() } catch (_) {}
+    this._roar(false)
   }
 }

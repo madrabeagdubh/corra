@@ -27,6 +27,10 @@ const SHOW_HUD = false
 const PRESS_SHOW = 2500       // = melee.js PRESS_MS: the ring round your feet as you steady a wound
 export const DRAW_MS = 900, SHEATHE_MS = 900
 export const SALUTE_MS = 1600
+// A sword thrown to you and caught: held up before the face a moment (hilt in the hand, blade upright), lowered to the
+// scabbard, slid home. catchSword() begins it; weaponPose() plays it; faicheCourse.js waits CATCH_MS before going on.
+export const CATCH_HOLD_MS = 1100, CATCH_LOWER_MS = 650
+export const CATCH_MS = CATCH_HOLD_MS + CATCH_LOWER_MS + 0.45 * SHEATHE_MS
 const clamp01 = u => Math.max(0, Math.min(1, u))
 const easeOut = u => 1 - (1 - clamp01(u)) ** 3
 const wrap180 = a => ((a % 360) + 540) % 360 - 180
@@ -119,7 +123,8 @@ export default class MeleeView {
     const drawnNow = (m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady) && !foe.sheathed    // foeReady: held out, a drill; sheathed: he only shoves
     if (drawnNow !== A.foeDrawn) { A.foeDrawn = drawnNow; if (drawnNow) A.foeDrawT = now; else A.foeSheatheT = now }
     const aim = foe.target ? this.screenAngle([foe.c, foe.r], foe.target) : this.screenAngle([foe.c, foe.r], m.pa.tile())
-    const gp = guardPose(aim, fs, now), raised = gp.angle                         // on guard: the point at you, breathing
+    // on guard: the point at you, breathing. From the south (you nearer the camera) that would hang it down the screen, so it is held up instead.
+    const gp = guardPose(aim > 0 && aim < 180 ? -aim : aim, fs, now), raised = gp.angle
     const R = rig(fs, FOE_PS)
     let pose = null
     if (!foe.armed) pose = 'none'                                                 // it's in the grass, or in your hand
@@ -178,6 +183,25 @@ export default class MeleeView {
     ctx.fillStyle = `rgba(30,60,120,${0.12 * u})`; ctx.fillRect(0, 0, W, H)           // a cool wash over everything
   }
 
+  // The punch of entering bullet time: a cool white flash and the edges slamming in, settling into the veil within a
+  // quarter of a second; coming out, a soft warm flash, the exhale. On the real clock (the world's is slow by then).
+  _punchFx(ctx) {
+    const p = this._punch
+    if (!p) return
+    const k = (performance.now() - p.t0) / (p.on ? 280 : 340)
+    if (k >= 1) { this._punch = null; return }
+    const e = 1 - k, W = ctx.canvas.width, H = ctx.canvas.height
+    ctx.save()
+    ctx.fillStyle = p.on ? `rgba(200,228,255,${0.4 * e * e})` : `rgba(255,240,214,${0.16 * e * e})`
+    ctx.fillRect(0, 0, W, H)
+    if (p.on) {
+      const g = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.12, W / 2, H * 0.55, Math.hypot(W, H) * 0.55)
+      g.addColorStop(0, 'rgba(4,10,28,0)'); g.addColorStop(1, `rgba(4,10,28,${0.7 * e})`)
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+    }
+    ctx.restore()
+  }
+
   // ── focus: motes hanging in the air ──────────────────────────────────────
   // Specks of dust and seed in the air round the two of you, fixed to the
   // ground (tile, and height above it) so they stay put as you move and the
@@ -218,9 +242,13 @@ export default class MeleeView {
     const buzz = ms => { try { navigator.vibrate?.(ms) } catch (_) {} }, A = this.a, now = this.now()
     if (['swing', 'chargeStart', 'enGarde', 'atEase'].includes(name)) A.idleSince = now
     switch (name) {
-      case 'focus': if (d.on) this._spawnMotes(); break
+      case 'focus':
+        if (d.on) this._spawnMotes()
+        this._punch = { t0: performance.now(), on: !!d.on }
+        buzz(d.on ? [30, 50, 40] : 18)                                   // the phone feels it begin, and end
+        break
       case 'swing': buzz(d.flip ? 7 : 12); break
-      case 'enGarde': A.garde = now; A.spent = false; break
+      case 'enGarde': A.garde = now; A.spent = false; A.catchT = -1e9; break
       case 'atEase': A.ease = now; break
       case 'salute': if (d.by === 'player') A.salute = now; break   // yours only when you choose to (swipe up again)
       case 'knockdown': if (d.steady) break; if (d.who === 'player') A.fall = now; else A.foeFall = now; if (d.final && this.m.steel()) this.pool(d.who); buzz(60); break
@@ -404,6 +432,7 @@ export default class MeleeView {
     if (!this.pgr) return
     ctx.save()
     if (m.focusK < 0.97) this.focusVeil(ctx)
+    this._punchFx(ctx)
     this._drawMotes(ctx)
     this._drawBlood(ctx)
 
@@ -620,6 +649,9 @@ export default class MeleeView {
     return mix(out, restAt, easeOut((k - 0.88) / 0.12))
   }
   saluting(start) { const ms = this.now() - start; return ms >= 0 && ms < SALUTE_MS }
+  /** the sword has just been caught (thrown to you): see CATCH_MS */
+  catchSword() { this.a.catchT = this.now() }
+  catching() { return this.now() - (this.a.catchT ?? -1e9) < CATCH_MS }
 
   // How your body stands this frame (PGR asks, through the scene), as a
   // transform about your feet: { dx, dy } in tile widths, rot in radians,
@@ -792,6 +824,19 @@ export default class MeleeView {
     // Putting it away: the point turned down onto the scabbard's line, the
     // hand brought to its mouth -- then the blade slid home.
     if (!m.enGarde) {
+      // caught: held up before the face, then lowered to the scabbard and slid home
+      const kc = now - (A.catchT ?? -1e9)
+      if (kc >= 0 && kc < CATCH_MS) {
+        const hw = (this.pgr._playerHeightMult ?? 1.8) * (this.pgr.constructor.PLAYER_SCALE ?? 1)
+        const up = this._saluteAngle(0.3 * SALUTE_MS, side, guard), h = this._saluteHand(0.3 * SALUTE_MS, side)      // the salute's brow pose
+        if (kc < CATCH_HOLD_MS) return { angle: up, hand: [h[0] * hw, h[1] * hw] }
+        const kl = (kc - CATCH_HOLD_MS) / CATCH_LOWER_MS
+        if (kl < 1) {
+          const u = easeIO(kl), end = R.gripAt(1)
+          return { angle: lerp(up, R.axisDeg + side * 360, u), hand: [lerp(h[0] * hw, end[0], u), lerp(h[1] * hw, end[1], u)] }
+        }
+        return { sheath: 1 - easeIO((kc - CATCH_HOLD_MS - CATCH_LOWER_MS) / (0.45 * SHEATHE_MS)) }
+      }
       const ke = (now - A.ease) / SHEATHE_MS
       if (ke >= 1) return null
       if (ke < 0.55) {

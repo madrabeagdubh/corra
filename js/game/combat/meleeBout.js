@@ -26,12 +26,21 @@ import StaminaMoon from './staminaMoon.js'
 import FightLens from './fightLens.js'
 import { backViewCanvas } from '../effects/backView.js'
 import PathFinder from '../systems/pathFinder.js'
+import { SoundBoard } from '../systems/soundBoard.js'
+import { WorldBus } from '../systems/worldBus.js'
 import { GameState } from '../systems/gameState.js'
 import { createItem } from '../ui/inventory/itemDefinitions.js'
 
 export const SWORD_ID = 'wooden_sword'
 const EDGED_IDS = ['bronze_sword']
 export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is yours, in every scene
+export const STRONG_NOTE = 'strong_blow_taught'  // GameState note: the long hold (the strong blow) is yours: taught in the tournament, not before
+
+/** The long hold is learned in the tournament (a student uses it, then shows you). Call this then. */
+export function unlockStrong(scene) {
+  GameState.addNote(STRONG_NOTE)
+  try { if (scene?._melee?.melee) scene._melee.melee.noCharge = false } catch (_) {}
+}
 
 // Focus (bullet time): a line drawn in a bout slows the world, more the nearer you are to him: nothing at `far`
 // tiles, down to `scale` at blade range. ONCE PER LINE: it comes on when the line (drawing it, or walking it)
@@ -105,7 +114,7 @@ export default class MeleeBout {
         const d = player.moveDirection; return d && (d.x || d.y) ? [d.x, d.y] : [0, -1]
       },
       onRoute: () => (player.pathQueue?.length || 0) > 0,
-      held: () => (scene.joystick?.force ?? 0) > 10 ? ANGLE_D8(scene.joystick.angle) : null,
+      held: () => !this.melee?.rooted && (scene.joystick?.force ?? 0) > 10 ? ANGLE_D8(scene.joystick.angle) : null,
       ahead: (n) => {
         let [c, r] = pa.tile()
         const held = pa.held(), q = player.pathQueue || []
@@ -138,6 +147,7 @@ export default class MeleeBout {
     }
 
     this.melee = new Melee({ kind, F, home, pa, emit: (n, d) => this._onEvent(n, d) })
+    this.melee.noCharge = !GameState.hasNote(STRONG_NOTE)      // until it is taught, a hold is only a cut
     this.view = new MeleeView(scene, this.melee)
     this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
@@ -152,6 +162,8 @@ export default class MeleeBout {
     this._origUpdate = player.update.bind(player)
     player.update = (joy, delta) => {
       delta *= this.focus?.k ?? 1                           // your feet slow with the world
+      // rooted (a drill for the draw or the salute): no step starts, and no route waits to be walked later
+      if (this.melee.rooted) { player.pathQueue = []; return this._origUpdate(NOJOY, delta) }
       if (!this.melee.feetHeld()) return this._origUpdate(joy, delta)
       const q = player.pathQueue; player.pathQueue = []
       this._origUpdate(NOJOY, delta)
@@ -221,7 +233,7 @@ export default class MeleeBout {
       if (!this.swordInHand()) return
       if (this.melee.enGarde) this.melee.salute()            // up again: a salute
       else this.melee.setEnGarde(true)
-    } else if (this.melee.enGarde) this.melee.setEnGarde(false)
+    } else if (this.melee.enGarde && !this.melee.noSheathe) this.melee.setEnGarde(false)
   }
 
   // ── the field ────────────────────────────────────────────────────────────
@@ -266,6 +278,8 @@ export default class MeleeBout {
     if (Math.abs(f.k - target) < 0.005) f.k = target
     if (f.latched !== f.on) { f.on = f.latched; m.emit('focus', { on: f.on }) }   // one entry, one exit, per line
     this._grade((1 - f.k) / (1 - FOCUS.scale))
+    WorldBus.setDepth(Math.round(Math.max(0, Math.min(1, (1 - f.k) / (1 - FOCUS.scale))) * 20) / 20)    // the world's sound is pushed away as time slows (kept up by this call, every frame)
+    SoundBoard.slowK = f.k                                                  // and footsteps come down heavy
     m.focusK = f.k
     try { this.scene.tweens.timeScale = f.k } catch (_) {}
     const dt = real * f.k
@@ -386,11 +400,12 @@ export default class MeleeBout {
     return { away: f.r < pr ? true : f.r > pr ? false : null, left: f.c < pc ? true : f.c > pc ? false : null }
   }
   // PGR skips idle redraws; the fight must keep drawing while it's live
-  animating() { const m = this.melee; return !!this.lens?.active || m.enGarde || m.combat || m.bout.over || m.foes.some(f => f.from || f.state !== 'idle') || this.focus.k < 1 || this.view.now() - this.view.a.ease < 1000 }
+  animating() { const m = this.melee; return !!this.lens?.active || m.enGarde || m.combat || m.bout.over || m.foes.some(f => f.from || f.state !== 'idle') || this.focus.k < 1 || !!this.view._punch || this.view.catching() || this.view.now() - this.view.a.ease < 1000 }
 
   _onEvent(name, d) {
     this.view.onEvent(name, d)
     this.audio.onEvent(name, d)
+    if (name === 'focus') this.lens?.kick(d.on ? 1 : -1)             // the camera punches in as bullet time begins, out as it ends
     this.scene.onMeleeEvent?.(name, d)                        // e.g. the crowd on the green
     // for the story: you struck a man without his sword
     if (name === 'struckUnarmed') GameState.addNote(`struck_unarmed_${this.melee.kind}`)
@@ -417,6 +432,7 @@ export default class MeleeBout {
     this.audio.destroy()
     try { this.scene.tweens.timeScale = 1 } catch (_) {}
     this._grade(0)
+    WorldBus.setDepth(0); SoundBoard.slowK = 1
     this.moon.destroy()
     this.lens?.destroy()
   }

@@ -140,6 +140,9 @@ export default class Melee {
     this.peaceful = false                  // true: no bout starts, whatever you do (a lesson on the green)
     this.returnsSalute = false             // true: out of a bout too, an idle partner returns your salute (the garden course)
     this.bare = false                      // true: the stance without a blade (the space lesson): no cuts, no charge
+    this.rooted = false                    // true: your feet are held (no steps, no routes) and there are no cuts: a drill for the draw / the salute
+    this.noSheathe = false                 // true: a swipe down does not put the blade away (the salute drill)
+    this.noCharge = false                  // true: the long hold is not yet yours (see STRONG_NOTE in meleeBout): a hold is only a cut
   }
 
   // ── small helpers ────────────────────────────────────────────────────────
@@ -243,7 +246,7 @@ export default class Melee {
   _nextFlip() { const f = this.t - this.lastSwing.t < 550 ? !this.lastSwing.flip : false; this.lastSwing = { t: this.t, flip: f }; return f }
 
   strike(opts = {}) {
-    if (!this.enGarde || this.bare || this.p.lost || this.p.downUntil > this.t) return
+    if (!this.enGarde || this.bare || this.rooted || this.p.lost || this.p.downUntil > this.t) return
     const charged = !!opts.charged
     // every swing costs breath, in a bout or out of one: you feel your stamina
     if (this.winded() || this.breath < 1) {
@@ -311,7 +314,7 @@ export default class Melee {
   }
 
   _beginCharge() {
-    if (this.charge || !this.enGarde || this.bare || this.p.lost || this.p.downUntil > this.t) return
+    if (this.charge || !this.enGarde || this.bare || this.rooted || this.noCharge || this.p.lost || this.p.downUntil > this.t) return
     if (this.winded() || this.breath < CHARGE.breath) return
     if (this.combat ? !this.canAct() : this.t < this.p.busyUntil) return
     this.charge = { t0: this.t }; this.pa.stopRoute(); this.queued = null

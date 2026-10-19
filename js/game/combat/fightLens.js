@@ -22,6 +22,8 @@ const SAFE_TALK = { left: 0.1, right: 0.9, top: 0.44, bottom: 0.84 }
 const TALL = 2.0                 // a figure's height, in its tile widths, with the sword raised
 const H_MIN = 0.1               // the furthest the camera tilts down: horizon this far from the top
 const T_ZOOM = 420, T_PAN = 260, T_BLEND = 380      // ms: how quickly it follows
+const ZSLOW = 0.05               // bullet time: the lens kept this much closer all through it (at full depth)
+const KICK_IN = 0.08, KICK_OUT = -0.045   // ... with a punch in as it begins, and a pull back as it ends
 
 export default class FightLens {
   constructor(scene, melee) {
@@ -119,9 +121,23 @@ export default class FightLens {
       cur.w += (0 - cur.w) * k(T_BLEND)
       cur.z += (1 - cur.z) * k(T_ZOOM)
     }
-    this.active = cur.w > 0.002 || Math.abs(cur.z - 1) > 0.002
-    g._lens = this.active ? { ...this._lensFor(cur.col, cur.row, cur.z), w: cur.w } : null
+    // bullet time: a punch in as it begins (out as it ends), and the lens kept a little closer all through it
+    let zk = 1
+    if (live) {
+      const u = Math.max(0, Math.min(1, (1 - (m.focusK ?? 1)) / 0.82)), kk = this._kick
+      zk += ZSLOW * u
+      if (kk) {
+        const ms = performance.now() - kk.t0
+        if (ms > 1200) this._kick = null
+        else zk += kk.amp * (ms < 90 ? ms / 90 : Math.exp(-(ms - 90) / 200))
+      }
+    }
+    this.active = cur.w > 0.002 || Math.abs(cur.z - 1) > 0.002 || zk !== 1
+    g._lens = this.active ? { ...this._lensFor(cur.col, cur.row, Math.min(ZMAX * 1.15, cur.z * zk)), w: cur.w } : null
   }
+
+  /** a punch on the lens: in (dir 1) as bullet time begins, out (dir -1) as it ends */
+  kick(dir) { this._kick = { t0: performance.now(), amp: dir > 0 ? KICK_IN : KICK_OUT } }
 
   destroy() {
     if (this._ts) { this.scene.tiltShift?.setDialogueMode(false); this._ts = false }

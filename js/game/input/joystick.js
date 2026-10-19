@@ -6,15 +6,15 @@
 // realign everything after fullscreen changes, scene transitions, or the
 // browser bar showing/hiding.
 //
-//   THE HOOP     a thin ring, open at the lower left (the gap), its two ends
+//   THE HOOP     a thin ring, open at the upper right (the gap), its two ends
 //                flattened into small enamelled plates.
 //   THE PIN      fixed on the diagonal, its head (the stone) at the upper
-//                right, its point out through the gap: fastened.
-//   THE RING     turns under the pin while a direction is held, swinging
-//                the gap to the side AWAY from the thumb, so the thumb is
-//                always on solid metal; it turns back to fastened on release.
-//                (As on a real penannular brooch, where the ring turns
-//                through the pin's head loop.)
+//                right, in the gap, its point out toward the lower left.
+//   THE RING     stays fastened while you steer (it no longer swings round to
+//                follow the direction of travel). It turns only under a
+//                circling finger: turn it half round, the gap carried down to
+//                the pin's head, and the pin comes free,
+//                which opens the menu (config.onRingRelease; see TURN TO RELEASE).
 //   THE STONE    the pin's jewelled head, on the hoop. It lights (cyan) when
 //                there's something to interact with, and a tap on it then
 //                does what tapping the portrait on the moon does.
@@ -26,6 +26,15 @@
 // without lifting. Once steering, the finger can wander off the brooch and
 // still steer. The stone claims a press only while lit, and a press that
 // starts on it and slides becomes steering, so no direction is ever lost.
+//
+// TURN TO RELEASE: slide a finger round the ring in one direction (SPIN_ENTER
+// degrees) and steering lets go while the hoop turns with the finger -- a press
+// waits PEND_MS before it steers, to see (PEND_NE_MS on the pin's side); the gap carried round to the pin's
+// point (a half turn, from a thumb set opposite the gap) lifts the pin and
+// calls onRingRelease(). The gap is kept
+// opposite the finger as it turns, so the turning is seen. Let go early and
+// the hoop turns back. Only where onRingRelease is given, and not
+// while the ring is the moon's (a sword drawn: ringGestures).
 //
 // Centre hub (moon) interactions -- unchanged:
 //   - Swipe left/right       → onSwipe(dx)
@@ -50,14 +59,23 @@ const G = {
   RING:   0.82,   // hoop centre line
   BAND:   0.075,  // hoop thickness
   GAP:    22,     // half-angle of the opening, degrees
-  GAP_AT: 135,    // where the opening is: lower left
+  GAP_AT: 315,    // where the opening is: upper right (the pin's head in it; its point at the lower left)
+  HEAD:   0.94,   // how far out the pin's head stands (a little proud of the hoop and its enamel ends)
   PIN:    0.058,  // pin shaft width
   TIP:    1.18,   // how far past the centre the pin's point reaches
   STONE:  0.15,   // stone radius
   DRAW:   1.25,   // the drawing canvas's half-size (the pin's point overhangs)
   DEAD:   0.30,   // while steering, ignore angle changes this close to the centre
 }
-const STONE_AT = G.GAP_AT + 180          // upper right; the pin's head rests here
+const SPIN_ENTER = 30    // degrees of turning round the ring before it stops steering and turns the hoop (the ring starts to show it before that)
+const SPIN_WINDOW = 2500 // ms: the turning must come within this
+const PEND_MS = 80       // a press on the ring waits this long before it steers, to see if it is a turn
+const PEND_NE_MS = 260   // ... and longer on the pin's side (the upper right, STONE_AT's sector): a hand taking hold of the pin
+                         // to turn the hoop has time to begin turning before a step is taken. A tap there still steps (on lifting)
+                         // and a hold there steers once this has passed.
+const SPIN_MIN = 150     // degrees: the least turning that frees the pin (whatever the thumb's start)
+const PIN_MS = 750       // the pin's lift, and the stone's light, after the release
+const STONE_AT = 315                     // upper right; the pin's head rests here (in the gap at rest; its point is at the lower left)
 const DIR_DEG  = { right: 0, down: 90, left: 180, up: 270 }
 
 const METALS = {
@@ -99,6 +117,7 @@ export default class Joystick {
     this._onSwipeVertical     = config.onSwipeVertical      ?? null
     this._ringGestures        = config.ringGestures         ?? null     // () => true: swipes on the ring are the moon's gestures
     this._onRingDrag          = config.onRingDrag           ?? null     // (pointerId) a drag from above the brooch onto it: swallow it
+    this._onRingRelease       = config.onRingRelease        ?? null     // () the hoop turned a full round: the pin is free (the menu)
 
     const R = this.radius
 
@@ -109,6 +128,10 @@ export default class Joystick {
     this._metal      = METALS.bronze
     this._dirDeg     = null       // held direction, 0..360 (0 right, 90 down), or null
     this._ringRot    = 0          // how far the hoop has turned from fastened, degrees
+    this._ringVel    = 0          // ... and how fast it is springing (once the pin is free)
+    this._open       = 0          // +-180 once the pin is free and the hoop has sprung open, until the finger lifts
+    this._spin       = null       // { last, acc, t0, on, dir }: a finger circling the ring (TURN TO RELEASE)
+    this._pinT       = -1e9       // when the pin last came free
     this._hint       = null       // { deg, strength } from highlight()
     this._charge     = 0          // long-press progress 0..1
     this._stoneLit   = false
@@ -429,7 +452,7 @@ export default class Joystick {
   }
 
   _onStone(x, y) {
-    const sx = Math.cos(rad(STONE_AT)) * G.RING, sy = Math.sin(rad(STONE_AT)) * G.RING
+    const sx = Math.cos(rad(STONE_AT)) * G.HEAD, sy = Math.sin(rad(STONE_AT)) * G.HEAD
     return Math.hypot(x - sx, y - sy) < G.STONE * 1.8
   }
 
@@ -483,6 +506,7 @@ export default class Joystick {
       // while something owns the moon, an up/down swipe from anywhere on the ring is its gesture:
       // wait a moment to see which this is before steering
       if (this._ringGestures?.() && this._onSwipeVertical) {
+        this._pendSpin = false
         this._padMode = 'pend'
         this._padDown = { x: e.clientX, y: e.clientY }
         this._padLast = { x: p.x, y: p.y }
@@ -490,14 +514,30 @@ export default class Joystick {
         this._padPendT = setTimeout(() => this._padCommit(), 70)
         return
       }
+      if (this._onRingRelease) {          // it might be a turn of the hoop: wait a moment before steering
+        this._padMode = 'pend'; this._pendSpin = true
+        this._padDown = { x: e.clientX, y: e.clientY }
+        this._padLast = { x: p.x, y: p.y }
+        this._spin = this._newSpin(p)
+        clearTimeout(this._padPendT)
+        this._padPendT = setTimeout(() => this._padCommit(), this._sector(p.x, p.y) === STONE_AT ? PEND_NE_MS : PEND_MS)
+        return
+      }
       this._padMode = 'dir'
+      this._spin = null
       this._setDir(this._sector(p.x, p.y))
     }, { passive: false })
 
     pad.addEventListener('pointermove', (e) => {
       if (!this._padMode) return
       const p = this._local(e)
-      if (this._padMode === 'gesture') return
+      if (this._padMode === 'gesture' || this._padMode === 'spent') return
+      if (this._padMode === 'spin') { this._turn(p); return }
+      if (this._padMode === 'pend' && this._pendSpin) {
+        this._padLast = { x: p.x, y: p.y }
+        if (p.d >= G.DEAD && this._watchTurn(p)) { clearTimeout(this._padPendT); this._padPendT = null }
+        return
+      }
       if (this._padMode === 'pend') {
         const dx = e.clientX - this._padDown.x, dy = e.clientY - this._padDown.y
         this._padLast = { x: p.x, y: p.y }
@@ -514,6 +554,7 @@ export default class Joystick {
         this._padMode = 'dir'
       }
       if (p.d < G.DEAD) return           // too near the centre to read an angle
+      if (this._onRingRelease && !this._ringGestures?.() && this._watchTurn(p)) return
       this._setDir(this._sector(p.x, p.y))
     })
 
@@ -522,10 +563,12 @@ export default class Joystick {
       if (this._padMode === 'pend') {                       // a quick tap on the ring: one step
         this._padCommit()
         this._padMode = null
+        this._spin = null; this._pendSpin = false; this._open = 0
         setTimeout(() => { if (!this._padMode) this._setDir(null) }, 90)
         return
       }
       this._padMode = null
+      this._spin = null; this._pendSpin = false; this._open = 0
       clearTimeout(this._padPendT); this._padPendT = null
       this._setDir(null)
     }
@@ -533,6 +576,63 @@ export default class Joystick {
     pad.addEventListener('pointercancel', end)
     pad.addEventListener('lostpointercapture', () => { if (this._padMode) end() })
   }
+  // TURN TO RELEASE. The finger's angle round the centre, and how far it has turned. Two tallies:
+  //   tot  the net turn since the press began, either way, never reset: it carries the hoop on screen and frees the pin
+  //        (however slowly it was turned, and whichever way)
+  //   acc  turning one way within SPIN_WINDOW: when it reaches SPIN_ENTER the turn takes over from steering
+  _newSpin(p) {
+    const a = Math.atan2(p.y, p.x) * 180 / Math.PI
+    return { last: a, a0: a, tot: 0, acc: 0, t0: performance.now(), on: false }
+  }
+  _turnBy(p) {
+    const s = this._spin, a = Math.atan2(p.y, p.x) * 180 / Math.PI
+    let d = a - s.last; if (d > 180) d -= 360; else if (d < -180) d += 360
+    s.last = a
+    s.tot += d
+    return d
+  }
+  // while steering: has this become a turn of the hoop? (true: yes, steering lets go)
+  _watchTurn(p) {
+    const now = performance.now()
+    if (!this._spin) { this._spin = this._newSpin(p); return false }
+    const s = this._spin, d = this._turnBy(p)
+    if (!d) return false
+    if (this._free()) return true
+    if (s.acc && Math.sign(d) !== Math.sign(s.acc)) { s.acc = 0; s.t0 = now }          // turned back: start again
+    if (!s.acc || now - s.t0 > SPIN_WINDOW) { s.acc = 0; s.t0 = now }                    // too slow to be a turn: it is steering
+    s.acc += d
+    if (Math.abs(s.acc) < SPIN_ENTER) return false
+    s.on = true
+    this._padMode = 'spin'
+    this._setDir(null)                                                                    // the feet let go
+    try { navigator.vibrate?.(8) } catch (_) {}
+    this._dirty = true
+    return true
+  }
+  _turn(p) {
+    if (p.d < G.DEAD) return
+    this._turnBy(p)
+    this._free()
+    this._dirty = true
+  }
+  // Has the gap (kept opposite the finger) been carried to the needle's point? Then the pin is free.
+  _free() {
+    const s = this._spin
+    if (!s || !s.tot) return false
+    const dir = Math.sign(s.tot)
+    const d0 = ((dir * (s.a0 + 180 - G.GAP_AT)) % 360 + 360) % 360                       // how far round the gap already is, this way
+    const need = Math.max(SPIN_MIN, d0 <= 180 ? 180 - d0 : 540 - d0)
+    if (Math.abs(s.tot) < need) return false
+    this._padMode = 'spent'
+    this._open = dir * 180; this._ringVel = 0                                              // the hoop springs open, whichever way it was turned
+    this._spin = null
+    this._pinT = performance.now()
+    try { navigator.vibrate?.([20, 40, 30]) } catch (_) {}
+    this._dirty = true
+    this._onRingRelease?.()
+    return true
+  }
+
   // it was not a gesture: steer, from where the finger is now
   _padCommit() {
     clearTimeout(this._padPendT); this._padPendT = null
@@ -565,16 +665,16 @@ export default class Joystick {
     this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
-  // Where the hoop should be turned to: the gap opposite the held direction,
-  // or 0 (fastened) when nothing is held. Shortest way round.
+  // Where the hoop should be turned to: fastened (0), or as far round as a circling finger has taken it.
   _ringTarget() {
-    if (this._dirDeg === null) return 0
-    return ((this._dirDeg + 180 - G.GAP_AT + 540) % 360) - 180
+    if (this._open) return this._open
+    const s = this._spin
+    return s && Math.abs(s.tot) >= 6 ? s.a0 + 180 - G.GAP_AT + s.tot : 0          // the gap sits opposite the finger
   }
 
   _animating() {
     const off = Math.abs(this._ringTarget() - this._ringRot)
-    return off > 0.3 || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0
+    return off > 0.3 || Math.abs(this._ringVel) > 0.05 || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0 || (this._now || 0) - this._pinT < PIN_MS
   }
 
   _draw() {
@@ -587,7 +687,14 @@ export default class Joystick {
 
     // turn the hoop toward its target: briskly while held, gently back to fastened
     const d = this._ringTarget() - this._ringRot
-    this._ringRot += d * (this._dirDeg === null ? 0.12 : 0.25)
+    const dtf = Math.min(2.5, (t - (this._lastT || t)) / 16.7); this._lastT = t
+    if (this._open) {                                                    // sprung open: a little overshoot, settling
+      this._ringVel += (d * 0.2 - this._ringVel * 0.42) * dtf
+      this._ringRot += this._ringVel * dtf
+    } else {
+      this._ringVel = 0
+      this._ringRot += d * (this._ringTarget() !== 0 ? 0.5 : 0.12)
+    }
     const gapAt = G.GAP_AT + this._ringRot
 
     // the hoop and its two ends
@@ -612,8 +719,12 @@ export default class Joystick {
       this._glow(ctx, R, this._dirDeg - 20, this._dirDeg + 20, `rgba(${GOLD_GLOW},0.9)`)
     }
 
+    // the pin comes free: lifted out along its own line and set back, the stone alight
+    const kp = (t - this._pinT) / PIN_MS, free = kp >= 0 && kp < 1 ? Math.sin(Math.PI * kp) : 0
+    ctx.save(); ctx.translate(Math.cos(rad(STONE_AT)) * R * 0.3 * free, Math.sin(rad(STONE_AT)) * R * 0.3 * free)
     this._pin(ctx, R, STONE_AT, m)
-    this._stone(ctx, R, m, t)
+    this._stone(ctx, R, m, t, free > 0.05)
+    ctx.restore()
 
     // thin metal bezel round the moon hub (the hub itself is DOM, on top)
     ctx.beginPath(); ctx.arc(0, 0, G.HUB * R + 2.5, 0, Math.PI * 2)
@@ -659,7 +770,7 @@ export default class Joystick {
   // Head looped over the hoop at `ha`; shaft across behind the moon; point
   // out past the far side.
   _pin(ctx, R, ha, m) {
-    const hx = Math.cos(rad(ha)) * G.RING * R, hy = Math.sin(rad(ha)) * G.RING * R
+    const hx = Math.cos(rad(ha)) * G.HEAD * R, hy = Math.sin(rad(ha)) * G.HEAD * R
     const ta = ha + 180
     const tx = Math.cos(rad(ta)) * G.TIP * R, ty = Math.sin(rad(ta)) * G.TIP * R
     const w = G.PIN * R
@@ -689,9 +800,9 @@ export default class Joystick {
     ctx.strokeStyle = m.light; ctx.lineWidth = 1.6; ctx.stroke()
   }
 
-  _stone(ctx, R, m, t) {
-    const x = Math.cos(rad(STONE_AT)) * G.RING * R, y = Math.sin(rad(STONE_AT)) * G.RING * R
-    const cr = G.STONE * R, lit = this._stoneLit || this._badgeGlow
+  _stone(ctx, R, m, t, free = false) {
+    const x = Math.cos(rad(STONE_AT)) * G.HEAD * R, y = Math.sin(rad(STONE_AT)) * G.HEAD * R
+    const cr = G.STONE * R, lit = this._stoneLit || this._badgeGlow || free
     if (lit) {
       const k = 0.55 + 0.45 * Math.sin(t / 260)
       ctx.save(); ctx.shadowColor = `rgba(${CYAN_GLOW},${k.toFixed(3)})`; ctx.shadowBlur = 8 + 12 * k

@@ -1,3 +1,4 @@
+import './game/systems/worldBus.js'      // first: it must be in place before any AudioContext is made (bullet time muffles the world through it)
 import Phaser from 'phaser'
 import './heroSelect.js'
 import BowTutorial from './game/scenes/locations/bowTutorial.js'

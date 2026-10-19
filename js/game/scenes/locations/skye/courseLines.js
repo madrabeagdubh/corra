@@ -32,7 +32,7 @@ export const LINES = {
         },
         {
           "en": "Not yet.",
-          "ga": "Ní go fóil.",
+          "ga": "Ní go fóill.",
           "value": "wait"
         }
       ]
@@ -45,20 +45,38 @@ export const LINES = {
     ],
     "stance": [
       {
-        "en": "Stand not on thy heels, nor on thy toes.",
-        "ga": "Ná seas ar do shále, ná ar do bharraicíní."
+        "en": "Stand as the heron stands.",
+        "ga": "Seas ar nós na chorra"
       },
       {
-        "en": "All else is built upon it.",
-        "ga": "Sin an bunchloch"
+        "en": "Not rigid. Not slack.",
+        "ga": "Ní righin, ní bog"
+      }
+    ],
+    "stance2": [
+      {
+        "en": "Carry thy head as a {prince}.",
+        "ga": "Iompair do cloigeann mar {prince}"
+      },
+      {
+        "en": "easy, unheld.",
+        "ga": "go socair, gan srian"
+      },
+      {
+        "en": "Let thine eyes be soft.",
+        "ga": "Bíodh do shúile bog"
+      },
+      {
+        "en": "Let thy watching be boundless.",
+        "ga": "Bíodh do fhaire gan teorainn"
       }
     ]
   },
   "space": {
     "intro": [
       {
-        "en": "Move. But do not flee.",
-        "ga": "Gluais. Ach ná teith."
+        "en": "Move.",
+        "ga": "Gluais."
       }
     ],
     "good": [
@@ -73,14 +91,22 @@ export const LINES = {
         "ga": "Sin é."
       },
       {
-        "en": "Now press me, until I am brought to my knee.",
-        "ga": "Anois brúigh orm, go dtí go mbeidh mé ar mo ghlúin."
+        "en": "Now press me,",
+        "ga": "Anois brúigh síar mé,"
+      },
+      {
+        "en": "until I am brought to my knee.",
+        "ga": "go dtí go mbeidh mé ar mo ghlúin."
       }
     ],
     "shoveGo": [
       {
-        "en": "Come, then. Knock me down.",
-        "ga": "Ar aghaidh, mar sin. Leag mé."
+        "en": "Come, then.",
+        "ga": "Ar aghaidh, mar sin."
+      },
+      {
+        "en": "Knock me down.",
+        "ga": "Leag mé."
       }
     ],
     "shoved": [
@@ -107,7 +133,36 @@ export const LINES = {
         "ga": "Anois."
       }
     ],
-    "caught": [],
+    "caught": [
+      {
+        "en": "a chieftain unrisen is,",
+        "ga": "Taoiseach suan is ea"
+      },
+      {
+        "en": "The sword in its sheath",
+        "ga": "an claíomh sa truaill"
+      },
+      {
+        "en": "All his strength is there,",
+        "ga": "Ann atá a neart,"
+      },
+      {
+        "en": "his fury,",
+        "ga": "a chaon-fhearg,"
+      },
+      {
+        "en": "the grief",
+        "ga": "an brón"
+      },
+      {
+        "en": "he might bring upon his enemies.",
+        "ga": "a d'fhéadfadh sé imirt ar a naimhde"
+      },
+      {
+        "en": "Do not wake it without cause.",
+        "ga": "Ná mhúscail é gan cuais."
+      }
+    ],
     "draw": [
       {
         "en": "Draw now.",
@@ -116,42 +171,55 @@ export const LINES = {
     ],
     "sheathe": [
       {
+        "en": "The returning of the blade is not lesser",
+        "ga": "Ní lú é filleadh an chlaímh"
+      },
+      {
+        "en": "than the drawing",
+        "ga": "ná a tharraingt"
+      },
+      {
         "en": "Sheathe it.",
         "ga": "Truaill é."
       }
     ],
+    "sheathed": [],
     "drawn": [
       {
-        "en": "Too much wrist.",
-        "ga": "An iomarca ón caol."
+        "en": "Now we salute.",
+        "ga": "Beannaímid anois"
       },
       {
-        "en": "Thy feet! Where are thy feet?",
-        "ga": "Do chosa! Cá bhfuil do chosa?"
+        "en": "Hilt to the brow.",
+        "ga": "Dornchla chun an éadain."
       },
       {
-        "en": "Stand with esteem.",
-        "ga": "Seas le gean."
-      }
-    ]
-  },
-  "calls": {
-    "intro": [
-      {
-        "en": "Now we salute",
-        "ga": "Anois, beannaímid"
+        "en": "Blade to the sky.",
+        "ga": "Lann chun an spéire."
       },
       {
-        "en": "Salute inward, salute in the heart.",
-        "ga": "Beannaigh go hinmheánach, beannaigh sa chroí."
+        "en": "Point to the earth.",
+        "ga": "Rinn chun na talún."
       },
       {
-        "en": "I enter with clean intent.",
-        "ga": "Ar aghaidh liom le intinn glan."
+        "en": "Salute within,",
+        "ga": "Beannaigh istigh,"
       },
       {
-        "en": "What blood I spill here, I do so with open eyes.",
-        "ga": "Cibé fuil a dhoirtim anseo, deanaim sin le shúile oscailte."
+        "en": "salute in the heart.",
+        "ga": "beannaigh sa chroí."
+      },
+      {
+        "en": "I salute to say",
+        "ga": "Beannaighím chun rá"
+      },
+      {
+        "en": "What blood I spill here,",
+        "ga": "Cibé fuil a dhoirtim anseo,"
+      },
+      {
+        "en": "I do so with open eyes.",
+        "ga": "déanaim sin le lán thuiscint."
       }
     ],
     "salute": [
@@ -169,19 +237,31 @@ export const LINES = {
     "enough": [
       {
         "en": "It will do.",
-        "ga": "Is leoir sin."
+        "ga": "Is leor sin."
       }
     ]
   },
   "fatigue": {
     "intro": [
       {
-        "en": "Come to me, then.",
-        "ga": "Tar chugam, mar sin."
+        "en": "Come against me.",
+        "ga": "Tar i mo choinne."
       },
       {
-        "en": "Strike, strike, strike again.",
-        "ga": "Buail, buail, buail arís."
+        "en": "Use thy full weight.",
+        "ga": "Bain úsáid as do mheáchan ar fad."
+      },
+      {
+        "en": "Press hard.",
+        "ga": "Brúigh go laidir."
+      },
+      {
+        "en": "Again.",
+        "ga": "Arís."
+      },
+      {
+        "en": "Mark how I do not remain where I was.",
+        "ga": "Tabhair faoi deara nach bhfanaim san áit a raibh mé."
       }
     ],
     "stop": [
@@ -192,38 +272,124 @@ export const LINES = {
     ],
     "after": [
       {
-        "en": "That is the point.",
-        "ga": "Sin an pointe."
+        "en": "The tide comes.",
+        "ga": "Tagann an taoide."
       },
       {
-        "en": "It is not a question of strength.",
-        "ga": "Ní hé an neart an cheist."
+        "en": "It fills the low places.",
+        "ga": "Líonann sí na háiteanna ísle."
       },
       {
-        "en": "Seek stillness, not frenzy.",
-        "ga": "Lorg suaimhneas, ní mire."
+        "en": "It withdraws.",
+        "ga": "cúlíann sé."
       },
       {
-        "en": "The great sin of the Gaelic blade is not cowardice",
-        "ga": "Ní hé an téagala an peaca ar chlaíomh na nGael"
+        "en": "Thy breath is thy tide.",
+        "ga": "Is í do anáil do thaoide."
       },
       {
-        "en": "But wastefulness",
-        "ga": "Ach diomailt"
+        "en": "Let it come.",
+        "ga": "Lig di teacht."
+      },
+      {
+        "en": "Fill the low places.",
+        "ga": "Líon na hísle."
+      },
+      {
+        "en": "Withdraw.",
+        "ga": "cúlaigh."
+      }
+    ],
+    "after2": [
+      {
+        "en": "Let the head of the fearful one",
+        "ga": "Bíodh cheann an chlaidhre"
+      },
+      {
+        "en": "fill with chatter.",
+        "ga": "lán chainte."
+      },
+      {
+        "en": "Let the thoughts of the boastful one",
+        "ga": "Bíodh smaointe an lán de lán"
+      },
+      {
+        "en": "crowd with enemies.",
+        "ga": "plódaithe le naimhde."
+      },
+      {
+        "en": "So rises the thought,",
+        "ga": "Mar sin a thagann an smaoineamh,"
+      },
+      {
+        "en": "so falls the thought,",
+        "ga": "mar sin  a imíonn sé."
+      },
+      {
+        "en": "yet the stone beneath the tide does not move.",
+        "ga": "Ní chorraíonn an chloch faoin tíde."
+      },
+      {
+        "en": "Be thou the stone.",
+        "ga": "Bíse i do chloch."
       }
     ]
   },
   "dummy": {
+    "salute": [
+      {
+        "en": "Raise thy sword now.",
+        "ga": "Ardaigh do chlaímh anois."
+      }
+    ],
+    "saluted": [
+      {
+        "en": "Good.",
+        "ga": "Go maith."
+      },
+      {
+        "en": "Hold it with sureness.",
+        "ga": "Bíodh do greidhm cinnte."
+      },
+      {
+        "en": "Strike at me,",
+        "ga": "Tabhair buille dom."
+      },
+      {
+        "en": "swift,",
+        "ga": "Bual go gasta."
+      },
+      {
+        "en": "without hesitation.",
+        "ga": "Bual go cinnte."
+      },
+      {
+        "en": "Come at me now,",
+        "ga": "Tar"
+      },
+      {
+        "en": "let me see what thou canst do.",
+        "ga": "taispeáin dom cad atá ionat."
+      }
+    ],
     "landed": [
       {
         "en": "Thus. Dost thou see?",
-        "ga": "Mar seo. An bhfeiceann tú?"
+        "ga": "Mar sin. An léir duit?"
       }
     ],
     "after": [
       {
-        "en": "Look. Rooted as an oak. No. No.",
-        "ga": "Féach. Fastaithe mar dhair. Ní hea. Ní hea."
+        "en": "Look.",
+        "ga": "Féach."
+      },
+      {
+        "en": "Rooted as an oak.",
+        "ga": "Fréamhaithe mar dhair."
+      },
+      {
+        "en": "No. No.",
+        "ga": "Ní hea. Ní hea."
       }
     ]
   },
@@ -231,33 +397,101 @@ export const LINES = {
     "demo": [
       {
         "en": "Move thus.",
-        "ga": "Bog mar seo."
+        "ga": "Gluais amhlaidh."
       },
       {
         "en": "And thus.",
-        "ga": "Agus mar seo."
+        "ga": "Agus amhlaidh."
       }
     ],
     "intro": [
       {
-        "en": "Move, and move again.",
-        "ga": "Gluais, agus gluais arís."
+        "en": "Find the Daingean within thyself.",
+        "ga": "Aimsigh an daingean ionat féin."
       },
       {
-        "en": "Woe to him who remains where the sword expects to find him.",
-        "ga": "Is mairg an té ag feiteamh áit a bhfuil an lann ag súil leis."
+        "en": "It sits low,",
+        "ga": "Tá sé suite íseal,"
+      },
+      {
+        "en": "below the navel.",
+        "ga": "faoin imleacán."
+      },
+      {
+        "en": "Let thy weight descend to it.",
+        "ga": "Scaoil do mheáchan síos chuige."
+      },
+      {
+        "en": "Motion begins there",
+        "ga": "Tosaíonn an gluaiseacht ansin."
+      },
+      {
+        "en": "Not from the arm.",
+        "ga": "Ní ón géag."
+      },
+      {
+        "en": "Not from the leg.",
+        "ga": "Ní ón cos."
+      },
+      {
+        "en": "Not from the clenching jaw.",
+        "ga": "Ní ón giall fáscadh."
+      },
+      {
+        "en": "Move as thou dost strike,",
+        "ga": "Bual agus tú ag bogadh,"
+      },
+      {
+        "en": "for these are not two separate matters.",
+        "ga": "óir ní dhá ábhar eagsúl iad."
+      },
+      {
+        "en": "Woe to him",
+        "ga": "Is mairg an té"
+      },
+      {
+        "en": "who remains where the sword expects to find him.",
+        "ga": "a fhanann áit a bhfuil claíomh ag súil leis."
       }
     ],
     "go": [
       {
-        "en": "Come at me.",
-        "ga": "Tar chugam."
+        "en": "Move.",
+        "ga": "Bog."
+      },
+      {
+        "en": "Strike.",
+        "ga": "Buail."
+      },
+      {
+        "en": "Move again.",
+        "ga": "Bog arís."
+      },
+      {
+        "en": "Let them reach for thee and find nothing,",
+        "ga": "Lig dóibh tú a lorg áit a raibh tú,"
+      },
+      {
+        "en": "while thy blade is already elsewhere.",
+        "ga": "agus do lann in áit eile cheana féin."
       }
     ],
     "still": [
       {
-        "en": "No. Move first.",
-        "ga": "No. Move first."
+        "en": "Move first.",
+        "ga": "Bog ar dtús."
+      },
+      {
+        "en": "Again.",
+        "ga": "Arís."
+      },
+      {
+        "en": "Keep moving through the strike.",
+        "ga": "Coinnigh ort ag gluaiseacht tríd an mbuille."
+      },
+      {
+        "en": "Through it.",
+        "ga": "Tríd."
       }
     ],
     "count": [
@@ -288,12 +522,16 @@ export const LINES = {
         "ga": "Tóg céim ar leataobh."
       },
       {
-        "en": "Step outside his blade-arm,",
-        "ga": "Tóg céim chuig taobh amuigh dá ghéag claoímh,"
+        "en": "Press and yield,",
+        "ga": "Brúigh agus géill,"
       },
       {
-        "en": "and thou art safe.",
-        "ga": "is beidh tú slán."
+        "en": "This is the nature of the thing.",
+        "ga": "Is é seo nádúr an ruda."
+      },
+      {
+        "en": "buail agus tarraing siar.",
+        "ga": "strike and withdraw."
       }
     ]
   },
@@ -302,6 +540,22 @@ export const LINES = {
       {
         "en": "Now. The movement.",
         "ga": "Anois. An ghluaiseact."
+      },
+      {
+        "en": "When thou must strike,",
+        "ga": "Nuair a caithfear buille a thabhairt,"
+      },
+      {
+        "en": "do not think of striking.",
+        "ga": "ná smaoinaigh ar an bhuaille."
+      },
+      {
+        "en": "Think of the movement.",
+        "ga": "Smaoinigh ar an ghluaiseacht."
+      },
+      {
+        "en": "The strike is what the motion becomes.",
+        "ga": "Is é an buille an ghluaisne féin."
       }
     ],
     "following": [
@@ -332,14 +586,40 @@ export const LINES = {
   "duel": {
     "intro": [
       {
-        "en": "Now. Thy footwork.",
-        "ga": "Anois. Do shaothar coise."
+        "en": "there is a place",
+        "ga": "Tá áit ann"
+      },
+      {
+        "en": "Between one motion",
+        "ga": "idir gluaiseacht amháin"
+      },
+      {
+        "en": "and the next,",
+        "ga": "agus an chéad cheann eile."
       }
     ],
     "go": [
       {
-        "en": "Come to me.",
-        "ga": "Tar chugam."
+        "en": "Now then.",
+        "ga": "Anois maise."
+      },
+      {
+        "en": "En garde.",
+        "ga": "Ar aire."
+      }
+    ],
+    "won": [
+      {
+        "en": "Well struck.",
+        "ga": "Buaille  maith."
+      },
+      {
+        "en": "But there is a place between;",
+        "ga": "Ach tá áit sa troid"
+      },
+      {
+        "en": "thou hast not found it yet.",
+        "ga": "nar aimsigh tú fós."
       }
     ],
     "moment": [
@@ -348,24 +628,8 @@ export const LINES = {
         "ga": "Mar sin! Bhí tú ann."
       },
       {
-        "en": "Time is a roaring chaos,",
-        "ga": "búiríl chíor thuathail an t-ám"
-      },
-      {
-        "en": "yet strange the mystery of it.",
-        "ga": "ach is aisteach an t-iontas é."
-      },
-      {
-        "en": "Battle may be as the rushing of the Boyne",
-        "ga": "Beidh an cath mar tulce na Bóinne"
-      },
-      {
-        "en": "And yet in the red work,",
-        "ga": "Ach fós i measc an obair dhearg,"
-      },
-      {
-        "en": "The mind becomes a dwelling that others cannot reach.",
-        "ga": "Seasann an aigne i nglan-radharc ar an taobh eile."
+        "en": "Strike as lightning.",
+        "ga": "Buail mar thintreach."
       }
     ],
     "after": [
@@ -375,7 +639,7 @@ export const LINES = {
       },
       {
         "en": "Enough.",
-        "ga": "Is leoir sin."
+        "ga": "Is leor sin."
       }
     ]
   },

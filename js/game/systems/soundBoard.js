@@ -15,6 +15,11 @@
  *   window._phaserAudioContext = this.sound.context
  */
 
+import { WorldBus } from './worldBus.js'
+
+// the real destination, round the world's muffling (bullet time): for the sounds that belong to the slow itself
+const _dry = ctx => WorldBus.dry(ctx)
+
 // ── Phaser audio keys ─────────────────────────────────────────────────────────
 const SOUNDS = {
   ARROW_SHOOT:        ['arrowShoot1', 'arrowShoot2', 'arrowShoot3'],
@@ -48,6 +53,10 @@ const VOLUMES = {
 // ── Main API ──────────────────────────────────────────────────────────────────
 
 export const SoundBoard = {
+
+  // how slow time is running (1 = not at all; bullet time sets it, meleeBout.js): playWeb hands it on to the synths
+  // that care, as opts.slowK (footsteps come down heavy)
+  slowK: 1,
 
   /**
    * Get a ready AudioContext from any source.
@@ -106,6 +115,7 @@ export const SoundBoard = {
       return
     }
     try {
+      if (this.slowK < 0.9 && opts.slowK === undefined) opts = { ...opts, slowK: this.slowK }
       fn(c, opts)
     } catch (e) {
       console.warn(`[SoundBoard] Synth error for "${key}":`, e.message)
@@ -434,18 +444,28 @@ const SYNTH = {
   },
 
   FOOTSTEP_GRASS(ctx, opts = {}) {
-    // Soft earth thump — sub-bass sine, very short, barely audible
+    // Soft earth thump — sub-bass sine, very short, barely audible.
+    // In bullet time (opts.slowK < 1: SoundBoard.playWeb) it comes down heavy and long, with a duller body above the
+    // sub so that a phone can play it.
     const now  = ctx.currentTime
-    const vol  = opts.volume ?? 0.12
+    const slow = (opts.slowK ?? 1) < 0.9
+    const vol  = (opts.volume ?? 0.12) * (slow ? 2.2 : 1)
+    const len  = slow ? 0.22 : 0.07
     const osc  = ctx.createOscillator()
     const g    = ctx.createGain()
     osc.type   = 'sine'
-    osc.frequency.setValueAtTime(70, now)
-    osc.frequency.exponentialRampToValueAtTime(40, now + 0.06)
+    osc.frequency.setValueAtTime(slow ? 56 : 70, now)
+    osc.frequency.exponentialRampToValueAtTime(slow ? 30 : 40, now + (slow ? 0.2 : 0.06))
     g.gain.setValueAtTime(vol, now)
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.07)
+    g.gain.exponentialRampToValueAtTime(0.001, now + len)
     osc.connect(g); g.connect(ctx.destination)
-    osc.start(now); osc.stop(now + 0.08)
+    osc.start(now); osc.stop(now + len + 0.01)
+    if (slow) {
+      const b = ctx.createOscillator(), bg = ctx.createGain()
+      b.type = 'triangle'; b.frequency.setValueAtTime(130, now); b.frequency.exponentialRampToValueAtTime(70, now + 0.16)
+      bg.gain.setValueAtTime(vol * 0.7, now); bg.gain.exponentialRampToValueAtTime(0.001, now + 0.18)
+      b.connect(bg); bg.connect(ctx.destination); b.start(now); b.stop(now + 0.2)
+    }
   },
 
   FOOTSTEP_FOREST(ctx, opts = {}) {
@@ -803,31 +823,48 @@ const SYNTH = {
   },
 
   FOCUS(ctx, opts = {}) {
-    // Bullet time: a low swell that sinks as time slows, and rises back as it returns.
-    const now = ctx.currentTime, on = opts.on !== false, vol = opts.volume ?? 0.18
+    // Bullet time. Going in, the world is pulled away: a rush of air sweeping down, a low swell sinking, a thud you can
+    // feel (set where a phone's speaker can play it), then one low string left to ring through the slow. Coming out:
+    // the rush swept back up and the swell rising -- an exhale. All of it goes round the world's muffling (_dry), so the
+    // slow's own sounds stay clear.
+    const now = ctx.currentTime, on = opts.on !== false, vol = opts.volume ?? 0.18, out = _dry(ctx)
     const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter()
     o.type = 'sine'; f.type = 'lowpass'; f.frequency.value = 600
     o.frequency.setValueAtTime(on ? 260 : 70, now); o.frequency.exponentialRampToValueAtTime(on ? 70 : 240, now + 0.28)
     g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(vol, now + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.32)
-    o.connect(f).connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.36)
+    o.connect(f).connect(g).connect(out); o.start(now); o.stop(now + 0.36)
+    // the rush of air: down through the band going in, up coming out
+    const n = _bladeNoise(ctx, 0.5), bp = ctx.createBiquadFilter(), ng = ctx.createGain()
+    bp.type = 'bandpass'; bp.Q.value = 1.1
+    bp.frequency.setValueAtTime(on ? 4200 : 260, now); bp.frequency.exponentialRampToValueAtTime(on ? 260 : 4200, now + (on ? 0.34 : 0.42))
+    ng.gain.setValueAtTime(0.0001, now); ng.gain.linearRampToValueAtTime(vol * (on ? 1.5 : 1), now + 0.08); ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.48)
+    n.connect(bp).connect(ng).connect(out); n.start(now); n.stop(now + 0.5)
     if (!on) return
+    // the thud: a kick, low enough to feel and high enough to hear
+    const k = ctx.createOscillator(), kg = ctx.createGain(), kt = now + 0.02
+    k.type = 'sine'; k.frequency.setValueAtTime(170, kt); k.frequency.exponentialRampToValueAtTime(55, kt + 0.18)
+    kg.gain.setValueAtTime(vol * 1.8, kt); kg.gain.exponentialRampToValueAtTime(0.0001, kt + 0.3)
+    k.connect(kg).connect(out); k.start(kt); k.stop(kt + 0.34)
     // and going in, one low string, left to ring through the slow
-    for (const [hz, type, k] of [[73.42, 'triangle', 1], [146.83, 'sine', 0.35], [220.0, 'sine', 0.12]]) {
+    for (const [hz, type, kk] of [[73.42, 'triangle', 1], [146.83, 'sine', 0.35], [220.0, 'sine', 0.12]]) {
       const so = ctx.createOscillator(), sg = ctx.createGain(), t = now + 0.03
       so.type = type; so.frequency.setValueAtTime(hz, t)
-      sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(vol * 0.7 * k, t + 0.008); sg.gain.exponentialRampToValueAtTime(0.0005, t + 2.6)
-      so.connect(sg).connect(ctx.destination); so.start(t); so.stop(t + 2.7)
+      sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(vol * 0.7 * kk, t + 0.008); sg.gain.exponentialRampToValueAtTime(0.0005, t + 2.6)
+      so.connect(sg).connect(out); so.start(t); so.stop(t + 2.7)
     }
   },
 
   FOCUS_BEAT(ctx, opts = {}) {
-    // A slow heartbeat, lub-dub, while time is slow.
-    const now = ctx.currentTime, vol = opts.volume ?? 0.22
+    // The slow's heartbeat, lub-dub. A phone's speaker cannot play 50 Hz, so each beat has its low body AND a duller
+    // knock above it (2.7 times the pitch), so it is heard and not only felt.
+    const now = ctx.currentTime, vol = opts.volume ?? 0.3, out = _dry(ctx)
     for (const [t, v, hz] of [[0, 1, 62], [0.2, 0.7, 52]]) {
-      const o = ctx.createOscillator(), g = ctx.createGain()
-      o.type = 'sine'; o.frequency.setValueAtTime(hz * 1.5, now + t); o.frequency.exponentialRampToValueAtTime(hz, now + t + 0.09)
-      g.gain.setValueAtTime(vol * v, now + t); g.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.26)
-      o.connect(g).connect(ctx.destination); o.start(now + t); o.stop(now + t + 0.3)
+      for (const [mul, kv, type, len] of [[1, 1, 'sine', 0.26], [2.7, 0.55, 'triangle', 0.16]]) {
+        const o = ctx.createOscillator(), g = ctx.createGain()
+        o.type = type; o.frequency.setValueAtTime(hz * mul * 1.5, now + t); o.frequency.exponentialRampToValueAtTime(hz * mul, now + t + 0.09)
+        g.gain.setValueAtTime(vol * v * kv, now + t); g.gain.exponentialRampToValueAtTime(0.0001, now + t + len)
+        o.connect(g).connect(out); o.start(now + t); o.stop(now + t + 0.3)
+      }
     }
   },
 

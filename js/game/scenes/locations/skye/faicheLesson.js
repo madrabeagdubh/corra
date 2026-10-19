@@ -25,14 +25,14 @@
 //             Note: faiche_salute_done
 //   THE FORM  "Swords!" -- en garde, all of you. Then the Warden counts and
 //             the line moves as one: step forward, cut, step back, cut,
-//             step left, cut, step right, cut, cut, cut, gather, release.
+//             step left, cut, step right, cut, cut, cut, cut, cut.
 //             Twelve beats; nobody tells you the moves after the first two
 //             rounds -- watch the others. Each round he scores you; nine
 //             beats of twelve and he's satisfied (or after six rounds he
 //             lets it go). Note: faiche_kata_done
 //   PAIR OFF  the students pair off and practise at the edges of the green.
 //   THE DUMMY the Warden fetches a dummy and carries it out to you. Hit it:
-//             cuts (2), strong blows (6), shoves -- walk into it -- (3), to
+//             cuts (2), shoves -- walk into it -- (3), to
 //             fifty. A tally over it; the camera closes in. Note faiche_dummy_done
 //   FOOTWORK  "Draw your path with a finger, and cut as you pass": three cuts
 //             at the dummy while walking a drawn route. Note faiche_footwork_done
@@ -89,7 +89,7 @@ const KATA = [
   ['left', 'A cúig', 'Five', 'step left'],           ['strike', 'A sé', 'Six', 'cut'],
   ['right', 'A seacht', 'Seven', 'step right'],      ['strike', 'A hocht', 'Eight', 'cut'],
   ['strike', 'A naoi', 'Nine', 'cut'],               ['strike', 'A deich', 'Ten', 'cut'],
-  ['gather', 'A haon déag', 'Eleven', 'hold: gather a strong blow'], ['release', 'A dó dhéag', 'Twelve', 'let it go'],
+  ['strike', 'A haon déag', 'Eleven', 'cut'],        ['strike', 'A dó dhéag', 'Twelve', 'cut'],     // (the long hold is the tournament's to teach)
 ].map(([move, ga, en, name]) => ({ move, ga, en, name }))
 const STEP = { forward: [0, -1], back: [0, 1], left: [-1, 0], right: [1, 0] }
 // where the pairs go to practise, out of the way
@@ -127,7 +127,7 @@ const LINES = {
   pairOff:    L('Pair off, and practise. You -- stay.'),
   placeAgain: L('Back to your place.'),
   fetch:      L('Stay there. I will bring you something that hits back less.'),
-  dummy:      L('Hit it. Cut, strong blows -- and walk into it, to shove. Fifty.'),
+  dummy:      L('Hit it. Cut -- and walk into it, to shove. Fifty.'),
   dummyDone:  L('Enough. It has had enough.'),
   feet:       L('Now your feet. Draw your path with a finger, and cut as you pass.'),
   passOne:    L('One.'),
@@ -145,7 +145,7 @@ const HINTS = {
   salute: L('Swipe up on the moon to draw. Swipe up again to salute.'),
   sheathe: L('Swipe down on the moon to put your sword away.'),
   garde:  L('Swipe up on the moon to draw your sword.'),
-  form:   L('Step with the brooch; tap the moon to cut; hold it and let go for a strong blow.'),
+  form:   L('Step with the brooch; tap the moon to cut.'),
   feet:   L('Drag a finger from yourself across the grass, past the dummy. Tap the moon as you go by.'),
 }
 const WARDEN_COLOR = INK.conall, UATHACH_COLOR = INK.uathach, HINT_COLOR = INK.narrator

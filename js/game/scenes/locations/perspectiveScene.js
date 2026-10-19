@@ -1013,6 +1013,12 @@ try {
         this._menuPreview.style.opacity = '0'
         this._menuHub?.open()
       },
+      // turn the hoop a full round, the pin comes free: the menu (as the long press does; both are kept, to compare)
+      onRingRelease: () => {
+        if (this._moonOwner?.claimsLongPress?.()) return
+        if (Date.now() - (this._lastMenuClose ?? 0) < 400) return
+        this._menuHub?.open()
+      },
       onLongPressCancel: () => {
         this.joystick?.drawChargeGlow(0)
         this._menuPreview.style.opacity = '0'

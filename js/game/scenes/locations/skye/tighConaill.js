@@ -72,9 +72,9 @@ const ZOOM = 1.3                                        // a small room: come in
 // The light in the room: a CSS filter on the two world canvases, with the hearth's glow over it.
 // Waking is dark, the fire the only light; when the curtain is drawn the day comes in, but it is raining, so it is grey.
 const LIGHT_DARK = 'brightness(0.34) contrast(1.08) saturate(0.85)'
-const LIGHT_DAY  = 'brightness(1.16) contrast(0.94) saturate(0.45)'
+const LIGHT_DAY  = 'brightness(1.14) contrast(0.95) saturate(0.62)'
 const FIRE_LIT   = { dark: 0.85, day: 0.3, reach: 3.2 }   // the hearth's glow: strength (waking / curtain open), reach in tiles
-const DAY_WASH   = { color: 0xa7b6c2, alpha: 0.12 }       // a faint cool cast over the room when the day is in
+const DAY_WASH   = { color: 0xb8a0d0, alpha: 0.2 }        // the cast over the room when the day is in: the violet-rose of the dawn (the garden and the yard go on in it, dawnLight.js)
 
 // Looking at things in here: each is offered only from its own spot (px from the spot; a tile is 48). A thing on a blocked
 // tile (the bed, the firewood) is looked at from the tile beside it. The clothes keep the island's wider reach.
@@ -654,10 +654,10 @@ export class TighConaill extends SkyeScene {
     }
     const fill = (pts, col, a) => { g.fillStyle(col, a); g.fillPoints(pts, true) }
     for (const [q, n, m, gap] of [[floor, 2, 2, 0.035]]) {
-      fill(paneQuad(floor, 0, 0, 1, 1, -0.06), 0xe3eaf0, 0.05 * D.k)      // a soft spread behind the panes
-      for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) fill(paneQuad(q, i, j, n, m, gap), 0xe6edf2, 0.13 * D.k)
+      fill(paneQuad(floor, 0, 0, 1, 1, -0.06), 0xf2d6e0, 0.06 * D.k)      // a soft spread behind the panes
+      for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) fill(paneQuad(q, i, j, n, m, gap), 0xf4dce6, 0.14 * D.k)
     }
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) fill(paneQuad(wall, i, j, 2, 2, 0.03), 0xf0f5f8, 0.42 * D.k)   // the window itself, pale and grey
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) fill(paneQuad(wall, i, j, 2, 2, 0.03), 0xfbe6ec, 0.44 * D.k)   // the window itself, pale and rose
   }
 
   // The brooch: a small bronze square, tossed from Conall's hand across the room onto the clothes on the

@@ -5,38 +5,62 @@
 
 export const LINES = {
   "meet": {
-    "intro": {
-      "say": [
-        {
-          "en": "Óró! Thou art upon thy feet again.",
-          "ga": "Óró! Tá tú ar do chosa arís."
-        },
-        {
-          "en": "Art thou ready?",
-          "ga": "An bhfuil tú ullamh?"
-        }
-      ],
-      "ask": [
-        {
-          "en": "I am.",
-          "ga": "Tá mé.",
-          "value": "on",
-          "next": {
-            "say": [
-              {
-                "en": "Good.",
-                "ga": "Go maith."
-              }
-            ]
-          }
-        },
-        {
-          "en": "Not yet.",
-          "ga": "Ní go fóill.",
-          "value": "wait"
-        }
-      ]
-    },
+    "look": [
+      {
+        "en": "The young warriors come here to fight",
+        "ga": "Tagann na n-Óglaigh anseo chun troid"
+      },
+      {
+        "en": "as hawks of the sunburst",
+        "ga": "mar seabhaigh an Gal gréine"
+      }
+    ],
+    "look2": [
+      {
+        "en": "But look well yonder",
+        "ga": "But look well yonder"
+      },
+      {
+        "en": "Ach féach tusa tháll",
+        "ga": "Ach féach tusa tháll"
+      }
+    ],
+    "look3": [
+      {
+        "en": "No light strikes",
+        "ga": "Ní bhuaileann solas"
+      },
+      {
+        "en": "nor trick of shadow deceives her fixation",
+        "ga": "ná scáth cleas ar a ghrinniú"
+      },
+      {
+        "en": "little by little the heron becomes",
+        "ga": "an Corr de réir a chéile ag"
+      },
+      {
+        "en": "the enlightnement",
+        "ga": "an léargais"
+      }
+    ],
+    "look4": [
+      {
+        "en": "an marú",
+        "ga": "the kill"
+      },
+      {
+        "en": "everything I could hope to teach",
+        "ga": "Tá gach ceacht atá agam"
+      },
+      {
+        "en": "is revealed by the heron",
+        "ga": "múinte ag an gcorr"
+      },
+      {
+        "en": "We begin.",
+        "ga": "Tosaímid."
+      }
+    ],
     "stand": [
       {
         "en": "Now. Stand here.",

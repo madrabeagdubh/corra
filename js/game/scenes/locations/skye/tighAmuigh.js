@@ -19,13 +19,14 @@ import { checkLook } from './skyeLook.js'
 import { setupTapOnly } from './skyeTapOnly.js'
 import { TighConaill } from './tighConaill.js'
 import { chimneySmoke } from './skyeFx.js'
+import { DawnLight } from './dawnLight.js'
 
 const ACROSS = 4.8, HORIZON = 0.22, CAMROWS = 7, HERO_SCALE = 1.1
 
 export class TighAmuigh extends SkyeScene {
   constructor() { super({ key: 'skye_tigh_amuigh' }) }
   getMapKey() { return 'skye_tigh_amuigh' }
-  getAmbient() { return 0x8f8a7c }                       // a bright morning
+  getAmbient() { return 0x8f8a7c }                       // (the dawn's light is over it: dawnLight.js)
 
   async create(data) {
     await super.create(data)
@@ -41,6 +42,9 @@ export class TighAmuigh extends SkyeScene {
     if (this.perspectiveGround) { this.perspectiveGround._cameraRowOffset = R.CAMERA_ROW_OFFSET; this.perspectiveGround._horizonYFrac = R.HORIZON_Y_FRAC; this.perspectiveGround._lastCamX = null }
     this._caption = new SkyeCaption({ scene: this, color: '#e6dcc0' })
     this.events.once('shutdown', () => { R.PLAYER_SCALE = R._psDefault; R.TILES_ACROSS = R._taDefault; R.HORIZON_Y_FRAC = R._hzDefault; R.CAMERA_ROW_OFFSET = R._camDefault; this._caption?.destroy(); this._caption = null; this._tapOff?.() })
+    this._light = new DawnLight(this)                    // the dawn goes on from the room, out of the door and down the path
+    this._light.set(1, true)
+    this.events.once('shutdown', () => { this._light?.destroy(); this._light = null })
     this.cameras.main.fadeIn(350, 0, 0, 0)
   }
 

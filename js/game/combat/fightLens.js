@@ -96,6 +96,9 @@ export default class FightLens {
   update(dt) {
     const g = this.pgr, m = this.m
     if (!g?._sh) return
+    // a scene's set piece (scene.lensLook(dt) -> a lens, or null) takes the camera over while it is on
+    const look = this.scene.lensLook?.(dt)
+    if (look) { this.cur.w = 0; this.cur.z = 1; g._lens = look; this.active = true; return }
     const bout = !m.noFoe && (m.combat || m.bout.over)
     this._focus = bout ? null : (this.scene.lensFocus?.() || null)
     const live = bout || !!this._focus

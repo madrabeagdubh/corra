@@ -241,45 +241,69 @@ const MAPS = {
   skye_gairdin: {
     exits: { east: 'skye_cladach' },
     spawn: { x: 30, y: 18 },
+    extraEntries: { northwest: { x: 5, y: 6 } },    // from Conall's yard (its south exit): dry ground by the lake, the path starts here
+    vista: 'skye_gairdin_n',    // the lake's far shore and the hills behind it, drawn beyond row 0, never entered
     build(n) {
-      // ── Uathach's ráth (skye/skyeGairdin.js) ──────────────────────────
-      // A gentle ringfort, like Tara: concentric rises in the land, a ripple
-      // from a drop of water, walkable everywhere -- a comfort, not a
-      // defence. From the centre out:
-      //   the board   a round floor of stones, inlaid as a sun wheel in
-      //               four colours (kata.js inlay), the lár at its heart
-      //   the tier    one low raised ring to sit on and watch from
-      //   the bank    a soft outer rampart, then the open field
-      // Radii in tiles from the lár's centre; every rise stays well under
-      // the 0.6 climb limit.
+      // ── Conall's training ground (skye/skyeGairdin.js) ────────────────
+      // A raised plateau of beaten earth, so the rain never floods it, with
+      // the board of stones at its heart (kata.js: the step drills use it).
+      // North of it the land falls to the shore of a lake: rows 0-3 or so
+      // are water (not walkable), and the lake runs on into the distance
+      // (the far backdrop, painted by the scene). Conall waits at the
+      // plateau's north edge (LEDGE_AT in faicheCourse.js) looking out over
+      // the water. A path comes in from the north-west corner, along the
+      // shore, and climbs onto the plateau from the west.
+      //   the board    a round floor of stones, inlaid as a sun wheel (kata.js)
+      //   the plateau  flat, radius R_TOP from the lár, then a firm bank down
+      //   the field    open ground, wildflowers beyond FLORA_FROM
+      //   the shore    water in the north rows, an uneven edge
+      // Every slope stays well under the 0.6 climb limit.
       const cx = LAR[0] + 0.5, cy = LAR[1] + 0.5
       const smooth = (a, b, r) => { const t = Math.max(0, Math.min(1, (r - a) / (b - a))); return t * t * (3 - 2 * t) }
+      const PLAT = 1.0, FIELD = 0.36, R_TOP = 11.5, R_BANK = 3.4
       const stones = []
       const R = Math.ceil(BOARD_R)
       for (let dy = -R; dy <= R; dy++)
         for (let dx = -R; dx <= R; dx++)
           if (onBoard(dx, dy)) stones.push([LAR[0] + dx, LAR[1] + dy, inlay(dx, dy)])
+      // the lake: a C of water that we only ever see parts of. Along the north edge from column 7 eastward (the
+      // north-west corner is land, running on north to Conall's cottage: the vista), a lobe reaching down the west
+      // side to row 7 (the path from the corner goes round its foot), and a bay down the north-east. skye_gairdin_n
+      // carries on from row 0: keep its west bank (column 7.5 at the edge) in step with this.
+      const shoreRows = x => Math.max(1.05, 1.1 + 1.5 * smooth(8, 14, x) + 0.5 * n(x * 0.23, 3.1))
+      const inLake = (x, y) => {
+        const cx = x + 0.5, cy = y + 0.5
+        if (cx >= 7.5 && cy < shoreRows(cx)) return true                                            // the north strip
+        if ((((cx - 11) / 4.2) ** 2 + ((cy - 3) / 4.4) ** 2) + 0.12 * n(x * 0.3, y * 0.3) < 1) return true     // the west lobe
+        return (((cx - 33.5) / 6.5) ** 2 + ((cy - 3) / 8.5) ** 2) + 0.1 * n(x * 0.3 + 7, y * 0.3) < 1         // the north-east bay
+      }
+      const wet = grid(W, H, (x, y) => inLake(x, y))
+      const D = distTo((x, y) => wet[y][x])
       return {
-        tile: () => null,
+        tile: (x, y) => wet[y][x] ? SEA : null,
         overlay: () => 0,
         height: (x, y) => {
+          // a vertex is water if any tile touching it is; the land eases down to it over the shore's first tiles
+          const touch = [[x - 1, y - 1], [x, y - 1], [x - 1, y], [x, y]].filter(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H)
+          if (touch.some(([tx, ty]) => wet[ty][tx])) return 0
+          const d = touch.reduce((a, [tx, ty]) => a + D[ty][tx], 0) / touch.length
           const r = Math.hypot(x - cx, y - cy)
-          const floor = 0.1
-          const tier  = 0.45 * smooth(9.9, 11.2, r)                    // step up to the tier
-          const bank  = 0.55 * smooth(12.4, 14.4, r) * (1 - smooth(14.8, 17.2, r))
-          const out   = 0.25 * smooth(14.8, 17.2, r)                    // the field beyond
-          const h = floor + tier + bank + out - 0.45 * smooth(14.8, 17.2, r)
-          return h + (r > 10 ? (n(x * 0.2, y * 0.2) + 1) * 0.02 : 0)
+          const land = FIELD + (PLAT - FIELD) * (1 - smooth(R_TOP, R_TOP + R_BANK, r))
+          return (land + (r > 9 ? (n(x * 0.2, y * 0.2) + 1) * 0.02 : 0)) * smooth(0.6, 4.4, d)
         },
-        trail: [[[W - 1, LAR[1]], [LAR[0] + BOARD_R + 1, LAR[1]]]],
+        // the shore path from the north-west corner, then the way in from the harbour (east)
+        trail: [[[5, 3], [5.5, 9]], [[5.5, 9], [7.5, 14]], [[7.5, 14], [LAR[0] - BOARD_R - 1, LAR[1]]],
+                [[W - 1, LAR[1]], [LAR[0] + BOARD_R + 1, LAR[1]]]],
         trailFalloff: 1.2,
         extra: {
           stones,                                   // [x, y, colour]
           lar: LAR,
           boardR: BOARD_R,
-          // weathered standing stones: two on the tier, one out on the bank
+          // weathered standing stones: two on the plateau's rim, one out on the bank
           standingStones: [[11, 10], [27, 12], [31, 26]],
-          // wildflowers and gorse grow beyond the bank (radius, tiles)
+          // flat stones laid through the marsh along the shore path (flagstones in the grass, no ring on the water)
+          marshStones: [[5, 8], [5, 10], [6, 11], [6, 13], [7, 14], [8, 16]],
+          // wildflowers and gorse grow on the open field, beyond this radius (tiles)
           floraFrom: 15.2,
         },
       }
@@ -659,6 +683,54 @@ const MAPS = {
       }
     },
   },
+
+  // Never entered: the garden's north view (map.vista). Local row 35 is nearest the garden, row 0 farthest;
+  // heights are absolute, the lake's surface is 0 (the garden's own water rows are 0 too), so the two meet
+  // without a step. Open water is tile 0 (nothing drawn: the far backdrop's still water shows, the scene paints
+  // it); land is grass, tinted per tile. West: the bank the path comes down, with the cottage on it (drawn by
+  // skye/gairdinFar.js, near, in the background). Far side: low shore, then hills rising behind it. East: a
+  // bank closing the lake in. Beyond the hills the scene's far backdrop shows the sea.
+  skye_gairdin_n: {
+    exits: {},
+    vista: true,
+    build(n) {
+      const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
+      const FIELD = 0.36                                           // the garden's own field height
+      const vv = y => H - y                                        // tiles north of the garden's edge, at a row's south edge
+      const wb = v => 7.5 + 4.5 * smooth(5, 17, v)                 // the west bank
+      const eb = v => 38 - 9 * smooth(3, 15, v)                    // the east bank
+      const fs = x => 14.5 + 5.5 * smooth(0, 1, Math.abs(x - 19) / 15) + 1.4 * n(x * 0.2, 4.4)   // the far shore
+      const land = (x, y) => { const v = vv(y + 0.5), cx = x + 0.5; return cx < wb(v) || cx > eb(v) || v > fs(cx) }
+      const wet = grid(W, H, (x, y) => !land(x, y))
+      const D = distTo((x, y) => wet[y][x])
+      const hills = (x, v) => gauss(x, v, 14, 31, 5.5, 2.3) + gauss(x, v, 29, 34, 4.5, 2.7) + gauss(x, v, 5, 27, 4, 1.5) +
+                              gauss(x, v, 33, 22, 3.5, 1.3) + gauss(x, v, 22, 24, 3.2, 0.8) + gauss(x, v, 3, 12, 4, 0.7)
+      const vh = (x, y) => {
+        const touch = [[x - 1, y - 1], [x, y - 1], [x - 1, y], [x, y]].filter(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H)
+        if (touch.some(([tx, ty]) => wet[ty][tx])) return 0
+        const d = touch.reduce((a, [tx, ty]) => a + D[ty][tx], 0) / touch.length
+        const v = vv(y)
+        const up = (hills(x, v) + 0.1 * Math.max(0, d - 3)) * smooth(0, 5, v) * smooth(1, 4, d)
+        return FIELD * smooth(0.6, 4.4, d) + up + (n(x * 0.3, y * 0.3) + 1) * 0.02
+      }
+      return {
+        tile: (x, y) => wet[y][x] ? 0 : null,
+        height: vh,
+        trail: [],
+        extra: {
+          cottage: { x: 3.3, row: 28 },                            // local tile: Conall's cottage, on the west bank (gairdinFar.js)
+          tintGrid: grid(W, H, (x, y) => {
+            if (wet[y][x]) return null
+            const h = (vh(x, y) + vh(x + 1, y) + vh(x, y + 1) + vh(x + 1, y + 1)) / 4
+            const k = (n(x * 0.12 + 5, y * 0.12) + 1) / 2                      // slow patches, not tile by tile (the grid shows through otherwise)
+            const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t))
+            const marsh = [76 + 8 * k, 22, 25 + 2 * k], turf = [94 + 10 * k, 23, 34 + 3 * k], heath = [99 + 6 * k, 16, 40 + 3 * k]
+            return mixc(mixc(marsh, turf, smooth(0.15, 0.6, h)), heath, smooth(1.2, 2.4, h))
+          }),
+        },
+      }
+    },
+  },
 }
 
 // ── build ───────────────────────────────────────────────────────────────────
@@ -723,6 +795,7 @@ for (const [name, m] of Object.entries(built)) {
   }
   // Arrivals keep the row/column they crossed at (see LAND).
   if (m.def.vista !== true) for (const dir of ['north', 'south', 'east', 'west']) entries[dir] = ENTRIES[dir]
+  Object.assign(entries, m.def.extraEntries)
 
   const t = m.t
   const map = {

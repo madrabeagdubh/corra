@@ -179,6 +179,7 @@ const CARD_DANCE_HOP_PX    = 9
 // Gap between rows that share one merged beat. Smaller than a full
 // beat's own spacing -- this is a breath, not a pause.
 const CARD_INTRA_BEAT_STAGGER_MS = 220
+const FOCUS_GRACE_MS      = 900     // how long the world stays out of focus after the last words close, in case more follow
 const CARD_DANCE_TILT      = 0.05    // radians at the top of a hop
 // The player's own line is held for exactly one motif plus this, rather than
 // for a share of its reading time. They've already read it -- it was the button
@@ -303,13 +304,28 @@ export default class TextPanel {
   /** The colour of the speaker's Irish in cards, for this conversation (ui/speakers.js inkFor); null for the default. */
   setSpeakerInk(ink) { this._speakerInk = ink || null }
 
+  /**
+   * The world goes out of focus for words, and back into focus when they are done, but a card that is followed straight
+   * by another (one conversation ending as the next begins, a beat between two) must not pull focus and push it again.
+   * So the way back is held for FOCUS_GRACE_MS: a card shown in that time cancels it and the blur simply carries on.
+   */
+  _focusHold(on) {
+    clearTimeout(this._focusT); this._focusT = null
+    if (on) { this.scene?.tiltShift?.setDialogueMode(true); return }
+    this._focusT = setTimeout(() => {
+      this._focusT = null
+      if (this.isVisible && !this.isFading) return                    // (words are up again: stay blurred)
+      try { this.scene?.tiltShift?.setDialogueMode(false) } catch (_) {}
+    }, FOCUS_GRACE_MS)
+  }
+
   show(config) {
     // Words in a card: any caption over the action steps aside first, so the
     // two never overlay (SkyeCaption listens).
     try { window.dispatchEvent(new CustomEvent('textPanelShow')) } catch (_) {}
     // Throw the world out of focus so the text is the only sharp thing.
     // Safe if the scene has no tilt-shift; safe to call repeatedly.
-    this.scene?.tiltShift?.setDialogueMode(true)
+    this._focusHold(true)
 
     const {
       irish     = '',
@@ -506,7 +522,7 @@ export default class TextPanel {
     // (keepChrome) leaves the world out of focus: releaseChrome() brings
     // it back when the conversation ends. Any other panel restores here.
     if (!(keepChrome && this.currentPanelType === 'encounter_card')) {
-      this.scene?.tiltShift?.setDialogueMode(false)
+      this._focusHold(false)
     }
     this.isFading = true
     const _wasCard = (this.currentPanelType === 'encounter_card')
@@ -1959,7 +1975,7 @@ if (this.currentPanelType === 'encounter_card') {
   releaseChrome() {
     // The conversation is over: back into focus. (hide() leaves the
     // blur up between cards, so the blur persists across a conversation.)
-    this.scene?.tiltShift?.setDialogueMode(false)
+    this._focusHold(false)
     if (!this._chrome.length) { this._chromeGeom = null; return }
     const targets = [...this._chrome]
     this._chrome     = []

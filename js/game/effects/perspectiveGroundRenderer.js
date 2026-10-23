@@ -1153,6 +1153,7 @@ const proj  = this._projectLogical(p.logicalX, _footY)
               } else {
                 mTint = this.tintManager.getTint(mGid, mCol, mRow)
               }
+              if (_isWaterM) mTint = this.scene?.waterTint?.(mTint, mRow) ?? mTint      // (the water past the map's edge too: skyeGairdin.js waterTint)
 
               // Elevation offset comes from the MIRRORED tile's own
               // real height (so hills/contours genuinely repeat),
@@ -1278,6 +1279,8 @@ const _rawGid0 = layer0[tileRow]?.[tileCol] ?? 0
             } else {
               tint0 = this.tintManager.getTint(gid0, tileCol, tileRow)
             }
+            // a scene's light on its water (the dawn of the heron set piece: skyeGairdin.js waterTint)
+            if (_rawGid0 === 1625 || _rawGid0 === 1679) tint0 = this.scene?.waterTint?.(tint0, tileRow) ?? tint0
 
             const _sTop = this._scaleAtRow(tileRow)
             const _sBot = this._scaleAtRow(tileRow + 1)

@@ -39,20 +39,47 @@
 @out js/game/scenes/locations/skye/courseLines.js
 
 == meet
-# He is waiting in the ráth; this card opens when you come in sight.
+# He stands at the lake's edge watching the heron; the set piece opens when you walk up to him.
 
-= intro
-Óró! Thou art upon thy feet again.
-% Óró! Tá tú ar do chosa arís.
-Art thou ready?
-% An bhfuil tú ullamh?
-* I am.
-% Tá mé.
-< Good.
-% Go maith.
-* Not yet.
-% Ní go fóill.
-@value wait
+= look
+The young warriors come here to fight 
+% Tagann na n-Óglaigh anseo chun troid
+
+as hawks of the sunburst
+% mar seabhaigh an Gal gréine
+
+= look2
+ 
+But look well yonder
+Ach féach tusa tháll
+= look3
+
+No light strikes 
+% Ní bhuaileann solas 
+
+nor trick of shadow deceives her fixation 
+% ná scáth cleas ar a ghrinniú
+
+little by little the heron becomes
+%  an Corr de réir a chéile ag 
+
+the enlightnement
+% an léargais
+
+
+
+= look4
+
+
+an marú
+% the kill
+
+everything I could hope to teach
+% Tá gach ceacht atá agam
+is revealed by the heron
+% múinte ag an gcorr
+We begin.
+% Tosaímid.
 
 # a caption, as he calls you to the marked stone
 = stand

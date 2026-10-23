@@ -85,8 +85,7 @@ export const LEDGE_AT = [18, 7]            // where he waits: the ledge built in
 export const FIGHT_AT = [16, 18]           // where he stands to teach, and fights: two tiles west of the mark, facing you
 // lessons that start with you on the mark: if you have wandered, you are walked back
 const HOME_LESSONS = new Set(['space', 'sword', 'calls', 'duel'])   // (the target lessons start where you are: by him)
-const MEET_RANGE = 6                       // or this near the lár, whatever the camera shows
-const ASK_AGAIN_NEAR = 2, ASK_AGAIN_AWAY = 5   // "not yet": he asks again once you have been this far off, and come back this near
+const MEET_NEAR = 4                       // walk this close to him and the set piece begins
 const STAND_IN = new Set(['fatigue', 'strong', 'dummy', 'feet'])   // lessons he stands in as a target for
 const DRAWS = 3                             // the sword lesson: draw, (sheathe, draw) x2
 const NEAR_FIGHT = 4                       // a bout starts within 5 tiles of him
@@ -401,7 +400,8 @@ export default class FaicheCourse {
       // rack the focus onto him
       try {
         const m = this.m, box = figureBox(sc, m.foe.c, m.foe.r), pgr = sc.perspectiveGround
-        if (box && pgr?._sh) sc.tiltShift?.setDialogueMode(true, (box.y - box.h * 0.5) / pgr._sh)
+        if (sc._focusY != null) sc.tiltShift?.setDialogueMode(true, sc._focusY)          // (the opening: the focus is on the lake)
+        else if (box && pgr?._sh) sc.tiltShift?.setDialogueMode(true, (box.y - box.h * 0.5) / pgr._sh)
       } catch (_) {}
     }
     if (wait) sc.time.delayedCall(wait, begin); else begin()
@@ -495,35 +495,59 @@ export default class FaicheCourse {
     const S = SCRIPT.meet
     this.id = 'meet'
     this.m.HOME = [...LEDGE_AT]
-    // he speaks when we come in sight of the ring, not while we are still a long way off.
-    // "Art thou ready?" -- "I am": to the mark. "Not yet": you are free to go about the place;
-    // he asks again when you have been away from him and come back (see _waitTick).
-    this._meetWait = () => this._converse(S.intro, v => {
-      if (v === 'wait') { this.id = 'waiting'; this._wandered = false; return }
-      GameState.addNote(MET)
-      this._toMark(() => this._speech(S.stance, () => this._speech(S.stance2, () => this._next())))
-    })
-  }
-  /** "not yet": once you have gone off and come back to him, he asks again */
-  _waitTick() {
-    if (this.id !== 'waiting' || this.speaking || this.scene._encounterPanel?._isOpen) return
-    const f = this.m.foe, d = cheb(this._tile(), [f.c, f.r])
-    if (d >= ASK_AGAIN_AWAY) this._wandered = true
-    else if (this._wandered && d <= ASK_AGAIN_NEAR) { this._meet(); const go = this._meetWait; this._meetWait = null; this._later(300, go) }
+    // He stands watching the heron. When you walk up to him the set piece begins (see _watch): the camera
+    // comes round behind the two of you to the lake, and the heron moves as each card is scrolled away.
+    this._meetWait = () => this._watch()
   }
 
-  // He speaks once he is on the screen (or we are well into the ring), not while we are still a long way off.
-  _inSight() {
-    const sc = this.scene, pgr = sc.perspectiveGround, p = sc.player
-    if (!pgr || !p) return false
-    const ts = sc.tileSize, c = sc.mapData?.lar ?? [18, 18]
-    if (Math.hypot(p.logicalX / ts - c[0], p.logicalY / ts - c[1]) <= MEET_RANGE) return true
-    const f = (pgr._encounterFlags || []).find(o => o.visual?.gid === SKYE_GID.WARDEN)
-    if (!f) return true
-    const pr = pgr._projectLogical((f.tileX + 0.5) * pgr.tileDisplaySize, (f.tileY + 0.5) * pgr.tileDisplaySize)
-    if (!pr) return false
-    const W = sc.scale.width, H = sc.scale.height
-    return pr.screenX > 50 && pr.screenX < W - 50 && pr.screenY > H * 0.25 && pr.screenY < H * 0.8
+  /** the opening: three cards, and the heron acts when each is dismissed (so at the right moment, whatever the reading speed) */
+  _watch() {
+    const S = SCRIPT.meet, sc = this.scene
+    this._lock(true)
+    GameState.addNote(MET)
+    // (you both stay where you are: the camera frames the pair of you from behind, wherever you stand)
+    const f = this.m.foe, me = this._tile(), look = f ? { col: (me[0] + f.c) / 2 + 0.5, row: (me[1] + f.r) / 2 + 0.5 } : null
+    // the heron is hidden in a fog that thins as the cards go by, and the light goes from pink dawn toward grey morning
+    // the words blur the world, but here the middle of the picture stays clear: the lake, and what is in it
+    const tsh = sc.tiltShift
+    if (tsh?.cfg) { this._tsKeep = tsh.cfg.dialogue; tsh.cfg.dialogue = { ...tsh.cfg.dialogue, focusHeight: 0.5, farBlur: 6, nearBlur: 8, farHold: 0.5, nearHold: 0.5, dim: 0.18 }; sc._focusY = 0.36 }
+    sc.setFog?.(1, 0)
+    sc.heronVis?.(0, 1)
+    sc.heronZoom?.(1, 1)
+    sc.setPiece?.(true, look)
+    sc.setMood?.(1)
+    // The heron is not seen at first: Conall may only be admiring the lake. The picture pushes in while he talks (the garden and
+    // the two of you slide down to the bottom edge) and she comes up out of the fog. From then on she acts when each card is
+    // dismissed, so it is the reading that times it.
+    const finish = () => {
+      sc.setMood?.(0, 90000)                                       // the dawn drains to grey, slowly...
+      sc.setGrey?.(0, 240000)                                      // ...and the grey morning clears to full day over minutes, through the lessons: nobody sees it go
+      sc.setFog?.(0, 150000)
+      sc.setPiece?.(false); sc.heronZoom?.(1, 2500)
+      if (tsh?.cfg && this._tsKeep) { tsh.cfg.dialogue = this._tsKeep; this._tsKeep = null }
+      sc._focusY = null
+      this._lock(false)
+      this._later(1000, () => this._toMark(() => this._speech(S.stance, () => this._speech(S.stance2, () => this._next()))))
+    }
+    this._later(1500, () => { sc.setFog?.(0.78, 16000); sc.heronVis?.(1, 15000); sc.heronZoom?.(2.4, 9000); this._speech(S.look, () => {
+      this._later(0, () => this._speech(S.look2, () => {
+        sc.heronPlay?.('walk')                                     // a few slow steps (the head held still while the body moves), then she is still and takes aim
+        sc.setFog?.(0.12, 9000); sc.setMood?.(0.8, 20000)
+        this._later(8000, () => this._speech(S.look3, () => {      // (the eye, while she aims)
+          sc.heronPlay?.('strike')                                 // "until..."
+          sc.setFog?.(0, 5000); sc.setMood?.(0.55, 20000)
+          const t0 = this.t
+          this._later(5400, () => { sc.heronPlay?.('leave'); sc.setFog?.(1, 9000); sc.heronVis?.(0, 8000) })     // she stalks away into the fog
+          this._later(800, () => this._speech(S.look4, () => this._later(Math.max(0, 7000 - (this.t - t0)), finish)))     // "There!"
+        }))
+      }))
+    }) })
+  }
+
+  /** you have walked up to him */
+  _nearHim() {
+    const f = this.m.foe
+    return !!f && cheb(this._tile(), [f.c, f.r]) <= MEET_NEAR
   }
 
   // stand on the mark, then go on
@@ -1373,8 +1397,7 @@ export default class FaicheCourse {
     this.t += Math.min(50, dt)
     this._zoneTick()
     for (const q of this.queue.slice()) if (this.t >= q.at) { this.queue.splice(this.queue.indexOf(q), 1); q.fn() }
-    if (this._meetWait && !this.scene._encounterPanel?._isOpen && this._inSight()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
-    this._waitTick()
+    if (this._meetWait && !this.scene._encounterPanel?._isOpen && !this.speaking && this._nearHim()) { const f = this._meetWait; this._meetWait = null; this._later(700, f) }
     this._foeWaitTick()
     { const tl = this._tile(), lt = this._lastTile                            // your steps, counted (the passing lesson)
       if (lt && (tl[0] !== lt[0] || tl[1] !== lt[1])) { this.stepT = this.t; this.stepN = (this.stepN || 0) + 1 }

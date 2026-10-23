@@ -77,6 +77,15 @@ const CADENCE_NOTES = 8      // most of the champion's theme quoted at the close
 // started underneath the tail of her motif -- which is why it sounded like her
 // tune rather than a reply to it.
 const CADENCE_LEAD_MS = 420
+// A card that closes is not always the END of the conversation: the course and the houses show a speech as one card after
+// another. The sign-off therefore waits this long (and is not played at all if another conversation opens within it: that
+// one carries on where the tune left off, with no new opening flourish). Before, the sting was scheduled at once and the
+// next card opened on top of it -- its flourish and its first phrases, from the START of the tune, sounding over the sting
+// from the END of it: the jangle.
+const CHAIN_MS = 1100
+// When a conversation opens while an earlier one is still ringing (its sting, or the last of its phrases), the old sound
+// is faded out over this, not left to sound under the new.
+const FADE_OUT_MS = 350
 
 // Most notes of tune the reading may bank ahead of the harp. Past this, a
 // fast scroll simply doesn't earn more -- otherwise the music plays on long
@@ -234,6 +243,9 @@ class DialogueHarpImpl {
     // champion's key so the two trade phrases instead of colliding.
     this.npc      = { notes: [], idx: 0, baseBar: null, shift: 0 }
     this._logged  = false
+    this._cadenceTimer = null     // the sign-off, waiting out CHAIN_MS
+    this._chain   = null          // where the tune stood when a card closed, for a conversation that carries straight on
+    this._chainedNow = false      // the conversation just begun is such a continuation
   }
 
   setEnabled(v) { this.on = !!v }
@@ -248,11 +260,20 @@ class DialogueHarpImpl {
    */
   begin(champion, scene = null, npcKey = null) {
     if (scene) this.scene = scene
+    // One that follows a closed card within CHAIN_MS, with the same speaker, is the same conversation going on: the tune
+    // carries on where it stood, and the sign-off that was waiting is dropped. Any other beginning is a new conversation:
+    // whatever is left of the last one (its sting, the tail of its phrases) is faded out first, so the two never sound together.
+    const ch = this._chain
+    this._chain = null
+    clearTimeout(this._cadenceTimer); this._cadenceTimer = null
+    const chained = !!ch && performance.now() < ch.until && (!npcKey || npcKey === ch.npcId)
+    this._chainedNow = chained
+    if (!chained) this._silenceRinging(FADE_OUT_MS)
     this._started = true
     this.notes    = notesForChampion(champion)
-    this.idx      = 0
-    this.played   = 0
-    this._baseBar = null
+    this.idx      = chained ? ch.idx : 0
+    this.played   = chained ? ch.played : 0
+    this._baseBar = chained ? ch.baseBar : null
 
     // Deliberately does NOT touch the NPC voice. That's setNpc()'s business,
     // and keeping them separate is what makes call order irrelevant -- this
@@ -261,7 +282,7 @@ class DialogueHarpImpl {
       this.setNpc(npcKey)
       // a fresh conversation starts at the top of the NPC's tune too (setNpc
       // leaves a character it already has where it was)
-      this.npc.idx = 0; this.npc.baseBar = null
+      this.npc.idx = chained ? ch.npcIdx : 0; this.npc.baseBar = chained ? ch.npcBaseBar : null
     }
     else if (this._npcId) this._resolveNpc()
   }
@@ -313,8 +334,8 @@ class DialogueHarpImpl {
     } catch (e) { /* audio is a nicety; never let it break a conversation */ }
   }
 
-  /** Ramp anything still ringing down to silence over 50ms. */
-  _silenceRinging() {
+  /** Ramp anything still ringing (or still to sound) down to silence, over `ms`. */
+  _silenceRinging(ms = 50) {
     const ctx = this._ctx()
     if (!ctx || !this._activeGains) return
     const now = ctx.currentTime
@@ -323,7 +344,7 @@ class DialogueHarpImpl {
       try {
         gain.gain.cancelScheduledValues(now)
         gain.gain.setValueAtTime(gain.gain.value, now)
-        gain.gain.linearRampToValueAtTime(0.0001, now + 0.05)
+        gain.gain.linearRampToValueAtTime(0.0001, now + ms / 1000)
       } catch (e) {}
     })
     this._activeGains = []
@@ -654,6 +675,7 @@ class DialogueHarpImpl {
     // and the melody that followed in the NPC's -- two tunes at once.
     this.begin(champion, scene, npcKey)
     if (!this.on) return
+    if (this._chainedNow) return                       // the same conversation carrying on: no new flourish
     const ctx = this._ctx()
     const root = this._root()
     if (!ctx || root === null) return
@@ -718,6 +740,9 @@ class DialogueHarpImpl {
     // first wins, and endConversation() clears the flag so the other is a
     // no-op rather than a second sign-off on top of the first.
     if (!this._started) return
+    // Where the tune stands, kept for a conversation that begins straight after this (see begin()).
+    this._chain = { until: performance.now() + CHAIN_MS, npcId: this._npcId, idx: this.idx, baseBar: this._baseBar,
+                    npcIdx: this.npc.idx, npcBaseBar: this.npc.baseBar, played: this.played }
     // Says why it declined. The cadence going missing was invisible before
     // this, because every reason to skip it looked identical from outside:
     // silence.
@@ -730,12 +755,10 @@ class DialogueHarpImpl {
       console.log('[DialogueHarp] cadence skipped: no champion tune')
       return
     }
-    const ctx = this._ctx()
-    if (!ctx) {
+    if (!this._ctx()) {
       console.log('[DialogueHarp] cadence skipped: no audio context')
       return
     }
-    console.log('[DialogueHarp] cadence: closing motif')
 
     // The closing motif of whatever tune carried the conversation -- the NPC's.
     // Quoting the champion's theme here worked exactly as built and was simply
@@ -746,7 +769,17 @@ class DialogueHarpImpl {
     const v = this._voice()
     const src = v.notes.length ? v.notes : this.notes
     if (!src.length) return
+    // Not at once: if another card opens within CHAIN_MS this one was not the end (begin() cancels it).
+    clearTimeout(this._cadenceTimer)
+    this._cadenceTimer = setTimeout(() => { this._cadenceTimer = null; this._playCadence(src) }, CHAIN_MS)
+    this.played = 0
+  }
 
+  /** The sign-off itself: the last phrase of `src`, the tune that carried the conversation. */
+  _playCadence(src) {
+    const ctx = this._ctx()
+    if (!ctx || !src.length) return
+    console.log('[DialogueHarp] cadence: closing motif')
     const lastBar = src[src.length - 1].barIndex
     let start = src.length - 1
     while (start > 0 && (lastBar - src[start - 1].barIndex) < PHRASE_BARS) start--
@@ -754,11 +787,10 @@ class DialogueHarpImpl {
     let t = 0
     for (let i = start; i < src.length && (i - start) < CADENCE_NOTES; i++) {
       const n = src[i]
-      this._pluck(ctx, n.midi, VEL * 0.95, CADENCE_LEAD_MS + t)
+      this._pluck(ctx, n.midi, VEL * 0.95, t)
       t += (Number.isFinite(n.duration) && n.duration > 0 ? n.duration : 1)
            * MS_PER_UNIT
     }
-    this.played = 0
   }
 }
 

@@ -4175,5 +4175,16 @@ K: Emin
 E2E GFE|DEF DEF|G2E FED|DFD E3:|
 |:edB BAF|E2D DEF|edB BAF|AFA d2f|
 edB BAF|E2D DEF|G2E FED|DFD E3:|`
+,
 
+
+	  oneills: `X: 301
+T: O'Neill's
+R: march
+M: 4/4
+L: 1/8
+K: Emin
+|:B2 g2 f2 a2|e2 g2 fedB|e2 g2 f2 a2|e2 g2 fe d2:|
+|:e2 e2 fedB|e2 e2 fedB:|
+|:A3 B G3 B|A2 e2 dB A2|A3 B G3B|A2 e2 z4:|`
 };

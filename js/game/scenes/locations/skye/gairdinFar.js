@@ -41,11 +41,11 @@ const STEP = 2.3                                                 // seconds a st
 // a track of quick moves with holds between: [[time, value, seconds it takes], ...]. She does not drift from pose to pose; she
 // holds, and then moves, all at once (a bird's head is still, then it is somewhere else)
 const sn = (v0, steps) => { const o = []; let v = v0; for (const [t, x, d = 0.12] of steps) { o.push([t, v], [t + d, x, 'o']); v = x } return o }
-const walkTracks = (S0, n, step) => {
+const walkTracks = (S0, n, step, pause = 0, lead = 0) => {
   const k = step / STEP, tr = { bx: [], hx: [], fA: [], fAl: [], fB: [], fBl: [], pitch: [] }
   let bx = S0.bx, hx = S0.hx; const f = { A: S0.fA, B: S0.fB }
   for (let i = 0; i < n; i++) {
-    const t = i * step, w = i % 2 === 0 ? 'A' : 'B', x0 = f[w], x1 = x0 + 1
+    const t = lead + i * (step + pause), w = i % 2 === 0 ? 'A' : 'B', x0 = f[w], x1 = x0 + 1
     tr['f' + w + 'l'].push([t, 0], [t + 0.8 * k, 1], [t + 1.7 * k, 1], [t + 2.05 * k, 0])
     tr['f' + w].push([t + 0.7 * k, x0], [t + 1.7 * k, x1]); f[w] = x1
     tr.bx.push([t + 0.5 * k, bx + 0.03], [t + 2.05 * k, bx + 0.5]); bx += 0.5
@@ -54,12 +54,28 @@ const walkTracks = (S0, n, step) => {
   }
   return tr
 }
+// The hunt: she is low, the back nearly level, the head carried forward and down, the neck folded. Three steps, each followed by
+// a stillness and a scan (the head cocked one way, then the other). `lead` is the time she takes to sink into the crouch first.
+const STALK = { hip: 1.75, pitch: 9, hy: 2.9, beak: 30, lead: 1.0, step: 2.0, pause: 1.2 }
+const WALK_T = STALK.lead + 3 * (STALK.step + STALK.pause)      // seconds from the start of 'walk' to the start of 'aim'
+// Bullet time (the game's own: meleeBout.js cueFocus, wired by skyeGairdin.js onSlow): on as the fish leaves the water (riseAt, 0.72 s into the strike), through the flip and the catch (0.65 s into 'eat'), off just
+// after the catch. Seconds into the 'strike' phase, and into the 'eat' phase (it is 0.9 s after the strike began).
+const SLOW_IN = 0.7, SLOW_OUT = 0.8
 
 // Each phase is a set of tracks: key -> [[seconds, value, easing], ...], from the state the last phase ended in.
 const PHASES = {
-  // Still, then three slow deliberate steps. Each: the foot rises, hangs, reaches forward and settles; the body creeps over
-  // it; the head stays exactly where it was in the world until the step is done, then comes forward in a quick glide.
-  walk(S0) { return walkTracks(S0, 3, STEP) },
+  // The stalk: she sinks into a hunch, then three slow deliberate steps. Each: the foot rises, hangs, reaches forward and settles;
+  // the body creeps over it; the head stays exactly where it was in the world until the step is done, then comes forward in a
+  // quick glide, and she is still and scans before the next.
+  walk(S0) {
+    const H = STALK, cyc = H.step + H.pause, k = H.step / STEP
+    const tr = walkTracks({ ...S0, hip: H.hip, pitch: H.pitch, hy: H.hy, beak: H.beak }, 3, H.step, H.pause, H.lead)
+    tr.hip = [[H.lead, H.hip]]; tr.hy = [[H.lead, H.hy]]; tr.beak = [[H.lead, H.beak]]; tr.pitch.unshift([H.lead, H.pitch])
+    tr.focus = [[0, S0.focus], [WALK_T, 0.6]]
+    tr.tilt = []                                                  // scanning, in each stillness once the head has glided forward
+    for (let i = 0; i < 3; i++) { const s = H.lead + i * cyc + 2.4 * k; tr.tilt.push(...sn(0, [[s + 0.1, 10], [s + 0.55, -8], [s + 0.95, 0]])) }
+    return tr
+  },
   // Away: five steps, a little quicker, wading down off the rock into the shallows, the head held as before
   leave(S0) {
     const tr = walkTracks(S0, 6, 1.9)
@@ -71,34 +87,35 @@ const PHASES = {
   aim(S0) {
     const x = S0.bx
     return {
-      hip: sn(S0.hip, [[2.0, 2.0, 0.3], [5.2, 1.9, 0.3]]), pitch: sn(S0.pitch, [[2.0, 19, 0.3], [5.2, 15, 0.3]]), bx: sn(S0.bx, [[2.0, x + 0.07, 0.3], [5.2, x + 0.15, 0.3]]),
+      hip: sn(S0.hip, [[2.0, S0.hip - 0.1, 0.3], [5.2, S0.hip - 0.2, 0.3]]), pitch: sn(S0.pitch, [[2.0, S0.pitch - 3, 0.3], [5.2, S0.pitch - 6, 0.3]]), bx: sn(S0.bx, [[2.0, x + 0.07, 0.3], [5.2, x + 0.15, 0.3]]),
       hx: sn(S0.hx, [[0.8, x + 1.5, 0.15], [2.6, x + 1.9, 0.15], [4.0, x + 2.25, 0.15], [5.2, x + 2.6, 0.2]]),
-      hy: sn(S0.hy, [[0.8, 3.7, 0.15], [2.6, 3.3, 0.15], [4.0, 2.9, 0.15], [5.2, 2.5, 0.2]]),
-      beak: sn(S0.beak, [[0.8, 24, 0.15], [2.6, 36, 0.15], [4.0, 50, 0.15], [5.2, 58, 0.2]]),
+      hy: sn(S0.hy, [[0.8, S0.hy - 0.3, 0.15], [2.6, S0.hy - 0.7, 0.15], [4.0, S0.hy - 1.1, 0.15], [5.2, S0.hy - 1.5, 0.2]]),
+      beak: sn(S0.beak, [[0.8, S0.beak + (58 - S0.beak) * 0.26, 0.15], [2.6, S0.beak + (58 - S0.beak) * 0.52, 0.15], [4.0, S0.beak + (58 - S0.beak) * 0.83, 0.15], [5.2, 58, 0.2]]),
       focus: [[0, S0.focus], [5.6, 1]],
       tilt: sn(0, [[6.6, 11, 0.12], [7.8, 0, 0.12], [9.8, -7, 0.12], [11.0, 0, 0.12], [13.0, 9, 0.12], [14.2, 0, 0.12]]),
     }
   },
-  // The strike: all at once. Then the silver comes out of the water and is lifted (fish, from 1.5 s: see _fish).
+  // The strike: all at once. The beak is in the water and out again in a snap, and the silver goes up with it: it leaves the water
+  // at 0.72 s (see riseAt, _fish) and is already in the air when 'eat' begins at 0.9.
   strike(S0) {
     const b = S0.bx + 0.5
     return {
       bx: [[0.3, b, 'o'], [0.75, b], [0.85, b - 0.1, 'o']], hip: [[0.3, 1.7, 'o'], [0.75, 1.7], [0.9, 2.1, 'o']], pitch: [[0.3, -10, 'o'], [0.75, -10], [0.9, 24, 'o']],
-      hx: [[0.3, b + 2.56, 'o'], [0.7, b + 2.56], [0.8, b + 2.1, 'o'], [1.1, b + 2.1], [1.2, b + 1.8, 'o']], hy: [[0.3, 0.375, 'o'], [0.7, 0.375], [0.8, 2.2, 'o'], [1.1, 2.2], [1.2, 3.5, 'o']],
-      beak: [[0.3, 78, 'o'], [0.7, 78], [0.8, 50, 'o'], [1.1, 50], [1.2, 28, 'o']], focus: [[0.3, 1], [1.5, 0.5]], tilt: [[0.3, 0]],
+      hx: [[0.3, b + 2.56, 'o'], [0.7, b + 2.56], [0.8, b + 2.1, 'o'], [0.9, b + 2.1]], hy: [[0.3, 0.375, 'o'], [0.7, 0.375], [0.8, 2.2, 'o'], [0.9, 2.2]],
+      beak: [[0.3, 78, 'o'], [0.7, 78], [0.8, 50, 'o'], [0.9, 50]], focus: [[0.3, 1], [0.9, 0.7]], tilt: [[0.3, 0]],
     }
   },
-  // The silver: held, then flicked up (the head snaps up and back), the beak open to catch it, and gulped; then the head
+  // The catch: the head goes up after the silver, the beak opens, it is caught (0.65 s in) head-first and gulped; then the head
   // jerks up, once, twice, the folded wing is shaken out, and she settles back into her stillness. All of it quick.
   eat(S0) {
     const h = S0.hy, x = S0.bx
     return {
-      beak: sn(S0.beak, [[0.5, -58, 0.1], [1.2, -18, 0.15], [1.65, -46, 0.08], [1.85, -12, 0.12], [2.25, -44, 0.08], [2.45, -10, 0.12], [3.4, 12, 0.2]]),
-      hy: sn(h, [[0.5, h + 0.55, 0.1], [1.2, h + 0.15, 0.15], [1.65, h + 0.75, 0.08], [1.85, h + 0.2, 0.12], [2.25, h + 0.8, 0.08], [2.45, h + 0.25, 0.12], [3.4, 4.0, 0.2]]),
-      hx: sn(S0.hx, [[0.5, S0.hx - 0.1, 0.1], [1.2, x + 1.2, 0.15], [3.4, x + 1.6, 0.2]]),
-      open: [[0.9, 0], [1.0, 1, 'o'], [1.2, 1], [1.3, 0, 'o']], focus: [[0.8, 0.3], [4, 0.1]],
-      sl: [[0.5, 1], [0.6, 0.4], [1.2, 0.4], [1.7, 1]],
-      ruf: [[2.9, 0], [3.0, 1, 'o'], [3.2, 0.35], [3.3, 1, 'o'], [3.6, 0]],
+      beak: sn(S0.beak, [[0.1, -30, 0.25], [0.75, -18, 0.15], [1.15, -46, 0.08], [1.35, -12, 0.12], [1.75, -44, 0.08], [1.95, -10, 0.12], [2.9, 12, 0.2]]),
+      hy: sn(h, [[0.1, h + 0.9, 0.25], [0.75, h + 0.5, 0.15], [1.15, h + 1.25, 0.08], [1.35, h + 0.7, 0.12], [1.75, h + 1.3, 0.08], [1.95, h + 0.75, 0.12], [2.9, 4.0, 0.2]]),
+      hx: sn(S0.hx, [[0.1, S0.hx - 0.3, 0.25], [0.75, x + 1.2, 0.15], [2.9, x + 1.6, 0.2]]),
+      open: [[0.35, 0], [0.45, 1, 'o'], [0.7, 1], [0.78, 0, 'o']], focus: [[0.3, 0.3], [3.5, 0.1]],
+      sl: [[0.1, 1], [0.2, 0.4], [0.7, 0.4], [1.2, 1]],
+      ruf: [[2.4, 0], [2.5, 1, 'o'], [2.7, 0.35], [2.8, 1, 'o'], [3.1, 0]],
     }
   },
 }
@@ -116,6 +133,10 @@ export default class GairdinFar {
     this.S = { ...REST }; this.tl = []; this.cur = { n: 'stand', at: 0, S0: { ...REST }, tr: {} }; this.flyAt = 0; this._hit = true; this._hitX = 3.8
     this.strikeAt = -1e9; this.riseAt = -1e9
     this.t = 0
+    this.rate = 1                                           // how fast her clock runs (the scene sets it: bullet time slows the world)
+    this.onSlow = null                                      // (on) => ...: the strike's slow begins and ends (the scene turns the game's bullet time on)
+    this._slow = false; this._preyAlive = true; this._preyX = 4.08
+    this._darts = []; this._fp = null; this._dartAt = -1e9; this._glintAt = -1e9; this._hm = false; this._dn = 0      // the prey's darts (see _dart)
     this.last = performance.now()
     this._fogImage()                                         // (loaded now, so it is there when the fog is needed)
     // reeds and rocks, in heron units across her feet (fixed: seeded)
@@ -141,15 +162,15 @@ export default class GairdinFar {
     if (name === 'tilt') name = 'walk'
     if (name === 'reach') name = 'strike'
     if (name === 'stand') { this.tl = []; this._start('stand', t, { ...REST }); return }
-    if (name === 'walk') this.tl.push({ n: 'walk', at: t }, { n: 'aim', at: t + 3 * STEP + 0.1 })
+    if (name === 'walk') this.tl.push({ n: 'walk', at: t }, { n: 'aim', at: t + WALK_T + 0.1 })
     else if (name === 'aim') this.tl.push({ n: 'aim', at: t })
-    else if (name === 'strike') { this.tl.push({ n: 'strike', at: t }, { n: 'eat', at: t + 1.3 }); this.riseAt = t + 1.3; this._hit = false }
+    else if (name === 'strike') { this.tl.push({ n: 'strike', at: t }, { n: 'eat', at: t + 0.9 }); this.riseAt = t + 0.72; this._hit = false }
     else if (name === 'leave') this.tl.push({ n: 'leave', at: t })
   }
 
   draw(ctx, pgr) {
     if (!pgr?._cameraReady?.() || !pgr._northNeighbor) return
-    const now = performance.now(); if (!this.freeze) this.t += Math.min(0.1, (now - this.last) / 1000); this.last = now
+    const now = performance.now(); if (!this.freeze) this.t += Math.min(0.1, (now - this.last) / 1000) * this.rate; this.last = now
     this._pose()
     this.fog += (this.fogWant - this.fog) * (1 - Math.exp(-Math.min(0.1, (now - (this._ft || now)) / 1000) * 1000 / Math.max(1, this.fogMs) * 2.2)); this._ft = now
     this.zoom += (this.zoomWant - this.zoom) * (1 - Math.exp(-Math.min(0.1, (now - (this._zt || now)) / 1000) * 1000 / Math.max(1, this.zoomMs) * 2.2)); this._zt = now
@@ -162,7 +183,12 @@ export default class GairdinFar {
   /** the colour of the haze at the garden's north edge: the water tiles are tinted to this there, so the join is seamless */
   hazeColor() { return mix(HAZE, HAZE_DAWN, this.dawn) }
 
-  _start(n, at, S0) { this.cur = { n, at, S0, tr: PHASES[n] ? PHASES[n](S0) : {} } }
+  _start(n, at, S0) {
+    this.cur = { n, at, S0, tr: PHASES[n] ? PHASES[n](S0) : {} }
+    // where the beak will come down, in heron units (the fish lies there: _prey): the strike's reach from where she will stand
+    if (n === 'walk') { this._preyX = S0.bx + 4.98; this._preyAlive = true; this._darts = []; this._fp = null } else if (n === 'aim') this._preyX = S0.bx + 3.48
+    else if (n === 'stand') { this._preyAlive = true; this._darts = []; this._fp = null }
+  }
   // the state at `tau` seconds into a phase: every track eased from where the phase began
   _sample(c, tau) {
     const S = { ...c.S0 }
@@ -184,8 +210,23 @@ export default class GairdinFar {
     const tau = this.t - this.cur.at
     this.S = this._sample(this.cur, tau)
     if (this.cur.n === 'strike' && !this._hit && tau >= 0.27) {          // the beak goes in: a ring, a splash
-      this._hit = true; this.strikeAt = this.t; this._hitX = this._geom(this.S).tip[0]
+      this._hit = true; this.strikeAt = this.t; this._hitX = this._geom(this.S).tip[0]; this._preyAlive = false; this._darts = []     // (the fish is taken)
     }
+    // the prey answers her head: when the head begins to move (a tilt, a glide forward, a lunge) something darts in the water (see _dart),
+    // and a lone faint dart now and then between, so it is never still for long. (Hunting only: in the strike it holds its place.)
+    const dtp = this.t - (this._pt ?? this.t); this._pt = this.t
+    const ph = this._ph || (this._ph = { x: this.S.hx, y: this.S.hy, tilt: this.S.tilt })
+    if (dtp > 1e-4 && (this.cur.n === 'walk' || this.cur.n === 'aim') && this._preyAlive) {
+      const vh = Math.hypot(this.S.hx - ph.x, this.S.hy - ph.y) / dtp, vt = Math.abs(this.S.tilt - ph.tilt) / dtp
+      const moving = vh > 2.5 || vt > 60
+      if (moving && !this._hm && this.t - this._dartAt > 0.45) this._dart(Math.min(1, 0.35 + vh / 14 + vt / 400))
+      else if (!moving && this.t - this._dartAt > 2.4) this._dart(0.3)
+      this._hm = moving
+    }
+    ph.x = this.S.hx; ph.y = this.S.hy; ph.tilt = this.S.tilt
+    // the slow: from the fish leaving the water until just after the catch
+    const slow = (this.cur.n === 'strike' && tau >= SLOW_IN) || (this.cur.n === 'eat' && tau < SLOW_OUT)
+    if (slow !== this._slow) { this._slow = slow; this.onSlow?.(slow) }
   }
   // a colour, hazed: by day grey, at dawn rose
   _c(base, dawnBase, fog, a = 1) {
@@ -272,6 +313,7 @@ export default class GairdinFar {
       ctx.fillStyle = this._c([138, 142, 158], [246, 190, 190], fog + 0.1, 0.5)
       ctx.beginPath(); ctx.ellipse(x * u + rx * u * 0.1, (y - ry * 0.55) * u, rx * u * 0.7, ry * u * 0.18, 0, Math.PI, 0); ctx.fill()   // the rim of dawn light on it
     }
+    this._prey(ctx, u, hr.face)
     this._fogBanks(ctx, uf, false, px, pgr._sw)
     if (this.vis > 0.004) { ctx.save(); ctx.globalAlpha = this.vis; this._bird(ctx, u, hr.face, fog); ctx.restore() }
     this._ripples(ctx, u, hr.face)
@@ -291,6 +333,52 @@ export default class GairdinFar {
       ctx.lineWidth = Math.max(1, r.w * u)
       ctx.beginPath(); ctx.moveTo(r.x * u, 0); ctx.quadraticCurveTo((r.x + sway * 0.3) * u, -r.h * 0.6 * u, (r.x + sway) * u, -r.h * u); ctx.stroke()
     })
+  }
+
+  // The prey: a sliver of silver under the water where her beak will come down. It is not still. Each time she shifts her head (a tilt, a
+  // glide forward, the lunge of the eye) something answers in the water: it darts, in a direction of its own, fading in and out as it
+  // goes, and flashes where it stops, with a ring after it, and her eye catches the flash. Hunting, it ranges wide of the mark; as she
+  // settles to the strike it is drawn in to the one place (preyX) where the beak will come down. On the world's clock.
+  _dart(power = 0.6) {
+    if (!this._preyAlive) return
+    const t = this.t, n = ++this._dn
+    const h = k => { const x = Math.sin((n * 7 + k) * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
+    const aim = this.cur.n === 'aim' ? Math.min(1, (t - this.cur.at) / 5.2) : this.cur.n === 'walk' ? 0 : 1
+    const spread = 1.7 * (1 - aim) + 0.12 * aim                    // how far from the mark it may range
+    const fp = this._fp || (this._fp = { x: this._preyX + 0.8 * (h(9) - 0.5) * 2, y: 0.18 })
+    const a = h(1) * Math.PI * 2, len = 0.5 + 0.9 * h(2) * (0.5 + power)
+    let x1 = fp.x + Math.cos(a) * len, y1 = fp.y + Math.sin(a) * len * 0.12         // (the water lies flat to us: the depth of it is shallow)
+    x1 = this._preyX + Math.max(-spread, Math.min(spread, x1 - this._preyX)); y1 = Math.max(0.09, Math.min(0.3, y1))
+    this._darts.push({ t0: t, dur: 0.3 + 0.12 * h(3), x0: fp.x, y0: fp.y, x1, y1, p: power })
+    fp.x = x1; fp.y = y1
+    this._dartAt = t; this._glintAt = t
+    if (this._darts.length > 6) this._darts.shift()
+  }
+  _prey(ctx, u, face) {
+    const vis = this.vis * (1 - 0.55 * this.fog)
+    if (!this._preyAlive || vis < 0.03) return
+    const t = this.t, fp = this._fp, S = 'rgb(228,238,252)'
+    const sliver = (x, y, rx, ry, al) => { ctx.globalAlpha = al; ctx.fillStyle = S; ctx.beginPath(); ctx.ellipse(face * x * u, y * u, rx * u, ry * u, 0, 0, Math.PI * 2); ctx.fill() }
+    ctx.save(); ctx.lineCap = 'round'
+    if (fp) sliver(fp.x, fp.y, 0.4, 0.04, (0.06 + 0.03 * Math.sin(t * 1.7)) * vis)       // where it lies: a bare shimmer
+    this._darts = this._darts.filter(d => t - d.t0 < d.dur + 1.5)
+    for (const d of this._darts) {
+      const age = t - d.t0, k = age / d.dur, w = 0.5 + 0.5 * d.p
+      if (k <= 1) {                                                          // darting: a streak, in and out of the dark
+        const at = q => { const e = 1 - (1 - q) * (1 - q); return [face * (d.x0 + (d.x1 - d.x0) * e) * u, (d.y0 + (d.y1 - d.y0) * e) * u] }
+        const head = at(k), tail = at(Math.max(0, k - 0.3)), env = Math.pow(Math.sin(Math.PI * k), 1.2)
+        ctx.globalAlpha = 0.55 * env * w * vis; ctx.strokeStyle = S; ctx.lineWidth = Math.max(1, u * 0.05)
+        ctx.beginPath(); ctx.moveTo(tail[0], tail[1]); ctx.lineTo(head[0], head[1]); ctx.stroke()
+        ctx.fillStyle = S; ctx.beginPath(); ctx.arc(head[0], head[1], Math.max(0.8, u * 0.03), 0, Math.PI * 2); ctx.fill()
+      } else {
+        const a2 = age - d.dur                                               // where it stopped: a flash, and a ring that barely spreads
+        if (a2 < 0.22) { const f = 1 - a2 / 0.22; sliver(d.x1, d.y1, 0.46, 0.055, 0.5 * f * w * vis); sliver(d.x1, d.y1, 0.12, 0.012, 0.8 * f * w * vis) }
+        const r = (0.1 + a2 * 0.5) * u
+        ctx.globalAlpha = 0.2 * (1 - a2 / 1.5) * w * vis; ctx.strokeStyle = 'rgb(240,226,232)'; ctx.lineWidth = Math.max(1, u * 0.03)
+        ctx.beginPath(); ctx.ellipse(face * d.x1 * u, 0.05 * u + (d.y1 - 0.05) * u * 0.3, r, r * 0.22, 0, 0, Math.PI * 2); ctx.stroke()
+      }
+    }
+    ctx.restore()
   }
 
   // a ring spreading on the water where the beak went in, and the spray thrown up
@@ -510,16 +598,18 @@ export default class GairdinFar {
     ctx.strokeStyle = 'rgb(60,44,24)'; ctx.lineWidth = 0.022; ctx.beginPath(); ctx.arc(e[0], e[1], 0.095, 0, Math.PI * 2); ctx.stroke()
     ctx.fillStyle = 'rgb(16,14,22)'; ctx.beginPath(); ctx.arc(e[0] + dx * 0.014, e[1] + dy * 0.014, 0.046, 0, Math.PI * 2); ctx.fill()
     ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(e[0] - 0.03 + dx * 0.02, e[1] - 0.035 + dy * 0.02, 0.02, 0, Math.PI * 2); ctx.fill()
+    const gl = this.t - this._glintAt                                            // the eye catches the flash in the water
+    if (gl >= 0 && gl < 0.32) { ctx.fillStyle = `rgba(255,250,236,${0.7 * (1 - gl / 0.32)})`; ctx.beginPath(); ctx.arc(e[0] - 0.02 + dx * 0.03, e[1] - 0.02 + dy * 0.03, 0.05, 0, Math.PI * 2); ctx.fill() }
     this._fish(ctx, neck, tp[0], tp[1], ba, body)
     ctx.restore()
   }
 
-  // The silver. On the rise: held in her beak as it comes out of the water, then tossed up (she flicks it), spinning and
-  // flashing as it climbs and turns, caught head-first as it comes down, and swallowed: a bulge going down her neck.
+  // The silver. It is flipped straight out of the water as the beak comes up (no holding it first), spinning and flashing as
+  // it climbs and turns, and caught head-first as it comes down, and swallowed.
   _fish(ctx, neck, bx, by, ba, col) {
     const age = this.t - this.riseAt
-    if (age < 0 || age > 1.55) { this._f0 = null; return }
-    const TOSS = 0.5, CATCH = 1.15, FLY = CATCH - TOSS
+    if (age < 0 || age > 1.2) { this._f0 = null; return }
+    const TOSS = 0, CATCH = 0.83, FLY = CATCH - TOSS
     const body = (x, y, rot, flip, a = 1, flash = 0) => {                 // not a fish so much as a bent flash of silver, there and gone
       ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(1.3, 1.3 * flip)
       ctx.shadowColor = `rgba(255,255,255,${0.55 + 0.4 * flash})`; ctx.shadowBlur = 5
@@ -542,14 +632,8 @@ export default class GairdinFar {
         ctx.beginPath(); ctx.arc(x0 + vx * s, y0 + vy * s + 4.5 * s * s, 0.04, 0, Math.PI * 2); ctx.fill()
       }
     }
-    if (age < TOSS) {                                                   // in the beak, hanging, a shiver in it
-      const sh = Math.sin(age * 26) * 0.12 * (1 - age / TOSS)
-      body(bx, by + 0.45, Math.PI / 2 + sh, 1)
-      spark(bx + 0.1, by + 0.5, 0.5 + 0.5 * Math.sin(age * 14))
-      return
-    }
-    if (age < CATCH) {                                                  // thrown: up, spinning, flashing; down to her beak
-      if (!this._f0) this._f0 = [bx, by + 0.45]
+    if (age < CATCH) {                                                  // flipped: up from the water, spinning, flashing; down to her beak
+      if (!this._f0) this._f0 = [bx, by + 0.15]
       const f = (age - TOSS) / FLY, e = f
       const x = this._f0[0] + (bx - this._f0[0]) * e + Math.sin(f * 3) * 0.25
       const y = this._f0[1] + (by - this._f0[1]) * e - 3.1 * 4 * f * (1 - f)

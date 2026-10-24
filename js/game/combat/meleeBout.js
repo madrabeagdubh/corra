@@ -56,6 +56,11 @@ export function unlockStrong(scene) {
 //   ghosts    YOUR afterimages as you move in it: how many, how often one is left (world ms), how strong the newest is, their colour
 const FOCUS = { scale: 0.18, far: 4, release: 7, gapMs: 180, drainMs: 1500, grade: true,
                 ghosts: 8, ghostEvery: 45, ghostAlpha: 0.6, ghostTint: 'rgb(110,185,255)' }
+// A CUED slow: a scene holds bullet time itself (cueFocus), for a moment in a story rather than a line in a fight (the heron's
+// strike, gairdinFar.js). It is the same slow in every way that is seen and heard (the grade, the veil, the punch, the motes, the
+// muffled world, the roar, the heartbeat), but it needs no line, no foe near and no breath, and it costs none. `scale` is how
+// slow it runs (FOCUS.scale is the deepest a fight's goes).
+const CUE = { scale: 0.28 }
 
 // The pack is rebuilt with every scene, so a sword you've been given is put
 // back in it on arrival. Also makes its inventory icon (no art yet: the
@@ -272,8 +277,9 @@ export default class MeleeBout {
       if (drawing && !f.used && !spent && near < 1) { f.latched = true; f.used = true; f.depth = near }   // once per line
     } else if ((!inLine && !m.F.flow) || spent || !m.combat || !m.enGarde || m.cheb() > FOCUS.release) f.latched = false      // flow: the line's end does not end the slow
     if (f.latched) f.depth = Math.min(f.depth, near)                        // deepens as you close, never lifts mid-line
+    if (f.cue != null) { f.latched = f.cue; f.depth = CUE.scale }          // a cued slow: the scene holds it (see cueFocus)
     const target = f.latched ? f.depth : 1
-    if (target < 1) m.spend(real / (m.F.drainMs ?? FOCUS.drainMs) * (1 - target) / (1 - FOCUS.scale))   // the slow costs breath (and holds its refilling off)
+    if (target < 1 && f.cue == null) m.spend(real / (m.F.drainMs ?? FOCUS.drainMs) * (1 - target) / (1 - FOCUS.scale))   // the slow costs breath (and holds its refilling off)
     f.k += (target - f.k) * Math.min(1, real / (target < f.k ? 110 : 190))        // in quickly, out in one smooth ramp
     if (Math.abs(f.k - target) < 0.005) f.k = target
     if (f.latched !== f.on) { f.on = f.latched; m.emit('focus', { on: f.on }) }   // one entry, one exit, per line
@@ -287,6 +293,8 @@ export default class MeleeBout {
     this._ghostStep()
     return dt
   }
+  /** Bullet time on cue: the scene turns it on (true) and off (false); a story's slow, not a fight's. Same look, same sound. */
+  cueFocus(on) { this.focus.cue = on ? true : null }
   /** how deep the slow is now: 0 (none) .. 1 (full) */
   _focusU() { return Math.max(0, Math.min(1, (1 - this.focus.k) / (1 - FOCUS.scale))) }
 

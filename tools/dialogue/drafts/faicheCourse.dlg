@@ -42,73 +42,74 @@
 # He stands at the lake's edge watching the heron; the set piece opens when you walk up to him.
 
 = look
-The young warriors come here to fight 
-% Tagann na n-Óglaigh anseo chun troid
+What trick, do you suppose
+% Cén cleas, meas tú
 
-as hawks of the sunburst
-% mar seabhaigh an Gal gréine
+would make a champion invincible?
+% a dhéanfadh gaiscíoch dochlóite?
+
+The strike that splits an enemy in two?
+% An múadal béim?
+
+Or the strike of extraordinary precision?
+% An éamh faoi chumas? 
+
+The battle frenzy, perhaps?
+% An rístread b'feidir?
+
+look yonder.
+% féach thall.
+
 
 = look2
- 
-But look well yonder
-Ach féach tusa tháll
+ everything I could hope to teach
+% Tá gach ceacht atá agam
+is in the heron's eye
+% i súil an gcorr
+
 = look3
 
-No light strikes 
-% Ní bhuaileann solas 
+Neither light nor shadow deceives her,
+% Ní bhuaileann solas ná scáil cleas uirthi,
 
-nor trick of shadow deceives her fixation 
-% ná scáth cleas ar a ghrinniú
+for she crafts a spell.
+% Oir atá sí i mbun draíochta.
 
-little by little the heron becomes
-%  an Corr de réir a chéile ag 
-
-the enlightnement
-% an léargais
-
-
+A spell of death?
+% Draíocht an bháis?
 
 = look4
 
-
-an marú
-% the kill
-
-everything I could hope to teach
-% Tá gach ceacht atá agam
-is revealed by the heron
-% múinte ag an gcorr
-We begin.
-% Tosaímid.
+A spell of enlightenment.
+% Draíocht an léargais.
 
 # a caption, as he calls you to the marked stone
 = stand
 Now. Stand here.
 % Anois. Seas anseo.
 
-
 # a card, once you are on it. {prince} is "prince" or "princess" by the champion
 # (and the Irish, once there is some, likewise: prionsa / banphrionsa).
 = stance
-Stand as the heron stands.
-% Seas ar nós na chorra
+Like the heron
+% Ar nós an chorra
 
-Not rigid. 
-% Ní righin,
+Not rigidly 
+% Ní righin
 
-Not slack.
-% ní bog
+nor slack
+% ná bog
 
 # a second card straight after
 = stance2
-Carry thy head as a {prince}.
-% Iompair do cloigeann mar {prince} 
-easy, unheld.
+Carry thy head
+% Iompair do cloigeann 
+calmly, without restraint
 % go socair, gan srian
-Let thine eyes be soft.
-% Bíodh do shúile bog 
-Let thy watching be boundless.
-% Bíodh do fhaire gan teorainn 
+Let thine eyes be gentle
+% Bíodh do shúile lách 
+that thy watching be borderless
+% go mbíodh do fhaire gan teorainn 
 
 # ══════════════════════════════════════════════════════════════════════
 == space
@@ -117,8 +118,8 @@ Let thy watching be boundless.
 
 = intro
 
-Move.
-% Gluais. 
+FAUGH A BALLAGH! 
+% FÁG A'BEALACH!
 
 # each time you get clear (one picked in turn)
 = good
@@ -128,7 +129,7 @@ Again.
 = mid
 There.
 % Sin é.
-
+ 
 
 Now press me,
 % Anois brúigh síar mé, 

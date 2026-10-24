@@ -91,6 +91,8 @@ export class SkyeGairdin extends SkyeScene {
     this._ring = this.add.graphics().setScrollFactor(0).setDepth(15)
     this._moonPrompt = new MoonPrompt(this)
     this._far = new GairdinFar()
+    // the strike plays in the game's bullet time (its look and its sound: combat/meleeBout.js cueFocus), the picture leaning in a little
+    this._far.onSlow = on => { this._melee?.cueFocus?.(on); this.heronZoom?.(on ? 2.62 : 2.4, on ? 500 : 900) }
     this._pc = { w: 0, want: 0, mood: 1, moodWant: 1, live: false, k: 0, kWant: 0, kMs: 3000, moodMs: 7800, grey: 1, greyWant: 1, greyMs: 3000 }                // the set piece: how far in (0..1) and where it is going
     this._light = new DawnLight(this)           // the dawn's light, carried on from the cottage and the yard (dawnLight.js)
 
@@ -126,7 +128,7 @@ export class SkyeGairdin extends SkyeScene {
     const mixSea = k => mixHex(FAR_LAKE.sea[k], FAR_DAWN.sea[k], w)
     return { ...FAR_LAKE, sea: { horizon: mixSea('horizon'), mid: mixSea('mid'), near: mixSea('near'), glint: mixSea('glint') }, land: mixHex(FAR_LAKE.land, FAR_DAWN.land, w) }
   }
-  drawFarHost(ctx, pgr) { if (this._far) { this._far.dawn = this._dawn(); this._far.show = true } this._far?.draw(ctx, pgr) }
+  drawFarHost(ctx, pgr) { if (this._far) { this._far.dawn = this._dawn(); this._far.show = true; this._far.rate = this._melee?.focus?.k ?? 1 } this._far?.draw(ctx, pgr) }     // (her clock runs on the world's: slow in bullet time)
   _dawn() { const s = this._pc; return s?.live ? s.mood : 0 }       // how much of the dawn is on the picture: all of it from the cottage on, draining to grey through the set piece
 
   // ── the heron set piece ──────────────────────────────────────────────────

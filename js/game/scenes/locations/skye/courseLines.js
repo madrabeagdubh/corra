@@ -7,58 +7,58 @@ export const LINES = {
   "meet": {
     "look": [
       {
-        "en": "The young warriors come here to fight",
-        "ga": "Tagann na n-Óglaigh anseo chun troid"
+        "en": "What trick, do you suppose",
+        "ga": "Cén cleas, meas tú"
       },
       {
-        "en": "as hawks of the sunburst",
-        "ga": "mar seabhaigh an Gal gréine"
+        "en": "would make a champion invincible?",
+        "ga": "a dhéanfadh gaiscíoch dochlóite?"
+      },
+      {
+        "en": "The strike that splits an enemy in two?",
+        "ga": "An múadal béim?"
+      },
+      {
+        "en": "Or the strike of extraordinary precision?",
+        "ga": "An éamh faoi chumas?"
+      },
+      {
+        "en": "The battle frenzy, perhaps?",
+        "ga": "An rístread b'feidir?"
+      },
+      {
+        "en": "look yonder.",
+        "ga": "féach thall."
       }
     ],
     "look2": [
-      {
-        "en": "But look well yonder",
-        "ga": "But look well yonder"
-      },
-      {
-        "en": "Ach féach tusa tháll",
-        "ga": "Ach féach tusa tháll"
-      }
-    ],
-    "look3": [
-      {
-        "en": "No light strikes",
-        "ga": "Ní bhuaileann solas"
-      },
-      {
-        "en": "nor trick of shadow deceives her fixation",
-        "ga": "ná scáth cleas ar a ghrinniú"
-      },
-      {
-        "en": "little by little the heron becomes",
-        "ga": "an Corr de réir a chéile ag"
-      },
-      {
-        "en": "the enlightnement",
-        "ga": "an léargais"
-      }
-    ],
-    "look4": [
-      {
-        "en": "an marú",
-        "ga": "the kill"
-      },
       {
         "en": "everything I could hope to teach",
         "ga": "Tá gach ceacht atá agam"
       },
       {
-        "en": "is revealed by the heron",
-        "ga": "múinte ag an gcorr"
+        "en": "is in the heron's eye",
+        "ga": "i súil an gcorr"
+      }
+    ],
+    "look3": [
+      {
+        "en": "Neither light nor shadow deceives her,",
+        "ga": "Ní bhuaileann solas ná scáil cleas uirthi,"
       },
       {
-        "en": "We begin.",
-        "ga": "Tosaímid."
+        "en": "for she crafts a spell.",
+        "ga": "Oir atá sí i mbun draíochta."
+      },
+      {
+        "en": "A spell of death?",
+        "ga": "Draíocht an bháis?"
+      }
+    ],
+    "look4": [
+      {
+        "en": "A spell of enlightenment.",
+        "ga": "Draíocht an léargais."
       }
     ],
     "stand": [
@@ -69,42 +69,42 @@ export const LINES = {
     ],
     "stance": [
       {
-        "en": "Stand as the heron stands.",
-        "ga": "Seas ar nós na chorra"
+        "en": "Like the heron",
+        "ga": "Ar nós an chorra"
       },
       {
-        "en": "Not rigid.",
-        "ga": "Ní righin,"
+        "en": "Not rigidly",
+        "ga": "Ní righin"
       },
       {
-        "en": "Not slack.",
-        "ga": "ní bog"
+        "en": "nor slack",
+        "ga": "ná bog"
       }
     ],
     "stance2": [
       {
-        "en": "Carry thy head as a {prince}.",
-        "ga": "Iompair do cloigeann mar {prince}"
+        "en": "Carry thy head",
+        "ga": "Iompair do cloigeann"
       },
       {
-        "en": "easy, unheld.",
+        "en": "calmly, without restraint",
         "ga": "go socair, gan srian"
       },
       {
-        "en": "Let thine eyes be soft.",
-        "ga": "Bíodh do shúile bog"
+        "en": "Let thine eyes be gentle",
+        "ga": "Bíodh do shúile lách"
       },
       {
-        "en": "Let thy watching be boundless.",
-        "ga": "Bíodh do fhaire gan teorainn"
+        "en": "that thy watching be borderless",
+        "ga": "go mbíodh do fhaire gan teorainn"
       }
     ]
   },
   "space": {
     "intro": [
       {
-        "en": "Move.",
-        "ga": "Gluais."
+        "en": "FAUGH A BALLAGH!",
+        "ga": "FÁG A'BEALACH!"
       }
     ],
     "good": [

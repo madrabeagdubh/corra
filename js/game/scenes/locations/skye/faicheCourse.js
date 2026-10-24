@@ -86,6 +86,7 @@ export const FIGHT_AT = [16, 18]           // where he stands to teach, and figh
 // lessons that start with you on the mark: if you have wandered, you are walked back
 const HOME_LESSONS = new Set(['space', 'sword', 'calls', 'duel'])   // (the target lessons start where you are: by him)
 const MEET_NEAR = 4                       // walk this close to him and the set piece begins
+const SLOW_EXTRA = 2600                   // the heron's strike plays in bullet time (gairdinFar.js SLOW_IN/OUT, meleeBout.js CUE): this many ms longer than it did
 const STAND_IN = new Set(['fatigue', 'strong', 'dummy', 'feet'])   // lessons he stands in as a target for
 const DRAWS = 3                             // the sword lesson: draw, (sheathe, draw) x2
 const NEAR_FIGHT = 4                       // a bout starts within 5 tiles of him
@@ -529,18 +530,19 @@ export default class FaicheCourse {
       this._lock(false)
       this._later(1000, () => this._toMark(() => this._speech(S.stance, () => this._speech(S.stance2, () => this._next()))))
     }
-    this._later(1500, () => { sc.setFog?.(0.78, 16000); sc.heronVis?.(1, 15000); sc.heronZoom?.(2.4, 9000); this._speech(S.look, () => {
-      this._later(0, () => this._speech(S.look2, () => {
-        sc.heronPlay?.('walk')                                     // a few slow steps (the head held still while the body moves), then she is still and takes aim
+    // (the push-in and the thinning fog begin with the first card, but she is not there: she comes up out of the fog on "But look well yonder",
+    // and she is already stalking)
+    this._later(1500, () => { sc.setFog?.(0.78, 16000); sc.heronZoom?.(2.4, 9000); this._speech(S.look, () => {
+      this._later(0, () => { const w0 = performance.now(); sc.heronPlay?.('walk'); sc.heronVis?.(1, 9000); this._speech(S.look2, () => {   // a hunch, then slow steps with stillnesses between (see gairdinFar.js STALK), then she takes aim
         sc.setFog?.(0.12, 9000); sc.setMood?.(0.8, 20000)
-        this._later(8000, () => this._speech(S.look3, () => {      // (the eye, while she aims)
+        this._later(Math.max(1500, 11600 - (performance.now() - w0)), () => this._speech(S.look3, () => {      // (the eye, while she aims: the card comes as the walk ends, 11.6 s after it began)
           sc.heronPlay?.('strike')                                 // "until..."
           sc.setFog?.(0, 5000); sc.setMood?.(0.55, 20000)
           const t0 = this.t
-          this._later(5400, () => { sc.heronPlay?.('leave'); sc.setFog?.(1, 9000); sc.heronVis?.(0, 8000) })     // she stalks away into the fog
-          this._later(800, () => this._speech(S.look4, () => this._later(Math.max(0, 7000 - (this.t - t0)), finish)))     // "There!"
+          this._later(5400 + SLOW_EXTRA, () => { sc.heronPlay?.('leave'); sc.setFog?.(1, 9000); sc.heronVis?.(0, 8000) })     // she stalks away into the fog
+          this._later(800, () => this._speech(S.look4, () => this._later(Math.max(0, 7000 + SLOW_EXTRA - (this.t - t0)), finish)))     // "There!"
         }))
-      }))
+      }) })
     }) })
   }
 

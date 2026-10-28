@@ -88,6 +88,8 @@ export default class CastleShadow {
     // The south edge is closed in screen space, well below the screen and past both sides, so it can
     // never fall short of the bottom (whatever the camera, or a resize). The west face runs straight down.
     const tile = pts[0][2]
+    // the west face is a vertical line on the SCREEN: the last polygon point (down the tile column) would slant it with the perspective
+    if (pts.length > 1) { const k = pts.length - 1; pts[k] = [pts[k - 1][0], sh + 600, pts[k][2]] }
     pts.push([pts[pts.length - 1][0], sh + 600, tile], [pts[0][0], sh + 600, tile])
     ctx.save()
     ctx.globalCompositeOperation = 'multiply'

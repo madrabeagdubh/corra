@@ -45,7 +45,9 @@
 //     game.scene.getScene('b0').tiltShift.configure({ farBlur: 6 })
 //     game.scene.getScene('b0').tiltShift.setEnabled(false)
 
-const IDS = ['pgr-ts-far', 'pgr-ts-far2', 'pgr-ts-far3', 'pgr-ts-near', 'pgr-ts-haze', 'pgr-ts-vig']
+import { quality } from '../systems/quality.js'
+
+const IDS = ['pgr-ts-far', 'pgr-ts-far2', 'pgr-ts-far3', 'pgr-ts-near', 'pgr-ts-haze', 'pgr-ts-vig', 'pgr-ts-still']
 
 export const TILT_SHIFT_DEFAULTS = {
   enabled: true,
@@ -194,8 +196,10 @@ export class TiltShift {
     this._focusY    = this.cfg.focusY
     this._farBottom = clamp01(this.cfg.focusY - this.cfg.focusHeight * 0.5)
 
-    this.hasBackdrop = backdropSupported()
-    if (!this.hasBackdrop) {
+    // how much of it the device can afford (systems/quality.js): 'live' the whole thing, 'light' one far layer and no gliding, 'off' only haze + vignette
+    this._mode = this._tiltMode()
+    this.hasBackdrop = backdropSupported() && this._mode !== 'off'
+    if (!backdropSupported()) {
       console.log('[TiltShift] backdrop-filter unavailable — haze + vignette only')
     }
 
@@ -210,6 +214,24 @@ export class TiltShift {
     this._removeExisting()
     this._build()
     this.apply()
+    this._unQ = quality.onChange(() => this._requality())
+  }
+
+  _tiltMode() { return quality.fx('tilt') ? quality.get().tilt : 'off' }
+  // what a conversation does to the world on this device: 'live' | 'still' | 'dim'
+  _dlgMode() { return !quality.fx('dialogueblur') || this._mode === 'off' && quality.get().dlg === 'live' ? 'dim' : quality.get().dlg }
+
+  // the tier changed while playing: rebuild the layers for it
+  _requality() {
+    if (!this.container) return
+    this._snapOff(true)
+    this._mode = this._tiltMode()
+    this.hasBackdrop = backdropSupported() && this._mode !== 'off'
+    this._removeExisting()
+    this._build()
+    const on = this._dialogueMode, prof = this._profile, fy = this._focusTarget
+    this._dialogueMode = false
+    if (on) this.setDialogueMode(true, fy, prof); else this.apply()
   }
 
   _removeExisting() {
@@ -230,12 +252,16 @@ export class TiltShift {
     // backdrop-filter is always transitioned, even when follow is off, so
     // dialogue mode ramps the blur instead of snapping it.
     const parts = []
-    if (eased && this.cfg.follow) {
-      parts.push(`top ${this.cfg.followEase}`, `height ${this.cfg.followEase}`)
+    if (this._mode === 'light') {
+      // no gliding, no ramping: every animated backdrop-filter is re-blurred every frame it moves
+    } else {
+      if (eased && this.cfg.follow) {
+        parts.push(`top ${this.cfg.followEase}`, `height ${this.cfg.followEase}`)
+      }
+      parts.push(`backdrop-filter ${this.cfg.dialogueEase}`,
+                 `-webkit-backdrop-filter ${this.cfg.dialogueEase}`)
     }
-    parts.push(`backdrop-filter ${this.cfg.dialogueEase}`,
-               `-webkit-backdrop-filter ${this.cfg.dialogueEase}`)
-    css.push(`transition:${parts.join(',')}`)
+    if (parts.length) css.push(`transition:${parts.join(',')}`)
     d.style.cssText = css.join(';')
     this.container.appendChild(d)
     return d
@@ -246,8 +272,8 @@ export class TiltShift {
     // blur grows gradually toward the top instead of one blurred copy being faded over the sharp picture
     // (which shows as a line where the fade ends).
     this.far  = this.hasBackdrop ? this._makeDiv('pgr-ts-far', 5, true)  : null
-    this.far2 = this.hasBackdrop ? this._makeDiv('pgr-ts-far2', 5, true) : null
-    this.far3 = this.hasBackdrop ? this._makeDiv('pgr-ts-far3', 5, true) : null
+    this.far2 = this.hasBackdrop && this._mode === 'live' ? this._makeDiv('pgr-ts-far2', 5, true) : null
+    this.far3 = this.hasBackdrop && this._mode === 'live' ? this._makeDiv('pgr-ts-far3', 5, true) : null
     this.near = this.hasBackdrop ? this._makeDiv('pgr-ts-near', 5, true) : null
     this.haze = this._makeDiv('pgr-ts-haze', 5, true)
     this.vig  = this._makeDiv('pgr-ts-vig', 6, false)
@@ -302,7 +328,7 @@ export class TiltShift {
     }
     this._dialogueMode = on
     this._profile = on ? profile : null
-    if (!on) this._focusTarget = null
+    if (!on) { this._focusTarget = null; this._snapOff() }
     else if (focusY != null) this._focusTarget = Math.max(0, Math.min(1, focusY))
 
     if (on) {
@@ -318,6 +344,12 @@ export class TiltShift {
         follow:      this.cfg.follow,
       }
       Object.assign(this.cfg, this.cfg[profile] || {})
+      if (profile === 'dialogue') {
+        const dm = this._dlgMode()
+        if (dm !== 'live') { this.cfg.farBlur = 0; this.cfg.nearBlur = 0 }             // no live blur under words on this device
+        if (dm === 'dim') { this.cfg.dim = Math.max(this.cfg.dim || 0, 0.5); this.cfg.vignette = Math.max(this.cfg.vignette || 0, 0.45) }
+        if (dm === 'still') this._snapOn()
+      }
     } else if (this._preDialogue) {
       Object.assign(this.cfg, this._preDialogue)
       this._preDialogue = null
@@ -359,7 +391,7 @@ export class TiltShift {
       }
     }
 
-    const t = this.cfg.followThreshold
+    const t = this._mode === 'light' ? Math.max(this.cfg.followThreshold, 0.04) : this.cfg.followThreshold      // (light: it jumps, so it jumps seldom)
     if (Math.abs(focusY - this._focusY) < t &&
         Math.abs(farBottom - this._farBottom) < t) return
 
@@ -394,7 +426,7 @@ export class TiltShift {
         const a0 = [Math.min(0.9, hold + 0.35), hold, hold * 0.4][k], b0 = [1, 0.95, 0.85][k]
         const fadeIn = top > 0 ? 0.3 : 0
         const mask = ramp(p => (1 - sstep(a0, b0, p)) * (fadeIn ? sstep(0, fadeIn, p) : 1))
-        const blur = c.farBlur * 0.58
+        const blur = c.farBlur * (this.far2 ? 0.58 : 0.8)
         this._style(el, {
           top: (top * 100) + '%',
           height: hPct + '%',
@@ -467,7 +499,64 @@ export class TiltShift {
     for (const k in props) el.style[k] = props[k]
   }
 
+  // ── a still, blurred picture of the world, for conversation on devices that cannot blur it live ──────────────────────
+  // Made once as the words come up: the world's canvases are laid onto one small canvas, which is shrunk and stretched back (blur
+  // enough, and nearly free), and a sharp band is put back where the speaker is. Then it is only an opacity fade for the browser.
+  _snapOn() {
+    this._snapOff(true)
+    const root = this.container
+    const W = root?.clientWidth, H = root?.clientHeight
+    if (!W || !H) return
+    const k = 0.5, w = Math.round(W * k), h = Math.round(H * k)
+    const mk = (cw, ch) => { const c = document.createElement('canvas'); c.width = Math.max(2, cw); c.height = Math.max(2, ch); return c }
+    const sharp = mk(w, h), sctx = sharp.getContext('2d')
+    const rr = root.getBoundingClientRect()
+    const layers = [...root.children].filter(el => (el.tagName === 'CANVAS' || el.tagName === 'IMG') && el.id !== 'pgr-ts-still'
+      && !/^pgr-(ts|wx)-/.test(el.id) && el.style.display !== 'none' && (parseInt(el.style.zIndex || '0', 10) <= 4))
+    layers.sort((a, b) => (parseInt(a.style.zIndex || '0', 10)) - (parseInt(b.style.zIndex || '0', 10)))
+    for (const el of layers) {
+      const r = el.getBoundingClientRect()
+      if (!r.width || !r.height) continue
+      const a = parseFloat(getComputedStyle(el).opacity)
+      sctx.globalAlpha = isNaN(a) ? 1 : a
+      try { sctx.drawImage(el, (r.left - rr.left) * k, (r.top - rr.top) * k, r.width * k, r.height * k) } catch (_) {}
+    }
+    sctx.globalAlpha = 1
+    // blur: down to an eighth, and back
+    const s1 = mk(w >> 3, h >> 3), s2 = mk(w >> 4, h >> 4)
+    s1.getContext('2d').drawImage(sharp, 0, 0, s1.width, s1.height)
+    s2.getContext('2d').drawImage(s1, 0, 0, s2.width, s2.height)
+    const out = mk(w, h), octx = out.getContext('2d')
+    octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high'
+    octx.drawImage(s2, 0, 0, w, h)
+    // the sharp band where the speaker is
+    const fy = this._focusTarget != null ? this._focusTarget : this._focusY, half = Math.max(0.04, this.cfg.focusHeight * 0.5)
+    const band = mk(w, h), bctx = band.getContext('2d')
+    bctx.drawImage(sharp, 0, 0)
+    const g = bctx.createLinearGradient(0, 0, 0, h), at = v => Math.max(0, Math.min(1, v))
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(at(fy - half - 0.10), 'rgba(0,0,0,0)'); g.addColorStop(at(fy - half), 'rgba(0,0,0,1)')
+    g.addColorStop(at(fy + half), 'rgba(0,0,0,1)'); g.addColorStop(at(fy + half + 0.10), 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0)')
+    bctx.globalCompositeOperation = 'destination-in'; bctx.fillStyle = g; bctx.fillRect(0, 0, w, h)
+    octx.drawImage(band, 0, 0)
+    out.id = 'pgr-ts-still'
+    out.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none;opacity:0;transition:opacity 0.45s ease'
+    root.appendChild(out)
+    this._still = out
+    requestAnimationFrame(() => { if (this._still === out) out.style.opacity = '1' })
+  }
+
+  _snapOff(now = false) {
+    const el = this._still
+    if (!el) return
+    this._still = null
+    if (now) { el.remove(); return }
+    el.style.opacity = '0'
+    setTimeout(() => el.remove(), 500)
+  }
+
   destroy() {
+    if (this._unQ) { this._unQ(); this._unQ = null }
+    this._snapOff(true)
     this._removeExisting()
     this.far = this.far2 = this.far3 = this.near = this.haze = this.vig = null
     this.container = null

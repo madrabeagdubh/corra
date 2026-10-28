@@ -56,6 +56,8 @@ export default class MeleeAudio {
     if (k < 0.9 && !key.startsWith('FOCUS')) opts = { ...opts, pitch: (opts.pitch ?? 1) * (0.4 + 0.6 * k), ...(opts.dur ? { dur: opts.dur * Math.min(5, 1 / Math.sqrt(k)) } : {}) }
     SoundBoard.playWeb(key, this.scene, { material: this.material, ...opts })
   }
+  // his blade comes out: wood, a rasp; a live one, a long scrape of steel and a ring that hangs
+  _foeDrawSfx() { if (this.m.F.liveBlade) SoundBoard.playWeb('STEEL_DRAW', this.scene, { volume: 0.2 }); else this.sfx('SWORD_DRAW', { volume: 0.11 }) }
   breath(opts) { if (BREATHING) this.sfx('BREATH', opts) }
   cough(opts) { if (BREATHING) this.sfx('COUGH', opts) }
   // a voice, never more than one every ~280 ms per fighter
@@ -77,12 +79,22 @@ export default class MeleeAudio {
         if (d.charged || d.lunge) this.say('player', 'kiai')
         else if (d.patient && !d.air) this.say('player', 'grunt', 0.35)
         break
-      case 'foeSwing': this.sfx('SWORD_SWISH', { pitch: 0.9 * this.jitter(), dur: 0.15, volume: 0.14 }); this.say('foe', 'ha', 0.5); break
-      case 'tell': this.sfx('BREATH', { inhale: true, kind: 'gasp', voice: 'male', effort: 0.5, volume: 0.15, wheeze: 0, pitch: 0.85 }); break   // he draws breath: the tell
+      case 'foeSwing': if (d.dash) { this.sfx('SWORD_SWISH', { pitch: 0.55, dur: 0.42, volume: 0.2 }); this.say('foe', 'kiai'); break } this.sfx('SWORD_SWISH', { pitch: (d.leap ? 0.7 : 0.9) * this.jitter(), dur: d.leap ? 0.3 : 0.15, volume: 0.14 }); this.say('foe', d.leap ? 'kiai' : 'ha', 0.5); break
+      case 'foeLand': this.sfx('BLADE_THUD', { hard: 1, volume: 0.5 }); break
+      case 'dashStart': this.sfx('SWORD_SWISH', { pitch: 0.55, dur: 0.42, volume: 0.22 }); this._later(90, () => this.sfx('SWORD_SWISH', { pitch: 1.9, dur: 0.25, volume: 0.14 }), 90); this.say('player', 'kiai'); break
+      case 'foeCut': case 'dashCut':                          // the blade rings, a beat after the line is crossed; then the blow
+        this.sfx('BLADE_KNOCK', { hard: 1, material: 'metal', pitch: 1.55, volume: 0.9 })
+        this._later(70, () => this.sfx('BLADE_THUD', { hard: 1, volume: 0.7 }), 70)
+        this._later(120, () => this.sfx('SWORD_SWISH', { pitch: 2.4, dur: 0.1, volume: 0.16 }), 120)
+        break
+      case 'arrowLoose': this.sfx('BOW_LOOSE'); this.say('foe', 'ha', 0.4); break
+      case 'arrowTurned': this._parrySound(); break
+      case 'arrowDeflect': if (d.auto) this._parrySound(); this.sfx('BLADE_KNOCK', { hard: 1, pitch: 1.5 * this.jitter(), volume: 0.7 }); this.sfx('SWORD_SWISH', { pitch: 2.2, dur: 0.12, volume: 0.12 }); break
+      case 'tell': if (d.shoot) { this.sfx('BOW_DRAW', { dur: (d.ms || 850) / 1000 }); break } this.sfx('BREATH', { inhale: true, kind: 'gasp', voice: 'male', effort: 0.5, volume: 0.15, wheeze: 0, pitch: 0.85 }); break   // he draws breath: the tell
       case 'chargeStart': this.breath({ inhale: true, kind: 'pant', voice: this.pBreath, effort: 0.6, volume: 0.2 }); break
       case 'enGarde': this.sfx('SWORD_DRAW'); this._later(520, () => this.breath({ kind: 'pant', voice: this.pBreath, effort: 0.3, volume: 0.1 }), 520); break
       case 'atEase': this.sfx('SWORD_SHEATHE'); break
-      case 'parried': this.sfx('BLADE_KNOCK', { hard: 0.9, pitch: this.jitter() * (1 + 0.04 * (d.exchange || 0)) }); break
+      case 'parried': this.sfx('BLADE_KNOCK', { hard: d.timed ? 1 : 0.9, pitch: this.jitter() * (1 + 0.04 * (d.exchange || 0)) * (d.timed ? 1.18 : 1) }); break      // timed: the clean high ring
       case 'clash': this.sfx('BLADE_CRACK', { pitch: this.jitter() }); this.say('player', 'grunt', 0.5); break      // both blows at once: the loud one (soundBoard.js)
       case 'hit':
         this.sfx('BLADE_THUD', { hard: d.charged || d.desperate ? 1 : 0.5 })
@@ -122,13 +134,13 @@ export default class MeleeAudio {
       // the salute's swish comes as the sword is swept down (62% through: meleeView.js)
       // he draws and salutes you; yours is up to you (swipe up again)
       case 'boutStart':
-        this.sfx('SWORD_DRAW', { volume: 0.11 })
+        this._foeDrawSfx()
         this._later(DRAW_MS + 0.62 * SALUTE_MS, () => this.sfx('SWORD_SWISH', { pitch: 1.1, dur: 0.14, volume: 0.22 }))
         break
       // one salute, one swish as the blade is swept down; d.draw: drawn first
       case 'salute': {
         const mine = d.by === 'player', at = (d.draw ? DRAW_MS : 0) + 0.62 * SALUTE_MS + (d.reply ? 90 : 0)
-        if (d.draw) this.sfx('SWORD_DRAW', { volume: 0.11 })
+        if (d.draw) { if (mine) this.sfx('SWORD_DRAW', { volume: 0.11 }); else this._foeDrawSfx() }
         this._later(at, () => this.sfx('SWORD_SWISH', { pitch: mine ? 1.2 : 1.1, dur: 0.14, volume: 0.22 }))
         if (d.end) this._later(SALUTE_MS + 0.55 * 900, () => this.sfx('SWORD_SHEATHE', { volume: 0.08 }))   // and puts it away
         break
@@ -144,6 +156,8 @@ export default class MeleeAudio {
     for (let i = 0; i < n; i++) this._later(i * (310 + Math.random() * 70), () => this.cough({ voice: this.pBreath, weak: 0.2 + 0.25 * i, wet: 0.3, pitch: this.jitter(0.05) }))
   }
 
+  // the bow tutorial's parry: an arrow sent spinning away
+  _parrySound() { try { if (this.scene.cache?.audio?.exists('parrySound')) this.scene.sound.play('parrySound', { volume: 0.8 }) } catch (_) {} }
   _later(ms, fn) { const id = setTimeout(() => { this._timers.delete(id); fn() }, ms); this._timers.add(id) }
 
   // The roar of the Boyne under bullet time: a rush of low noise, swelling in as time slows and gone when it returns.

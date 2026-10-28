@@ -595,8 +595,12 @@ export default class TextPanel {
     if (!cv || !src.length) return
     const r = cv.getBoundingClientRect(), kx = r.width / cv.width, ky = r.height / cv.height
     const gain = this.scene?.inkGain ? this.scene.inkGain() : 1        // a scene whose lighting the sampler cannot see says so
+    // the cheap conversation dim (a weak phone, quality.js) darkens the world in a DOM layer the sampler cannot see: the ink is simply the light one
+    const ts = this.scene?.tiltShift
+    const dimmed = !!(ts?._dialogueMode && ts._dlgMode?.() === 'dim')
     for (const el of this._inkEls || []) {
       if (!el?.active || el.alpha <= 0) continue
+      if (dimmed) { el.setColor('rgb(230,237,245)'); continue }          // (a darkened world: light ink, whatever the sampler saw behind the dim)
       this._contrast.update(el._inkShim, src, () => {
         const b = el.getBounds()
         return { x: r.left + b.x * kx, y: r.top + b.y * ky, w: b.width * kx, h: b.height * ky }

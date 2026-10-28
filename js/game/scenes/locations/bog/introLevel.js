@@ -137,6 +137,7 @@ import SteepFaceRenderer from '../../../effects/steepFaceRenderer.js'
 import { wind } from '../../../effects/wind.js'
 import { TiltShift } from '../../../effects/tiltShift.js'
 import { NOCTURNE } from '../../../systems/nightPalette.js'
+import { quality } from '../../../systems/quality.js'
 
 const TILE        = 48     // logical px per tile: the generated maps and the renderer both use it
 // Per map: where the camera stands (col, PLAYER row: the renderer looks 14 rows beyond it), how far
@@ -431,12 +432,23 @@ export default class IntroLevelScene extends Phaser.Scene {
       cam.scrollX = this._baseX + this._panCols() * TILE
       this._panFigures(sh)
       this._trackMoon()
-      this.perspectiveGround.update()
+      // The ground is the dearest thing in the intro (every frame it redraws every visible tile, and the flowers). On a weaker device it is
+      // redrawn only as often as the tier says (systems/quality.js, `ground`): at once when the view moves, lazily while it only sways.
+      const [idleMs, idleFrames, moveFrames] = quality.get().ground
+      const now = performance.now()
+      this._gF = (this._gF || 0) + 1
+      const moved = Math.abs(cam.scrollX - (this._gX ?? -1e9)) > 0.5 || Math.abs(cam.scrollY - (this._gY ?? -1e9)) > 0.5 || resized       // (the ease never quite arrives: under half a pixel is still)
+      const due = this._gT == null || (moved ? this._gF >= moveFrames : (this._gF >= idleFrames && now - this._gT >= idleMs))
+      if (due) {
+        this._gX = cam.scrollX; this._gY = cam.scrollY; this._gT = now; this._gF = 0
+        this.perspectiveGround.update()
+        this._groundDrawn = true
+      } else this._groundDrawn = false
       // The tilt-shift focuses on the player; the intro has none, so it is handed the figures'
       // measured centre instead (from _panFigures). The renderer clears playerScreenY at the
       // start of its own update when there is no player, so setting it here -- after that, just
       // before the tilt-shift reads it -- touches nothing else.
-      if (this.tiltShift && this._figCentreY != null) {
+      if (this._groundDrawn && this.tiltShift && this._figCentreY != null) {
         this.perspectiveGround.playerScreenY = this._figCentreY
         this.tiltShift.update(this.perspectiveGround)
       }

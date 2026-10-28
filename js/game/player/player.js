@@ -142,9 +142,7 @@ export default class Player {
     this.inventory.setItem(2, createItem('leather_armor'));
     this.inventory.setItem(3, null);
     this.inventory.setItem(4, null);
-    this.inventory.setItem(5, createItem('simple_bow'));
-    this.inventory.setItem(6, createItem('healing_potion'));
-    this.inventory.setItem(7, createItem('arrows', 30));
+    // nothing else to begin with: what a champion carries is given where it is earned (the bow tutorial and the faiche lend a bow; the main game adds its own)
     this.updateStatsFromEquipment();
   }
 

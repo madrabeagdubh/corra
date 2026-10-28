@@ -115,6 +115,8 @@ export default class Joystick {
     // onPressEnd now gets { dragged } -- true if the press swiped.
     this._onPressStart        = config.onPressStart         ?? null
     this._onSwipeVertical     = config.onSwipeVertical      ?? null
+    this._dashReady           = config.dashReady            ?? null     // () => true while a held press may be flicked into the dash
+    this._onDashSwipe         = config.onDashSwipe          ?? null     // (deg) the flick: 0 right, 90 down
     this._ringGestures        = config.ringGestures         ?? null     // () => true: swipes on the ring are the moon's gestures
     this._onRingDrag          = config.onRingDrag           ?? null     // (pointerId) a drag from above the brooch onto it: swallow it
     this._onRingRelease       = config.onRingRelease        ?? null     // () the hoop turned a full round: the pin is free (the menu)
@@ -337,7 +339,7 @@ export default class Joystick {
       this._hubDragging    = false
       this._longPressFired = false
       this._hubX0 = e.clientX; this._hubY0 = e.clientY
-      this._hubAxis = null; this._hubVFired = false
+      this._hubAxis = null; this._hubVFired = false; this._hubDashFired = false
       if (this._onPressStart) this._onPressStart()
 
       this._longPressInterval = setInterval(() => {
@@ -360,6 +362,17 @@ export default class Joystick {
 
     this._moonCanvas.addEventListener('pointermove', (e) => {
       if (performance.now() - this._hubSwipeStartT < 50) return
+      if (this._onDashSwipe && !this._hubDashFired && this._dashReady?.()) {              // held full, and flicked: the dash
+        const mx = e.clientX - this._hubX0, my = e.clientY - this._hubY0
+        if (Math.hypot(mx, my) >= 24) {
+          this._hubDashFired = true; this._hubDragging = true; this._hubVFired = true; this._hubAxis = this._hubAxis || 'v'
+          if (this._longPressTimer)    { clearTimeout(this._longPressTimer);   this._longPressTimer   = null }
+          if (this._longPressInterval) { clearInterval(this._longPressInterval); this._longPressInterval = null }
+          this._onDashSwipe(Math.atan2(my, mx) * 180 / Math.PI)
+          return
+        }
+      }
+      if (this._hubDashFired) return
       if (!this._hubAxis) {
         const mx = e.clientX - this._hubX0, my = e.clientY - this._hubY0
         if (Math.hypot(mx, my) < 8) return

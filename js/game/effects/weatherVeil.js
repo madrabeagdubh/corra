@@ -50,6 +50,7 @@ import { weather } from './weather.js'
 import { WeatherSky } from './weatherSky.js'
 import { WeatherRain } from './weatherRain.js'
 import { WeatherRainbow } from './weatherRainbow.js'
+import { quality } from '../systems/quality.js'
 
 const ROOT_ID = 'pgr-wx-veil'
 const EPS = 0.003
@@ -118,7 +119,7 @@ export class WeatherVeil {
     this._root = root
 
     // the vignette's desaturation (see the header: direct child of container)
-    const T0 = weather.tuning
+    const T0 = { ...weather.tuning, blend: weather.tuning.blend && quality.get().veilBlend }          // (the saturation blend is dear: not on a weak phone)
     const staleGrey = document.getElementById('pgr-wx-grey')
     if (staleGrey) staleGrey.parentNode?.removeChild(staleGrey)
     const grey = document.createElement('div')
@@ -139,8 +140,8 @@ export class WeatherVeil {
     this._grey = grey
 
     this.sky = new WeatherSky(this.pgr)
-    this.rain = new WeatherRain(this.pgr)
-    this.rainbow = new WeatherRainbow(this.pgr, scene)
+    this.rain = quality.fx('rain') ? new WeatherRain(this.pgr) : null
+    this.rainbow = quality.get().rainbow && quality.fx('rainbow') ? new WeatherRainbow(this.pgr, scene) : null
     this.update()
   }
 

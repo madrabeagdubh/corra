@@ -33,8 +33,9 @@
 
 import { weather } from './weather.js'
 import { wind } from './wind.js'
+import { quality } from '../systems/quality.js'
 
-const SCALE = 0.5
+let SCALE = 0.5                      // (the tier sets it: systems/quality.js)
 const MAX_CURTAINS = 6
 const FRAMES = 8
 const FLICKER = 0.07                 // seconds per grain frame (~14 Hz)
@@ -192,6 +193,7 @@ export class WeatherRain {
   }
 
   _fit() {
+    SCALE = quality.get().rainScale
     const W = Math.max(2, Math.round((this._container.clientWidth  || this.pgr._sw || 400) * SCALE))
     const H = Math.max(2, Math.round((this._container.clientHeight || this.pgr._sh || 800) * SCALE))
     if (this._canvas.width !== W || this._canvas.height !== H) {
@@ -355,13 +357,14 @@ export class WeatherRain {
     const wet = weather.wet || 0
     // every gust brings a swell of new rings
     const gust = 0.8 + 0.5 * clamp(wind.strength, 0, 1.4)
-    const rate = T.ringRate * Math.pow(r, 1.2) * (0.5 + 0.5 * r) * gust
+    const Q = quality.get().rain                                    // what the device can bear: a fraction of the rings and specks
+    const rate = T.ringRate * Q * Math.pow(r, 1.2) * (0.5 + 0.5 * r) * gust
     this._ringAcc = Math.min(this._ringAcc + rate * dt, 12)
     const ground = H - hz - 2
     const P = this._proj()
 
     let tries = 0
-    while (this._ringAcc >= 1 && rings.length < T.ringMax && ground > 4 && tries++ < 70) {
+    while (this._ringAcc >= 1 && rings.length < T.ringMax * Q && ground > 4 && tries++ < 70) {
       const x = Math.random() * W
       const y = hz + 2 + Math.pow(Math.random(), 0.9) * ground
       let col = 0, row = 0
@@ -458,7 +461,7 @@ export class WeatherRain {
     this._speckT -= dt
     if (this._speckT <= 0) {
       this._speckT = FLICKER
-      const n = Math.round(T.speckMax * r * r * 2.2)   // many are thinned by farFade
+      const n = Math.round(T.speckMax * quality.get().rain * r * r * 2.2)   // many are thinned by farFade
       const ground = H - hz - 2
       const out = this._specks
       out.length = 0

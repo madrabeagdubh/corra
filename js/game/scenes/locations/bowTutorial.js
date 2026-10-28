@@ -14,6 +14,7 @@ import { createMoonWidget } from '../../ui/moonWidget.js';
 import AdvancedTraining from '../../scenes/locations/advancedTraining.js';
 import { createStatusBar } from '../../ui/statusBar.js'
 import { SoundBoard } from '../../systems/soundBoard.js';
+import { createItem } from '../../ui/inventory/itemDefinitions.js';
 
 
 export default class BowTutorial extends Phaser.Scene {
@@ -262,6 +263,10 @@ preload() {
         this.player.canMove = false;
         this.cameras.main.centerOn(playerX, playerY);
 
+        // The player no longer starts with a bow or arrows: the tutorial gives them
+        { const inv0 = this.player.inventory, have = id => { for (let i = 0; i < inv0.totalSlots; i++) if (inv0.getItem(i)?.id === id) return true; return false };
+          if (!have('simple_bow')) inv0.setItem(5, createItem('simple_bow'));
+          if (!have('arrows'))     inv0.setItem(7, createItem('arrows', 30)); }
         // Auto-equip bow for tutorial — player arrives with bow in inventory
         const bow = this.player.inventory.getItem(5);
         if (bow && bow.id === 'simple_bow') {

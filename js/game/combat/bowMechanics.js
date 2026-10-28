@@ -95,7 +95,7 @@ export default class BowMechanics {
   _canStartAiming() {
     if (this.isAiming) return false
     const equippedRight = this.player.inventory?.getEquippedItem('rightHand')
-    if (equippedRight?.id !== 'simple_bow') return false
+    if (equippedRight?.id !== 'simple_bow' && !(this.slung && this._hasBowInPack())) return false      // (slung: a bow carried on the back, for a bout with the sword in hand)
     if (!this.hasArrows()) return false
     return true
   }
@@ -136,11 +136,16 @@ export default class BowMechanics {
 
   // ── Inventory ──────────────────────────────────────────────────────────────
 
+  _hasBowInPack() {
+    const inv = this.player.inventory
+    for (let i = 0; i < inv.totalSlots; i++) if (inv.getItem(i)?.id === 'simple_bow') return true
+    return false
+  }
   hasArrows() {
     const inv = this.player.inventory
     for (let i = 0; i < inv.totalSlots; i++) {
       const item = inv.getItem(i)
-      if (item?.id === 'arrows' && item.quantity > 0) return true
+      if (item?.subtype === 'arrow' && item.quantity > 0) return true       // arrows, or training arrows
     }
     return false
   }
@@ -149,7 +154,8 @@ export default class BowMechanics {
     const inv = this.player.inventory
     for (let i = 0; i < inv.totalSlots; i++) {
       const item = inv.getItem(i)
-      if (item?.id === 'arrows' && item.quantity > 0) {
+      if (item?.subtype === 'arrow' && item.quantity > 0) {
+        this._ammo = { id: item.id, training: !!item.training }
         item.quantity--
         if (item.quantity <= 0) inv.removeItem(i)
         if (this.scene.worldMenu?.isOpen) this.scene.worldMenu.refreshGridDisplay()
@@ -370,6 +376,7 @@ export default class BowMechanics {
       active:         true,
       hasLanded:      false,
       hitTarget:      false,
+      training:       !!this._ammo?.training,
       trail,
       trailPositions: [],
       prevScreenX:    initPos?.x ?? null,
@@ -577,7 +584,7 @@ export default class BowMechanics {
       if (d < radius) {
         arrow.setData('hitTarget', true)
         SoundBoard.play('ARROW_HIT_TARGET', this.scene)
-        return { arrow, force: arrow.getData('force'), distance: d, landX, landY, landScreenX, landScreenY }
+        return { arrow, force: arrow.getData('force'), training: !!arrow.getData('training'), distance: d, landX, landY, landScreenX, landScreenY }
       }
     }
     return null

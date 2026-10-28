@@ -1,4 +1,5 @@
 import { NOCTURNE } from './game/systems/nightPalette.js';   // [moonGlow]
+import { quality } from './game/systems/quality.js';
 // introOghamDial.js  (v6)
 //
 // The druid's incantation: a ring of ogham turning about the moon while the
@@ -156,7 +157,11 @@ export function runOghamDial(opts = {}) {
 
     const styleEl = document.createElement('style');
     styleEl.id = 'ogd-style';
-    styleEl.textContent = STYLE;
+    // What a weak phone is spared (systems/quality.js): a colour-cycling SVG filter that repaints the moon's halo every frame for as long as it
+    // waits for a touch (the halo still breathes, in brightness, without it), and the live backdrop blur over the world.
+    const Q = quality.get()
+    styleEl.textContent = STYLE
+      + (Q.tilt === 'off' ? `#ogd-halo{animation:ogd-halo-soft 2.4s ease-in-out infinite;filter:url(#ogd-glow)}@keyframes ogd-halo-soft{0%,100%{opacity:.22}50%{opacity:.5}}#ogd-tilt .band{backdrop-filter:none;-webkit-backdrop-filter:none}` : '');
     document.head.appendChild(styleEl);
 
     const root = document.createElement('div');
@@ -552,7 +557,7 @@ export function runOghamDial(opts = {}) {
          firstLineHoldDone latches once the hold has been spent, so it only
          ever happens the one time. */
       let firstLineHoldDone=false, firstLineHoldT=0, preHoldMs=0;
-      const FIRST_LINE_HOLD_MS=2000;
+      const FIRST_LINE_HOLD_MS=3800;      // (was 2000: the reveal below -- swell, bang, settle -- needs the line to stay put for all of it)
       const PRE_HOLD_MS=3000;
       /* Fires the auto-brighten glide (AUTO_BRIGHT_TARGET, defined near the
          tap-nudge constants below) exactly once, the instant the hold
@@ -754,8 +759,12 @@ export function runOghamDial(opts = {}) {
             if(!autoBrightArmed){
               autoBrightArmed=true;
               if(rawPhase<AUTO_BRIGHT_TARGET){
-                glideFrom=rawPhase; glideQueue=[];
-                glideTo=AUTO_BRIGHT_TARGET; glideMs=AUTO_BRIGHT_MS; glideT=0;
+                /* The reveal. The moon swells to FULL (no longer to a modest 0.45 -- it must be unmistakable that the moon is
+                   doing this), and as it arrives the English bangs in (revealBang()); then, after a beat, it settles to the middle,
+                   where a reader would leave it. The player's own hand takes over from any point (see the glide-tick's dragging check). */
+                glideFrom=rawPhase;
+                glideTo=1; glideMs=REVEAL_SWELL_MS; glideT=0; revealPending=true;
+                glideQueue=[{to:1, ms:REVEAL_BEAT_MS},{to:REVEAL_REST, ms:REVEAL_SETTLE_MS}];
               }
             }
             firstLineHoldT+=dt*1000;
@@ -809,6 +818,7 @@ export function runOghamDial(opts = {}) {
               for(let i=1;i<=steps;i++) moonClick(lastClickUnit+dir*i,(i-1)*0.04);
               lastClickUnit=clickUnit;
             }
+            if(revealPending && glideT>=1 && glideTo>=1) revealBang();     // the moon is full: now the English
             if(glideT>=1){
               if(glideQueue.length){
                 glideFrom=glideTo;
@@ -1148,6 +1158,61 @@ export function runOghamDial(opts = {}) {
          it themselves in the meantime, there's nothing left to
          demonstrate. */
       const AUTO_BRIGHT_TARGET=0.45, AUTO_BRIGHT_MS=1400;
+      // The reveal's timing (ms) and where the moon comes to rest. Tune here.
+      const REVEAL_SWELL_MS=1000, REVEAL_BEAT_MS=650, REVEAL_SETTLE_MS=1500, REVEAL_REST=0.55;
+      let revealPending=false;
+
+      /* THE BANG: the English arrives. It is a first impression, not a decoration: the player has just watched the moon brighten and must
+         connect that to the words appearing. So the line itself kicks (swells, flares white, shakes), a spray of sparks leaves it, a bell
+         rings over a low note, and a phone buzzes. Fired once, from the glide-tick, the moment the moon reaches full. */
+      function revealBang(){
+        revealPending=false;
+        const r=rows.find(x=>x.en&&x.en.textContent.replace(/[\u200b\s]/g,'')); if(!r) return;       // (row 0 is an empty spacer)
+        const en=r.en;
+        try{
+          en.animate([
+            {transform:'scale(1) translateX(0)',   filter:'brightness(1)',   textShadow:'0 0 0 rgba(255,246,210,0)'},
+            {transform:'scale(1.38) translateX(0)',filter:'brightness(2.4)', textShadow:'0 0 22px rgba(255,246,210,.95), 0 0 48px rgba(190,220,255,.8)', offset:.18},
+            {transform:'scale(1.22) translateX(-9px)',filter:'brightness(1.9)',offset:.30},
+            {transform:'scale(1.28) translateX(9px)', filter:'brightness(1.9)',offset:.42},
+            {transform:'scale(1.16) translateX(-6px)',filter:'brightness(1.5)',offset:.55},
+            {transform:'scale(1.10) translateX(5px)', filter:'brightness(1.3)',offset:.68},
+            {transform:'scale(1.03) translateX(-2px)',filter:'brightness(1.1)',offset:.84},
+            {transform:'scale(1) translateX(0)',   filter:'brightness(1)',   textShadow:'0 0 0 rgba(255,246,210,0)'}
+          ],{duration:900,easing:'ease-out'});
+        }catch(e){}
+        // sparks, from where the words are
+        try{
+          const rg=document.createRange(); rg.selectNodeContents(en);
+          const b=rg.getBoundingClientRect();
+          const n=quality.get().tilt==='off'?10:24;
+          const host=document.getElementById('ogd-root')||document.body;
+          for(let i=0;i<n;i++){
+            const sp=document.createElement('div');
+            const sz=3+Math.random()*5;
+            const x=b.left+Math.random()*b.width, y=b.top+Math.random()*b.height;
+            sp.style.cssText=`position:fixed;left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;margin:${-sz/2}px 0 0 ${-sz/2}px;`+
+              `border-radius:50%;pointer-events:none;z-index:99997;`+
+              `background:radial-gradient(circle,#fffbe8 0%,${Math.random()<.5?'#ffe9a8':'#bfe0ff'} 45%,rgba(255,255,255,0) 72%);`+
+              `box-shadow:0 0 ${sz*2}px ${Math.random()<.5?'#ffe9a8':'#bfe0ff'};`;
+            host.appendChild(sp);
+            const ang=Math.random()*Math.PI*2, d=36+Math.random()*90, dur=700+Math.random()*700;
+            const a=sp.animate([
+              {transform:'translate(0,0) scale(.4)',opacity:1},
+              {transform:`translate(${Math.cos(ang)*d*.6}px,${Math.sin(ang)*d*.6-12}px) scale(1.3)`,opacity:1,offset:.35},
+              {transform:`translate(${Math.cos(ang)*d}px,${Math.sin(ang)*d+18}px) scale(.2)`,opacity:0}
+            ],{duration:dur,easing:'ease-out',delay:Math.random()*160,fill:'forwards'});
+            a.onfinish=()=>sp.remove();
+          }
+        }catch(e){}
+        // the sting: a low root under a bell
+        tone(130.81,0.10,1.6,0);
+        tone(1046.5,0.075,2.2,0.02);
+        tone(1568.0,0.055,2.4,0.06);
+        tone(2093.0,0.04,2.6,0.10);
+        tone(2637.0,0.028,2.8,0.15);
+        try{ if(navigator.vibrate) navigator.vibrate([18,30,46]); }catch(e){}
+      }
       let downX=0, downY=0, downT=0, glideFrom=0, glideTo=-1, glideT=0;
       let glideQueue=[], glideMs=TAP_NUDGE_MS;
       /* A detent every MOON_CLICK_STEP of phase while the moon itself is

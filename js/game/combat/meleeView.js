@@ -14,6 +14,8 @@
 
 import { rig, SWORD_SCALE, drawHeldSword, cutPose, guardPose, cutSmear } from './swordRig.js'
 import { figureBox, dustPuff, speedLines, whoosh } from '../scenes/locations/skye/dustDash.js'
+import * as DashFx from './dashFx.js'
+import { ARROW } from './melee.js'
 // the Skye figures are billboards 1.2 tiles tall with the hand ~0.42 up; this
 // scale puts swordRig's hand and sword where they belong on them
 const FOE_PS = 0.7
@@ -26,6 +28,7 @@ const easeIO = u => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, u)))) / 2
 const SHOW_HUD = false
 const PRESS_SHOW = 2500       // = melee.js PRESS_MS: the ring round your feet as you steady a wound
 export const DRAW_MS = 900, SHEATHE_MS = 900
+const JUMP_H = 0.7                                     // peak of the spinning leap, in tile widths
 export const SALUTE_MS = 1600
 // A sword thrown to you and caught: held up before the face a moment (hilt in the hand, blade upright), lowered to the
 // scabbard, slid home. catchSword() begins it; weaponPose() plays it; faicheCourse.js waits CATCH_MS before going on.
@@ -55,6 +58,7 @@ export default class MeleeView {
     this.sparks = []
     this.floats = []
     this.flash = 0
+    this.dfx = DashFx.newState()         // the dash's picture (dashFx.js)
     this.blood = []         // stains on the ground: { c, r (tiles), rad (tiles), a }
     // animation clocks, in performance.now() ms (the look runs on real time;
     // the fight's own clock is m.t)
@@ -114,13 +118,81 @@ export default class MeleeView {
   // figure: behind you when you are nearer the camera, in front when he is. ff: his box {x, y (feet), w, h}; PGR has already applied
   // his body pose. Out of a bout it's in his scabbard; when a bout starts he draws it (slid clear, then up) before his salute, and
   // after the closing salute he puts it away again. In a bout it's in the hand on your side of him. Same rig as yours (swordRig.js).
+  // ── arrows ───────────────────────────────────────────────────────────────
+  // in the air at chest height, a pale shaft with a bright head and a red fletching; one turned aside tumbles up and away, spinning, and fades
+  _drawArrows(ctx) {
+    const m = this.m, t = m.t
+    for (const a of m.arrows || []) {
+      if (a.end === 'gone') continue
+      let x, y, ang, alpha = 1, lift = 0.5, tum = 0
+      if (a.end === 'deflect') {
+        const e = Math.min(1, (t - a.endT) / 700)
+        const F0 = this.figure(a.x, a.y); if (!F0) continue
+        x = F0.x + a.vx * e * F0.w * 1.4; y = F0.y - F0.h * 0.5 - (e * (1.3 - 0.9 * e)) * F0.h * 0.8
+        ang = this.screenVec([a.x - a.ux, a.y - a.uy], [a.x, a.y]); ang = Math.atan2(ang[1], ang[0]) + a.spin * e; alpha = 1 - e * e; tum = 1
+        var w = F0.w
+      } else {
+        // it flies in an arc, as yours do: up out of her hands and down to your chest (a parabola over the range, lost at the end)
+        const s = ((a.end ? a.endT : t) - a.t0) / ARROW.msPer
+        const px = a.c0 + a.ux * s, py = a.r0 + a.uy * s
+        const F0 = this.figure(px, py); if (!F0) continue
+        const dd = a.dd || a.len - ARROW.over, rise = sx => { const k = clamp01(sx / dd); return 4 * k * (1 - k) * Math.min(dd, 9) * ARROW.arc }       // in figure-widths
+        const qx = px - a.ux * 0.4, qy = py - a.uy * 0.4, G = this.figure(qx, qy) || F0
+        x = F0.x; y = F0.y - F0.h * 0.5 - rise(s) * F0.w
+        const sx0 = G.x, sy0 = G.y - G.h * 0.5 - rise(s - 0.4) * G.w
+        ang = Math.atan2(y - sy0, x - sx0); w = F0.w
+        if (!(Math.abs(x - sx0) + Math.abs(y - sy0) > 0.01)) { const v = this.screenVec([qx, qy], [px, py]); ang = Math.atan2(v[1], v[0]) }
+        if (a.end === 'hit') alpha = Math.max(0, 1 - (t - a.endT) / 120)
+        if (s < 0.5) alpha *= s / 0.5
+      }
+      if (alpha <= 0.02) continue
+      const L = w * 0.6, ux = Math.cos(ang), uy = Math.sin(ang)
+      ctx.save(); ctx.globalAlpha = alpha; ctx.lineCap = 'round'
+      if (!tum) { ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = Math.max(1, w * 0.02); ctx.beginPath(); ctx.moveTo(x - ux * L * 1.8, y - uy * L * 1.8); ctx.lineTo(x - ux * L, y - uy * L); ctx.stroke() }      // the air it cut
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, w * 0.03)                                            // a white line, as in the bow tutorial
+      ctx.beginPath(); ctx.moveTo(x - ux * L / 2, y - uy * L / 2); ctx.lineTo(x + ux * L / 2, y + uy * L / 2); ctx.stroke()
+      ctx.restore()
+    }
+  }
+  // her bow (the game's own bow sprite, item 2482), in her hand, the string drawn back by k (0..1) with an arrow on it (nocked); u: coming off her back (0..1)
+  _drawBow(ctx, ff, fs, aimDeg, k, nocked, u = 1) {
+    const a = rad(aimDeg), dx = Math.cos(a), dy = Math.sin(a), w = ff.w, e = easeOut(u)
+    const hx = lerp(ff.x - fs * w * 0.12, ff.x + dx * w * 0.32, e), hy = lerp(ff.y - ff.h * 0.8, ff.y - ff.h * 0.55 + dy * w * 0.2, e)
+    const size = w * 0.46 * (0.7 + 0.3 * e), img = this.scene.itemSheet?.getCanvas?.(2482)
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(a - rad(135) + (1 - e) * fs * 1.3)          // (the sprite faces down and to the left)
+    ctx.imageSmoothingEnabled = false
+    if (img) ctx.drawImage(img, -size / 2, -size / 2, size, size)
+    else { ctx.strokeStyle = '#6b4423'; ctx.lineWidth = Math.max(2, w * 0.06); ctx.beginPath(); ctx.arc(0, 0, size * 0.4, 0.8, 5.4); ctx.stroke() }
+    ctx.restore()
+    if (nocked && u >= 1) {                                                                   // the arrow on the string, drawn back as she draws
+      const bx = hx - dx * w * (0.1 + 0.28 * k), by = hy - dy * w * (0.1 + 0.28 * k), tx = hx + dx * w * 0.28, ty = hy + dy * w * 0.28
+      ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, w * 0.03)
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(tx, ty); ctx.stroke(); ctx.restore()
+    }
+  }
+  // how far through his spin he is (0..1), or -1: it runs on after the blow lands, so it is seen to the end
+  foeSpinK(foe, t) {
+    if (foe.spinUntil > t && t >= foe.spinT0) return (t - foe.spinT0) / Math.max(1, foe.spinUntil - foe.spinT0)
+    if (foe.leap && foe.state === 'strike') return clamp01((t - foe.st0) / Math.max(1, foe.until - foe.st0))
+    return -1
+  }
   foeSword(ctx, ff) {
     const m = this.m, foe = m.foe, t = m.t
     if (!ff || m.noFoe || !(foe.hp > 0 || m.F.steady) || foe.state === 'beaten') return
+    // an archer opens like anyone: the wooden sword out and saluted; then it goes away, and the bow comes off her back
+    const swordEnd = SALUTE_MS + DRAW_MS
+    const open = m.F.archer && m.combat && foe.state === 'salute' && foe.startPending ? t - foe.st0 : -1
+    if (m.F.archer && m.combat && !(foe.state === 'strike' || (foe.state === 'wind' && !foe.shoot)) && (open < 0 || open >= swordEnd + (m.F.dropSword ? 0 : ARROW.sheathe))) {        // an archer in the fight holds a bow, not a blade
+      const pf0 = this.playerFigure(), fs0 = pf0 && pf0.x < ff.x ? -1 : 1
+      const unsl = open < 0 ? 1 : clamp01((open - swordEnd - (m.F.dropSword ? 0 : ARROW.sheathe)) / ARROW.unsling)
+      const k = foe.state === 'wind' && foe.shoot ? clamp01((t - foe.st0) / Math.max(1, foe.until - foe.st0)) : Math.max(0, 1 - (t - foe.looseAt) / 120) * 0.5
+      this._drawBow(ctx, ff, fs0, this.screenAngle([foe.c, foe.r], m.pa.tile()), k, foe.state === 'wind' && foe.shoot, unsl)
+      return
+    }
     const pf = this.playerFigure()
     const now = this.now(), A = this.a
     const fs = pf && pf.x < ff.x ? -1 : 1
-    const drawnNow = (m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady) && !foe.sheathed    // foeReady: held out, a drill; sheathed: he only shoves
+    const drawnNow = (m.combat || m.bout.over || foe.state === 'salute' || !!m.foeReady) && !foe.sheathed && !(open >= swordEnd)    // foeReady: held out, a drill; sheathed: he only shoves
     if (drawnNow !== A.foeDrawn) { A.foeDrawn = drawnNow; if (drawnNow) A.foeDrawT = now; else A.foeSheatheT = now }
     const aim = foe.target ? this.screenAngle([foe.c, foe.r], foe.target) : this.screenAngle([foe.c, foe.r], m.pa.tile())
     // on guard: the point at you, breathing. From the south (you nearer the camera) that would hang it down the screen, so it is held up instead.
@@ -142,13 +214,19 @@ export default class MeleeView {
       const cut = q => cutPose(q, aim, fs, false)
       const dc = this.demoCut, dk = dc ? (now - dc.t0) / dc.ms : 2           // a cut he shows you (a lesson's demonstration): the look only
       if (dc && dk >= 1.2) this.demoCut = null
+      const db = DashFx.foeBlade(this, foe, fs, ff)
       if (dc && dk < 1.2) {
         const show = q => cutPose(q, dc.aim, fs, dc.flip), p = show(Math.min(1, dk))
         ang = p.angle; hand = p.hand; smear = cutSmear(show, Math.min(1, dk), 0)
       }
+      else if (db) { ang = db.angle; hand = db.hand }                                 // his dash: at the hip, pointing back
       else if (foe.state === 'wind') {                                                // the tile is red: the blade lifts, high and back
         const p = cutPose(0.36 * easeOut(clamp01((t - foe.st0) / Math.max(1, (foe.until - foe.st0) * 0.6))), aim, fs, false)
         ang = p.angle; hand = p.hand
+      }
+      else if (this.foeSpinK(foe, t) >= 0) {                                      // his spin: the blade right round, held in close
+        const sk = this.foeSpinK(foe, t)
+        ang = this._squash(aim + SPIN_FROM + 360 * spinS(sk) * fs); hand = [-fs * 0.2 * FOE_PS, 0]
       }
       else if (foe.state === 'strike') {                                         // driven through you, and round
         const k = 0.36 + 0.64 * Math.min(1, (t - foe.st0) / m.F.strikeMs), p = cut(k)
@@ -170,7 +248,36 @@ export default class MeleeView {
       pose = { angle: ang, hand: hand && !(pk >= 0 && pk < 1) ? hand : [sh[0] * ff.h / ff.w, sh[1] * ff.h / ff.w], smear }      // the rig takes the hand in tile widths
     }
     const img = this.scene.itemSheet?.getCanvas?.(m.F.swordGid || 2492)
-    if (pose !== 'none' && img) drawHeldSword(ctx, img, { x: ff.x, y: ff.y, w: ff.w, ps: FOE_PS, side: fs, pose })
+    if (pose !== 'none' && img) {
+      const r = drawHeldSword(ctx, img, { x: ff.x, y: ff.y, w: ff.w, ps: FOE_PS, side: fs, pose })
+      if (r && m.F.liveBlade) this._liveGlint(ctx, r, ff, now, A)
+    }
+  }
+  // a live blade: when it comes out and is held up, a sheen runs up the steel and the tip flares (a star of light, and a bloom)
+  _liveGlint(ctx, r, ff, now, A) {
+    for (const t0 of [A.foeDrawT + DRAW_MS * 0.85, A.foeSaluteT + SALUTE_MS * 0.25]) {
+      const k = (now - t0) / 700
+      if (k < 0 || k >= 1) continue
+      const [gx, gy] = r.grip, [tx, ty] = r.tip, w = ff.w
+      const sw = easeOut(clamp01(k / 0.4)), a = k < 0.4 ? 1 : 1 - (k - 0.4) / 0.6
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'
+      // the sheen: a bright bead running from the grip to the tip
+      const hx = gx + (tx - gx) * sw, hy = gy + (ty - gy) * sw
+      ctx.strokeStyle = `rgba(235,246,255,${0.9 * a})`; ctx.lineWidth = Math.max(2, w * 0.05); ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(gx + (tx - gx) * Math.max(0, sw - 0.3), gy + (ty - gy) * Math.max(0, sw - 0.3)); ctx.lineTo(hx, hy); ctx.stroke()
+      // the flare at the tip once the sheen arrives
+      const f = clamp01((k - 0.3) / 0.7), fa = Math.sin(Math.PI * f), R = w * (0.35 + 0.6 * fa)
+      if (fa > 0.01) {
+        const g = ctx.createRadialGradient(tx, ty, 0, tx, ty, R); g.addColorStop(0, `rgba(255,255,255,${0.95 * fa})`); g.addColorStop(0.35, `rgba(190,225,255,${0.5 * fa})`); g.addColorStop(1, 'rgba(150,200,255,0)')
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tx, ty, R, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = `rgba(255,255,255,${fa})`
+        for (const [ang, len] of [[0, 1.5], [Math.PI / 2, 1.1], [Math.PI / 4, 0.55], [-Math.PI / 4, 0.55]]) {
+          const L = R * len, th = Math.max(1.2, w * 0.018)
+          ctx.save(); ctx.translate(tx, ty); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(0, th); ctx.lineTo(L, 0); ctx.lineTo(0, -th); ctx.closePath(); ctx.fill(); ctx.restore()
+        }
+      }
+      ctx.restore()
+    }
   }
 
   // focus: the edges of the screen darken and cool, in step with how slow time is
@@ -241,12 +348,14 @@ export default class MeleeView {
   onEvent(name, d = {}) {
     const buzz = ms => { try { navigator.vibrate?.(ms) } catch (_) {} }, A = this.a, now = this.now()
     if (['swing', 'chargeStart', 'enGarde', 'atEase'].includes(name)) A.idleSince = now
+    if (name === 'dashStart' || name === 'dashCut' || name === 'dashEnd' || name === 'foeCut' || (name === 'foeSwing' && d.dash)) DashFx.onEvent(this, name, d)
     switch (name) {
       case 'focus':
         if (d.on) this._spawnMotes()
         this._punch = { t0: performance.now(), on: !!d.on }
         buzz(d.on ? [30, 50, 40] : 18)                                   // the phone feels it begin, and end
         break
+      case 'arrowDeflect': this._spray('player', '255,240,200', 10); buzz(18); break
       case 'swing': buzz(d.flip ? 7 : 12); break
       case 'enGarde': A.garde = now; A.spent = false; A.catchT = -1e9; break
       case 'atEase': A.ease = now; break
@@ -269,7 +378,7 @@ export default class MeleeView {
       case 'hit':
         buzz(d.on === 'player' ? 45 : d.desperate ? 45 : 25)
         if (d.on === 'player') A.hurt = now; else A.foeHurt = now
-        this._spray(d.on, d.on === 'player' ? '240,120,100' : d.desperate || d.charged ? '255,210,90' : '240,225,190')
+        this._spray(d.on, d.on === 'player' ? '240,120,100' : d.desperate || d.charged || d.riposte ? '255,210,90' : '240,225,190')
         if (this.m.steel()) this.gore(d.on, d.dmg || 1)
         this._float(d.on, '−' + d.dmg, d.on === 'player' ? '#ff8a7a' : '#f5d060')
         if (d.on === 'player') this.flash = 1
@@ -439,7 +548,7 @@ export default class MeleeView {
     // your target: a quiet gold outline
     if (m.combat) this.tileQuad(ctx, m.targetTile(), null, 'rgba(245,208,96,0.6)', 1.5)
     // their target: red, deepening through the wind-up
-    for (const fx of m.foes) if (fx.state === 'wind' || fx.state === 'strike') {
+    for (const fx of m.foes) if ((fx.state === 'wind' || fx.state === 'strike') && !(fx.leap && m.F.spinStay)) {      // (his spin on the spot shows no red ring: the crouch is the warning)
       const k = fx.state === 'strike' ? 1 : Math.min(1, (t - fx.st0) / Math.max(1, fx.wind))
       for (const tg of fx.targets) fx.pushing
         ? this.tileQuad(ctx, tg, `rgba(120,170,255,${0.12 + 0.35 * k})`, `rgba(190,220,255,${0.4 + 0.6 * k})`)     // a shove: blue
@@ -475,8 +584,18 @@ export default class MeleeView {
     // your spin: its ring of blur (a cut's blur is swept by the blade itself: weaponPose().smear; PGR draws your sword)
     if (m.swing?.charged && pf) {
       const k = Math.max(0, Math.min(1, (t - m.swing.t0) / m.swing.vis))
-      this.spinSmear(ctx, [pf.x, pf.y - pf.h * 0.4], this.screenAngle(m.pa.tile(), m.swing.tile), k, pf.w * 0.95)
+      const lift = JUMP_H * this.leap(k).up * pf.w                       // the blur rides the body up
+      this.spinSmear(ctx, [pf.x, pf.y - pf.h * 0.4 - lift], this.screenAngle(m.pa.tile(), m.swing.tile), this.airK(k), pf.w * 0.95)
     }
+    // his spin, the same ring of blur as yours (he is in the air for all of his strike)
+    const lf = m.foe
+    const lk = this.foeSpinK(lf, t)
+    if (lk >= 0 && ff) {
+      const k = lk, lift = JUMP_H * 4 * k * (1 - k) * ff.w
+      this.spinSmear(ctx, [ff.x, ff.y - ff.h * 0.4 - lift], this.screenAngle([lf.c, lf.r], m.pa.tile()), k, ff.w * 0.95)
+    }
+    this._drawArrows(ctx)
+    DashFx.draw(this, ctx)
     this._drawClangs(ctx, pf, ff)
     // the charge: a ring round your feet, white and pulsing when full
     if (m.charge && pf) {
@@ -569,6 +688,9 @@ export default class MeleeView {
     }
   }
 
+  // the dash's helpers: the way from one tile to another on the screen, and the one being cut
+  screenVec(a, b) { const A = this.figure(a[0], a[1]), B = this.figure(b[0], b[1]); return A && B ? [B.x - A.x, B.y - A.y] : [b[0] - a[0], b[1] - a[1]] }
+  dashTargetPoint() { const f = this.m.dash?.hits?.[0], F = f && this.figure(f.c, f.r); return F ? [F.x, F.y - F.h * 0.5] : null }
   // a screen angle on the squashed circle of the spin
   _squash(deg, q = SQ) { const a = rad(deg); return Math.atan2(q * Math.sin(a), Math.cos(a)) * 180 / Math.PI }
   _unsquash(deg, q = SQ) { const a = rad(deg); return Math.atan2(Math.sin(a) / q, Math.cos(a)) * 180 / Math.PI }
@@ -581,7 +703,7 @@ export default class MeleeView {
       const g = this.pgr, a = !!g?._facingAway, l = !!g?._facingLeft
       A.spinFrom = Math.max(0, SPIN_VIEWS.findIndex(v => v[0] === a && v[1] === l))
     }
-    const k = clamp01((m.t - m.swing.t0) / m.swing.vis)
+    const k = this.airK(clamp01((m.t - m.swing.t0) / m.swing.vis))   // the turns happen in the air
     const n = Math.floor(spinS(k) * 4 * SPIN_TURNS + 1e-6)          // whole turns end where they began
     const v = SPIN_VIEWS[(A.spinFrom + n) % 4]
     return { away: v[0], left: v[1] }
@@ -656,7 +778,21 @@ export default class MeleeView {
   // How your body stands this frame (PGR asks, through the scene), as a
   // transform about your feet: { dx, dy } in tile widths, rot in radians,
   // sx/sy scale. null when there's nothing to add.
+  // the spinning leap over a charged swing's life (k 0..1, landing at hitAt/vis): squash to crouch, spring up stretched, hang, drop, squash on landing
+  airK(k, sw = this.m.swing) { const kl = sw.hitAt / sw.vis, kt = 0.14 * kl; return clamp01((k - kt) / (kl - kt)) }      // 0..1 over the time in the air
+  leap(k) {
+    const kl = (this.m.swing.hitAt || 400) / (this.m.swing.vis || 640), kt = 0.14 * kl            // takeoff ends, landing at kl
+    if (k < kt) { const u = k / kt; return { up: 0, sy: 1 - 0.14 * Math.sin(Math.PI * u / 2), sx: 1 + 0.1 * Math.sin(Math.PI * u / 2) } }
+    if (k < kl) {
+      const u = (k - kt) / (kl - kt), up = 4 * u * (1 - u), st = Math.sin(Math.PI * u)
+      return { up, sy: 1 + 0.12 * st - 0.1 * (1 - Math.min(1, u * 6)), sx: 1 - 0.08 * st + 0.08 * (1 - Math.min(1, u * 6)) }
+    }
+    const u = clamp01((k - kl) / (1 - kl)), sq = Math.sin(Math.PI * Math.min(1, u * 2.2)) * (u < 0.45 ? 1 : 0)
+    return { up: 0, sy: 1 - 0.2 * sq, sx: 1 + 0.14 * sq }
+  }
+
   playerPose() {
+    const dpose = DashFx.playerPose(this); if (dpose) return dpose
     const m = this.m, A = this.a, now = this.now(), side = this.side()
     const pose = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 }
     let any = false
@@ -688,7 +824,8 @@ export default class MeleeView {
       if (m.swing.charged) {
         // the spin: the body turns through its four views (spinFacing), here only a lean into it and a lift
         A.spinSeen = now
-        pose.dy -= 0.05 * push; pose.sy *= 1 - 0.03 * push
+        const h = this.leap(k)
+        pose.dy -= JUMP_H * h.up; pose.sy *= h.sy; pose.sx *= h.sx
         pose.rot += side * 0.08 * Math.sin(Math.PI * k)
       } else {
         const dir = rad(this.screenAngle(m.pa.tile(), m.swing.tile)), big = m.swing.flip ? 0.6 : 1
@@ -771,7 +908,11 @@ export default class MeleeView {
       pose.dy -= 0.03 * Math.abs(Math.sin(Math.PI * (now + 170) / per))
       pose.dx += 0.025 * Math.sin(Math.PI * (now + 170) / (per * 2))
     }
+    const dp = DashFx.foePose(this, foe, fs, now); if (dp) return dp                  // his dash: the gather, the going, the standing
     const k = clamp01((m.t - foe.st0) / Math.max(1, foe.until - foe.st0))
+    if (foe.leap && foe.state === 'wind') { const c = easeOut(k); return { dx: 0, dy: 0.03 * c, rot: -fs * 0.06 * c, sx: 1 + 0.12 * c, sy: 1 - 0.2 * c } }       // the crouch, deeper as it ends
+    const sk = this.foeSpinK(foe, m.t)
+    if (sk >= 0) { const k = sk, up = 4 * k * (1 - k); return { dx: 0, dy: -JUMP_H * up, rot: fs * 0.08 * Math.sin(Math.PI * k), sx: (1 - 0.1 * up) * Math.cos(Math.PI * 4 * spinS(k)), sy: 1 + 0.14 * up } }     // and he turns in the air, twice round   // the leap
     if (foe.state === 'wind') { pose.rot += -fs * 0.1 * easeOut(k); pose.sy *= 0.97 }     // drawing back
     else if (foe.state === 'strike') { pose.rot += fs * 0.13; pose.dx += fs * 0.08 }     // into it
     else if (foe.state === 'recover' || foe.state === 'stagger') { pose.rot += fs * 0.06; pose.sy *= 0.95 }   // overcommitted
@@ -821,6 +962,7 @@ export default class MeleeView {
       if (m.breath <= cap - 1 || m.winded()) A.spent = true
       else if (A.spent && m.breath >= cap - 1e-6 && !m.combat && !m.charge && !m.swing && !m.moving() && now - A.idleSince > 500 && now - A.flourish > 1500) { A.flourish = now; A.spent = false }
     }
+    const dblade = DashFx.playerBlade(this, side, (this.pgr?._playerHeightMult ?? 1.8) * (this.pgr?.constructor.PLAYER_SCALE ?? 1)); if (dblade) return dblade     // the dash: at the hip, pointing back
     // Putting it away: the point turned down onto the scabbard's line, the
     // hand brought to its mouth -- then the blade slid home.
     if (!m.enGarde) {
@@ -853,7 +995,7 @@ export default class MeleeView {
       const dir = this.screenAngle(m.pa.tile(), sw.tile)
       // the spin: the blade right round, its hand brought in to the middle of the body (its blur: spinSmear, in draw)
       if (sw.charged) {
-        const pose = { angle: this._squash(dir + SPIN_FROM + 360 * spinS(k)), hand: [-side * 0.2 * (this.pgr?.constructor.PLAYER_SCALE ?? 1), 0] }
+        const pose = { angle: this._squash(dir + SPIN_FROM + 360 * spinS(this.airK(k, sw))), hand: [-side * 0.2 * (this.pgr?.constructor.PLAYER_SCALE ?? 1), 0] }
         A.swEnd = { pose, t: now }
         return pose
       }

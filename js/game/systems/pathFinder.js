@@ -134,8 +134,11 @@ _heuristic(ax, ay, bx, by) {
       .filter(n => this._inBounds(n.x, n.y) && this._walkable(n.x, n.y))
   }
 
+  // fn(x, y) -> truthy for a tile that is taken just now (a crowd standing about): routes go round it, without it being a wall
+  setBusy(fn) { this._busy = fn || null }
+
   _walkable(x, y) {
-    return this._inBounds(x, y) && !!this._grid[y]?.[x]
+    return this._inBounds(x, y) && !!this._grid[y]?.[x] && !(this._busy && this._busy(x, y))
   }
 
   _inBounds(x, y) {

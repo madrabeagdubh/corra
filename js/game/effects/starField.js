@@ -36,6 +36,7 @@
 
 import Phaser from 'phaser';
 import { NIGHT, SKY_SPIN } from '../systems/nightPalette.js';
+import { quality } from '../systems/quality.js';
 
 const TEX = 'starGlyphs';
 const CELL = 9;
@@ -120,7 +121,7 @@ function radiiFor(hx, hy, W, H) {
 const _sq = (typeof location !== 'undefined' && location.search) || '';
 const STAR_SCALE = (() => {
     const m = /[?&]stars=([0-9.]+)/.exec(_sq);
-    return m ? Math.max(0.02, parseFloat(m[1]) || 1) : 1;
+    return m ? Math.max(0.02, parseFloat(m[1]) || 1) : quality.get().stars;       // (?stars= wins; else the device's tier)
 })();
 const NO_STAR_DRAW = /[?&]noStarDraw\b/.test(_sq);
 

@@ -86,6 +86,27 @@ export const ITEM_DEFS = {
     color: 0xA0522D
   },
 
+  // dull wooden heads, for the faiche: they sting and score, they do not wound
+  training_arrows: {
+    id: 'training_arrows',
+    spriteKey: 'item_arrows',
+    itemGid: TILES.QUIVER_ARROWS_WHITE,
+    tint: 0xD9B779,
+    type: 'ammunition',
+    subtype: 'arrow',
+    training: true,
+    nameEn: 'Training Arrows',
+    nameGa: 'Saigheada Traenála',
+    descEn: 'Blunt wooden heads, for the practice field.',
+    descGa: 'Ceann maol adhmaid, don fhaiche chleachtaidh.',
+    stackable: true,
+    maxStack: 30,
+    quantity: 20,
+    allowedSlots: [],
+    actions: ['drop', 'throw'],
+    color: 0xD9B779
+  },
+
   healing_potion: {
     id: 'healing_potion',
     spriteKey: 'item_healing_potion',

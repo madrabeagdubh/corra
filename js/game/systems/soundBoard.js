@@ -335,6 +335,7 @@ const SYNTH = {
     // Bodhrán single tap — dry woody thud
     const now = ctx.currentTime
     const vol = opts.volume ?? 0.3
+    const pitch = opts.pitch ?? 1                    // (a roll varies it a little from tap to tap)
     const buf  = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate)
     const data = buf.getChannelData(0)
     for (let i = 0; i < data.length; i++) {
@@ -345,12 +346,12 @@ const SYNTH = {
     src.buffer = buf
     const lpf  = ctx.createBiquadFilter()
     lpf.type   = 'lowpass'
-    lpf.frequency.value = 280
+    lpf.frequency.value = 280 * pitch
     const osc  = ctx.createOscillator()
     const og   = ctx.createGain()
     osc.type   = 'sine'
-    osc.frequency.setValueAtTime(120, now)
-    osc.frequency.exponentialRampToValueAtTime(60, now + 0.08)
+    osc.frequency.setValueAtTime(120 * pitch, now)
+    osc.frequency.exponentialRampToValueAtTime(60 * pitch, now + 0.08)
     og.gain.setValueAtTime(vol, now)
     og.gain.exponentialRampToValueAtTime(0.001, now + 0.14)
     const ng = ctx.createGain()
@@ -920,6 +921,51 @@ const SYNTH = {
     }
     n.connect(f).connect(g).connect(ctx.destination); n.start(now)
     if (metal) SYNTH.BLADE_KNOCK(ctx, { material: 'metal', hard: 0.15, volume: vol * 1.2 })
+  },
+
+  STEEL_DRAW(ctx, opts = {}) {
+    // A live blade drawn: a long rough scrape of steel on the throat of the scabbard, rising, and then the ring, partials
+    // that hang in the air and beat against each other.
+    const now = ctx.currentTime, vol = opts.volume ?? 0.2, dur = 0.62
+    const n = _bladeNoise(ctx, dur), f = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain()
+    f.type = 'bandpass'; f.Q.value = 1.4
+    f.frequency.setValueAtTime(1500, now); f.frequency.exponentialRampToValueAtTime(7200, now + dur)
+    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, now + dur + 0.06)
+    lfo.type = 'sawtooth'; lfo.frequency.value = 38; lg.gain.value = vol * 0.35                     // the rasp: the grain of the steel
+    lfo.connect(lg).connect(g.gain)
+    n.connect(f).connect(g).connect(ctx.destination); n.start(now); lfo.start(now); lfo.stop(now + dur + 0.1)
+    const ring = now + dur * 0.8
+    for (const [hz, a, decay] of [[1760, 0.5, 1.9], [2961, 0.38, 1.5], [4430, 0.26, 1.1], [6180, 0.16, 0.8], [1771, 0.4, 2.1]]) {        // (the last, a hair off the first: the beat)
+      const o = ctx.createOscillator(), og = ctx.createGain()
+      o.type = 'sine'; o.frequency.value = hz * (opts.pitch ?? 1)
+      og.gain.setValueAtTime(0.0001, ring); og.gain.exponentialRampToValueAtTime(vol * a * 0.5, ring + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, ring + decay)
+      o.connect(og).connect(ctx.destination); o.start(ring); o.stop(ring + decay + 0.05)
+    }
+    SYNTH.BLADE_KNOCK(ctx, { material: 'metal', hard: 0.3, volume: vol * 0.9 })
+  },
+
+  BOW_DRAW(ctx, opts = {}) {
+    // A bow drawn: wood and sinew creaking, rising as it comes back (opts.dur: how long the draw takes)
+    const now = ctx.currentTime, vol = opts.volume ?? 0.16, dur = Math.max(0.25, opts.dur ?? 0.85)
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter()
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(70, now); o.frequency.exponentialRampToValueAtTime(150, now + dur)
+    f.type = 'bandpass'; f.frequency.setValueAtTime(260, now); f.frequency.exponentialRampToValueAtTime(700, now + dur); f.Q.value = 5
+    g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(vol, now + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 17; lg.gain.value = vol * 0.6; lfo.connect(lg).connect(g.gain)
+    o.connect(f).connect(g).connect(ctx.destination); o.start(now); lfo.start(now); o.stop(now + dur + 0.05); lfo.stop(now + dur + 0.05)
+  },
+
+  BOW_LOOSE(ctx, opts = {}) {
+    // The string let go: a low twang that falls away, and the hiss of the arrow
+    const now = ctx.currentTime, vol = opts.volume ?? 0.3, p = opts.pitch ?? 1
+    const o = ctx.createOscillator(), g = ctx.createGain()
+    o.type = 'triangle'; o.frequency.setValueAtTime(260 * p, now); o.frequency.exponentialRampToValueAtTime(150 * p, now + 0.35)
+    g.gain.setValueAtTime(vol, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.4)
+    o.connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.45)
+    const n = _bladeNoise(ctx, 0.14), f = ctx.createBiquadFilter(), ng = ctx.createGain()
+    f.type = 'highpass'; f.frequency.value = 3000
+    ng.gain.setValueAtTime(vol * 0.5, now); ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.14)
+    n.connect(f).connect(ng).connect(ctx.destination); n.start(now)
   },
 
   SWORD_SHEATHE(ctx, opts = {}) {

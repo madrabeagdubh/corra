@@ -80,6 +80,7 @@ import { Vegetation }        from '../../effects/vegetation.js'
 import MeleeBout, { prepareSword } from '../../combat/meleeBout.js'
 import RouteDraw             from '../../input/routeDraw.js'
 import PGRView              from '../../effects/pgrView.js'
+import { quality }          from '../../systems/quality.js'
 
 // Above the conversation card, which sits around 2000.
 const PROMPT_EASCA_DEPTH = 100000
@@ -381,8 +382,9 @@ if (this.perspectiveGround) this.perspectiveGround.update()
     if (this._weatherVeil) this._weatherVeil.update()
     // Rain you can hear: outdoors under the veil, on the roof in an interior
     // (a map with no cloud shadows and no veil). Opt out: getRainSound() { return false }
-    if (!this._rainSound && this.getRainSound?.() !== false) this._rainSound = new RainSound(this)
+    if (!this._rainSound && this.getRainSound?.() !== false && quality.fx('rainsound')) this._rainSound = new RainSound(this)
     if (this._rainSound) {
+      this._rainSound.quality = quality.get().rainSound            // (a weak phone is spared the minor layers and the single drops)
       this._rainSound.update(
         this._weatherVeil ? 'outdoor' : (this.getCloudShadows?.() === false ? 'roof' : 'none'),
         this.terrainManager?.currentTerrain?.name)
@@ -996,6 +998,8 @@ try {
       onPressStart: () => this._moonOwner?.pressStart?.(),
       onPressEnd: (info) => this._moonOwner?.pressEnd?.(info),
       onSwipeVertical: (dir) => this._moonOwner?.swipeVertical?.(dir),
+      dashReady: () => !!this._moonOwner?.dashReady?.(),
+      onDashSwipe: (deg) => this._moonOwner?.dashSwipe?.(deg),
       onRingDrag: (id) => { this._gestureDown = id; this._routeDraw?.end?.(true) },       // from above the brooch down onto it: the swipe, not a route
       ringGestures: () => !!this._moonOwner?.swordInHand?.(),     // with a weapon equipped, the whole brooch ring takes the draw / salute / sheathe swipe
       onLongPressProgress: (p) => {
@@ -1361,7 +1365,7 @@ try {
       // Weather veil: open-sky maps only (the same rule as cloud shadows).
       // A map opts out with getWeatherVeil() { return false }
       if (this._weatherVeil) { this._weatherVeil.destroy(); this._weatherVeil = null }
-      if (csOpts && this.getWeatherVeil?.() !== false) {
+      if (csOpts && this.getWeatherVeil?.() !== false && quality.fx('veil')) {
         this._weatherVeil = new WeatherVeil(this, { pgr: this.perspectiveGround })
       }
 

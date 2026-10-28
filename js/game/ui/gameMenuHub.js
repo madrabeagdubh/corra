@@ -8,12 +8,14 @@ import { FONTS, COLORS } from '../systems/gameTypography.js';
 import { GameSettings }  from '../settings/gameSettings.js';
 import { GameState }     from '../systems/gameState.js';
 import { QUEST_REGISTRY } from '../systems/quests.js';
+import { quality, TIERS } from '../systems/quality.js';
 
 const PANELS = [
     { key: 'inventory', ga: 'Stóras',  en: 'Inventory', icon: '/assets/icons/backpack.png',    iconFallback: '🎒' },
     { key: 'stats',     ga: 'Staid',   en: 'Stats',     icon: '/assets/icons/stats.png',        iconFallback: '⚔️' },
     { key: 'labhairt',  ga: 'Labhair', en: 'Speak',     icon: '/assets/icons/speechbubble.png', iconFallback: '💬' },
     { key: 'log',       ga: 'Dialann', en: 'Log',        icon: '/assets/icons/log.png',          iconFallback: '📜' },
+    { key: 'settings',  ga: 'Socruithe', en: 'Settings',  icon: '/assets/icons/settings.png',     iconFallback: '⚙️' },
     { key: 'about',     ga: 'Fúinn',   en: 'About',     icon: '/assets/icons/about.png',        iconFallback: '?' },
 ];
 
@@ -151,6 +153,8 @@ export function createGameMenuHub({
             _buildAboutPanel(el)
         } else if (panel.key === 'log') {
             _buildLogPanel(el)
+        } else if (panel.key === 'settings') {
+            _buildSettingsPanel(el)
         } else {
             const title = document.createElement('div');
             title.style.cssText = `font-size:1.4rem;color:${COLORS.speaker};font-family:${FONTS.irish};`;
@@ -198,6 +202,72 @@ export function createGameMenuHub({
             container.appendChild(block)
         })
         container._updateLanguage = () => Array.from(container.children).forEach(c => c._update?.())
+    }
+
+    function _buildSettingsPanel(container) {
+        container.style.cssText += 'box-sizing:border-box;padding:1.2rem;gap:0.9rem;justify-content:flex-start;'
+        const heading = document.createElement('div')
+        heading.style.cssText = [
+            `font-family:${FONTS.irish};font-size:1.4rem;`,
+            `color:${COLORS.speaker};text-align:center;`,
+            'padding-bottom:0.4rem;width:100%;',
+            `border-bottom:1px solid ${GOLD_BORDER};`,
+        ].join('')
+        heading.textContent = 'Socruithe'
+        container.appendChild(heading)
+
+        const title = document.createElement('div')
+        title.style.cssText = `font-family:${FONTS.irish};font-size:0.95rem;color:${COLORS.speaker};width:100%;`
+        container.appendChild(title)
+        const hint = document.createElement('div')
+        hint.style.cssText = `font-family:${FONTS.english};font-size:0.75rem;color:${COLORS.uiDim};line-height:1.4;width:100%;`
+        container.appendChild(hint)
+
+        const row = document.createElement('div')
+        row.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;width:100%;'
+        container.appendChild(row)
+
+        const CHOICES = [
+            { key: 'auto', ga: 'Uath.',   en: 'Auto' },
+            { key: 'high', ga: 'Ard',     en: 'High' },
+            { key: 'med',  ga: 'Meán',    en: 'Medium' },
+            { key: 'low',  ga: 'Íseal',   en: 'Low' },
+            { key: 'min',  ga: 'Íosta',   en: 'Lowest' },
+        ]
+        const btns = CHOICES.map(c => {
+            const b = document.createElement('div')
+            b.style.cssText = [
+                'padding:0.55rem 0.9rem;cursor:pointer;border-radius:4px;',
+                `font-family:${FONTS.ui};font-size:0.8rem;`,
+                'user-select:none;-webkit-user-select:none;',
+            ].join('')
+            b.addEventListener('pointerup', (e) => {
+                e.stopPropagation()
+                if (c.key === 'auto') quality.auto(); else quality.set(c.key)
+                refresh()
+            })
+            row.appendChild(b)
+            return [c, b]
+        })
+
+        function refresh() {
+            const useEn = GameSettings.englishOpacity >= 0.5
+            const chosen = quality.forced ? quality.tier : 'auto'
+            title.textContent = useEn ? 'Graphics quality' : 'Cáilíocht grafaicí'
+            hint.textContent = useEn
+                ? 'If the game runs slowly or freezes, choose a lower setting. Auto picks for your device. (Rain and weather finish changing on the next map.)'
+                : 'Má bhíonn an cluiche mall nó reoite, roghnaigh socrú níos ísle. Roghnaíonn Uath. duit. (Athraíonn an aimsir ar an gcéad léarscáil eile.)'
+            btns.forEach(([c, b]) => {
+                const on = c.key === chosen
+                b.textContent = useEn ? c.en : c.ga
+                b.style.border = `1px solid ${on ? GOLD_FULL : GOLD_BORDER}`
+                b.style.background = on ? GOLD_ACTIVE_BG : 'transparent'
+                b.style.color = on ? GOLD_FULL : COLORS.uiDim
+            })
+        }
+        container._refresh = refresh
+        container._updateLanguage = refresh
+        refresh()
     }
 
     function _buildLogPanel(container) {
@@ -326,6 +396,7 @@ export function createGameMenuHub({
         _updateTabs()
         domPanels['about']?._updateLanguage?.()
         domPanels['log']?._refresh?.()
+        domPanels['settings']?._refresh?.()
     })
 
     function _open() {
@@ -336,6 +407,7 @@ export function createGameMenuHub({
         curIdx = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
         root.style.display = 'flex';
         domPanels['log']?._refresh?.()
+        domPanels['settings']?._refresh?.()
         _goTo(curIdx, false);
         requestAnimationFrame(() => { root.style.opacity = '1'; });
     }

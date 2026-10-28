@@ -36,5 +36,9 @@ Thumbs.db
 *.swp
 *.swo
 
+#patch scripts
+*.py
+*.patch
+
 
 public/river_preview.svg

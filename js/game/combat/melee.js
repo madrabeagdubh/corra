@@ -50,10 +50,30 @@ const BR = { regenMs: 700, idleMs: 450, windedMs: 1200, windedBack: 2, lungeReco
 // stops and so does any blow still owed. Bleeding slows your breath. The last blow owed that takes your last heart ends it.
 const TOLL_MS = 1000, PRESS_MS = 2500
 const BUFFER_MS = 200
+// A foe with F.leap (a student showing off the spinning leap you will be taught): his first attack in a bout is a leap: a long tell
+// (leapWind ms: crouching), then he is in the air LEAP_AIR ms, and where he lands everyone beside him is thrown two tiles. It cannot be
+// parried or cut short at the last; step away (cheb >= 2) while he is in the air and it falls on nothing, and he is open for a breath.
+export const LEAP_AIR = 520
+// The dash (taught: tech.dash): hold the blow to full, then flick the moon in any of eight ways. You are gone along the line (up to `tiles`, through
+// anyone in it), and stand there a long moment with the blade at your hip, pointing back the way you came. Then, `cutAt` ms after you arrive,
+// everyone you passed is cut (parry-proof, a hard blow, thrown on along your line). A foe with F.dashOnly does it to you: his lane shows red
+// while he gathers himself; step out of it before the cut and it falls on nothing, and he is left open.
+export const DASH = { tiles: 4, msPer: 60, pose: 950, cutAt: 280, rec: 220 }
+export const FOE_DASH = { glide: 300, cut: 340, pose: 1000 }
+// An archer (F.archer): she keeps her distance (backing off as you come in, as far as her leash lets her), draws (drawMs: the bow comes back, and
+// that is all the warning there is: no red tile), and looses an arrow at where you stand (or will, if you are walking). It flies a tile every
+// msPer ms. Be off the line when it comes; or have a blow of yours land within deflectMs of its reaching you, and it is batted aside, spinning.
+// Close with her and she must fight with what she has. (An arrow cannot touch you in a dash, or in the breath after a hit.)
+export const ARROW = { msPer: 105, deflectMs: 150, over: 3, sheathe: 900, unsling: 700, arc: 0.11 }       // sheathe/unsling: her opening, after the salute: the wooden sword away, the bow off her back
 export const CHARGE = { startMs: 250, fullMs: 700, breath: 2 }
+// The timed parry (taught: tech.parry). When both blows land together (a clash), how far apart in time they land decides it: within
+// the window it is a PARRY -- his blow turned aside, no knockback, a breath back, and he is open to a RIPOSTE for riposteMs (it
+// cannot be parried and bites harder) -- and outside it is the ordinary clash. Your Cosaint widens the window (perDef ms a point
+// above 5, between minMs and maxMs).
+export const PARRY = { baseMs: 90, perDef: 8, minMs: 60, maxMs: 150, riposteMs: 650 }
 // a patient cut is hauled from the shoulder; a quick backhand is shorter, lighter, and lands sooner
 const SW = { full: { vis: 380, hitAt: 215, rec: 300 }, quick: { vis: 250, hitAt: 141, rec: 240 },
-             spin: { vis: 420, hitAt: 140, rec: 300 } }   // a fully charged blow: a fast turn right round
+             spin: { vis: 640, hitAt: 400, rec: 300, biteAt: 120 } }   // a fully charged blow: a spinning leap (it comes down at hitAt), but everyone beside you is cut at the start of it (biteAt)
 
 export const BASE = {
   hp: 6, dmg: 1, atk: 5, def: 5, stepMs: 330, windMs: 650, strikeMs: 120, recoverMs: 750, reelMs: 480, staggerMs: 400,
@@ -78,7 +98,7 @@ export const PRESETS = {
   // Uathach with a live blade: nothing you do lands -- she turns every blow --
   // and she never cuts you. She throws you down, and after the third time it's over.
   uathach: { ...BASE, style: 'shover', hp: 99, stepMs: 300, windMs: 420, recoverMs: 700, restMin: 300, restMax: 700,
-             untouchable: true, throws: 3, swordGid: 2496 },
+             untouchable: true, throws: 3, swordGid: 2496, liveBlade: true },
   // Conall: a patient teacher, very hard to get past (def 9), who turns two blows in three aside
   // (a master: `guard` is the chance he turns a blow aside in each state -- about 1 in 10 gets through;
   //  `steady`: he can't be knocked down, shoved over or disarmed; `reminders`: salutes he'll offer before he attacks in earnest)
@@ -124,6 +144,8 @@ export default class Melee {
     this.lastSpend = 0
     this.windedUntil = 0
     this.swing = null
+    this.dash = null                       // the dash in progress (see DASH)
+    this.arrows = []                       // arrows in the air (and a moment after): { c0, r0, ux, uy, t0, len, end, endT }
     this.queued = null
     this.lastSwing = { t: -1e9, flip: false }
     this.charge = null                     // { t0 } while gathering
@@ -140,9 +162,12 @@ export default class Melee {
     this.peaceful = false                  // true: no bout starts, whatever you do (a lesson on the green)
     this.returnsSalute = false             // true: out of a bout too, an idle partner returns your salute (the garden course)
     this.bare = false                      // true: the stance without a blade (the space lesson): no cuts, no charge
+    this.stay = false                      // true: no steps and no routes, but the cuts and the long hold are free (the spin lesson)
     this.rooted = false                    // true: your feet are held (no steps, no routes) and there are no cuts: a drill for the draw / the salute
     this.noSheathe = false                 // true: a swipe down does not put the blade away (the salute drill)
     this.noCharge = false                  // true: the long hold is not yet yours (see STRONG_NOTE in meleeBout): a hold is only a cut
+    this.tech = { parry: false, dash: false }           // techniques taught so far (meleeBout.syncTechniques): parry = the timed parry and riposte
+    this.riposte = null                    // { until } after a timed parry: the next cut inside it is the riposte
   }
 
   // ── small helpers ────────────────────────────────────────────────────────
@@ -180,7 +205,7 @@ export default class Melee {
       (this.p.busyKind === 'hop' || (this.swing && this.swing.hitDone)))
   }
   // Should the Player's feet wait this frame? Only ever while swords are out.
-  feetHeld() { return !!this.charge || this.p.downUntil > this.t || (this.combat && !this.canMove()) }
+  feetHeld() { return !!this.charge || !!this.dash || this.p.downUntil > this.t || (this.combat && !this.canMove()) }
 
   act(fn, kind = 'full') {
     const ok = kind === 'move' ? this.canMove() : kind === 'strike' ? this.canStrike() : this.canAct()
@@ -243,6 +268,15 @@ export default class Melee {
     return true
   }
 
+  // After a bout, blades still out: he offers a salute (you may return it: the player's salute() above)
+  offerSalute() {
+    const foe = this.foe
+    if (this.combat || !foe.armed || foe.hp <= 0 || !['idle', 'rest', 'nod'].includes(foe.state)) return false
+    this._setFoe('salute', SALUTE_MS + 600)
+    this.emit('salute', { by: 'foe', offer: true })
+    return true
+  }
+
   _nextFlip() { const f = this.t - this.lastSwing.t < 550 ? !this.lastSwing.flip : false; this.lastSwing = { t: this.t, flip: f }; return f }
 
   strike(opts = {}) {
@@ -259,8 +293,9 @@ export default class Melee {
     const flip = charged ? (this.lastSwing = { t: this.t, flip: false }, false) : this._nextFlip()
     const base = charged ? SW.spin : flip ? SW.quick : SW.full
     const k0 = inFlurry ? 0.3 : 0, toHit = base.hitAt - k0 * base.vis, rec = inFlurry ? 140 : base.rec
-    this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, born: this.t, hitDone: false, desperate, charged, flip,
-                   vis: base.vis, hitAt: base.hitAt,
+    const riposte = !!(this.riposte && this.t < this.riposte.until); this.riposte = null          // the opening is spent on the cut that begins inside it
+    this.swing = { tile: this.targetTile(), t0: this.t - k0 * base.vis, born: this.t, hitDone: false, desperate, charged, flip, riposte,
+                   vis: base.vis, hitAt: base.hitAt, biteAt: charged ? base.biteAt : undefined,
                    power: (flip ? -1 : inFlurry ? 0 : 2) + (this.moving() && this.p.busyKind === 'hop' ? -1 : 0) }      // a patient cut bites; on the move, or a backhand, it is lighter
     // on the move, the cut rides on the stride: no recovery, the walk carries on
     const p = this.p
@@ -269,6 +304,11 @@ export default class Melee {
       if (this.moving()) p.cancelAt = this.t
     }
     this.spend(desperate ? this.breath : charged ? CHARGE.breath : 1)
+    // F.spinDodge: the first spin of a bout lands; after that she may see it coming, step out of reach, and cut back as you land
+    if (charged && this.F.spinDodge && !this.foe.leap) {
+      const foe = this.foe; this.spins = (this.spins || 0) + 1
+      if (this.spins > 1 && Math.random() < this.F.spinDodge && this.cheb() <= 1 && ['idle', 'approach', 'rest'].includes(foe.state) && this._foeRetreat()) { this.swing.dodged = true; foe.spinCounterAt = this.t + toHit + 160; this.emit('foeDodge') }
+    }
     this.emit('swing', { flip, desperate, charged, patient: !flip && !inFlurry })
   }
 
@@ -320,6 +360,132 @@ export default class Melee {
     this.charge = { t0: this.t }; this.pa.stopRoute(); this.queued = null
     this.emit('chargeStart', { ms: CHARGE.fullMs })
   }
+  // ── the dash ─────────────────────────────────────────────────────────────
+  dashReady() { return !!(this.tech.dash && this.enGarde && !this.bare && !this.rooted && this.charge && this.chargeK() >= 1 && !this.dash && !this.p.lost && this.p.downUntil <= this.t) }
+  startDash(d) {
+    if (!this.dashReady() || (!d[0] && !d[1])) return false
+    const [pc, pr] = this.pa.tile(), live = this.foes.filter(f => f.hp > 0 && f.state !== 'beaten')
+    const onFoe = (c, r) => live.some(f => f.c === c && f.r === r)
+    const path = []
+    for (let k = 1; k <= DASH.tiles; k++) {
+      const c = pc + d[0] * k, r = pr + d[1] * k
+      if (!(onFoe(c, r) || (this.pa.free(c, r) && !this.pa.wet?.(c, r)))) break
+      path.push([c, r])
+    }
+    while (path.length && onFoe(...path[path.length - 1])) path.pop()                  // never ends inside him
+    if (!path.length) return false
+    this.charge = null; this.press = null; this.queued = null
+    this.spend(CHARGE.breath)
+    const to = path[path.length - 1], glide = DASH.msPer * path.length + 40
+    const hits = this.combat ? live.filter(f => path.some(([c, r]) => Math.max(Math.abs(f.c - c), Math.abs(f.r - r)) <= 1)) : []
+    for (const f of hits) { const keep = this.foe; this.foe = f; this._setFoe('rest', glide + DASH.cutAt + 60); f.holdUntil = this.t + glide + DASH.cutAt + 60; this.foe = keep }      // he stands there, and sees nothing
+    this.dash = { t0: this.t, from: [pc, pr], to, dir: [...d], n: path.length, glide, cutAt: glide + DASH.cutAt, end: glide + DASH.pose, hits, cut: false }
+    this.p.busyUntil = this.t + glide + DASH.pose + DASH.rec; this.p.busyKind = 'dash'; this.p.hurtUntil = this.t + glide + DASH.pose
+    this.swing = null
+    this.emit('dashStart', { from: [pc, pr], to, dir: [...d], ms: glide, n: path.length })
+    return true
+  }
+  // ── the bow ──────────────────────────────────────────────────────────────
+  _foeDrawBow(quick) {
+    const foe = this.foe, F = this.F, [pc, pr] = this.pa.tile()
+    const ms = quick ? (F.quickDraw || 450) : (F.drawMs || 850)
+    foe.face = deg(pr - foe.r, pc - foe.c)
+    foe.target = null; foe.targets = []                        // (no red tile: the bow is all the warning)
+    foe.engaged = true; foe.wind = ms; foe.shootAt = this.t
+    this._setFoe('wind', ms); foe.shoot = true
+    this.emit('tell', { ms, shoot: true })
+  }
+  _foeLoose() {
+    const foe = this.foe, F = this.F
+    let [tc, tr] = this.pa.tile()
+    const d = Math.hypot(tc - foe.c, tr - foe.r) || 1
+    if (F.reads && this.moving()) { const at = this._leadTile(ARROW.msPer * d); if (at) [tc, tr] = at }        // she leads a walking target
+    const dd = Math.hypot(tc - foe.c, tr - foe.r) || 1
+    this.arrows.push({ c0: foe.c, r0: foe.r, ux: (tc - foe.c) / dd, uy: (tr - foe.r) / dd, t0: this.t, len: dd + ARROW.over, dd, end: null, endT: 0 })
+    foe.shots = (foe.shots || 0) + 1
+    foe.shoot = false; foe.looseAt = this.t
+    this._setFoe('recover', F.shootRecover ?? 420)
+    this.emit('arrowLoose')
+  }
+  // each arrow along its line; reaching you it is turned aside (your blow landing within deflectMs), or it hits, or you are not there
+  _arrowTick() {
+    const t = this.t, p = this.p, [pc, pr] = this.pa.tile()
+    for (const a of this.arrows) {
+      if (a.end) continue
+      const s = (t - a.t0) / ARROW.msPer
+      if (!this.combat || s > a.len) { a.end = 'gone'; a.endT = t; continue }
+      const x = a.c0 + a.ux * s, y = a.r0 + a.uy * s
+      if (s < 0.8 || Math.round(x) !== pc || Math.round(y) !== pr) continue
+      if (this.dash || this.t < p.hurtUntil || p.lost) continue                      // through you, as through air
+      const sw = this.swing
+      if (sw && Math.abs(sw.t0 + (sw.biteAt ?? sw.hitAt) - t) <= ARROW.deflectMs) {
+        a.end = 'deflect'; a.endT = t; a.x = x; a.y = y; a.vx = (Math.random() - 0.5) * 1.6; a.spin = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 4)
+        this.hitStop = 60; this.practice++
+        this.emit('arrowDeflect')
+      } else if (Math.random() < this.playerParryP(this.F.arrowAtk ?? this.F.atk)) {                    // your own defence turns it, by instinct (free)
+        a.end = 'deflect'; a.endT = t; a.x = x; a.y = y; a.vx = (Math.random() - 0.5) * 1.6; a.spin = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 4)
+        this.hitStop = 60; this.practice++
+        this.emit('arrowDeflect', { auto: true })
+      } else { a.end = 'hit'; a.endT = t; a.x = x; a.y = y; this._arrowHits() }
+      break
+    }
+    this.arrows = this.arrows.filter(a => !a.end || t - a.endT < 900)
+  }
+  // ── your bow ─────────────────────────────────────────────────────────────
+  // His defence against a shot: none when he is caught busy (drawing, reeling, down); otherwise 10% + 8% per point of his Cosaint over your
+  // Neart, 0..75%. A post or dummy has none (def 0 or less): it is not asked.
+  shotGuardP() {
+    const foe = this.foe, F = this.F
+    if (!(F.def > 0) || ['wind', 'reel', 'recover', 'stagger', 'down', 'salute'].includes(foe.state)) return 0
+    return Math.max(0, Math.min(0.75, 0.1 + 0.08 * (F.def - this.pa.atk())))
+  }
+  // your arrow reaches him: 'turned' (he knocks it aside), 'hit' (it lands: a heart, or a touch in a match), or null (nothing to hit)
+  playerArrowStrikes({ dmg = 1 } = {}) {
+    const foe = this.foe, F = this.F
+    if (!this.combat || foe.hp <= 0 || this.t < foe.hurtUntil) return null
+    if (F.untouchable || Math.random() < this.shotGuardP()) { this.emit('arrowTurned', { on: 'foe' }); return 'turned' }
+    foe.hurtUntil = this.t + 300; foe.engaged = true
+    this.emit('hit', { on: 'foe', dmg, arrow: true })
+    if (foe.hp - dmg <= 0) { foe.hp = 0; this._foeYields(); return 'hit' }
+    foe.hp -= dmg
+    if (!['recover', 'stagger'].includes(foe.state)) this._setFoe('stagger', F.staggerMs)
+    if (F.match) this._touch('player')
+    return 'hit'
+  }
+  _arrowHits() {
+    const F = this.F, p = this.p
+    if (!F.flow) this.pa.stopRoute()
+    this._spoilCharge()
+    const dmg = F.arrowDmg ?? F.dmg
+    p.hurtUntil = this.t + P.hurtMs; this.exchange = 0
+    this.hitStop = 90
+    this.swing = null; this.queued = null; p.busyUntil = Math.max(p.busyUntil, this.t + 250); p.busyKind = 'other'
+    this.emit('hit', { on: 'player', dmg, arrow: true, tired: !!this.breathState() })
+    if (this.pa.hp() - dmg <= 0 && F.lethal) return this._playerKilled()
+    if (this.pa.hp() - dmg <= 0 && !F.mercy) return this._playerYields('Buaileadh thú', 'You were beaten')
+    const hurt = F.mercy ? Math.min(dmg, this.pa.hp() - 1) : dmg
+    if (hurt > 0) this.pa.hurt(hurt)
+    if (F.mercy && hurt < dmg) return this._playerYields('Buaileadh thú', 'You were beaten')
+  }
+  _dashTick() {
+    const D = this.dash, el = this.t - D.t0
+    const k = Math.min(1, el / D.glide), e = 1 - (1 - k) * (1 - k)
+    this.pa.place?.(D.from[0] + (D.to[0] - D.from[0]) * e, D.from[1] + (D.to[1] - D.from[1]) * e)
+    if (!D.cut && el >= D.cutAt) { D.cut = true; this._dashCut() }
+    if (el >= D.end) { this.dash = null; this.emit('dashEnd') }
+  }
+  _dashCut() {
+    const D = this.dash
+    this.emit('dashCut', { foes: D.hits.map(f => [f.c, f.r]), dir: [...D.dir] })
+    for (const f of D.hits) {
+      if (f.hp <= 0 || f.state === 'beaten' || !this.combat) continue
+      this.foe = f; f.hurtUntil = 0
+      this.swing = { tile: [f.c, f.r], t0: this.t, born: this.t, hitDone: true, desperate: true, charged: true, flip: false, riposte: false, power: 4, vis: 1, hitAt: 0, dash: true, dir: [...D.dir] }
+      try { this._playerStrikeLands() } finally { this.swing = null; this.foe = this.tgt }
+    }
+    this.hitStop = Math.max(this.hitStop, 170)
+  }
+
   _releaseCharge() {
     const full = this.chargeK() >= 1
     this.charge = null; this.p.busyUntil = this.t; this.p.busyKind = 'other'
@@ -333,7 +499,7 @@ export default class Melee {
 
   // the player started a step (seen as the tile changing)
   _onPlayerStep() {
-    if (!this.combat) return
+    if (!this.combat || this.dash) return
     const p = this.p
     if (p.busyKind === 'strike' && this.t < p.busyUntil) return   // a hop cut into a strike's tail: keep its timing
     p.busyKind = 'hop'
@@ -348,33 +514,35 @@ export default class Melee {
     if (foe.hp > 0 && (foe.c !== tc || foe.r !== tr)) foe.whiffAt = this.t        // a swing at nothing: a patient man notices
     if (foe.hp <= 0 || foe.c !== tc || foe.r !== tr || this.t < foe.hurtUntil) return
     if (F.untouchable) return this._foeParries()                                  // she turns everything
-    if (foe.state === 'strike' && !foe.hitDone) return this._clash()               // both blows at once
+    if (foe.state === 'strike' && !foe.hitDone) return this._clash(foe.st0 + F.strikeMs * 0.5 - this.t)    // both blows at once (gap: ms until his lands)
     if (!foe.armed) return this._struckUnarmed()
     if (foe.phase === 'shove') this._escalate()                          // you struck at him: the wooden sword comes out
     const open = ['wind', 'reel'].includes(foe.state)       // caught mid-move: a clean hit, and a breath back
     const cheap = foe.state === 'salute' && !F.steady                     // struck as he salutes you: it lands, and everyone saw
-    const chance = sw.desperate || sw.charged || cheap || foe.blown ? 0
+    const rip = !!sw.riposte                                                      // on the heels of a timed parry: nothing turns it aside
+    const chance = sw.desperate || sw.charged || cheap || foe.blown || rip ? 0
                  : foe.state === 'recover' || foe.state === 'stagger' ? 0
                  : foe.state === 'reel' ? Math.min(F.parryMax, F.parryReel0 + F.parryReelStep * this.exchange)
                  : foe.state === 'wind' ? 0 : F.parryBase
-    const guard = F.guard && !cheap ? (F.guard[foe.state] ?? F.guard.base) : 0        // a master's floor: he turns most blows, whatever state he's in
+    const guard = F.guard && !cheap && !rip ? (F.guard[foe.state] ?? F.guard.base) : 0        // a master's floor: he turns most blows, whatever state he's in
     const base = Math.max(chance, guard)
     const edge = base > 0 ? 0.05 * (F.def - this.pa.atk()) : 0                    // his defence against your strength
     let pp = Math.max(0, Math.min(F.parryMax, base + edge))
     if (F.moveWindow && this.t - foe.movedAt < F.moveWindow) pp *= 0.35         // caught on the move
     if (Math.random() < pp) return this._foeParries()
-    const dmg = this.edged() ? this.roll(1, 8, (sw.power || 0) + (open ? 2 : 0) + (sw.charged ? 2 : 0)) * (sw.desperate ? 2 : 1)
-      : sw.desperate && !F.match ? 2 : 1, exchange = this.exchange
+    const dmg = this.edged() ? this.roll(1, 8, (sw.power || 0) + (open ? 2 : 0) + (sw.charged ? 2 : 0) + (rip ? 2 : 0)) * (sw.desperate ? 2 : 1)
+      : (sw.desperate || rip) && !F.match ? 2 : 1, exchange = this.exchange
     foe.hurtUntil = this.t + 300; this.exchange = 0; foe.engaged = true
     if (open) this.refund()
     this.hitStop = sw.desperate ? 140 : 80
-    this.emit('hit', { on: 'foe', dmg, desperate: sw.desperate, charged: sw.charged, exchange, fresh: this.breath / this.cap() >= 0.75 && !cheap })
+    this.emit('hit', { on: 'foe', dmg, desperate: sw.desperate, charged: sw.charged, riposte: rip, exchange, fresh: this.breath / this.cap() >= 0.75 && !cheap })
     if (cheap) this.emit('cheapShot')
     if (foe.hp - dmg <= 0) { foe.hp = 0; return this._foeYields() }
     foe.hp -= dmg
     if (sw.charged && !F.steady) {                                         // a full charged cut puts him on the ground
       this._setFoe('down', DOWN_MS); foe.hurtUntil = this.t + DOWN_MS
-      const [pc, pr] = this.pa.tile(); this._knockFoe([sign(foe.c - pc), sign(foe.r - pr)])
+      const [pc, pr] = this.pa.tile(), d = sw.dir || [sign(foe.c - pc), sign(foe.r - pr)]
+      if (this._knockFoe(d)) this._knockFoe(d)                              // the slam throws him two tiles, if there is room
       this.emit('knockdown', { who: 'foe' }); return
     }
     if (F.poise && !foe.blown) return                                    // fresh, he takes it and keeps coming
@@ -382,7 +550,7 @@ export default class Melee {
     else if (foe.state === 'reel') this._setFoe('recover', 500)
     else if (!['recover', 'stagger'].includes(foe.state)) this._setFoe('stagger', F.staggerMs * 1.2)    // the rhythm is broken: step in
     const [pc, pr] = this.pa.tile()
-    this._knockFoe([sign(foe.c - pc), sign(foe.r - pr)])
+    this._knockFoe(sw.dir || [sign(foe.c - pc), sign(foe.r - pr)])
     if (F.match) this._touch('player')
   }
 
@@ -401,7 +569,25 @@ export default class Melee {
     this.emit('parried', { by: 'foe', exchange: this.exchange, wind: foe.wind })
   }
 
-  _clash() {
+  // how far apart (ms) two blows may land and still be a parry: your Cosaint widens it
+  parryWindow() { return Math.max(PARRY.minMs, Math.min(PARRY.maxMs, PARRY.baseMs + PARRY.perDef * (this.pa.def() - 5))) }
+
+  // A blow met on the beat: his is turned aside, you are not thrown back, a breath returns, and he is open (see PARRY).
+  _parryFoe() {
+    const foe = this.foe, F = this.F
+    this.exchange++; this.hitStop = 110
+    this.swing = null; this.queued = null; foe.hitDone = true
+    this.p.busyUntil = this.t + 120; this.p.busyKind = 'other'          // short: the riposte is the next tap
+    this.riposte = { until: this.t + PARRY.riposteMs }
+    this.refund()
+    this._setFoe('reel', F.reelMs)
+    this.emit('parried', { by: 'player', timed: true, exchange: this.exchange })
+    // a long exchange, and blades bound on the beat, can tear his from his hand (as in a clash)
+    if (foe.armed && !F.steady && !F.aggressor && this.exchange >= 3 && Math.random() < DISARM_CHANCE) this._disarmFoe()
+  }
+
+  _clash(gap) {
+    if (this.tech.parry && gap != null && Math.abs(gap) <= this.parryWindow()) return this._parryFoe()     // on the beat: a parry
     const foe = this.foe, charged = !!this.swing?.charged
     this.exchange++; this.hitStop = 100
     const [pc, pr] = this.pa.tile()
@@ -432,6 +618,20 @@ export default class Melee {
     foe.armed = false; foe.nextStep = 0
     this._setFoe('unarmed', 900)                              // a moment of shock, then he goes for it
     this.emit('disarm', { tile: [c, r] })
+  }
+  // the archer's opening: the wooden sword thrown a few tiles aside, behind her; she does not go for it until the fight is over (or the quiver is)
+  _dropSword() {
+    const foe = this.foe, [pc, pr] = this.pa.tile()
+    const away = [sign(foe.c - pc), sign(foe.r - pr)], opts = []
+    for (let dc = -3; dc <= 3; dc++) for (let dr = -3; dr <= 3; dr++) {
+      const c = foe.c + dc, r = foe.r + dr, d = Math.max(Math.abs(dc), Math.abs(dr))
+      if (d < 2 || !this.pa.free(c, r) || this.playerOn(c, r)) continue
+      opts.push([c, r, dc * away[0] + dr * away[1] + Math.random() * 1.5])
+    }
+    if (!opts.length) return
+    opts.sort((a, b) => b[2] - a[2])
+    this.dropped = { c: opts[0][0], r: opts[0][1], from: [foe.c, foe.r], t0: this.t, ms: SWORD_FLIGHT_MS }
+    this.emit('archerDrop', { tile: [opts[0][0], opts[0][1]] })
   }
   swordLanded() { return this.dropped && this.t - this.dropped.t0 >= this.dropped.ms }
 
@@ -494,18 +694,26 @@ export default class Melee {
   _foeStrikeLands() {
     const foe = this.foe, F = this.F, p = this.p
     const [pc, pr] = this.pa.tile()
+    const dash = !!foe.dash; foe.dash = false
+    foe.quickWas = foe.quickNow; foe.quickNow = false
+    const leap = !!foe.leap || dash; if (!F.spinStay) foe.leap = false          // (his spin goes on turning after it has bitten)
+    const kd = dash ? foe.dashDir : [sign(pc - foe.c), sign(pr - foe.r)]       // a cut from a dash throws you on along his line
+    if (dash) { foe.targets = (foe.lane || []).some(([c, r]) => c === pc && r === pr) ? [[pc, pr]] : []; this.emit('foeCut', { hit: foe.targets.length > 0 }) }
+    else if (leap) { if (F.spinStay) { foe.spinT0 = foe.st0; foe.spinUntil = foe.st0 + LEAP_AIR }       // (the turn goes on for the view's sake, though the blow has landed)
+      this.emit('foeLand'); foe.targets = this.cheb() <= 1 ? [[pc, pr]] : []; if (foe.targets.length) foe.leapDone = true }       // the landing: everyone beside him
     if (!foe.targets.some(([c, r]) => c === pc && r === pr)) {                       // fell short
       foe.rush = 0; this._foeAfterBlow(1); this.exchange = 0
-      this.practice++; this.emit('miss', { by: 'foe' }); return
+      if (leap) this._setFoe('recover', foe.quickWas ? 400 : 1100)                      // landed on nothing: open (an opening spin, hardly)
+      this.practice++; this.emit('miss', { by: 'foe', leap }); return
     }
-    if (this.swing && !this.swing.hitDone && this.swing.tile[0] === foe.c && this.swing.tile[1] === foe.r) return this._clash()
+    if (!leap && this.swing && !this.swing.hitDone && this.swing.tile[0] === foe.c && this.swing.tile[1] === foe.r) return this._clash(this.swing.t0 + this.swing.hitAt - this.t)    // (gap: ms until yours lands)
     if (this.t < p.hurtUntil || p.lost) { this._foeAfterBlow(0.6); return }
-    if (Math.random() < this.dodgeP()) {                                              // slipped: no harm, nobody moves
+    if (!leap && Math.random() < this.dodgeP()) {                                              // slipped: no harm, nobody moves
       this.practice++; this.exchange = 0
       this.emit('dodge', { dir: deg(pr - foe.r, pc - foe.c) })
       this._foeAfterBlow(1); return
     }
-    if (Math.random() < this.playerParryP()) {                                       // you turn it aside, by instinct
+    if (!leap && Math.random() < this.playerParryP()) {                                       // you turn it aside, by instinct
       this.exchange++; this.hitStop = 70; this.practice++
       this.emit('parried', { by: 'player', exchange: this.exchange })
       this.spend(0.5)                                                           // staying in the fray tires you
@@ -524,23 +732,23 @@ export default class Melee {
       if (!(this.owed > 0)) this.tollAt = this.t + TOLL_MS
       this.owed = Math.min(this.pa.hp(), this.owed + dmg)
       if (dmg >= 3 && this.eff() > 0) { this.wounds = Math.min(3, this.wounds + 1); if (this.wounds === 1) this.bleedAt = this.t + this._bleedMs() }
-      const away = [sign(pc - foe.c), sign(pr - foe.r)]
-      this._knockPlayer(away); if (dmg >= 5) this._knockPlayer(away)       // any wound throws you back, a heavy one two tiles
+      const away = kd
+      this._knockPlayer(away); if (dmg >= 5 || leap) this._knockPlayer(away)       // any wound throws you back, a heavy one two tiles
       this._foeAfterBlow(0.6); return
     }
     if (this.pa.hp() - dmg <= 0 && F.lethal) return this._playerKilled()
     if (this.pa.hp() - dmg <= 0 && !F.mercy) return this._playerYields('Buaileadh thú', 'You were beaten')
     const hurt = F.mercy ? Math.min(dmg, this.pa.hp() - 1) : dmg          // a master never takes you below one heart
     if (hurt > 0) this.pa.hurt(hurt)
-    this._knockPlayer([sign(pc - foe.c), sign(pr - foe.r)])                            // a hit throws you back a tile
+    this._knockPlayer(kd); if (leap) this._knockPlayer(kd)      // a hit throws you back a tile (a leap, two)
     if (F.mercy && hurt < dmg) return this._playerYields('Buaileadh thú', 'You were beaten')     // the blow that would take your last heart: he salutes, sheathes (you fight on one heart: the red moon)
     this._foeAfterBlow(0.6)
     if (this.F.match) this._touch('foe')
   }
   dodgeP() { return Math.min(0.4, 0.05 + 0.01 * this.practice) }
   // your own defence turning his blow aside: 20% + 6% per point of Cosaint over his Neart, 3..60% (half, winded)
-  playerParryP() {
-    const p = Math.max(0.03, Math.min(0.6, 0.2 + 0.06 * (this.pa.def() - this.F.atk)))
+  playerParryP(atk = this.F.atk) {
+    const p = Math.max(0.03, Math.min(0.6, 0.2 + 0.06 * (this.pa.def() - atk)))
     return this.winded() ? p / 2 : p
   }
   // How you're breathing: null (fine), 'pant' (a good workout), or 'gasp'
@@ -734,14 +942,14 @@ export default class Melee {
     Object.assign(foe, { c: this.HOME[0], r: this.HOME[1], from: null, hp: this.noFoe ? 0 : this.F.hp, state: 'idle', st0: 0, until: 0,
       target: null, targets: [], hitDone: false, nextStep: 0, wind: 0, eye: 0, whiffAt: 0, feint: false, lungeNow: false,
       comboN: 0, rush: 0, hurtUntil: 0, armed: true, shamed: false, reminded: 0, startPending: false, returning: false, engaged: false, movedAt: -1e9, footAt: 0, readAt: 0,
-      phase: null, sheathed: false, pushes: 0, pushing: false, shoveAt: 0, stam: this.F.stamina || 0, stamAt: 0, blown: false, blownUntil: 0 })
+      phase: null, sheathed: false, pushes: 0, pushing: false, shoveAt: 0, stam: this.F.stamina || 0, stamAt: 0, blown: false, blownUntil: 0, leap: false, leapAt: -1e9, leapDone: false, dash: false, dashAt: -1e9, dashUntil: 0, shoot: false, shootAt: -1e9, looseAt: -1e9 })
     this.dropped = null        // his sword on the ground: { c, r, from: [c, r], t0, ms } (it flies first)
     this.carrying = false      // you've picked it up
   }
   _setFoe(state, ms) {
     const foe = this.foe
     foe.state = state; foe.st0 = this.t; foe.until = this.t + ms; foe.hitDone = false; foe.follow = false
-    if (state !== 'wind' && state !== 'strike') { foe.comboN = 0; foe.rush = 0; foe.feint = false; foe.pushing = false }
+    if (state !== 'wind' && state !== 'strike') { foe.leap = false; foe.dash = false; foe.shoot = false; foe.comboN = 0; foe.rush = 0; foe.feint = false; foe.pushing = false }
   }
   _foeStepTo(c, r, ms) {
     const foe = this.foe
@@ -772,9 +980,9 @@ export default class Melee {
     const foe = this.foe, [pc, pr] = this.pa.tile()
     return this._foeStepTo(foe.c + sign(pc - foe.c), foe.r + sign(pr - foe.r), ms)
   }
-  _foeRetreat() {                                   // back out of reach
+  _foeRetreat(leashed = false) {                    // back out of reach (leashed: not far from where he belongs)
     const foe = this.foe, here = this.cheb(), [pc, pr] = this.pa.tile()
-    const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => this.foeFree(c, r))
+    const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => this.foeFree(c, r) && (!leashed || this._fromHome([c, r]) <= LEASH + 1))
       .map(o => [o, Math.max(Math.abs(o[0] - pc), Math.abs(o[1] - pr))]).filter(([, d]) => d > here)
     if (!opts.length) return false
     const best = opts.sort((a, b) => b[1] - a[1])[0][0]
@@ -815,11 +1023,67 @@ export default class Melee {
     const [c, r] = this._aimPoint(Math.max(1, this._stepsBefore(F.windMs + F.strikeMs * 0.5)))
     return Math.max(Math.abs(c - foe.c), Math.abs(r - foe.r)) === 1 ? [c, r] : null
   }
-  _startWind(ms = this.F.windMs) {
-    const foe = this.foe
+  // ── his dash: the lane (up to four tiles, you somewhere in it, a free tile beyond you), and the go ──
+  _foeDashPlan(c0, c1) {
+    const [pc, pr] = this.pa.tile()
+    for (const d of D8) {
+      const lane = []
+      for (let k = 1; k <= DASH.tiles; k++) {
+        const c = c0 + d[0] * k, r = c1 + d[1] * k
+        if (!(this.foeFree(c, r) || (c === pc && r === pr))) break
+        lane.push([c, r])
+      }
+      const at = lane.findIndex(([c, r]) => c === pc && r === pr)
+      if (at < 0) continue
+      if (!lane.slice(at + 1).some(([c, r]) => this.foeFree(c, r))) continue          // nowhere to come out
+      return { d, lane }
+    }
+    return null
+  }
+  _foeDashGo() {
+    const foe = this.foe, lane = foe.lane || [], [pc, pr] = this.pa.tile()
+    const free = lane.filter(([c, r]) => this.foeFree(c, r))
+    const to = free[free.length - 1]
+    foe.dashT0 = this.t; foe.dashFrom = [foe.c, foe.r]
+    this._setFoe('strike', FOE_DASH.glide + FOE_DASH.cut + 200)
+    foe.dash = true                                                   // (set after: entering a state clears it)
+    if (to) this._foeStepTo(to[0], to[1], FOE_DASH.glide)
+    foe.dashUntil = this.t + FOE_DASH.glide + FOE_DASH.pose
+    this.emit('foeSwing', { dash: true })
+  }
+  // the leap carries him through the air to land beside you: up to four tiles from where he crouched
+  _leapJump() {
+    const foe = this.foe, [pc, pr] = this.pa.tile()
+    if (this.F.spinStay) return                                             // your own spin: on the spot, everyone beside him
+    if (this.cheb() <= 1) { foe.targets = [[pc, pr]]; return }
+    const near = D8.map(v => [pc + v[0], pr + v[1]]).filter(([c, r]) => this.foeFree(c, r))
+      .map(o => [o, Math.max(Math.abs(o[0] - foe.c), Math.abs(o[1] - foe.r))]).filter(([, d]) => d <= 4).sort((a, b) => a[1] - b[1])
+    if (near.length) return void this._foeStepTo(near[0][0][0], near[0][0][1], LEAP_AIR * 0.85)
+    for (let n = 4; n >= 1; n--) {                                       // too far: as far as he can go the right way
+      const c = foe.c + Math.sign(pc - foe.c) * Math.min(n, Math.abs(pc - foe.c)), r = foe.r + Math.sign(pr - foe.r) * Math.min(n, Math.abs(pr - foe.r))
+      if (this.foeFree(c, r) && this._foeStepTo(c, r, LEAP_AIR * 0.85)) return
+    }
+  }
+  _startWind(ms = this.F.windMs, quick = false) {
+    const foe = this.foe, F = this.F
+    // F.pattern: his moves in a fixed round, so he can be learned (and feared): 'cut' is the ordinary blow; 'spin' turns on the spot; 'dash' goes through you down a red lane
+    if (F.pattern && !foe.shoving && !foe.pushing && !foe.leap) {
+      const mv = F.pattern[(foe.patN = (foe.patN || 0) + 1) % F.pattern.length]
+      if (mv === 'spin') { foe.leap = true; foe.leapAt = this.t; ms = F.leapWind || 800 }
+      else if (mv === 'dash') {
+        const plan = this._foeDashPlan(foe.c, foe.r)
+        if (plan) {
+          foe.lane = plan.lane; foe.dashDir = plan.d; foe.dashAt = this.t; foe.engaged = true; foe.target = plan.lane[0]; foe.targets = plan.lane
+          foe.wind = F.dashWind || 900; this._setFoe('wind', foe.wind); foe.dash = true
+          this.emit('tell', { ms: foe.wind, dash: true }); return
+        }
+      }
+    }
+    if (this.F.leap && !foe.shoving && !foe.pushing && (this.F.leapOnly || !foe.leapDone || (this.cheb() <= 1 && this.t - foe.leapAt > (this.F.leapEvery || 24000)))) { foe.leap = true; foe.leapAt = this.t; ms = quick ? (this.F.leapQuick || 300) : (this.F.leapWind || 1000) }
     if (this.F.reads && this.moving() && !foe.shoving) { const at = this._leadTile(ms + this.F.strikeMs * 0.5); if (at) { foe.target = at; foe.targets = [at] } }
     if (this.F.stamina && !foe.pushing) foe.stam -= this.F.stamCut || 1
-    foe.engaged = true; foe.wind = ms; this._setFoe('wind', ms); this.emit('tell', { ms })
+    if (foe.leap && F.spinStay) { foe.targets = D8.map(v => [foe.c + v[0], foe.r + v[1]]); foe.target = foe.targets[0] }       // the spin on the spot: all eight beside him show red
+    foe.engaged = true; foe.wind = ms; this._setFoe('wind', ms); this.emit('tell', { ms, leap: foe.leap })
   }
   // after a blow: a combo's next cut, or the long recovery that leaves them open
   _foeAfterBlow(mult) {
@@ -1036,6 +1300,79 @@ export default class Melee {
     if (F.stamina) this._stamina(t)
     // you are saluting: he holds off (a blow he has begun finishes)
     if (this.combat && this.F.salutes !== false && this.p.busyKind === 'salute' && t < this.p.busyUntil && ['idle', 'approach', 'rest'].includes(foe.state)) return
+    // a leaper's first move is the leap: as soon as the bout is on and you are within two tiles
+    // (and again and again, near or far, until it lands on you or you hit him)
+    if (F.leap && !foe.leapDone && (foe.hp < (foe.leapHp ?? foe.hp) || ['stagger', 'reel', 'down'].includes(foe.state))) foe.leapDone = true
+    foe.leapHp = foe.hp
+    if (this.combat && F.leap && !F.spinStay && !foe.leapDone && foe.hp > 0 && ['idle', 'approach', 'rest'].includes(foe.state) && !(foe.from && t - foe.t0 < foe.ms)) { this._aimAttack(); this._startWind(); return }
+    // F.archer: she keeps off, draws, looses, and moves a little between; only when she is caught is she a swordswoman
+    if (this.combat && F.archer && foe.hp > 0 && ['idle', 'approach', 'rest'].includes(foe.state)) {
+      if (F.arrows && (foe.shots || 0) >= F.arrows) {          // the quiver is empty: she goes for her sword, and is a swordswoman after all
+        F.archer = false
+        if (this.carrying) this._returnSword()
+        else if (this.dropped) { foe.armed = false; this._setFoe('unarmed', 500) }
+        this.emit('quiverEmpty'); return
+      }
+      if (!((foe.from && t - foe.t0 < foe.ms) || t < (foe.thinkAt || 0))) {
+        foe.thinkAt = t + 180
+        const d0 = this.cheb()
+        if (foe.openShot == null) foe.openShot = F.openShots || 0
+        if (!F.stay && d0 < (F.keep || 3) && this._foeRetreat(true)) return
+        if (d0 >= 2) {
+          const quick = foe.openShot > 0
+          if (t - foe.shootAt > (quick ? 300 : (F.shootGap || 1100))) { if (quick) foe.openShot--; this._foeDrawBow(quick); return }
+          if (!F.stay && Math.random() < 0.3) {                         // not still: a step to one side
+            const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => this.foeFree(c, r) && this._fromHome([c, r]) <= LEASH + 1 && Math.max(Math.abs(c - this.pa.tile()[0]), Math.abs(r - this.pa.tile()[1])) >= 2)
+            if (opts.length) { const o = opts[Math.floor(Math.random() * opts.length)]; this._foeStepTo(o[0], o[1], F.stepMs * 0.7) }
+          }
+          return
+        }
+      } else return
+    }
+    // F.dashOnly: this is all he does. He finds a line to you (shifting to one), gathers himself while the lane shows red, and is through you
+    if (this.combat && F.dashOnly && foe.hp > 0 && ['idle', 'approach', 'rest'].includes(foe.state)) {
+      if ((foe.from && t - foe.t0 < foe.ms) || t < (foe.thinkAt || 0)) return
+      foe.thinkAt = t + 220
+      const plan = t - foe.dashAt > (F.dashGap || 700) ? this._foeDashPlan(foe.c, foe.r) : null
+      if (plan) {
+        foe.dash = false; foe.lane = plan.lane; foe.dashDir = plan.d; foe.dashAt = t; foe.engaged = true
+        if (foe.openDash == null) foe.openDash = F.openDashes || 0
+        foe.target = plan.lane[0]; foe.targets = plan.lane; foe.wind = foe.openDash > 0 ? (foe.openDash--, F.dashQuick || 450) : (F.dashWind || 900)       // the first, a free shot: hardly a gather, so you see he has it
+        this._setFoe('wind', foe.wind); foe.dash = true
+        this.emit('tell', { ms: foe.wind, dash: true }); return
+      }
+      const d0 = this.cheb()
+      const opts = D8.map(v => [foe.c + v[0], foe.r + v[1]]).filter(([c, r]) => this.foeFree(c, r) && this._fromHome([c, r]) <= LEASH + 1)
+      const lined = opts.filter(([c, r]) => this._foeDashPlan(c, r))
+      const pick = lined.length ? lined[Math.floor(Math.random() * lined.length)] : null
+      if (pick) this._foeStepTo(pick[0], pick[1], F.stepMs * 0.6)
+      else if (d0 > 4) this._stepIn(F.stepMs * 0.7)
+      else if (d0 < 2) this._foeRetreat(true)
+      else if (opts.length) { const o = opts[Math.floor(Math.random() * opts.length)]; this._foeStepTo(o[0], o[1], F.stepMs * 0.7) }
+      return
+    }
+    // F.leapOnly: this is all he does. He backs off to a few tiles, gathers himself (the crouch), and leaps again, and again
+    if (this.combat && F.leapOnly && foe.hp > 0 && ['idle', 'approach', 'rest'].includes(foe.state)) {
+      if (foe.from && t - foe.t0 < foe.ms) return
+      if (F.spinStay) {                                                   // the spin you will be taught, on the spot (he never leaps at you with it)
+        if (foe.openLeft == null) foe.openLeft = F.openSpins || 0
+        if (foe.openLeft > 0) {                                           // at the start, a few with hardly a gather, whoever is near: so you see he has it
+          if (t - foe.leapAt > (F.openGap || 450)) { foe.openLeft--; foe.quickNow = true; this._aimAttack(); this._startWind(undefined, true) }
+          return
+        }
+        if (this.cheb() < (F.safeDist || 3) && this._foeRetreat(true)) return      // then: back off to a safe distance, to gather the whole of it
+        if (t - foe.leapAt > (F.leapGap || 700)) { this._aimAttack(); this._startWind() }
+        return
+      }
+      if (this.cheb() < 3 && this._foeRetreat(true)) return
+      if (t - foe.leapAt > (F.leapGap || 700)) { this._aimAttack(); this._startWind() }
+      return
+    }
+    // she slipped your spin: now she steps back in and cuts while you recover
+    if (foe.spinCounterAt && t >= foe.spinCounterAt) {
+      foe.spinCounterAt = 0
+      if (this.combat && foe.hp > 0 && ['idle', 'approach', 'rest'].includes(foe.state)) { if (this.cheb() > 1) this._stepIn(110); if (this.cheb() <= 1) { this._aimAttack(); this._startWind(F.followWind); return } }
+    }
     // winded within his reach: he comes for you (at most every 1.5 s). Breath is yours to manage.
     if (this.combat && this.winded() && foe.armed && !F.untouchable && foe.phase !== 'shove' && !foe.blown && ['rest', 'approach'].includes(foe.state) && this.cheb() <= 2 && t >= (foe.pressAt || 0)) {
       foe.pressAt = t + 1500
@@ -1045,12 +1382,13 @@ export default class Melee {
     switch (foe.state) {
       case 'idle': this._setFoe('approach', 5000); break
       case 'salute':
+        if (foe.startPending && F.dropSword && !this.dropped && t - foe.st0 >= SALUTE_MS + 900) this._dropSword()       // the salute made, the wooden sword is thrown aside: the bow comes next
         if (foe.startPending && this.cheb() <= 1) foe.until = t           // you came in on him as he opened the bout: guard up, no free blow
         if (t >= foe.until) { this._setFoe('approach', 5000); if (foe.startPending) { foe.startPending = false; this.emit('go') } }
         break
       case 'down': if (t >= foe.until) { this._setFoe('rest', 600); this.emit('rise', { who: 'foe' }) } break
       case 'rest':
-        if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs * 1.6; if (Math.random() < 0.5) this._foeStep(this.pa.tile(), true) }
+        if (t >= foe.nextStep) { foe.nextStep = t + F.stepMs * 1.6; if (Math.random() < 0.5 && !(foe.holdUntil > t)) this._foeStep(this.pa.tile(), true) }
         if (t >= foe.until) this._setFoe('approach', 5000)
         break
       case 'approach': {
@@ -1071,10 +1409,11 @@ export default class Melee {
         if (foe.feint && t - foe.st0 >= foe.wind * 0.5) { foe.feint = false; this._setFoe('approach', 5000); foe.nextStep = t + 200; foe.lungeNow = true; break }
         if (t >= foe.until && foe.shoving) { this._foeThrows(); break }
         if (t >= foe.until && foe.pushing) { this._foePushes(); break }
-        if (t >= foe.until) { this._setFoe('strike', F.strikeMs); this.emit('foeSwing') }
+        if (t >= foe.until && foe.shoot) { this._foeLoose(); break }
+        if (t >= foe.until) { if (foe.leap) this._leapJump(); if (foe.dash) return void this._foeDashGo(); this._setFoe('strike', foe.leap ? LEAP_AIR : F.strikeMs); this.emit('foeSwing', { leap: foe.leap }) }
         break
       case 'strike':
-        if (!foe.hitDone && t - foe.st0 >= F.strikeMs * 0.5) { foe.hitDone = true; this._foeStrikeLands() }
+        if (!foe.hitDone && t - foe.st0 >= (foe.dash ? FOE_DASH.glide + FOE_DASH.cut : foe.leap ? LEAP_AIR * (F.spinStay ? 0.2 : 0.9) : F.strikeMs * 0.5)) { foe.hitDone = true; this._foeStrikeLands() }
         break
       case 'reel':
         if (t >= foe.until) { this.exchange = 0; this._setFoe('rest', F.restMin) }
@@ -1091,6 +1430,8 @@ export default class Melee {
     if (this.hitStop > 0) { this.hitStop -= dt; return }              // the blow lands: everything holds for a beat
     this.t += dt
     const t = this.t, foe = this.foe
+    if (this.dash) this._dashTick()
+    if (this.arrows.length) this._arrowTick()
 
     // the end of a bout: after a pause they go home and recover; you must step away before the next
     if (this.bout.over && t >= this.bout.until) {
@@ -1102,7 +1443,9 @@ export default class Melee {
       if (won) { const keep = [foe.c, foe.r]; this._resetFoe(); foe.c = keep[0]; foe.r = keep[1]; this.dropped = keepDropped; if (keepDropped || shamed) foe.armed = !keepDropped }
       else foe.hp = this.F.hp
       this.bout.shamed = shamed
-      if (this.bout.shamed) {                                   // no salute: he gets up, slowly, and goes for his sword
+      if (!this.bout.shamed && this.dropped && this.F.dropSword) {        // the archer's sword is still in the grass: she goes for it before the salute
+        foe.armed = false; this._setFoe('unarmed', 500); this.emit('rise', { who: 'foe' })
+      } else if (this.bout.shamed) {                                   // no salute: he gets up, slowly, and goes for his sword
         foe.shamed = true; foe.armed = !this.dropped
         this._setFoe(foe.armed ? 'idle' : 'unarmed', 600); this.emit('rise', { who: 'foe', slow: true })
       } else {
@@ -1126,7 +1469,7 @@ export default class Melee {
       if (this.resume) { this.resume = false; this.foeReady = false; this._setFoe('rest', 700); this.emit('boutResume') }     // the match goes on: no salute
       else {
         foe.shamed = false; this.saluted = false; foe.reminded = 0; foe.engaged = false; this.touches = 0; foe.startPending = true
-        this._setFoe('salute', SALUTE_MS + 900); this.emit('boutStart') }       // + his draw (meleeView DRAW_MS)
+        this._setFoe('salute', SALUTE_MS + 900 + (this.F.archer ? (this.F.dropSword ? 0 : ARROW.sheathe) + ARROW.unsling : 0)); this.emit('boutStart') }       // + his draw (meleeView DRAW_MS)
     } else if (this.combat && d > (this.F.keepBout ? 14 : DISENGAGE)) { if (this.F.aggressor) this._fightOver({ won: false, how: 'fled' }); else this._endCombat() }
 
     // he will not fight a wounded man: if you keep coming at him with your blade out, he zooms off
@@ -1163,7 +1506,7 @@ export default class Melee {
     if (this.fight && this.F.drown) this._drownTick(t)
     if (this.swing) {
       const el = t - this.swing.t0
-      if (el >= this.swing.hitAt && !this.swing.hitDone) { this.swing.hitDone = true; this._strikeAt() }
+      if (el >= (this.swing.biteAt ?? this.swing.hitAt) && !this.swing.hitDone) { this.swing.hitDone = true; this._strikeAt() }
       if (this.swing && el >= this.swing.vis) this.swing = null
     }
     try {
@@ -1233,8 +1576,19 @@ export default class Melee {
   _strikeAt() {
     const sw = this.swing
     if (!sw) return
+    if (sw.charged && this.combat && !sw.air) return this._slam()
     const f = this.foes.length > 1 ? this.foes.find(o => o.hp > 0 && o.state !== 'beaten' && o.c === sw.tile[0] && o.r === sw.tile[1]) : null
     try { if (f) this.foe = f; this._playerStrikeLands() } finally { this.foe = this.tgt }
+  }
+  // The spinning leap comes down: everyone beside you takes the blow (parry-proof, knocked down and thrown back two tiles)
+  _slam() {
+    const sw = this.swing, [pc, pr] = this.pa.tile(), keep = sw.tile
+    const near = this.foes.filter(o => o.hp > 0 && o.state !== 'beaten' && Math.max(Math.abs(o.c - pc), Math.abs(o.r - pr)) === 1)
+    this.emit('slam', { n: near.length })
+    if (!near.length) { try { this._playerStrikeLands() } finally { this.foe = this.tgt }; return }    // lands on nothing: the usual whiff
+    try {
+      for (const o of near) { this.foe = o; sw.tile = [o.c, o.r]; this._playerStrikeLands(); if (!this.swing) break }
+    } finally { sw.tile = keep; this.foe = this.tgt }
   }
   // Who you are addressing: the nearest, or -- on a line you are walking -- the one nearest the line's end; one winding up to cut you
   // counts a little nearer; you keep whom you have unless another is plainly nearer (a tap keeps him longer).

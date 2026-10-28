@@ -11,6 +11,7 @@ import { ScrollingTextPlayer } from './game/ui/scrollingTextPlayer.js';
 import { constellationTexts } from '../data/constellationTexts.js';
 import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 import { runOghamDial } from './introOghamDial.js';
+import { quality } from './game/systems/quality.js';
 import { createDomButton } from './game/systems/gameTypography.js';
 import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
@@ -136,7 +137,13 @@ export function initConstellationScene(onComplete, startPhase) {
         scene: LEVEL_ON ? [ConstellationScene, IntroLevelScene] : [ConstellationScene],
         scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
         input: { touch: true },
+        // a weak phone is not asked for sixty frames a second of stars and figures (systems/quality.js); ?introfps=N tries a number
+        fps: { limit: (() => { const m = /[?&]introfps=(\d+)/.exec(location.search); return m ? +m[1] : quality.get().fps })() },
     });
+    window.introGame = game;     // (console / tests)
+    // dev: ?afterdial=0.15 goes straight to the constellations, as if the poem had been read and the English set to that opacity
+    const _ad = /[?&]afterdial=([0-9.]+)/.exec(location.search);
+    if (_ad) { game.registry.set('dialSeen', true); startPhase = parseFloat(_ad[1]); }
     game.registry.set('onComplete', onComplete);
     game.registry.set('startPhase', startPhase);
     return game;
@@ -261,6 +268,10 @@ const SKY_WHEEL_PER_PX = 0.018;
 
 const TRAIL_SMOOTH = 0.28, TRAIL_MAX = 70;
 const LINE_LINGER_MS = 7600;
+// The pace of the text after a constellation: it must not make a player wait. It comes in already part-way up its band, fades in quickly and
+// scrolls a little faster than the default (30 px/s). Tune here.
+const CON_TEXT = { speed: 38, preScroll: 0.40, fadeMs: 350 };
+const CON_FLASH_MS = 520;     // the figure's flash when its last line is drawn
 const RIPPLE_MS = 900, RIPPLE_MAX_R = 55, RIPPLE_ALPHA = 0.75;
 /* [starHint] The idle hint: a shooting star that traces a real stroke. */
 const HINT_LAST_INDEX = 0;      // hint runs for constellations 0..this (0 = the first only)
@@ -512,6 +523,34 @@ export class ConstellationScene extends Phaser.Scene {
         const c0 = this.constellations[0];
         this.cameras.main.setScroll(c0.wcx - this.W / 2, c0.wcy - this.H / 2 - this.H * 0.38);
         this.worldG.setAlpha(0);
+        // iOS Safari: without touch-action:none a finger drag on the canvas is taken for a page pan / edge
+        // gesture and cancelled, so the stars could be touched but never joined. (The moon works: its own
+        // listeners preventDefault.)
+        try {
+            const cv = this.game.canvas, host = cv.parentElement
+            for (const el of [cv, host, document.body]) if (el) { el.style.touchAction = 'none'; el.style.webkitUserSelect = 'none'; el.style.userSelect = 'none'; el.style.webkitTouchCallout = 'none' }
+        } catch (_) {}
+        // iOS: the toolbars collapse (and fullscreen toggles) without a reliable resize event, so Phaser can be left
+        // with the canvas's OLD position and every touch lands a toolbar's height from where the finger is: the stars
+        // are touched but never hit. Re-measure before Phaser reads each touch (window capture runs first).
+        try {
+            const remeasure = () => { try { this.scale.updateBounds() } catch (_) {} }
+            window.addEventListener('touchstart', remeasure, { capture: true, passive: true })
+            window.addEventListener('pointerdown', remeasure, { capture: true, passive: true })
+            window.addEventListener('orientationchange', () => setTimeout(() => { try { this.scale.refresh() } catch (_) {} }, 300))
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { try { this.scale.refresh() } catch (_) {} })
+            this.events.once('shutdown', () => { window.removeEventListener('touchstart', remeasure, true); window.removeEventListener('pointerdown', remeasure, true) })
+            if (new URLSearchParams(location.search).has('touchdebug')) {      // ?touchdebug=1: a red dot where Phaser thinks you touched, a ring round each star's hit area
+                const g = this.add.graphics().setDepth(100000)
+                const R = this.hitR()
+                this.input.on('pointerdown', p => {
+                    g.clear(); g.fillStyle(0xff2020, 0.9).fillCircle(p.worldX, p.worldY, 10)
+                    g.lineStyle(2, 0x40ff40, 0.9)
+                    for (const c of this.constellations || []) for (const st of c.stars || []) g.strokeCircle(st.wx, st.wy, R)
+                })
+                this.input.on('pointermove', p => { if (p.isDown) g.fillStyle(0xff2020, 0.6).fillCircle(p.worldX, p.worldY, 5) })
+            }
+        } catch (_) {}
         this.input.on('pointerdown', this.onPointerDown, this);
         this.input.on('pointermove', this.onPointerMove, this);
         this.input.on('pointerup',   this.onPointerUp,   this);
@@ -544,7 +583,7 @@ export class ConstellationScene extends Phaser.Scene {
             `max-height:${Math.round(H * 0.50)}px;max-width:${Math.round(W * 0.70)}px;`,
             'left:50%;top:45%;transform:translate(-50%,-50%) scale(2);',
             'pointer-events:none;z-index:99993;opacity:0;',
-            'transition:opacity 2.2s ease-in;mix-blend-mode:screen;',
+            'transition:opacity 1.2s ease-out;mix-blend-mode:screen;',
         ].join('');
         document.body.appendChild(el);
         this._darkImageEl = el;
@@ -1265,6 +1304,7 @@ if (wrapper) {
             container:         this._druidQueenBand(),
             viewportHeight:    this._druidQueenBandHeight(),
             bottomClearancePx: 0,
+            scrollSpeed: CON_TEXT.speed, preScroll: CON_TEXT.preScroll, fadeInMs: CON_TEXT.fadeMs,
         });
         this._textPlayer.start();
     }
@@ -1537,6 +1577,19 @@ if (wrapper) {
         }
     }
 
+    /* The figure is finished: say so, at once, with everything we have. The stars flare one after another along it, each with a ripple, the lines
+       flash, and a phone buzzes. (The chord is played by the caller; the picture and the text follow within a fraction of a second.) */
+    _celebrate(c) {
+        c.stars.forEach((s, i) => {
+            this.time.delayedCall(i * 70, () => {
+                this.spawnRipple(s.wx, s.wy);
+                this.tweens.killTweensOf(s);
+                this.tweens.add({ targets: s, brightness: 3.2, duration: 200, yoyo: true, ease: 'Sine.easeOut', onComplete: () => { s.brightness = 1; } });
+            });
+        });
+        try { if (navigator.vibrate) navigator.vibrate([22, 40, 60]); } catch (e) {}
+    }
+
     onConstellationComplete(c) {
         c.completed=true; this.canInteract=false;
         if (this.pulseTimer) this.pulseTimer.remove();
@@ -1544,12 +1597,13 @@ if (wrapper) {
         for (const star of c.stars){star.completed=true;this.tweens.killTweensOf(star);}
         this.playCompletionChord();
         if (c.id==='draoi') triggerMurmuration(this.audioContext);
-        this.time.delayedCall(800,()=>this._showDarkImage(c.id));
+        this._celebrate(c);
+        this.time.delayedCall(250,()=>this._showDarkImage(c.id));
         const texts=constellationTexts[c.id];
         const completion=texts&&texts.completion?texts.completion:[];
         this.hideWaitingTexts(()=>{
             if (!completion.length){this.time.delayedCall(600,()=>this.onAllComplete());return;}
-            this.time.delayedCall(300,()=>{
+            this.time.delayedCall(150,()=>{
                 if (this._completionPlayer){this._completionPlayer.destroy();this._completionPlayer=null;}
                 this._completionPlayer = new ScrollingTextPlayer({
                     lines:             completion,
@@ -1557,6 +1611,7 @@ if (wrapper) {
                     container:         this._druidQueenBand(),
                     viewportHeight:    this._druidQueenBandHeight(),
                     bottomClearancePx: 0,
+                    scrollSpeed: CON_TEXT.speed, preScroll: CON_TEXT.preScroll, fadeInMs: CON_TEXT.fadeMs,
                     onComplete: () => {
                         this._completionPlayer=null;
                         this.time.delayedCall(200,()=>{
@@ -1873,7 +1928,11 @@ if (wrapper) {
                 if (!conn.completed) continue;
                 const a=c.stars[conn.from], b=c.stars[conn.to];
                 let alpha, width;
-                if (conn.completedAt===null||!conn.panStartTime){alpha=0.92;width=2.5;}
+                if (conn.completedAt===null||!conn.panStartTime){
+                    alpha=0.92;width=2.5;
+                    const since=conn.completedAt==null?1e9:now-conn.completedAt;      // the flash when the figure is finished
+                    if (since<CON_FLASH_MS){const k=1-since/CON_FLASH_MS; width+=4*k; alpha=1;}
+                }
                 else {
                     const age=now-conn.panStartTime, t=Math.min(age/LINE_LINGER_MS,1);
                     const ease=t<0.7?1:1-((t-0.7)/0.3)**2;
@@ -1884,7 +1943,11 @@ if (wrapper) {
                 this.worldG.lineStyle(width,pal.core,alpha);         this.worldG.lineBetween(a.wx,a.wy,b.wx,b.wy);
             }
             for (const star of c.stars) {
-                if (star.completed)  {this.worldG.fillStyle(0x8899aa,0.15);this.worldG.fillCircle(star.wx,star.wy,1.2);}
+                if (star.completed)  {
+                    const f=Math.max(0,(star.brightness||1)-1);          // a finished star stays lit, and flares when the figure is done
+                    if (f>0) {this.worldG.fillStyle(0xbbddff,Math.min(0.35,0.12*f));this.worldG.fillCircle(star.wx,star.wy,6+f*5);}
+                    this.worldG.fillStyle(0xcfe0f4,Math.min(1,0.55+f*0.2));this.worldG.fillCircle(star.wx,star.wy,2.0+f*0.8);
+                }
                 else if (isActive)   {this.drawActiveStar(star.wx,star.wy,star.brightness);}
                 else                 {this.worldG.fillStyle(0x6677aa,0.20);this.worldG.fillCircle(star.wx,star.wy,1.8);}
             }

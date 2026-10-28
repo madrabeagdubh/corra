@@ -767,7 +767,8 @@ export function createField(opts = {}) {
   function enterChariots() {
     resetCommon();
     pairs = [];
-    chariots = Array.from({ length: 5 }, (_, k) => ({ k, a: 0, a0: -0.55 + k * 0.28, s: 1.9, x: -80, y: CY + (k - 2) * 38, y0: CY + (k - 2) * 38, vx: 1, vy: 0, dist: rr(0, 40), trail: [], lag: Math.abs(k - 2) * 24 }));
+    const nCh = far ? 3 : 5, mid = (nCh - 1) / 2;                  // the distant host sends three, kept on the headland
+    chariots = Array.from({ length: nCh }, (_, k) => ({ k, a: 0, a0: -0.55 + (k + (5 - nCh) / 2) * 0.28, s: 1.9, x: -80, y: CY + (k - mid) * 38, y0: CY + (k - mid) * 38, vx: 1, vy: 0, dist: rr(0, 40), trail: [], lag: Math.abs(k - mid) * 24 }));
     cT = -LEAD.surge; ringDone = false;
     emit('chariots', { lead: LEAD.surge, dur: PASS_T + 26 });
     for (let i = 0; i < N; i++) { hx[i] = x[i]; hy[i] = y[i]; gs[i] = 18; gk[i] = 1.2; gx[i] = x[i]; gy[i] = y[i]; }
@@ -793,16 +794,18 @@ export function createField(opts = {}) {
     cT += dt;
     for (const c of chariots) {
       const px = c.x, py = c.y;
-      if (cT < PASS_T) { c.x = -80 + 92 * cT - c.lag; c.y = c.y0 + 3 * Math.sin(cT * 3 + c.k); }
+      if (cT < PASS_T) { c.x = far ? 10 + 50 * cT - c.lag : -80 + 92 * cT - c.lag; c.y = c.y0 + 3 * Math.sin(cT * 3 + c.k); }
       else {
         const tt = cT - PASS_T;
         c.a = c.a0 + 0.7 * tt;
         let s = 1.9 - 0.9 * smooth(tt / 4);
         if (tt > 6) s -= 0.28 * smooth((tt - 6) / 8);
         if (tt > 24) s += 1.3 * smooth((tt - 24) / 6);
+        if (far) s = Math.min(s, 1.15);                               // the ring stays on the flat top
         c.s = s;
         c.x = CX + 135 * s * Math.cos(c.a); c.y = CY + 80 * s * Math.sin(c.a);
       }
+      if (far) { c.x = Math.max(10, Math.min(width - 10, c.x)); c.y = Math.max(10, Math.min(depth - 10, c.y)) }   // never over the water
       if (px || py) { const dx = c.x - px, dy = c.y - py, d = Math.hypot(dx, dy); if (d > 1e-3 && d < 60) { c.vx = dx; c.vy = dy; c.dist += d; } }
       c.trail.push({ x: c.x, y: c.y }); if (c.trail.length > 7) c.trail.shift();
     }
@@ -1172,7 +1175,7 @@ export function createField(opts = {}) {
     items.sort((p, q) => p[0] - q[0]);
     for (const [, id, kind] of items) {
       if (P.anchor) { if (kind === 0) P.anchor(x[id], y[id]); else if (kind === 1) P.anchor(chariots[id].x, chariots[id].y); else P.anchor(drops[id].x, drops[id].y); }
-      if (kind === 1) { drawChariot(P, chariots[id]); continue; }
+      if (kind === 1) { drawChariot(far ? scaledP(P, chariots[id].x, chariots[id].y * S, 0.62) : P, chariots[id]); continue; }
       if (kind === 2) {
         const d = drops[id], sy = d.y * S - d.z, ca = Math.cos(d.ang) * 3.5, sa = Math.sin(d.ang) * 3.5 * (d.rest ? 0.4 : 1);
         if (!d.rest) P.rect(Math.round(d.x), Math.round(d.y * S), 2, 1, SHADOW, 0.2);
@@ -1247,6 +1250,13 @@ export function createField(opts = {}) {
   // A chariot: a pair of ponies, the pole, a wicker car on a spoked wheel and a driver with a javelin.
   // Seen from the side when it crosses the view, from in front when it comes at us and from behind
   // when it goes away. The gallop (legs, bob), the wheel and the dust all follow the distance travelled.
+  // the same drawing, smaller: every rect and line scaled about the chariot's own middle
+  function scaledP(P, cx, cy, k) {
+    const q = Object.create(P)
+    q.rect = (x, y, w, h, c, a) => P.rect(cx + (x - cx) * k, cy + (y - cy) * k, w * k, h * k, c, a)
+    q.line = (x1, y1, x2, y2, c, a) => P.line(cx + (x1 - cx) * k, cy + (y1 - cy) * k, cx + (x2 - cx) * k, cy + (y2 - cy) * k, c, a)
+    return q
+  }
   const PONY = [0x6a4a34, 0x9a9890, 0x2e2a28, 0x8a5a38, 0x5a3e2c];
   function drawChariot(P, c) {
     const vxs = c.vx, vys = c.vy * S, side = Math.abs(vys) < Math.abs(vxs) * 0.9, s = vxs >= 0 ? 1 : -1;

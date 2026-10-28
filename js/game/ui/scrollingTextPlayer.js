@@ -66,7 +66,7 @@ export class ScrollingTextPlayer {
      */
 
 
-constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0, scrollSpeed = SCROLL_PX_PER_SEC, viewportHeight = null }) {
+constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0, scrollSpeed = SCROLL_PX_PER_SEC, viewportHeight = null, preScroll = 0, fadeInMs = 0 }) {
     this._lines             = lines;
     this._getMoonPhase      = getMoonPhase || (() => 0);
     this._onComplete        = onComplete   || (() => {});
@@ -80,6 +80,10 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
     this._viewportHeightOverride = viewportHeight || null;
 
     this._scrollY      = 0;
+    // For a caller that cannot make the player wait while the first line crawls up from the bottom: preScroll is a fraction of the viewport height the
+    // text has already travelled when it appears, and fadeInMs how long the whole block takes to come in (instead of being there at once).
+    this._preScroll    = Math.max(0, preScroll);
+    this._fadeInMs     = Math.max(0, fadeInMs);
     this._velocity     = scrollSpeed / 60;
     this._naturalVel   = scrollSpeed / 60;
        this._running      = false;
@@ -111,10 +115,16 @@ constructor({ lines, getMoonPhase, onComplete, container, bottomClearancePx = 0,
     start() {
         if (this._running) return;
         this._running   = true;
-        this._scrollY   = 0;
+        this._scrollY   = this._preScroll * this._H();
         this._completed = false;
-        this._overlay.style.opacity    = '1';
-        this._overlay.style.transition = '';
+        if (this._fadeInMs > 0) {
+            this._overlay.style.opacity    = '0';
+            this._overlay.style.transition = `opacity ${this._fadeInMs}ms ease-out`;
+            requestAnimationFrame(() => requestAnimationFrame(() => { if (this._overlay) this._overlay.style.opacity = '1'; }));
+        } else {
+            this._overlay.style.opacity    = '1';
+            this._overlay.style.transition = '';
+        }
 
         // Measure after one rAF so wrapper.offsetHeight is real
         requestAnimationFrame(() => {

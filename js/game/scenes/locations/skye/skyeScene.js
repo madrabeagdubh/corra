@@ -28,6 +28,8 @@
 
 import BogScene from '../bogScene.js'
 import FightLens from '../../../combat/fightLens.js'
+import { GameState } from '../../../systems/gameState.js'
+import { createItem } from '../../../ui/inventory/itemDefinitions.js'
 
 // Synthetic GIDs for Skye figures (billboard, moon badge and card portrait
 // all resolve through these). 91xx are taken by the mainland NPCs.
@@ -51,9 +53,6 @@ const SKYE_ART = {
 // Hearts come back on their own on Skye, one every REGEN_MS, while you're
 // not en garde -- the wooden blade bruises, it doesn't wound.
 const REGEN_MS = 6000
-
-// left behind when you land on Skye (see _stripPack)
-const ISLAND_NO = new Set(['simple_bow', 'arrows', 'healing_potion'])
 
 export default class SkyeScene extends BogScene {
   getMapPath()            { return `/maps/skyeMaps/${this.getMapKey()}.json?v=${Date.now()}` }
@@ -102,18 +101,16 @@ export default class SkyeScene extends BogScene {
     for (const [gid, url] of Object.entries(SKYE_ART)) {
       this.perspectiveGround?.registerCustomTile?.(Number(gid), url)
     }
-    this._stripPack()
+    this._earnedPack()
   }
 
-  // On the island you train with what you're given: no bow, no arrows, no
-  // potion in your pack (the pack is rebuilt with each scene, so this is
-  // done on every arrival). What a champion starts the main game with is
-  // still to be decided.
-  _stripPack() {
+  // The pack starts with armour only; what has been earned on the island is put in it as each scene begins (the pack is rebuilt every time)
+  _earnedPack() {
     const inv = this.player?.inventory
-    if (!inv?.slots) return
-    inv.slots.forEach((it, i) => { if (it && ISLAND_NO.has(it.id)) inv.slots[i] = null })
-    this.player.updateStatsFromEquipment?.()
+    if (!inv || !GameState.hasNote('technique_bow')) return          // Laoise's lesson: the bow is yours
+    const has = id => inv.slots.some(it => it?.id === id)
+    if (!has('simple_bow')) inv.addItem(createItem('simple_bow'))
+    if (!inv.slots.some(it => it?.subtype === 'arrow')) inv.addItem(createItem('training_arrows', 20))
   }
 
   // Collision masks with no GID behind them:

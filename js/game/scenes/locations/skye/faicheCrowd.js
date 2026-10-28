@@ -24,6 +24,9 @@
 //                                       ring, to fight you) and back again
 //   crowd.addStudent()                  one more comes to watch
 //   crowd.drawSwords(ctx)               their swords, after PGR draws (a drill)
+//   crowd.kick(s)                       a blow thrown or turned: a lean in, for a staged fight (faicheDuel.js)
+//   crowd.jeer()                        the crowd turns on someone: a boo and a recoil
+//   crowd.sideSpot(near)                a free tile off the ring, as near to `near` as it can be: a place for a quiet word
 //   crowd.destroy()
 //
 // A drill (faicheLesson.js): crowd.formation = true, and each student's
@@ -38,6 +41,7 @@ import { SoundBoard } from '../../../systems/soundBoard.js'
 import { GameState } from '../../../systems/gameState.js'
 import FigureSword, { figureAt } from '../../../combat/figureSword.js'
 import { VoiceSynth } from '../../../systems/voice/voiceSynth.js'
+import { dustPuff, figureBox } from './dustDash.js'
 
 const GID0 = 9210                    // 9210-9229: the students (SKYE_GID is 92xx)
 
@@ -75,6 +79,8 @@ const dialoguesFor = (lines, i) => {
 }
 const STARTLED = [L('Mind yourself!'), L('Careful with that!'), L('Watch it!'), L('Ho there!')]
 
+const YELPS = [L('Ow! Madman!'), L('I was only watching!'), L('Not me! Not me!'), L('Keep that away from me!')]
+
 export const STUDENTS = [
   { id: 'ferdiad', frame: '038.png', color: '#9fd3ff', voice: 'dallan', lines: [
     L('Fer Diad. You will be the new one.'),
@@ -85,7 +91,7 @@ export const STUDENTS = [
   { id: 'ciaran', frame: '006.png', voice: 'dallan' },
   { id: 'eibhleann', frame: '035.png', voice: 'peig' },
   { id: 'fial', frame: '067.png', voice: 'peig' },
-  { id: 'bearach', frame: '044.png', voice: 'ronnie' },
+  { id: 'tadhg', frame: '044.png', voice: 'ronnie' },
   { id: 'laoise', frame: '084.png', voice: 'peig' },
   { id: 'meallan', frame: '061.png', voice: 'dallan' },
   { id: 'saorla', frame: '041.png', voice: 'peig' },
@@ -97,11 +103,13 @@ const STUDENT_COLOR = '#d9e6b0'
 const TALK_RADIUS = 1.6              // tiles: next to them, diagonals included
 
 const HOP_MS = 280, STEP_MS = 420, HOME_AFTER = 1600
+const FLEE_STEPS = 4, FLEE_MS = 170, BACK_MS = 24000     // struck in play with the wooden sword: four quick steps, a puff of dust, gone for a while
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
 
 export default class FaicheCrowd {
-  constructor(scene, { ring, count = 6 } = {}) {
+  constructor(scene, { ring, count = 6, keepClear = [[18, 26, 2], [18, 13, 2]] } = {}) {
     this.scene = scene
+    this.keepClear = keepClear           // [c, r, radius]: the bout's start tiles (yours at the south, his at the north): nobody stands or wanders there
     this.ring = ring || { cx: 18.5, cy: 19.5, r: 7 }
     this.t = 0
     this.react = { kind: null, t0: -1e9 }
@@ -162,8 +170,10 @@ export default class FaicheCrowd {
       if (out.length >= n) break
       for (let k = 0; k < 3; k++) {
         const R = g.r + SPOT_OUT + k * 0.7, rad = a * Math.PI / 180
-        const c = Math.floor(g.cx + Math.cos(rad) * R), r = Math.floor(g.cy + Math.sin(rad) * R)
-        if (sc.isColliding(c * ts + ts / 2, r * ts + ts / 2) || out.some(([x, y]) => x === c && y === r)) continue
+        let c = Math.floor(g.cx + Math.cos(rad) * R), r = Math.floor(g.cy + Math.sin(rad) * R)
+        // the north, where the opponent comes in: whoever would stand west of the stairs stands well off to the west instead (the stairs, at the middle, stay clear)
+        if (Math.max(Math.abs(c - 18), Math.abs(r - 13)) <= 5 && c < 18 && !sc.isColliding((c - 3) * ts + ts / 2, r * ts + ts / 2) && !out.some(([x, y]) => x === c - 3 && y === r)) c -= 3
+        if (sc.isColliding(c * ts + ts / 2, r * ts + ts / 2) || out.some(([x, y]) => x === c && y === r) || !this._clearOf(c, r)) continue
         out.push([c, r]); break
       }
     }
@@ -227,25 +237,32 @@ export default class FaicheCrowd {
     const t = this.t
     const swords = melee && (melee.enGarde || melee.combat)
     const fighters = this._fighters(melee)
+    this._route = this._routeTiles()
     for (const s of this.students) {
-      if (s.out) continue
+      if (s.out) { if (s.backAt && t >= s.backAt && !this._ringBusy()) { s.backAt = 0; this.restore(s) }; continue }
       if (s.from && t - s.t0 >= s.ms) { s.from = null; s.hop = false }
-      if (!s.from && (this.formation || s.goal)) {
+      if (s.flee) {
+        if (!s.from) {
+          if (s.flee.steps <= 0) { this._vanish(s); continue }
+          s.flee.steps--; this._flee(s, fighters)
+        }
+      } else if (!s.from && (this.formation || s.goal)) {
         // a drill: to their place, and stand there
         const g = s.goal || s.home
         if (s.c !== g[0] || s.r !== g[1]) this._stepToward(s, g, STEP_MS)
         else if (s.faceGoal) s.face = s.faceGoal
       } else if (!s.from) {
         const near = swords ? fighters.filter(f => cheb(f, [s.c, s.r]) <= 1) : []
-        if (near.length) this._jumpBack(s, fighters)
+        if (this._onRoute(s.c, s.r)) this._makeWay(s, fighters)                      // in the way of the route you are walking: step aside
+        else if (near.length) this._jumpBack(s, fighters)
         else if (s.c !== s.home[0] || s.r !== s.home[1]) {
           const clear = !fighters.length || !swords || fighters.every(f => cheb(f, [s.c, s.r]) >= 3 && cheb(f, s.home) >= 2)
           if (!clear) s.awayAt = t
-          else if (t - s.awayAt > HOME_AFTER) this._stepToward(s, s.home, STEP_MS)
+          else if (t - s.awayAt > HOME_AFTER) this._stepToward(s, s.home, STEP_MS, true)
         } else if (t >= s.nextShift && !swords) {
           // a small shuffle on the spot now and then: turn about
           s.nextShift = t + 6000 + Math.random() * 10000
-          s.face = -s.face
+          if (!this._wander(s)) s.face = -s.face
         }
       }
       // who they watch: the fight, if there is one; else the ring
@@ -259,6 +276,23 @@ export default class FaicheCrowd {
       s.flag.pose = this._pose(s, melee)
     }
     this._syncZones(melee)
+  }
+
+  // now and then one of them ambles a step or two off their place and, after a while, drifts back (never into the ring)
+  _wander(s) {
+    if (Math.random() > 0.5) return false
+    const g = this.ring, fighters = this._fighters(this.scene._melee?.melee), opts = []
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+      const c = s.c + ox, r = s.r + oy
+      if ((!ox && !oy) || cheb([c, r], s.home) > 2 || Math.hypot(c + 0.5 - g.cx, r + 0.5 - g.cy) < g.r + 0.8 || this._onRoute(c, r) || !this._free(c, r, fighters)) continue
+      opts.push([c, r])
+    }
+    if (!opts.length) return false
+    const [c, r] = opts[Math.floor(Math.random() * opts.length)]
+    s.from = [s.c, s.r]; s.t0 = this.t; s.ms = STEP_MS * 1.3; s.hop = false
+    s.face = c < s.c ? -1 : c > s.c ? 1 : s.face
+    s.c = c; s.r = r; s.awayAt = this.t + 2500 + Math.random() * 4000
+    return true
   }
 
   _playerTile() {
@@ -279,7 +313,45 @@ export default class FaicheCrowd {
     return [(p[0] + m.foe.c) / 2, (p[1] + m.foe.r) / 2]
   }
 
-  _free(c, r, fighters) {
+  // ── struck in play ───────────────────────────────────────────────────────
+  // Whoever is idle in the crowd and takes a cut from your practice sword runs: a few steps away from you, then
+  // a puff of dust (as Conall leaves) and gone from the green until things have calmed.
+  _ringBusy() { return !!this.scene._melee?.melee?.combat }
+  _struck(s, from) {
+    if (s.out || s.flee || s.goal || this.formation) return false
+    s.flee = { steps: FLEE_STEPS, from: [...from] }
+    s.from = null; s.face = from[0] < s.c ? 1 : -1; this.kick(s)
+    SoundBoard.playWeb('BLADE_KNOCK', this.scene, { hard: 0.15, pitch: 1.5, volume: 0.2 })
+    const line = YELPS[Math.floor(Math.random() * YELPS.length)]
+    this.scene._caption?.setColor?.(s.color || STUDENT_COLOR)
+    this.scene._caption?.show(line.ga, line.en, 1100); this._speak(s, line.ga)
+    return true
+  }
+  _flee(s, fighters) {
+    let best = null, bd = -1e9
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue
+      const c = s.c + dx, r = s.r + dy
+      if (!this._free(c, r, fighters)) continue
+      const sc = cheb([c, r], s.flee.from) * 10 + Math.hypot(c - s.flee.from[0], r - s.flee.from[1]) + 1.5 * Math.hypot(c + 0.5 - this.ring.cx, r + 0.5 - this.ring.cy) + Math.random() * 0.3     // away from you, and out of the ring
+      if (sc > bd) { bd = sc; best = [c, r] }
+    }
+    if (!best) { s.flee.steps = 0; return }
+    s.from = [s.c, s.r]; s.t0 = this.t; s.ms = FLEE_MS; s.hop = false
+    if (best[0] !== s.c) s.face = best[0] < s.c ? -1 : 1
+    s.c = best[0]; s.r = best[1]
+  }
+  _vanish(s) {
+    s.flee = null
+    const box = figureBox(this.scene, s.c, s.r)
+    if (box) dustPuff(this.scene, box, 0.4, 14)
+    SoundBoard.playWeb('FOOT_SHUFFLE', this.scene, { pitch: 1.6, volume: 0.08 })
+    this.withdraw(s); s.backAt = this.t + BACK_MS
+  }
+
+  _clearOf(c, r) { return !this.keepClear.some(([x, y, k]) => Math.max(Math.abs(c - x), Math.abs(r - y)) <= k) }
+  _free(c, r, fighters, loose = false) {
+    if (!loose && !this._clearOf(c, r)) return false          // (loose: one who is walking somewhere with you may cross the start tiles)
     const sc = this.scene, ts = sc.tileSize
     if (c < 1 || r < 1 || c >= sc.mapData.width - 1 || r >= sc.mapData.height - 1) return false
     if (sc.isColliding(c * ts + ts / 2, r * ts + ts / 2)) return false
@@ -314,7 +386,34 @@ export default class FaicheCrowd {
     }
   }
 
-  _stepToward(s, goal, ms) {
+  // The next few tiles of the route you are walking, from where you are going to be
+  _routeTiles() {
+    const p = this.scene.player, ts = this.scene.tileSize, q = p?.pathQueue
+    if (!p || !q?.length) return []
+    let c = Math.floor((p.isMoving ? p.targetX : p.logicalX) / ts), r = Math.floor((p.isMoving ? p.targetY : p.logicalY) / ts)
+    const out = []
+    for (let i = 0; i < Math.min(6, q.length); i++) { c += q[i].dx; r += q[i].dy; out.push([c, r]) }
+    return out
+  }
+  _onRoute(c, r) { return !!this._route?.some(t => t[0] === c && t[1] === r) }
+  // a free tile beside them, off the route, the nearest to where they belong
+  _makeWay(s, fighters) {
+    let best = null, bd = 1e9
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue
+      const c = s.c + dx, r = s.r + dy
+      if (!this._free(c, r, fighters) || this._onRoute(c, r)) continue
+      const sc = cheb([c, r], s.home) + Math.random() * 0.3
+      if (sc < bd) { bd = sc; best = [c, r] }
+    }
+    s.awayAt = this.t
+    if (!best) return
+    s.from = [s.c, s.r]; s.t0 = this.t; s.ms = HOP_MS; s.hop = true
+    if (best[0] !== s.c) s.face = best[0] < s.c ? -1 : 1
+    s.c = best[0]; s.r = best[1]
+  }
+
+  _stepToward(s, goal, ms, avoid = false) {
     const fighters = this._fighters(this.scene._melee?.melee)
     const dx = Math.sign(goal[0] - s.c), dy = Math.sign(goal[1] - s.r)
     const tries = [[s.c + dx, s.r + dy], [s.c + dx, s.r], [s.c, s.r + dy]]
@@ -322,7 +421,7 @@ export default class FaicheCrowd {
     const d0 = cheb([s.c, s.r], goal)
     for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) if (cheb([s.c + ox, s.r + oy], goal) <= d0) tries.push([s.c + ox, s.r + oy])
     for (const [c, r] of tries) {
-      if ((c === s.c && r === s.r) || !this._free(c, r, fighters)) continue
+      if ((c === s.c && r === s.r) || !this._free(c, r, fighters, !!s.goal) || (avoid && this._onRoute(c, r))) continue
       s.from = [s.c, s.r]; s.t0 = this.t; s.ms = ms; s.hop = false
       if (c !== s.c) s.face = c < s.c ? -1 : 1
       s.c = c; s.r = r
@@ -344,6 +443,10 @@ export default class FaicheCrowd {
     if (melee?.combat) rot += s.face * 0.05 + Math.sin(t * 3 + ph) * 0.015       // leaning in
     if (s.from && s.hop) dy -= Math.sin(Math.PI * Math.min(1, (this.t - s.t0) / s.ms)) * 0.22
     else if (s.from) dy -= Math.abs(Math.sin(Math.PI * 2 * (this.t - s.t0) / s.ms)) * 0.03
+    if (s.kick) {                                                                    // a blow thrown or turned: leans in, and settles
+      const kk = (this.t - s.kick.t0) / s.kick.ms
+      if (kk < 1) { rot += s.face * 0.17 * Math.sin(kk * Math.PI); dy -= 0.05 * Math.sin(kk * Math.PI) } else s.kick = null
+    }
     const lag = (ph / 6.28) * 300                                                    // not all at once
     const k = (el - lag) / 1000
     if (k > 0) {
@@ -359,6 +462,13 @@ export default class FaicheCrowd {
     const sfx = (k, o) => SoundBoard.playWeb(k, this.scene, o)
     const n = this.students.length
     switch (name) {
+      case 'swing': {                                              // a cut at the air that finds someone idle
+        const m = this.scene._melee?.melee, tile = m?.swing?.tile
+        if (!d.air || !tile) break
+        const s = this.at(tile[0], tile[1])
+        if (s) setTimeout(() => { if (!s.out) this._struck(s, m.pa.tile()) }, 150)
+        break
+      }
       case 'boutOver':
         if (d.won) { this.react = { kind: 'cheer', t0: this.t }; sfx('CROWD_CLAP', { n: Math.max(3, n), dur: 2.4, warmth: 0.9 }) }
         else { this.react = { kind: 'ooh', t0: this.t }; setTimeout(() => sfx('CROWD_CLAP', { n: Math.max(2, Math.round(n / 2)), dur: 1.4, warmth: 0.3, volume: 0.15 }), 900) }
@@ -386,8 +496,33 @@ export default class FaicheCrowd {
     }
   }
 
+  kick(s) { s.kick = { t0: this.t, ms: 260 } }
+
+  // the crowd turns on someone (they wandered into a fight): a recoil, and a boo
+  jeer() {
+    const n = this.students.length
+    this.react = { kind: 'boo', t0: this.t }
+    setTimeout(() => SoundBoard.playWeb('CROWD_BOO', this.scene, { kind: 'boo', n: Math.max(3, n) }), 250)
+  }
+
+  // A free tile off the ring (a little way outside its line, not on anyone's place), as near to `near` as can be found:
+  // somewhere to step aside for a word, and keep the ring clear.
+  sideSpot(near) {
+    const g = this.ring, fighters = this._fighters(this.scene._melee?.melee)
+    let best = null, bd = 1e9
+    for (let r = Math.floor(g.cy - g.r - 4); r <= Math.ceil(g.cy + g.r + 4); r++) for (let c = Math.floor(g.cx - g.r - 4); c <= Math.ceil(g.cx + g.r + 4); c++) {
+      const d = Math.hypot(c + 0.5 - g.cx, r + 0.5 - g.cy)
+      if (d < g.r + 1.4 || d > g.r + 3.5 || !this._free(c, r, fighters)) continue
+      if (this.students.some(o => o.home[0] === c && o.home[1] === r)) continue
+      const score = cheb([c, r], near) + d * 0.05
+      if (score < bd) { bd = score; best = [c, r] }
+    }
+    return best
+  }
+
   // a word out loud, in their own voice (voiceSynth.js)
   _speak(s, text) {
+    if (this.mute) return
     if (!this.voice) { const ac = SoundBoard.ctx(this.scene); this.voice = ac ? new VoiceSynth({ audioContext: ac, volume: 0.5 }) : null }
     try { this.voice?.stop(); this.voice?.speak(text, { voice: s.voice || 'dallan', tuneKey: 'G' }) } catch (_) {}
   }

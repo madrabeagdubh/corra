@@ -22,6 +22,7 @@
 import Melee, { ENGAGE } from './melee.js'
 import MeleeView from './meleeView.js'
 import MeleeAudio from './meleeAudio.js'
+import * as DashFx from './dashFx.js'
 import StaminaMoon from './staminaMoon.js'
 import FightLens from './fightLens.js'
 import { backViewCanvas } from '../effects/backView.js'
@@ -37,9 +38,23 @@ export const SWORD_NOTE = 'got_wooden_sword'     // GameState note: the sword is
 export const STRONG_NOTE = 'strong_blow_taught'  // GameState note: the long hold (the strong blow) is yours: taught in the tournament, not before
 
 /** The long hold is learned in the tournament (a student uses it, then shows you). Call this then. */
-export function unlockStrong(scene) {
-  GameState.addNote(STRONG_NOTE)
-  try { if (scene?._melee?.melee) scene._melee.melee.noCharge = false } catch (_) {}
+export function unlockStrong(scene) { unlockTechnique(scene, 'strong') }
+
+// Techniques are taught, one per student (the tournament): each is a note, technique_<id>, kept for good.
+//   'strong'  the long hold (its older note, strong_blow_taught, is still the one that counts and still set)
+//   'parry'   the timed parry and riposte (melee.js, PARRY)
+export const TECH_NOTE = id => `technique_${id}`
+export function hasTechnique(id) { return GameState.hasNote(TECH_NOTE(id)) || (id === 'strong' && GameState.hasNote(STRONG_NOTE)) }
+/** A technique is taught: keep it, and give it to the bout you are in at once. */
+export function unlockTechnique(scene, id) {
+  GameState.addNote(TECH_NOTE(id))
+  if (id === 'strong') GameState.addNote(STRONG_NOTE)
+  try { if (scene?._melee?.melee) syncTechniques(scene._melee.melee) } catch (_) {}
+}
+/** Set a Melee's flags from what has been taught (a new bout calls this too). */
+export function syncTechniques(melee) {
+  melee.noCharge = !hasTechnique('strong')                  // until it is taught, a hold is only a cut
+  melee.tech = { parry: hasTechnique('parry'), dash: hasTechnique('dash') }
 }
 
 // Focus (bullet time): a line drawn in a bout slows the world, more the nearer you are to him: nothing at `far`
@@ -139,6 +154,8 @@ export default class MeleeBout {
         return player.isMoving
       },
       stopRoute: () => { player.pathQueue = []; player._waitUntil = 0 },
+      // the dash: you are set down at a (fractional) tile, and the feet are not walking
+      place: (c, r) => { player.isMoving = false; player.moveProgress = 0; player.pathQueue = []; player.logicalX = (c + 0.5) * ts; player.logicalY = (r + 0.5) * ts },
       atk: () => player.stats?.attack ?? 5,                  // Neart
       def: () => player.stats?.defense ?? 5,                 // Cosaint
       hp: () => player.currentHP,
@@ -152,7 +169,7 @@ export default class MeleeBout {
     }
 
     this.melee = new Melee({ kind, F, home, pa, emit: (n, d) => this._onEvent(n, d) })
-    this.melee.noCharge = !GameState.hasNote(STRONG_NOTE)      // until it is taught, a hold is only a cut
+    syncTechniques(this.melee)                                 // what has been taught: the long hold, the timed parry
     this.view = new MeleeView(scene, this.melee)
     this.audio = new MeleeAudio(scene, this.melee, { material: 'wood', ...(voice ? { foeVoice: voice } : {}) })
     this.moon = new StaminaMoon()                    // en garde, the brooch's moon shows your stamina
@@ -168,7 +185,7 @@ export default class MeleeBout {
     player.update = (joy, delta) => {
       delta *= this.focus?.k ?? 1                           // your feet slow with the world
       // rooted (a drill for the draw or the salute): no step starts, and no route waits to be walked later
-      if (this.melee.rooted) { player.pathQueue = []; return this._origUpdate(NOJOY, delta) }
+      if (this.melee.rooted || this.melee.stay) { player.pathQueue = []; return this._origUpdate(NOJOY, delta) }       // (stay: feet held, but the cuts are free: a lesson that must not be walked away from)
       if (!this.melee.feetHeld()) return this._origUpdate(joy, delta)
       const q = player.pathQueue; player.pathQueue = []
       this._origUpdate(NOJOY, delta)
@@ -224,11 +241,15 @@ export default class MeleeBout {
   get enGarde() { return this.melee.enGarde }
   swordInHand() { return this.scene.player?.inventory?.getEquippedItem?.('rightHand')?.subtype === 'sword' }
   // a conversation card is up: the moon is for the words
-  _talking() { const s = this.scene; return !!(s._course?.speaking || s._encounterPanel?._isOpen || s.textPanel?.isVisible) }
+  // (or the bow is being drawn: the pull is not a stance or a swing)
+  _talking() { const s = this.scene; return !!(s._course?.speaking || s._encounterPanel?._isOpen || s.textPanel?.isVisible || s.bowMechanics?.isAiming) }
 
   // ── the moon (called by perspectiveScene) ────────────────────────────────
   tap() { return this.melee.enGarde || this._talking() }                 // en garde, a tap is the strike: claimed here, done in pressEnd
   claimsLongPress() { return this.melee.enGarde }
+  // the held moon, full, flicked any of eight ways: the dash (the finger's angle: 0 right, 90 down)
+  dashReady() { return this.melee.dashReady() }
+  dashSwipe(deg) { return this.melee.startDash(ANGLE_D8(deg)) }
   pressStart() { if (this._talking()) return; this.melee.pressStart() }
   pressEnd(info = {}) { this.melee.pressEnd(!!info.dragged || this._talking()) }
   swipeVertical(dir) {
@@ -301,22 +322,27 @@ export default class MeleeBout {
   // your afterimages: while time is slow and you move, a trail of you (on the world's clock)
   _ghostStep() {
     const g = this.ghosts, now = this.melee.clock, p = this.scene.player, ts = this.scene.tileSize
-    while (g.length && now - g[0].t > FOCUS.ghostEvery * FOCUS.ghosts) g.shift()
-    if (p && this._focusU() >= 0.3) {
+    // the dash leaves them too: gold, close together, only while it goes
+    const D = this.melee.dash, dashing = !!D && this.melee.t - D.t0 < D.glide + 60
+    const every = dashing ? 30 : FOCUS.ghostEvery, span = every * FOCUS.ghosts
+    this._ghostTint = FOCUS.ghostTint
+    if (dashing) this._dashGhostsUntil = now + span
+    while (g.length && now - g[0].t > Math.max(span, this._dashGhostsUntil > now ? span : 0)) g.shift()
+    if (p && (this._focusU() >= 0.3 || dashing)) {
       const x = p.logicalX / ts - 0.5, y = p.logicalY / ts - 0.5, last = g[g.length - 1]
       const here = this._ghostHere
       this._ghostHere = [x, y]
       const moved = here && Math.hypot(x - here[0], y - here[1]) > 0.002
-      if (moved && (!last || now - last.t >= FOCUS.ghostEvery)) g.push({ x, y, t: now })
+      if (moved && (!last || now - last.t >= every)) g.push({ x, y, t: now })
     }
     // put the figures where the ghosts are (the newest last)
-    const span = FOCUS.ghostEvery * FOCUS.ghosts, u = this._focusU()
+    const u = dashing || this._dashGhostsUntil > now ? 1 : this._focusU()
     this.ghostFlags.forEach((fl, i) => {
       const gh = g[g.length - 1 - i]
       if (!gh || u <= 0) { fl.hidden = true; return }
       const c = Math.round(gh.x), r = Math.round(gh.y)
       fl.tileX = c; fl.tileY = r; fl.offset[0] = gh.x - c; fl.offset[1] = gh.y - r
-      fl.alpha = FOCUS.ghostAlpha * u * Math.max(0, 1 - (now - gh.t) / span)
+      fl.alpha = (dashing || this._dashGhostsUntil > now ? 0.75 : FOCUS.ghostAlpha) * u * Math.max(0, 1 - (now - gh.t) / span)
       fl.hidden = fl.alpha <= 0.01
     })
   }
@@ -336,14 +362,14 @@ export default class MeleeBout {
   }
   // the current frame of you, tinted (once per frame drawn, shared by every ghost)
   _tintFrame(img, pgr) {
-    const key = pgr._animT
+    const key = pgr._animT + (this._ghostTint || '')
     if (this._tint && this._tint.key === key && this._tint.src === img) return this._tint.c
     let c = this._tint?.c
     try {
       if (!c || c.width !== img.width || c.height !== img.height) { c = document.createElement('canvas'); c.width = img.width; c.height = img.height }
       const g = c.getContext('2d')
       g.globalCompositeOperation = 'copy'; g.drawImage(img, 0, 0)
-      g.globalCompositeOperation = 'source-in'; g.fillStyle = FOCUS.ghostTint; g.fillRect(0, 0, c.width, c.height)
+      g.globalCompositeOperation = 'source-in'; g.fillStyle = this._ghostTint || FOCUS.ghostTint; g.fillRect(0, 0, c.width, c.height)
     } catch (_) { return img }
     this._tint = { key, src: img, c }
     return c
@@ -400,6 +426,7 @@ export default class MeleeBout {
   // further off than you, your front when he's nearer, turned to his side.
   // Otherwise null, and the way you walk decides (PGR).
   playerFacing() {
+    if (this.melee.dash) return DashFx.playerFacing(this.melee.dash)               // the dash: you face the way you went
     const spin = this.view.spinFacing()                       // turning through all four views
     if (spin) return spin
     const m = this.melee

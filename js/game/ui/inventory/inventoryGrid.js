@@ -125,6 +125,7 @@ export default class InventoryGrid {
         const itemSprite = this.scene.add.sprite(square.x, square.y, textureKey);
         itemSprite.setDisplaySize(square.squareSize * 0.7, square.squareSize * 0.7);
         itemSprite.setDepth(1903);
+        if (item.tint) itemSprite.setTint(item.tint);
         itemSprite.setScrollFactor(0);
         itemSprite.setVisible(square.visible);
         itemSprite.disableInteractive();

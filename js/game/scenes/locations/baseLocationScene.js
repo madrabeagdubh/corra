@@ -479,6 +479,7 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
       const t = obj.getData('type');
       if (t === 'encounter_flag') return;
       if (t === 'fixed_encounter') return;
+      if (t === 'lesson_hold') return;        // (a teacher in a lesson, not offered: the faiche tournament sets this while it teaches)
 
       const objX = obj.getData('logicalX') ?? obj.x;
       const objY = obj.getData('logicalY') ?? obj.y;

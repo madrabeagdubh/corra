@@ -36,7 +36,7 @@ import FaicheBattlement from './faicheBattlement.js'
 import FaicheGrounds from './faicheGrounds.js'
 import FaicheCrowd from './faicheCrowd.js'
 import FaicheLesson, { SPAR_DONE } from './faicheLesson.js'
-import FaicheTournament, { TOURNEY_DONE } from './faicheTournament.js'
+import FaicheTournament, { TOURNEY_DONE, seedTournament } from './faicheTournament.js'
 import FarHost from '../../../effects/farHost.js'
 import MeleeBout, { prepareSword, SWORD_NOTE } from '../../../combat/meleeBout.js'
 import { GameState } from '../../../systems/gameState.js'
@@ -105,6 +105,10 @@ export class SkyeFaiche extends SkyeScene {
     await super.create(data)
     if (!this.player) return                    // base create failed (logged)
     const layout = this.mapData.faiche || {}
+    if (!(layout.racks || []).some(r => r[2] === 'bow')) {          // the archery rack, in the south (its tile is solid, like the others)
+      layout.racks = [...(layout.racks || []), [32, 26, 'bow']]
+      try { const bm = this.mapData.blockMask; if (bm && bm[26]) bm[26][32] = 1 } catch (_) {}
+    }
     const ring = layout.ring || { cx: 18.5, cy: 19.5, r: 7 }
     this._caption = new SkyeCaption({ scene: this })
     this._farHost = new FarHost(this, FAR_HOST)
@@ -125,12 +129,20 @@ export class SkyeFaiche extends SkyeScene {
     }
     this._makeRackZones()
 
+    // dev: ?tourney=N seeds the notes so the tournament opens at once (N bouts already won)
+    this._devTourney = false
+    try {
+      const q = new URLSearchParams(window.location.search)
+      if (q.has('tourney')) { seedTournament(parseInt(q.get('tourney'), 10) || 0, q.get('taught') === '1'); this._devTourney = true; console.log('[faiche] ?tourney seeded; notes:', (GameState._state?.notes || []).join(', ')) }
+    } catch (e) { console.warn('[faiche] ?tourney failed:', e) }
+
     prepareSword(this)                          // yours already? then it's in your pack
     this._hadSword = GameState.hasNote(SWORD_NOTE)
     this._melee?.destroy()
     this._wardenHome = [Math.floor(ring.cx), Math.floor(ring.cy)]
     this._melee = new MeleeBout(this, { kind: 'warden', home: this._wardenHome, gid: SKYE_GID.WARDEN })
     this._crowd = new FaicheCrowd(this, { ring, count: STUDENTS })
+    this.pathFinder?.setBusy?.((c, r) => !!this._crowd?.at(c, r))           // a drawn or tapped route goes round the students standing about
     this._lesson = new FaicheLesson(this, { crowd: this._crowd, grounds: this._grounds })
 
     this.events.once('shutdown', () => {
@@ -147,6 +159,7 @@ export class SkyeFaiche extends SkyeScene {
   _makeRackZones() {
     const ts = this.tileSize, pgr = this.perspectiveGround
     this._grounds.racks.forEach((rk, i) => {
+      if (rk.kind === 'bow') return                         // scenery: nothing is offered on the moon beside it
       const gid = RACK_GID0 + i
       pgr?.registerCustomTile?.(gid, this._grounds.rackIcon(i).toDataURL())
       const x = rk.x * ts + ts / 2, y = rk.y * ts + ts / 2
@@ -177,6 +190,7 @@ export class SkyeFaiche extends SkyeScene {
       this._grounds.takeSword(best)
       SoundBoard.playWeb('BLADE_KNOCK', this, { hard: 0.08, pitch: 0.8, volume: 0.3 })
     }
+    this._tourney?._pollTutor()                 // (before the pause below: a lesson is read while a card is open)
     if (this._encounterPanel?._isOpen) return
     this._crowd?.update(delta, this._melee?.melee)
     this._lesson?.update(delta)
@@ -184,7 +198,7 @@ export class SkyeFaiche extends SkyeScene {
     // the lessons are all done: a few moments later, the tournament
     if (!this._tourney && this._lesson?.phase === 'done' && GameState.hasNote(SPAR_DONE) && !GameState.hasNote(TOURNEY_DONE)) {
       this._tourneyIn = (this._tourneyIn || 0) + delta
-      if (this._tourneyIn > 6000) this._tourney = new FaicheTournament(this, { crowd: this._crowd, lesson: this._lesson, grounds: this._grounds })
+      if (this._tourneyIn > (this._devTourney ? 1200 : 6000)) this._tourney = new FaicheTournament(this, { crowd: this._crowd, lesson: this._lesson, grounds: this._grounds })
     }
   }
 

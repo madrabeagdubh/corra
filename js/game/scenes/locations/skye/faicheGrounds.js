@@ -41,7 +41,7 @@ export default class FaicheGrounds {
     this.scene = scene
     this.L = layout
     this.t0 = performance.now()
-    this.racks = (layout.racks || []).map(([x, y]) => ({ x, y, swords: 5 }))
+    this.racks = (layout.racks || []).map(([x, y, kind]) => ({ x, y, swords: 5, kind }))       // kind 'bow': the archery rack in the south
     this.marker = null
     this.dummies = (layout.dummies || []).map(([x, y]) => ({ x, y, hitAt: -1e9, dir: 1 }))
     this.flags = [
@@ -209,9 +209,18 @@ export default class FaicheGrounds {
     const h = w * 0.95, half = w * 0.5
     this._shadow(ctx, x, y, w * 0.6)
     ctx.save()
-    // swords first, so the front rail crosses them
+    // swords first, so the front rail crosses them (the archery rack holds bows instead)
+    if (rack.kind === 'bow') {
+      ctx.strokeStyle = WOOD_LT; ctx.lineCap = 'round'
+      for (let i = 0; i < 4; i++) {
+        const bx = x - half * 0.6 + i * (half * 1.2 / 3), bw = Math.max(2, w * 0.045)
+        ctx.lineWidth = bw; ctx.beginPath(); ctx.moveTo(bx - w * 0.04, y - h * 0.9); ctx.quadraticCurveTo(bx + w * 0.2, y - h * 0.45, bx - w * 0.04, y - h * 0.02); ctx.stroke()
+        ctx.strokeStyle = 'rgba(235,228,205,0.7)'; ctx.lineWidth = Math.max(1, w * 0.012); ctx.beginPath(); ctx.moveTo(bx - w * 0.04, y - h * 0.9); ctx.lineTo(bx - w * 0.04, y - h * 0.02); ctx.stroke()
+        ctx.strokeStyle = WOOD_LT
+      }
+    }
     for (let i = 0; i < 5; i++) {
-      if (i >= rack.swords) continue
+      if (rack.kind === 'bow' || i >= rack.swords) continue
       const sx = x - half * 0.72 + (i + 0.5) * (half * 1.44 / 5)
       const lean = (i - 2) * 0.03
       this._woodenSword(ctx, sx, y - h * 0.05, w * 0.95, lean)

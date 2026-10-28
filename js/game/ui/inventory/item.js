@@ -30,6 +30,8 @@ this.itemGid = data.itemGid || null;
     // Visual
     this.spriteKey = data.spriteKey;
     this.color = data.color || 0xffffff;
+    this.tint = data.tint || null;          // a tint over the shared sprite (training arrows: pale wood)
+    this.training = !!data.training;
   }
 
   clone() {
@@ -50,7 +52,9 @@ this.itemGid = data.itemGid || null;
       allowedSlots: [...this.allowedSlots],
       equipSlot: this.equipSlot,
       spriteKey: this.spriteKey,
-      color: this.color
+      color: this.color,
+      tint: this.tint,
+      training: this.training
     });
   }
 

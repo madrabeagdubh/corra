@@ -76,6 +76,8 @@ export function drawHeldSword(ctx, img, { x, y, w, ps, side, pose }) {
   const sc = s * 16 / img.width
   ctx.drawImage(img, -GRIP[0] / 16 * img.width * sc, -GRIP[1] / 16 * img.height * sc, img.width * sc, img.height * sc)
   ctx.restore()
+  const ar = ang * Math.PI / 180
+  return { grip: [gx, gy], tip: [gx + Math.cos(ar) * GRIP_TO_TIP * s, gy + Math.sin(ar) * GRIP_TO_TIP * s] }       // (for a glint)
 }
 
 // The blur a cut leaves: a crescent between the tip's path and a line partway down the blade, swept through the

@@ -1283,18 +1283,18 @@ function insideBy(pts, p, op) {
   return inside ? d : -d
 }
 
-function hash(n) {
+export function hash(n) {
   n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); n = n ^ (n >>> 15)
   return n >>> 0
 }
 
-function seeded(seed) {
+export function seeded(seed) {
   let s = seed * 9973 + 1
   return () => (s = (s * 16807) % 2147483647) / 2147483647
 }
 
 // value noise on a grid that wraps (nx by ny cells), sampled at u, v in 0..1
-function wrapNoise(rnd, nx, ny) {
+export function wrapNoise(rnd, nx, ny) {
   const g = Array.from({ length: ny }, () => Array.from({ length: nx }, rnd))
   return (u, v) => {
     const fx = u * nx, fy = v * ny, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy
@@ -1307,7 +1307,7 @@ function wrapNoise(rnd, nx, ny) {
 // ── the floor: an n x n tile picture of stone, seamless every way ───────────────
 // Worn rock, damp hollows, grit, a scatter of small stones and a few cracks, with no straight line in it.
 // bed = the pool's bed: darker, smoother, silted.
-function makeFloorAtlas(n, px, seed, bed) {
+export function makeFloorAtlas(n, px, seed, bed) {
   const S = n * px
   const c = document.createElement('canvas'); c.width = c.height = S
   const x = c.getContext('2d')
@@ -1404,7 +1404,7 @@ function makeBlockTexture(w, h, seed) {
 }
 
 // ── rock: a canvas of noise, strata and cracks, seamless left to right ──────────
-function makeRockTexture(w, h, [r, g, b], seed) {
+export function makeRockTexture(w, h, [r, g, b], seed) {
   const c = document.createElement('canvas'); c.width = w; c.height = h
   const x = c.getContext('2d')
   const img = x.createImageData(w, h)

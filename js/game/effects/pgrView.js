@@ -23,6 +23,8 @@ let KEEP_Z = 1               // the zoom you chose lasts from scene to scene
 let TOLD = false             // the caption that says the view is on is shown once a session
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+// a scene may let the view draw further back than the overworld's ZMIN (a cavern: cave/hewnTest.js)
+const zmin = (scene) => scene?.viewZMin ?? ZMIN
 
 export default class PGRView {
   constructor(scene) {
@@ -69,7 +71,7 @@ export default class PGRView {
       wheel: (e) => {
         if (this.scene._tapBlocked?.(...at(e))) return
         e.preventDefault()
-        this.zT = clamp(this.zT * Math.exp(-e.deltaY * 0.0015), ZMIN, ZMAX)
+        this.zT = clamp(this.zT * Math.exp(-e.deltaY * 0.0015), zmin(this.scene), ZMAX)
         this.touch = 0
       },
     }
@@ -101,7 +103,7 @@ export default class PGRView {
 
   _gesture() {
     const G = this.gest, m = this._mid(), px = this._pxPerTile()
-    this.zT = clamp(G.z0 * m.d / G.d0, ZMIN, ZMAX)
+    this.zT = clamp(G.z0 * m.d / G.d0, zmin(this.scene), ZMAX)
     // drag the world with your fingers: the camera goes the other way
     const g = this.g, mx = PAN_X * g._sw / px.x, my = PAN_Y * g._sh / px.y
     this.pxT = clamp(G.px0 - (m.x - G.x0) / px.x, -mx, mx)
@@ -120,7 +122,7 @@ export default class PGRView {
     if (z <= 1) {
       // Out: the camera climbs. The horizon rises with the zoom (more of a view from above), the camera's distance
       // is whatever keeps the player where they stand on the screen, and the player's size is made up with magnification.
-      const t = clamp((1 - z) / (1 - ZMIN), 0, 1), r = (FL + 0.6) / FL
+      const t = clamp((1 - z) / (1 - zmin(this.scene)), 0, 1), r = (FL + 0.6) / FL
       const hLim = (r * yT - sh) / (r - 1) / sh                         // not so high that the camera reaches the player
       const h = Math.max(hLim, base - ELEV * t * t * (3 - 2 * t)) * sh
       const d = FL * (sh - h) / (yT - h) - FL
@@ -146,9 +148,25 @@ export default class PGRView {
     this.z += (this.zT - this.z) * kz
     this.px += (this.pxT - this.px) * kp
     this.py += (this.pyT - this.py) * kp
+    // a scene may have the camera look out ahead of you (cave/hewnTest.js: an overlook): the camera stays
+    // put and tilts, so you go further down the screen (by la, a fraction of it) and more lies beyond you.
+    // Eased, and kept apart from your own look-around, which still springs back
+    const la = this.scene.viewLookAhead?.() ?? 0
+    this.la = (this.la ?? la) + (la - (this.la ?? la)) * (1 - Math.exp(-dt / 700))
     KEEP_Z = this.zT
-    const on = Math.abs(this.z - 1) > 0.004 || Math.abs(this.px) + Math.abs(this.py) > 0.01
-    g._view = on ? { ...this._cam(g, this.z), dCol: this.px, dRow: this.py } : null
+    // a scene may work the camera out itself for a zoom and a look-ahead (cave/hewnTest.js: one that keeps tiles square)
+    const own = this.scene.viewCamera?.(g, this.z, this.la)
+    const on = !!own || Math.abs(this.z - 1) > 0.004 || Math.abs(this.px) + Math.abs(this.py) + Math.abs(this.la) > 0.002
+    if (!on) { g._view = null; return }
+    const cam = own || this._cam(g, this.z)
+    if (this.la && !own) {
+      // the player's row stands q of the way from the horizon to the screen's foot: moving the horizon by
+      // dh moves them by dh * (1 - q)
+      const K = g.constructor, FL = K.FOCAL_LENGTH, off = g._cameraRowOffset ?? K.CAMERA_ROW_OFFSET
+      const q = FL / (FL + Math.max(0.2, off - 0.5 - cam.dolly))
+      cam.horizon = Math.min(0.35, cam.horizon + this.la / Math.max(0.15, 1 - q))
+    }
+    g._view = { ...cam, dCol: this.px, dRow: this.py }
   }
 
   destroy() {

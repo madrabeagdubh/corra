@@ -994,7 +994,9 @@ const proj  = this._projectLogical(p.logicalX, _footY)
         const _ptRow     = Math.floor((p.targetY ?? p.logicalY) / this.tileDisplaySize)
         const _ptGid     = this.scene.mapData?.layers?.[0]?.[_ptRow]?.[_ptCol] ?? 0
         const _ptIsWater = _ptGid === 1625 || _ptGid === 1679 || _ptGid === 731
-        const _pHt       = _ptIsWater ? 0
+        // a scene that keeps its own heights (cave/hewnTest.js) says how far above its camera you stand
+        const _pLift     = this.scene?.playerLiftTiles?.()
+        const _pHt       = _pLift != null ? _pLift : _ptIsWater ? 0
           : (this._vertexH(_ptCol, Math.max(0, _ptRow + 1)) + this._vertexH(_ptCol + 1, Math.max(0, _ptRow + 1))) * 0.5
         playerScreenX = proj.screenX
         playerScreenY = proj.screenY

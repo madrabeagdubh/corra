@@ -11,6 +11,8 @@
 //   &sword=1                    put the wooden sword in your pack (you'd have it from Skye)
 //   &at=57,54                   start on this tile
 //   &bronze=1                   have the bronze sword already (else it lies in the northern east crypt, tile 89,21)
+//   &count=2 &pack=2 &rest=25   how many watch at most, how many come at you, seconds of peace on arriving
+//   &dressed=1                  the worked stone round the stairs (left out for now)
 //
 // The ghouls: green eyes that open while you stand still (effects/watchers.js). Salute them (sword ready, swipe up again)
 // and the nearest pair steps forward; or walk at one so that your light reaches it. Either way it shows itself: a moment (REVEAL_MS) of it standing in the light, hissing, and then it charges:
@@ -28,7 +30,9 @@ import SkyeCaption from '../skye/skyeCaption.js'
 
 const Q = new URLSearchParams(window.location.search)
 const REVEAL_MS = 1000      // a ghoul stands seen this long before it charges
-const PACK = 3              // how many come at you (the first, and the rest out of the dark: &pack=N)
+const PACK = 2              // how many come at you (the first, and the rest out of the dark: &pack=N)
+const REST_ARRIVE = 25      // seconds after you arrive before any eyes open (&rest=N)
+const REST_AFTER = 50       // and after a fight
 const JOIN_MS = 1500        // the others arrive this long apart
 const RELIC_AT = [89, 21.5] // the bronze sword lies in the northern east crypt, north of the passage that leads in (the chamber round [88, 22])
 
@@ -54,7 +58,9 @@ export default class Otherside1 extends CaveTest {
     registerGhoul(this.perspectiveGround)
     this._placeRelic()
     if (Q.get('eyes') !== '0') {
-      this.watchers = new Watchers(this, this.cave, { count: Number(Q.get('count') || 4), audio: this.audio, onAttack: (w, p) => this._ghoulAttack(p) })
+      // fewer than there were, and none at all for a while after you arrive or after a fight (&count=4 for the old pack)
+      this.watchers = new Watchers(this, this.cave, { count: Number(Q.get('count') || 2), audio: this.audio, onAttack: (w, p) => this._ghoulAttack(p) })
+      this.watchers.rest = Number(Q.get('rest') ?? REST_ARRIVE)
     }
     this._wetT = 0
   }
@@ -238,7 +244,14 @@ export default class Otherside1 extends CaveTest {
     this._melee = new MeleeBout(this)
     if (garde) this._melee.melee.setEnGarde(true)
     this.fighting = false
-    if (this.watchers) this.watchers.busy = false
+    if (this.watchers) { this.watchers.busy = false; this.watchers.rest = REST_AFTER }
+  }
+
+  // the worked stone round the stairs and the avenue (caveWalls' dressed blocks) is left out for now: plain
+  // rock everywhere (&dressed=1 to see it)
+  async _loadContent() {
+    await super._loadContent()
+    if (this.mapData.cave && Q.get('dressed') !== '1') this.mapData.cave.dressed = []
   }
 
   _cleanup() {

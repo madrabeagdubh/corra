@@ -102,8 +102,7 @@ export default class BoatSystem {
     // Add currach to inventory while aboard
     const _inv = this.scene.player?.inventory
     if (_inv) {
-      const _slot = _inv.findEmptyInventorySlot()
-      if (_slot !== -1) _inv.setItem(_slot, createItem('currach'))
+      if (!_inv.slots.some(it => it?.id === 'currach')) _inv.addItem(createItem('currach'))
     }
 
     console.log('[BoatSystem] activated -- player in boat')

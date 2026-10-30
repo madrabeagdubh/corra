@@ -40,6 +40,7 @@ function defaultState() {
     encounterLayouts: {},   // { mapKey: [{id, x, y}, ...] }
     boatPosition:     null,  // { mapKey, tileX, tileY } | null
     spot:             null,  // { scene, tile: [x, y] | null, at } -- where "ar aghaidh" resumes
+    inventory:        null,  // { v, slots: [[index, itemId, quantity], ...] } -- the pack (inventoryStore.js)
   }
 }
 
@@ -248,6 +249,18 @@ boatPosition: null,
   },
 
   getSpot() { return this._state?.spot ?? null },
+
+  // -- The pack -------------------------------------------------------------
+  // What the hero carries, slot by slot, so it follows them from map to map.
+  // ui/inventory/inventoryStore.js reads and writes it.
+
+  getInventory() { return this._state?.inventory ?? null },
+
+  setInventory(data) {
+    if (!this._state) return
+    this._state.inventory = data
+    this.save()
+  },
 
   // -- Boat position --------------------------------------------------------
   // Saves where the player moored their boat so it persists across map visits.

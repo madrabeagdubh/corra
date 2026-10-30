@@ -1,26 +1,35 @@
 // js/game/ui/inventory/item.js
+//
+// An item keeps every field its definition gives it (h, defGa, edged, ...),
+// not only the ones named below: a definition can grow without this file
+// having to learn about it.
 export default class Item {
   constructor(data) {
-this.itemGid = data.itemGid || null;
-	  this.id = data.id;
+    Object.assign(this, data);
+
+    this.itemGid = data.itemGid || null;
+    this.id = data.id;
     this.type = data.type;
     this.subtype = data.subtype;
 
     // Display names
     this.nameEn = data.nameEn;
     this.nameGa = data.nameGa;
-    this.descEn = data.descEn;
-    this.descGa = data.descGa;
+    this.descEn = data.descEn ?? data.descriptionEn;
+    this.descGa = data.descGa ?? data.descriptionGa;
 
     // Stats and properties
     this.stats = data.stats || {};
     this.stackable = data.stackable || false;
-    this.maxStack = data.maxStack || 1; // NEW: Maximum stack size
+    this.maxStack = data.maxStack || 1;
     this.quantity = data.quantity || 1;
+
+    // Size in the pack: 1 cell, or 2 cells tall for long things (bows, swords)
+    this.h = data.h === 2 ? 2 : 1;
 
     // Actions from itemDefinitions.js
     this.actions = data.actions || [];
-    
+
     // Allowed Slots from itemDefinitions.js
     this.allowedSlots = data.allowedSlots || [];
 
@@ -35,27 +44,8 @@ this.itemGid = data.itemGid || null;
   }
 
   clone() {
-    return new Item({
-	    itemGid: this.itemGid,
-      id: this.id,
-      type: this.type,
-      subtype: this.subtype,
-      nameEn: this.nameEn,
-      nameGa: this.nameGa,
-      descEn: this.descEn,
-      descGa: this.descGa,
-      stats: { ...this.stats },
-      stackable: this.stackable,
-      maxStack: this.maxStack, // NEW: Include maxStack in clone
-      quantity: this.quantity,
-      actions: [...this.actions],
-      allowedSlots: [...this.allowedSlots],
-      equipSlot: this.equipSlot,
-      spriteKey: this.spriteKey,
-      color: this.color,
-      tint: this.tint,
-      training: this.training
-    });
+    const data = JSON.parse(JSON.stringify(this));
+    return new Item(data);
   }
 
   getDisplayName(lang = 'en') {
@@ -73,12 +63,12 @@ this.itemGid = data.itemGid || null;
     if (!this.stackable || !otherItem || !otherItem.stackable) {
       return false;
     }
-    
+
     // Must be the same item type
     if (this.id !== otherItem.id) {
       return false;
     }
-    
+
     // Check if there's room in the stack
     return this.quantity < this.maxStack;
   }
@@ -89,12 +79,12 @@ this.itemGid = data.itemGid || null;
    */
   addToStack(amount) {
     if (!this.stackable) return amount;
-    
+
     const spaceAvailable = this.maxStack - this.quantity;
     const amountToAdd = Math.min(amount, spaceAvailable);
-    
+
     this.quantity += amountToAdd;
-    
+
     return amount - amountToAdd; // Return overflow
   }
 
@@ -106,7 +96,7 @@ this.itemGid = data.itemGid || null;
     if (this.quantity < amount) {
       return false;
     }
-    
+
     this.quantity -= amount;
     return true;
   }

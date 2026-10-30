@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { ScrollingTextPlayer } from '../../ui/scrollingTextPlayer.js';
 import { wordPairs } from '/data/wordPairs';
 import { TYPE, COLORS, FONTS } from '../../systems/gameTypography.js';
+import { createItem } from '../../ui/inventory/itemDefinitions.js';
 
 export default class AdvancedTraining {
   constructor(scene) {
@@ -37,7 +38,7 @@ export default class AdvancedTraining {
         const item = inv.getItem(i);
         if (item?.id === 'arrows') { item.quantity = 20; restocked = true; break; }
       }
-      if (!restocked) inv.addItem({ id: 'arrows', quantity: 20 });
+      if (!restocked) inv.addItem(createItem('arrows', 20));
     }
 
     // Reset bow mechanics so the new arrows are recognised

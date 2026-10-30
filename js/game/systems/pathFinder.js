@@ -121,9 +121,11 @@ _heuristic(ax, ay, bx, by) {
     ]
     return dirs
       .map(d => ({ x: x + d.dx, y: y + d.dy }))
-      .filter(n => this._inBounds(n.x, n.y) && this._walkable(n.x, n.y))
+      .filter(n => this._inBounds(n.x, n.y) && this._walkable(n.x, n.y) && (!this.edgeOk || this.edgeOk(x, y, n.x, n.y)))
   }
 
+  // edgeOk(x, y, nx, ny) -> false where a step between two walkable tiles can't be taken (a scene with
+  // heights of its own, cave/hewnTest.js, sets it: a ledge is not a way down). Unset: every step can.
   _walkableNeighbours(x, y) {
     const dirs = [
       { dx:  0, dy: -1 }, { dx: 0, dy:  1 },
@@ -148,6 +150,9 @@ _heuristic(ax, ay, bx, by) {
   // ── Screen → tile projection ──────────────────────────────────────────────
 
   static screenToTile(screenX, screenY, pgr, tileSize) {
+    // a scene that draws its own ground (cave/hewnTest.js) knows what is under the finger
+    const own = pgr?.scene?.screenToTile?.(screenX, screenY)
+    if (own !== undefined) return own
     // Inverts PGR's OWN projection (its _perspCamRow / _scaleAtRow /
     // _colToScreenX), so a tap maps to exactly the tile drawn under the
     // finger. The previous version re-derived the maths independently and

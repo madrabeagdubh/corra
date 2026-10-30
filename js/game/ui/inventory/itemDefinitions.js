@@ -1,14 +1,19 @@
 // js/game/ui/inventory/itemDefinitions.js
 import Item from './item.js';
 import { TILES } from '../../../../data/oryx-tiles.js'
-console.log('[itemDefs] TILES.BOW:', TILES?.BOW, 'TILES defined:', !!TILES)
 
 /**
  * ITEM_DEFS
  * Slots 0-1: Hands (0=Right, 1=Left)
- * Slot 2: Armor
- * Slots 3-4: Accessories/Quivers
- * Slots 5-24: General Inventory
+ * Slot 2: Armor (the body)
+ * Slots 3-4: Head, Neck
+ * Slots 5-24: The pack, 5 wide by 4 deep
+ * Slot 25: Finger
+ *
+ * h: 2       the item stands two cells tall in the pack (bows, swords)
+ * twoHanded  it fills the left hand too while held
+ * defGa/En   the name with its article, for the sentences the pack speaks
+ *            ("Tá an bogha agam."); defGaPl/EnPl for more than one
  *
  * itemGid: GID on oryx_16bit_fantasy_items_trans.png (from TILES constants)
  * spriteKey: fallback individual PNG texture key (legacy)
@@ -16,6 +21,8 @@ console.log('[itemDefs] TILES.BOW:', TILES?.BOW, 'TILES defined:', !!TILES)
 export const ITEM_DEFS = {
   leather_armor: {
     id: 'leather_armor',
+    defGa: 'an chathéide',
+    defEn: 'the armour',
     spriteKey: 'item_leather_armor',
     itemGid: TILES.LEATHER_ARMOUR,          // 2564
     type: 'armor',
@@ -33,6 +40,10 @@ export const ITEM_DEFS = {
 
   simple_bow: {
     id: 'simple_bow',
+    h: 2,
+    twoHanded: true,
+    defGa: 'an bogha',
+    defEn: 'the bow',
     spriteKey: 'item_simple_bow',
     itemGid: TILES.BOW,                      // 2482
     type: 'weapon',
@@ -53,6 +64,9 @@ export const ITEM_DEFS = {
   // at runtime, see meleeBout.js ensureSwordIcon).
   wooden_sword: {
     id: 'wooden_sword',
+    h: 2,
+    defGa: 'an claíomh adhmaid',
+    defEn: 'the wooden sword',
     spriteKey: 'item_wooden_sword',
     itemGid: TILES.SHORTSWORD,                // 2492
     type: 'weapon',
@@ -70,6 +84,8 @@ export const ITEM_DEFS = {
 
   arrows: {
     id: 'arrows',
+    defGa: 'na saigheada',
+    defEn: 'the arrows',
     spriteKey: 'item_arrows',
     itemGid: TILES.QUIVER_ARROWS_WHITE,      // 2444
     type: 'ammunition',
@@ -89,6 +105,8 @@ export const ITEM_DEFS = {
   // dull wooden heads, for the faiche: they sting and score, they do not wound
   training_arrows: {
     id: 'training_arrows',
+    defGa: 'na saigheada traenála',
+    defEn: 'the training arrows',
     spriteKey: 'item_arrows',
     itemGid: TILES.QUIVER_ARROWS_WHITE,
     tint: 0xD9B779,
@@ -109,6 +127,10 @@ export const ITEM_DEFS = {
 
   healing_potion: {
     id: 'healing_potion',
+    defGa: 'an deoch leighis',
+    defEn: 'the healing potion',
+    defGaPl: 'na deochanna leighis',
+    defEnPl: 'the healing potions',
     spriteKey: 'item_healing_potion',
     itemGid: TILES.MEDIUM_RED_POTION,        // 2284
     type: 'consumable',
@@ -128,6 +150,9 @@ export const ITEM_DEFS = {
 
   currach: {
     id: 'currach',
+    defGa: 'an curach',
+    defEn: 'the currach',
+    transient: true,          // only while afloat: boatSystem adds and removes it, and it is never saved
     spriteKey: 'boat',
     type: 'boat',
     nameGa: 'An Curach',

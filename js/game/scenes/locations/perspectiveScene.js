@@ -55,6 +55,8 @@ import { GameState }         from '../../systems/gameState.js'
 import { SoundBoard }        from '../../systems/soundBoard.js'
 import { transitionIn }      from '../../ui/sceneTransition.js'
 import WorldMenu             from '../../ui/worldMenu.js'
+import { saveInventory, restoreInventory } from '../../ui/inventory/inventoryStore.js'
+import { prepareBronze } from '../../combat/bronzeSword.js'
 import BowMechanics          from '../../combat/bowMechanics.js'
 import ItemSheetHelper       from '../../ui/inventory/itemSheetHelper.js'
 import PathFinder            from '../../systems/pathFinder.js'
@@ -236,6 +238,8 @@ export default class PerspectiveScene extends BaseLocationScene {
     const champion = this.registry.get('selectedChampion') || window.selectedChampion
     const _cid = GameState.heroIdOf(champion)
     if (_cid) GameState.init(_cid)
+    restoreInventory(this.player)                                  // the pack you carried here
+    prepareBronze(this)                                            // its art, wherever the bronze sword is carried
     GameState.setVisited(this.scene.key)
     GameState.saveSpot(this.scene.key, this.entryData?.tile)      // "ar aghaidh" resumes here
 
@@ -362,6 +366,7 @@ export default class PerspectiveScene extends BaseLocationScene {
     // firing on its own. .once() so it can only fire one time per instance.
     this.events.once('shutdown', () => {
       console.log(`[${this.scene.key}] real Phaser shutdown EVENT fired -- running cleanup`)
+      saveInventory(this.player?.inventory)                        // what you carry goes on to the next map
       this.shutdown()
     })
 
@@ -954,13 +959,8 @@ try {
     this._menuHub = createGameMenuHub({
       onInventoryOpen:  () => { this.time.delayedCall(50, () => this.worldMenu?.open()); if (this.player) this.player.canMove = false },
       onInventoryClose: () => {
-        if (this.worldMenu?.itemDetailPanel?.isVisible) {
-          this.worldMenu.itemDetailPanel.hide()
-          this.worldMenu.inventoryGrid.show()
-        } else {
-          if (this.worldMenu?.isOpen) this._closeWorldMenuSilently()
-          if (this.player) this.player.canMove = true
-        }
+        if (this.worldMenu?.isOpen) this._closeWorldMenuSilently()
+        if (this.player) this.player.canMove = true
       },
       onLabhairtOpen:  () => this._easca?.showKeyboard(),
       onLabhairtClose: () => this._easca?.hideKeyboard(),
@@ -1081,7 +1081,7 @@ try {
 
   _closeWorldMenuSilently() {
     if (!this.worldMenu) return
-    this.worldMenu.close()
+    this.worldMenu.close(true)              // silent: closing the hub here would also shut it on a tab change
     this._lastMenuClose = Date.now()
   }
 

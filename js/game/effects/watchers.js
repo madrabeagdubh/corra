@@ -12,6 +12,7 @@
 //   w.busy = true                   a fight is on: nothing opens, whatever is open shuts
 //   w.recruit(n)                    the posts of up to n other open pairs (they join a fight)
 //   w.challenge()                   the player has saluted: the nearest open pair steps forward (a fight, as onAttack)
+//   w.rest = 45                     seconds in which none open (after a fight, or arriving): they leave you be a while
 //   w.destroy()
 //
 // The camera looks north and sees only about three and a half tiles across, so they open ahead of you, in the
@@ -27,7 +28,7 @@ const MIN_OPEN = 5.7, MAX_OPEN = 11.5
 const DARK = 0.05          // the brightest a spot may be and still be where they open or creep to
 const LIT = 0.10           // lit this much: it charges
 const CLOSE = 3.8          // you come this near: it charges
-const STILL = 1.2          // seconds you must have stood still for them to open
+const STILL = 2.5          // seconds you must have stood still for them to open
 const CREEP = 0.45         // tiles a second toward the light's edge
 const sstep = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t) }
 const rnd = (a, b) => a + Math.random() * (b - a)
@@ -36,6 +37,7 @@ export default class Watchers {
   constructor(scene, cave, { count = 4, audio = null, onAttack = null } = {}) {
     this.scene = scene; this.cave = cave; this.audio = audio; this.onAttack = onAttack
     this.busy = false
+    this.rest = 0
     this.still = 0
     this.list = []
     for (let i = 0; i < count; i++) {
@@ -114,12 +116,14 @@ export default class Watchers {
     if (c.px === undefined) return
     const moving = !!(pl && (pl.isMoving || pl.pathQueue?.length))
     this.still = moving ? 0 : this.still + dt
+    if (this.rest > 0) this.rest -= dt
+    const quiet = this.busy || this.rest > 0
     let seeing = 0
     for (const w of this.list) {
       if (w.state === 'hidden') {
         w.t -= dt
-        if (!this.busy && this.still >= STILL && w.t <= 0 && !this._place(w)) w.t = 1.2
-        else if (w.t <= 0 && (this.busy || this.still < STILL)) w.t = 0.5
+        if (!quiet && this.still >= STILL && w.t <= 0 && !this._place(w)) w.t = 1.2
+        else if (w.t <= 0 && (quiet || this.still < STILL)) w.t = 0.5
         continue
       }
       const p = w.post

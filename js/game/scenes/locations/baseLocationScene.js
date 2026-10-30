@@ -508,8 +508,7 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
             if (stateKey && window.GameState) window.GameState.setCollected(stateKey);
             const item = obj.getData('item');
             if (item && this.player?.inventory) {
-              const slot = this.player.inventory.findEmptyInventorySlot();
-              if (slot !== -1) this.player.inventory.setItem(slot, item);
+              this.player.inventory.addItem(item);
             }
             const idx = this.interactables.indexOf(obj);
             if (idx > -1) this.interactables.splice(idx, 1);
@@ -564,15 +563,14 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
       const iTileY = Math.floor(item._logicalY / ts)
       if (pTileX !== iTileX || pTileY !== iTileY) continue
 
-      const slot = this.player.inventory.findEmptyInventorySlot()
-      if (slot === -1) {
+      if (this.player.inventory.addItem(item.itemData) === false) {
         if (this.textPanel) this.textPanel.show({
-          irish: 'Tasc lan!', english: 'Inventory full!', type: 'notification'
+          irish: 'Níl spás sa bhrat.', english: "There's no room in the cloak.", type: 'notification'
         })
+        item.justDropped = true                 // said once; it waits until you step off and back
+        this.time.delayedCall(2000, () => { if (item?.active) item.justDropped = false })
         continue
       }
-
-      this.player.inventory.setItem(slot, item.itemData)
       if (this.textPanel) this.textPanel.show({
         irish:   `Fuair me ${item.itemData.nameGa}`,
         english: `I got the ${item.itemData.nameEn}`,
@@ -596,7 +594,18 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
     const sx    = proj?.screenX ?? (this.scale.width / 2)
     const sy    = proj?.screenY ?? (this.scale.height / 2)
 
-    const dropped = this.add.image(sx, sy, item.spriteKey)
+    // things with no picture of their own (most of them) are drawn from the item sheet
+    let tex = item.spriteKey
+    if (!this.textures.exists(tex) && item.itemGid && this.itemSheet?.getCanvas?.(item.itemGid)) {
+      tex = 'itemgid_' + item.itemGid
+      if (!this.textures.exists(tex)) {
+        const c = document.createElement('canvas'); c.width = c.height = 32
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false
+        g.drawImage(this.itemSheet.getCanvas(item.itemGid), 0, 0, 32, 32)
+        this.textures.addCanvas(tex, c)
+      }
+    }
+    const dropped = this.add.image(sx, sy, tex)
       .setDepth(50).setScrollFactor(0).setScale(0.4)
 
     dropped._logicalX   = logX
@@ -615,10 +624,8 @@ if (!this._flagInRange && !this._noDisembarkUI && this.player?.inBoat && this.bo
   tryPickupItem(dropped, collider) {
     if (dropped.justDropped) return;
 
-    const slot = this.player.inventory.findEmptyInventorySlot();
-    if (slot === -1) return;
-
-    this.player.inventory.setItem(slot, dropped.itemData);
+    const slot = this.player.inventory.addItem(dropped.itemData);
+    if (slot === false) return;
 
     const idx = this.droppedItems.indexOf(dropped);
     if (idx > -1) this.droppedItems.splice(idx, 1);

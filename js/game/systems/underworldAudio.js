@@ -11,6 +11,7 @@
 //   water         (setWater(0..1)) a trickle that comes up as you go into the wet and falls away
 //   settling      a far low rumble of stone, now and then
 //   whispers      very quiet breath-voices from somewhere to one side, now and then, more when watched
+//   paddle        paddle(pan, near): a hand slapping into still water (the ferrywoman's)
 //   eyes          eyeOpen(): a rising shimmer; eyeVanish(): a hiss and a blip. setWatched(n): a heartbeat, quicker
 //                 and louder the more of them can see you
 //
@@ -113,6 +114,22 @@ export default class UnderworldAudio {
     this._env(g, 0.05 + 0.1 * near, 0.002, wet ? 0.16 : 0.1)
     o.connect(g); this._route(g, pan, 0.4 + 0.5 * near, 0.9)
     o.start(); this._stop(o, 0.4)
+  }
+
+  // a hand slapping into still water and pulling through it: near 0..1 (1 right here)
+  paddle(pan = 0, near = 0.5) {
+    if (this.dead) return
+    const c = this.c, t0 = c.currentTime
+    const src = c.createBufferSource(); src.buffer = this.noise
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1
+    f.frequency.setValueAtTime(rnd(900, 1300), t0); f.frequency.exponentialRampToValueAtTime(380, t0 + 0.2)
+    const g = c.createGain(); this._env(g, 0.025 + 0.12 * near, 0.004, 0.24)
+    src.connect(f); f.connect(g); this._route(g, pan, 0.25 + 0.6 * near, 1.0)
+    src.start(t0, Math.random() * 3); this._stop(src, 0.5)
+    const o = c.createOscillator(), og = c.createGain()
+    o.type = 'sine'; o.frequency.setValueAtTime(rnd(170, 220), t0 + 0.03); o.frequency.exponentialRampToValueAtTime(95, t0 + 0.22)
+    og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.015 + 0.06 * near, t0 + 0.05); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32)
+    o.connect(og); this._route(og, pan, 0.35, 0.8); o.start(t0); this._stop(o, 0.45)
   }
 
   // how wet the ground round you is, 0..1

@@ -79,11 +79,12 @@ const STONE_AT = 315                     // upper right; the pin's head rests he
 const DIR_DEG  = { right: 0, down: 90, left: 180, up: 270 }
 
 const METALS = {
-  bronze: { dark: '#3b230f', base: '#a06a32', light: '#e8b772', enamel: '#b3262a' },
+  bronze: { dark: '#24140a', base: '#7a4a22', light: '#b8834e', enamel: '#8e1f22' },      // old, dull, worn brown
   silver: { dark: '#2e3237', base: '#a3aab1', light: '#f4f6f8', enamel: '#2f5fa8' },
-  gold:   { dark: '#4a3408', base: '#c49a2e', light: '#fbe39a', enamel: '#8e1b3a' },
+  gold:   { dark: '#5e3f04', base: '#e9bb36', light: '#fff3bb', enamel: '#1d4fa0', amber: '#b8651a', fancy: true },   // the Tara brooch's kind: an engraved hoop, amber in its ends, now and then a slow gleam
 }
 const GOLD_GLOW = '245,208,96'
+const SHEEN_EVERY = 40000, SHEEN_MS = 2500  // a fancy (gold) brooch: a soft gleam runs round the hoop this often, taking this long
 const CYAN_GLOW = '0,220,255'
 
 const rad = a => a * Math.PI / 180
@@ -687,7 +688,8 @@ export default class Joystick {
 
   _animating() {
     const off = Math.abs(this._ringTarget() - this._ringRot)
-    return off > 0.3 || Math.abs(this._ringVel) > 0.05 || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0 || (this._now || 0) - this._pinT < PIN_MS
+    return off > 0.3 || Math.abs(this._ringVel) > 0.05 || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0 || (this._now || 0) - this._pinT < PIN_MS ||
+      (!!this._metal.fancy && ((this._now || 0) % SHEEN_EVERY) < SHEEN_MS + 60)
   }
 
   _draw() {
@@ -711,9 +713,11 @@ export default class Joystick {
     const gapAt = G.GAP_AT + this._ringRot
 
     // the hoop and its two ends
-    this._arc(ctx, G.RING * R, gapAt + G.GAP, gapAt - G.GAP + 360, G.BAND * R, m)
-    this._terminal(ctx, R, gapAt + G.GAP, -1, m)
-    this._terminal(ctx, R, gapAt - G.GAP,  1, m)
+    this._arc(ctx, G.RING * R, gapAt + G.GAP, gapAt - G.GAP + 360, G.BAND * R * (m.fancy ? 1.3 : 1), m)
+    if (m.fancy) this._fancy(ctx, R, gapAt, t, m)
+    const end = m.fancy ? this._plate : this._terminal
+    end.call(this, ctx, R, gapAt + G.GAP, -1, m)
+    end.call(this, ctx, R, gapAt - G.GAP,  1, m)
 
     // long-press charge: gold runs round the hoop from one end to the other
     if (this._charge > 0) {
@@ -752,6 +756,48 @@ export default class Joystick {
     ctx.beginPath(); ctx.arc(0, 0, r, rad(a0), rad(a1)); ctx.strokeStyle = m.base; ctx.lineWidth = w; ctx.stroke()
     ctx.beginPath(); ctx.arc(0, 0, r - w * 0.18, rad(a0), rad(a1)); ctx.strokeStyle = m.light
     ctx.lineWidth = Math.max(0.8, w * 0.28); ctx.stroke()
+  }
+
+  // A fancy brooch (the gold), after the Tara brooch: a broad hoop engraved with two fine lines and a running band of
+  // lozenges between them; and now and then (SHEEN_EVERY) a soft gleam passing slowly round it, from one end to the other.
+  _fancy(ctx, R, gapAt, t, m) {
+    const r = G.RING * R, w = G.BAND * R * 1.3, a0 = gapAt + G.GAP, span = 360 - 2 * G.GAP
+    ctx.save()
+    ctx.strokeStyle = m.dark; ctx.globalAlpha = 0.65; ctx.lineWidth = Math.max(0.6, w * 0.12)
+    for (const o of [-0.34, 0.34]) { ctx.beginPath(); ctx.arc(0, 0, r + o * w, rad(a0 + 5), rad(a0 + span - 5)); ctx.stroke() }
+    ctx.fillStyle = m.dark; ctx.globalAlpha = 0.7
+    for (let a = a0 + 9; a < a0 + span - 6; a += 9) {
+      ctx.save(); ctx.rotate(rad(a)); ctx.translate(r, 0); ctx.rotate(Math.PI / 2)
+      ctx.beginPath(); ctx.moveTo(w * 0.24, 0); ctx.lineTo(0, w * 0.17); ctx.lineTo(-w * 0.24, 0); ctx.lineTo(0, -w * 0.17); ctx.closePath(); ctx.fill()
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+    const k = (t % SHEEN_EVERY) / SHEEN_MS
+    if (k < 1) {
+      const e = k * k * (3 - 2 * k), at = a0 + span * e, a = Math.sin(Math.PI * k)
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'
+      ctx.shadowColor = 'rgba(255,246,214,0.6)'; ctx.shadowBlur = 6
+      ctx.beginPath(); ctx.arc(0, 0, r, rad(Math.max(a0, at - 24)), rad(Math.min(a0 + span, at + 4)))
+      ctx.strokeStyle = `rgba(255,248,222,${(0.4 * a).toFixed(3)})`; ctx.lineWidth = w * 0.8; ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  // The gold's end: a flat plate, square-cut, its border engraved, an amber stud set in it.
+  _plate(ctx, R, a, dir, m) {
+    const w = G.BAND * R * 1.3
+    ctx.save(); ctx.rotate(rad(a)); ctx.translate(G.RING * R, 0)
+    ctx.beginPath()
+    ctx.moveTo(-w * 0.5, -dir * w * 0.15); ctx.lineTo(-w * 1.3, dir * w * 1.1); ctx.lineTo(-w * 1.3, dir * w * 2.7)
+    ctx.lineTo(w * 1.3, dir * w * 2.7); ctx.lineTo(w * 1.3, dir * w * 1.1); ctx.lineTo(w * 0.5, -dir * w * 0.15); ctx.closePath()
+    ctx.fillStyle = m.base; ctx.fill(); ctx.strokeStyle = m.dark; ctx.lineWidth = 1; ctx.stroke()
+    ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(0.6, w * 0.1)
+    ctx.strokeRect(-w * 1.0, dir > 0 ? w * 1.3 : -w * 2.45, w * 2.0, w * 1.15)
+    ctx.globalAlpha = 1
+    ctx.beginPath(); ctx.arc(0, dir * w * 1.88, w * 0.55, 0, Math.PI * 2)
+    ctx.fillStyle = m.amber || m.enamel; ctx.fill(); ctx.strokeStyle = m.dark; ctx.lineWidth = 0.8; ctx.stroke()
+    ctx.beginPath(); ctx.arc(-w * 0.15, dir * w * 1.88 - w * 0.15, w * 0.18, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,220,170,0.85)'; ctx.fill()
+    ctx.restore()
   }
 
   _glow(ctx, R, a0, a1, colour) {

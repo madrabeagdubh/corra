@@ -9,6 +9,9 @@
 //   &torch=6        torch radius, tiles
 //   &at=16,30       start on this tile
 //   &zoom=0         the camera stays where you put it (no closing in and drawing back by area)
+//   &map=mock_well  another map from public/maps/cave (the underworld mockups: tools/map-editor/generators/
+//                   underworld_mocks_gen.mjs), &z=0.6 to fix the zoom, &look=0.12 the look-ahead,
+//                   &grade=teal|ember|etch|pixel a screen grade
 //
 // You stand at the height of the tile you're on. A step up or down of more than STEP is a wall; the
 // camera's height follows yours, a little behind, so the world rises and falls round you on a stair.
@@ -26,15 +29,15 @@ const SQUARE = 0.88        // a tile where you stand is this deep on the screen 
 const YOU = 0.6            // you stand this far down the screen
 
 export default class HewnTest extends PerspectiveScene {
-  constructor() {
-    super({ key: 'hewnTest' })
+  constructor(key = 'hewnTest') {           // (a scene built on this one passes its own key: cave/escape.js)
+    super({ key })
     this.tileSize = 48
     this.tileHighlight = false
     this.playerFootShift = 0.5
   }
 
-  getMapKey() { return 'hewnTest' }
-  getMapPath() { return `/maps/cave/hewnTest.json?v=${Date.now()}` }
+  getMapKey() { return Q.get('map') || 'hewnTest' }
+  getMapPath() { return `/maps/cave/${this.getMapKey()}.json?v=${Date.now()}` }
 
   // The camera. PGR's eye looks level, with its picture shifted down to show the ground; the further the
   // horizon is above the screen, the more the ground is stretched up the screen (off-centre projection).
@@ -91,6 +94,7 @@ export default class HewnTest extends PerspectiveScene {
     const md = this.mapData, hw = md.hewn, W = md.width, H = md.height
     this._walk = new Float32Array(W * H).fill(NaN)
     for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (hw.kind[r][c] === '.') this._walk[r * W + c] = hw.z[r][c]
+    for (const [x, y] of hw.block || []) if (x >= 0 && y >= 0 && x < W && y < H) this._walk[y * W + x] = NaN     // under smooth water (hewnRock.js)
     for (const s of hw.spans || []) {
       const i = s.y * W + s.x
       if ((s.walk || 'deck') === 'deck') this._walk[i] = s.z
@@ -111,10 +115,11 @@ export default class HewnTest extends PerspectiveScene {
     if (pgr._lightDiv) pgr._lightDiv.style.display = 'none'
     const box = pgr._groundCanvas?.parentElement
     if (box) { this._oldBg = box.style.background; box.style.background = '#000' }
-    this.hewn = new HewnRock(this, { torch: num('torch') })
+    this.hewn = new HewnRock(this, { torch: num('torch'), grade: Q.get('grade'), ...(this.hewnOptions?.() || {}) })
     const p = this.player
     this._pz = this._camZ = this._zAt(p.logicalX, p.logicalY) ?? 0
-    this._zones = Q.get('zoom') === '0' ? [] : (this.mapData.hewn.zones || [])
+    this._zones = Q.get('zoom') === '0' || Q.has('z') ? [] : (this.mapData.hewn.zones || [])
+    if (Q.has('z')) this.time.delayedCall(10, () => { if (this._pgrView) this._pgrView.zT = this._pgrView.z = Number(Q.get('z')) })
     this._zone = null
     // routes: a step too high is no way
     if (this.pathFinder) this.pathFinder.edgeOk = (x, y, nx, ny) => this._stepOk(x, y, nx, ny)
@@ -129,18 +134,19 @@ export default class HewnTest extends PerspectiveScene {
   _stepOk(x, y, nx, ny) {
     const a = this.walkZ(x, y), b = this.walkZ(nx, ny)
     if (a == null || b == null) return false
-    if (Math.abs(b - a) > STEP) return false
+    if (b - a > STEP) return false                  // a drop of any height may be taken, but not climbed back: a steep side is one way
     // a diagonal may not cut the corner of anything it couldn't step onto
     if (x !== nx && y !== ny) {
       for (const [cx, cy] of [[nx, y], [x, ny]]) {
         const m = this.walkZ(cx, cy)
-        if (m == null || Math.abs(m - a) > STEP || Math.abs(m - b) > STEP) return false
+        if (m == null || m - a > STEP || b - m > STEP) return false
       }
     }
     return true
   }
 
   update(time, delta) {
+    this._liftMelee()
     const p = this.player
     if (p && this.hewn) {
       // you rise or sink onto the tile you're stepping to; the camera's height comes after you
@@ -163,14 +169,25 @@ export default class HewnTest extends PerspectiveScene {
   }
 
   // the camera looks out ahead of you by area (a fraction of the screen you're moved down by), as effects/pgrView.js asks
-  viewLookAhead() { return this._zone?.look ?? 0 }
+  viewLookAhead() { return Q.has('look') ? Number(Q.get('look')) : (this._zone?.look ?? 0) }
 
   // PGR draws you at your height above the camera's (perspectiveGroundRenderer's player lift)
   playerLiftTiles() { return (this._pz ?? 0) - (this._camZ ?? 0) }
 
   // (a mistake in the drawing is reported once, not every frame, and doesn't stop the game)
-  onPGRDrawComplete() {
+  onPGRDrawComplete(ctx) {
     try { this.hewn?.draw() } catch (e) { if (!this._drawErr) { this._drawErr = true; console.error('[hewnTest] draw:', e) } }
+    this._melee?._overHewn?.(this.hewn?.xctx || ctx)
+  }
+
+  // A sword fight's marks -- the blue veil of bullet time, the charge ring at your feet, the target tiles -- are drawn by
+  // PGR on its own canvas, which the rock in front of you (hewn's canvas over you) covers: only the top of the screen
+  // showed them. Each bout's are drawn instead after the rock, on that canvas over everything.
+  _liftMelee() {
+    const b = this._melee
+    if (!b || b._overHewn) return
+    b._overHewn = b.draw.bind(b)
+    b.draw = () => {}
   }
 
   // a tap: the tile drawn under the finger (systems/pathFinder.js asks)
@@ -178,7 +195,19 @@ export default class HewnTest extends PerspectiveScene {
 
   isColliding(x, y) {
     const tx = Math.floor(x / this.tileSize), ty = Math.floor(y / this.tileSize)
-    return this.walkZ(tx, ty) == null
+    const z = this.walkZ(tx, ty)
+    if (z == null) {
+      // pressing on water (the pool's, or open water): a ring goes out from its edge, where you pressed
+      const pl = this.player, hw = this.hewn
+      if (pl && (hw?.blocked?.has(ty * this.mapData.width + tx) || hw?.isWater?.(tx, ty))) {
+        const px = pl.logicalX / this.tileSize, py = pl.logicalY / this.tileSize
+        if (Math.hypot(px - (tx + 0.5), py - (ty + 0.5)) < 2.2) hw.bump(px, py, Math.min(tx + 1, Math.max(tx, px)), Math.min(ty + 1, Math.max(ty, py)))
+      }
+      return true
+    }
+    // a step too high is a wall to you, however you are walking (routes already know: _stepOk)
+    const p = this.player, here = p ? this._zAt(p.logicalX, p.logicalY) : null
+    return here != null && z - here > STEP          // up a steep side is a wall; down it is a drop (one way)
   }
 
   isSlopeBlocked(fromX, fromY, toX, toY) {

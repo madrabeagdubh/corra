@@ -1,0 +1,21 @@
+# escape_puca_snare -- the deeps: a púca caught in the ghouls' snare, in the side cave off the second chamber
+#
+# PLACEHOLDERS: each card says what happens. The real words (and their Irish) to be written.
+# A trickster who has tricked itself into a bind. Its last card sets escape_puca_snare_free: it goes.
+
+@file underworld/escape
+@encounter 1
+
+= node 0 — caught
+@when !note escape_puca_snare_free
+@continue
+[PLACEHOLDER] The púca, lashed in the ghouls' snare, sees you.
+% [Gaeilge le teacht]
+It tells you how it came to be caught (its own trick, gone wrong), and begs you to cut it loose.
+% [Gaeilge le teacht]
+
+= node 1 — loosed
+@when !note escape_puca_snare_free
+@note escape_puca_snare_free
+[PLACEHOLDER] You cut the cords. It thanks you in its fashion, and is gone.
+% [Gaeilge le teacht]

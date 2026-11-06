@@ -61,10 +61,12 @@ export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW
         // In front of the body facing the camera, behind it facing away.
         const away = !!pgr._facingAway && !pgr._boatActive
         if ((phase === 'front') === away) return
-        drawHeldSword(ctx, itemImg, {
+        const pose = pgr.scene?.weaponPose?.() ?? null
+        const r = drawHeldSword(ctx, itemImg, {
           x: playerScreenX, y: playerScreenY, w: scaledTileW, ps,
-          side: pgr._facingLeft ? -1 : 1, pose: pgr.scene?.weaponPose?.() ?? null,
+          side: pgr._facingLeft ? -1 : 1, pose,
         })
+        pgr.scene?.onHeldSword?.(ctx, r, scaledTileW, item, pose)      // a scene's own touch to it (the ghost's blade: cave/escape.js)
         return
       }
       if (phase === 'front') return

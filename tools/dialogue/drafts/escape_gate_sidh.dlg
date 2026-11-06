@@ -1,0 +1,29 @@
+# escape_gate_sidh -- the gate to the hollow hills (north-east): a fairy thorn grown through it, and a session going
+# full tilt on the far side. What it shows, and why it is shut.
+
+@file underworld/escape
+@encounter 5
+
+= the thorn
+@continue
+A hawthorn has grown up here through the stone, gnarled as an old man’s knuckle,
+% [Gaeilge le teacht]
+blossom on it white as milk, blooming in this dark. Its trunk is hollow where a door should be.
+% [Gaeilge le teacht]
+
+= the session
+@continue
+And from behind it, a session in full cry: fiddles racing each other,
+% [Gaeilge le teacht]
+feet stamping the floor, a roar of laughter, a voice lifting into a song.
+% [Gaeilge le teacht]
+You stand out in the cold, like one outside a lit house on a winter’s night.
+% [Gaeilge le teacht]
+
+= where it goes
+Beyond are the hollow hills, the bright halls of the sídh. The latch is on their side.
+% [Gaeilge le teacht]
+And no one cuts a fairy thorn: not a champion, not a king with all his host behind him,
+% [Gaeilge le teacht]
+not if he values his cattle, his children, his luck, his mind.
+% [Gaeilge le teacht]

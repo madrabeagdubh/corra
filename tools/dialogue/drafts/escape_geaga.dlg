@@ -1,0 +1,46 @@
+# escape_geaga -- Géaga at the Well of Segais: she sees the ghost, and all its forebears behind it; it asks to go back
+# to the living; she refuses (the law of the well), then looks away from the north stair.
+# Plays as you wake at the well (the scene opens it); talk to her again afterwards and you get the last node only.
+# The card of her turning sets escape_geaga_blind_eye: her roots across the north stair part.
+
+@file underworld/escape
+@encounter 0
+
+= she wakes: never one
+@when !note escape_geaga_blind_eye
+@continue
+I see thee, champion. I see thee, and the one before thee,
+% [Gaeilge le teacht]
+and all of them stretching back and back into the dark.
+% [Gaeilge le teacht]
+Thou art a flowering of that old root.
+% [Gaeilge le teacht]
+Thou art come to where all things that were, are still.
+% [Gaeilge le teacht]
+
+= the asking
+@when !note escape_geaga_blind_eye
+@continue
+Back.
+% [Gaeilge le teacht]
+Thou wouldst go back up into the green world,
+% [Gaeilge le teacht]
+to walk again where the rain falls and fires are lit against the dark.
+% [Gaeilge le teacht]
+It is an old asking. I have heard it before.
+% [Gaeilge le teacht]
+What comes down into the dark does not go back up into the light.
+% [Gaeilge le teacht]
+
+= she looks away
+@when !note escape_geaga_blind_eye
+@note escape_geaga_blind_eye
+She says no more.
+% [Gaeilge le teacht]
+Slowly, as a tree turns from the wind, she turns her eyes from the north stair.
+% [Gaeilge le teacht]
+
+= afterwards
+@when note escape_geaga_blind_eye
+She says nothing. She is not looking.
+% [Gaeilge le teacht]

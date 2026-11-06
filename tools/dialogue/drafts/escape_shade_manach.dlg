@@ -1,0 +1,56 @@
+# escape_shade_manach -- the monk, Brother Áed of Clonmacnoise, one of the dead waiting at the well. Fourteen years on
+# his book, one page left to write when the fire came. Before Géaga looks away he waits as you do; after, she has let
+# you go.
+
+@file underworld/escape
+@encounter 8
+
+= waiting
+@when !note escape_geaga_blind_eye
+@continue
+You are waiting also? Good. Then we are two, and the waiting is less strange with two.
+% [Gaeilge le teacht]
+I have lost the count of how long. That grieves me. I was always careful with numbers.
+% [Gaeilge le teacht]
+
+= the book
+@when !note escape_geaga_blind_eye
+@continue
+I had a book. My own. Fourteen years from the first ruling of the vellum:
+% [Gaeilge le teacht]
+the life of the blessed Ciarán, the nature of the salmon,
+% [Gaeilge le teacht]
+the stars above Clonmacnoise, and what the old ones named them before Patrick came.
+% [Gaeilge le teacht]
+
+= one page
+@when !note escape_geaga_blind_eye
+The fire took the house on a Thursday.
+% [Gaeilge le teacht]
+I had one page left to write. Fourteen years, and one page.
+% [Gaeilge le teacht]
+
+= she let you go
+@when note escape_geaga_blind_eye
+@continue
+She let you go. Yes. Yes, I see it. You are plainly a different order of thing than I am.
+% [Gaeilge le teacht]
+I copied letters fourteen years in a cold room above a river.
+% [Gaeilge le teacht]
+
+= Fionnbarr
+@when note escape_geaga_blind_eye
+@continue
+There is a young brother at Clonmacnoise, Fionnbarr. He was fond of me.
+% [Gaeilge le teacht]
+Tell him I am not suffering. It is only that I cannot settle.
+% [Gaeilge le teacht]
+
+= the Nail of the Sky
+@when note escape_geaga_blind_eye
+And if you find a pen, and a clean piece of vellum: the last star was to be the cold one, that does not move.
+% [Gaeilge le teacht]
+The fishermen call it the Nail of the Sky, for all things turn about it and it holds firm.
+% [Gaeilge le teacht]
+One sentence. I would feel better, knowing it was written somewhere. Go now. Go.
+% [Gaeilge le teacht]

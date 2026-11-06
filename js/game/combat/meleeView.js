@@ -105,7 +105,8 @@ export default class MeleeView {
   playerFigure() {
     const p = this.scene.player, ts = this.scene.tileSize
     const PS = this.pgr.constructor.PLAYER_SCALE ?? 1
-    return this.figure(p.logicalX / ts - 0.5, p.logicalY / ts - 0.5, (this.pgr._playerHeightMult ?? 1.8) * PS)
+    // (where PGR draws you: further north by the scene's playerFootShift, if it has one -- the caves stand you mid-tile)
+    return this.figure(p.logicalX / ts - 0.5, p.logicalY / ts - 0.5 - (this.scene.playerFootShift ?? 0), (this.pgr._playerHeightMult ?? 1.8) * PS)
   }
   foeFigure(f) { const [x, y] = this.m.foeDrawPos(f); return this.figure(x, y) }
   // screen angle from tile a to tile b (centres)

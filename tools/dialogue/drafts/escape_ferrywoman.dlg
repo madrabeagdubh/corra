@@ -1,0 +1,11 @@
+# escape_ferrywoman -- past the sea-door (escape_donn): the woman stood at the bow of the hide boat, a way out, waiting
+#
+# PLACEHOLDER: she does not answer. When the words are done she steps over the side, and comes for you
+# (scenes/locations/cave/escape.js). Who she is, and what (if anything) she says, to be written.
+
+@file underworld/escape
+@encounter 12
+
+= node 0 — she does not answer
+[PLACEHOLDER] She does not answer. She stands at the bow, and the water drips from her hair.
+% [Gaeilge le teacht]

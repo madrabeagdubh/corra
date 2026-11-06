@@ -1,0 +1,17 @@
+# escape_shade_mathair -- the antechamber: the mother, one of the dead waiting at the well
+#
+# PLACEHOLDERS. A woman who wants to see her child grown, just once.
+# Before Géaga looks away, they are waiting as you are; after, they have seen her let you go.
+
+@file underworld/escape
+@encounter 10
+
+= node 0 — waiting
+@when !note escape_geaga_blind_eye
+[PLACEHOLDER] (A woman who wants to see her child grown, just once.) Waiting, as you are, to ask her.
+% [Gaeilge le teacht]
+
+= node 1 — she let you go
+@when note escape_geaga_blind_eye
+[PLACEHOLDER] She let you go? (Wonder, envy, a message for the living.)
+% [Gaeilge le teacht]

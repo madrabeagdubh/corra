@@ -1,0 +1,23 @@
+# escape_puca_ring -- the hall under the hill: a púca caught dancing in a fairy ring, and unable to stop
+#
+# PLACEHOLDERS: each card says what happens. The real words (and their Irish) to be written.
+# Its last card sets escape_puca_ring_free: it goes, a horse of the air (it will turn up again, later in the game).
+
+@file underworld/escape
+@encounter 2
+
+= node 0 — dancing
+@when !note escape_puca_ring_free
+@continue
+[PLACEHOLDER] The púca dances in the ring and cannot stop. It laughs at itself, between breaths.
+% [Gaeilge le teacht]
+It asks you to break the ring.
+% [Gaeilge le teacht]
+
+= node 1 — out
+@when !note escape_puca_ring_free
+@note escape_puca_ring_free
+[PLACEHOLDER] You kick a toadstool out of the ring. The púca stops, and is a horse of the air, and is gone.
+% [Gaeilge le teacht]
+It will remember you.
+% [Gaeilge le teacht]

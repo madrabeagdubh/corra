@@ -1356,7 +1356,7 @@ export function makeFloorAtlas(n, px, seed, bed) {
 // ── dressed stone: courses of big blocks, weathered, joints dark; one block carries a spiral ──
 // (seamless left to right, like the rock; the spiral sits in one quarter of the width, so it shows on
 // every fourth face)
-function makeBlockTexture(w, h, seed) {
+export function makeBlockTexture(w, h, seed) {
   const c = document.createElement('canvas'); c.width = w; c.height = h
   const x = c.getContext('2d')
   const rnd = seeded(seed)

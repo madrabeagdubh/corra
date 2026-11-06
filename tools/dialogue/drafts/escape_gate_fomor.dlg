@@ -1,0 +1,28 @@
+# escape_gate_fomor -- the gate to the Fomoire, Balor's way (north-west). What it shows, and why it is shut.
+
+@file underworld/escape
+@encounter 6
+
+= the gate
+@continue
+Black basalt, hewn in courses, fitted without mortar.
+% [Gaeilge le teacht]
+Giants are carved either side, each with a single eye,
+% [Gaeilge le teacht]
+and over the lintel an eye is cut, half-lidded, watching.
+% [Gaeilge le teacht]
+Red light bleeds under the door, and the heat comes with it.
+% [Gaeilge le teacht]
+
+= the pounding
+@continue
+From far beyond and far below, a pounding: slow, even, without pause and without hurry.
+% [Gaeilge le teacht]
+Not the sea. The sea has breath in it, a drawing-back, a thinking. This has none.
+% [Gaeilge le teacht]
+
+= where it goes
+Beyond lie the Fomoire, and Balor’s halls of iron, where fire gives no comfort.
+% [Gaeilge le teacht]
+The gate is sealed. It is no grief to leave it so.
+% [Gaeilge le teacht]

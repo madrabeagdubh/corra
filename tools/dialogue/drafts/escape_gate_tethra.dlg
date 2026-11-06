@@ -1,0 +1,24 @@
+# escape_gate_tethra -- the gate to Tethra's court under the wave (east): steps going down into the swell to a drowned
+# gate. What it shows, and why there is no way through.
+
+@file underworld/escape
+@encounter 7
+
+= the gate
+@continue
+Sea-worn stone, crusted with shells and the white of old salt.
+% [Gaeilge le teacht]
+Seal-folk are carved either side, their faces turned toward the water.
+% [Gaeilge le teacht]
+The steps go down to a gate half under the tide, rusted and barnacled:
+% [Gaeilge le teacht]
+the heave and the fall, the heave and the fall, the water running back between the stones.
+% [Gaeilge le teacht]
+
+= where it goes
+This way runs down to Tethra, king under the wave.
+% [Gaeilge le teacht]
+No one that has gone down those steps has come back up from them.
+% [Gaeilge le teacht]
+That much is known. That much, and no more.
+% [Gaeilge le teacht]

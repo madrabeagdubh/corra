@@ -13,6 +13,9 @@
 //   h.walkZ(c, r)                           the height you stand at on a tile, or null (not walkable)
 //   h.pick(screenX, screenY)                the walkable tile drawn under a screen point, or null
 //   h.destroy()
+//   h.rowHooks.push((ctx, r) => ...)       draw something of your own with row r, in front of its rock (hewnFigures.js)
+//   opts.warm  [r, g, b]                    the colour of the carried light (default a warm torch)
+//   mapData.hewn.block [[x, y]]             floor that can't be walked on (under a river or pool painted over it)
 //
 // Map (mapData.hewn):
 //   kind    rows of characters: '#' rock, '.' floor, '~' water (not walked), 'v' void (no bottom)
@@ -24,6 +27,17 @@
 //   props   [{ x, y, z, gid, s }]  an item from the item sheet, standing there (gid), s its size
 //           [{ x, y, z, type: 'embers' }]  a dying fire
 //   falls   [{ x0, x1, y, z0, z1 }]  water falling from z0 to z1 along the line y, x0..x1
+//   mat     rows of characters, the stone of each tile (hewnExtras.js): r hewn (the default), c cave,
+//           m masonry, b basalt, w wood, d drystone, o standing slabs; g on water, a green glow
+//   hex     [{ x, y, z, r, base, lichen, pool }]  hexagonal basalt columns
+//   drips   true: stone dripping from every lip over the void
+//   ambient [r, g, b]  a little light everywhere (0..1 each)
+//   bg      [colours]  a backdrop, top to bottom, instead of black (a sky)
+//   abyss   false: faces into the void don't fade to black (a glow from below can show)
+//   grade   { palette, px, strength, source, follow }  the screen drawn again in big pixels and few
+//           colours (hewnExtras.js); ?grade=teal|ember|etch|pixel asks for one on any map
+//   props of other types, from hewnExtras.js: torch, shaft, mite, box, sprite, arch, mob, ogham, spiral,
+//           eyes, eye, cauldron, candles, mist; and over several rows, roots, fish, streak
 //
 // Drawing: PGR's own floor is left empty; all of this is drawn after it, on its ground canvas, far
 // row to near (painter's order: nearer columns cover farther ones), each tile's top and then the faces
@@ -31,7 +45,7 @@
 // where the camera is to that side and the neighbour is lower (thin, as the camera looks straight
 // north). Rows in front of you go on a canvas above you, so a block in front hides you; a faint ghost
 // of you is laid over it. Rock in those rows -- between you and the camera -- is drawn cut away a little
-// above your waist (CUT), its cut tops paler: tall walls behind you would otherwise stand up the screen
+// above your waist (CUT), its cut tops darker: tall walls behind you would otherwise stand up the screen
 // over you and the way ahead. (Only the drawing: it still stops light as the full wall.)
 //
 // The camera's height follows yours (camZ, the scene eases it): everything is drawn relative to it, so
@@ -43,11 +57,25 @@
 // gradient of the light at their foot and up their height (so tall rock rises into darkness).
 
 import { makeFloorAtlas, seeded, wrapNoise, hash } from './caveWalls.js'
+import * as X from './hewnExtras.js'
 
 const K_FLOOR = 0, K_ROCK = 1, K_WATER = 2, K_VOID = 3
 const SUB = 4                     // lightmap pixels per tile
 const TP = 32                     // floor texture pixels per tile
 const FACE_PX = 96                // face texture pixels per tile
+const MULTI = {
+  roots: { rows: (p) => [Math.floor(p.y0), Math.floor(p.y1)], draw: (h, c, p) => X.drawRoots(h, c, p) },
+  fish: { rows: (p) => [Math.floor(p.y - p.rad), Math.floor(p.y + p.rad)], draw: (h, c, p) => X.drawFish(h, c, p) },
+  streak: { rows: (p) => [Math.floor(p.y0), Math.ceil(p.y1) - 1], draw: (h, c, p) => X.drawStreak(h, c, p) },
+  steps: { rows: (p) => [Math.floor(p.y0), Math.floor(p.y1)], draw: (h, c, p) => X.drawSteps(h, c, p) },
+  river: { rows: (p) => X.riverRows(p), draw: (h, c, p) => X.drawRiver(h, c, p), under: true },
+  pool: { rows: (p) => X.poolRows(p), draw: (h, c, p) => X.drawPool(h, c, p), under: true },
+  stones: { rows: (p) => [Math.floor(p.y0), Math.floor(p.y1)], draw: (h, c, p) => X.drawStones(h, c, p), under: true },
+  farrock: { rows: () => [0, 0], draw: (h, c, p) => X.drawFarRock(h, c, p), under: true },
+  seafog: { rows: (p) => [p.row0, p.row0], draw: (h, c, p) => X.drawSeaFog(h, c, p) },
+  murk: { rows: (p) => [p.y0, p.y1], draw: (h, c, p) => X.drawMurk(h, c, p) },
+  wake: { rows: (p) => [p.y0, p.y1], draw: (h, c, p) => X.drawWake(h, c, p), under: true },
+}
 const ATLAS = 8                   // the floor texture spans this many tiles each way
 const VOID_DEPTH = 14             // how far below you a face into the void is drawn (tiles)
 const TORCH_Z = 1.1               // how high you hold the torch above your feet
@@ -56,8 +84,12 @@ const WARM = [1.0, 0.86, 0.7]     // the torch, as a multiplier on what it light
 const ROCK_TONE = [76, 74, 76]    // a face's base colour (where a side face is drawn flat)
 const TOP_TONE = [40, 39, 42]     // the top of rock
 const WATER_TINT = [0.55, 0.68, 0.9]
+// pure water (mat 'p' on water): the bed seen through it, nearly black, or a deep clear blue (opts.water); ripples
+// spread across it and stars of light come and go on it (_drawRipples)
+const PURE = { dark: [0.1, 0.14, 0.22], blue: [0.22, 0.48, 1.05] }
 const GHOST = 0.32
 const LOD_PX = 9                  // a floor strip less tall than this on the screen is drawn the cheap way
+const STRIP_PX = 3                // a floor is laid in strips about this tall on the screen (_strips)
 const CUT = 0.9                   // rock between you and the camera is drawn cut off this far above your feet
 const FLOOR_GAIN = 1.0            // the floor texture's brightness (light only darkens it)
 const ABYSS = [1.2, 4.5]          // a face into the void is lit to this far below its lip, and black by this far
@@ -82,8 +114,27 @@ export default class HewnRock {
     for (const s of hw.spans || []) this.span.set(s.y * W + s.x, { ...s, t: s.t ?? 0.6, walk: s.walk || 'deck' })
     this.lights = (hw.lights || []).map(L => ({ x: L.x, y: L.y, z: L.z, r: L.r, i: L.i ?? 1, col: (L.rgb || [255, 255, 255]).map(v => v / 255) }))
     this.props = (hw.props || []).map((p, n) => ({ ...p, n }))
+    this.blocked = hw.block?.length ? new Set(hw.block.map(([x, y]) => y * W + x)) : null      // floor under smooth water: not walked on
+    this.glints = hw.glints !== false                                                         // the glints of light on water (off where the water should lie still)
+    this.ripples = hw.ripples !== false                                                       // the random rings on pure water (off where fish make them)
+    // materials, hex columns, dripping lips, a light everywhere, a backdrop (hewnExtras.js)
+    this.mat = new Uint8Array(W * H).fill(114)
+    if (hw.mat) for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) { const ch = hw.mat[r]?.[c]; if (ch && ch !== '.') this.mat[r * W + c] = ch.charCodeAt(0) }
+    this.hex = (hw.hex || []).map((h, n) => ({ ...h, n })).sort((a, b) => a.y - b.y)
+    this.drips = !!hw.drips
+    this.ambient = hw.ambient || null
+    this.stoneOnly = hw.stoneOnly || null                                                      // [[x0, y0, x1, y1, below]]: floor lower than `below` there (default just under 0) is only under stones: no faces of its own
+    this.floorArt = hw.floorArt || null                                                        // a floor laid by hand (hewnExtras.js paintFloorArt)
+    this.bg = hw.bg || null
+    this.abyss = hw.abyss !== false
+    // a screen grade (hewnExtras.js): the map's own, or one asked for (?grade=teal|ember|etch|pixel)
+    this.grade = opts.grade ? { palette: opts.grade === 'pixel' ? null : opts.grade, px: 3, strength: 1 } : (hw.grade || null)
+    this.FACE_PX = FACE_PX
     this.falls = hw.falls || []
     this.torchR = opts.torch ?? 6
+    this.warm = opts.warm || WARM            // the colour of the light you carry (a ghost's is cold)
+    this.waterLook = opts.water || 'dark'    // pure water: 'dark' or 'blue'
+    this.rowHooks = []                       // fn(ctx, row): drawn with each row, after its rock and props (figures: hewnFigures.js)
     this.t = 0
     this.camZ = 0
     this.pz = 0
@@ -145,6 +196,7 @@ export default class HewnRock {
     const i = this._i(c, r)
     if (i < 0) return null
     const s = this.span.get(i)
+    if (this.blocked?.has(i) && !(s && s.walk === 'deck')) return null       // under smooth water, unless bridged
     if (s) return s.walk === 'deck' ? s.z : (this.k[i] === K_FLOOR ? this.z[i] : null)
     return this.k[i] === K_FLOOR ? this.z[i] : null
   }
@@ -154,6 +206,7 @@ export default class HewnRock {
     const { W, H } = this
     const floor = makeHewnFloor(ATLAS, TP, 11)
     const bed = makeFloorAtlas(ATLAS, TP, 12, true)
+    this.mats = X.makeMaterials(ATLAS, TP, FACE_PX, floor, makeHewnTexture(FACE_PX * 2, FACE_PX * 2, 21))
     // the whole map's floor, one picture: the floor texture where there is floor (or a deck), the bed
     // tinted cold where there is water, black elsewhere
     const base = this.base = document.createElement('canvas')
@@ -165,20 +218,26 @@ export default class HewnRock {
       const deck = s && s.walk === 'deck'
       const k = this.k[i]
       if (!deck && k !== K_FLOOR && k !== K_WATER) continue
-      const src = !deck && k === K_WATER ? bed : floor
+      const m = String.fromCharCode(this.mat[i])
+      const src = !deck && k === K_WATER ? bed : (this.mats[deck && m === 'r' ? 'r' : m] || this.mats.r).floor
       b.drawImage(src, (c % ATLAS) * TP, (r % ATLAS) * TP, TP, TP, c * TP, r * TP, TP, TP)
     }
     const img = b.getImageData(0, 0, base.width, base.height), d = img.data
     for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
       const i = r * W + c, s = this.span.get(i)
       const wet = this.k[i] === K_WATER && !(s && s.walk === 'deck')
-      const g = wet ? [WATER_TINT[0] * 1.3, WATER_TINT[1] * 1.3, WATER_TINT[2] * 1.3] : [FLOOR_GAIN, FLOOR_GAIN, FLOOR_GAIN * 0.98]
+      const green = wet && this.mat[i] === 103, pure = wet && this.mat[i] === 112
+      const g = pure ? PURE[this.waterLook] || PURE.dark : green ? [0.5, 1.9, 1.0] : wet ? [WATER_TINT[0] * 1.3, WATER_TINT[1] * 1.3, WATER_TINT[2] * 1.3] : [FLOOR_GAIN, FLOOR_GAIN, FLOOR_GAIN * 0.98]
       for (let y = r * TP; y < (r + 1) * TP; y++) for (let x = c * TP; x < (c + 1) * TP; x++) {
         const o = (y * base.width + x) * 4
         d[o] = Math.min(255, d[o] * g[0]); d[o + 1] = Math.min(255, d[o + 1] * g[1]); d[o + 2] = Math.min(255, d[o + 2] * g[2])
       }
     }
     b.putImageData(img, 0, 0)
+    if (this.floorArt) {
+      const gc = this.glow = document.createElement('canvas'); gc.width = base.width; gc.height = base.height
+      X.paintFloorArt(this, b, TP, gc.getContext('2d'))
+    }
     // faces: rough hewn stone, seamless every way, laid on in world space so neighbouring faces run on
     this.faceTex = makeHewnTexture(FACE_PX * 2, FACE_PX * 2, 21)
     this._facePat = null
@@ -228,6 +287,11 @@ export default class HewnRock {
       }
     })
     this._faceStatic = new Map()        // a face's fixed light at a few heights, worked out when first drawn
+    if (this.ambient) {
+      const A = this.ambient
+      for (let i = 0; i < this.stat.length; i += 3) { this.stat[i] += A[0]; this.stat[i + 1] += A[1]; this.stat[i + 2] += A[2] }
+      for (let i = 0; i < this.statTop.length; i += 3) { this.statTop[i] += A[0]; this.statTop[i + 1] += A[1]; this.statTop[i + 2] += A[2] }
+    }
   }
 
   // fall-off with distance (tiles): bright at the source, gone by R
@@ -319,7 +383,7 @@ export default class HewnRock {
       if (d < this.R) {
         const seen = this._ray(this.px, this.py, this.tz, x, y, z, Math.floor(x), Math.floor(y)) ? 1 : 0
         const f = Math.max(this._fallL(d, this.R * 0.8) * Math.max(seen, BOUNCE), this._fallL(d, this.R) * seen)
-        R0 += WARM[0] * f; G0 += WARM[1] * f; B0 += WARM[2] * f
+        const Wm = this.warm; R0 += Wm[0] * f; G0 += Wm[1] * f; B0 += Wm[2] * f
       }
     }
     if (staticToo && oc >= 0) {
@@ -332,6 +396,7 @@ export default class HewnRock {
         R0 += L.col[0] * f; G0 += L.col[1] * f; B0 += L.col[2] * f
       }
     }
+    if (staticToo && this.ambient) { R0 += this.ambient[0]; G0 += this.ambient[1]; B0 += this.ambient[2] }
     return [clamp01(R0), clamp01(G0), clamp01(B0)]
   }
 
@@ -365,12 +430,18 @@ export default class HewnRock {
     const C = this.cam
     this._polys = []
     const pRow = this._pRow = this.scene.player ? Math.floor(this.scene.player.logicalY / this.scene.tileSize) : -1
+    this._py = this.scene.player ? this.scene.player.logicalY / this.scene.tileSize : -1; this._px = this.scene.player ? (this.scene.player.logicalX ?? 0) / this.scene.tileSize : 0
     this._cut = this.pz + CUT
 
     gctx.save()
     gctx.setTransform(1, 0, 0, 1, 0, 0)
     gctx.globalCompositeOperation = 'source-over'; gctx.globalAlpha = 1
-    gctx.fillStyle = '#000'; gctx.fillRect(0, 0, gctx.canvas.width, gctx.canvas.height)
+    if (this.bg) {
+      const g = gctx.createLinearGradient(0, 0, 0, gctx.canvas.height)
+      this.bg.forEach((c, q) => g.addColorStop(q / (this.bg.length - 1), c))
+      gctx.fillStyle = g
+    } else gctx.fillStyle = '#000'
+    gctx.fillRect(0, 0, gctx.canvas.width, gctx.canvas.height)
     const o = this.xctx
     if (o) {
       const src = g._objectCanvas, w = src?.width || C.sw, h = src?.height || C.sh
@@ -408,6 +479,11 @@ export default class HewnRock {
     }
     gctx.restore()
     this._ghost()
+    if (this.grade) {
+      const st = X.gradeStrength(this, this.grade)
+      X.applyGrade(this, gctx.canvas, this.grade, st)
+      if (this.xc) X.applyGrade(this, this.xc, this.grade, st)
+    }
   }
 
   // The whole map's floor, lit: the floor texture with the light multiplied over it (in colour). Made
@@ -432,10 +508,10 @@ export default class HewnRock {
     const d = this.lightImg.data
     const y0 = r0 * SUB, y1 = (r1 + 1) * SUB, x0 = c0 * SUB, x1 = (c1 + 1) * SUB
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const p = y * lw + x, q = p * 3, t = torchB[p], o4 = p * 4
-      d[o4] = clamp01(stat[q] + WARM[0] * t) * 255
-      d[o4 + 1] = clamp01(stat[q + 1] + WARM[1] * t) * 255
-      d[o4 + 2] = clamp01(stat[q + 2] + WARM[2] * t) * 255
+      const p = y * lw + x, q = p * 3, t = torchB[p], o4 = p * 4, Wm = this.warm
+      d[o4] = clamp01(stat[q] + Wm[0] * t) * 255
+      d[o4 + 1] = clamp01(stat[q + 1] + Wm[1] * t) * 255
+      d[o4 + 2] = clamp01(stat[q + 2] + Wm[2] * t) * 255
       d[o4 + 3] = 255
     }
     this.lightCtx.putImageData(this.lightImg, 0, 0, x0, y0, x1 - x0, y1 - y0)
@@ -444,17 +520,46 @@ export default class HewnRock {
     l.drawImage(this.base, X, Y, w, h, X, Y, w, h)
     l.globalCompositeOperation = 'multiply'; l.imageSmoothingEnabled = true
     l.drawImage(this.lightCv, x0, y0, x1 - x0, y1 - y0, X, Y, w, h)
+    if (this.glow) { l.globalCompositeOperation = 'lighter'; l.drawImage(this.glow, X, Y, w, h, X, Y, w, h) }
     l.globalCompositeOperation = 'source-over'
+  }
+
+  // you pressed against the pool's edge (hewnTest.js isColliding): a ring goes out from the water's edge nearest you, at most
+  // once in a while. (x, y: where you are, in tiles.)
+  // On open water (no pool) the ring goes out from the point pressed on (ex, ey).
+  bump(x, y, ex = x, ey = y) {
+    const pool = this.props.find(p => p.type === 'pool')
+    if (!(pool || this.props.some(p => p.type === 'wake')) || (this._bumpT !== undefined && this.t - this._bumpT < 1.3)) return
+    if (pool && ((ex - pool.x) / (pool.rx + 1.5)) ** 2 + ((ey - pool.y) / (pool.ry + 1.5)) ** 2 > 1) return     // (other water in the hall: a stream's channel)
+    this._bumpT = this.t
+    const th = pool && Math.atan2((y - pool.y) / pool.ry, (x - pool.x) / pool.rx)
+    ;(this.bumps || (this.bumps = [])).push(pool ? { x: pool.x + pool.rx * Math.cos(th), y: pool.y + pool.ry * Math.sin(th), t0: this.t } : { x: ex, y: ey, t0: this.t })
+    if (this.bumps.length > 4) this.bumps.shift()
   }
 
   // a column's height as drawn: rock south of you cut away (see CUT)
   _dz(c, r) {
     const z = this.colZ(c, r)
-    return r > this._pRow && z > this._cut && this.kindAt(c, r) === K_ROCK ? this._cut : z
+    if (!(r > this._pRow && z > this._cut) || this.kindAt(c, r) !== K_ROCK) return z
+    // cut away by degrees, not at once: the rock a tile ahead of you comes down as you near it, so a wall does not stand up
+    // the moment you reach its row
+    const u = Math.min(1, Math.max(0, r - this._py)), f = u * u * (3 - 2 * u)
+    return z - (z - this._cut) * f
   }
 
   _drawRow(ctx, r, c0, c1) {
     const pz = this.pz
+    // a far row, thin on the screen: its whole floor laid in one go (where there is rock the picture is black, and
+    // the rock's tops go over it), instead of a piece for every run of one height
+    this._rowLaid = false
+    {
+      const zm = this.rowMin[r], ya = this._Y(r, zm), yb = this._Y(r + 1, zm)
+      if (yb - ya < LOD_PX && yb > -2 && ya < this.cam.sh + 2 && zm < 90) {
+        const xl = this._X(c0, r + 1), xr = this._X(c1 + 1, r + 1)
+        ctx.drawImage(this.litCv, c0 * TP, r * TP, (c1 - c0 + 1) * TP, TP, Math.floor(xl), Math.floor(ya), Math.ceil(xr - xl) + 1, Math.ceil(yb - ya) + 1)
+        this._rowLaid = true
+      }
+    }
     // tops, in runs of the same height and kind
     let c = c0
     while (c <= c1) {
@@ -470,10 +575,18 @@ export default class HewnRock {
       else if (k !== K_VOID) this._floorTop(ctx, r, c, e, z, k === K_FLOOR && this.walkZ(c, r) !== null && !(this.span.get(i)?.walk === 'deck'))
       c = e + 1
     }
+    // smooth water painted over the floor (a river, a pool): before the faces and the slabs, which go over it
+    for (const p of this.props) {
+      const m = MULTI[p.type]
+      if (!m || !m.under) continue
+      const [r0, r1] = m.rows(p)
+      if (r >= r0 && r <= r1) { p.row = r; m.draw(this, ctx, p) }
+    }
     // faces
     for (let c = c0; c <= c1; c++) {
       const zt = this._dz(c, r)
       if (zt === -Infinity) continue
+      if (this.stoneOnly && this.k[r * this.W + c] === K_FLOOR && this.stoneOnly.some(([a, b, e, f, zm = -0.005]) => zt < zm && c >= a && c <= e && r >= b && r <= f)) continue
       const zs = this._dz(c, r + 1)
       if (zt > zs + 0.01) this._southFace(ctx, c, r, zt, zs)
       const ze = this._dz(c + 1, r), zw = this._dz(c - 1, r)
@@ -481,6 +594,7 @@ export default class HewnRock {
       if (zt > zw + 0.01 && this.cam.col < c) this._sideFace(ctx, c, r, c, zt, zw)
     }
     this._drawGlints(ctx, r, c0, c1)
+    this._drawRipples(ctx, r, c0, c1)
     for (const f of this.falls) if (Math.floor(f.y) === r) this._drawFall(ctx, f)
     // slabs over the row (bridges, lintels): after its columns; one over you goes on the canvas above you
     for (let c = c0; c <= c1; c++) {
@@ -489,7 +603,16 @@ export default class HewnRock {
       const over = this.xctx && r === this._pRow && s.walk === 'under' && pz < s.z - s.t ? this.xctx : ctx
       this._slab(over, c, r, s)
     }
-    for (const p of this.props) if (Math.floor(p.y) === r) this._drawProp(ctx, p)
+    for (const hx of this.hex) if (Math.floor(hx.y) === r) X.drawHex(this, ctx, hx)
+    for (const p of this.props) if (!MULTI[p.type] && (p.type === 'arch' || p.type === 'span' ? Math.ceil(p.y) - 1 : Math.floor(p.y)) === r) this._drawProp(ctx, p)
+    // set pieces that run over several rows: drawn a row's slice at a time
+    for (const p of this.props) {
+      const m = MULTI[p.type]
+      if (!m || m.under) continue
+      const [r0, r1] = m.rows(p)
+      if (r >= r0 && r <= r1) { p.row = r; m.draw(this, ctx, p) }
+    }
+    for (const f of this.rowHooks) f(ctx, r)
   }
 
   _tri(ctx, img, t0, t1, t2, p0, p1, p2) {
@@ -520,13 +643,32 @@ export default class HewnRock {
     const u0 = c0 * TP, u1 = (c1 + 1) * TP, v0 = r * TP, v1 = v0 + TP
     this._polys.push({ pts: [tl, tr, br, bl], r, z, walk, c0, c1 })
     if (bl.y - tl.y < LOD_PX) {
-      // far off and thin on the screen: the picture laid straight into the strip, no warping (it can't be seen)
-      ctx.drawImage(this.litCv, u0, v0, u1 - u0, TP, Math.floor(bl.x), Math.floor(tl.y), Math.ceil(br.x - bl.x) + 1, Math.ceil(bl.y - tl.y) + 1)
+      // far off and thin on the screen: the picture laid straight into the strip, no warping (it can't be seen) --
+      // and if the whole row was laid at once already (_drawRow), nothing more
+      if (!this._rowLaid) ctx.drawImage(this.litCv, u0, v0, u1 - u0, TP, Math.floor(bl.x), Math.floor(tl.y), Math.ceil(br.x - bl.x) + 1, Math.ceil(bl.y - tl.y) + 1)
       return
     }
-    this._tri(ctx, this.litCv, [u0, v0], [u1, v0], [u1, v1], tl, tr, br)
-    this._tri(ctx, this.litCv, [u0, v0], [u1, v1], [u0, v1], tl, br, bl)
+    this._strips(ctx, this.litCv, r, c0, c1, z, u0, u1, v0, tl.y, bl.y)
     this._edges(ctx, r, c0, c1, z)
+  }
+
+  // The floor laid in thin horizontal strips, each a plain stretched copy of its slice of the picture: the camera looks
+  // straight north, so across any one line of the screen the floor is evenly spread, and only down it does the
+  // perspective change -- which strips this thin follow closely. (Two clipped, warped triangles did the same at
+  // several times the cost.) Strips meet at the same x on both sides of a seam, so neighbouring runs close up.
+  _strips(ctx, img, r, c0, c1, z, u0, u1, v0, ya, yb) {
+    const C = this.cam, H = yb - ya
+    const n = Math.max(2, Math.min(40, Math.ceil(H / STRIP_PX)))
+    const num = C.gH * C.FL - (z - C.z) * C.k0           // screen y - horizon = num / (FL + d), d = camera row - y
+    const rowAt = (Y) => C.row - (num / Math.max(1e-3, Y - C.hz) - C.FL)
+    ctx.imageSmoothingEnabled = false
+    for (let i = 0; i < n; i++) {
+      const y0 = ya + H * i / n, y1 = ya + H * (i + 1) / n
+      const ra = Math.max(r, Math.min(r + 1, rowAt(y0))), rb = Math.max(r, Math.min(r + 1, rowAt(y1)))
+      const ym = rowAt((y0 + y1) / 2), xl = this._X(c0, ym), xr = this._X(c1 + 1, ym)
+      const sv = v0 + (ra - r) * TP, sh = Math.max(0.5, (rb - ra) * TP)
+      ctx.drawImage(img, u0, sv, u1 - u0, sh, xl - 0.35, y0 - 0.35, xr - xl + 0.7, y1 - y0 + 0.7)
+    }
   }
 
   // Where a tile meets something higher, the floor darkens toward its foot (light can't get in there);
@@ -578,19 +720,20 @@ export default class HewnRock {
       let L = [this.statTop[i * 3], this.statTop[i * 3 + 1], this.statTop[i * 3 + 2]]
       if (this.px !== undefined) {
         const f = this._fallL(Math.hypot(c + 0.5 - this.px, r + 0.5 - this.py, (z - this.tz) * 0.8), this.R)
-        L = [L[0] + WARM[0] * f, L[1] + WARM[1] * f, L[2] + WARM[2] * f]
+        L = [L[0] + this.warm[0] * f, L[1] + this.warm[1] * f, L[2] + this.warm[2] * f]
       }
       const n = (hash(c * 7919 + r * 104729) & 255) / 255
-      const tone = TOP_TONE.map((v, q) => Math.min(255, v * (cut ? 1.35 : 1) * (0.85 + 0.3 * n) * clamp01(L[q] * (cut ? 1.6 : 1.4))) | 0)
+      const tone = (this.mats[String.fromCharCode(this.mat[i])] || this.mats.r).top.map((v, q) => Math.min(255, v * (cut ? 0.75 : 1) * (0.85 + 0.3 * n) * clamp01(L[q] * 1.4)) | 0)
       ctx.fillStyle = `rgb(${tone[0]},${tone[1]},${tone[2]})`
       ctx.beginPath(); ctx.moveTo(tl.x - 0.5, tl.y - 0.5); ctx.lineTo(tr.x + 0.5, tr.y - 0.5); ctx.lineTo(br.x + 0.5, br.y + 0.5); ctx.lineTo(bl.x - 0.5, bl.y + 0.5); ctx.closePath(); ctx.fill()
     }
   }
 
-  _pattern(ctx) {
-    if (!this._facePat || this._patCtx !== ctx) { this._facePat = ctx.createPattern(this.faceTex, 'repeat'); this._patCtx = ctx }
-    return this._facePat
+  _pattern(ctx, m = 'r') {
+    if (this._patCtx !== ctx) { this._pats = {}; this._patCtx = ctx }
+    return this._pats[m] || (this._pats[m] = ctx.createPattern((this.mats[m] || this.mats.r).face, 'repeat'))
   }
+  _matAt(c, r) { const i = this._i(c, r); return i < 0 ? 'r' : String.fromCharCode(this.mat[i]) }
 
   // the light up a face: colours at a few heights, foot to top. The fixed part is kept per face.
   _faceStops(key, x, y, zb, zt, oc) {
@@ -608,7 +751,8 @@ export default class HewnRock {
           if (!this._ray(L.x, L.y, L.z, x, y, z, Math.floor(x), Math.floor(y))) continue
           R0 += L.col[0] * f; G0 += L.col[1] * f; B0 += L.col[2] * f
         }
-        st.push([R0, G0, B0])
+        const A = this.ambient || [0, 0, 0]
+        st.push([R0 + A[0], G0 + A[1], B0 + A[2]])
       }
       this._faceStatic.set(key, st)
     }
@@ -640,10 +784,24 @@ export default class HewnRock {
     const y0 = Math.floor(Math.max(-2, yT)), y1 = Math.ceil(Math.min(C.sh + 2, yB))
     const X0 = Math.floor(x0), X1 = Math.ceil(x1)
     if (y1 <= y0) return
-    const pat = this._pattern(ctx), s = k / FACE_PX
+    if (this._raisedFloor(c, r, zs)) {
+      // a floor-stone pushed up: its face is the stone's own edge, the top's picture carried down (the joints turn the
+      // corner; the stone is the same colour all the way down), with a course joint at every third of a tile
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(this.base, c * TP, r * TP + TP - 5, TP, 3, X0, y0, X1 - X0, y1 - y0)
+      ctx.fillStyle = 'rgba(6,8,14,0.24)'; ctx.fillRect(X0, y0, X1 - X0, y1 - y0)
+      const jw = Math.max(1, Math.round(k * 0.03))
+      for (let z = zt - 1 / 3; z > zb + 0.05; z -= 1 / 3) {
+        const yj = Math.round(this._Y(r + 1, z))
+        ctx.fillStyle = 'rgba(8,10,16,0.55)'; ctx.fillRect(X0, yj, X1 - X0, jw)
+        ctx.fillStyle = 'rgba(190,200,220,0.16)'; ctx.fillRect(X0, yj + jw, X1 - X0, jw)
+      }
+    } else {
+    const pat = this._pattern(ctx, this._matAt(c, r)), s = k / FACE_PX
     pat.setTransform?.(new DOMMatrix([s, 0, 0, s, C.sw / 2 - C.col * k, this._Y(r + 1, 0) + (r % 3) * 7]))
     ctx.fillStyle = pat
     ctx.fillRect(X0, y0, X1 - X0, y1 - y0)
+    }
     // the light over it, multiplied: at its foot what lights the tile in front, rising into the dark
     // (into the void the light is worked out over a fixed depth, so it needn't be again as you move)
     const zL = zs === -Infinity ? zt - 10 : zb
@@ -653,8 +811,9 @@ export default class HewnRock {
     ctx.globalCompositeOperation = 'multiply'
     ctx.fillStyle = gr
     ctx.fillRect(X0, y0, X1 - X0, y1 - y0)
-    if (zs === -Infinity) this._abyss(ctx, X0, X1, y0, y1, r + 1, zt)
+    if (zs === -Infinity && this.abyss) this._abyss(ctx, X0, X1, y0, y1, r + 1, zt)
     ctx.globalCompositeOperation = 'source-over'
+    if (zs === -Infinity && this.drips) X.drawDrips(this, ctx, c, r, zt)
     // a hairline of light along the lip, where the top meets the face
     const top = stops[stops.length - 1]
     if (top[0] + top[1] + top[2] > 0.15) {
@@ -662,6 +821,9 @@ export default class HewnRock {
       ctx.fillRect(X0, Math.round(yT), X1 - X0, Math.max(1, Math.round(k * 0.02)))
     }
   }
+
+  // a floor tile (in a hall whose floor is laid by hand) standing above its neighbour: its faces are cut from the floor's picture
+  _raisedFloor(c, r, zn) { return !!this.floorArt && zn !== -Infinity && this.k[r * this.W + c] === K_FLOOR }
 
   // into the void: whatever light there is gives out a little below the lip, and below that it is black
   _abyss(ctx, x0, x1, y0, y1, y, zt) {
@@ -687,7 +849,20 @@ export default class HewnRock {
     const stops = this._faceStops(`${fx === c ? 'W' : 'E'}${c},${r},${zt},${zL}`, fx + ox, r + 0.5, zL, zt, oc)
     const yF = this._Y(r + 0.5, zL), yT = this._Y(r + 0.5, zt)
     const gr = ctx.createLinearGradient(0, yF, 0, yT)
-    stops.forEach((L, q) => gr.addColorStop(q / (stops.length - 1), this._rgb(L, ROCK_TONE.map(v => v * 0.85))))
+    const side = (this.mats[this._matAt(c, r)] || this.mats.r).side
+    if (this._raisedFloor(c, r, zn)) {
+      // the stone's own side: the picture's strip at that edge, carried down (see _southFace), a little darker
+      const xe = fx === c ? c * TP + 4.5 : (c + 1) * TP - 4.5, dx = fx === c ? -3 : 3, v0 = r * TP
+      ctx.save()
+      this._tri(ctx, this.base, [xe, v0], [xe, v0 + TP], [xe + dx, v0 + TP], a, b, cc)
+      this._tri(ctx, this.base, [xe, v0], [xe + dx, v0 + TP], [xe + dx, v0], a, cc, d)
+      stops.forEach((L, q) => gr.addColorStop(q / (stops.length - 1), this._rgb(L, [205, 205, 210])))
+      ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = gr
+      ctx.beginPath(); ctx.moveTo(a.x, a.y - 0.5); ctx.lineTo(b.x, b.y - 0.5); ctx.lineTo(cc.x, cc.y + 0.5); ctx.lineTo(d.x, d.y + 0.5); ctx.closePath(); ctx.fill()
+      ctx.restore()
+      return
+    }
+    stops.forEach((L, q) => gr.addColorStop(q / (stops.length - 1), this._rgb(L, side.map(v => v * 0.85))))
     ctx.fillStyle = gr
     ctx.beginPath(); ctx.moveTo(a.x, a.y - 0.5); ctx.lineTo(b.x, b.y - 0.5); ctx.lineTo(cc.x, cc.y + 0.5); ctx.lineTo(d.x, d.y + 0.5); ctx.closePath(); ctx.fill()
     if (zn === -Infinity) {
@@ -699,6 +874,7 @@ export default class HewnRock {
 
   // a slab: a bridge's deck or a lintel, top at s.z, s.t thick
   _slab(ctx, c, r, s) {
+    if (s.hid) return                                           // a step you climb that is painted, not built (hewnExtras' pool)
     const z = s.z, zb = s.z - s.t
     const tl = this._P(c, r, z), tr = this._P(c + 1, r, z), br = this._P(c + 1, r + 1, z), bl = this._P(c, r + 1, z)
     if (!tl || !tr || !br || !bl) return
@@ -718,7 +894,7 @@ export default class HewnRock {
     const next = this.span.get(this._i(c, r + 1))
     if (!next || Math.abs(next.z - z) > 0.01) {
       const x0 = this._X(c, r + 1), x1 = this._X(c + 1, r + 1), yT = this._Y(r + 1, z), yB = this._Y(r + 1, zb)
-      const k = this._k(r + 1), pat = this._pattern(ctx), sc = k / FACE_PX
+      const k = this._k(r + 1), pat = this._pattern(ctx, this._matAt(c, r)), sc = k / FACE_PX
       pat.setTransform?.(new DOMMatrix([sc, 0, 0, sc, C.sw / 2 - C.col * k, this._Y(r + 1, 0)]))
       ctx.fillStyle = pat; ctx.fillRect(x0 - 0.5, yT - 0.5, x1 - x0 + 1, yB - yT + 1)
       const L0 = this.lightAt(c + 0.5, r + 1.04, zb, this._i(c, r + 1)), L1 = this.lightAt(c + 0.5, r + 1.04, z, this._i(c, r + 1))
@@ -744,6 +920,7 @@ export default class HewnRock {
 
   // the flame and the pale lights on water: short streaks that come and go
   _drawGlints(ctx, r, c0, c1) {
+    if (!this.glints) return
     let any = false
     for (let c = c0; c <= c1; c++) {
       if (this.kindAt(c, r) !== K_WATER) continue
@@ -766,6 +943,46 @@ export default class HewnRock {
         ctx.strokeStyle = warm ? `rgba(255,195,130,${a.toFixed(3)})` : `rgba(190,215,240,${a.toFixed(3)})`
         ctx.lineWidth = Math.max(1, this._k(gy) * 0.03)
         ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke()
+      }
+    }
+    if (any) ctx.restore()
+  }
+
+  // pure water: rings spreading from a point and fading, a few at a time over the whole surface, and small stars of
+  // light that come and go on it -- seen in the dark too, faintly, so the water always shows where it is
+  _drawRipples(ctx, r, c0, c1) {
+    let any = false
+    const blue = this.waterLook === 'blue'
+    for (let c = c0; c <= c1; c++) {
+      const i = r * this.W + c
+      if (this.k[i] !== K_WATER || this.mat[i] !== 112) continue
+      const sz = this.z[i], k = this._k(r + 0.5)
+      if (!k || k < 14) continue                         // too far off to see a ripple
+      if (!any) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; any = true }
+      const p = (Math.floor((r + 0.5) * SUB) * this.lw + Math.floor((c + 0.5) * SUB))
+      const lit = Math.min(1, Math.max(this.torchB[p], (this.stat[p * 3] + this.stat[p * 3 + 1] + this.stat[p * 3 + 2]) / 3) * 1.6)
+      const ph = hash(c * 7919 + r * 104729)
+      // a ring: each tile now and then (its own period), from a point in it
+      const per = 4.5 + (ph % 9) * 0.6, life = ((this.t + (ph & 1023) / 97) % per) / 2.2
+      if (this.ripples && life < 1) {
+        const cx = c + 0.25 + ((ph >> 10) & 63) / 126, cy = r + 0.25 + ((ph >> 16) & 63) / 126
+        const ctr = this._P(cx, cy, sz), side = this._P(cx + 1, cy, sz), down = this._P(cx, cy + 1, sz)
+        if (ctr && side && down) {
+          const rad = 0.08 + 0.55 * life, a = (1 - life) * (0.22 + 0.5 * lit)
+          ctx.strokeStyle = blue ? `rgba(200,230,255,${a.toFixed(3)})` : `rgba(225,235,245,${a.toFixed(3)})`
+          ctx.lineWidth = Math.max(1, k * 0.018 * (1 - life * 0.5))
+          ctx.beginPath(); ctx.ellipse(ctr.x, ctr.y, Math.abs(side.x - ctr.x) * rad, Math.abs(down.y - ctr.y) * rad, 0, 0, Math.PI * 2); ctx.stroke()
+        }
+      }
+      // stars on the surface
+      for (let q = 0; q < (this.glints ? 1 : 0); q++) {
+        const h2 = hash(ph + q * 31337), tw = Math.sin(this.t * (0.6 + (h2 % 5) * 0.17) + (h2 & 255)) ** 16
+        if (tw < 0.05) continue
+        const pt = this._P(c + 0.1 + ((h2 >> 8) & 255) / 320, r + 0.1 + ((h2 >> 16) & 255) / 320, sz)
+        if (!pt) continue
+        const s = Math.max(1, k * 0.03) * (0.6 + tw)
+        ctx.fillStyle = `rgba(255,255,255,${(tw * (0.35 + 0.55 * lit)).toFixed(3)})`
+        ctx.fillRect(pt.x - s / 2, pt.y - s / 2, s, s)
       }
     }
     if (any) ctx.restore()
@@ -798,11 +1015,14 @@ export default class HewnRock {
 
   // a thing standing there: an item's picture, lit where it is; or a fire's last embers
   _drawProp(ctx, p) {
+    if (p.type === 'glowworms') { this._drawGlowworms(ctx, p); return }
+    const ex = { torch: X.drawTorch, shaft: X.drawShaft, mite: X.drawMite, box: X.drawBox, sprite: X.drawSprite, arch: X.drawArch, span: X.drawSpan,
+      mob: X.drawMob, ogham: X.drawOgham, spiral: X.drawSpiral, eyes: X.drawEyes, eye: X.drawEye, cauldron: X.drawCauldron, candles: X.drawCandles, mist: X.drawMist, grille: X.drawGrille, sigil: X.drawSigil, statue: X.drawStatue, ferry: X.drawFerry, wraith: X.drawWraith, fogbank: X.drawFogBank, body: X.drawBody, pillar: X.drawPillar, doorway: X.drawDoorway }[p.type]
+    if (ex) { ex(this, ctx, p); return }
     const at = this._P(p.x, p.y, p.z)
     if (!at) return
     const k = this._k(p.y)
     const oc = this._i(Math.floor(p.x), Math.floor(p.y))
-    if (p.type === 'glowworms') { this._drawGlowworms(ctx, p); return }
     if (p.type === 'embers') {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       const glow = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, k * 0.7)
@@ -829,9 +1049,7 @@ export default class HewnRock {
     const s = k * (p.s ?? 0.5)
     ctx.save()
     ctx.imageSmoothingEnabled = false
-    if ('filter' in ctx) ctx.filter = `brightness(${Math.min(1.4, b * 1.5).toFixed(2)})`
-    else ctx.globalAlpha = Math.min(1, b * 1.5)
-    ctx.drawImage(img, at.x - s / 2, at.y - s, s, s)
+    ctx.drawImage(X.litSprite(img, 0, 0, img.width, img.height, b), at.x - s / 2, at.y - s, s, s)
     ctx.restore()
     // a glint, now and then, on what catches the light
     const tw = Math.max(0, Math.sin(this.t * 1.7 + p.n * 2.1)) ** 12

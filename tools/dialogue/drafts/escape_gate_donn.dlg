@@ -1,0 +1,22 @@
+# escape_gate_donn -- the sea-door to Tech Duinn, the House of Donn, where the dead gather. Spoken to in the hall, and
+# again on the landing past it (escape_donn).
+
+@file underworld/escape
+@encounter 4
+
+= the sea-door
+@continue
+No door fills the frame. Only the opening, and the cold coming in over the worn sill in folds.
+% [Gaeilge le teacht]
+Mourners are carved either side, I think. The stone about them is slick with damp.
+% [Gaeilge le teacht]
+A smell comes up from below: water that never felt daylight.
+% [Gaeilge le teacht]
+
+= where it goes
+This is the way to Teach Duinn. No green shore beyond:
+% [Gaeilge le teacht]
+only the rock, and the house upon it, and Donn waiting within.
+% [Gaeilge le teacht]
+Come to my house, all of you, after your death. The words of Donn.
+% [Gaeilge le teacht]

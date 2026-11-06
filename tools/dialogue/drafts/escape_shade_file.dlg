@@ -1,0 +1,24 @@
+# escape_shade_file -- the poet, one of the dead waiting at the well. He died with the last line of a poem missing,
+# and keeps saying it over, waiting for the end to come to him. Before Géaga looks away he waits as you do; after, she
+# has let you go.
+
+@file underworld/escape
+@encounter 11
+
+= the poem
+@when !note escape_geaga_blind_eye
+Three hazels bend above the pool,
+% [Gaeilge le teacht]
+Three salmon take the falling nut;
+% [Gaeilge le teacht]
+What the water knows, it will not tell,
+% [Gaeilge le teacht]
+What the tree knows, it has forgot—
+% [Gaeilge le teacht]
+
+= she let you go
+@when note escape_geaga_blind_eye
+She let you go? Then the last line is up there somewhere, under the sky.
+% [Gaeilge le teacht]
+If you hear it, at a fire, from a child, anywhere at all: keep it for me.
+% [Gaeilge le teacht]

@@ -1,0 +1,51 @@
+# escape_shade_laoch -- the old warrior, Ferchar of Sliabh Fuait, one of the dead waiting at the well. A hundred years
+# making the speech he will give Géaga. Before she looks away he waits as you do; after, she has let you go.
+
+@file underworld/escape
+@encounter 9
+
+= the speech
+@when !note escape_geaga_blind_eye
+@continue
+A hundred years I have been fashioning what I will say to her. The words are good now. Well-made.
+% [Gaeilge le teacht]
+I was never a man of poems. The poets came to me, and I gave them silver.
+% [Gaeilge le teacht]
+Hear it, and judge it.
+% [Gaeilge le teacht]
+
+= as she will hear it
+@when !note escape_geaga_blind_eye
+@continue
+Géaga of the well, of the nine hazels and the nine gifts: I was Ferchar of Sliabh Fuait.
+% [Gaeilge le teacht]
+Three kings called me champion. At the ford of the Bóinn I held alone,
+% [Gaeilge le teacht]
+and what was left of me after was still standing. Give me one morning above, one fight in the open air.
+% [Gaeilge le teacht]
+
+= the ending
+@when !note escape_geaga_blind_eye
+Is that well enough? The middle part I have changed four times.
+% [Gaeilge le teacht]
+A hundred years, and the ending is still not right.
+% [Gaeilge le teacht]
+
+= she let you go
+@when note escape_geaga_blind_eye
+@continue
+She let you go. She looked at you, and she let you go.
+% [Gaeilge le teacht]
+A hundred years, and she has not once looked at me long enough to hear it.
+% [Gaeilge le teacht]
+Well. It is no matter. You are going up, and I am not, and that is the shape of things.
+% [Gaeilge le teacht]
+
+= tell them he held
+@when note escape_geaga_blind_eye
+Find someone of my blood, if any are left above. Tell them Ferchar of Sliabh Fuait held.
+% [Gaeilge le teacht]
+In every place they set him, he held, and he did not fall.
+% [Gaeilge le teacht]
+Tell them nothing else. That is enough. That is more than enough.
+% [Gaeilge le teacht]

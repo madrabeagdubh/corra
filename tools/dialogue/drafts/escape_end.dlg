@@ -1,0 +1,16 @@
+# escape_end -- out: the night air at the source of the Boyne, and dawn not far off
+#
+# PLACEHOLDERS. The scene opens this at the top of the last stair; its last card sets escape_done.
+
+@file underworld/escape
+@encounter 3
+
+= node 0 — out
+@continue
+[PLACEHOLDER] The night air. The source of the Boyne behind you, and dawn not far off.
+% [Gaeilge le teacht]
+
+= node 1 — to be continued
+@note escape_done
+[PLACEHOLDER] (To be continued: to the mouth of the Boyne before sunrise, without touching the ground.)
+% [Gaeilge le teacht]

@@ -1,0 +1,8594 @@
+{
+ "provinces": [
+  {
+   "id": "ulster",
+   "ga": "Cúige Uladh",
+   "en": "Ulster"
+  },
+  {
+   "id": "connacht",
+   "ga": "Cúige Chonnacht",
+   "en": "Connacht"
+  },
+  {
+   "id": "leinster",
+   "ga": "Cúige Laighean",
+   "en": "Leinster"
+  },
+  {
+   "id": "munster",
+   "ga": "Cúige Mumhan",
+   "en": "Munster"
+  }
+ ],
+ "counties": [
+  {
+   "co": "antrim",
+   "en": "Antrim",
+   "ga": "Co. Aontroma",
+   "province": "ulster",
+   "centre": [
+    54.85,
+    -6.25
+   ],
+   "neighbours": [
+    {
+     "to": "down",
+     "bearing": 161,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "tyrone",
+     "bearing": 246,
+     "compass": "south-west",
+     "by": "water"
+    },
+    {
+     "to": "derry",
+     "bearing": 281,
+     "compass": "west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Reachlainn",
+     "en": "Rathlin - the rugged island",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dearbhóg",
+     "en": "Dervock - oak plantation",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Achadh Eochaille",
+     "en": "Ahoghill - field of the yew forest",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Carn Mhéabhla",
+     "en": "Cairn of Queen Maeve",
+     "marker": 33,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Carraig Fhearghais",
+     "en": "Carrickfergus - Fergus' rock",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Béal Feiriste",
+     "en": "Belfast - mouth of river Farset",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Oibilisc",
+     "en": "The Obelisk",
+     "mottoGa": "Seasaimid",
+     "mottoEn": "We stand",
+     "why": "the Causeway’s columns: “we stand”"
+    },
+    {
+     "ga": "Fianna na Mara",
+     "en": "The Sea Warriors",
+     "mottoGa": "Treabhaimid an mhuir",
+     "mottoEn": "We plough the sea",
+     "why": "Rathlin and the north sea"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     30,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     3,
+     0,
+     31,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     32,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     33,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     1,
+     1,
+     1,
+     0,
+     0,
+     34,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     1,
+     1,
+     1,
+     35,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     1,
+     1,
+     6,
+     6,
+     6,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "down",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "tyrone",
+     "cell": [
+      7,
+      0
+     ]
+    },
+    {
+     "to": "derry",
+     "cell": [
+      4,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "armagh",
+   "en": "Armagh",
+   "ga": "Co. Ard Mhacha",
+   "province": "ulster",
+   "centre": [
+    54.3,
+    -6.62
+   ],
+   "neighbours": [
+    {
+     "to": "down",
+     "bearing": 83,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "louth",
+     "bearing": 168,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "monaghan",
+     "bearing": 227,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "tyrone",
+     "bearing": 312,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Sráid na nAlbanach",
+     "en": "Sráid na nAlbanach",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Craigavon",
+     "en": "Craigavon",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Port An Dúnáin",
+     "en": "Port An Dúnáin",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Úr",
+     "en": "Baile Úr",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile an Mhuilinn",
+     "en": "Baile an Mhuilinn",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Lios Liath",
+     "en": "Lios Liath",
+     "marker": 35,
+     "door": true,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Fáinne",
+     "en": "The Ring",
+     "mottoGa": "Faoi gheasa",
+     "mottoEn": "Bound by geasa",
+     "why": "Emain Macha, a ring of honour"
+    },
+    {
+     "ga": "An Sciath",
+     "en": "The Shield",
+     "mottoGa": "Is mé an sciath os cionn gach cinn",
+     "mottoEn": "I am the shield over every head",
+     "why": "the Red Branch"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     30,
+     0,
+     32,
+     2,
+     2,
+     2,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     31,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     34,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     5,
+     0,
+     33,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     35,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "down",
+     "cell": [
+      4,
+      9
+     ]
+    },
+    {
+     "to": "louth",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "monaghan",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "tyrone",
+     "cell": [
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "carlow",
+   "en": "Carlow",
+   "ga": "Co. Cheatharlach",
+   "province": "leinster",
+   "centre": [
+    52.72,
+    -6.82
+   ],
+   "neighbours": [
+    {
+     "to": "kildare",
+     "bearing": 2,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "wicklow",
+     "bearing": 44,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "wexford",
+     "bearing": 149,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "kilkenny",
+     "bearing": 239,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "laois",
+     "bearing": 306,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cill Deirge",
+     "en": "Cill Deirge",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Baile Uí Mhurchú",
+     "en": "Baile Uí Mhurchú",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Haicéid",
+     "en": "Baile Haicéid",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Bhuiríos",
+     "en": "An Bhuiríos",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Miseal",
+     "en": "Miseal",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cill Damháin",
+     "en": "Cill Damháin",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Ceilte",
+     "en": "The Hidden",
+     "mottoGa": "Ní fheictear sinn",
+     "mottoEn": "We are not seen",
+     "why": "the quiet hills of Carlow"
+    },
+    {
+     "ga": "Na hIoraí",
+     "en": "The Squirrels",
+     "mottoGa": "Misneach, foighne",
+     "mottoEn": "Courage, patience",
+     "why": "woods of the Barrow valley"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     0,
+     0,
+     31,
+     0,
+     0,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     30,
+     0,
+     0,
+     8,
+     0,
+     0,
+     9
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     32,
+     0,
+     8,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     33,
+     0,
+     0,
+     0,
+     34,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     5,
+     0,
+     0,
+     0,
+     35,
+     8,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "kildare",
+     "cell": [
+      0,
+      5
+     ]
+    },
+    {
+     "to": "wicklow",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "wexford",
+     "cell": [
+      9,
+      8
+     ]
+    },
+    {
+     "to": "kilkenny",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "laois",
+     "cell": [
+      1,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "cavan",
+   "en": "Cavan",
+   "ga": "Co. An Cabháin",
+   "province": "ulster",
+   "centre": [
+    53.98,
+    -7.3
+   ],
+   "neighbours": [
+    {
+     "to": "monaghan",
+     "bearing": 54,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "meath",
+     "bearing": 135,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "westmeath",
+     "bearing": 192,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "longford",
+     "bearing": 223,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "leitrim",
+     "bearing": 289,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "fermanagh",
+     "bearing": 331,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Doire na Criadh",
+     "en": "Derrynacreeve - Oakwood of the clay",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Cnoc Rua",
+     "en": "Redhills - the red hill",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Béal Tairbirt",
+     "en": "Belturbet - mouth of the isthmus",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Dromainn",
+     "en": "The ridge",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún an Rí",
+     "en": "Dunaree - fort of the king",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Lios Cré",
+     "en": "Lisgrea - ringfort of earth",
+     "marker": 35,
+     "door": true,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Clachán Crom",
+     "en": "Worshippers of the Crooked One",
+     "mottoGa": "Alpann sé",
+     "mottoEn": "He devours",
+     "why": "Mag Slécht, the crooked one’s stones"
+    },
+    {
+     "ga": "Na Doghnúisigh",
+     "en": "The Ill-Featured",
+     "mottoGa": "Síorghránna",
+     "mottoEn": "Ever ugly",
+     "why": "somebody has to be"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     30,
+     2,
+     2,
+     9,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     2,
+     9,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     31,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     33,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     35,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "monaghan",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "westmeath",
+     "cell": [
+      9,
+      3
+     ]
+    },
+    {
+     "to": "longford",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "leitrim",
+     "cell": [
+      3,
+      0
+     ]
+    },
+    {
+     "to": "fermanagh",
+     "cell": [
+      0,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "co": "clare",
+   "en": "Clare",
+   "ga": "Co. An Chláir",
+   "province": "munster",
+   "centre": [
+    52.86,
+    -9.0
+   ],
+   "neighbours": [
+    {
+     "to": "galway",
+     "bearing": 17,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 108,
+     "compass": "east",
+     "by": "water"
+    },
+    {
+     "to": "limerick",
+     "bearing": 157,
+     "compass": "south-east",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Ceann Boirne",
+     "en": "Ceann Boirne",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Fíoch Rua",
+     "en": "Fíoch Rua",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Tulach",
+     "en": "An Tulach",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cill Rois",
+     "en": "Cill Rois",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Leaba Shíoda",
+     "en": "Leaba Shíoda",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Bun Raite",
+     "en": "Bun Raite",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An tSaíocht",
+     "en": "Wisdom",
+     "mottoGa": "Buillí léannta",
+     "mottoEn": "Learned blows",
+     "why": "the Burren’s old learning"
+    },
+    {
+     "ga": "Na Fáinleoga",
+     "en": "The Swallows",
+     "mottoGa": "Ar nós na gaoithe",
+     "mottoEn": "Like the wind",
+     "why": "the cliffs and the wind"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     0,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     32,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     0,
+     0,
+     0,
+     34,
+     0,
+     1,
+     35,
+     0,
+     0,
+     7
+    ],
+    [
+     1,
+     1,
+     33,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "galway",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      6,
+      9
+     ]
+    },
+    {
+     "to": "limerick",
+     "cell": [
+      7,
+      9
+     ]
+    }
+   ]
+  },
+  {
+   "co": "cork",
+   "en": "Cork",
+   "ga": "Co. Chorcaí",
+   "province": "munster",
+   "centre": [
+    51.95,
+    -8.75
+   ],
+   "neighbours": [
+    {
+     "to": "limerick",
+     "bearing": 0,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 37,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "waterford",
+     "bearing": 71,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "kerry",
+     "bearing": 290,
+     "compass": "west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cill na Mallach",
+     "en": "Church of the Summits (Buttevant)",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Sliabh an Nóglaigh",
+     "en": "Nagles mountains - volunteers mountain",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Gleann an Phreacháin",
+     "en": "Glenville - glen of the crows",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Beal na mBláth",
+     "en": "Bealnablath - Mouth of the ford of the buttermilk",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cionn tSáile",
+     "en": "Kinsale - head of the brine",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Sciobairín",
+     "en": "Skibbereen - little boat harbour",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Adhraitheoirí na Mórríona",
+     "en": "Worshippers of the Phantom Queen",
+     "mottoGa": "Lean an bhadhbh",
+     "mottoEn": "Follow the crow",
+     "why": "Gleann an Phreacháin, glen of the crows"
+    },
+    {
+     "ga": "Lucht na nIngne Géara",
+     "en": "The Sharp-Taloned",
+     "mottoGa": "Crúba a stróiceann",
+     "mottoEn": "Claws that rend",
+     "why": "the crows’ talons"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     30,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     31,
+     0,
+     0,
+     8
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     33,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     0,
+     35,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "limerick",
+     "cell": [
+      0,
+      4
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      0,
+      8
+     ]
+    },
+    {
+     "to": "waterford",
+     "cell": [
+      3,
+      9
+     ]
+    },
+    {
+     "to": "kerry",
+     "cell": [
+      3,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "derry",
+   "en": "Derry",
+   "ga": "Co. Dhoire",
+   "province": "ulster",
+   "centre": [
+    54.92,
+    -6.85
+   ],
+   "neighbours": [
+    {
+     "to": "antrim",
+     "bearing": 101,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "tyrone",
+     "bearing": 212,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "donegal",
+     "bearing": 270,
+     "compass": "west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Doire",
+     "en": "Derry - oak grove",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Léim an Mhadaidh",
+     "en": "Limavady - leap of the dog",
+     "marker": 31,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Droichead Fíolta",
+     "en": "Bridge of Fíolta (seeded?)",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Machaire Rátha",
+     "en": "Maghera - plain of the ringfort",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Seanmhullach",
+     "en": "Shanmullagh - the old summit",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Muine Mór",
+     "en": "Muine Mór",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Chraobh Óg",
+     "en": "The Young Branch",
+     "mottoGa": "Ó fhréamhacha ársa",
+     "mottoEn": "From ancient roots",
+     "why": "Doire, the oak grove"
+    },
+    {
+     "ga": "Na Mic Tíre",
+     "en": "The Wolves",
+     "mottoGa": "Aontacht na conairte",
+     "mottoEn": "The unity of the pack",
+     "why": "Léim an Mhadaidh, the dog’s leap"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     3,
+     1,
+     1,
+     1,
+     31,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     3,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     33,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     0,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     0,
+     0,
+     0,
+     35,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     6,
+     6,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "antrim",
+     "cell": [
+      5,
+      9
+     ]
+    },
+    {
+     "to": "tyrone",
+     "cell": [
+      9,
+      1
+     ]
+    },
+    {
+     "to": "donegal",
+     "cell": [
+      5,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "donegal",
+   "en": "Donegal",
+   "ga": "Co. Dhún na nGall",
+   "province": "ulster",
+   "centre": [
+    54.92,
+    -8.0
+   ],
+   "neighbours": [
+    {
+     "to": "derry",
+     "bearing": 90,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "tyrone",
+     "bearing": 125,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "fermanagh",
+     "bearing": 160,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "leitrim",
+     "bearing": 180,
+     "compass": "south",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cionn Dhún Damh",
+     "en": "Dunaff Head - Headland of the Stag (or Ox)",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile idir Dhá Abhainn",
+     "en": "Ballyederowen - town between two rivers",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Sléibhte Dhoire Bheatha",
+     "en": "Derryveagh  - Mountain of the living oaks",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Leitir Ceanainn",
+     "en": "Letterkenny - hillside of the O'Cannons",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Bealach Féich",
+     "en": "Ballybofey - Fiach's pass",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Na Cruacha Gorma",
+     "en": "Croaghgorm - the blue stack mountains",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Tonnta",
+     "en": "The Waves",
+     "mottoGa": "Is mé tonn na farraige",
+     "mottoEn": "I am a wave of the sea",
+     "why": "the Atlantic coast"
+    },
+    {
+     "ga": "Na hIolair",
+     "en": "The Eagles",
+     "mottoGa": "Os cionn cách",
+     "mottoEn": "Above all",
+     "why": "the Derryveagh mountains"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     30,
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     33,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     0,
+     0,
+     35,
+     0,
+     34,
+     0,
+     0,
+     7,
+     8,
+     8
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     6,
+     7,
+     7,
+     7
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     6,
+     7,
+     7,
+     7
+    ],
+    [
+     1,
+     1,
+     1,
+     5,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "derry",
+     "cell": [
+      4,
+      9
+     ]
+    },
+    {
+     "to": "tyrone",
+     "cell": [
+      8,
+      9
+     ]
+    },
+    {
+     "to": "fermanagh",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "leitrim",
+     "cell": [
+      9,
+      5
+     ]
+    }
+   ]
+  },
+  {
+   "co": "down",
+   "en": "Down",
+   "ga": "Co. An Dúin",
+   "province": "ulster",
+   "centre": [
+    54.35,
+    -5.95
+   ],
+   "neighbours": [
+    {
+     "to": "louth",
+     "bearing": 216,
+     "compass": "south-west",
+     "by": "water"
+    },
+    {
+     "to": "armagh",
+     "bearing": 263,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "antrim",
+     "bearing": 341,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "An Lorgain",
+     "en": "An Lorgain",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Lios na gCearrbhach",
+     "en": "Lios na gCearrbhach",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Caisleán Riabhach",
+     "en": "An Caisleán Riabhach",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Mhainistir Liath",
+     "en": "An Mhainistir Liath",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún Pádraig",
+     "en": "Dún Pádraig",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Cill Chaoil",
+     "en": "Cill Chaoil",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Manannaigh",
+     "en": "The Men of Mann",
+     "mottoGa": "Ón oileán, éirímid",
+     "mottoEn": "From the isle, we rise",
+     "why": "the coast facing Mann"
+    },
+    {
+     "ga": "Na Gabhláin",
+     "en": "The Branches",
+     "mottoGa": "Dochloíte",
+     "mottoEn": "Invincible",
+     "why": "Strangford’s many arms"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     2,
+     1,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     32,
+     0,
+     0,
+     0,
+     33,
+     1
+    ],
+    [
+     4,
+     4,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     4,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     0,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     35,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     1,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "louth",
+     "cell": [
+      9,
+      1
+     ]
+    },
+    {
+     "to": "armagh",
+     "cell": [
+      5,
+      0
+     ]
+    },
+    {
+     "to": "antrim",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "dublin",
+   "en": "Dublin",
+   "ga": "Co. Baile Átha Chliath",
+   "province": "leinster",
+   "centre": [
+    53.38,
+    -6.25
+   ],
+   "neighbours": [
+    {
+     "to": "wicklow",
+     "bearing": 193,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "kildare",
+     "bearing": 239,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "meath",
+     "bearing": 312,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Fionnghlas",
+     "en": "Finglas - Clear streamlet",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cluain Dolcáin",
+     "en": "Clondalkin - Dolcan's meadow",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cluain Tarbh",
+     "en": "Clontarf - Meadow of Bulls",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Binn Éadair",
+     "en": "Howth - Éadar's peak",
+     "marker": 33,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Dún Laoighaire",
+     "en": "Dun Laoghaire - Fort of High King Laoghaire Mac Néill",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Deilginis",
+     "en": "Dalkey - Thorn Island",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Francaigh",
+     "en": "The Rats",
+     "mottoGa": "Faoi thír, faoi shliabh, faoi shráid",
+     "mottoEn": "Under land, under mountain, under street",
+     "why": "“under street”"
+    },
+    {
+     "ga": "Tae Láidir",
+     "en": "Strong Tea",
+     "mottoGa": "Géillfidh tú, géillfidh tú,\ngéillfidh tú",
+     "mottoEn": "You will yield, you will yield,\nyou will yield",
+     "why": "Dublin humour"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     30,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     33,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     31,
+     32,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     34,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     35,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     7,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "wicklow",
+     "cell": [
+      9,
+      3
+     ]
+    },
+    {
+     "to": "kildare",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "fermanagh",
+   "en": "Fermanagh",
+   "ga": "Co. Fhear Manach",
+   "province": "ulster",
+   "centre": [
+    54.35,
+    -7.65
+   ],
+   "neighbours": [
+    {
+     "to": "tyrone",
+     "bearing": 46,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "monaghan",
+     "bearing": 115,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "cavan",
+     "bearing": 151,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "leitrim",
+     "bearing": 222,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "donegal",
+     "bearing": 340,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "An Garastún",
+     "en": "Garrison",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Paiteagó",
+     "en": "Picts: they spoke a language like the Welsh. The great test-word in place-names is Pet. Same as Gaelic 'Baile' which in-fact replaces it. - logainm.ie",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Eadarnaidh",
+     "en": "Ederney - middle place/place between",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Lios na Daróg",
+     "en": "Ringfort of the Oak",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Scriobach",
+     "en": "Scraping | Scribing",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Inis Ceithleann",
+     "en": "Isle of Cethleann the Prophet, wife of Balor the Smiter.",
+     "marker": 35,
+     "door": true,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Curacha",
+     "en": "The Currachs",
+     "mottoGa": "Ar aghaidh le chéile",
+     "mottoEn": "Onward together",
+     "why": "the lakes of Fermanagh"
+    },
+    {
+     "ga": "Lucht an Dorchadais",
+     "en": "Those of the Dark",
+     "mottoGa": "Taobh thall de gach solas",
+     "mottoEn": "Beyond all light",
+     "why": "Inis Ceithleann, Balor’s wife"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     31,
+     1,
+     1,
+     0,
+     32,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     0,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     30,
+     0,
+     0,
+     0,
+     0,
+     33,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     1,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     34,
+     0,
+     0,
+     1,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     0,
+     0,
+     35,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "tyrone",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "monaghan",
+     "cell": [
+      7,
+      9
+     ]
+    },
+    {
+     "to": "cavan",
+     "cell": [
+      9,
+      7
+     ]
+    },
+    {
+     "to": "leitrim",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "donegal",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "galway",
+   "en": "Galway",
+   "ga": "Co. na Gaillimhe",
+   "province": "connacht",
+   "centre": [
+    53.35,
+    -8.75
+   ],
+   "neighbours": [
+    {
+     "to": "roscommon",
+     "bearing": 37,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 102,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 144,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "clare",
+     "bearing": 197,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "mayo",
+     "bearing": 329,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Poll an Phúca",
+     "en": "Poll an Phúca",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Cill Cais",
+     "en": "Cill Cais",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Spidéal",
+     "en": "An Spidéal",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Teach Dóite",
+     "en": "An Teach Dóite",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Cheathrú Rua",
+     "en": "An Cheathrú Rua",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Inis Meáin",
+     "en": "Inis Meáin",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Craobh na hOíche",
+     "en": "The Night Branch",
+     "mottoGa": "Crónán na gealaí",
+     "mottoEn": "The murmur of the moon",
+     "why": "the moon over the west"
+    },
+    {
+     "ga": "Snaidhm na dTrí Rinn",
+     "en": "The Triquetra",
+     "mottoGa": "Is baolach dul i d’aonar",
+     "mottoEn": "It's dangerous to go alone",
+     "why": "the three Aran islands"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     1,
+     3,
+     3,
+     3,
+     2,
+     2,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     30,
+     0,
+     0,
+     9
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     0,
+     34,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     31,
+     0,
+     33,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     35,
+     0,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     1,
+     6,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     1,
+     1,
+     1,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ],
+    [
+     1,
+     1,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "roscommon",
+     "cell": [
+      0,
+      8
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      6,
+      9
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      9,
+      8
+     ]
+    },
+    {
+     "to": "clare",
+     "cell": [
+      9,
+      3
+     ]
+    },
+    {
+     "to": "mayo",
+     "cell": [
+      0,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "co": "kerry",
+   "en": "Kerry",
+   "ga": "Co. Chiarraí",
+   "province": "munster",
+   "centre": [
+    52.15,
+    -9.65
+   ],
+   "neighbours": [
+    {
+     "to": "limerick",
+     "bearing": 58,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "cork",
+     "bearing": 110,
+     "compass": "east",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cathair Saidhbhín",
+     "en": "Cathair Saidhbhín",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Daingean",
+     "en": "An Daingean",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Gleann na bPúcaí",
+     "en": "Gleann na bPúcaí",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Sliabh Mis",
+     "en": "Sliabh Mis",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Na Cruacha Dubha",
+     "en": "Na Cruacha Dubha",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An tSnaidhm",
+     "en": "An tSnaidhm",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Filí",
+     "en": "The Poets",
+     "mottoGa": "Is mé cnoc na filíochta",
+     "mottoEn": "I am the hill where poets walk",
+     "why": "the Kerry poets"
+    },
+    {
+     "ga": "Na Rógairí",
+     "en": "The Rogues",
+     "mottoGa": "Gan tíoránach, gan tráill",
+     "mottoEn": "No tyrant, no slave",
+     "why": "Gleann na bPúcaí"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     0,
+     0,
+     0,
+     33,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     31,
+     1,
+     32,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     34,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     1,
+     0,
+     35,
+     0,
+     1,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "limerick",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "cork",
+     "cell": [
+      6,
+      9
+     ]
+    }
+   ]
+  },
+  {
+   "co": "kildare",
+   "en": "Kildare",
+   "ga": "Co. Chill Dara",
+   "province": "leinster",
+   "centre": [
+    53.18,
+    -6.8
+   ],
+   "neighbours": [
+    {
+     "to": "meath",
+     "bearing": 8,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "dublin",
+     "bearing": 59,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "wicklow",
+     "bearing": 130,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "carlow",
+     "bearing": 182,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "laois",
+     "bearing": 235,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 272,
+     "compass": "west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cairbre",
+     "en": "Cairbre",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Na Solláin",
+     "en": "Na Solláin",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Fiodh Alúine",
+     "en": "Fiodh Alúine",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Maigh Nuad",
+     "en": "Maigh Nuad",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Currach",
+     "en": "An Currach",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Léim an Bhradáin",
+     "en": "Léim an Bhradáin",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Marcra",
+     "en": "The Horsemen",
+     "mottoGa": "Toirníonn crúba,\ntiteann ríochtaí",
+     "mottoEn": "Hooves thunder,\nkingdoms fall",
+     "why": "the Curragh"
+    },
+    {
+     "ga": "Na Dílseoirí",
+     "en": "The Steadfast",
+     "mottoGa": "Síordhílis",
+     "mottoEn": "Ever loyal",
+     "why": "Brigid’s fire, always kept"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     31,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     30,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     32,
+     0,
+     33,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     34,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     35,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "meath",
+     "cell": [
+      0,
+      5
+     ]
+    },
+    {
+     "to": "dublin",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "wicklow",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "carlow",
+     "cell": [
+      9,
+      4
+     ]
+    },
+    {
+     "to": "laois",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      4,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "kilkenny",
+   "en": "Kilkenny",
+   "ga": "Co. Chill Chainnigh",
+   "province": "leinster",
+   "centre": [
+    52.58,
+    -7.2
+   ],
+   "neighbours": [
+    {
+     "to": "carlow",
+     "bearing": 59,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "wexford",
+     "bearing": 108,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "waterford",
+     "bearing": 213,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 279,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "laois",
+     "bearing": 346,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Ghráinseach Chuffe",
+     "en": "Ghráinseach Chuffe",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Mhic Andáin",
+     "en": "Baile Mhic Andáin",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Bearna na Gaoithe",
+     "en": "Bearna na Gaoithe",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún Garbháin",
+     "en": "Dún Garbháin",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile an Phoill",
+     "en": "Baile an Phoill",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Sliabh Rua",
+     "en": "Sliabh Rua",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na hIaltóga",
+     "en": "The Bats",
+     "mottoGa": "Gan eagla",
+     "mottoEn": "Without fear",
+     "why": "the caves of Kilkenny"
+    },
+    {
+     "ga": "An Mhiodóg",
+     "en": "The Dagger",
+     "mottoGa": "An fhírinne lom",
+     "mottoEn": "The naked truth",
+     "why": "a city of plots"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     4,
+     30,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     31,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     32,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     33,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     34,
+     0,
+     0,
+     0,
+     0,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     35,
+     0,
+     0,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "carlow",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "wexford",
+     "cell": [
+      6,
+      9
+     ]
+    },
+    {
+     "to": "waterford",
+     "cell": [
+      9,
+      1
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      4,
+      0
+     ]
+    },
+    {
+     "to": "laois",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "laois",
+   "en": "Laois",
+   "ga": "Co. Laoise",
+   "province": "leinster",
+   "centre": [
+    52.95,
+    -7.35
+   ],
+   "neighbours": [
+    {
+     "to": "kildare",
+     "bearing": 55,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "carlow",
+     "bearing": 126,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "kilkenny",
+     "bearing": 166,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 228,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 329,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Eiréil",
+     "en": "Errill - bed or tomb",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Darú",
+     "en": "Durrow - the oak plain",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Baile Fionn",
+     "en": "Ballyfin - the town of finn",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Droichead Crom Abú",
+     "en": "Crom-a-Boo Bridge - Castle Crom forever bridge",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cúil an tSúdaire",
+     "en": "Portarlington - nook of the tanner'",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Buiríos Mór Osraí",
+     "en": "Borris-in-Ossory - Borrough of the ancient Kingdom of Osraige",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Daingean",
+     "en": "The Stronghold",
+     "mottoGa": "Go daingean",
+     "mottoEn": "Stand firm",
+     "why": "the Rock of Dunamase"
+    },
+    {
+     "ga": "Na Gnúsacháin",
+     "en": "The Grunters",
+     "mottoGa": "Is mé fraoch an toirc",
+     "mottoEn": "I am the fury of the boar",
+     "why": "boar country"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     9
+    ],
+    [
+     4,
+     30,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     33,
+     0,
+     0,
+     0,
+     35,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     34,
+     0,
+     6,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "kildare",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "carlow",
+     "cell": [
+      8,
+      9
+     ]
+    },
+    {
+     "to": "kilkenny",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      0,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "co": "leitrim",
+   "en": "Leitrim",
+   "ga": "Co. na Liatroma",
+   "province": "connacht",
+   "centre": [
+    54.12,
+    -8.0
+   ],
+   "neighbours": [
+    {
+     "to": "donegal",
+     "bearing": 0,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "fermanagh",
+     "bearing": 42,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "cavan",
+     "bearing": 109,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "longford",
+     "bearing": 156,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 202,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "sligo",
+     "bearing": 275,
+     "compass": "west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Gleann Éada",
+     "en": "Glenade - lake of the glen of jealousy",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Garbhach",
+     "en": "Garvagh - rough land",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Droim Seanbhó",
+     "en": "Drumshanbo  - ridge of the huts",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Achadh na Síleann",
+     "en": "Aughnasheelan - Field of the fairy",
+     "marker": 33,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Fíonach",
+     "en": "Feenagh - wooded place",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dromad",
+     "en": "Dromod - long ridge",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Conách",
+     "en": "The Prosperous",
+     "mottoGa": "An t-éad mar choróin",
+     "mottoEn": "Envy for a crown",
+     "why": "Gleann Éada, the glen of jealousy"
+    },
+    {
+     "ga": "Na Cleasaithe",
+     "en": "The Tricksters",
+     "mottoGa": "Seift agus seans",
+     "mottoEn": "Trick and chance",
+     "why": "Achadh na Síleann"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     3,
+     0,
+     0,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9
+    ],
+    [
+     1,
+     3,
+     30,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     1,
+     3,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     0,
+     31,
+     0,
+     0,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     5,
+     32,
+     1,
+     0,
+     33,
+     8,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     34,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     35,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "donegal",
+     "cell": [
+      0,
+      4
+     ]
+    },
+    {
+     "to": "fermanagh",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "cavan",
+     "cell": [
+      6,
+      9
+     ]
+    },
+    {
+     "to": "longford",
+     "cell": [
+      9,
+      7
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      9,
+      2
+     ]
+    },
+    {
+     "to": "sligo",
+     "cell": [
+      4,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "limerick",
+   "en": "Limerick",
+   "ga": "Co. Luimnach",
+   "province": "munster",
+   "centre": [
+    52.5,
+    -8.75
+   ],
+   "neighbours": [
+    {
+     "to": "tipperary",
+     "bearing": 74,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "cork",
+     "bearing": 180,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "kerry",
+     "bearing": 238,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "clare",
+     "bearing": 337,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Pailis Chaonraí",
+     "en": "Pallaskenry - the palisaded Castle of Kenry",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Poll an Phúca",
+     "en": "Poulaphouca - the Pooka's hole",
+     "marker": 31,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Caisleán Uí Chonaill",
+     "en": "Castleconnell - O Connell's Castle",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Áth na bhFuinseog",
+     "en": "Ford of the Ash",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Fheothanach",
+     "en": "An Fheothanach",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Brú Rí",
+     "en": "Bruree - Abode of kings",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Loirgneánaigh",
+     "en": "The Well-Greaved",
+     "mottoGa": "Cosanta, gan géilleadh",
+     "mottoEn": "Armoured, unyielding",
+     "why": "castles on the Shannon"
+    },
+    {
+     "ga": "Na Fillte",
+     "en": "The Returned",
+     "mottoGa": "Ceanglaíonn an chinniúint",
+     "mottoEn": "Fate binds",
+     "why": "Lough Gur, where the sleeper returns"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     2,
+     2,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     30,
+     0,
+     31,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     32,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     35,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     33,
+     0,
+     34,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     6,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "tipperary",
+     "cell": [
+      3,
+      9
+     ]
+    },
+    {
+     "to": "cork",
+     "cell": [
+      9,
+      5
+     ]
+    },
+    {
+     "to": "kerry",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "clare",
+     "cell": [
+      0,
+      6
+     ]
+    }
+   ]
+  },
+  {
+   "co": "longford",
+   "en": "Longford",
+   "ga": "Co. An Longfoirt",
+   "province": "leinster",
+   "centre": [
+    53.73,
+    -7.7
+   ],
+   "neighbours": [
+    {
+     "to": "cavan",
+     "bearing": 43,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "westmeath",
+     "bearing": 141,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 274,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "leitrim",
+     "bearing": 336,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "An Lios Breac",
+     "en": "Lisbrack - the speckled ringfort",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Meathais Troim",
+     "en": "Mostrim - frontier of the elder tree",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Gránard",
+     "en": "Granard - possibly meaning sun height or hill of the sun.",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cluain Dá Ráth",
+     "en": "Cloondara - the meadow of two ringforts",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Maigh Dumha",
+     "en": "Moydow - plain of the mound",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "An Charraig Bhuí",
+     "en": "Carrigboy - the yellow stone",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Lucht na nUpthaí",
+     "en": "The Enchanted Ones",
+     "mottoGa": "Dán Fáil",
+     "mottoEn": "The song of destiny",
+     "why": "Brí Léith, Midir’s sídh"
+    },
+    {
+     "ga": "Na Séamhasaigh",
+     "en": "The Fortunate",
+     "mottoGa": "Ádh inár gcaipíní",
+     "mottoEn": "By the luck in our caps",
+     "why": "a lucky county"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     31,
+     0,
+     0,
+     32,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     4,
+     4,
+     33,
+     0,
+     34,
+     0,
+     35,
+     0,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "cavan",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "westmeath",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      4,
+      0
+     ]
+    },
+    {
+     "to": "leitrim",
+     "cell": [
+      0,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "co": "louth",
+   "en": "Louth",
+   "ga": "Co. An Lú",
+   "province": "leinster",
+   "centre": [
+    53.92,
+    -6.48
+   ],
+   "neighbours": [
+    {
+     "to": "down",
+     "bearing": 36,
+     "compass": "north-east",
+     "by": "water"
+    },
+    {
+     "to": "meath",
+     "bearing": 203,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "monaghan",
+     "bearing": 313,
+     "compass": "north-west",
+     "by": "land"
+    },
+    {
+     "to": "armagh",
+     "bearing": 348,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Dún Dealgan",
+     "en": "Dundalk - fort of Dealgan, Fir Bolg Chieftain",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Grianfort",
+     "en": "Greenore - the sun fort",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Ceann Chlochair",
+     "en": "Clogherhead - rocky headland",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Átha Fhirdia",
+     "en": "Ardee - te ford of Ferdi",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Poll an Phúca",
+     "en": "Puckstown - hole of the Pooka",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Baile an Ghearlánaigh",
+     "en": "Castlebellingham - Gernon’s Town",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Dásachtaigh",
+     "en": "The Fury",
+     "mottoGa": "Is mé uaigh gach dóchais dhíomhaoin",
+     "mottoEn": "I am the grave of every vain hope",
+     "why": "Dún Dealgan, Cú Chulainn’s fury"
+    },
+    {
+     "ga": "Na Geasaithe",
+     "en": "The Spellbound",
+     "mottoGa": "Neart agus onóir",
+     "mottoEn": "Strength and honour",
+     "why": "Cú Chulainn’s geasa"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     1,
+     1,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     32,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     30,
+     0,
+     31,
+     0,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     34,
+     0,
+     35,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     33,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "down",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      9,
+      2
+     ]
+    },
+    {
+     "to": "monaghan",
+     "cell": [
+      0,
+      0
+     ]
+    },
+    {
+     "to": "armagh",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "mayo",
+   "en": "Mayo",
+   "ga": "Co. Mhaigh Eo",
+   "province": "connacht",
+   "centre": [
+    53.9,
+    -9.3
+   ],
+   "neighbours": [
+    {
+     "to": "sligo",
+     "bearing": 57,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 104,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "galway",
+     "bearing": 149,
+     "compass": "south-east",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cill Ala",
+     "en": "Cill Ala",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Caisleán an Bharraigh",
+     "en": "Caisleán an Bharraigh",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Ui Fhiacáin",
+     "en": "Baile Ui Fhiacáin",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Caoláire Rua",
+     "en": "An Caoláire Rua",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Lios an tSamhaidh",
+     "en": "Lios an tSamhaidh",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "An Éill",
+     "en": "An Éill",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Fánaithe",
+     "en": "The Wanderers",
+     "mottoGa": "Is fánach an áit...",
+     "mottoEn": "Strange are the places...",
+     "why": "the wide west"
+    },
+    {
+     "ga": "Na Foghlaithe",
+     "en": "The Marauders",
+     "mottoGa": "Foghlaím,\nfoghlaíonn tú,\nfoghlaíonn sé nó sí...",
+     "mottoEn": "I plunder, you plunder,\nhe or she plunders...",
+     "why": "Gráinne Mhaol’s sea"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     30,
+     0,
+     9
+    ],
+    [
+     1,
+     0,
+     0,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     32,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     1,
+     1,
+     1,
+     0,
+     34,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     1,
+     5,
+     5,
+     33,
+     0,
+     0,
+     0,
+     35,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "sligo",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      6,
+      9
+     ]
+    },
+    {
+     "to": "galway",
+     "cell": [
+      9,
+      8
+     ]
+    }
+   ]
+  },
+  {
+   "co": "meath",
+   "en": "Meath",
+   "ga": "Co. Na Mí",
+   "province": "leinster",
+   "centre": [
+    53.62,
+    -6.7
+   ],
+   "neighbours": [
+    {
+     "to": "louth",
+     "bearing": 23,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "dublin",
+     "bearing": 132,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "kildare",
+     "bearing": 188,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 232,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "westmeath",
+     "bearing": 261,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "cavan",
+     "bearing": 315,
+     "compass": "north-west",
+     "by": "land"
+    },
+    {
+     "to": "monaghan",
+     "bearing": 347,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "An Uaimh",
+     "en": "Navan - the cave",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Ráth Chairn",
+     "en": "Rathcairn -  ring-fort pile of rocks",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cill Bhríde",
+     "en": "Kilbride - Church of St Bridget",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Teamhair",
+     "en": "sacred space, elevated place",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Buaile na Bréachmhaí",
+     "en": "Ballinabrackey - Summer pasture of the wolf-plain",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Tigh na Sióg",
+     "en": "Fairyhouse",
+     "marker": 35,
+     "door": true,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Ríthe",
+     "en": "The Kings",
+     "mottoGa": "Ríthe an chomhraic",
+     "mottoEn": "Kings of the battlefield",
+     "why": "Teamhair"
+    },
+    {
+     "ga": "Na Póga",
+     "en": "The Kisses",
+     "mottoGa": "An leoithne lách",
+     "mottoEn": "The gentle breeze",
+     "why": "the Brú, Aonghus’s kisses"
+    }
+   ],
+   "grid": [
+    [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     2,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     30,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     31,
+     0,
+     0,
+     33,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     35,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     0,
+     34,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     6,
+     6,
+     7,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "louth",
+     "cell": [
+      0,
+      7
+     ]
+    },
+    {
+     "to": "dublin",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "kildare",
+     "cell": [
+      9,
+      4
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "westmeath",
+     "cell": [
+      5,
+      0
+     ]
+    },
+    {
+     "to": "cavan",
+     "cell": [
+      0,
+      0
+     ]
+    },
+    {
+     "to": "monaghan",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "monaghan",
+   "en": "Monaghan",
+   "ga": "Co. Mhuineacháin",
+   "province": "ulster",
+   "centre": [
+    54.15,
+    -6.9
+   ],
+   "neighbours": [
+    {
+     "to": "armagh",
+     "bearing": 47,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "louth",
+     "bearing": 133,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "meath",
+     "bearing": 167,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "cavan",
+     "bearing": 234,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "fermanagh",
+     "bearing": 295,
+     "compass": "north-west",
+     "by": "land"
+    },
+    {
+     "to": "tyrone",
+     "bearing": 339,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Scairbh na gCaorach",
+     "en": "Scairbh na gCaorach",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cluain Eois",
+     "en": "Cluain Eois",
+     "marker": 31,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Einistir Bhuithe",
+     "en": "Einistir Bhuithe",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Teach an Scotaigh",
+     "en": "Teach an Scotaigh",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Crícheán Rua",
+     "en": "Crícheán Rua",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Carraig Mhachaire Rois",
+     "en": "Carraig Mhachaire Rois",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Craobh an Daoil Dhuibh",
+     "en": "The Branch of the Black Beetle",
+     "mottoGa": "Aithníonn ciaróg ciaróg eile",
+     "mottoEn": "It takes one to know one",
+     "why": "drumlin country"
+    },
+    {
+     "ga": "Na Corráin",
+     "en": "The Sickles",
+     "mottoGa": "Ní neart go cur le chéile",
+     "mottoEn": "There is no strength without unity",
+     "why": "small fields"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     30,
+     0,
+     0,
+     9,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     8
+    ],
+    [
+     4,
+     33,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     35,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     5,
+     6,
+     7,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "armagh",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "louth",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "cavan",
+     "cell": [
+      8,
+      0
+     ]
+    },
+    {
+     "to": "fermanagh",
+     "cell": [
+      2,
+      0
+     ]
+    },
+    {
+     "to": "tyrone",
+     "cell": [
+      0,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "co": "offaly",
+   "en": "Offaly",
+   "ga": "Co. Uíbh Fhailí",
+   "province": "leinster",
+   "centre": [
+    53.2,
+    -7.6
+   ],
+   "neighbours": [
+    {
+     "to": "westmeath",
+     "bearing": 14,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "meath",
+     "bearing": 52,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "kildare",
+     "bearing": 92,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "laois",
+     "bearing": 149,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 198,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "galway",
+     "bearing": 282,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 325,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cluain Mhic Nóis",
+     "en": "Clonmacnoise  - Meadow of the Sons of Nós",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Éadan Doire",
+     "en": "Edenderry - Hill-brow of the oak wood",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Biorra",
+     "en": "Birr - plain of water",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cionn Eitigh",
+     "en": "The head of Princess Eitigh ( Kinnitty )",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Ráth Iomgháin",
+     "en": "Iomgháin's ring-fort ( Rathangan )",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Suí an Róin",
+     "en": "Seat of the seal ( Shinrone )",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Luibheolaithe",
+     "en": "The Herbalists",
+     "mottoGa": "Leigheas an dúlra",
+     "mottoEn": "Nature's cure",
+     "why": "the bog and Cluain Mhic Nóis"
+    },
+    {
+     "ga": "Na Forairí",
+     "en": "The Vigilant",
+     "mottoGa": "Ar faire fós",
+     "mottoEn": "Still on watch",
+     "why": "watch on the edge of the bog"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     31,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     33,
+     7,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     0,
+     35,
+     6,
+     6,
+     7,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "westmeath",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      1,
+      9
+     ]
+    },
+    {
+     "to": "kildare",
+     "cell": [
+      5,
+      9
+     ]
+    },
+    {
+     "to": "laois",
+     "cell": [
+      9,
+      8
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      9,
+      3
+     ]
+    },
+    {
+     "to": "galway",
+     "cell": [
+      3,
+      0
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      0,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "co": "roscommon",
+   "en": "Roscommon",
+   "ga": "Co. Ros Comáin",
+   "province": "connacht",
+   "centre": [
+    53.75,
+    -8.25
+   ],
+   "neighbours": [
+    {
+     "to": "leitrim",
+     "bearing": 22,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "longford",
+     "bearing": 94,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "westmeath",
+     "bearing": 113,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 145,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "galway",
+     "bearing": 217,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "mayo",
+     "bearing": 284,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "sligo",
+     "bearing": 330,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Cluain Fada",
+     "en": "Cloodfad - long meadow",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile an Tobair",
+     "en": "Baile an Tobair",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Loch Bó Finne",
+     "en": "Lough Bofin - lake of the blonde cow",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Scramóg",
+     "en": "Scramóg",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Loch Bó Dearge",
+     "en": "Lough Boderg - lake of the red cow",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Corr na Fola",
+     "en": "Cornafulla - hill of the blood",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Craobh na gCat",
+     "en": "The Branch of the Cats",
+     "mottoGa": "Uair as naoi n-uaire",
+     "mottoEn": "Once in nine times",
+     "why": "Cruachan"
+    },
+    {
+     "ga": "An Bhó",
+     "en": "The Cow",
+     "mottoGa": "Saibhreas ríthe,\nsaibhreas clainne",
+     "mottoEn": "Wealth of kings,\nwealth of the clan",
+     "why": "Loch Bó Finne, Loch Bó Dearge"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     32,
+     9,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     30,
+     0,
+     0,
+     0,
+     33,
+     0,
+     34,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     8,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     5,
+     0,
+     0,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     5,
+     35,
+     0,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "leitrim",
+     "cell": [
+      0,
+      7
+     ]
+    },
+    {
+     "to": "longford",
+     "cell": [
+      5,
+      9
+     ]
+    },
+    {
+     "to": "westmeath",
+     "cell": [
+      7,
+      9
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      9,
+      8
+     ]
+    },
+    {
+     "to": "galway",
+     "cell": [
+      9,
+      1
+     ]
+    },
+    {
+     "to": "mayo",
+     "cell": [
+      3,
+      0
+     ]
+    },
+    {
+     "to": "sligo",
+     "cell": [
+      0,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "co": "sligo",
+   "en": "Sligo",
+   "ga": "Co. Shligigh",
+   "province": "connacht",
+   "centre": [
+    54.15,
+    -8.65
+   ],
+   "neighbours": [
+    {
+     "to": "leitrim",
+     "bearing": 95,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 150,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "mayo",
+     "bearing": 237,
+     "compass": "south-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Béal Átha na gCarraigíní",
+     "en": "Bellanagarrigeeny - Ford of the flagstone",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Mullach Mór",
+     "en": "Mullaghmore - the great summit",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Uaimheanna na Céise",
+     "en": "Keshcorrn Caves",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Machaire Eabha",
+     "en": "Maugherow - the plain of Eabha",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Uí Dhálaigh",
+     "en": "Ballydawley - home of the O Dalys",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Tobar an Choire",
+     "en": "Tobercurry - well of the cauldron",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Coire",
+     "en": "The Cauldron",
+     "mottoGa": "Neart",
+     "mottoEn": "Strength; plenty",
+     "why": "Tobar an Choire"
+    },
+    {
+     "ga": "Lucht na bPluaiseanna",
+     "en": "Those of the Caverns",
+     "mottoGa": "Níl cead labhairt faoi",
+     "mottoEn": "It is forbidden to speak beneath it",
+     "why": "the caves of Céis Chorainn"
+    }
+   ],
+   "grid": [
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     1,
+     1,
+     1,
+     1,
+     1,
+     33,
+     0,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     1,
+     1,
+     0,
+     30,
+     0,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     0,
+     34,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     31,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     0,
+     0,
+     35,
+     0,
+     0,
+     0,
+     32,
+     0,
+     7
+    ],
+    [
+     5,
+     1,
+     0,
+     0,
+     6,
+     0,
+     0,
+     0,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "leitrim",
+     "cell": [
+      5,
+      9
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      9,
+      7
+     ]
+    },
+    {
+     "to": "mayo",
+     "cell": [
+      8,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "tipperary",
+   "en": "Tipperary",
+   "ga": "Co. Tiobraid Árann",
+   "province": "munster",
+   "centre": [
+    52.65,
+    -7.9
+   ],
+   "neighbours": [
+    {
+     "to": "offaly",
+     "bearing": 18,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "laois",
+     "bearing": 48,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "kilkenny",
+     "bearing": 99,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "waterford",
+     "bearing": 158,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "cork",
+     "bearing": 217,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "limerick",
+     "bearing": 254,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "clare",
+     "bearing": 288,
+     "compass": "west",
+     "by": "water"
+    },
+    {
+     "to": "galway",
+     "bearing": 324,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Ros Cré",
+     "en": "Roscrea - Crea's wood",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Durlas",
+     "en": "Thurles - Durlas Éile - strong fort of the Eli people",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Faiche Ró",
+     "en": "Faiche Ro - Rosegreen",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Sliabh na mBan",
+     "en": "Slievenamo - The Women's mountain",
+     "marker": 33,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Cluain Meala",
+     "en": "Clonmel - honey meadow",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Tigh na Naoi Míle",
+     "en": "Ninemilehouse - nine miles from Glenbower",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Beadaithe",
+     "en": "The Lovers of Dainties",
+     "mottoGa": "Is fearr a thuigeann an ghé",
+     "mottoEn": "The goose knows best",
+     "why": "Cluain Meala, the honey meadow"
+    },
+    {
+     "ga": "Na Banríonacha",
+     "en": "The Queens",
+     "mottoGa": "Is mé banríon gach coirceoige",
+     "mottoEn": "I am the queen of every hive",
+     "why": "Sliabh na mBan"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     30,
+     9,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     4,
+     4,
+     4,
+     33,
+     0,
+     31,
+     0,
+     8,
+     8
+    ],
+    [
+     5,
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     32,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     34,
+     0,
+     35,
+     7,
+     7,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "offaly",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "laois",
+     "cell": [
+      0,
+      9
+     ]
+    },
+    {
+     "to": "kilkenny",
+     "cell": [
+      5,
+      9
+     ]
+    },
+    {
+     "to": "waterford",
+     "cell": [
+      9,
+      7
+     ]
+    },
+    {
+     "to": "cork",
+     "cell": [
+      9,
+      1
+     ]
+    },
+    {
+     "to": "limerick",
+     "cell": [
+      6,
+      0
+     ]
+    },
+    {
+     "to": "clare",
+     "cell": [
+      3,
+      0
+     ]
+    },
+    {
+     "to": "galway",
+     "cell": [
+      0,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "co": "tyrone",
+   "en": "Tyrone",
+   "ga": "Co. Thír Eoghain",
+   "province": "ulster",
+   "centre": [
+    54.6,
+    -7.2
+   ],
+   "neighbours": [
+    {
+     "to": "derry",
+     "bearing": 32,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "antrim",
+     "bearing": 66,
+     "compass": "north-east",
+     "by": "water"
+    },
+    {
+     "to": "armagh",
+     "bearing": 132,
+     "compass": "south-east",
+     "by": "land"
+    },
+    {
+     "to": "monaghan",
+     "bearing": 159,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "fermanagh",
+     "bearing": 226,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "donegal",
+     "bearing": 305,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Caisleán na Deirge",
+     "en": "Castlederg - Castle on the red river",
+     "marker": 30,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Baile Mhic Gofraidh",
+     "en": "Ballymagorry - MacGorry's townland Norse",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Ómaigh",
+     "en": "Omagh - the virgin plain",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Seisceann Siúil",
+     "en": "Sheskinshule - the moving bog",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Chorr Chríochach",
+     "en": "Cookstown - The hollow hill/boundry",
+     "marker": 34,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Dún Geanainn",
+     "en": "Dungannon - Gannon's stronghold (Makers of glass since ancient times)",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Treibh na Tua Órga",
+     "en": "The Tribe of the Golden Axe",
+     "mottoGa": "Cruinneas",
+     "mottoEn": "Accuracy",
+     "why": "the O’Neills’ gold"
+    },
+    {
+     "ga": "Na Lannairí",
+     "en": "The Lancer-Fencers",
+     "mottoGa": "Buail leis na haingil",
+     "mottoEn": "Strike with the angels",
+     "why": "Dún Geanainn"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     31,
+     0,
+     0,
+     9,
+     9,
+     9
+    ],
+    [
+     4,
+     0,
+     30,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     32,
+     0,
+     33,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     34,
+     8
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     35,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     0,
+     0,
+     0,
+     0,
+     0,
+     7
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "derry",
+     "cell": [
+      0,
+      8
+     ]
+    },
+    {
+     "to": "antrim",
+     "cell": [
+      2,
+      9
+     ]
+    },
+    {
+     "to": "armagh",
+     "cell": [
+      9,
+      9
+     ]
+    },
+    {
+     "to": "monaghan",
+     "cell": [
+      9,
+      6
+     ]
+    },
+    {
+     "to": "fermanagh",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "donegal",
+     "cell": [
+      1,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "waterford",
+   "en": "Waterford",
+   "ga": "Co. Phort Láirge",
+   "province": "munster",
+   "centre": [
+    52.2,
+    -7.6
+   ],
+   "neighbours": [
+    {
+     "to": "kilkenny",
+     "bearing": 33,
+     "compass": "north-east",
+     "by": "land"
+    },
+    {
+     "to": "wexford",
+     "bearing": 69,
+     "compass": "east",
+     "by": "water"
+    },
+    {
+     "to": "cork",
+     "bearing": 251,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "tipperary",
+     "bearing": 338,
+     "compass": "north",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Sléibhte an Chomaraigh",
+     "en": "Sléibhte an Chomaraigh",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "An Baile Dubh",
+     "en": "the black town",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Tullach an Iarainn",
+     "en": "Tullach an Iarainn",
+     "marker": 32,
+     "door": false,
+     "iron": true
+    },
+    {
+     "ga": "Cluain Fhia",
+     "en": "Cluain Fhia",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún Garbhán",
+     "en": "Dungarvan - Garbhann's Fort",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cill Mhíodáin",
+     "en": "Cill Mhíodáin",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Fuilchíocraigh",
+     "en": "The Bloodthirsty",
+     "mottoGa": "Ón bhfuil, misneach",
+     "mottoEn": "From the blood, courage",
+     "why": "the Viking city"
+    },
+    {
+     "ga": "Na hArgthóirí",
+     "en": "The Plunderers",
+     "mottoGa": "Tóg gach rud.\nFág tada.",
+     "mottoEn": "Take everything.\nLeave nothing.",
+     "why": "the Viking city"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     30,
+     0,
+     0,
+     0,
+     9,
+     1
+    ],
+    [
+     4,
+     0,
+     31,
+     0,
+     0,
+     0,
+     0,
+     0,
+     35,
+     0
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     4,
+     32,
+     0,
+     0,
+     34,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     33,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     1,
+     0,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    [
+     5,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "kilkenny",
+     "cell": [
+      0,
+      8
+     ]
+    },
+    {
+     "to": "wexford",
+     "cell": [
+      3,
+      9
+     ]
+    },
+    {
+     "to": "cork",
+     "cell": [
+      6,
+      0
+     ]
+    },
+    {
+     "to": "tipperary",
+     "cell": [
+      0,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "co": "westmeath",
+   "en": "Westmeath",
+   "ga": "Co. Na hIarmhí",
+   "province": "leinster",
+   "centre": [
+    53.55,
+    -7.45
+   ],
+   "neighbours": [
+    {
+     "to": "cavan",
+     "bearing": 12,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "meath",
+     "bearing": 81,
+     "compass": "east",
+     "by": "land"
+    },
+    {
+     "to": "offaly",
+     "bearing": 194,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "roscommon",
+     "bearing": 293,
+     "compass": "north-west",
+     "by": "land"
+    },
+    {
+     "to": "longford",
+     "bearing": 321,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Baile na gCailleach",
+     "en": "Collinstown - town of the veiled women or town of the hags",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Ráth Fhearna",
+     "en": "Raharney - Fearna's ringfort",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Tulaigh an Eallaigh",
+     "en": "Tullynally - hillock of the swans",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Na Colúir",
+     "en": "Corlis - the pidgeons",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Cill Bheagáin",
+     "en": "Kilbeggan - church of Bécán, distinguished Irish Saint",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Muileann gCearr",
+     "en": "Mullingar - the crooked mill",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Na Draoithe",
+     "en": "The Druids",
+     "mottoGa": "Eagna na gaoithe",
+     "mottoEn": "The wisdom of the wind",
+     "why": "Uisneach, the centre"
+    },
+    {
+     "ga": "Na hEalaí",
+     "en": "The Swans",
+     "mottoGa": "Is mé brí an dána",
+     "mottoEn": "I am the word of art",
+     "why": "Tulaigh an Eallaigh; Lir’s children on Derravaragh"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     2,
+     2,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     30,
+     9,
+     9,
+     9
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     31,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     33,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     8
+    ],
+    [
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     35,
+     0,
+     7,
+     7
+    ],
+    [
+     6,
+     6,
+     6,
+     6,
+     34,
+     0,
+     7,
+     7,
+     7,
+     7
+    ],
+    [
+     6,
+     6,
+     6,
+     6,
+     6,
+     6,
+     6,
+     7,
+     7,
+     7
+    ]
+   ],
+   "exits": [
+    {
+     "to": "cavan",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "meath",
+     "cell": [
+      4,
+      9
+     ]
+    },
+    {
+     "to": "offaly",
+     "cell": [
+      9,
+      3
+     ]
+    },
+    {
+     "to": "roscommon",
+     "cell": [
+      2,
+      0
+     ]
+    },
+    {
+     "to": "longford",
+     "cell": [
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "co": "wexford",
+   "en": "Wexford",
+   "ga": "Co. Loch Garman",
+   "province": "leinster",
+   "centre": [
+    52.45,
+    -6.55
+   ],
+   "neighbours": [
+    {
+     "to": "wicklow",
+     "bearing": 10,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "waterford",
+     "bearing": 249,
+     "compass": "west",
+     "by": "water"
+    },
+    {
+     "to": "kilkenny",
+     "bearing": 288,
+     "compass": "west",
+     "by": "land"
+    },
+    {
+     "to": "carlow",
+     "bearing": 329,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Coill an Iarainn",
+     "en": "Killinierin - Forest of Iron",
+     "marker": 30,
+     "door": false,
+     "iron": true
+    },
+    {
+     "ga": "Inis Córthaidh",
+     "en": "Inis Córthaidh",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Poll an Phúca",
+     "en": "Pollaphuca - Hole of the Pooka",
+     "marker": 32,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Maolán na nGabhar",
+     "en": "Mullinagore - The Grazing of Goats",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An Abhainn Dubh",
+     "en": "Owenduff  - The Black River",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún Chormaic",
+     "en": "Duncormick - Cormac's fort",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "An Dragan",
+     "en": "The Dragon",
+     "mottoGa": "Faoi lasair Cymru",
+     "mottoEn": "By Cymru's flame",
+     "why": "the coast facing Wales"
+    },
+    {
+     "ga": "Clann na Ceárta",
+     "en": "The Kin of the Forge",
+     "mottoGa": "Iarann in aghaidh iarainn",
+     "mottoEn": "Iron against iron",
+     "why": "Coill an Iarainn, the iron wood"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     0,
+     30,
+     0,
+     0,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     32,
+     0,
+     31,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     33,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     34,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     1,
+     0,
+     0,
+     0,
+     35,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "wicklow",
+     "cell": [
+      0,
+      5
+     ]
+    },
+    {
+     "to": "waterford",
+     "cell": [
+      6,
+      0
+     ]
+    },
+    {
+     "to": "kilkenny",
+     "cell": [
+      3,
+      0
+     ]
+    },
+    {
+     "to": "carlow",
+     "cell": [
+      0,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "co": "wicklow",
+   "en": "Wicklow",
+   "ga": "Co. Chill Mhantáin",
+   "province": "leinster",
+   "centre": [
+    52.98,
+    -6.4
+   ],
+   "neighbours": [
+    {
+     "to": "dublin",
+     "bearing": 13,
+     "compass": "north",
+     "by": "land"
+    },
+    {
+     "to": "wexford",
+     "bearing": 190,
+     "compass": "south",
+     "by": "land"
+    },
+    {
+     "to": "carlow",
+     "bearing": 224,
+     "compass": "south-west",
+     "by": "land"
+    },
+    {
+     "to": "kildare",
+     "bearing": 310,
+     "compass": "north-west",
+     "by": "land"
+    }
+   ],
+   "places": [
+    {
+     "ga": "Poll an Phúca",
+     "en": "Hole of the Pooka",
+     "marker": 30,
+     "door": true,
+     "iron": false
+    },
+    {
+     "ga": "Na Clocha Liatha",
+     "en": "The grey stones",
+     "marker": 31,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Siol Éalaigh",
+     "en": "Shillelagh - thonged willow",
+     "marker": 32,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Dún Ard",
+     "en": "Donard - high fortress",
+     "marker": 33,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "An tInbhear Mór",
+     "en": "Arklow - meadow of Arnkell. The Great Estuary",
+     "marker": 34,
+     "door": false,
+     "iron": false
+    },
+    {
+     "ga": "Abhóca",
+     "en": "From Oboka, a river in Ptolemy's Geography",
+     "marker": 35,
+     "door": false,
+     "iron": false
+    }
+   ],
+   "bands": [
+    {
+     "ga": "Sail Éille",
+     "en": "The Shillelagh",
+     "mottoGa": "Bata agus bóthar",
+     "mottoEn": "Stick and road",
+     "why": "Shillelagh itself"
+    },
+    {
+     "ga": "Faoi Cheilt na nDuilleog",
+     "en": "Hidden by the Leaves",
+     "mottoGa": "Faoin duilliúr,\nonóir",
+     "mottoEn": "Under the leaves,\nhonour",
+     "why": "the Wicklow woods"
+    }
+   ],
+   "grid": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     2,
+     2,
+     9,
+     9,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     30,
+     0,
+     0,
+     0,
+     31,
+     0,
+     1
+    ],
+    [
+     3,
+     3,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     4,
+     0,
+     32,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     4,
+     33,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     4,
+     4,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     34,
+     35,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     1,
+     1
+    ],
+    [
+     5,
+     5,
+     5,
+     6,
+     6,
+     6,
+     6,
+     7,
+     1,
+     1
+    ]
+   ],
+   "exits": [
+    {
+     "to": "dublin",
+     "cell": [
+      0,
+      6
+     ]
+    },
+    {
+     "to": "wexford",
+     "cell": [
+      9,
+      4
+     ]
+    },
+    {
+     "to": "carlow",
+     "cell": [
+      9,
+      0
+     ]
+    },
+    {
+     "to": "kildare",
+     "cell": [
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "borders": [
+  {
+   "a": "donegal",
+   "b": "derry",
+   "by": "land"
+  },
+  {
+   "a": "donegal",
+   "b": "tyrone",
+   "by": "land"
+  },
+  {
+   "a": "donegal",
+   "b": "fermanagh",
+   "by": "land"
+  },
+  {
+   "a": "donegal",
+   "b": "leitrim",
+   "by": "land"
+  },
+  {
+   "a": "derry",
+   "b": "tyrone",
+   "by": "land"
+  },
+  {
+   "a": "derry",
+   "b": "antrim",
+   "by": "land"
+  },
+  {
+   "a": "antrim",
+   "b": "down",
+   "by": "land"
+  },
+  {
+   "a": "antrim",
+   "b": "tyrone",
+   "by": "water"
+  },
+  {
+   "a": "tyrone",
+   "b": "fermanagh",
+   "by": "land"
+  },
+  {
+   "a": "tyrone",
+   "b": "monaghan",
+   "by": "land"
+  },
+  {
+   "a": "tyrone",
+   "b": "armagh",
+   "by": "land"
+  },
+  {
+   "a": "fermanagh",
+   "b": "monaghan",
+   "by": "land"
+  },
+  {
+   "a": "fermanagh",
+   "b": "cavan",
+   "by": "land"
+  },
+  {
+   "a": "fermanagh",
+   "b": "leitrim",
+   "by": "land"
+  },
+  {
+   "a": "armagh",
+   "b": "down",
+   "by": "land"
+  },
+  {
+   "a": "armagh",
+   "b": "louth",
+   "by": "land"
+  },
+  {
+   "a": "armagh",
+   "b": "monaghan",
+   "by": "land"
+  },
+  {
+   "a": "down",
+   "b": "louth",
+   "by": "water"
+  },
+  {
+   "a": "monaghan",
+   "b": "cavan",
+   "by": "land"
+  },
+  {
+   "a": "monaghan",
+   "b": "meath",
+   "by": "land"
+  },
+  {
+   "a": "monaghan",
+   "b": "louth",
+   "by": "land"
+  },
+  {
+   "a": "cavan",
+   "b": "meath",
+   "by": "land"
+  },
+  {
+   "a": "cavan",
+   "b": "westmeath",
+   "by": "land"
+  },
+  {
+   "a": "cavan",
+   "b": "longford",
+   "by": "land"
+  },
+  {
+   "a": "cavan",
+   "b": "leitrim",
+   "by": "land"
+  },
+  {
+   "a": "leitrim",
+   "b": "longford",
+   "by": "land"
+  },
+  {
+   "a": "leitrim",
+   "b": "roscommon",
+   "by": "land"
+  },
+  {
+   "a": "leitrim",
+   "b": "sligo",
+   "by": "land"
+  },
+  {
+   "a": "sligo",
+   "b": "roscommon",
+   "by": "land"
+  },
+  {
+   "a": "sligo",
+   "b": "mayo",
+   "by": "land"
+  },
+  {
+   "a": "mayo",
+   "b": "roscommon",
+   "by": "land"
+  },
+  {
+   "a": "mayo",
+   "b": "galway",
+   "by": "land"
+  },
+  {
+   "a": "roscommon",
+   "b": "longford",
+   "by": "land"
+  },
+  {
+   "a": "roscommon",
+   "b": "westmeath",
+   "by": "land"
+  },
+  {
+   "a": "roscommon",
+   "b": "offaly",
+   "by": "land"
+  },
+  {
+   "a": "roscommon",
+   "b": "galway",
+   "by": "land"
+  },
+  {
+   "a": "galway",
+   "b": "offaly",
+   "by": "land"
+  },
+  {
+   "a": "galway",
+   "b": "tipperary",
+   "by": "land"
+  },
+  {
+   "a": "galway",
+   "b": "clare",
+   "by": "land"
+  },
+  {
+   "a": "longford",
+   "b": "westmeath",
+   "by": "land"
+  },
+  {
+   "a": "westmeath",
+   "b": "meath",
+   "by": "land"
+  },
+  {
+   "a": "westmeath",
+   "b": "offaly",
+   "by": "land"
+  },
+  {
+   "a": "meath",
+   "b": "louth",
+   "by": "land"
+  },
+  {
+   "a": "meath",
+   "b": "dublin",
+   "by": "land"
+  },
+  {
+   "a": "meath",
+   "b": "kildare",
+   "by": "land"
+  },
+  {
+   "a": "meath",
+   "b": "offaly",
+   "by": "land"
+  },
+  {
+   "a": "dublin",
+   "b": "kildare",
+   "by": "land"
+  },
+  {
+   "a": "dublin",
+   "b": "wicklow",
+   "by": "land"
+  },
+  {
+   "a": "kildare",
+   "b": "wicklow",
+   "by": "land"
+  },
+  {
+   "a": "kildare",
+   "b": "carlow",
+   "by": "land"
+  },
+  {
+   "a": "kildare",
+   "b": "laois",
+   "by": "land"
+  },
+  {
+   "a": "kildare",
+   "b": "offaly",
+   "by": "land"
+  },
+  {
+   "a": "wicklow",
+   "b": "carlow",
+   "by": "land"
+  },
+  {
+   "a": "wicklow",
+   "b": "wexford",
+   "by": "land"
+  },
+  {
+   "a": "offaly",
+   "b": "laois",
+   "by": "land"
+  },
+  {
+   "a": "offaly",
+   "b": "tipperary",
+   "by": "land"
+  },
+  {
+   "a": "laois",
+   "b": "carlow",
+   "by": "land"
+  },
+  {
+   "a": "laois",
+   "b": "kilkenny",
+   "by": "land"
+  },
+  {
+   "a": "laois",
+   "b": "tipperary",
+   "by": "land"
+  },
+  {
+   "a": "carlow",
+   "b": "wexford",
+   "by": "land"
+  },
+  {
+   "a": "carlow",
+   "b": "kilkenny",
+   "by": "land"
+  },
+  {
+   "a": "kilkenny",
+   "b": "wexford",
+   "by": "land"
+  },
+  {
+   "a": "kilkenny",
+   "b": "waterford",
+   "by": "land"
+  },
+  {
+   "a": "kilkenny",
+   "b": "tipperary",
+   "by": "land"
+  },
+  {
+   "a": "wexford",
+   "b": "waterford",
+   "by": "water"
+  },
+  {
+   "a": "waterford",
+   "b": "tipperary",
+   "by": "land"
+  },
+  {
+   "a": "waterford",
+   "b": "cork",
+   "by": "land"
+  },
+  {
+   "a": "tipperary",
+   "b": "cork",
+   "by": "land"
+  },
+  {
+   "a": "tipperary",
+   "b": "limerick",
+   "by": "land"
+  },
+  {
+   "a": "tipperary",
+   "b": "clare",
+   "by": "water"
+  },
+  {
+   "a": "limerick",
+   "b": "clare",
+   "by": "land"
+  },
+  {
+   "a": "limerick",
+   "b": "cork",
+   "by": "land"
+  },
+  {
+   "a": "limerick",
+   "b": "kerry",
+   "by": "land"
+  },
+  {
+   "a": "cork",
+   "b": "kerry",
+   "by": "land"
+  }
+ ]
+}

@@ -148,6 +148,29 @@ export const ITEM_DEFS = {
     color: 0xFF0000
   },
 
+  // from the well in the hall of the five streams: a salmon nudges one over to you where you stand on the step
+  // (scenes/locations/cave/wellMirror.js). No more than three at a time; what they are for is still to come
+  hazelnut: {
+    id: 'hazelnut',
+    defGa: 'an cnó coill',
+    defEn: 'the hazelnut',
+    defGaPl: 'na cnónna coill',
+    defEnPl: 'the hazelnuts',
+    art: 'hazelnut',                         // (no picture on the item sheet: itemArt.js draws one)
+    type: 'consumable',
+    subtype: 'nut',
+    nameEn: 'Hazelnut',
+    nameGa: 'Cnó Coill',
+    descEn: 'A nut from the well. A salmon nudged it over to me.',
+    descGa: 'Cnó ón tobar. Bradán a bhrúigh chugam é.',
+    stackable: true,
+    maxStack: 3,
+    quantity: 1,
+    allowedSlots: [],
+    actions: ['eat', 'drop'],
+    color: 0xB07A3A
+  },
+
   currach: {
     id: 'currach',
     defGa: 'an curach',

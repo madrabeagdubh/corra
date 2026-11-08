@@ -20,6 +20,7 @@ import { SoundBoard } from '../../systems/soundBoard.js'
 import { FONTS } from '../../systems/gameTypography.js'
 import { PACK_START, PACK_COLS, PACK_ROWS } from './inventory.js'
 import { saveInventory } from './inventoryStore.js'
+import { itemArt } from './itemArt.js'
 
 // ── Words ────────────────────────────────────────────────────────────────────
 // The slot names and the phrase each one makes. Change them here.
@@ -40,6 +41,7 @@ const BUTTONS = {
   equip:   { ga: 'Feisteáil', en: 'Equip' },
   unequip: { ga: 'Bain díom', en: 'Take off' },
   drink:   { ga: 'Ól',        en: 'Drink' },
+  eat:     { ga: 'Ith',       en: 'Eat' },
   drop:    { ga: 'Scaoil',    en: 'Drop' },
   take:    { ga: 'Tóg',       en: 'Take' },
 }
@@ -531,10 +533,11 @@ export default class InventoryView {
   // loaded texture; tall items stood upright (the sheet draws them diagonal).
   _icon(item) {
     const tall = item.h === 2
-    const key = `${item.itemGid}|${item.spriteKey}|${item.tint}|${tall}`
+    const key = `${item.itemGid}|${item.spriteKey}|${item.art}|${item.tint}|${tall}`
     if (this._icons.has(key)) return this._icons.get(key)
     let src = item.itemGid ? this.scene.itemSheet?.getCanvas?.(item.itemGid) : null
     if (!src && item.spriteKey && this.scene.textures?.exists(item.spriteKey)) src = this.scene.textures.get(item.spriteKey).getSourceImage()
+    if (!src && item.art) src = itemArt(item.art)
     let out
     if (!src) {
       const c = document.createElement('canvas'); c.width = c.height = 16
@@ -915,6 +918,19 @@ export default class InventoryView {
     return true
   }
 
+  // eaten: one from the stack (what a hazelnut from the well does for you is still to come)
+  _eat(src, item) {
+    const inv = this.inv
+    if (src.kind === 'ground') return false
+    const at = src.kind === 'pack' ? inv.anchorAt(src.index) : inv.equipSlots[src.name]
+    inv.removeOne(at)
+    this._pluck(330, 0.06)
+    const d = this._def({ ...item, quantity: 1 })
+    this._say({ ga: `D'ith mé ${d.ga}.`, en: `I ate ${d.en}.` })
+    this.scene.events?.emit?.('itemEaten', item.id)
+    return true
+  }
+
   _drop(src, item) {
     const inv = this.inv
     if (!this.scene.spawnItemOnMap) return false
@@ -1003,6 +1019,7 @@ export default class InventoryView {
     else {
       if (item.equipSlot) acts.push(src.kind === 'slot' ? 'unequip' : 'equip')
       if (item.actions?.includes('drink')) acts.push('drink')
+      if (item.actions?.includes('eat')) acts.push('eat')
       if (item.actions?.includes('drop') || item.actions?.includes('throw')) acts.push('drop')
     }
     const row = el('div', 'display:flex;gap:10px;', c)
@@ -1062,6 +1079,7 @@ export default class InventoryView {
       else this._say(NO_ROOM)
     }
     else if (action === 'drink') ok = this._drink(src, item)
+    else if (action === 'eat') ok = this._eat(src, item)
     else if (action === 'drop') ok = this._drop(src, item)
     else if (action === 'take') ok = this._pickUp(src.ref)
     this.closeCard()

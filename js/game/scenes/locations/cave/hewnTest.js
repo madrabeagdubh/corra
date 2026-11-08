@@ -8,7 +8,7 @@
 //   ?scene=hewnTest
 //   &torch=6        torch radius, tiles
 //   &at=16,30       start on this tile
-//   &zoom=0         the camera stays where you put it (no closing in and drawing back by area)
+//   &zoom=0         the camera stays where you put it (no closing in and drawing back by area, or tipping down)
 //   &map=mock_well  another map from public/maps/cave (the underworld mockups: tools/map-editor/generators/
 //                   underworld_mocks_gen.mjs), &z=0.6 to fix the zoom, &look=0.12 the look-ahead,
 //                   &grade=teal|ember|etch|pixel a screen grade
@@ -58,8 +58,8 @@ export default class HewnTest extends PerspectiveScene {
     const K = g.constructor, FL = K.FOCAL_LENGTH, PD = K.PLAYER_DIST_TILES
     const off = g._cameraRowOffset ?? K.CAMERA_ROW_OFFSET
     const sh = g._sh, P = g._sw * (g._zoom?.() || 1) / K.TILES_ACROSS * z
-    const A = Math.max(0.12, 1 - YOU - la) * sh
-    const d = A * FL / (SQUARE * P * (FL + PD))
+    const A = Math.max(0.12, 1 - YOU - la) * sh, sq = this._sq ?? SQUARE
+    const d = A * FL / (sq * P * (FL + PD))
     const gH = A * (FL + d) / d
     return { dolly: off - d, horizon: (sh - gH) / sh, hw: 1, mag: z }
   }
@@ -97,7 +97,7 @@ export default class HewnTest extends PerspectiveScene {
     for (const [x, y] of hw.block || []) if (x >= 0 && y >= 0 && x < W && y < H) this._walk[y * W + x] = NaN     // under smooth water (hewnRock.js)
     for (const s of hw.spans || []) {
       const i = s.y * W + s.x
-      if ((s.walk || 'deck') === 'deck') this._walk[i] = s.z
+      if ((s.walk || 'deck') === 'deck') this._walk[i] = s.nowalk ? NaN : s.z      // (nowalk: floor that is seen, past the hall's curved brink, not stood on)
     }
   }
 
@@ -155,6 +155,9 @@ export default class HewnTest extends PerspectiveScene {
       this._camZ += (this._pz - this._camZ) * (1 - Math.exp(-delta / CAM_MS))
       this.hewn.update(delta, this._pz, this._camZ)
       this._zoneZoom(p)
+      // a zone may tip the view down, so you see more from above (zone.square: how deep a tile is for its width)
+      const sqT = this._zone?.square ?? SQUARE
+      this._sq = (this._sq ?? sqT) + (sqT - (this._sq ?? sqT)) * (1 - Math.exp(-delta / 900))
     }
     super.update(time, delta)
   }
@@ -188,6 +191,16 @@ export default class HewnTest extends PerspectiveScene {
     if (!b || b._overHewn) return
     b._overHewn = b.draw.bind(b)
     b.draw = () => {}
+  }
+
+  // the grid the routes are found on: every tile you can stand on, whatever its height. (PGR's builds it from
+  // isColliding, which also walls off whatever is too high above where you stand -- and you stand at the spawn when it's
+  // built, so the rim, the steps, anything raised, were walled off from every route. How high a step may be, the routes
+  // ask of _stepOk, tile to tile.)
+  _buildWalkGrid() {
+    const md = this.mapData, grid = []
+    for (let y = 0; y < md.height; y++) { grid[y] = []; for (let x = 0; x < md.width; x++) grid[y][x] = this.walkZ(x, y) != null }
+    return grid
   }
 
   // a tap: the tile drawn under the finger (systems/pathFinder.js asks)

@@ -142,7 +142,7 @@ function walkZ(S, x, y) {
   if (!S.in(x, y)) return null
   const s = S.spans.find(o => o.x === x && o.y === y)
   if (S.block && S.block.some(([bx, by]) => bx === x && by === y) && !(s && s.walk === 'deck')) return null
-  if (s) return s.walk === 'deck' ? s.z : (S.kind[y][x] === '.' ? S.z[y][x] : null)
+  if (s) return s.nowalk ? null : s.walk === 'deck' ? s.z : (S.kind[y][x] === '.' ? S.z[y][x] : null)
   return S.kind[y][x] === '.' ? S.z[y][x] : null
 }
 function reach(S, from, blocked = new Set()) {
@@ -208,7 +208,7 @@ function out(S, spawn) {
 // rest, but open, its portcullis raised -- where the stream climbs a crafted stair, behind Géaga's roots until she
 // looks away. The dead who came before you wait about the hall.
 {
-  const S = scene('escape_tobar', 42, 50, '#', 10, 'c')
+  const S = scene('escape_tobar', 48, 54, '#', 10, 'c')
   const cx = 21.5, cy = 26.5, RX = 5.5, RY = 4.3                 // the pool: its middle, and its water's half-widths
   const RIM = 1.3, STEP = 1.0, ZR = 0.75                         // the rim's width and height; each step's width
   const e = (x, y, g) => Math.hypot((x + 0.5 - cx) / (RX + g), (y + 0.5 - cy) / (RY + g))
@@ -230,49 +230,90 @@ function out(S, spawn) {
   S.extra.ripples = false
 
   // the stones of the floor that are raised (the gates' stairs, the standing stones): which stone is which is floorStones.mjs's
-  const ART = { cx, cy, rx: RX, ry: RY, g0: RIM + 2 * STEP }, CO = courses(ART), raised = new Map()
+  // the five spokes: every course of the floor has a joint on each, and the streams run in them -- to Balor's jetty and the
+  // thorn's (the angles where the hall's edge is on their axes), north, east to Tethra's, south to Donn's door
+  const SPOKE_GB = 14.3, rimT = (x) => Math.atan2(-Math.sqrt(1 - ((x - cx) / (RX + SPOKE_GB)) ** 2), (x - cx) / (RX + SPOKE_GB))
+  const SPOKES = [+rimT(10.5).toFixed(5), +(-Math.PI / 2).toFixed(5), +rimT(32.5).toFixed(5), 0, +(Math.PI / 2).toFixed(5)]
+  const ART = { cx, cy, rx: RX, ry: RY, g0: RIM + 2 * STEP, spokes: SPOKES }, CO = courses(ART), raised = new Map()
   const lift = (x, y, z) => { const c = cellAt(ART, x, y, CO); if (c) raised.set(c.n + ',' + c.j, { ...c, z }) }
   const zAt = (x, y) => { const c = cellAt(ART, x, y, CO); return c ? (raised.get(c.n + ',' + c.j)?.z ?? 0) : 0 }
 
   // the gatehouses. Three on the north wall (north-west, the open way north, north-east), one in each side wall
   const G = {
     nw: { id: 'gate_fomor',  x: 10, mat: 'b', stone: [96, 94, 100],  light: [255, 70, 40],  sigil: 'eye',    statue: 'giant',   door: [34, 24, 22], red: true },
-    ne: { id: 'gate_sidh',   x: 32, mat: 'w', stone: [214, 176, 104], light: [255, 205, 120], sigil: 'spiral', statue: 'harper',  door: [120, 88, 34] },
+    ne: { id: 'gate_sidh',   x: 32, thorn: true, mat: 'w', stone: [214, 176, 104], light: [255, 205, 120], sigil: 'spiral', statue: 'harper',  door: [120, 88, 34] },
     w:  { id: 'gate_donn',   y: 38, mat: 'o', sea: 'escape_donn', stone: [200, 202, 210], light: [215, 225, 255], sigil: 'mound',  statue: 'mourner', door: [58, 52, 48], candles: true },
     e:  { id: 'gate_tethra', y: 26, mat: 'd', stone: [150, 178, 172], light: [90, 210, 200],  sigil: 'wave',   statue: 'selkie',  door: [44, 52, 50], drip: true },
   }
   const merlons = (x0, x1, y, z, col) => { for (let x = x0 + 0.2; x < x1; x += 0.65) S.prop({ type: 'box', x, y, z, w: 0.3, d: 0.3, h: 0.42, col }) }
   const north = (g, open) => {                                   // a gatehouse in the north wall, door x-1..x+1 (or the open way)
     const x0 = g.x - 1, x1 = g.x + 1, dark = g.stone.map(v => v * 0.55 | 0)
-    if (!open) {
-      S.rect(x0, 8, x1, 9, '.', 0, 'm')
-      S.rect(x0, 7, x1, 7, '#', 4.6, g.mat)
-      S.prop({ type: 'arch', x0, x1: x1 + 1, y: 8, z0: 0, zs: 1.8, zt: 3.1, pier: 0.35 })
-      S.prop({ type: 'box', x: g.x + 0.5, y: 8.03, z: 0.5, w: 2.1, d: 0.05, h: 2.1, col: g.door })
-      S.prop({ type: 'grille', x0: g.x - 0.45, x1: g.x + 1.45, y: 8.06, z0: 0, z1: 0.5 })
-      S.prop({ type: 'sigil', kind: g.sigil, x: g.x + 0.5, y: 8.0, z: 3.85, r: 0.55, rgb: g.light })
-      merlons(x0, x1 + 1, 7.85, 4.6, dark)
-      if (g.red) S.prop({ type: 'streak', x0: g.x - 0.8, x1: g.x + 1.8, y0: 8.05, y1: 10.2, z: 0.01, rgb: [255, 50, 20], a: 0.35, flicker: true, fade: 'south' })
-      S.light(g.x + 0.5, 10, 2.4, 5, g.light, 0.9)
-      S.esc.npcs.push({ id: g.id, x: g.x + 0.5, y: 9.6, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    const d = open ? 0 : 3                                       // (a shut gate stands three rows further out, past the hall's edge, on its jetty)
+    if (g.thorn) {                                               // the Sídh's: no gate built, but a crooked hill going up out of the dark, and a thorn on it
+      const STEPS = [[32, 11, 0], [32, 10, 0.45], [32, 9, 0.9], [33, 9, 1.35], [33, 8, 1.8], [33, 7, 2.25], [32, 7, 2.7], [31, 7, 3.15], [31, 6, 3.6]]
+      const TOP = [[30, 4], [31, 4], [32, 4], [30, 5], [31, 5], [32, 5]], ZT = 3.6
+      for (const [x, y, z] of STEPS) { S.set(x, y, 'v', 0, 'm'); S.spans = S.spans.filter(q => q.x !== x || q.y !== y); S.deck(x, y, z, 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true }
+      for (const [x, y] of TOP) { S.set(x, y, 'v', 0, 'm'); S.deck(x, y, ZT, 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true }
+      for (const [x, y] of TOP.filter(([, y]) => y === 4)) S.block.push([x, y])                      // (the thorn stands on these)
+      const up = STEPS.map(([x, y, z]) => [x + 0.5, y + 0.5, z])
+      // the thorn's roots, winding down among the steps and over the edge of the hill into the dark
+      const roots = [0, 1, 2].map(k => {
+        const rev = [...up].reverse(), out = [], o = (k - 1) * 0.24, wig = (i) => o + 0.07 * Math.sin(i * 0.9 + k * 1.9), wig2 = (i) => o * 0.6 + 0.06 * Math.cos(i * 0.7 + k * 1.3)
+        let i = 0
+        const push = (x, y, z, f) => { out.push([+(x + wig(i)).toFixed(2), +(y + wig2(i)).toFixed(2), +z.toFixed(2), +(0.11 - 0.07 * f).toFixed(3)]); i++ }
+        for (let s = 0; s + 1 < rev.length - k; s++) {                 // over each step, then down its riser to the next
+          const [ax, ay, az] = rev[s], [bx, by, bz] = rev[s + 1], f = s / rev.length
+          push(ax, ay, az + 0.04, f); push((ax + bx) / 2, (ay + by) / 2, az + 0.04, f); push((ax + bx) / 2 + 0.04, (ay + by) / 2 + 0.04, bz + 0.04, f)
+        }
+        const [lx, ly, lz] = rev[rev.length - 1 - k], sx = k % 2 ? 1 : -1                // and over the hill's edge, down into the dark
+        for (let d = 0; d <= 6; d++) out.push([+(lx + sx * (0.5 + 0.12 * Math.sin(d))).toFixed(2), +(ly + 0.05 * d).toFixed(2), +(lz - 0.55 * d).toFixed(2), +(0.05 - 0.005 * d).toFixed(3)])
+        return out
+      })
+      // a pool at the hill's foot, where the stream comes to it, and the roots tangled down into it
+      const POOLS = [[33, 10, 0.1], [34, 10, 0.1]]
+      for (let k = 0; k < 5; k++) { const sx = 33.2 + k * 0.32, out = []; for (let d = 0; d <= 6; d++) out.push([+(sx + 0.15 * Math.sin(d * 1.3 + k)).toFixed(2), +(9.3 + d * 0.21 + 0.1 * Math.cos(d + k * 2)).toFixed(2), +(1.4 - d * 0.22).toFixed(2), +(0.07 - d * 0.007).toFixed(3)]); roots.push(out) }
+      S.prop({ type: 'spur', steps: STEPS.slice(1), top: TOP, pools: POOLS, lean: 0.06, seed: 9, roots })
+      S.prop({ type: 'thorn', x: 31.5, y: 4.4, z: ZT, seed: 7, h: 2.9, rgb: g.light, lean: 0.6, weave: 12, open: 0 })
+      S.light(31.5, 5.3, ZT + 1.3, 4.5, g.light, 0.95)
+      S.light(32.8, 10.6, 1.4, 4.2, [170, 186, 215], 0.55)                                           // (a cold light on the hill's flank, as on the hall's)
+      S.esc.npcs.push({ id: g.id, x: 31.5, y: 5.6, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+      // the harp, at the hill's foot, facing the way up
+      const HX = 29.8, HY = 12.95, HR = -0.6, PC = [HX + 0.95 * Math.cos(HR), HY + 0.95 * Math.sin(HR)]        // (PC: the pedestal's middle)
+      S.prop({ type: 'harp', x: HX, y: +(PC[1] + 0.97).toFixed(2), gy: HY, z: 0, rot: HR, h: 1.85, strings: 20 })
+      for (let y = 10; y <= 14; y++) for (let x = 28; x <= 33; x++) if (Math.hypot(x + 0.5 - PC[0], y + 0.5 - PC[1]) < 1.05) S.block.push([x, y])
+      S.esc.harp = { x: 30.6, y: 13.6, radius: 2.4 }                                                  // (where you stand to play it: thornHarp.js)
+      return
     }
-    for (const tx of [g.x - 2, g.x + 2]) { S.rect(tx, 7, tx, 9, '#', 6, g.mat); merlons(tx, tx + 1, 9.82, 6, dark); if (!zAt(tx + 0.5, 10.62)) S.set(tx, 10, '#', 0.6, g.mat) }
-    for (const [tx, f] of [[g.x - 2, false], [g.x + 2, true]]) S.prop({ type: 'statue', kind: g.statue, x: tx + 0.5, y: 10.62, z: zAt(tx + 0.5, 10.62) || 0.6, s: 2.7, stone: g.stone, flip: f })
+    if (!open) {
+      S.rect(x0, 8 - d, x1, 9 - d, '.', 0, 'm')
+      S.rect(x0, 7 - d, x1, 7 - d, '#', 4.6, g.mat)
+      S.prop({ type: 'arch', x0, x1: x1 + 1, y: 8 - d, z0: 0, zs: 1.8, zt: 3.1, pier: 0.35 })
+      S.prop({ type: 'box', x: g.x + 0.5, y: 8.03 - d, z: 0.5, w: 2.1, d: 0.05, h: 2.1, col: g.door })
+      S.prop({ type: 'grille', x0: g.x - 0.45, x1: g.x + 1.45, y: 8.06 - d, z0: 0, z1: 0.5 })
+      S.prop({ type: 'sigil', kind: g.sigil, x: g.x + 0.5, y: 8.0 - d, z: 3.85, r: 0.55, rgb: g.light })
+      merlons(x0, x1 + 1, 7.85 - d, 4.6, dark)
+      if (g.red) S.prop({ type: 'streak', x0: g.x - 0.8, x1: g.x + 1.8, y0: 8.05 - d, y1: 10.2 - d, z: 0.01, rgb: [255, 50, 20], a: 0.35, flicker: true, fade: 'south' })
+      S.light(g.x + 0.5, 10 - d, 2.4, 5, g.light, 0.9)
+      S.esc.npcs.push({ id: g.id, x: g.x + 0.5, y: 9.6 - d, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    }
+    for (const tx of [g.x - 2, g.x + 2]) { S.rect(tx, 7 - d, tx, 9 - d, '#', 6, g.mat); merlons(tx, tx + 1, 9.82 - d, 6, dark); if (!zAt(tx + 0.5, 10.62 - d)) S.set(tx, 10 - d, '#', 0.6, g.mat) }
+    for (const [tx, f] of [[g.x - 2, false], [g.x + 2, true]]) S.prop({ type: 'statue', kind: g.statue, x: tx + 0.5, y: 10.62 - d, z: zAt(tx + 0.5, 10.62 - d) || 0.6, s: 2.7, stone: g.stone, flip: f })
   }
   const side = (g, west) => {                                     // a gatehouse in a side wall: seen edge-on
     if (g.sea) return seaDoor(g)
-    const wx = west ? 2 : 39, ax = west ? 3 : 38, tx0 = west ? 2 : 37, tx1 = west ? 4 : 39, px = west ? 5 : 36, dark = g.stone.map(v => v * 0.55 | 0)
+    const o = west ? 0 : 5                                          // (the east one stands out past the hall's edge, on its jetty)
+    const wx = west ? 2 : 39 + o, ax = west ? 3 : 38 + o, tx0 = west ? 2 : 37 + o, tx1 = west ? 4 : 39 + o, px = west ? 5 : 36 + o, dark = g.stone.map(v => v * 0.55 | 0)
     S.rect(wx, g.y - 1, wx, g.y + 1, '#', 4.6, g.mat)
     S.rect(ax, g.y - 1, ax, g.y + 1, '.', 0, 'm')
     for (const ty of [g.y - 3, g.y - 2, g.y + 2, g.y + 3]) S.rect(tx0, ty, tx1, ty, '#', 6, g.mat)
     for (const ty of [g.y - 2, g.y + 3]) merlons(tx0, tx1 + 1, ty + 0.82, 6, dark)
-    S.prop({ type: 'box', x: west ? 3.04 : 37.96, y: g.y + 0.5, z: 0.4, w: 0.06, d: 2.2, h: 2.2, col: g.door })
-    S.prop({ type: 'sigil', kind: g.sigil, x: west ? 3.0 : 38.0, y: g.y + 0.5, z: 3.7, r: 0.6, rgb: g.light, plane: 'x', flip: !west })
+    S.prop({ type: 'box', x: west ? 3.04 : 37.96 + o, y: g.y + 0.5, z: 0.4, w: 0.06, d: 2.2, h: 2.2, col: g.door })
+    S.prop({ type: 'sigil', kind: g.sigil, x: west ? 3.0 : 38.0 + o, y: g.y + 0.5, z: 3.7, r: 0.6, rgb: g.light, plane: 'x', flip: !west })
     for (const [py, f] of [[g.y - 4, !west], [g.y + 4, !west]]) { const zs = zAt(px + 0.5, py + 0.62); if (!zs) S.set(px, py, '#', 0.6, g.mat); S.prop({ type: 'statue', kind: g.statue, x: px + 0.5, y: py + 0.62, z: zs || 0.6, s: 2.7, stone: g.stone, flip: f }) }
-    S.light(west ? 4.2 : 37.8, g.y + 0.5, 2.6, 5.5, g.light, 1.0)
-    if (g.candles) S.prop({ type: 'candles', x: west ? 4.4 : 37.6, y: g.y + 2.3, z: zAt(west ? 4.4 : 37.6, g.y + 2.3), w: 1.0, count: 5 })
+    S.light(west ? 4.2 : 37.8 + o, g.y + 0.5, 2.6, 5.5, g.light, 1.0)
+    if (g.candles) S.prop({ type: 'candles', x: west ? 4.4 : 37.6 + o, y: g.y + 2.3, z: zAt(west ? 4.4 : 37.6 + o, g.y + 2.3), w: 1.0, count: 5 })
     if (g.drip) S.falls.push({ x0: ax - 0.1, x1: ax + 1.1, y: g.y + 2, z0: 2.8, z1: Math.max(0.1, zAt(ax + 0.5, g.y + 2 - 0.1)) })
-    S.esc.npcs.push({ id: g.id, x: west ? 4.5 : 37.5, y: g.y + 0.5, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    S.esc.npcs.push({ id: g.id, x: west ? 4.5 : 37.5 + o, y: g.y + 0.5, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
   }
   // The sea-door (Donn's), low in the west wall, is no gatehouse: it is the hall's own stone. A stair goes down south out
   // of the hall's corner, toward you, the floor's courses going down it a step each (stones of the floor laid lower and
@@ -393,19 +434,141 @@ function out(S, spawn) {
       if (!pts.some(q => S.z[Math.floor(q.y)][Math.floor(q.x)] < -0.05)) continue
       raised.set(n + ',' + j, { n, j, z: 0, tx: true })
     }
-    S.prop({ type: 'doorway', x: DX, y: FACE, z: ZL, w: 1.8, h: 2.75 })
+    S.prop({ type: 'doorway', x: DX, y: FACE, z: ZL, w: 1.8, h: 2.75, steps: 10, fall: 0.8, narrow: 0.022 })      // (the stair goes on down, narrowing: the black reads as far)
     for (const [sx, sd] of [[-1, 11], [1, 13]]) S.prop({ type: 'pillar', x: DX + sx * 1.3, y: FACE + 0.2, z: ZL, h: 3.0, w: 0.82, seed: sd, tex: true, big: true, cb: [-sx, 0], cz: ZL + 1.6, cstep: 0.17 })
     for (const [x, f] of [[DX - 2.0, false], [DX + 2.0, true]]) S.prop({ type: 'statue', kind: g.statue, x, y: LAND - 0.9, z: 0, s: 2.4, stone: g.stone, flip: f })      // the dead's watchers, on the brink over it
     if (g.candles) S.prop({ type: 'candles', x: DX + 1.9, y: LAND + 0.7, z: ZL, w: 0.8, count: 5 })
     S.light(DX, LAND + 1.2, ZL + 1.0, 3.6, [170, 190, 225], 0.7)
     S.light(12, 42.5, -0.6, 4.0, [170, 190, 225], 0.4)
-    S.prop({ type: 'mist', y: Math.floor(FACE), x0: DX - 0.6, x1: DX + 0.6, z: ZL + 0.1, rgb: [200, 212, 230], a: 0.28, count: 2, pulse: 8, ph: 0 })
+    // the door takes: its mist gathers on the threshold and is drawn in and down, on a slow breath (8 s), and the rag of cloth
+    // hung in its head leans in with it. Every other gate gives or shows something; this one only draws.
+    S.prop({ type: 'mist', y: Math.floor(FACE), x0: DX - 0.6, x1: DX + 0.6, z: ZL + 0.1, rgb: [200, 212, 230], a: 0.3, count: 3, pulse: 8, ph: 0, draw: 'in' })
+    S.prop({ type: 'banner', x: DX + 0.42, y: FACE + 0.08, z: ZL + 2.62, w: 0.4, len: 1.5, rgb: [198, 202, 200], pulse: 8, ph: 0 })
     S.esc.npcs.push({ id: g.id, x: DX, y: LAND + 2.2, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
     S.esc.sea = { x: DX, y: LAND + 1 }
     S.esc.ways.push({ x0: Math.floor(DX - 0.5), y0: LAND + 1, x1: Math.floor(DX + 0.5), y1: LAND + 1, to: g.sea, at: [12, 42], dark: true })
   }
+  // The sea-door (Donn's), as a hemicycle. A court sunk into the hall's south edge: concentric half-octagons of steps (a
+  // tile wide, half a tile high each, every riser a true tile edge) go down toward the face under the hall floor, and in the
+  // middle of that face, on the axis of the whole structure, the door. You come to it from the east end of the outer ring
+  // and go down; the west end is walled. Over the landing the hall's floor stands sheer; a drop off the brink is one way.
+  let courtArt = null
+  const seaDoorH = (g) => {
+    const CX = 11, FY = 45, RISER = 0.5, STEPS = 6, LR = 2, ZL = -RISER * STEPS
+    const oct = (x, y) => { const dx = Math.abs(x + 0.5 - CX), dy = y + 0.5 - FY; return Math.max(dx, dy, (dx + dy) / Math.SQRT2) }
+    for (const [key, c] of [...raised]) { const G = cellGeom(ART, c.n, c.j, CO), m = ptAt(ART, (G.ga + G.gb) / 2, (G.t0 + G.t1) / 2); if (m.x < 20 && m.y > 33) raised.delete(key) }
+    const court = new Set()
+    for (let y = FY; y < S.H; y++) for (let x = 0; x < S.W; x++) {
+      const d = oct(x, y); if (d >= LR + STEPS - 1) continue
+      const k = d < LR ? 0 : Math.floor(d - LR) + 1                      // 0 the landing; 1.. the steps, outward
+      S.set(x, y, '.', ZL + RISER * k, 'm'); court.add(x + ',' + y)
+    }
+    for (let y = FY; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.kind[y][x] === '#') S.set(x, y, 'v', 0, 'm')      // no wall round the court: every outer edge is a sheer drop into the dark
+    // the paving of the court is its own (hewnExtras.js paintFloorArt): each tile of a step one whole slab, the landing inlaid; and a kerb of long slabs along the hall's brink above it
+    courtArt = { cx: CX, fy: FY, tiles: [...court].map(k => { const [x, y] = k.split(',').map(Number); const d = oct(x, y); return [x, y, d < LR ? 0 : Math.floor(d - LR) + 1] }),
+      kerb: Array.from({ length: S.W }, (_, x) => x).filter(x => S.kind[FY - 1][x] === '.' && court.has(x + ',' + FY)).map(x => [x, FY - 1]) }
+    S.prop({ type: 'doorway', x: CX, y: FY + 0.02, z: ZL, w: 1.8, h: 2.75, steps: 10, fall: 0.8, narrow: 0.022 })      // (the stair goes on down, narrowing: the black reads as far)
+    for (const sx of [-1, 1]) S.prop({ type: 'pillar', x: CX + sx * 1.3, y: FY + 0.2, z: ZL, h: -ZL, w: 0.82, seed: sx > 0 ? 13 : 11, tex: true, big: true, cb: [-sx, 0], cz: ZL + 1.6, cstep: 0.17 })
+    for (const sx of [-1, 1]) S.prop({ type: 'statue', kind: g.statue, x: CX + sx * 2.5, y: FY - 0.9, z: 0, s: 2.4, stone: g.stone, flip: sx > 0 })      // the dead's watchers, on the brink over it
+    if (g.candles) S.prop({ type: 'candles', x: CX + 1.7, y: FY + 0.7, z: ZL, w: 0.8, count: 5 })
+    S.light(CX, FY + 1.2, ZL + 1.0, 3.6, [170, 190, 225], 0.7)
+    S.light(CX + 1, FY - 1.5, 0.6, 4.0, [170, 190, 225], 0.35)
+    // the door takes: its mist gathers on the threshold and is drawn in and down, on a slow breath (8 s), and the rag of cloth
+    // hung in its head leans in with it. Every other gate gives or shows something; this one only draws.
+    S.prop({ type: 'mist', y: FY, x0: CX - 0.6, x1: CX + 0.6, z: ZL + 0.1, rgb: [200, 212, 230], a: 0.3, count: 3, pulse: 8, ph: 0, draw: 'in' })
+    S.prop({ type: 'banner', x: CX + 0.45, y: FY + 0.1, z: ZL + 2.62, w: 0.4, len: 1.5, rgb: [198, 202, 200], pulse: 8, ph: 0 })
+    S.esc.npcs.push({ id: g.id, x: CX, y: FY + 2.3, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    S.esc.sea = { x: CX, y: FY + 1.5 }
+    S.esc.ways.push({ x0: CX - 1, y0: FY, x1: CX, y1: FY, to: g.sea, at: [12, 42], dark: true })
+  }
+  // The sea-door (Donn's), as slabs. The hall's floor ends in a sheer face over the dark; in that face, on the axis of a small
+  // balcony, the door. The way down is single slabs set into the face, one a half-tile lower than the last, running along it
+  // from the east: no wall, no court, nothing under them -- every other tile round is void, and the faces drop into the black.
+  const seaDoorJ = (g) => {
+    const FY = 46, CX = 13.5, RISER = 0.5, ZL = -3.0                                          // (the hall's floor reaches row 45; the face is at its foot, row 46)
+    const SX = [[18, 46], [18, 47], [17, 47], [16, 47], [15, 47]]                              // the first slab is set in the face; then they leave it, out over the open dark, one tile off, and go west
+    const BAL = [[12, 46], [13, 46], [14, 46], [12, 47], [13, 47], [14, 47]]
+    for (const [key, c] of [...raised]) { const G = cellGeom(ART, c.n, c.j, CO), m = ptAt(ART, (G.ga + G.gb) / 2, (G.t0 + G.t1) / 2); if (m.x < 20 && m.y > 33) raised.delete(key) }
+    for (let y = FY - 1; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.kind[y][x] === '#' && y >= FY) S.set(x, y, 'v', 0, 'm')
+    const tiles = []
+    SX.forEach(([x, y], i) => { S.set(x, y, '.', -RISER * (i + 1), 'm'); tiles.push([x, y, i + 1]) })
+    for (const [x, y] of BAL) { S.set(x, y, '.', ZL, 'm'); tiles.push([x, y, 0]) }
+    // (each slab one whole stone; the landing inlaid; the hall's brink above the slabs a coping of long stones)
+    courtArt = { cx: CX, fy: FY, tiles, kerb: Array.from({ length: 8 }, (_, i) => [12 + i, FY - 1]) }
+    S.prop({ type: 'doorway', x: CX, y: FY + 0.02, z: ZL, w: 1.8, h: 2.75, steps: 10, fall: 0.8, narrow: 0.022 })
+    for (const sx of [-1, 1]) S.prop({ type: 'pillar', x: CX + sx * 1.3, y: FY + 0.2, z: ZL, h: -ZL, w: 0.82, seed: sx > 0 ? 13 : 11, tex: true, big: true, cb: [-sx, 0], cz: ZL + 1.6, cstep: 0.17 })
+    for (const sx of [-1, 1]) S.prop({ type: 'statue', kind: g.statue, x: CX + sx * 2.7, y: FY - 0.9, z: 0, s: 2.4, stone: g.stone, flip: sx > 0 })
+    if (g.candles) S.prop({ type: 'candles', x: CX + 1.3, y: FY + 0.8, z: ZL, w: 0.8, count: 5 })
+    S.light(CX, FY + 1.2, ZL + 1.0, 3.6, [170, 190, 225], 0.7)
+    S.light(CX + 1, FY - 1.5, 0.6, 4.0, [170, 190, 225], 0.35)
+    S.prop({ type: 'mist', y: FY, x0: CX - 0.6, x1: CX + 0.6, z: ZL + 0.1, rgb: [200, 212, 230], a: 0.3, count: 3, pulse: 8, ph: 0, draw: 'in' })
+    S.prop({ type: 'banner', x: CX + 0.45, y: FY + 0.1, z: ZL + 2.62, w: 0.4, len: 1.5, rgb: [198, 202, 200], pulse: 8, ph: 0 })
+    S.esc.npcs.push({ id: g.id, x: CX, y: FY + 1.0, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    S.esc.sea = { x: CX, y: FY + 1.5 }
+    S.esc.ways.push({ x0: 13, y0: FY, x1: 13, y1: FY, to: g.sea, at: [12, 42], dark: true })
+  }
+  // The sea-door, K. The hall's floor ends along its own ring, an ellipse (offset GB past the pool), so its south edge is one
+  // smooth curve and the whole of it a sheer drop into the dark, the stones of its two outer rings carried over the tiles
+  // the curve cuts (the stones prop, edge: GB). The door is in the face on the hall's axis, where the curve runs level; the
+  // stair is slabs, each a thin stone hung over open dark (spans), down to a balcony of the same, small, before the door.
+  const seaDoorK = (g) => {
+    const GB = 14.3, CX = 21.5, FY = 45.1, FR = 45, RISER = 0.5, ZL = -3.0
+    const EL = (px, py, gg) => Math.hypot((px - cx) / (RX + gg), (py - cy) / (RY + gg))
+    for (const [key, c] of [...raised]) { const G = cellGeom(ART, c.n, c.j, CO), m = ptAt(ART, (G.ga + G.gb) / 2, (G.t0 + G.t1) / 2); if (m.y > 33) raised.delete(key) }
+    // South of the side gates (row R0 on) the hall stands free: no walls, the dark all round. A tile wholly inside the
+    // curve is floor; one the curve cuts is void with a hidden deck at the floor's height (painted and lit, so the stones
+    // over it have their picture; walked only if its middle is well inside); the rest is void
+    const R0 = 31
+    const touches = (x, y) => { for (let v = 0; v <= 4; v++) for (let u = 0; u <= 4; u++) if (EL(x + u / 4, y + v / 4, GB) < 1) return true; return false }
+    const unspan = (x, y) => { S.spans = S.spans.filter(o => o.x !== x || o.y !== y) }
+    for (let y = R0; y < S.H; y++) for (let x = 0; x < S.W; x++) {
+      if ([[0, 0], [1, 0], [0, 1], [1, 1]].every(([u, v]) => EL(x + u, y + v, GB) < 1)) { if (S.kind[y][x] !== '.') { unspan(x, y); S.set(x, y, '.', 0, 'm') } continue }
+      unspan(x, y); S.set(x, y, 'v', 0, 'm')
+      if (touches(x, y)) { S.deck(x, y, 0, 0.2, 'deck', true); if (EL(x + 0.5, y + 0.5, GB - 0.35) >= 1) S.spans[S.spans.length - 1].nowalk = true }
+    }
+    // the stones of the two outer rings, all round the free part: whole stones, their faces down into the dark
+    const cells = []; let y0 = 99, y1 = 0
+    for (const n of [9, 10]) for (let j = 0; j < CO.info[n].m; j++) {
+      const G = cellGeom(ART, n, j, CO), m = ptAt(ART, (G.ga + G.gb) / 2, (G.t0 + G.t1) / 2)
+      if (m.y < R0 - 1.5 || raised.has(n + ',' + j)) continue
+      cells.push({ n, j, z: 0 }); y0 = Math.min(y0, m.y - 1.2); y1 = Math.max(y1, m.y + 1.2)
+    }
+    S.prop({ type: 'stones', cells, edge: GB, y0: Math.floor(y0), y1: Math.min(S.H - 1, Math.floor(y1) + 1) })
+    // the stair: the first foothold is a tile of the brink's own (hidden deck, level), then six stones down, each half a tile
+    // lower, thin and hung over nothing; the last four turn west to the balcony
+    unspan(26, 44); S.deck(26, 44, 0, 0.2, 'deck', true)
+    // six thin stones hung over nothing, each half a tile lower, south then west, to the step round Donn's threshold: a
+    // half-round apron out from the face (a landing before the door, a step down round it, the sheer face below), and in
+    // the face a round-arched door of three orders. The stream comes down the stones, round the step and in at the door.
+    const Z0 = -8 / 3, Z1 = -3.0, AR0 = 1.9, AR1 = 3.15
+    const SX = [[26, 45], [26, 46], [26, 47], [25, 47], [24, 47]]
+    const tiles = []
+    SX.forEach(([x, y], i) => { unspan(x, y); S.deck(x, y, +(-RISER * (i + 1)).toFixed(3), 0.33); tiles.push([x, y, i + 1]) })
+    for (let y = FR; y <= FR + 4; y++) for (let x = 17; x <= 26; x++) {
+      const d = Math.hypot(x + 0.5 - CX, y + 0.5 - FY)
+      if (d > AR1 || tiles.some(([a, b]) => a === x && b === y)) continue
+      unspan(x, y); S.deck(x, y, d < AR0 ? +Z0.toFixed(3) : Z1, 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true
+    }
+    courtArt = { cx: CX, fy: FY, tiles, kerb: [] }
+    const chan = [[CX, FY + 0.42], [CX, FY + 0.06]]                   // (from where the stream lands, in under the door)
+    S.prop({ type: 'portal', x: CX, y: FY + 0.02, z: Z0, w: 1.3, hj: 1.05, orders: 3, t: 0.2, stone: [158, 158, 164], steps: 10, fall: 0.8, narrow: 0.02 })
+    S.prop({ type: 'apron', x: CX, y: FY, z0: Z0, z1: Z1, r0: AR0, r1: AR1, chan })
+    S.prop({ type: 'spout', x: CX, y: FY + 0.18, z: +(Z0 + 1.05 + 0.65 + 0.5).toFixed(3), zl: Z0, out: 0.22, s: 0.13, stone: [158, 158, 164] })     // the keystone head, and the fifth stream from its mouth
+    for (const sx of [-1, 1]) S.prop({ type: 'statue', kind: g.statue, x: CX + sx * 2.7, y: FY - 0.9, z: 0, s: 2.4, stone: g.stone, flip: sx > 0 })
+    if (g.candles) S.prop({ type: 'candles', x: CX + 1.2, y: FY + 0.5, z: Z0, w: 0.6, count: 5 })
+    S.light(CX, FY + 1.2, Z0 + 1.0, 3.6, [170, 190, 225], 0.7)
+    S.light(CX + 1, FY - 1.5, 0.6, 4.0, [170, 190, 225], 0.35)
+    S.prop({ type: 'mist', y: FR, x0: CX - 0.5, x1: CX + 0.5, z: Z0 + 0.1, rgb: [200, 212, 230], a: 0.3, count: 3, pulse: 8, ph: 0, draw: 'in' })
+    S.prop({ type: 'banner', x: CX + 0.28, y: FY + 0.06, z: Z0 + 1.05 + 0.6, w: 0.34, len: 1.2, rgb: [198, 202, 200], pulse: 8, ph: 0 })
+    S.esc.npcs.push({ id: g.id, x: CX, y: FR + 1.0, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+    S.esc.sea = { x: CX, y: FR + 1.5 }
+    S.esc.ways.push({ x0: 21, y0: FR, x1: 21, y1: FR, to: g.sea, at: [12, 42], dark: true })
+  }
   const seaDoor = (g) => {
-    const V = process.env.SEADOOR || 'T'
+    const V = process.env.SEADOOR || 'K'
+    if (V === 'K') return seaDoorK(g)
+    if (V === 'J') return seaDoorJ(g)
+    if (V === 'H') return seaDoorH(g)
     if (V === 'T') return seaDoorT(g)
     if (V === 'R') return seaDoorR(g)                                // (SEADOOR=R: the stair along the west wall; =A the straight one)
     const top = g.y + 2, bot = 48, BASE = -2.33, sea = (x, y) => y >= top && x >= 1 && x <= 4
@@ -462,10 +625,10 @@ function out(S, spawn) {
       if (z >= 0.3 && !raised.has(n + ',' + j)) raised.set(n + ',' + j, { n, j, z })
     }
   }
-  shrine('n', 10.5); shrine('n', 32.5); shrine('w', 38.5); shrine('e', 26.5)
+  shrine('n', 10.5); shrine('w', 38.5); shrine('e', 26.5)
   for (const [x, y] of [[8.5, 10.62], [12.5, 10.62], [30.5, 10.62], [34.5, 10.62], [5.5, 34.62], [36.5, 22.62], [36.5, 30.62]]) if (!zAt(x, y)) lift(x, y, 1.0)       // a statue always stands on a stone
   north(G.nw, false); north(G.ne, false); side(G.w, true); side(G.e, false)
-  for (const x of [8.5, 12.5, 30.5, 34.5]) { const cx2 = x + (x % 22 < 11 ? -0.7 : 0.7); S.prop({ type: 'candles', x: cx2, y: 11.2, z: zAt(cx2, 11.2), w: 0.5, count: 3 }) }
+  for (const x of [8.5, 12.5]) S.prop({ type: 'candles', x, y: 7.93, z: 0.6, w: 0.5, count: 3 })          // (at the statues' feet, on their plinths out in the dark)
 
   // the way up: the north gatehouse, fortified but open (its portcullis raised); through it a crafted stair, kerbed
   // both sides, a landing halfway; the stream climbing its own channel beside it
@@ -562,12 +725,130 @@ function out(S, spawn) {
   // shallow, set in the stone (nothing to climb over: all of it can be walked). Painted into the floor (hewnExtras.js).
   const tail = (pts, to) => [...pts.map(([x, y]) => [+x.toFixed(2), +y.toFixed(2)]), ...to]
   S.extra.floorArt = {
-    cx, cy, rx: RX, ry: RY, g0: RIM + 2 * STEP, rect: [0, 8, 41, 49], ring: false, treads: [0, RIM, RIM + STEP], nokerb: [[14, 10, 28, 13], [0, 14, 18, 48]],
+    cx, cy, rx: RX, ry: RY, g0: RIM + 2 * STEP, rect: [0, 8, 41, 53], ring: false, treads: [0, RIM, RIM + STEP], nokerb: [[14, 10, 28, 13], [0, 14, 20, 33], [0, 31, 41, 53]], ...(courtArt ? { court: courtArt } : {}),
     channels: [],                                                        // (the water and its knotwork: to be worked in another way)
   }
-  S.prop({ type: 'pool', x: cx, y: cy, rx: RX, ry: RY, z: ZR, rings: RINGS, fish: { count: 2, nuts: true } })
+  const POOL = { type: 'pool', x: cx, y: cy, rx: RX, ry: RY, z: ZR, rings: RINGS, fish: { count: 2, nuts: true } }
+  S.prop(POOL)
+  // ── the arch over the water, the arcade's stumps, and the steps down into it ──
+  // On the north rim the great arch of the well stands whole: the same arch as the one down in the water,
+  // so each is the other's reflection. Round the rim either side, the stumps of an arcade that stood there once -- where
+  // the little arches under the water have their shafts. Under the arch two steps go down to the water's edge. Stand
+  // on the lower: the view tips down into the well, your
+  // reflection looks up at you, the salmon bring you nuts (cave/wellMirror.js), and Géaga speaks to you there.
+  {
+    const AX = cx, AY = +(cy - RY - 0.62).toFixed(2), AW = 1.5, SX = Math.floor(cx)
+    S.prop({ type: 'wellarch', x: AX, y: AY, z: ZR, w: AW, zs: 2.3 })                                // (standing on the rim itself, of the rim's own stone)
+    for (const x of [Math.floor(AX - AW - 0.15), Math.floor(AX + AW + 0.15)]) for (const q of S.spans) if (q.x === x && q.y === Math.floor(AY)) q.nowalk = true      // (its jambs: not walked through)
+    // the stumps: at the arcade's bay ends under the water (hewnExtras.js paintShaft: 26 bays), on the north half of the rim
+    const NA = 26, TAU = Math.PI * 2, rr = 0.62
+    for (let i = 0; i < NA; i++) {
+      const a = (i + 0.5) / NA * TAU
+      if (Math.sin(a) > 0.25) continue                                                               // (the north half, and a little round the sides)
+      if (Math.abs(Math.cos(a)) < 0.36) continue                                                     // (not where the great arch stands)
+      const R = ((i * 2654435761) >>> 0) % 1000 / 1000
+      if (R < 0.18) continue                                                                         // (some quite gone)
+      const x = +(cx + Math.cos(a) * (RX + rr)).toFixed(2), y = +(cy + Math.sin(a) * (RY + rr)).toFixed(2)
+      S.prop({ type: 'stump', x, y, z: ZR, h: +(R < 0.45 ? 0.13 : 0.25 + 0.5 * R).toFixed(2), a: +(a + Math.PI / 2).toFixed(3), seed: i + 1 })
+    }
+    // under the arch, two shallow steps down from the rim to the water's very edge: stand on the lower, and you are
+    // leaning out over the well (hewnExtras.js drawPoolSteps)
+    const fx0 = 20.15, fx1 = 22.85
+    // (each a piece of the pool's own rings, measured in from the water's edge as the rings are out from it, curving with it)
+    const SA = 0.25, a0 = +(-Math.PI / 2 - SA).toFixed(4), a1 = +(-Math.PI / 2 + SA).toFixed(4), yIn = (g) => +(cy - (RY + g)).toFixed(2)
+    POOL.steps = [{ g0: 0.08, g1: -0.17, a0, a1, z: 0.67, x0: fx0, x1: fx1, y0: yIn(0.08), y1: yIn(-0.17) }, { g0: -0.17, g1: -0.43, a0, a1, z: 0.6, x0: fx0, x1: fx1, y0: yIn(-0.17), y1: yIn(-0.43) }]      // (you stand at the very edge of the lower)
+    for (let x = 20; x <= 22; x++) {
+      S.block = S.block.filter(([bx, by]) => bx !== x || by !== 22); S.spans = S.spans.filter(q => q.x !== x || q.y !== 22)
+      S.deck(x, 22, 0.6, 0.2, 'deck', true)
+    }
+    S.zones.unshift({ x0: SX, y0: 22, x1: SX, y1: 22, zoom: 0.96, look: -0.26, square: 1.5 })
+    S.esc.well = { step: { x0: 20, y0: 22, x1: 22, y1: 22 }, deep: { x0: SX, y0: 22, x1: SX, y1: 22 }, tips: [[20.9, 22.7], [21.5, 22.73], [22.1, 22.7]], rest: [[20.7, 22.5], [21.02, 22.54], [22.28, 22.5]] }
+  }
+  // ── the hall stands free ──
+  // The whole floor is one disc, its edge the ring GB out from the pool, standing in the dark: no walls. Each gatehouse
+  // stands alone past the edge on a short jetty of the floor's stone; the way north is a bare stair climbing away, two
+  // ogham posts beside it. Tiles the edge cuts are void with hidden decks (painted and lit, walked only if well inside);
+  // the ring's two outer courses are laid over them as whole stones, their faces down into the dark (the stones prop, edge).
+  const FREE_GB = 14.3
+  {
+    const GB = FREE_GB, EL = (px, py, gg = GB) => Math.hypot((px - cx) / (RX + gg), (py - cy) / (RY + gg))
+    const keep = new Set(), K = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) keep.add(x + ',' + y) }
+    const unspan = (x, y) => { S.spans = S.spans.filter(q => q.x !== x || q.y !== y) }
+    const allIn = (x, y) => [[0, 0], [1, 0], [0, 1], [1, 1]].every(([u, v]) => EL(x + u, y + v) < 1)
+    const touches = (x, y) => { for (let v = 0; v <= 4; v++) for (let u = 0; u <= 4; u++) if (EL(x + u / 4, y + v / 4) < 1) return true; return false }
+    const jetty = (x0, x1, y0, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (allIn(x, y)) continue; unspan(x, y); S.set(x, y, '.', 0, 'm'); keep.add(x + ',' + y) } }
+    K(8, 4, 12, 7); jetty(9, 11, 5, 13)                                                            // Balor's gatehouse, north-west
+    // (the thorn's hill is its own: built in north())
+    K(42, 23, 44, 29); jetty(41, 43, 25, 27)                                                       // Tethra's, east
+    K(19, 0, 23, 8); K(18, 4, 18, 4); K(24, 4, 24, 4)                                              // the stair north, and the two ogham posts
+    K(26, 44, 26, 44)                                                                              // (the sea-door stair's first foothold, on the brink)
+    for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) {
+      if (keep.has(x + ',' + y)) continue
+      const sp = S.spans.find(q => q.x === x && q.y === y)
+      if (S.kind[y][x] === 'v' && sp && (!sp.hid || sp.keep)) continue                             // (the sea-door's slabs and apron, hung in the dark)
+      if (allIn(x, y)) { if (S.kind[y][x] === '#') { unspan(x, y); S.set(x, y, '.', 0, 'm') } continue }
+      unspan(x, y); S.set(x, y, 'v', 0, 'm')
+      if (touches(x, y)) { S.deck(x, y, 0, 0.2, 'deck', true); if (EL(x + 0.5, y + 0.5, GB - 0.35) >= 1) S.spans[S.spans.length - 1].nowalk = true }
+    }
+    // the raised stones out past the edge go; the outer courses all round, as whole stones (the sea-door's few replaced)
+    const out = (n, j) => { const G = cellGeom(ART, n, j, CO); return [G.ga, G.gb].some(gg => [G.t0, (G.t0 + G.t1) / 2, G.t1].some(t => { const q = ptAt(ART, gg, t); return EL(q.x, q.y) >= 0.995 })) }
+    const up = new Set()
+    for (const pr of S.props) if (pr.type === 'stones' && pr.edge == null) { pr.cells = pr.cells.filter(c => !out(c.n, c.j)); for (const c of pr.cells) up.add(c.n + ',' + c.j) }
+    S.props = S.props.filter(pr => !(pr.type === 'stones' && pr.edge != null))
+    const rim = []
+    for (const n of [9, 10]) for (let j = 0; j < CO.info[n].m; j++) if (!up.has(n + ',' + j)) rim.push({ n, j, z: 0 })
+    S.prop({ type: 'stones', cells: rim, edge: GB, y0: Math.floor(cy - RY - GB - 1), y1: Math.min(S.H - 1, Math.ceil(cy + RY + GB + 1)) })
+    S.props = [...S.props.filter(pr => pr.type !== 'apron'), ...S.props.filter(pr => pr.type === 'apron')]     // (the apron stands in front of the edge's faces)
+    // ── the five streams ── A shining well and five streams flowing out of it, the five senses (Echtra Cormaic). They rise
+    // in a ring round the dais's foot and run in runnels cut flush in the floor, their water as clear as the well's: four
+    // straight and true, as the masons laid them -- north into a culvert at the stair's foot, Balor's along his jetty and
+    // under his door, Tethra's under his, the Sídh's to where the thorn will stand -- and Donn's, the fifth, wandering off
+    // its course as if it were drawn, down his hanging stones, round his step and in under the heads.
+    const r2 = (q) => q.map(v => +(+v).toFixed(2)), G0 = RIM + 2 * STEP, RQ = 1.0                // (RQ: the ring is the joint one course out from the dais)
+    const rimY = (x) => cy - (RY + GB) * Math.sqrt(Math.max(0, 1 - ((x - cx) / (RX + GB)) ** 2))
+    const sp = (t, g) => [cx + Math.cos(t) * (RX + g), cy + Math.sin(t) * (RY + g)]
+    const runs = [
+      { t: SPOKES[0], g0: G0 + RQ, g1: GB }, { t: SPOKES[1], g0: G0 + RQ, g1: cy - RY - 9.0 }, { t: SPOKES[2], g0: G0 + RQ, g1: GB },
+      { t: SPOKES[3], g0: G0 + RQ, g1: GB }, { t: SPOKES[4], g0: G0 + RQ, g1: GB - 0.05 },
+    ]
+    const drains = [[10.5, +rimY(10.5).toFixed(2), 10.5, 5.1], [+(cx + RX + GB).toFixed(2), cy, 42.95, cy]]
+    const basins = [[10.5, +rimY(10.5).toFixed(2)], [32.5, +rimY(32.5).toFixed(2)], [+(cx + RX + GB).toFixed(2), cy], [cx, +(cy + RY + GB - 0.25).toFixed(2)]]
+    Object.assign(S.extra.floorArt, { spokes: SPOKES, runs, drains, basins, ringQ: RQ, ring: false })
+    const chans = [...runs.map(R => ({ pts: [r2(sp(R.t, R.g0)), r2(sp(R.t, R.g1))] })), ...drains.map(([a, b, c2, d]) => ({ pts: [[a, b], [c2, d]] }))]
+    S.prop({ type: 'culvert', x: 21.5, y: 9.01, z: 0, w: 0.3, h: 0.25 })
+    S.prop({ type: 'mist', y: 5, x0: 10.1, x1: 10.9, z: 0.05, rgb: [196, 192, 188], a: 0.16, count: 2, pulse: 5, ph: 1 })     // (steam out under Balor's door)
+    // the glints, along each line of water
+    const flowPaths = chans.map(c => { const out = [], [[ax, ay], [bx, by]] = c.pts, n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5)); for (let j = 0; j <= n; j++) out.push([+(ax + (bx - ax) * j / n).toFixed(2), +(ay + (by - ay) * j / n).toFixed(2), 0]); return out })
+    flowPaths.push(Array.from({ length: 97 }, (_, i) => { const a = i / 96 * Math.PI * 2; return [+(cx + Math.cos(a) * (RX + G0 + RQ)).toFixed(2), +(cy + Math.sin(a) * (RY + G0 + RQ)).toFixed(2), 0] }))
+    S.prop({ type: 'flow', paths: flowPaths, y0: 4, y1: 46, speed: 0.4 })
+    S.extra.floorArt.channels = []
+    // the stones a stream runs through are laid down again level with the floor (its water is not to run over them), unless
+    // a statue stands on one
+    {
+      const near = (q, d) => chans.some(c => c.pts.some((a, i) => { const b = c.pts[i + 1]; if (!b) return false; const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q.x - a[0]) * dx + (q.y - a[1]) * dy) / L2)); return Math.hypot(q.x - a[0] - dx * u, q.y - a[1] - dy * u) < d }))
+      const held = S.props.filter(pr => pr.type === 'statue' || pr.type === 'candles').map(pr => ({ x: pr.x, y: pr.y }))
+      const gone = new Set()
+      for (const pr of S.props) if (pr.type === 'stones' && pr.edge == null) pr.cells = pr.cells.filter(c => {
+        const G = cellGeom(ART, c.n, c.j, CO), pts = [G.ga, (G.ga + G.gb) / 2, G.gb].flatMap(gg => [G.t0, (G.t0 + G.t1) / 2, G.t1].map(t => ptAt(ART, gg, t)))
+        if (pts.some(q => Math.abs(q.x - 21.5) < 7.5 && q.y < 17)) return true                    // (the stones either side of the way north stay: they hold the way to Géaga's roots)
+        if (!pts.some(q => near(q, 0.45)) || held.some(q => pts.some(r => Math.hypot(r.x - q.x, r.y - q.y) < 0.9))) return true
+        gone.add(c.n + ',' + c.j); return false
+      })
+      S.spans = S.spans.filter(sp => { if (!sp.hid || sp.z === 0 || S.kind[sp.y]?.[sp.x] !== '.') return true; const c = cellAt(ART, sp.x + 0.5, sp.y + 0.5, CO); return !(c && gone.has(c.n + ',' + c.j)) })
+    }
+    S.extra.floorArt.ring = 0.62
+    S.extra.floorArt.rect = [0, 4, S.W, S.H]
+    S.extra.floorArt.skip = [[18, 0, 25, 9]]                                                      // (the stair north keeps its own stone)
+    S.extra.floorArt.nokerb = [[0, 0, S.W, S.H]]                                                   // (no wall to lay a kerb along)
+  }
   cliffs(S, 0, 1.3, 11)
   for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.kind[y][x] === '#' && S.mat[y][x] === 'c') S.z[y][x] = Math.max(S.z[y][x], 8.5)
+  // a statue out past the edge stands on a plinth of its own, rising out of the dark
+  for (const pr of S.props) if (pr.type === 'statue') {
+    const x = Math.floor(pr.x), y = Math.floor(pr.y)
+    if (S.kind[y][x] === '#' ) S.z[y][x] = +(+pr.z).toFixed(3)
+    else if (S.kind[y][x] === 'v' && !S.spans.some(q => q.x === x && q.y === y)) S.set(x, y, '#', pr.z, 'm')
+  }
 
   // the hazel over the well: its roots down out of the dark, longest over the water; the nuts
   S.prop({ type: 'roots', x0: cx - 8, x1: cx + 8, y0: cy - 7, y1: cy + 6, z: 9, dz: 6.6, count: 130, nuts: true })
@@ -587,6 +868,9 @@ function out(S, spawn) {
   S.light(21, 1.2, 4.0, 6.5, [175, 205, 255], 0.95)
   for (const [x, y] of [[8, 40], [34, 40], [7, 18], [35, 18]]) S.light(x, y, 2.4, 6, [190, 200, 220], 0.35)
   S.extra.ambient = [0.22, 0.225, 0.24]; S.extra.drips = true
+  // above the walls: no longer flat black but a dusk-grey sky, and stars through all of it up to the top of the screen
+  S.extra.bg = ['#030407', '#06080d', '#10141b', '#07090c', '#000000', '#000000', '#000000']
+  S.prop({ type: 'glowworms', x: 0, y: 6.999, x0: -6, x1: 48, z0: 8.4, z1: 34, n: 260, rgb: [205, 218, 238], glow: [150, 172, 212], size: 0.8, slow: 0.5, dim: 0.8 })
   S.zones.push({ x0: 4, y0: 10, x1: 37, y1: 45, zoom: 0.84, look: 0.06 })
   S.esc.npcs.push({ id: 'geaga', x: cx, y: cy - 1, kind: 'geaga', radius: 7.5, reach: false })
   S.esc.ways.push({ x0: 19, y0: 0, x1: 22, y1: 0, to: 'escape_doimhne', at: [13, 57], pastGate: true })
@@ -833,7 +1117,7 @@ function out(S, spawn) {
   S.light(12.5, 37, 1.6, 6, [185, 200, 225], 0.4)                      // grey light from the sea-door behind you
   S.extra = { ...S.extra, ambient: [0.11, 0.12, 0.14], abyss: false, ripples: false, glints: false, bg: ['#0a0d11', '#2a313b', '#4e5866', '#252c35', '#0c1015', '#000000', '#000000', '#000000', '#000000', '#000000'] }
   S.zones.push({ x0: 0, y0: 0, x1: 25, y1: 43, zoom: 0.8 })
-  S.esc.ways.push({ x0: 11, y0: 43, x1: 14, y1: 43, to: 'escape_tobar', at: [2, 43], dark: true })
+  S.esc.ways.push({ x0: 11, y0: 43, x1: 14, y1: 43, to: 'escape_tobar', at: [22, 46], dark: true })
   out(S, [12, 42])
 }
 

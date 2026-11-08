@@ -15,9 +15,27 @@ export function courses(A) {
   const E = [0]; while (E[E.length - 1] < 34) E.push(E[E.length - 1] + WIDS[(E.length - 1) % WIDS.length])
   const info = E.slice(0, -1).map((e0, n) => {
     const w = E[n + 1] - e0, gm = g0 + e0 + w / 2, a = rx + gm, c = ry + gm, per = Math.PI * (3 * (a + c) - Math.sqrt((3 * a + c) * (a + 3 * c)))
-    return { e0, w, m: Math.max(6, Math.round(per / (w * 1.3))), off: h2(n, 5) }
+    const m = Math.max(6, Math.round(per / (w * 1.3))), I = { e0, w, m, len: per / m, off: h2(n, 5) }
+    if (A.spokes && A.spokes.length) {                     // spokes: every course has a joint on each of these angles, the stones between shared out evenly
+      const S = [...A.spokes].sort((a, b) => a - b), TAU = 2 * Math.PI
+      let j0 = 0; I.sec = S.map((a0, i) => { const da = (i + 1 < S.length ? S[i + 1] : S[0] + TAU) - a0, ms = Math.max(1, Math.round(per * da / TAU / (w * 1.3))), sec = { a0, da, m: ms, j0, len: per * da / TAU / ms }; j0 += ms; return sec })
+      I.m = j0
+    }
+    return I
   })
   return { E, info }
+}
+// which stone of a course an angle t falls in, and how far across it (fu, 0..1); and a stone's angles
+export function stoneU(I, t) {
+  if (!I.sec) { const u = ((t + Math.PI) / (2 * Math.PI) + I.off) * I.m, j = Math.floor(u); return { j: ((j % I.m) + I.m) % I.m, fu: u - j, len: I.len } }
+  const TAU = 2 * Math.PI
+  for (const S of I.sec) { let d = t - S.a0; d -= Math.floor(d / TAU) * TAU; if (d < S.da) { const u = d / S.da * S.m, j = Math.min(S.m - 1, Math.floor(u)); return { j: S.j0 + j, fu: u - j, len: S.len } } }
+  const S = I.sec[0]; return { j: 0, fu: 0, len: S.len }
+}
+export function stoneSpan(I, j) {
+  if (!I.sec) return [(j / I.m - I.off) * 2 * Math.PI - Math.PI, ((j + 1) / I.m - I.off) * 2 * Math.PI - Math.PI]
+  const S = I.sec.find(q => j >= q.j0 && j < q.j0 + q.m) || I.sec[0], t0 = S.a0 + (j - S.j0) / S.m * S.da
+  return [t0, t0 + S.da / S.m]
 }
 
 export const ptAt = (A, g, t) => ({ x: A.cx + (A.rx + g) * Math.cos(t), y: A.cy + (A.ry + g) * Math.sin(t) })
@@ -31,14 +49,13 @@ export function cellAt(A, x, y, co = courses(A)) {
   if (q < 0) return null
   let n = 0; while (n < co.info.length - 1 && co.E[n + 1] <= q) n++
   const I = co.info[n], t = Math.atan2(dy / (A.ry + g), dx / (A.rx + g))
-  const u = ((t + Math.PI) / (2 * Math.PI) + I.off) * I.m
-  return { n, j: ((Math.floor(u) % I.m) + I.m) % I.m }
+  return { n, j: stoneU(I, t).j }
 }
 
 // a stone's extent: g from ga to gb, the angle from t0 to t1
 export function cellGeom(A, n, j, co = courses(A)) {
-  const I = co.info[n], ga = A.g0 + I.e0
-  return { n, j, ga, gb: ga + I.w, t0: (j / I.m - I.off) * 2 * Math.PI - Math.PI, t1: ((j + 1) / I.m - I.off) * 2 * Math.PI - Math.PI, m: I.m }
+  const I = co.info[n], ga = A.g0 + I.e0, [t0, t1] = stoneSpan(I, j)
+  return { n, j, ga, gb: ga + I.w, t0, t1, m: I.m }
 }
 
 // the outline of a stone, as points (x, y) going round: the inner arc, then the outer back

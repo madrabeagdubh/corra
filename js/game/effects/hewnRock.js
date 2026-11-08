@@ -71,6 +71,9 @@ const MULTI = {
   river: { rows: (p) => X.riverRows(p), draw: (h, c, p) => X.drawRiver(h, c, p), under: true },
   pool: { rows: (p) => X.poolRows(p), draw: (h, c, p) => X.drawPool(h, c, p), under: true },
   stones: { rows: (p) => [Math.floor(p.y0), Math.floor(p.y1)], draw: (h, c, p) => X.drawStones(h, c, p), under: true },
+  apron: { rows: (p) => X.apronRows(p), draw: (h, c, p) => X.drawApron(h, c, p), under: true },
+  flow: { rows: (p) => X.flowRows(p), draw: (h, c, p) => X.drawFlow(h, c, p), under: true },
+  spur: { rows: (p) => X.spurRows(p), draw: (h, c, p) => X.drawSpur(h, c, p), under: true },
   farrock: { rows: () => [0, 0], draw: (h, c, p) => X.drawFarRock(h, c, p), under: true },
   seafog: { rows: (p) => [p.row0, p.row0], draw: (h, c, p) => X.drawSeaFog(h, c, p) },
   murk: { rows: (p) => [p.y0, p.y1], draw: (h, c, p) => X.drawMurk(h, c, p) },
@@ -179,7 +182,8 @@ export default class HewnRock {
   colZ(c, r) {
     const i = this._i(c, r)
     if (i < 0) return 99
-    return this.k[i] === K_VOID ? -Infinity : this.z[i]
+    if (this.k[i] === K_VOID) { const s = this.span.get(i); return s && s.hid ? s.z : -Infinity }      // (a void tile with a hidden deck: ground you walk on, painted by the hall's stones, so no column of its own)
+    return this.z[i]
   }
 
   // the surface the light falls on: a bridge's deck, else the floor or water; none for rock and void
@@ -197,7 +201,7 @@ export default class HewnRock {
     if (i < 0) return null
     const s = this.span.get(i)
     if (this.blocked?.has(i) && !(s && s.walk === 'deck')) return null       // under smooth water, unless bridged
-    if (s) return s.walk === 'deck' ? s.z : (this.k[i] === K_FLOOR ? this.z[i] : null)
+    if (s) return s.nowalk ? null : s.walk === 'deck' ? s.z : (this.k[i] === K_FLOOR ? this.z[i] : null)
     return this.k[i] === K_FLOOR ? this.z[i] : null
   }
 
@@ -235,8 +239,7 @@ export default class HewnRock {
     }
     b.putImageData(img, 0, 0)
     if (this.floorArt) {
-      const gc = this.glow = document.createElement('canvas'); gc.width = base.width; gc.height = base.height
-      X.paintFloorArt(this, b, TP, gc.getContext('2d'))
+      X.paintFloorArt(this, b, TP)                     // (no glow picture now: the lichen is dull, and a map-sized canvas laid on every frame cost)
     }
     // faces: rough hewn stone, seamless every way, laid on in world space so neighbouring faces run on
     this.faceTex = makeHewnTexture(FACE_PX * 2, FACE_PX * 2, 21)
@@ -554,7 +557,7 @@ export default class HewnRock {
     this._rowLaid = false
     {
       const zm = this.rowMin[r], ya = this._Y(r, zm), yb = this._Y(r + 1, zm)
-      if (yb - ya < LOD_PX && yb > -2 && ya < this.cam.sh + 2 && zm < 90) {
+      if (!this.rowVoid[r] && yb - ya < LOD_PX && yb > -2 && ya < this.cam.sh + 2 && zm < 90) {
         const xl = this._X(c0, r + 1), xr = this._X(c1 + 1, r + 1)
         ctx.drawImage(this.litCv, c0 * TP, r * TP, (c1 - c0 + 1) * TP, TP, Math.floor(xl), Math.floor(ya), Math.ceil(xr - xl) + 1, Math.ceil(yb - ya) + 1)
         this._rowLaid = true
@@ -585,7 +588,7 @@ export default class HewnRock {
     // faces
     for (let c = c0; c <= c1; c++) {
       const zt = this._dz(c, r)
-      if (zt === -Infinity) continue
+      if (zt === -Infinity || this.k[r * this.W + c] === K_VOID) continue
       if (this.stoneOnly && this.k[r * this.W + c] === K_FLOOR && this.stoneOnly.some(([a, b, e, f, zm = -0.005]) => zt < zm && c >= a && c <= e && r >= b && r <= f)) continue
       const zs = this._dz(c, r + 1)
       if (zt > zs + 0.01) this._southFace(ctx, c, r, zt, zs)
@@ -1017,7 +1020,7 @@ export default class HewnRock {
   _drawProp(ctx, p) {
     if (p.type === 'glowworms') { this._drawGlowworms(ctx, p); return }
     const ex = { torch: X.drawTorch, shaft: X.drawShaft, mite: X.drawMite, box: X.drawBox, sprite: X.drawSprite, arch: X.drawArch, span: X.drawSpan,
-      mob: X.drawMob, ogham: X.drawOgham, spiral: X.drawSpiral, eyes: X.drawEyes, eye: X.drawEye, cauldron: X.drawCauldron, candles: X.drawCandles, mist: X.drawMist, grille: X.drawGrille, sigil: X.drawSigil, statue: X.drawStatue, ferry: X.drawFerry, wraith: X.drawWraith, fogbank: X.drawFogBank, body: X.drawBody, pillar: X.drawPillar, doorway: X.drawDoorway }[p.type]
+      mob: X.drawMob, ogham: X.drawOgham, spiral: X.drawSpiral, eyes: X.drawEyes, eye: X.drawEye, cauldron: X.drawCauldron, candles: X.drawCandles, mist: X.drawMist, banner: X.drawBanner, grille: X.drawGrille, sigil: X.drawSigil, statue: X.drawStatue, ferry: X.drawFerry, wraith: X.drawWraith, fogbank: X.drawFogBank, body: X.drawBody, pillar: X.drawPillar, doorway: X.drawDoorway, portal: X.drawPortal, culvert: X.drawCulvert, thorn: X.drawThorn, spout: X.drawSpout, harp: X.drawHarp, wellarch: X.drawWellArch, stump: X.drawStump }[p.type]
     if (ex) { ex(this, ctx, p); return }
     const at = this._P(p.x, p.y, p.z)
     if (!at) return
@@ -1068,17 +1071,17 @@ export default class HewnRock {
     const k = this._k(p.y)
     if (!k) return
     ctx.save(); ctx.globalCompositeOperation = 'lighter'
-    const sz = Math.max(1, k * 0.022)
+    const sz = Math.max(1, k * 0.022 * (p.size ?? 1)), c0 = p.rgb || [150, 255, 225], c1 = p.glow || [90, 230, 200]
     for (let q = 0; q < (p.n ?? 60); q++) {
       const h = hash(q * 2654435761 + p.n * 97 + 13)
       const x = p.x0 + ((h & 1023) / 1023) * (p.x1 - p.x0)
       const z = p.z0 + (((h >> 10) & 1023) / 1023) ** 0.7 * (p.z1 - p.z0)
       const at = this._P(x, p.y, z)
       if (!at || at.y < -4 || at.y > this.cam.sh + 4) continue
-      const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.t * (0.4 + (h % 7) * 0.08) + (h >> 20)))
-      ctx.fillStyle = `rgba(150,255,225,${(a * 0.85).toFixed(3)})`
+      const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.t * (0.4 + (h % 7) * 0.08) * (p.slow ?? 1) + (h >> 20)))
+      ctx.fillStyle = `rgba(${c0},${(a * 0.85 * (p.dim ?? 1)).toFixed(3)})`
       ctx.fillRect(at.x - sz / 2, at.y - sz / 2, sz, sz)
-      if (a > 0.85) { ctx.fillStyle = `rgba(90,230,200,${((a - 0.85) * 1.2).toFixed(3)})`; ctx.fillRect(at.x - sz * 1.5, at.y - sz * 1.5, sz * 3, sz * 3) }
+      if (a > 0.85) { ctx.fillStyle = `rgba(${c1},${((a - 0.85) * 1.2 * (p.dim ?? 1)).toFixed(3)})`; ctx.fillRect(at.x - sz * 1.5, at.y - sz * 1.5, sz * 3, sz * 3) }
     }
     ctx.restore()
   }

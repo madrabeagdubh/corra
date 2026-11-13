@@ -13,7 +13,7 @@ import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 import { runOghamDial } from './introOghamDial.js';
 import { quality } from './game/systems/quality.js';
 import { createDomButton } from './game/systems/gameTypography.js';
-import { NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
+import { paintSkyGradient, NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
 import IntroLevelScene from './game/scenes/locations/bog/introLevel.js';   // [introLevel v4]
 import { createStarField } from './game/effects/starField.js';
@@ -94,6 +94,10 @@ export function unlockAudio()        { _unlockAudio(); }   // heroSlots: a tap o
    True if it is down; false (nothing touched, or a partial teardown the caller should
    answer with a reload) if it could not be. */
 export function abortIntro() {
+    if (_frontAbort) {                                  // [skyFront] the moon and the star sky (starSky.js) are what is up
+        const f = _frontAbort; _frontAbort = null;
+        try { f(); return true; } catch (e) { console.warn('[skyFront] abort failed:', e); return false; }
+    }
     const s = _activeIntro;
     if (!s || s._built || s._aborted) return false;
     _activeIntro = null;
@@ -116,6 +120,8 @@ function _unlockAudio() {
 }
 
 var _sceneInitialized = false;
+var _frontAbort = null;    // [skyFront] how to take the star sky front down, for a saved hero chosen over it (heroSlots.js)
+export function registerFrontAbort(fn) { _frontAbort = fn || null; }
 var _activeIntro = null;   // the ConstellationScene while its dial waits for a first touch (see abortIntro)
 
 // [introLevel v4] The live-rendered ground is the main version now (was ?level=1,
@@ -123,7 +129,10 @@ var _activeIntro = null;   // the ConstellationScene while its dial waits for a 
 // out against the old painted plates). Permanently on; fps/horizon/dolly stay
 // URL-tunable dev knobs (see IntroLevelScene's constructor), just off by default.
 const LEVEL_ON = true;
-export function initConstellationScene(onComplete, startPhase) {
+/* opts (the star sky front, heroSelect.js): dialSeen -- start past the ogham dial, as ?afterdial does; heroSign -- the
+   chosen champion's sign (starSky.js championSign), drawn as the last constellation, the hero, in place of the authored
+   one; onReady -- called once the scene's sky and constellations are up, so the front can hand over to it. */
+export function initConstellationScene(onComplete, startPhase, opts = {}) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
     resetFullscreenState();
@@ -144,6 +153,9 @@ export function initConstellationScene(onComplete, startPhase) {
     // dev: ?afterdial=0.15 goes straight to the constellations, as if the poem had been read and the English set to that opacity
     const _ad = /[?&]afterdial=([0-9.]+)/.exec(location.search);
     if (_ad) { game.registry.set('dialSeen', true); startPhase = parseFloat(_ad[1]); }
+    if (opts.dialSeen) game.registry.set('dialSeen', true);
+    game.registry.set('heroSign', opts.heroSign || null);
+    game.registry.set('onReady', opts.onReady || null);
     game.registry.set('onComplete', onComplete);
     game.registry.set('startPhase', startPhase);
     return game;
@@ -479,6 +491,18 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCX = wSize / 2; this.worldCY = wSize / 2;
         this.cameras.main.setBackgroundColor(NIGHT.baseCss);
         this.cameras.main.setBounds(0, 0, wSize, wSize);
+        // [oneNight] the sky's gradient behind everything, fixed to the screen, as the champion sky has it
+        const _paintGrad = () => {
+            if (this.textures.exists('skyGradient')) this.textures.remove('skyGradient');
+            const t = this.textures.createCanvas('skyGradient', 4, 512); paintSkyGradient(t.getContext(), 4, 512); t.refresh();
+            if (this._skyGrad) this._skyGrad.setTexture('skyGradient');
+            else this._skyGrad = this.add.image(0, 0, 'skyGradient').setOrigin(0.5).setScrollFactor(0).setDepth(0);
+            this._place();
+        };
+        // (oversized and centred: the camera tilts a little as the sky turns, and no corner may show)
+        this._place = () => { this._skyGrad?.setPosition(this.W / 2, this.H / 2).setDisplaySize(this.W * 1.5, this.H * 1.25); };
+        _paintGrad();
+        this.scale.on('resize', () => { try { this._place(); } catch (e) {} });
         /* Live polar stars about a hub above the top edge — see
            js/game/effects/starField.js for why the baked wheels had to go. The
            handles expose `.angle` in degrees, which is the whole of what
@@ -562,6 +586,9 @@ export class ConstellationScene extends Phaser.Scene {
         this.game.canvas.addEventListener('pointerdown', fsHandler, { once: true, passive: true });
         this.game.canvas.addEventListener('touchstart',  fsHandler, { once: true, passive: true });
         this.buildMoonOverlay();
+        // [skyFront] the front waits on this to hand over (see initConstellationScene)
+        const _ready = this.registry.get('onReady');
+        if (_ready) { this.registry.set('onReady', null); this.time.delayedCall(150, () => { try { _ready(); } catch (e) { console.warn('[skyFront] onReady:', e); } }); }
 
         /* The single shadowHill plate is gone. It was one flat image at
            z-index 99999 with the druid and queen painted into it, so it could
@@ -1110,7 +1137,21 @@ if (wrapper) {
         this._fgWheelRt = fg.rt; this._fgWheelSpeed = fg.speed;
     }
 
+    /* [skyFront] With a champion chosen in the star sky, the last constellation (the hero) is their own sign, as it lay
+       in the water when they were chosen (y down), in place of the authored figure. */
+    _constellationData() {
+        const sign = this.registry.get('heroSign');
+        if (!sign || !sign.pts || sign.pts.length < 2) return CONSTELLATION_DATA;
+        const P = sign.pts.map(p => [p[0], -p[1]]);
+        const xs = P.map(p => p[0]), ys = P.map(p => p[1]), span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) || 1;
+        const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, k = 2.8 / span;
+        const starOffsets = P.map(([x, y]) => ({ lx: (x - cx) * k, ly: (y - cy) * k }));
+        const connections = sign.edges.map(([a, b]) => ({ from: a, to: b }));
+        return CONSTELLATION_DATA.map(d => d.id === 'laoch' ? { ...d, starOffsets, connections, sign: true } : d);
+    }
+
     buildConstellations(wSize) {
+        const CONSTELLATION_DATA = this._constellationData();
         const usable = Math.min(this.W, this.H) * 0.68;
         // [skyChoreo] Authored positions (SKY_LAYOUT). The land's pan maps the sky's full
         // horizontal reach onto the valley's pan range, so remember that reach.
@@ -1143,7 +1184,7 @@ if (wrapper) {
             const connections = data.connections.map(c => ({
                 from:c.from, to:c.to, completed:false, completedAt:null,
             }));
-            return { id:data.id, wcx, wcy, stars, connections, completed:false };
+            return { id:data.id, wcx, wcy, stars, connections, completed:false, sign: !!data.sign };
         });
     }
 
@@ -1598,7 +1639,7 @@ if (wrapper) {
         this.playCompletionChord();
         if (c.id==='draoi') triggerMurmuration(this.audioContext);
         this._celebrate(c);
-        this.time.delayedCall(250,()=>this._showDarkImage(c.id));
+        if (!c.sign) this.time.delayedCall(250,()=>this._showDarkImage(c.id));   // [skyFront] (no authored picture over a champion's own sign)
         const texts=constellationTexts[c.id];
         const completion=texts&&texts.completion?texts.completion:[];
         this.hideWaitingTexts(()=>{

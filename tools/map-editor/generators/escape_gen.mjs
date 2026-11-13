@@ -295,6 +295,7 @@ function out(S, spawn) {
       if (g.red) S.prop({ type: 'streak', x0: g.x - 0.8, x1: g.x + 1.8, y0: 8.05 - d, y1: 10.2 - d, z: 0.01, rgb: [255, 50, 20], a: 0.35, flicker: true, fade: 'south' })
       S.light(g.x + 0.5, 10 - d, 2.4, 5, g.light, 0.9)
       S.esc.npcs.push({ id: g.id, x: g.x + 0.5, y: 9.6 - d, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
+      if (g.red) S.esc.slot = { x: g.x + 0.5, y: +(8 - d + 0.9).toFixed(1), radius: 1.1 }              // (Balor's slot machine: where you stand at the door, balorSlot.js)
     }
     for (const tx of [g.x - 2, g.x + 2]) { S.rect(tx, 7 - d, tx, 9 - d, '#', 6, g.mat); merlons(tx, tx + 1, 9.82 - d, 6, dark); if (!zAt(tx + 0.5, 10.62 - d)) S.set(tx, 10 - d, '#', 0.6, g.mat) }
     for (const [tx, f] of [[g.x - 2, false], [g.x + 2, true]]) S.prop({ type: 'statue', kind: g.statue, x: tx + 0.5, y: 10.62 - d, z: zAt(tx + 0.5, 10.62 - d) || 0.6, s: 2.7, stone: g.stone, flip: f })
@@ -536,33 +537,82 @@ function out(S, spawn) {
     S.prop({ type: 'stones', cells, edge: GB, y0: Math.floor(y0), y1: Math.min(S.H - 1, Math.floor(y1) + 1) })
     // the stair: the first foothold is a tile of the brink's own (hidden deck, level), then six stones down, each half a tile
     // lower, thin and hung over nothing; the last four turn west to the balcony
-    unspan(26, 44); S.deck(26, 44, 0, 0.2, 'deck', true)
     // six thin stones hung over nothing, each half a tile lower, south then west, to the step round Donn's threshold: a
     // half-round apron out from the face (a landing before the door, a step down round it, the sheer face below), and in
     // the face a round-arched door of three orders. The stream comes down the stones, round the step and in at the door.
-    const Z0 = -8 / 3, Z1 = -3.0, AR0 = 1.9, AR1 = 3.15
-    const SX = [[26, 45], [26, 46], [26, 47], [25, 47], [24, 47]]
-    const tiles = []
-    SX.forEach(([x, y], i) => { unspan(x, y); S.deck(x, y, +(-RISER * (i + 1)).toFixed(3), 0.33); tiles.push([x, y, i + 1]) })
+    const Z0 = -8 / 3, Z1 = -3.0, AR0 = 2.15, AR1 = 3.6
+    // the stair: a flight cut along the drum's face, hugging it the whole way: six treads, wedges between the face and a line a
+    // tile and a half out, following its curve, each half a tile lower, from the brink east of the door west and down to the
+    // forecourt's step. Walked by hidden decks (a tile goes with the tread its middle is over, if its middle is clear of the wall); drawn by the flight prop
+    const FD = 1.5, FLEN = 1.3, FN = 6, gm = GB + FD / 2, ptE = (t, gg) => [cx + Math.cos(t) * (RX + gg), cy + Math.sin(t) * (RY + gg)]
+    const fb = [Math.acos((27.05 - cx) / (RX + gm))]          // (the treads' ends, west to east, as angles round the hall)
+    for (let t = fb[0], acc = 0; fb.length <= FN;) { const t2 = t - 0.0005, a = ptE(t, gm), b = ptE(t2, gm); acc += Math.hypot(a[0] - b[0], a[1] - b[1]); t = t2; if (acc >= FLEN) { fb.push(+t.toFixed(5)); acc = 0 } }
+    fb[0] = +fb[0].toFixed(5)
+    const gOf = (px, py) => { let lo = -5, hi = 40; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (EL(px, py, m) > 1) lo = m; else hi = m } const gg = (lo + hi) / 2; return [gg - GB, Math.atan2((py - cy) / (RY + gg), (px - cx) / (RX + gg))] }
+    const fz = (j) => +(-RISER * (FN - 1 - j)).toFixed(3), tiles = []
+    for (let y = 36; y <= 48; y++) for (let x = 22; x <= 38; x++) {
+      const [gg, th] = gOf(x + 0.5, y + 0.5)
+      if (gg < 0.2 || gg > FD + 0.05 || th > fb[0] || th < fb[FN]) continue
+      let j = 0; while (j < FN - 1 && th < fb[j + 1]) j++
+      unspan(x, y); S.set(x, y, 'v', 0, 'm'); S.deck(x, y, +(fz(j) - RISER / 3).toFixed(3), 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true; tiles.push([x, y, j])   // (walked at the middle of the three steps drawn on it)
+    }
+    // the bridge, cut to fit: the flight's band carried west from its foot, at the court's step's height, until it meets the court's
+    // circle (where its inner edge, the wall, and its outer edge cross it: lin, lout); and at the top a stone like it, the band
+    // carried on east of the head, level with the floor (to th)
+    const meet = (gg) => { let lo = fb[0], hi = Math.PI / 2; for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2, [px, py] = ptE(m, GB + gg); if (Math.hypot(px - CX, py - FY) > AR1) lo = m; else hi = m } return +((lo + hi) / 2).toFixed(5) }
+    const lin = meet(0), lout = meet(FD), th = +(fb[FN] - 1.7 / (RX + gm)).toFixed(5), land = []
+    for (let y = 36; y <= 48; y++) for (let x = 22; x <= 38; x++) {
+      const [gg, t] = gOf(x + 0.5, y + 0.5)
+      if (t > fb[0] && t <= Math.max(lin, lout) && gg >= 0.2 && gg <= FD + 0.05 && Math.hypot(x + 0.5 - CX, y + 0.5 - FY) > AR1 - 0.4) land.push([x, y, Z1])
+      else if (t < fb[FN - 1] && t >= th && gg >= -0.35 && gg <= FD + 0.05 && !tiles.some(([a, b]) => a === x && b === y)) land.push([x, y, 0])   // (and the brink's edge beside the head)
+    }
+    for (const [x, y, z] of land) { unspan(x, y); if (S.kind[y][x] !== '.') S.set(x, y, 'v', 0, 'm'); S.deck(x, y, z, 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true }
+    let fy0 = 99, fy1 = 0
+    for (let i = 0; i <= 40; i++) for (const gg of [0, FD]) { const [, yy] = ptE(th + (Math.max(lin, lout) - th) * i / 40, GB + gg); fy0 = Math.min(fy0, yy); fy1 = Math.max(fy1, yy) }
+    S.light(28.6, 44.9, 0.4, 3.6, [255, 190, 120], 0.4)
+    for (const t of [fb[FN], th]) { const [hx, hy] = ptE(t, GB + FD - 0.12); S.light(+hx.toFixed(2), +hy.toFixed(2), 1.2, 3.0, [255, 190, 120], 0.4) }     // (the lamps on the newels at its head)
+    S.light(CX, FY + 1.3, Z1 - 2.2, 4.6, [160, 180, 220], 0.95)          // (pale lights under the court, to show its stem)
+    S.light(CX, FY + 1.6, Z1 - 4.8, 4.0, [150, 170, 215], 0.7)
     for (let y = FR; y <= FR + 4; y++) for (let x = 17; x <= 26; x++) {
       const d = Math.hypot(x + 0.5 - CX, y + 0.5 - FY)
-      if (d > AR1 || tiles.some(([a, b]) => a === x && b === y)) continue
+      if (d > AR1 || tiles.some(([a, b]) => a === x && b === y) || land.some(([a, b]) => a === x && b === y)) continue
+      const foot = [...tiles, ...land].some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) === 1)
       unspan(x, y); S.deck(x, y, d < AR0 ? +Z0.toFixed(3) : Z1, 0.2, 'deck', true); S.spans[S.spans.length - 1].keep = true
+      if (y === FR && !foot) S.spans[S.spans.length - 1].nowalk = true         // (the apron's north row is the drop below the brink: you do not step off the edge, you take the stair)
     }
-    courtArt = { cx: CX, fy: FY, tiles, kerb: [] }
+    // the hall's lip over the flight and over the court: not walked, so there's no stepping off it; the stair is the way down
+    {
+      const fl = new Set([...tiles, ...land].map(([x, y]) => x + ',' + y)), seal = []
+      const wz = (x, y) => { const s = S.spans.find(o => o.x === x && o.y === y); if (s) return s.nowalk || s.walk !== 'deck' ? null : s.z; return S.kind[y]?.[x] === '.' && !S.block.some(([a, b]) => a === x && b === y) ? S.z[y][x] : null }
+      for (let y = 36; y <= 48; y++) for (let x = 16; x <= 38; x++) {
+        const z = wz(x, y); if (z == null || z < -0.01 || fl.has(x + ',' + y)) continue
+        if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => { const n = wz(x + u, y + v); return n != null && n < z - 0.4 })) seal.push([x, y])
+      }
+      for (const [x, y] of seal) { const s = S.spans.find(o => o.x === x && o.y === y); if (s) { s.nowalk = true; s.keep = true } else S.block.push([x, y]) }
+    }
+    courtArt = { cx: CX, fy: FY, tiles: [], kerb: [] }
     const chan = [[CX, FY + 0.42], [CX, FY + 0.06]]                   // (from where the stream lands, in under the door)
-    S.prop({ type: 'portal', x: CX, y: FY + 0.02, z: Z0, w: 1.3, hj: 1.05, orders: 3, t: 0.2, stone: [158, 158, 164], steps: 10, fall: 0.8, narrow: 0.02 })
-    S.prop({ type: 'apron', x: CX, y: FY, z0: Z0, z1: Z1, r0: AR0, r1: AR1, chan })
-    S.prop({ type: 'spout', x: CX, y: FY + 0.18, z: +(Z0 + 1.05 + 0.65 + 0.5).toFixed(3), zl: Z0, out: 0.22, s: 0.13, stone: [158, 158, 164] })     // the keystone head, and the fifth stream from its mouth
-    for (const sx of [-1, 1]) S.prop({ type: 'statue', kind: g.statue, x: CX + sx * 2.7, y: FY - 0.9, z: 0, s: 2.4, stone: g.stone, flip: sx > 0 })
+    S.prop({ type: 'portal', x: CX, y: FY + 0.02, z: Z0, w: 1.45, hj: 1.1, orders: 4, t: 0.19, ogham: true, stone: [158, 158, 164], steps: 10, fall: 0.8, narrow: 0.02 })
+    S.prop({ type: 'apron', x: CX, y: FY, z0: Z0, z1: Z1, r0: AR0, r1: AR1, chan, stem: 0.62, dripT0: 0.34 })
+    S.prop({ type: 'flight', cx, cy, rx: RX + GB, ry: RY + GB, d: FD, b: fb, z: fb.slice(0, FN).map((_, j) => fz(j)), zfoot: Z1, zcap: Z1 - 1.5, zB: Z1 + 0.6, rise: 1.0, fan: [CX, FY, AR1], lin, lout, th, y0: Math.floor(fy0), y1: Math.floor(fy1) })
+    S.prop({ type: 'spout', x: CX, y: FY + 0.18, z: +(Z0 + 1.1 + 0.725 + 0.55).toFixed(3), zl: Z0, out: 0.22, s: 0.2, tears: true, stone: [158, 158, 164] })     // the keystone head, the fifth stream its tears
+    // over the door, on the brink, the pair from Caldragh on Boa Island, dark, on plinths, each on a stone of the outer course
+    // either side of the door: the Dreenan figure west (two-faced, arms crossed), the smaller Lustymore man east (one-eyed)
+    for (const [j, kind, s] of [[54, 'janus', 2.1], [51, 'lusty', 1.75]]) {
+      const Gc = cellGeom(ART, 10, j, CO), m = ptAt(ART, (Gc.ga + Gc.gb) / 2, (Gc.t0 + Gc.t1) / 2), x = +m.x.toFixed(2), y = +m.y.toFixed(2)
+      S.prop({ type: 'box', x, y, z: 0, w: 1.05, d: 0.72, h: 0.16, col: [92, 94, 102] })
+      S.prop({ type: 'box', x, y, z: 0.16, w: 0.84, d: 0.56, h: 0.26, col: [100, 102, 110] })
+      S.prop({ type: 'statue', kind, x, y: +(y + 0.02).toFixed(2), z: 0.42, s, stone: [54, 56, 64] })
+      { const s = S.spans.find(o => o.x === Math.floor(x) && o.y === Math.floor(y)); if (s) { s.nowalk = true; s.keep = true } else S.block.push([Math.floor(x), Math.floor(y)]) }     // (not walked through)
+    }
     if (g.candles) S.prop({ type: 'candles', x: CX + 1.2, y: FY + 0.5, z: Z0, w: 0.6, count: 5 })
     S.light(CX, FY + 1.2, Z0 + 1.0, 3.6, [170, 190, 225], 0.7)
     S.light(CX + 1, FY - 1.5, 0.6, 4.0, [170, 190, 225], 0.35)
     S.prop({ type: 'mist', y: FR, x0: CX - 0.5, x1: CX + 0.5, z: Z0 + 0.1, rgb: [200, 212, 230], a: 0.3, count: 3, pulse: 8, ph: 0, draw: 'in' })
-    S.prop({ type: 'banner', x: CX + 0.28, y: FY + 0.06, z: Z0 + 1.05 + 0.6, w: 0.34, len: 1.2, rgb: [198, 202, 200], pulse: 8, ph: 0 })
+    S.prop({ type: 'banner', x: CX + 0.28, y: FY + 0.06, z: Z0 + 1.1 + 0.8, arch: { x: CX, y: FY + 0.04, z: Z0, w: 1.45, hj: 1.1 }, w: 0.34, len: 1.2, rgb: [198, 202, 200], pulse: 8, ph: 0 })
     S.esc.npcs.push({ id: g.id, x: CX, y: FR + 1.0, kind: 'gate', radius: 2.8, sigil: g.sigil, rgb: g.light })
     S.esc.sea = { x: CX, y: FR + 1.5 }
-    S.esc.ways.push({ x0: 21, y0: FR, x1: 21, y1: FR, to: g.sea, at: [12, 42], dark: true })
+    S.esc.ways.push({ x0: 21, y0: FR + 1, x1: 21, y1: FR + 1, to: g.sea, at: [12, 42], dark: true })
   }
   const seaDoor = (g) => {
     const V = process.env.SEADOOR || 'K'
@@ -798,6 +848,7 @@ function out(S, spawn) {
     const rim = []
     for (const n of [9, 10]) for (let j = 0; j < CO.info[n].m; j++) if (!up.has(n + ',' + j)) rim.push({ n, j, z: 0 })
     S.prop({ type: 'stones', cells: rim, edge: GB, y0: Math.floor(cy - RY - GB - 1), y1: Math.min(S.H - 1, Math.ceil(cy + RY + GB + 1)) })
+    { const i = S.props.findIndex(pr => pr.type === 'flight'); if (i >= 0) S.props.push(...S.props.splice(i, 1)) }     // (the sea-door's flight after them: it goes over the drum's face)
     S.props = [...S.props.filter(pr => pr.type !== 'apron'), ...S.props.filter(pr => pr.type === 'apron')]     // (the apron stands in front of the edge's faces)
     // ── the five streams ── A shining well and five streams flowing out of it, the five senses (Echtra Cormaic). They rise
     // in a ring round the dais's foot and run in runnels cut flush in the floor, their water as clear as the well's: four
@@ -1095,6 +1146,10 @@ function out(S, spawn) {
     for (const c of cells) { const G = cellGeom(ART, c.n, c.j, CO); for (const g of [G.ga, G.gb]) for (const t of [G.t0, G.t1]) { const q = ptAt(ART, g, t); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y) } }
     S.prop({ type: 'stones', cells, y0: Math.floor(y0 - 0.1), y1: Math.floor(y1 + 0.1) }) }
   S.extra.floorArt = { ...ART, rect: [3, 29, 23, 44], ring: false, channels: [] }
+  // the stream: in under Donn's door in the hall, it comes down below the stair and goes to the sea in one groove cut flush in
+  // the landing, as in the antechamber (floorArt drains), with its glints running down it to the first step; no more than that
+  Object.assign(S.extra.floorArt, { drains: [[12.5, 37.9, 12.5, 30.95]] })
+  S.prop({ type: 'flow', paths: [Array.from({ length: 15 }, (_, i) => [12.5, +(37.9 - i * 0.5).toFixed(2), 0])], y0: 30, y1: 38, speed: 0.4 })
   // Teach Duinn, far out: a rock on the edge of sight, the light through its arch, fog banks drifting across between
   S.prop({ type: 'farrock', x: 12.5, y: -70, z: -1.0, w: 30, h: 13 })
   S.prop({ type: 'fogbank', x0: -14, x1: 40, y: 0.2, z: -1.4, h: 4.5, a: 0.4, speed: 0.012 })
@@ -1109,13 +1164,13 @@ function out(S, spawn) {
     const y = 4 + rb() * 25.5, x = 0.5 + rb() * (S.W - 1)
     if (Math.abs(x - 12.5) < 1.7) { rb(); rb(); rb(); continue }       // her way in is clear
     const f = FR[BARE[Math.floor(rb() * BARE.length)]].frame
-    S.prop({ type: 'body', x, y, z: -1.0, sx: f.x, sy: f.y, sw: f.w, sh: f.h, rot: rb() * Math.PI * 2, s: 2.6, a: 0.5 + rb() * 0.25 })
+    S.prop({ type: 'body', x, y, z: -1.0, sx: f.x, sy: f.y, sw: f.w, sh: f.h, rot: rb() * Math.PI * 2, s: 2.6, a: 0.5 + rb() * 0.25, surf: 0.14 })
   }
   S.prop({ type: 'ferry', id: 'ferry', x: 12.5, y: 0.6, z: -1.0, a: Math.PI / 2, woman: 'paddle', still: true })
   S.prop({ type: 'wraith', id: 'wraith', x: 12.5, y: 0.6, z: -1.0, pose: 'none' })
   S.esc.ferry = { path: [[12.5, 0.6], [12.5, 7], [13.2, 13], [12.4, 20.4]], drift: 1.3, foot: [12.5, 30.75], z: -1.0, grace: 7, secs: 30, zone: { x0: 0, y0: 0, x1: 25, y1: 38 } }
   S.light(12.5, 37, 1.6, 6, [185, 200, 225], 0.4)                      // grey light from the sea-door behind you
-  S.extra = { ...S.extra, ambient: [0.11, 0.12, 0.14], abyss: false, ripples: false, glints: false, bg: ['#0a0d11', '#2a313b', '#4e5866', '#252c35', '#0c1015', '#000000', '#000000', '#000000', '#000000', '#000000'] }
+  S.extra = { ...S.extra, ambient: [0.11, 0.12, 0.14], abyss: false, ripples: false, glints: false, flank: true, bg: ['#0a0d11', '#2a313b', '#4e5866', '#252c35', '#0c1015', '#000000', '#000000', '#000000', '#000000', '#000000'] }
   S.zones.push({ x0: 0, y0: 0, x1: 25, y1: 43, zoom: 0.8 })
   S.esc.ways.push({ x0: 11, y0: 43, x1: 14, y1: 43, to: 'escape_tobar', at: [22, 46], dark: true })
   out(S, [12, 42])

@@ -9,6 +9,7 @@ import { initDawnCrossing }   from './game/scenes/dawnCrossing.js';
 import { FONTS, COLORS, TYPE, SPACING, BUTTON, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings }     from './game/settings/gameSettings.js';
 import { createMoonWidget } from './game/ui/moonWidget.js';
+import { SKY } from './game/systems/nightPalette.js';
 import { hopMsForTuneKey, danceTransform, musicClockFor } from './game/effects/championDance.js';
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js';
 
@@ -57,14 +58,14 @@ function createNightSky() {
     const ctx = canvas.getContext('2d');
 
     // Stars live in 0..1 coordinates so a resize just redraws them in place.
-    const stars = Array.from({ length: 170 }, () => ({
+    // [oneNight] small cold-white stars, many, as the champion sky's (was 170, some gold, larger)
+    const stars = Array.from({ length: 520 }, () => ({
         x:      Math.random(),
         y:      Math.random(),
-        r:      Math.random() * 1.2 + 0.3,
-        base:   Math.random() * 0.45 + 0.15,
+        r:      Math.random() < 0.85 ? 0.5 + Math.random() * 0.5 : 1 + Math.random() * 0.6,
+        base:   Math.random() * 0.55 + 0.15,
         speed:  0.0004 + Math.random() * 0.0012,   // radians per ms
         offset: Math.random() * Math.PI * 2,
-        gold:   Math.random() < 0.12,
     }));
 
     let w = 0, h = 0;
@@ -83,10 +84,8 @@ function createNightSky() {
         ctx.clearRect(0, 0, w, h);
         for (const s of stars) {
             const a = s.base * (0.6 + 0.4 * Math.sin(now * s.speed + s.offset));
-            ctx.beginPath();
-            ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
-            ctx.fillStyle = s.gold ? `rgba(212,175,55,${a})` : `rgba(200,220,255,${a})`;
-            ctx.fill();
+            ctx.fillStyle = `rgba(${SKY.starRGB},${a})`;
+            ctx.fillRect(s.x * w - s.r, s.y * h - s.r, s.r * 2, s.r * 2);
         }
         rafId = requestAnimationFrame(loop);
     }
@@ -158,10 +157,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     blackBg.id = 'tutorialBlackBg';
     blackBg.style.cssText = `
         position:fixed;inset:0;z-index:99999;pointer-events:none;
-        background:
-            radial-gradient(ellipse 80% 60% at 30% 40%,rgba(60,30,120,0.18) 0%,transparent 70%),
-            radial-gradient(ellipse 60% 50% at 70% 60%,rgba(20,40,100,0.14) 0%,transparent 65%),
-            ${NIGHT};
+        background: linear-gradient(to bottom, ${SKY.top} 0%, ${SKY.mid} ${SKY.midAt * 100}%, ${SKY.bottom} 100%);   /* [oneNight] */
     `;
     document.body.appendChild(blackBg);
 
@@ -421,6 +417,11 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         _leaving = true;
         moonWidget.setTapHandler(null);
         moonWidget.setLongPressHandler(null);
+        if (window.__frontBack) {        // [skyFront] back to the sky of champions (heroSelect.js startSkyFront)
+            try { cleanup(); moonWidget.destroy(); } catch (e) {}
+            window.__frontBack();
+            return;
+        }
         try {
             const mod = await import('./heroSelect.js');
             if (mod.muteSecondInstrument) await mod.muteSecondInstrument();

@@ -385,6 +385,12 @@ export function drawBanner(h, ctx, p) {
     hem.push({ x: px, y: py + k * (i % 2 ? 0.02 : drop) })
   }
   ctx.save()
+  if (p.arch) {                                                       // hung in a doorway: its head cut by the arch, so no gap shows
+    const A = p.arch, zs = A.z + A.hj, rr = A.w / 2 + 0.015, pts = [h._P(A.x - rr, A.y, A.z - 3)]
+    for (let i = 0; i <= 24; i++) { const an = Math.PI - Math.PI * i / 24; pts.push(h._P(A.x + Math.cos(an) * rr, A.y, zs + Math.sin(an) * rr)) }
+    pts.push(h._P(A.x + rr, A.y, A.z - 3))
+    if (!pts.some(q => !q)) { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); ctx.clip() }
+  }
   ctx.beginPath(); ctx.moveTo(left[0].x, left[0].y)
   for (let s = 1; s <= N; s++) ctx.lineTo(left[s].x, left[s].y)
   for (let i = 0; i < hem.length; i++) ctx.lineTo(hem[i].x, hem[i].y)
@@ -1261,31 +1267,65 @@ function fishPath(p, q, round) {
   let F = PATHS.get(key); if (F) return F
   if (PATHS.size > 60) PATHS.clear()
   const R = (k) => (hash(round * 7919 + q * 104729 + k * 977 + (p.n || 0) * 31) & 0xffff) / 65535
-  // the arch's mouth in the far wall (see paintShaft: its crown hangs down to about the springing, 3.4 under the surface),
-  // a point well inside it, and the nut out on the water
-  const wallY = p.y - p.ry, jx = (R(2) - 0.5) * 1.6, jx2 = (R(3) - 0.5) * 1.6
-  const an = R(0) * Math.PI * 2, rt = 0.15 + 0.4 * R(1), Nx = p.x + Math.cos(an) * p.rx * rt, Ny = p.y + Math.sin(an) * p.ry * rt
-  const Mx = p.x + jx, My = wallY + 0.25, M2x = p.x + jx2
-  const dx = Nx - Mx, dy = Ny - My, dl = Math.hypot(dx, dy) || 1, sx = -dy / dl, sy = dx / dl, side = (R(9) < 0.5 ? 1 : -1) * Math.min(1.2, dl * 0.25)
-  const mid = (f, off, depth) => [Mx + dx * f + sx * off, My + dy * f + sy * off, -depth]
-  const K = [[Mx * 0.7 + p.x * 0.3, wallY - 1.4, -2.6], [Mx, My, -2.3], mid(0.35, side, 2.0), mid(0.78, side * 0.5, 0.9), [Nx, Ny, 0],
-    [Nx + dx / dl * 0.35 - sx * side * 0.3, Ny + dy / dl * 0.35 - sy * side * 0.3, -0.5], mid(0.5, -side, 1.8), [M2x, My, -2.3], [M2x * 0.7 + p.x * 0.3, wallY - 1.4, -2.6]]
-  // (every other round or so, no nut: out of the arch, a turn about the shaft, and away down into the depths; then up out
-  // of the deep somewhere else and in at one of the little arches round the wall)
+  const TAU = Math.PI * 2, NA = p.arcade ?? 26, wallY = p.y - p.ry
+  // the little arches round the wall (the arcade, see paintShaft): the angles of those that are there
+  const little = []
+  for (let i = 0; i < NA; i++) { const am = (i + 1) / NA * TAU, n = (am + Math.PI / 2 + TAU) % TAU; if (Math.sin(am) > 0.3 || n < 0.42 || n > TAU - 0.42) continue; little.push(am) }
+  const pa = (a, rr, d) => [p.x + Math.cos(a) * p.rx * rr, p.y + Math.sin(a) * p.ry * rr, -d]
+  // a way in or out of the water: the great archway in the far wall (its crown hangs down to about 3.4 under the surface),
+  // or one of the little arches (their crowns, to about 1.4). It is through the wall there that it comes and goes.
+  const jx = (R(2) - 0.5) * 1.6, jx2 = (R(3) - 0.5) * 1.6
+  const portal = (r, k) => (r < 0.5 || !little.length) ? { great: true, a: -Math.PI / 2, d: 2.3 } : { great: false, a: little[Math.floor(R(k) * little.length) % little.length], d: 0.9 }
+  const entA = portal(R(21), 22), exA = portal(R(23), 24)
+  const gate = (t, jj) => t.great ? [[p.x + jj, wallY + 0.25, -2.3], [(p.x + jj) * 0.7 + p.x * 0.3, wallY - 1.4, -2.6]] : [pa(t.a, 0.93, t.d), pa(t.a, 1.45, t.d)]     // [the mouth, and outside it]
+  const [inM, inO] = gate(entA, jx), [exM, exO] = gate(exA, jx2)
+  // (every other round or so, no nut: in at a way in, down the shaft in a long gentle spiral, the circle drawing in as it
+  // goes deeper, to the mid-distance, a cruise round the shaft there, and up in another spiral, opening out again, to a way
+  // out: that may be a different arch)
   if (R(11) < 0.5) {
-    const s2 = R(12) < 0.5 ? -1 : 1, a1 = -Math.PI / 2 + s2 * (0.9 + 0.8 * R(13)), a2 = -Math.PI / 2 - s2 * (0.7 + 0.9 * R(14))
-    const at = (a, rr, d) => [p.x + Math.cos(a) * p.rx * rr, p.y + Math.sin(a) * p.ry * rr, -d]
-    const D = [[Mx * 0.7 + p.x * 0.3, wallY - 1.4, -2.6], [Mx, My, -2.3], at(a1 * 0.5 - Math.PI / 4, 0.45, 1.3), at(a1, 0.55, 0.9), at(a1 + s2 * 0.5, 0.4, 2.6),
-      [p.x + Math.cos(a1) * 0.6, p.y + 0.3, -5.5], [p.x, p.y + 0.6, -8.5], [p.x + Math.cos(a2) * p.rx * 0.4, p.y + Math.sin(a2) * p.ry * 0.4, -9], at(a2, 0.7, 3.2), at(a2, 0.92, 1.4), at(a2, 1.35, 1.2)]
-    F = swimPath(D, 3); F.dive = true
+    const ent = entA, ex = exA
+    const s2 = R(12) < 0.5 ? -1 : 1, DM = 6 + 2.5 * R(15), turnsD = 0.3 + 0.3 * R(13), turnsC = 0.8 + 0.5 * R(16), ph1 = R(17) * 6, ph2 = R(18) * 6
+    const D = [inO, inM], A1 = ent.a + s2 * TAU * turnsD
+    for (let k = 1; k <= 10; k++) { const u = k / 10, e = smooth01(u); D.push(pa(ent.a + s2 * TAU * turnsD * u, 0.6 - 0.12 * e, ent.d + (DM - ent.d) * e)) }
+    // (the cruise: round the shaft in the mid-distance, in wide loose turns, bobbing a little)
+    const A2 = A1 + s2 * TAU * turnsC
+    for (let k = 1; k <= 12; k++) { const u = k / 12, env = Math.sin(u * Math.PI); D.push(pa(A1 + s2 * TAU * turnsC * u, 0.46 + 0.12 * Math.sin(u * TAU * 1.5 + ph1) * env, DM + 1.3 * Math.sin(u * TAU * 1.25 + ph2) * env)) }
+    const delta = (((ex.a - A2) * s2) % TAU + TAU) % TAU, turnsU = (delta + (delta < TAU * 0.15 ? TAU : 0)) / TAU     // (on round the same way, to come out at the arch)
+    for (let k = 1; k <= 10; k++) { const u = k / 10, e = smooth01(u); D.push(pa(A2 + s2 * TAU * turnsU * u, 0.46 + 0.14 * e, DM + (ex.d - DM) * e)) }
+    D.push(pa(ex.a, 0.84, ex.d), exM, exO)
+    const V = 1.2, cap = 34 + q * 9                                      // (it must be done before its round comes again)
+    F = swimPath(D, 0, V, 480)
+    if (F.D > cap) F = swimPath(D, 0, V * F.D / cap, 480)
+    F.dive = true
     PATHS.set(key, F); return F
   }
-  F = swimPath(K, 4)
+  // the nut: in (at an arch, or, the first time it is seen and often after, up out of the deeps in a rising spiral), out on
+  // the water to where it lies, and away again (down an arch, or down into the deeps)
+  const up = round === 0 || R(25) < 0.5, down = R(26) < 0.45, sd = R(27) < 0.5 ? -1 : 1, a0 = R(28) * TAU
+  const an = R(0) * Math.PI * 2, rt = 0.15 + 0.4 * R(1), Nx = p.x + Math.cos(an) * p.rx * rt, Ny = p.y + Math.sin(an) * p.ry * rt
+  const head = [], tail = []
+  let Mx, My
+  if (up) {
+    const m = pa(a0 + sd * 4.0, 0.45, 2.2); Mx = m[0]; My = m[1]
+    head.push(pa(a0, 0.38, 9.2), pa(a0 + sd * 1.4, 0.5, 6.4), pa(a0 + sd * 2.8, 0.5, 3.8), m)
+  } else { Mx = inM[0]; My = inM[1]; head.push(inO, inM) }
+  const dx = Nx - Mx, dy = Ny - My, dl = Math.hypot(dx, dy) || 1, sx = -dy / dl, sy = dx / dl, side = (R(9) < 0.5 ? 1 : -1) * Math.min(1.2, dl * 0.25)
+  const mid = (f, off, depth) => [Mx + dx * f + sx * off, My + dy * f + sy * off, -depth]
+  const back = mid(0.5, -side, 1.8)
+  if (down) {
+    const a1 = Math.atan2((back[1] - p.y) / p.ry, (back[0] - p.x) / p.rx), sd2 = R(29) < 0.5 ? -1 : 1
+    tail.push(pa(a1 + sd2 * 1.0, 0.5, 4.5), pa(a1 + sd2 * 2.2, 0.48, 7.5), pa(a1 + sd2 * 3.4, 0.42, 10.5), pa(a1 + sd2 * 4.6, 0.38, 13.8))
+  } else tail.push(exM, exO)
+  const K = [...head, mid(0.35, side, 2.0), mid(0.78, side * 0.5, 0.9), [Nx, Ny, 0],
+    [Nx + dx / dl * 0.35 - sx * side * 0.3, Ny + dy / dl * 0.35 - sy * side * 0.3, -0.5], back, ...tail]
+  const kT = K.findIndex(pt => pt[2] === 0), cap = 36 + q * 9, V0 = up ? 1.15 : 0.85
+  F = swimPath(K, kT, V0)
+  if (F.D > cap) F = swimPath(K, kT, V0 * F.D / cap)                    // (and done before its round comes again)
   PATHS.set(key, F); return F
 }
 // a swim through key points K ([x, y, -depth]), slowing round the one at index kT (where it touches the surface)
-function swimPath(K, kT, V = 0.85) {
-  const N = 220, pts = spline(K, N), len = [0], tm = [0]
+function swimPath(K, kT, V = 0.85, N = 220) {
+  const pts = spline(K, N), len = [0], tm = [0]
   const iT = Math.round(kT / (K.length - 1) * N)
   for (let i = 1; i <= N; i++) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]))
   const sT = len[iT]
@@ -1302,11 +1342,13 @@ export function startPoolGifts(h, p, tips, wait = 0.6) {
     const side = Tx < p.x - 0.1 ? -1 : Tx > p.x + 0.1 ? 1 : (R(i) < 0.5 ? -1 : 1)
     const Nx = p.x + side * (1.5 + 0.9 * R(i * 3 + 1)) + (Tx - p.x) * 0.4, Ny = p.y - 1.4 + 1.2 * R(i * 3 + 2), Ty = Ty0 + 0.1
     const Mx = p.x + side * 0.45 + (i - 1) * 0.25, My = wallY + 0.25
-    const K = [[p.x + side * 0.3, wallY - 1.4, -2.6], [Mx, My, -2.3], [(Mx + Nx) / 2 + side * 0.5, (My + Ny) / 2, -1.6], [Nx, Ny + 0.3, -0.5], [Nx, Ny, -0.12],
-      [(Nx + Tx) / 2, (Ny + Ty) / 2 + 0.25, -0.1], [Tx, Ty, -0.08], [Tx - side * 0.4, Ty + 0.6, -1.0], [p.x + side * (0.6 + 0.3 * i), p.y - 0.6, -3.6], [p.x + side * 0.3, p.y + 0.2, -7], [p.x - side * 0.4, p.y + 0.5, -9.5]]      // (and away, down into the depths)
-    const F = swimPath(K, 6, 0.9)
+    // (up out of the deeps in a rising spiral, into the water by where the arch is, and on to the nut)
+    const My2 = My + 1.4, aM = Math.atan2((My2 - p.y) / p.ry, (Mx - p.x) / p.rx), aS = aM - side * 2.2, pt = (a, rr, d) => [p.x + Math.cos(a) * p.rx * rr, p.y + Math.sin(a) * p.ry * rr, -d]
+    const K = [pt(aS, 0.4, 9.2), pt(aS + side * 1.0, 0.5, 5.8), [Mx, My2, -2.3], [(Mx + Nx) / 2 + side * 0.5, (My2 + Ny) / 2, -1.6], [Nx, Ny + 0.3, -0.5], [Nx, Ny, -0.12],
+      [(Nx + Tx) / 2, (Ny + Ty) / 2 + 0.25, -0.1], [Tx, Ty, -0.08], [Tx - side * 0.4, Ty + 0.6, -1.0], [p.x + side * (0.6 + 0.3 * i), p.y - 0.6, -3.6], [p.x + side * 0.3, p.y + 0.2, -7], [p.x - side * 0.4, p.y + 0.5, -10.5], [p.x + side * 0.2, p.y + 0.3, -13.5]]      // (and away, down into the depths)
+    const F = swimPath(K, 7, 1.2)
     const at = (k) => F.tm[Math.round(k / (K.length - 1) * (F.pts.length - 1))]
-    return { F, N: [Nx, Ny], T: [Tx, Ty], tPick: at(4), tLeave: at(6), taken: false, lift: null, q: i }
+    return { F, N: [Nx, Ny], T: [Tx, Ty], tPick: at(5), tLeave: at(7), taken: false, lift: null, q: i }
   })
   // (all to arrive together: the longest swim sets off first)
   const arrive = h.t + wait + Math.max(...made.map(g => g.tLeave))
@@ -1332,6 +1374,26 @@ function sAtTime(F, u) {
 }
 const dimAt = (depth) => 0.1 + 0.9 * Math.pow(Math.max(0, 1 - depth / 7), 1.5)
 const mixc = (a, b, t) => `rgb(${a[0] + (b[0] - a[0]) * t | 0},${a[1] + (b[1] - a[1]) * t | 0},${a[2] + (b[2] - a[2]) * t | 0})`
+
+// Three great ones that live down in the mid-deeps: each goes round and round the shaft at its own level, bobbing, the
+// others the other way, so there is always something to see when you look down. (A long looped path, three laps, the middle
+// lap the one used; body longer than the visitors', for they are older.)
+function makeDwellers(p) {
+  const TAU = Math.PI * 2, out = [], LC = 3                      // (a cycle is three laps; once in it, a slow rise to the mid levels and back)
+  for (let i = 0; i < 3; i++) {
+    const dir = i % 2 ? -1 : 1, d0 = 11 + 3 * i, RISE = 6.5 + 2 * i, ph = i * 2.1, a0 = i * 2.4, ph2 = i * 2.2 + 0.6, n = 18, K = []
+    for (let k = 0; k <= 3 * LC * n; k++) {
+      const th = a0 + dir * TAU * k / n, rr = 0.5 + 0.1 * Math.sin(2 * th + ph), c = (k % (LC * n)) / (LC * n)
+      const up = Math.pow(Math.max(0, Math.sin(TAU * c + ph2)), 3)
+      K.push([p.x + Math.cos(th) * p.rx * rr, p.y + Math.sin(th) * p.ry * rr, -(d0 + 1.2 * Math.sin(2 * th + ph) - RISE * up)])
+    }
+    const F = swimPath(K, 0, 1, 330 * LC), V = 0.7 + 0.12 * i
+    F.tm = F.len.map(l => l / V); F.D = F.L / V; F.tT = -1e3; F.far = true            // (far: seen further down, as a dim shape against the light)
+    const lapT = F.L / 3 / V
+    out.push({ F, lapT, off: i * 7.3, q: 6 + 2 * i })
+  }
+  return out
+}
 
 // one frame's fish: lists of screen shapes, made once per frame and drawn through each row's slice of the water
 function fishFrame(h, p, surf) {
@@ -1373,6 +1435,9 @@ function fishFrame(h, p, surf) {
     if (fish && hush < 1) fish.fa *= 1 - hush
     if (fish && fish.fa > 0.02) out.fish.push(fish)
   }
+  // the dwellers, down in the mid-deeps
+  const dw = p._dw || (p._dw = makeDwellers(p))
+  for (const d of dw) { const fish = bodyOf(h, p, d.F, d.lapT + ((h.t + d.off) % d.lapT), d.q, surf); if (fish && fish.fa > 0.02) out.fish.push(fish) }
   // the salmon's gifts (startPoolGifts): the nut afloat, then nosed across to the steps, waiting there, then lifting out
   if (p._gifts) {
     p._gifts = p._gifts.filter(g => !(g.taken && h.t - g.t0 > g.F.D + 2))
@@ -1389,10 +1454,12 @@ function fishFrame(h, p, surf) {
       if (u > -0.4 && u < 0.1) out.rings.push({ x: g.N[0], y: g.N[1], b: (u + 0.4) / 2, w: 0.6 })
     }
   }
+  out.fish.sort((a, b) => b.db - a.db)                           // (the deeper drawn first, so a lower one never covers a higher)
   p._ff = out; return out
 }
 // one fish's shapes, u seconds along its swim F
 function bodyOf(h, p, F, u, q, surf) {
+  const dimX = (d) => Math.min(1, dimAt(d) + 0.3 * Math.min(1, h.deep || 0) * Math.min(1, d / 4))          // (looking down, the light from the bottom lifts the deeper ones)
   const NB = 16, wallAt = (x) => p.y - p.ry * Math.sqrt(Math.max(0, 1 - ((x - p.x) / p.rx) ** 2))
   const BODY = 2.1 + 0.15 * q, seg = BODY / NB, sHead = sAtTime(F, u)
   const bump = Math.exp(-2 * (((u - F.tT - 0.9) / 0.9) ** 2)), amp = 0.1 * (BODY / 1.5) * (1 + 1.7 * bump)
@@ -1405,22 +1472,23 @@ function bodyOf(h, p, F, u, q, surf) {
     const off = amp * (0.12 + 0.88 * Math.pow(f, 1.3)) * Math.sin(ph - f * 5.2)
     sp.push({ x: x + nx0 * off, y: y + ny0 * off, d: -z })
   }
-  if (sp[0].d > 9 && sp[NB].d > 9) return null
+  const FE = F.far ? 24 : 13                                    // (how deep it can be seen: the far ones are dim shapes a long way down)
+  if (sp[0].d > FE + 1.5 && sp[NB].d > FE + 1.5) return null
   // how far out of the arch it is: in the wall, nothing; a body's length out, all of it
   // (in at the wall -- the great arch, or one of the little ones -- it's gone; and gone down into the depths, too)
   const mr = Math.min(p.rx, p.ry), vis = (o) => Math.max(0, Math.min(1, ((1 - Math.hypot((o.x - p.x) / p.rx, (o.y - p.y) / p.ry)) * mr + 0.15) / 0.9))
-  const fd = Math.max(0, Math.min(1, (7.4 - (sp[0].d + sp[NB].d) / 2) / 2.4))
+  const fd = Math.max(0, Math.min(1, (FE - (sp[0].d + sp[NB].d) / 2) / (FE - 5)))                  // (it goes dim and clear by degrees, the whole way down)
   const fa = (vis(sp[0]) + vis(sp[NB >> 1]) + vis(sp[NB])) / 3 * fd
   void wallAt
   // looking down into the well (h.deep), a salmon going deep goes down it: drawn as at a little depth, then drawn in, smaller
   // and smaller, toward the light at the bottom (p._VP: paintDeep) -- the well on the screen being no world's well
-  let tun = 1, fa2 = fa
-  if ((h.deep || 0) > 0.05 && p._VP) {
-    const DC = 2.2, dm = (sp[0].d + sp[NB].d) / 2
-    if (dm > DC) tun = Math.max(0.1, 1 - (dm - DC) * 0.11)
-    fa2 = (vis(sp[0]) + vis(sp[NB >> 1]) + vis(sp[NB])) / 3 * Math.max(0, Math.min(1, (12 - dm) / 3)) * (0.35 + 0.65 * h.deep) + fa * (1 - (0.35 + 0.65 * h.deep))
-    for (const o of sp) o.d = Math.min(o.d, DC + 1.2 * (1 - tun))
-  }
+  // looking straight down the well (h.deep), a salmon going deep goes down it, toward the light at the bottom (p._VP: paintDeep);
+  // in the slanting view, toward a point under the middle of the pool. Either way each part of it is drawn smaller by its own
+  // depth (scl), as seen in perspective: so a fish diving is foreshortened and tilted, its head smaller than its tail.
+  const DC = 2.2, dpt = (h.deep || 0) > 0.05 && p._VP ? Math.min(1, h.deep) : 0
+  let fa2 = fa
+  if (dpt > 0) { const dm = (sp[0].d + sp[NB].d) / 2; fa2 = (vis(sp[0]) + vis(sp[NB >> 1]) + vis(sp[NB])) / 3 * Math.max(0, Math.min(1, (FE - dm) / (F.far ? 8 : 4))) * (0.35 + 0.65 * h.deep) + fa * (1 - (0.35 + 0.65 * h.deep)) }
+  fa2 *= Math.min(1, u / 1.6)                                      // (it comes up out of the dim: faded in over its first moments)
   if (fa2 < 0.02) return null
   const half = (f) => 0.2 * (BODY / 2.1) * (f < 0.3 ? Math.pow(Math.sin(f / 0.3 * Math.PI / 2), 0.65) : 1 - 0.8 * Math.pow((f - 0.3) / 0.7, 1.2)) + 0.012
   const E = [], tn = []
@@ -1428,18 +1496,25 @@ function bodyOf(h, p, F, u, q, surf) {
     const a = sp[Math.max(0, i - 1)], b = sp[Math.min(NB, i + 1)]; let tx = a.x - b.x, ty = a.y - b.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl   // toward the head
     tn.push([tx, ty]); E.push({ l: [sp[i].x - ty * half(i / NB), sp[i].y + tx * half(i / NB)], r: [sp[i].x + ty * half(i / NB), sp[i].y - tx * half(i / NB)] })
   }
-  const P3 = (x, y, d, dz) => h._P(x, y, surf - d + dz)
+  const vpN = h._P(p.x, p.y, surf - 3)
+  const V = vpN && dpt > 0 ? { x: vpN.x + (p._VP.x - vpN.x) * dpt, y: vpN.y + (p._VP.y - vpN.y) * dpt } : vpN
+  const scl = (d) => d <= DC ? 1 : Math.exp(-(d - DC) * 0.16)
+  const P3 = (x, y, d, dz) => {
+    const S = h._P(x, y, surf - Math.min(d, DC) + dz)
+    if (!S || !V || d <= DC) return S
+    const k = scl(d); return { x: V.x + (S.x - V.x) * k, y: V.y + (S.y - V.y) * k }
+  }
   const shapes = []
   let yMin = Infinity, yMax = -Infinity, bad = false
   const add = (pts, fill, a) => { if (!Array.isArray(pts)) { shapes.push({ c: pts, fill, a }); return } if (pts.some(s => !s)) { bad = true; return } for (const s of pts) { if (s.y < yMin) yMin = s.y; if (s.y > yMax) yMax = s.y } shapes.push({ pts, fill, a }) }
   // the tail's fork, behind the body
-  const tN = [-tn[NB][0], -tn[NB][1]], tW = 0.13 + 0.07 * (1 + bump), sT_ = sp[NB], dT = sT_.d, dm = dimAt(dT)
+  const tN = [-tn[NB][0], -tn[NB][1]], tW = 0.13 + 0.07 * (1 + bump), sT_ = sp[NB], dT = sT_.d, dm = dimX(dT)
   const fc = mixc([6, 10, 18], [112, 140, 172], dm)
   add([P3(sp[NB - 1].x - tn[NB][1] * 0.02, sp[NB - 1].y + tn[NB][0] * 0.02, dT, 0), P3(sT_.x + tN[0] * 0.19 - tn[NB][1] * tW, sT_.y + tN[1] * 0.19 + tn[NB][0] * tW, dT, 0), P3(sT_.x + tN[0] * 0.09, sT_.y + tN[1] * 0.09, dT, 0), P3(sT_.x + tN[0] * 0.19 + tn[NB][1] * tW, sT_.y + tN[1] * 0.19 - tn[NB][0] * tW, dT, 0), P3(sp[NB - 1].x + tn[NB][1] * 0.02, sp[NB - 1].y - tn[NB][0] * 0.02, dT, 0)], fc, 0.85)
   // pectoral fins, a pair, beating slowly
   for (const side of [-1, 1]) {
     const i = 4, e = side < 0 ? E[i].l : E[i].r, sw = 0.16 + 0.05 * Math.sin(ph * 1.5 + side), dd = sp[i].d
-    add([P3(e[0], e[1], dd, -0.03), P3(e[0] + (side < 0 ? 1 : -1) * tn[i][1] * -sw - tn[i][0] * 0.04, e[1] + (side < 0 ? 1 : -1) * tn[i][0] * sw - tn[i][1] * 0.04, dd, -0.05), P3(e[0] - tn[i][0] * 0.2 + (side < 0 ? 1 : -1) * tn[i][1] * -sw * 0.8, e[1] - tn[i][1] * 0.2 + (side < 0 ? 1 : -1) * tn[i][0] * sw * 0.8, dd, -0.05), P3(e[0] - tn[i][0] * 0.14, e[1] - tn[i][1] * 0.14, dd, -0.03)], mixc([6, 10, 18], [128, 152, 182], dimAt(dd)), 0.8)
+    add([P3(e[0], e[1], dd, -0.03), P3(e[0] + (side < 0 ? 1 : -1) * tn[i][1] * -sw - tn[i][0] * 0.04, e[1] + (side < 0 ? 1 : -1) * tn[i][0] * sw - tn[i][1] * 0.04, dd, -0.05), P3(e[0] - tn[i][0] * 0.2 + (side < 0 ? 1 : -1) * tn[i][1] * -sw * 0.8, e[1] - tn[i][1] * 0.2 + (side < 0 ? 1 : -1) * tn[i][0] * sw * 0.8, dd, -0.05), P3(e[0] - tn[i][0] * 0.14, e[1] - tn[i][1] * 0.14, dd, -0.03)], mixc([6, 10, 18], [128, 152, 182], dimX(dd)), 0.8)
   }
   // the body: a chain of round sections (so it has depth seen from any side), belly dark and low, the flank pale over
   // it, the back a darker blue on top, a sheen on the shoulder; spots on the back; the eyes
@@ -1447,13 +1522,20 @@ function bodyOf(h, p, F, u, q, surf) {
   for (let i = NB; i >= 0; i--) for (const t of [0]) {                         // tail to head, two sections to a link
     const j = i - t, a = sp[Math.floor(j)], b = sp[Math.min(NB, Math.ceil(j))], u2 = j - Math.floor(j)
     const x = a.x + (b.x - a.x) * u2, y = a.y + (b.y - a.y) * u2, d = a.d + (b.d - a.d) * u2
-    const c = P3(x, y, d, 0), rr = half(j / NB) * 1.05 * h._k(y)
+    const c = P3(x, y, d, 0), rr = half(j / NB) * 1.05 * h._k(y) * scl(d)
     if (!c) { bad = true; break }
     secs.push({ x: c.x, y: c.y, r: Math.max(0.9, rr), d, f: j / NB })
     if (c.y - rr < yMin) yMin = c.y - rr; if (c.y + rr > yMax) yMax = c.y + rr
   }
-  for (const [layer, up, k, c0] of [['belly', 0.1, 1.0, [92, 120, 154]], ['flank', -0.12, 0.84, [196, 218, 238]], ['back', -0.4, 0.5, [78, 112, 156]], ['sheen', -0.5, 0.2, [240, 248, 255]]])
-    for (const c of secs) add({ x: c.x, y: c.y + up * c.r, r: c.r * k }, layer === 'sheen' ? mixc([6, 10, 18], c0, dimAt(c.d) * 0.9) : mixc([6, 10, 18], c0, dimAt(c.d)), layer === 'sheen' ? 0.5 : 1)
+  // (each layer a chain of capsules, link to link, so the body stays one body however far it is stretched; not balls)
+  for (const [layer, up, k, c0] of [['belly', 0.1, 1.0, [92, 120, 154]], ['flank', -0.12, 0.84, [196, 218, 238]], ['back', -0.4, 0.5, [78, 112, 156]]])
+    for (let i = 0; i + 1 < secs.length; i++) {
+      const a = secs[i], b = secs[i + 1]
+      shapes.push({ seg: { a: { x: a.x, y: a.y + up * a.r, r: a.r * k }, b: { x: b.x, y: b.y + up * b.r, r: b.r * k } }, fill: mixc([6, 10, 18], c0, dimX((a.d + b.d) / 2)), a: 1 })
+    }
+  { let rs = 0, ds = 0; for (const c of secs) { rs += c.r; ds += c.d }                                              // (the sheen on the shoulder, one stroke)
+    rs /= secs.length; ds /= secs.length
+    shapes.push({ line: secs.map(c => ({ x: c.x, y: c.y - 0.5 * c.r })), w: Math.max(1, rs * 0.4), fill: mixc([6, 10, 18], [240, 248, 255], dimX(ds) * 0.9), a: 0.5 }) }
   if (!secs.length) return null                                  // (the fish's head is behind the camera: nothing to draw)
   const hd = secs[secs.length - 1], nk = secs[secs.length - 4] || secs[0]
   let ex = hd.x - nk.x, ey = hd.y - nk.y; const el = Math.hypot(ex, ey) || 1; ex /= el; ey /= el
@@ -1461,16 +1543,18 @@ function bodyOf(h, p, F, u, q, surf) {
   const spots = secs.filter((c, i) => i % 3 === 1 && c.f > 0.25 && c.f < 0.85).map(c => ({ x: c.x + (c.f * 977 % 1 - 0.5) * c.r, y: c.y - c.r * 0.45, d: c.d }))
   const hi = []
   if (bad) return null
-  // deeper: smaller (seen through that much clear water) -- scaled about the fish's middle section
   let dbar = 0; for (const c of secs) dbar += c.d; dbar /= secs.length
-  const sc = 1 - 0.55 * Math.min(1, dbar / 6.4), mid = secs[secs.length >> 1], shr = (o) => { o.x = mid.x + (o.x - mid.x) * sc; o.y = mid.y + (o.y - mid.y) * sc; return o }
-  if (sc < 0.999) {
-    for (const sh of shapes) { if (sh.c) { shr(sh.c); sh.c.r *= sc } else sh.pts.forEach(shr) }
-    eyes.forEach(shr); spots.forEach(shr)
-    yMin = mid.y + (yMin - mid.y) * sc; yMax = mid.y + (yMax - mid.y) * sc
+  const mid = secs[secs.length >> 1], sc = scl(dbar)
+  // and the deeper, the more it wavers, as a thing does seen down through that much moving water
+  const wd = Math.max(0, Math.min(1, (dbar - 1.5) / 8))
+  if (wd > 0.01) {
+    const amp = wd * 0.11 * h._k(mid.y) * sc, tt = h.t * 1.7 + q * 2.1
+    const wob = (o) => { o.x += amp * Math.sin(tt + o.y * 0.07); return o }
+    for (const sh of shapes) { if (sh.c) wob(sh.c); else if (sh.seg) { wob(sh.seg.a); wob(sh.seg.b) } else if (sh.line) sh.line.forEach(wob); else sh.pts.forEach(wob) }
+    eyes.forEach(wob); spots.forEach(wob)
+    yMin -= 3; yMax += 3
   }
-  if (tun < 1) { const V = p._VP; yMin = V.y + (yMin - V.y) * tun; yMax = V.y + (yMax - V.y) * tun }
-  return { shapes, hi, eyes, spots, yMin, yMax, k: h._k(sp[0].y) * sc, fa: fa2, tun, V: p._VP }
+  return { shapes, hi, eyes, spots, yMin, yMax, k: h._k(sp[0].y) * scl(sp[0].d), fa: fa2, db: dbar, tun: 1, V: p._VP }
 }
 function drawFishBand(h, ctx, F, yA, yB, surf) {
   for (const f of F.fish) {
@@ -1479,6 +1563,8 @@ function drawFishBand(h, ctx, F, yA, yB, surf) {
     const fa = f.fa ?? 1
     for (const sh of f.shapes) {
       ctx.globalAlpha = sh.a * fa; ctx.fillStyle = sh.fill
+      if (sh.seg) { const q = sh.seg; ctx.strokeStyle = sh.fill; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, q.a.r + q.b.r); ctx.beginPath(); ctx.moveTo(q.a.x, q.a.y); ctx.lineTo(q.b.x, q.b.y); ctx.stroke(); continue }
+      if (sh.line) { ctx.strokeStyle = sh.fill; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = sh.w; ctx.beginPath(); sh.line.forEach((o, i) => (i ? ctx.lineTo(o.x, o.y) : ctx.moveTo(o.x, o.y))); ctx.stroke(); continue }
       ctx.beginPath()
       if (sh.c) ctx.arc(sh.c.x, sh.c.y, sh.c.r, 0, Math.PI * 2)
       else { ctx.strokeStyle = sh.fill; ctx.lineWidth = 0.8; ctx.lineJoin = 'round'; sh.pts.forEach((s, i) => (i ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y))); ctx.closePath() }
@@ -1810,7 +1896,7 @@ export function drawPool(h, ctx, p) {
     const yA = h._Y(r, zr), yB = h._Y(r + 1, 0)       // the band this row's floor and its decks (up to the rim's height) cover on the screen
     const ft = h._P(p.x, p.y - p.ry, surf), nt0 = h._P(p.x, p.y + p.ry, zr)
     const top = h._P(p.x, p.y - p.ry, surf), deep = h._P(p.x, p.y - p.ry, surf - 2.6)
-    if (ft && nt0 && top && deep && yB >= ft.y - 2 && yA <= nt0.y + 2) {
+    if (yB >= (ft ? ft.y : h._Y(p.y - p.ry, surf)) - 2 && yA <= (nt0 ? nt0.y : h._Y(p.y + p.ry, zr)) + 2) {      // (an edge behind the camera, standing close or pinched in: still painted, else the floor shows grey)
       const L = h.lightAt(p.x, p.y - p.ry + 0.4, surf - 0.1, -1), v = Math.min(1.3, Math.max(L[0], L[1], L[2]) * 1.6)
       const slab = (e) => { ctx.beginPath(); ctx.rect(0, yA - e, h.cam.sw, yB - yA + 2 * e); ctx.clip() }   // (a row's band overlaps the one before it: the later one repaints the same thing)
       const F = fishFrame(h, p, surf), warp = (h.deep || 0) > 0.02
@@ -2427,8 +2513,12 @@ export function drawBody(h, ctx, p) {
   })())
   // the swell under it: a slow lift and fall, each its own (two waves out of step, so it never quite repeats), a little
   // drift with it, and as it lifts more of it shows
-  const ph = (p.n || 0) * 1.7 + p.x * 0.9, sw = Math.sin(h.t * 0.85 + ph) * 0.7 + Math.sin(h.t * 0.53 + ph * 1.3) * 0.3
-  const bob = h._P(p.x + Math.sin(h.t * 0.31 + ph) * 0.06, p.y + Math.cos(h.t * 0.27 + ph) * 0.04, p.z + sw * 0.05) || at
+  const ph = (p.n || 0) * 1.7 + p.x * 0.9; let sw = Math.sin(h.t * 0.85 + ph) * 0.7 + Math.sin(h.t * 0.53 + ph * 1.3) * 0.3
+  // (p.surf: a long slow swell running in from the sea to the shore -- toward larger y -- every body lifted by it in turn, a
+  // little each side of it for its own; so the whole sea breathes in one ripple)
+  let lift = 0.05, dyS = 0
+  if (p.surf) { const wv = Math.sin(h.t * 0.62 - p.y * 0.42 + (p.x - 12.5) * 0.05); sw = 0.8 * wv + 0.2 * sw; lift = p.surf; dyS = wv * 0.10 }
+  const bob = h._P(p.x + Math.sin(h.t * 0.31 + ph) * 0.06, p.y + Math.cos(h.t * 0.27 + ph) * 0.04 + dyS, p.z + sw * lift) || at
   const w = k * (p.s ?? 1.1), hh = w * p.sh / p.sw
   ctx.save(); ctx.imageSmoothingEnabled = true
   ctx.globalAlpha = Math.min(1, (p.a ?? 0.55) * (1 + sw * 0.12))
@@ -3063,6 +3153,40 @@ export function drawApron(h, ctx, p) {
   const seg = (a, b, style, w = lw) => { const m = (a.y + b.y) / 2; if (m < r || m > r + 1) return; const s = h._P(a.x, a.y, a.z), t = h._P(b.x, b.y, b.z); if (!s || !t) return; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.strokeStyle = style; ctx.lineWidth = w; ctx.stroke() }
   const pc = (rad, t, z) => ({ x: p.x + Math.cos(t) * rad, y: p.y + Math.sin(t) * rad, z })
   ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  // under it all, a chalice: a flare of corbelled courses under the step, narrowing to a slender stem that goes down into the
+  // dark. Drawn first, so the fan and its step go over it; the lowest course first, so the wider ones above hide what folds under
+  {
+    const RS = p.stem ?? 0.38, DF = p.flare ?? 3.0, rf = (d) => d >= DF ? RS : RS + (p.r1 - RS) * Math.pow(1 - d / DF, 2)
+    const arcS = (rad, z, t0, t1, m = 5) => Array.from({ length: m + 1 }, (_, i) => { const t = t0 + (t1 - t0) * i / m; return { x: p.x + Math.cos(t) * rad, y: p.y + Math.sin(t) * rad, z } })
+    const CH = 1 / 3, NC = 21
+    for (let c = NC - 1; c >= 0; c--) {
+      const da = c * CH, db = (c + 1) * CH, ra = rf(da), rb = rf(db), za = p.z1 - da, zb = p.z1 - db
+      const nsc = Math.max(4, Math.round(Math.PI * ra / 0.62)), dim = Math.max(0.6, 1 - da / 9) * Math.min(1, (NC - c) / 8)
+      for (let i = 0; i < nsc; i++) {
+        const t0 = Math.PI * i / nsc, t1 = Math.PI * (i + 1) / nsc, tm = (t0 + t1) / 2, qb = band([...arcS(ra, za, t0, t1), ...arcS(rb, zb, t0, t1).reverse()])
+        if (qb.length < 3) continue
+        const hv = hash(c * 977 + i * 131 + 3) & 15, mf = pc(ra + 0.9, Math.PI / 2 + (tm - Math.PI / 2) * 0.35, za - 0.2)
+        ctx.beginPath(); if (!worldPath(h, ctx, qb)) continue
+        ctx.fillStyle = lit(mf.x, mf.y, mf.z, 1.35 * dim * (0.95 + hv / 150)); ctx.fill()
+        seg(pc(ra, t0, za), pc(rb, t0, zb), `rgba(8,10,16,${(0.5 * dim + 0.1).toFixed(2)})`)
+        line(arcS(rb, zb, t0, t1), `rgba(8,10,16,${(0.5 * dim + 0.1).toFixed(2)})`)
+      }
+    }
+    const ns = Math.max(6, Math.round(Math.PI * p.r1 / 0.62))
+    for (let i = 0; i < ns; i++) {                                    // stone dripping from the lip
+      const t0 = Math.PI * i / ns, t1 = Math.PI * (i + 1) / ns, tm = (t0 + t1) / 2, m = pc(p.r1 + 0.12, tm, p.z1 - 0.4), Ld = h.lightAt(m.x, m.y, p.z1 - 0.3, -1)
+      if (Math.max(Ld[0], Ld[1], Ld[2]) > 0.02) for (let s = 0; s < 2; s++) {
+        const hh = hash(i * 131 + s * 977 + 5), u = t0 + (t1 - t0) * (s + 0.2 + ((hh & 255) / 255) * 0.6) / 2, X = p.x + Math.cos(u) * (p.r1 - 0.01), Y = p.y + Math.sin(u) * (p.r1 - 0.01)
+        if (Math.floor(Y) !== r || (p.dripT0 && u < p.dripT0)) continue
+        const dl = 0.12 + ((hh >> 8) & 255) / 255 * 0.22, wd = 0.04 + ((hh >> 16) & 15) / 15 * 0.05, tx = -Math.sin(u), ty = Math.cos(u)
+        const A1 = h._P(X - tx * wd, Y - ty * wd, p.z1), B1 = h._P(X + tx * wd, Y + ty * wd, p.z1), C1 = h._P(X, Y, p.z1 - dl)
+        if (!A1 || !B1 || !C1) continue
+        const gd = ctx.createLinearGradient(0, A1.y, 0, C1.y)
+        gd.addColorStop(0, `rgba(${110 * Ld[0] | 0},${105 * Ld[1] | 0},${100 * Ld[2] | 0},1)`); gd.addColorStop(1, `rgba(${40 * Ld[0] | 0},${38 * Ld[1] | 0},${36 * Ld[2] | 0},0)`)
+        ctx.fillStyle = gd; ctx.beginPath(); ctx.moveTo(A1.x, A1.y); ctx.lineTo(B1.x, B1.y); ctx.lineTo(C1.x, C1.y); ctx.closePath(); ctx.fill()
+      }
+    }
+  }
   // the landing: a half-disc of fan-laid slabs, a border cut round it
   fill([...arc(p.r0, p.z0), { x: p.x - p.r0, y: p.y, z: p.z0 }], lit(p.x, p.y + p.r0 * 0.5, p.z0 + 0.1, 1.02))
   const nf = 5
@@ -3087,6 +3211,26 @@ export function drawApron(h, ctx, p) {
   }
   line(arc(p.r1 - 0.04, p.z1), 'rgba(215,222,238,0.18)')               // the worn lip
   line(arc(p.r0, p.z0), 'rgba(215,222,238,0.16)')
+  // the inlay: a cut ring on the landing with a chain of lozenges; round the step a band of ogham between two cut lines; a kerb of
+  // long slabs along its lip
+  {
+    const cut = 'rgba(8,10,16,0.72)', pale = 'rgba(226,212,164,0.42)', ro = p.r0 - 0.46
+    line(arc(ro - 0.03, p.z0), cut, lw * 1.8); line(arc(ro, p.z0), pale, lw * 1.1)
+    for (let i = 0; i < 12; i++) {
+      const t = Math.PI * (i + 0.5) / 12, c = pc(ro - 0.22, t, p.z0), sz = 0.07
+      fill([{ x: c.x, y: c.y - sz, z: p.z0 }, { x: c.x + sz, y: c.y, z: p.z0 }, { x: c.x, y: c.y + sz, z: p.z0 }, { x: c.x - sz, y: c.y, z: p.z0 }], pale)
+    }
+    const ra = p.r0 + 0.2, rb = p.r1 - 0.2, rm = (ra + rb) / 2
+    line(arc(ra, p.z1), cut, lw * 1.4); line(arc(rb, p.z1), cut, lw * 1.4); line(arc(rm, p.z1), 'rgba(226,212,164,0.34)', lw)
+    for (let i = 0; i < 44; i++) {
+      if (i % 6 === 5) continue
+      const t = Math.PI * (i + 0.5) / 44, hv = hash(i * 131 + 7) & 7, a = pc(rm, t, p.z1), s = hv & 1 ? 1 : -1
+      seg(a, pc(rm + s * 0.17, t, p.z1), 'rgba(226,212,164,0.5)', lw * 1.2)
+      if (hv === 5) seg(a, pc(rm - s * 0.17, t, p.z1), 'rgba(226,212,164,0.5)', lw * 1.2)
+    }
+    line(arc(p.r1 - 0.22, p.z1), cut, lw)
+    for (let i = 0; i < ns; i++) { const t = Math.PI * (i + 0.5) / ns; seg(pc(p.r1 - 0.22, t, p.z1), pc(p.r1, t, p.z1), 'rgba(10,12,18,0.6)') }
+  }
   // water: a channel cut in the stone, from where the stream comes on to the step, round it and in to the door
   if (p.chan) {
     const zat = (q) => Math.hypot(q[0] - p.x, q[1] - p.y) < p.r0 ? p.z0 : p.z1
@@ -3103,34 +3247,140 @@ export function drawApron(h, ctx, p) {
       if (a.z !== b.z) { const lo = a.z < b.z ? a : b, hi = a.z < b.z ? b : a; if (Math.floor(hi.y) !== r) continue; const s = h._P(hi.x, hi.y, hi.z), t = h._P(hi.x, hi.y, lo.z); if (s && t) { ctx.strokeStyle = 'rgba(190,204,224,0.28)'; ctx.lineWidth = Math.max(1, h._k(r + 0.5) * 0.08); ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke() } }
     }
   }
-  // the face below the step: down into the dark, in courses, lit at the lip and black below, stone dripping from the edge
-  for (let i = 0; i < ns; i++) {
-    const t0 = Math.PI * i / ns, t1 = Math.PI * (i + 1) / ns, tm = (t0 + t1) / 2, zb = p.z1 - 6
-    const q = [...arc(p.r1, p.z1, t0, t1), ...arc(p.r1, zb, t0, t1).reverse()], qb = band(q)
-    if (qb.length < 3) continue
-    const m = pc(p.r1 + 0.12, tm, p.z1 - 0.4), mf = pc(p.r1 + 0.9, Math.PI / 2 + (tm - Math.PI / 2) * 0.35, p.z1 - 0.4)     // (lit as from a little way out, so the pieces don't stripe)
-    ctx.beginPath(); if (!worldPath(h, ctx, qb)) continue
-    ctx.fillStyle = lit(mf.x, mf.y, mf.z, 0.78); ctx.fill()
-    let ya = Infinity, yb = -Infinity; for (const P of qb) { const S = h._P(P.x, P.y, P.z); if (S) { ya = Math.min(ya, S.y); yb = Math.max(yb, S.y) } }
-    ctx.save(); ctx.clip()
-    for (let zz = p.z1 - 1 / 3, c = 0; zz > p.z1 - 4.5; zz -= 1 / 3, c++) {                      // courses, the joints between them staggered
-      line(arc(p.r1, zz, t0, t1), 'rgba(8,10,16,0.5)')
-      const tj = c % 2 ? tm : t0; seg(pc(p.r1, tj, zz), pc(p.r1, tj, zz + 1 / 3), 'rgba(8,10,16,0.45)')
+  ctx.restore()
+}
+
+// { type: 'flight', cx, cy, rx, ry (the drum's face, an ellipse), d (the treads' depth out from it), b: [angles, west to east,
+//   the treads' ends], z: [each tread's top], zfoot, zcap, zB, rise, y0, y1 }: a stair cut along a curved wall, hugging it, in
+// the floor's grey. Each tread you walk is drawn as three shallow steps, eighteen shallow steps in all. Under it one arch, its
+// ring cut with chevrons, springing from a slender column at its foot (under the pier the flight comes down as) up to
+// the wall under its head; a newel post with a lamp at its head. Drawn a row's slice at a time; walked by hidden decks.
+function floorTone(h) {
+  if (h._ftone !== undefined) return h._ftone
+  h._ftone = null
+  try {
+    const TPx = h.base.width / h.W, d = h.base.getContext('2d').getImageData(Math.floor(16 * TPx), Math.floor(36 * TPx), Math.floor(12 * TPx), Math.floor(4 * TPx)).data
+    let R = 0, Gg = 0, B = 0, n = 0; for (let i = 0; i < d.length; i += 16) { R += d[i]; Gg += d[i + 1]; B += d[i + 2]; n++ }
+    if (n) h._ftone = [R / n, Gg / n, B / n].map(v => Math.round(Math.min(150, v * 1.05)))
+  } catch (e) { h._ftone = null }
+  return h._ftone
+}
+export function drawFlight(h, ctx, p) {
+  const r = p.row, band = (poly, e = 0.04) => clipBand(poly, r - e, r + 1 + e), M = 6, D = p.d, n = p.z.length, NS = 3, RS = 0.5 / NS
+  const at = (t, g, z) => ({ x: p.cx + Math.cos(t) * (p.rx + g), y: p.cy + Math.sin(t) * (p.ry + g), z })
+  const arc = (ta, tb, g, z) => Array.from({ length: M + 1 }, (_, i) => at(ta + (tb - ta) * i / M, g, z))
+  const lw = Math.max(1, h._k(r + 0.5) * 0.014), cam = h.cam, base = floorTone(h) || p.stone || STONE_A
+  const lit = (q, k) => { const L = h.lightAt(q.x, q.y, q.z, -1); return h._rgb(L.map(v => clamp01(v * 0.95 * k)), base) }
+  const fill = (poly, style) => { const q = band(poly); if (q.length < 3) return false; ctx.beginPath(); if (!worldPath(h, ctx, q)) return false; ctx.fillStyle = style; ctx.fill(); return true }
+  const line = (pts, style, w = lw) => { ctx.beginPath(); let on = false; for (const q of pts) { if (q.y < r - 0.02 || q.y > r + 1.02) { on = false; continue } const s = h._P(q.x, q.y, q.z); if (!s) { on = false; continue } on ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y); on = true } ctx.strokeStyle = style; ctx.lineWidth = w; ctx.stroke() }
+  const tan = (t) => { const x = -Math.sin(t) * p.rx, y = Math.cos(t) * p.ry, l = Math.hypot(x, y); return [x / l, y / l] }   // (toward the west, down the flight)
+  const sees = (q, nx, ny) => (cam.col - q.x) * nx + (cam.row - q.y) * ny > 0
+  // the arch: its intrados from the column's capital at the foot (u 0) to the wall under the head (u 1), a little rise
+  const T0 = p.b[0], T1 = p.b[n], uo = (t) => (T0 - t) / (T0 - T1)
+  const zi = (t) => { const u = uo(t); return p.zcap + (p.zB - p.zcap) * u + (p.rise ?? 0.3) * Math.sin(Math.PI * u) }, RT = 0.3
+  const arcI = (ta, tb, g, dz = 0, m = M) => Array.from({ length: m + 1 }, (_, i) => { const t = ta + (tb - ta) * i / m; return at(t, g, zi(t) + dz) })
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  // the column at the foot: a slender shaft out of the dark, a cushion capital and an abacus; its capital carries the arch's
+  // springing and the promontory's corner
+  {
+    const c = at(T0 + 0.004, D - 0.16, 0), zc = p.zcap
+    if (Math.floor(c.y) === r) {
+      const P = (dx, z) => h._P(c.x + dx, c.y, z), W2 = 0.13, Lc = h.lightAt(c.x, c.y + 0.4, zc - 0.5, -1)
+      const a = P(-W2, zc - 0.34), b = P(W2, zc - 0.34), e = P(W2, zc - 6), f = P(-W2, zc - 6)
+      if (a && b && e && f) {
+        const gr = ctx.createLinearGradient(a.x, 0, b.x, 0); gr.addColorStop(0, h._rgb(Lc.map(v => clamp01(v * 1.05)), base)); gr.addColorStop(0.6, h._rgb(Lc.map(v => clamp01(v * 0.7)), base)); gr.addColorStop(1, h._rgb(Lc.map(v => clamp01(v * 0.4)), base))
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(e.x, e.y); ctx.lineTo(f.x, f.y); ctx.closePath(); ctx.fill()
+        const fd = ctx.createLinearGradient(0, P(0, zc - 1.2).y, 0, P(0, zc - 5).y); fd.addColorStop(0, 'rgba(0,0,0,0)'); fd.addColorStop(1, 'rgba(0,0,0,1)')
+        ctx.fillStyle = fd; ctx.fill()
+        const ck = [P(-0.26, zc - 0.08), P(0.26, zc - 0.08), P(W2, zc - 0.34), P(-W2, zc - 0.34)], ab = [P(-0.3, zc), P(0.3, zc), P(0.3, zc - 0.08), P(-0.3, zc - 0.08)]
+        for (const [q, k] of [[ck, 0.95], [ab, 1.1]]) if (!q.some(v => !v)) { ctx.beginPath(); q.forEach((v, i) => (i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y))); ctx.closePath(); ctx.fillStyle = h._rgb(Lc.map(v => clamp01(v * k)), base); ctx.fill(); ctx.strokeStyle = 'rgba(8,10,16,0.55)'; ctx.lineWidth = lw; ctx.stroke() }
+        const nk = [P(-W2, zc - 0.4), P(W2, zc - 0.4)]; if (nk[0] && nk[1]) { ctx.strokeStyle = 'rgba(8,10,16,0.5)'; ctx.beginPath(); ctx.moveTo(nk[0].x, nk[0].y); ctx.lineTo(nk[1].x, nk[1].y); ctx.stroke() }
+      }
     }
-    const g = ctx.createLinearGradient(0, h._Y(r + 0.5, p.z1 - 1.2), 0, h._Y(r + 0.5, p.z1 - 4.5))
-    g.addColorStop(0, '#fff'); g.addColorStop(0.55, '#3a3a3a'); g.addColorStop(1, '#000')
-    ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; ctx.fillRect(0, ya - 2, cam.sw, yb - ya + 4)
-    ctx.restore()
-    const Ld = h.lightAt(m.x, m.y, p.z1 - 0.3, -1)
-    if (Math.max(Ld[0], Ld[1], Ld[2]) > 0.02) for (let s = 0; s < 4; s++) {
-      const hh = hash(i * 131 + s * 977 + 5), u = t0 + (t1 - t0) * (s + 0.2 + ((hh & 255) / 255) * 0.6) / 4, X = p.x + Math.cos(u) * (p.r1 + 0.01), Y = p.y + Math.sin(u) * (p.r1 + 0.01)
-      if (Math.floor(Y) !== r) continue
-      const dl = 0.3 + ((hh >> 8) & 255) / 255 * 1.6, wd = 0.05 + ((hh >> 16) & 15) / 15 * 0.07, tx = -Math.sin(u), ty = Math.cos(u)
-      const A1 = h._P(X - tx * wd, Y - ty * wd, p.z1), B1 = h._P(X + tx * wd, Y + ty * wd, p.z1), C1 = h._P(X, Y, p.z1 - dl)
-      if (!A1 || !B1 || !C1) continue
-      const gd = ctx.createLinearGradient(0, A1.y, 0, C1.y)
-      gd.addColorStop(0, `rgba(${110 * Ld[0] | 0},${105 * Ld[1] | 0},${100 * Ld[2] | 0},1)`); gd.addColorStop(1, `rgba(${40 * Ld[0] | 0},${38 * Ld[1] | 0},${36 * Ld[2] | 0},0)`)
-      ctx.fillStyle = gd; ctx.beginPath(); ctx.moveTo(A1.x, A1.y); ctx.lineTo(B1.x, B1.y); ctx.lineTo(C1.x, C1.y); ctx.closePath(); ctx.fill()
+  }
+  // the stones cut to fit: the bridge at the foot (the band carried west to the court's circle, at the step's height) and the
+  // stone at the head (carried east, level with the floor). Each one slab, its top cut with a border and a band of chevrons;
+  // under the head's two courses of corbel stepping back to the wall
+  {
+    const [fx, fy, fr] = p.fan || [0, 0, 0], fanArc = (t0, t1, m = 10) => { const a0 = Math.atan2(at(t0, 0, 0).y - fy, at(t0, 0, 0).x - fx), a1 = Math.atan2(at(t1, D, 0).y - fy, at(t1, D, 0).x - fx); return Array.from({ length: m + 1 }, (_, i) => a0 + (a1 - a0) * i / m) }
+    const stoneOf = (ta, tb, z, west) => {                             // ta the end at the stair, tb the far end
+      const top = west ? [...arc(ta, p.lin, 0, z), ...fanArc(p.lin, p.lout).map(a => ({ x: fx + Math.cos(a) * fr, y: fy + Math.sin(a) * fr, z })), ...arc(p.lout, ta, D, z)]
+                       : [...arc(ta, tb, 0, z), ...arc(tb, ta, D, z)]
+      const tf = west ? p.lout : tb, k0 = 0.5
+      // its outer face; the far end's face (the head's); under the head, the corbel
+      if (!west) for (let c = 1; c >= 0; c--) {
+        const za = z - k0 - c * 0.3, zb2 = za - 0.3, gd = D - 0.42 * (c + 1)
+        fill([...arc(tb, ta, gd, za), ...arc(ta, tb, gd, zb2)], lit(at((ta + tb) / 2, gd + 0.4, za), 0.72 - 0.1 * c))
+        const [ex, ey] = tan(tb); if (sees(at(tb, gd / 2, za), -ex, -ey)) fill([at(tb, 0, za), at(tb, gd, za), at(tb, gd, zb2), at(tb, 0, zb2)], lit(at(tb, gd / 2, za), 0.55))
+      }
+      if (fill([...arc(ta, tf, D, z), ...arc(tf, ta, D, z - k0)], lit(at((ta + tf) / 2, D + 0.4, z - 0.25), 0.84))) { line(arc(ta, tf, D, z - k0), 'rgba(8,10,16,0.55)'); line(arc(ta, tf, D, z - 0.06), 'rgba(8,10,16,0.3)') }
+      if (!west) { const [ex, ey] = tan(tb); if (sees(at(tb, D / 2, z), -ex, -ey)) fill([at(tb, 0, z), at(tb, D, z), at(tb, D, z - k0), at(tb, 0, z - k0)], lit(at(tb, D / 2, z), 0.6)) }
+      // its top: one slab; a border cut in from its edges; a band of chevrons along its outer side
+      if (fill(top, lit(at((ta + tf) / 2, D / 2, z + 0.15), 1.02))) {
+        const cut = 'rgba(8,10,16,0.6)', pale = 'rgba(215,222,238,0.22)', tE = west ? Math.min(p.lin, p.lout) - 0.004 : tb, tS = ta + (west ? 0.006 : -0.006)
+        line(arc(tS, tE, 0.14, z), cut); line(arc(tS, tE, D - 0.12, z), cut); line([at(tS, 0.14, z), at(tS, D - 0.12, z)], cut)
+        if (!west) line([at(tE, 0.14, z), at(tE, D - 0.12, z)], cut)
+        line(arc(tS, tE, D - 0.14, z), pale)
+        const NZ = Math.max(6, Math.round(Math.abs(tE - tS) * (p.rx + D) / 0.2)), zz = []
+        for (let i = 0; i <= NZ; i++) zz.push(at(tS + (tE - tS) * i / NZ, i % 2 ? D - 0.24 : D - 0.52, z))
+        line(arc(tS, tE, D - 0.22, z), cut); line(arc(tS, tE, D - 0.54, z), cut); line(zz, 'rgba(226,212,164,0.4)', lw * 1.2)
+        if (west) line(fanArc(p.lin, p.lout).map(a => ({ x: fx + Math.cos(a) * fr, y: fy + Math.sin(a) * fr, z })), 'rgba(8,10,16,0.55)')   // (the joint with the court's step)
+        else line(arc(ta, tb, D - 0.03, z), pale)
+      }
+    }
+    if (p.lin) stoneOf(T0, null, p.zfoot, true)
+    if (p.th) stoneOf(T1, p.th, 0, false)
+  }
+  // the steps: each tread's three, east (highest) to west
+  const subs = []
+  for (let j = 0; j < n; j++) for (let k = 0; k < NS; k++) {
+    const tb = p.b[j + 1] + (p.b[j] - p.b[j + 1]) * k / NS, ta = p.b[j + 1] + (p.b[j] - p.b[j + 1]) * (k + 1) / NS
+    subs.push({ ta, tb, z: p.z[j] - RS * k, head: j === n - 1 && k === 0, i: j * NS + k })
+  }
+  const mid = (s) => at((s.ta + s.tb) / 2, D / 2, s.z)
+  subs.sort((a, b) => Math.abs(mid(b).x - cam.col) - Math.abs(mid(a).x - cam.col))
+  for (const s of subs) {
+    const { ta, tb, z } = s
+    fill([...arcI(ta, tb, 0.005), ...arcI(tb, ta, 0.005, -0.6)], 'rgba(2,3,6,0.32)')                                   // the wall shadowed under the arch
+    const [wx, wy] = tan(ta), [ex, ey] = tan(tb), zw = Math.max(z - RS, p.zfoot ?? z - RS)
+    if (sees(at(ta, D / 2, z), wx, wy)) { fill([at(ta, 0, z), at(ta, D, z), at(ta, D, zw), at(ta, 0, zw)], lit(at(ta, D / 2 + 0.3, z), 0.74)); line([at(ta, D, zw), at(ta, 0, zw)], 'rgba(8,10,16,0.45)') }
+    if (s.head && sees(at(tb, D / 2, z), -ex, -ey)) fill([at(tb, 0, z), at(tb, D, z), ...arcI(tb, tb, D).slice(0, 1), at(tb, 0, zi(tb))], lit(at(tb, D / 2 - 0.3, z), 0.62))
+    // its piece of the stair's outer face: the step's edge on top, the arch below
+    if (fill([...arc(ta, tb, D, z), ...arcI(tb, ta, D)], lit(at((ta + tb) / 2, D + 0.4, z - 0.5), 0.8))) {
+      line(arc(ta, tb, D, z - 0.06), 'rgba(8,10,16,0.35)')
+      if (s.i % NS === NS - 1) line([at(ta, D, z - RS), at(ta, D, zi(ta) + RT)], 'rgba(8,10,16,0.22)')            // (the joints between its stones)
+    }
+    // its top, the nosing worn pale, the joint with the wall dark
+    if (fill([...arc(ta, tb, 0, z), ...arc(ta, tb, D, z).reverse()], lit(at((ta + tb) / 2, D / 2, z + 0.15), 1.0 + ((hash(s.i * 7919 + 3) & 15) / 160)))) {
+      line(arc(ta, tb, D - 0.03, z), 'rgba(215,222,238,0.22)'); line(arc(ta, tb, 0.03, z), 'rgba(8,10,16,0.5)')
+      line([at(ta, 0, z), at(ta, D, z)], 'rgba(8,10,16,0.55)')
+    }
+  }
+  // the pier at its foot, over the column: the flight's end, down from the promontory to the capital
+  { const [wx, wy] = tan(T0), z0 = p.zfoot ?? p.z[0] - 0.5
+    if (sees(at(T0, D / 2, z0), wx, wy) && fill([at(T0, 0, z0), at(T0, D, z0), at(T0, D, p.zcap), at(T0, 0, p.zcap)], lit(at(T0, D / 2 + 0.3, z0 - 0.4), 0.7))) line([at(T0, D, z0), at(T0, D, p.zcap)], 'rgba(8,10,16,0.45)') }
+  // the arch's ring on the outer face: a roll at its edge, chevrons cut between two lines, its voussoirs' joints
+  {
+    const g = D + 0.004, NR = 60, ring = [...arcI(T0, T1, g, 0, NR), ...arcI(T1, T0, g, RT, NR)]
+    if (fill(ring, lit(at((T0 + T1) / 2, D + 0.5, zi((T0 + T1) / 2)), 1.3))) {
+      line(arcI(T0, T1, g, 0, NR), 'rgba(8,10,16,0.65)', lw * 1.3); line(arcI(T0, T1, g, 0.05, NR), 'rgba(215,222,238,0.28)')
+      line(arcI(T0, T1, g, RT, NR), 'rgba(8,10,16,0.55)')
+      const NZ = 44, zz = []
+      for (let i = 0; i <= NZ; i++) { const t = T0 + (T1 - T0) * i / NZ; zz.push(at(t, g, zi(t) + (i % 2 ? RT - 0.07 : 0.1))) }
+      line(zz, 'rgba(8,10,16,0.6)', lw * 1.2)
+      for (let i = 1; i < 22; i++) { const t = T0 + (T1 - T0) * i / 22; line([at(t, g, zi(t)), at(t, g, zi(t) + RT)], 'rgba(8,10,16,0.25)') }
+    }
+  }
+  // the newels at the head, at each end of its stone's outer edge, a lamp on each
+  for (const tN of [T1 + 0.012, ...(p.th ? [p.th + 0.012] : [])]) {
+    const c = at(tN, D - 0.14, 0)
+    if (Math.floor(c.y) === r) {
+      const P = (dx, dy, z) => h._P(c.x + dx, c.y + dy, z), w = 0.11, H = 0.8, Lc = h.lightAt(c.x, c.y + 0.4, 0.5, -1)
+      const fr = [P(-w, w, 0), P(w, w, 0), P(w, w, H), P(-w, w, H)], sd = cam.col > c.x ? [P(w, w, 0), P(w, -w, 0), P(w, -w, H), P(w, w, H)] : [P(-w, w, 0), P(-w, -w, 0), P(-w, -w, H), P(-w, w, H)]
+      const cap = [P(-w - 0.03, w + 0.03, H), P(w + 0.03, w + 0.03, H), P(0, 0, H + 0.2)]
+      for (const [q, k] of [[sd, 0.6], [fr, 0.9], [cap, 1.1]]) if (!q.some(v => !v)) { ctx.beginPath(); q.forEach((v, i) => (i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y))); ctx.closePath(); ctx.fillStyle = h._rgb(Lc.map(v => clamp01(v * k)), base); ctx.fill(); ctx.strokeStyle = 'rgba(8,10,16,0.5)'; ctx.lineWidth = lw; ctx.stroke() }
+      const f = P(0, 0, H + 0.32), kk = h._k(c.y)
+      if (f) { const fl = 0.85 + 0.15 * Math.sin(h.t * 9 + 1.3), gw = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, kk * 0.3); gw.addColorStop(0, `rgba(255,214,150,${(0.55 * fl).toFixed(3)})`); gw.addColorStop(1, 'rgba(255,170,90,0)'); ctx.fillStyle = gw; ctx.beginPath(); ctx.arc(f.x, f.y, kk * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = `rgba(255,236,190,${fl.toFixed(3)})`; ctx.beginPath(); ctx.ellipse(f.x, f.y, kk * 0.025, kk * 0.05, 0, 0, Math.PI * 2); ctx.fill() }
     }
   }
   ctx.restore()
@@ -3176,8 +3426,10 @@ export function drawPortal(h, ctx, p) {
       const xm = (xa + xb) / 2, hl = [P(xm - 0.04, yy, z), P(xm - 0.04, yy, zs)], sh = [P(Math.max(xa, xb) - 0.02, yy, z), P(Math.max(xa, xb) - 0.02, yy, zs)]
       ctx.strokeStyle = `rgba(235,238,245,${(0.22 * v).toFixed(3)})`; ctx.lineWidth = lw * 1.4; ctx.beginPath(); ctx.moveTo(hl[0].x, hl[0].y); ctx.lineTo(hl[1].x, hl[1].y); ctx.stroke()
       ctx.strokeStyle = 'rgba(8,10,16,0.45)'; ctx.lineWidth = lw * 2; ctx.beginPath(); ctx.moveTo(sh[0].x, sh[0].y); ctx.lineTo(sh[1].x, sh[1].y); ctx.stroke()
-      const cap = [P(xa - sx * 0.03, yy + 0.01, zs - 0.16), P(xb + sx * 0.03, yy + 0.01, zs - 0.16), P(xb + sx * 0.03, yy + 0.01, zs), P(xa - sx * 0.03, yy + 0.01, zs)]
+      const cap = [P(xa - sx * 0.03, yy + 0.01, zs - 0.22), P(xb + sx * 0.03, yy + 0.01, zs - 0.22), P(xb + sx * 0.03, yy + 0.01, zs), P(xa - sx * 0.03, yy + 0.01, zs)]
       if (!cap.some(e => !e)) { path(cap); ctx.fillStyle = col(1.05); ctx.fill(); ctx.strokeStyle = 'rgba(8,10,16,0.55)'; ctx.lineWidth = lw; ctx.stroke() }
+      { const pl = [P(xa - sx * 0.03, yy + 0.01, z), P(xb + sx * 0.03, yy + 0.01, z), P(xb + sx * 0.03, yy + 0.01, z + 0.16), P(xa - sx * 0.03, yy + 0.01, z + 0.16)]
+        if (!pl.some(e => !e)) { path(pl); ctx.fillStyle = col(1.0); ctx.fill(); ctx.strokeStyle = 'rgba(8,10,16,0.55)'; ctx.lineWidth = lw; ctx.stroke() } }
       for (const zb of [z + 0.12]) { const a = P(xa, yy, zb), b = P(xb, yy, zb); if (a && b) { ctx.strokeStyle = 'rgba(8,10,16,0.5)'; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke() } }
     }
     path(ring); ctx.fillStyle = col(1 - o * 0.04); ctx.fill(); ctx.strokeStyle = 'rgba(8,10,16,0.6)'; ctx.lineWidth = lw; ctx.stroke()
@@ -3197,6 +3449,20 @@ export function drawPortal(h, ctx, p) {
         const hollow = (hash(i * 37 + 5) & 3) === 0
         for (const ex of [-1, 1]) { ctx.beginPath(); if (hollow) ctx.ellipse(c0.x + ex * s * 0.32, c0.y - s * 0.12, s * 0.15, s * 0.17, 0, 0, Math.PI * 2); else ctx.rect(c0.x + ex * s * 0.32 - s * 0.14, c0.y - s * 0.14, s * 0.28, Math.max(1, s * 0.06)); ctx.fill() }
         ctx.fillRect(c0.x - s * 0.2, c0.y + s * 0.42, s * 0.4, Math.max(1, s * 0.07))
+      }
+    } else if (o === n - 2 && p.ogham) {                                 // ogham: a stem along the order, strokes across it in groups
+      const st = archPts(am, yy)
+      if (!st.some(q => !q)) {
+        ctx.strokeStyle = 'rgba(8,10,16,0.7)'; ctx.lineWidth = lw * 1.5; ctx.beginPath(); st.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.stroke()
+        ctx.strokeStyle = `rgba(226,212,164,${(0.5 * v).toFixed(3)})`; ctx.lineWidth = lw * 1.2
+        for (let g = 0; g < 14; g++) {
+          const hv = hash(g * 53 + 11), cnt = 1 + (hv & 3), fl = (hv >> 3) & 1
+          for (let s = 0; s < cnt; s++) {
+            const an = Math.PI * (g + 0.12 + s * 0.2) / 14, r0 = fl ? am - t * 0.34 : am, r1 = fl ? am + t * 0.34 : am + t * 0.34 - (hv & 4 ? t * 0.34 : 0)
+            const a = P(x + Math.cos(an) * r0, yy, zs + Math.sin(an) * r0), b = P(x + Math.cos(an) * r1, yy, zs + Math.sin(an) * r1)
+            if (a && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke() }
+          }
+        }
       }
     } else {                                                             // chevrons cut in it
       const m = 14 + o * 2
@@ -3383,6 +3649,7 @@ export function drawSpout(h, ctx, p) {
   const L = h.lightAt(p.x, p.y + 0.4, p.z, -1), lv = Math.max(L[0], L[1], L[2]), out = p.out ?? 0.22
   const c = h._P(p.x, p.y + 0.02, p.z + 0.06), s = k * (p.s ?? 0.15); if (!c) return
   ctx.save()
+  if (p.tears) { drawWeeper(h, ctx, p, k, L, lv, c, s); ctx.restore(); return }
   // the head: larger than its fellows, pale, eyes shut, mouth open
   ctx.fillStyle = h._rgb(L.map(v => clamp01(v * 1.2)), p.stone || [176, 176, 180]); ctx.beginPath(); ctx.ellipse(c.x, c.y, s * 0.8, s, 0, 0, Math.PI * 2); ctx.fill()
   ctx.strokeStyle = 'rgba(8,8,12,0.6)'; ctx.lineWidth = Math.max(1, k * 0.01); ctx.stroke()
@@ -3405,6 +3672,35 @@ export function drawSpout(h, ctx, p) {
     ctx.beginPath(); ctx.ellipse(b.x, b.y, k * (0.04 + 0.14 * ph), k * (0.015 + 0.05 * ph), 0, 0, Math.PI * 2); ctx.stroke()
   }
   ctx.restore()
+}
+
+// the head that weeps: brows drawn up in the middle, eyes cast down, the mouth turned down; from each eye a tear down the cheek
+// to the jaw, and from there a thread of water falling to the step
+function drawWeeper(h, ctx, p, k, L, lv, c, s) {
+  const lw = Math.max(1, k * 0.01), ps = p.s, cz = p.z + 0.06, fy = p.y + 0.03, out = p.out ?? 0.22
+  ctx.fillStyle = h._rgb(L.map(v => clamp01(v * 1.2)), p.stone || [176, 176, 180]); ctx.beginPath(); ctx.ellipse(c.x, c.y, s * 0.78, s, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = 'rgba(8,8,12,0.6)'; ctx.lineWidth = lw; ctx.stroke()
+  ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(12,12,16,0.85)'; ctx.lineWidth = Math.max(1, s * 0.08)
+  for (const ex of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(c.x + ex * s * 0.55, c.y - s * 0.32); ctx.lineTo(c.x + ex * s * 0.12, c.y - s * 0.46); ctx.stroke()          // a brow, raised at the middle
+    ctx.beginPath(); ctx.arc(c.x + ex * s * 0.3, c.y - s * 0.24, s * 0.16, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()                // an eye, cast down
+  }
+  ctx.beginPath(); ctx.arc(c.x, c.y + s * 0.72, s * 0.24, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke()                                  // the mouth, turned down
+  const N = 26, cA = `rgba(150,170,196,${(0.34 * Math.max(0.4, lv)).toFixed(3)})`, cB = `rgba(215,228,244,${(0.62 * Math.max(0.4, lv)).toFixed(3)})`
+  for (const ex of [-1, 1]) {
+    const pts = [], ze = cz + 0.12 * ps, zj = cz - 0.78 * ps, xe = p.x + ex * 0.3 * ps, xj = p.x + ex * 0.4 * ps
+    for (let i = 0; i <= 6; i++) { const u = i / 6; pts.push(h._P(xe + (xj - xe) * u, fy, ze + (zj - ze) * u)) }                          // down the cheek
+    for (let i = 1; i <= N; i++) { const u = i / N, zz = zj - (zj - p.zl) * u, yy = fy + out * Math.sqrt(Math.min(1, u * 4)); pts.push(h._P(xj + ex * 0.02 * u, yy, zz)) }   // and off the jaw
+    if (pts.some(q => !q)) continue
+    ctx.strokeStyle = cA; ctx.lineWidth = Math.max(1, k * 0.028); ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.stroke()
+    for (let m = 0; m < 5; m++) {
+      const u0 = ((h.t * 0.8 + m / 5 + (ex > 0 ? 0.37 : 0)) % 1), i0 = Math.floor(u0 * (pts.length - 1)), i1 = Math.min(pts.length - 1, i0 + 2)
+      ctx.strokeStyle = cB; ctx.lineWidth = Math.max(1, k * 0.016); ctx.beginPath(); ctx.moveTo(pts[i0].x, pts[i0].y); ctx.lineTo(pts[i1].x, pts[i1].y); ctx.stroke()
+    }
+    const b = pts[pts.length - 1], ph = (h.t * 2.2 + (ex > 0 ? 0.5 : 0)) % 1
+    ctx.strokeStyle = `rgba(200,214,232,${(0.4 * (1 - ph)).toFixed(3)})`; ctx.lineWidth = Math.max(1, k * 0.012)
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, k * (0.03 + 0.11 * ph), k * (0.012 + 0.04 * ph), 0, 0, Math.PI * 2); ctx.stroke()
+  }
 }
 
 // ═════════ the thorn's hill ═══════════════════════════════════════════════════════════════════════════════════════════

@@ -72,6 +72,7 @@ const MULTI = {
   pool: { rows: (p) => X.poolRows(p), draw: (h, c, p) => X.drawPool(h, c, p), under: true },
   stones: { rows: (p) => [Math.floor(p.y0), Math.floor(p.y1)], draw: (h, c, p) => X.drawStones(h, c, p), under: true },
   apron: { rows: (p) => X.apronRows(p), draw: (h, c, p) => X.drawApron(h, c, p), under: true },
+  flight: { rows: (p) => [p.y0, p.y1], draw: (h, c, p) => X.drawFlight(h, c, p), under: true },
   flow: { rows: (p) => X.flowRows(p), draw: (h, c, p) => X.drawFlow(h, c, p), under: true },
   spur: { rows: (p) => X.spurRows(p), draw: (h, c, p) => X.drawSpur(h, c, p), under: true },
   farrock: { rows: () => [0, 0], draw: (h, c, p) => X.drawFarRock(h, c, p), under: true },
@@ -130,6 +131,7 @@ export default class HewnRock {
     this.floorArt = hw.floorArt || null                                                        // a floor laid by hand (hewnExtras.js paintFloorArt)
     this.bg = hw.bg || null
     this.abyss = hw.abyss !== false
+    this.flank = !!hw.flank                                                                    // open sea: the water's edge columns carried out to the sides of the screen
     // a screen grade (hewnExtras.js): the map's own, or one asked for (?grade=teal|ember|etch|pixel)
     this.grade = opts.grade ? { palette: opts.grade === 'pixel' ? null : opts.grade, px: 3, strength: 1 } : (hw.grade || null)
     this.FACE_PX = FACE_PX
@@ -578,6 +580,7 @@ export default class HewnRock {
       else if (k !== K_VOID) this._floorTop(ctx, r, c, e, z, k === K_FLOOR && this.walkZ(c, r) !== null && !(this.span.get(i)?.walk === 'deck'))
       c = e + 1
     }
+    if (this.flank) this._flank(ctx, r)
     // smooth water painted over the floor (a river, a pool): before the faces and the slabs, which go over it
     for (const p of this.props) {
       const m = MULTI[p.type]
@@ -616,6 +619,30 @@ export default class HewnRock {
       if (r >= r0 && r <= r1) { p.row = r; m.draw(this, ctx, p) }
     }
     for (const f of this.rowHooks) f(ctx, r)
+  }
+
+  // open sea (extra.flank): the map's edge is not the sea's. Where a row's first or last tile is water, its picture is stretched
+  // out from the edge to the side of the screen, so the water runs on out of sight instead of ending in a grey slope
+  _flank(ctx, r) {
+    const W = this.W, cv = ctx.canvas, SW = cv.width
+    for (let side = 0; side < 2; side++) {
+      const i = r * W + (side ? W - 1 : 0)
+      if (this.k[i] !== K_WATER) continue
+      const z = this.z[i], yT = this._Y(r, z), yB = this._Y(r + 1, z)
+      if (!(yB - yT > 0.4) || yB < 0 || yT > this.cam.sh) continue
+      const kT = this._k(r), kB = this._k(r + 1); if (!kT || !kB) continue
+      const xT = this._X(side ? W : 0, r), xB = this._X(side ? W : 0, r + 1)
+      const y0 = Math.floor(yT), h = Math.ceil(yB) - y0 + 1
+      ctx.save(); ctx.beginPath()
+      if (side) { if (Math.max(xT, xB) >= SW) { ctx.restore(); continue }
+        ctx.moveTo(SW, yT - 0.5); ctx.lineTo(xT, yT - 0.5); ctx.lineTo(xB, yB + 0.5); ctx.lineTo(SW, yB + 0.5) }
+      else { if (Math.min(xT, xB) <= 0) { ctx.restore(); continue }
+        ctx.moveTo(0, yT - 0.5); ctx.lineTo(xT, yT - 0.5); ctx.lineTo(xB, yB + 0.5); ctx.lineTo(0, yB + 0.5) }
+      ctx.closePath(); ctx.clip()
+      if (side) { const x0 = Math.floor(Math.min(xT, xB)), sx = x0 - 6; if (sx > 0) ctx.drawImage(cv, sx, y0, 3, h, x0 - 1, y0, SW - x0 + 2, h) }
+      else { const x1 = Math.ceil(Math.max(xT, xB)), sx = x1 + 3; if (sx + 3 < SW) ctx.drawImage(cv, sx, y0, 3, h, 0, y0, x1 + 1, h) }
+      ctx.restore()
+    }
   }
 
   _tri(ctx, img, t0, t1, t2, p0, p1, p2) {
@@ -877,7 +904,13 @@ export default class HewnRock {
 
   // a slab: a bridge's deck or a lintel, top at s.z, s.t thick
   _slab(ctx, c, r, s) {
-    if (s.hid) return                                           // a step you climb that is painted, not built (hewnExtras' pool)
+    if (s.hid) {                                                // a step you climb that is painted, not built (hewnExtras' pool)
+      if (s.walk === 'deck' && !s.nowalk) {                     // (a hidden deck: drawn by its prop, but tapped here, so a route finds it)
+        const a = this._P(c, r, s.z), b = this._P(c + 1, r, s.z), d = this._P(c + 1, r + 1, s.z), e = this._P(c, r + 1, s.z)
+        if (a && b && d && e) this._polys.push({ pts: [a, b, d, e], r, z: s.z, walk: true, c0: c, c1: c })
+      }
+      return
+    }
     const z = s.z, zb = s.z - s.t
     const tl = this._P(c, r, z), tr = this._P(c + 1, r, z), br = this._P(c + 1, r + 1, z), bl = this._P(c, r + 1, z)
     if (!tl || !tr || !br || !bl) return

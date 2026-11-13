@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ga">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Corra — An Spéir</title>
+<style>
+  @font-face{font-family:'Urchlo';src:url('./public/assets/fonts/urchlo.ttf') format('truetype')}
+  @font-face{font-family:'Aonchlo';src:url('./public/assets/fonts/aonchlo.ttf') format('truetype')}
+  @font-face{font-family:'IrishPenny';src:url('./public/assets/fonts/IrishPenny.ttf') format('truetype')}
+  html,body{margin:0;background:#02040b;width:100%;height:100%;overflow:hidden;touch-action:none}
+</style>
+</head>
+<body>
+<div style="position:fixed;font-family:Aonchlo;opacity:0">a</div>
+<!-- test page for the champion sky (js/starSky.js), from the dark moon. ?open=0 skips the opening (then ?en=0.3 sets
+     how much English shows, 0 to 1);
+     ?land=henge (or trilithon, horned_cairn, broken_arch, cloister, stair, elf_gate, elf_prow, elf_spires;
+     or the courts: court_gothic, court_romanesque, court_megalith, court_bru, court_high_elf, court_dwarf, court_arcane,
+     court_moonwell) where we stand -->
+<script type="module">
+  import { champions } from './data/champions.js'
+  import { initStarSky } from './js/starSky.js'
+  const q = new URLSearchParams(location.search), en = Number(q.get('en') ?? 0.2)
+  initStarSky({ champions, englishOpacity: en, stand: q.get('land') || 'court_megalith', opening: q.get('open') !== '0', onChoose: (c, sign) => console.log('[sky] chosen', c.nameGa, sign) })
+</script>
+</body>
+</html>

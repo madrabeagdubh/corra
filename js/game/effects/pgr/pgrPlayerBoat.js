@@ -62,11 +62,14 @@ export function drawWeaponOverlay(pgr, playerScreenX, playerScreenY, scaledTileW
         const away = !!pgr._facingAway && !pgr._boatActive
         if ((phase === 'front') === away) return
         const pose = pgr.scene?.weaponPose?.() ?? null
+        const wp = pgr._wpn                                      // (the body's step this frame: the sword keeps to it)
+        if (wp) { ctx.save(); ctx.translate(playerScreenX, playerScreenY); if (wp.rot) ctx.rotate(wp.rot); ctx.translate(wp.dx, wp.dy); ctx.translate(-playerScreenX, -playerScreenY) }
         const r = drawHeldSword(ctx, itemImg, {
           x: playerScreenX, y: playerScreenY, w: scaledTileW, ps,
           side: pgr._facingLeft ? -1 : 1, pose,
         })
         pgr.scene?.onHeldSword?.(ctx, r, scaledTileW, item, pose)      // a scene's own touch to it (the ghost's blade: cave/escape.js)
+        if (wp) ctx.restore()
         return
       }
       if (phase === 'front') return
@@ -145,6 +148,7 @@ else {
 if (pgr._facingAway && pgr._playerBackCanvas) img = pgr._playerBackCanvas
 
 if (!pgr._boatActive && p?.isMoving && (pgr._lastStepKeyX !== p.startX || pgr._lastStepKeyY !== p.startY)) {
+  pgr._stepN = (pgr._stepN || 0) + 1                    // (counts steps: the waddle goes one way, then the other)
   pgr._lastStepKeyX = p.startX
   pgr._lastStepKeyY = p.startY
   pgr._stepT    = 0
@@ -375,6 +379,12 @@ const strokeT = pgr._strokeT ?? 0
     const _playerFacing = pgr._boatActive ? !pgr._facingLeft : pgr._facingLeft
     ctx.save()
     ctx.translate(screenX, screenY + (pgr._boatActive ? totalBob : idleBob))
+    // (the waddle: one tilt, eased from side to side with each step, and eased out when you stop)
+    const _wT = (moving && !pgr._boatActive && (pgr._moveDir ?? 'ew') === 'ns' && !((p?.terrainSinkOffset ?? 0) > 5)) ? ((pgr._stepN || 0) % 2 ? 1 : -1) * 0.07 : 0
+    pgr._wdl = (pgr._wdl || 0) + (_wT - (pgr._wdl || 0)) * 0.12
+    if (Math.abs(pgr._wdl) < 0.002) pgr._wdl = 0
+    pgr._wpn = pgr._wdl ? { rot: pgr._wdl, dx: 0, dy: 0 } : null
+    if (pgr._wdl && !pgr._boatActive) ctx.rotate(pgr._wdl)
 
     if (moving) {
       const st     = pgr._stepT ?? 0
@@ -388,11 +398,15 @@ const strokeT = pgr._strokeT ?? 0
       let sway = 0, lean = 0
       if (dir === 'ew') {
         sway = (pgr._boatActive || inWater) ? 0 : (pgr._swaySign ?? 1) * arc * scaledTileW * 0.055
+        if (!pgr._boatActive) pgr._wpn = { rot: pgr._wdl, dx: sway, dy: -bounce }
         lean = pgr._boatActive ? 0 : (inWater ? 0 : arc * 0.05 * (pgr._facingLeft ? 1 : -1))
         if (pgr._boatActive) ctx.rotate(totalLean * (pgr._facingLeft ? -1 : 1))
       } else {
         const inWater2 = !pgr._boatActive && (p?.terrainSinkOffset ?? 0) > 5
         const nsBounce = (pgr._boatActive || inWater2) ? 0 : arc * scaledTileW * 0.07
+        // (towards or away from the camera the step's bounce can't be seen: so the figure waddles, a tilt one way on this step
+        // and the other on the next, as a cut-out walks)
+        if (!pgr._boatActive) pgr._wpn = { rot: pgr._wdl, dx: 0, dy: -nsBounce }
         ctx.transform(
           1.0 * (pgr._facingLeft ? -1 : 1), 0,
           0, 1.0 + ((pgr._boatActive || inWater2) ? 0 : arc * 0.04),

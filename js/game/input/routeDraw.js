@@ -37,6 +37,7 @@ export default class RouteDraw {
     this.lead = null        // the walk to its start: [[c, r], ...]
     this.reject = null
     this.bad = null         // the part of a drawn route that can't be walked (red)
+    this.fade = null        // a route given up for the brooch's pad, fading: { route, lead, bad, t }
   }
 
   get ts() { return this.scene.tileSize }
@@ -191,7 +192,9 @@ export default class RouteDraw {
     } else if (this.route) {
       // the route still ahead: drop what's been walked, forget it when it's done or dropped
       const p = sc.player, pt = this.playerTile()
-      if (!p.pathQueue?.length && !p.isMoving && !(performance.now() < this.keepUntil)) { this.route = this.lead = this.bad = null }
+      // given up: the pad took over (it empties the player's path) -- the line fades, rather than stays until you stop
+      if (!p.pathQueue?.length && (sc.joystick?.force ?? 0) > 10 && !(performance.now() < this.keepUntil)) { this.fade = { route: this.route, lead: this.lead, bad: this.bad, t: performance.now() }; this.route = this.lead = this.bad = null }
+      else if (!p.pathQueue?.length && !p.isMoving && !(performance.now() < this.keepUntil)) { this.route = this.lead = this.bad = null }
       else {
         if (this.lead) { const i = this.lead.findIndex(([c, r]) => c === pt[0] && r === pt[1]); if (i >= 0) this.lead = this.lead.slice(i); if (this.lead.length < 2) this.lead = null }
         if (!this.lead) { const i = this.route.findIndex(([c, r]) => c === pt[0] && r === pt[1]); if (i > 0) this.route = this.route.slice(i) }
@@ -206,6 +209,17 @@ export default class RouteDraw {
             ctx.beginPath(); ctx.ellipse(q[0], q[1], rad, rad * 0.45, 0, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * k)
             ctx.strokeStyle = 'rgba(245,208,96,0.9)'; ctx.lineWidth = 3; ctx.stroke() }
         }
+      }
+    }
+    if (this.fade) {
+      const a = 1 - (performance.now() - this.fade.t) / 900, f = this.fade
+      if (a <= 0) this.fade = null
+      else {
+        ctx.globalAlpha = a
+        if (f.lead) this._line(ctx, f.lead, dim, 2, [1, 5])
+        this._line(ctx, f.route, gold, 3, [2, 6])
+        if (f.bad) this._line(ctx, f.bad, red, 3, [4, 4])
+        ctx.globalAlpha = 1
       }
     }
     if (this.reject) {

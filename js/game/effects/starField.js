@@ -51,9 +51,10 @@ const LAYERS = [
     // Brightened from the original 0.08/0.30, 0.15/0.52, 0.28/0.75 -- alpha is
     // set once per star at creation, not recomputed per frame, so this is a
     // free change with no ongoing cost.
-    { key:'bg',    n:560, ms:180000, depth:3, frames:['s','s','m'], minA:0.14, maxA:0.46 },
-    { key:'drift', n:760, ms: 90000, depth:4, frames:['s','m','m'], minA:0.24, maxA:0.72 },
-    { key:'fg',    n:180, ms: 60000, depth:5, frames:['m','l','l'], minA:0.40, maxA:0.95 },
+    // [oneNight] More, smaller stars, as the champion sky has them (was 560/760/180, crosses among them).
+    { key:'bg',    n:1300, ms:180000, depth:3, frames:['s','s','s'], minA:0.12, maxA:0.42 },
+    { key:'drift', n:1500, ms: 90000, depth:4, frames:['s','s','m'], minA:0.20, maxA:0.66 },
+    { key:'fg',    n: 300, ms: 60000, depth:5, frames:['m','m','l'], minA:0.40, maxA:0.95 },
 ];
 
 // Trails: each star gets this many extra bobs lagging behind its head, alpha
@@ -73,14 +74,12 @@ function ensureTexture(scene) {
     const g = scene.make.graphics({ add: false });
     g.fillStyle(NIGHT.starHex, 1);
     const c = (CELL - 1) / 2;
-    // small: a 2px dot
-    g.fillRect(c, c, 2, 2);
-    // medium: a two-armed cross
-    g.fillRect(CELL + c - 2, c, 5, 1);
-    g.fillRect(CELL + c, c - 2, 1, 5);
-    // large: a three-armed cross with a thicker core
-    g.fillRect(CELL * 2 + c - 3, c, 7, 1);
-    g.fillRect(CELL * 2 + c, c - 3, 1, 7);
+    // [oneNight] dots, as the champion sky's: small 1px, medium 2px, large 2px with a faint halo (no crosses)
+    g.fillRect(c, c, 1, 1);
+    g.fillRect(CELL + c, c, 2, 2);
+    g.fillStyle(NIGHT.starHex, 0.28);
+    g.fillRect(CELL * 2 + c - 1, c - 1, 4, 4);
+    g.fillStyle(NIGHT.starHex, 1);
     g.fillRect(CELL * 2 + c, c, 2, 2);
     g.generateTexture(TEX, CELL * 3, CELL);
     g.destroy();

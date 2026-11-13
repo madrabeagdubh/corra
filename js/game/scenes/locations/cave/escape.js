@@ -48,6 +48,7 @@ import { createItem } from '../../../ui/inventory/itemDefinitions.js'
 import { GameState } from '../../../systems/gameState.js'
 import SkyeCaption from '../skye/skyeCaption.js'
 import ThornHarp from './thornHarp.js'
+import BalorSlot from './balorSlot.js'
 import WellMirror from './wellMirror.js'
 
 const Q = new URLSearchParams(window.location.search)
@@ -172,6 +173,7 @@ export default class Escape extends HewnTest {
       this._ferryPose()
     }
     this._thornHarp = this.esc.harp ? new ThornHarp(this, this.esc.harp) : null      // the harp at the thorn's hill, and the thorn's answer
+    this._slot = this.esc.slot ? new BalorSlot(this, this.esc.slot) : null                // Balor's gate: the banners' slot machine, and the nuts it eats
     this._well = this.esc.well ? new WellMirror(this, this.esc.well) : null           // the steps down into the well: your reflection, the depths, the salmon's nuts, Géaga
     this.cameras.main.fadeIn(700, 0, 0, 0)
     // (Géaga no longer wakes to you as you come: she speaks to you on the steps down into the well -- update)
@@ -266,13 +268,13 @@ export default class Escape extends HewnTest {
     this._thornHarp?.update(delta)
     this._well?.update(delta)
     // Géaga's eyes, seen in the water from the well's step (the pool draws them: hewn.inWater)
-    { const gn = this._well?.onStep ? (this._npcs || []).find(o => o.kind === 'geaga') : null; this.hewn.inWater = gn && gn.wake > 0.01 ? { x: gn.x, y: gn.y, wake: gn.wake } : null }
+    { const st = Math.min(1, this._well?.settle || 0), gn = st > 0.01 ? (this._npcs || []).find(o => o.kind === 'geaga') : null, wk = gn ? gn.wake * st * st * (3 - 2 * st) : 0; this.hewn.inWater = gn && wk > 0.01 ? { x: gn.x, y: gn.y, wake: wk } : null }
     // at the well: the first time you come down onto the steps this visit, with her roots still across the stair, she wakes to you
     if (this._well?.arrived && this._gate && !this._encounterPanel?._isOpen) this.time.delayedCall(900, () => { if (this._well?.onStep) this._talk('geaga') })
     for (const n of this._npcs || []) {
       if (n.kind === 'geaga') {
         const talking = this._encounterPanel?._isOpen && this._encounterPanel?._card?.id?.includes('geaga')
-        const want = GameState.hasNote('escape_geaga_blind_eye') && !talking ? 0 : talking ? 1 : 0.3
+        const want = GameState.hasNote('escape_geaga_blind_eye') && !talking ? 0 : talking ? 1 : this._well?._been ? 0.3 : 0
         n.wake += (want - n.wake) * (1 - Math.exp(-delta / 600))
       }
       if (n.state === 'leaving') n.t += delta / 1000
@@ -292,6 +294,7 @@ export default class Escape extends HewnTest {
   // (and the nuts on the well's step; and Géaga's only while you stand on the step)
   checkProximityInteractions() {
     if (this._thornHarp?.badge()) return
+    if (this._slot?.badge()) return
     if (this._well?.badge()) return
     if (this._well && !this._well.onStep) {
       const all = this.interactables
@@ -303,7 +306,7 @@ export default class Escape extends HewnTest {
     super.checkProximityInteractions()
   }
 
-  shutdown() { this._thornHarp?.close(); this._thornHarp = null; this._well?.destroy(); this._well = null; super.shutdown() }
+  shutdown() { this._thornHarp?.close(); this._thornHarp = null; this._slot?.close(); this._slot = null; this._well?.destroy(); this._well = null; super.shutdown() }
 
   // what the words set: the roots part, a púca goes
   _notes() {
@@ -344,8 +347,8 @@ export default class Escape extends HewnTest {
   _drawNpcs(ctx, r) {
     for (const n of this._npcs || []) {
       if (Math.floor(n.y) !== r) continue
-      if (n.kind === 'geaga' && !this._well?.onStep) drawGeagaFace(this.hewn, ctx, n)     // (from the well's step you see her only in the water: hewnExtras.js drawPool)
-      else if (n.kind === 'puca') drawPuca(this.hewn, ctx, n)
+      // (Geaga is seen only in the water, as reflections: hewnExtras.js drawPool -- no eyes in the roots)
+      if (n.kind === 'puca') drawPuca(this.hewn, ctx, n)
     }
   }
 

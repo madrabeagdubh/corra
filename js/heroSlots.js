@@ -176,6 +176,7 @@ function portrait(champion) {
 // introOghamDial.js) -- an SVG 104vmin square, the moon at (0,0) of a 660 box
 // whose centre is 70 units above it, 188 units across.
 function moonGeometry() {
+  if (window.__frontMoonGeometry) return window.__frontMoonGeometry()     // the star sky front's moon (heroSelect.js)
   const svg = document.getElementById('ogd-svg')
   let left, top, width
   if (svg) {

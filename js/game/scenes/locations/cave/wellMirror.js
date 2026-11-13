@@ -33,6 +33,7 @@ export default class WellMirror {
     this.alpha = 0
     this.deep = 0
     this.still = 0
+    this.settle = 0                  // 0..1: how settled you are on the step (Geaga's eyes, as reflections, wait for it)
     this.gifts = null
     this.lifting = 0
     this.onStep = false
@@ -62,6 +63,7 @@ export default class WellMirror {
     this.arrived = on && !this._been
     if (on) this._been = true
     this.onStep = on
+    this.settle = !on ? Math.max(0, (this.settle || 0) - delta / 400) : (!P.isMoving ? Math.min(1, (this.settle || 0) + delta / 900) : (this.settle || 0))
 
     // the well, going down, as the view tips down into it (the same pace as the camera's: hewnTest.js)
     this.deep += ((deep ? 1 : 0) - this.deep) * (1 - Math.exp(-delta / 900))

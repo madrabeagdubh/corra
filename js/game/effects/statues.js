@@ -12,6 +12,8 @@
 //     'giant'    a hulking one-eyed giant, one arm hanging, a club                  (the Fomorian edge)
 //     'selkie'   a woman with a sealskin over her head and shoulders, a tail below  (Tethra's court)
 //     'hound'    a great hound sitting up, ears back                                (the way out: Bran and Sceólang)
+//     'lusty'    the Lustymore man: one face, one eye cut, squatting, hands on his knees  (Tech Duinn)
+//     'janus'    squat and two-faced, after the figure on Boa Island: a great head, eyes wide, arms crossed, a belt  (Tech Duinn)
 //   sigilGlyph(kind, rgb)   a 96px icon of a gate's sigil, glowing on dark stone, for the moon's badge
 
 const W = 64, H = 128
@@ -42,6 +44,47 @@ const line = (g, pts, a = 0.5, w = 1) => { g.beginPath(); pts.forEach(([x, y], i
 const plinth = (g) => { shape(g, stone(g, 10, 54, 0.7, 0.28), [[10, 118], [54, 118], [56, 128], [8, 128]]) }
 
 const FIGURES = {
+  // after the figure on Boa Island: a squat block of a body, a head as big as it, the eyes great ovals, a wide nose, the mouth
+  // open and turned down, the chin pointed; the arms crossed over the belly, a belt under them; at each side of the head the
+  // seam where the face on the other side begins. Tears cut down from the eyes
+  // after the Lustymore man, the Dreenan figure's smaller fellow: one face only, heart-shaped, one eye cut and the other
+  // not, a straight nose, an open mouth; squatting, his hands resting on his knees
+  lusty(g) {
+    plinth(g)
+    shape(g, stone(g, 12, 52, 0.72, 0.24), [[14, 92], [50, 92], [52, 118], [12, 118]])                             // the haunches, a block
+    shape(g, stone(g, 10, 54, 0.82, 0.28), [[18, 62], [26, 56], [38, 56], [46, 62], [50, 94], [14, 94]])          // the trunk
+    for (const sx of [-1, 1]) {
+      shape(g, stone(g, 10, 54, 0.9, 0.34), [[32 + sx * 6, 102], [32 + sx * 18, 98], [32 + sx * 19, 112], [32 + sx * 7, 114]])   // a knee
+      shape(g, stone(g, 10, 54, 0.78, 0.28), [[32 + sx * 14, 62], [32 + sx * 19, 66], [32 + sx * 18, 100], [32 + sx * 12, 100]])  // an arm, down to it
+      line(g, [[32 + sx * 9, 104], [32 + sx * 17, 102]], 0.5, 1); line(g, [[32 + sx * 9, 108], [32 + sx * 17, 106]], 0.5, 1)    // the fingers on it
+    }
+    shape(g, stone(g, 12, 52, 0.86, 0.3), [[20, 22], [26, 16], [32, 22], [38, 16], [44, 22], [46, 38], [32, 58], [18, 38]])   // the head, heart-shaped
+    g.beginPath(); g.ellipse(26, 32, 5, 3.6, 0, 0, Math.PI * 2); g.fillStyle = grey(0.6); g.fill(); g.strokeStyle = 'rgba(10,10,10,0.6)'; g.lineWidth = 1.3; g.stroke()
+    g.beginPath(); g.ellipse(26, 33, 2.2, 2.2, 0, 0, Math.PI * 2); g.fillStyle = 'rgb(20,20,20)'; g.fill()
+    line(g, [[35, 32], [42, 33]], 0.4, 1.2)                                                                          // the eye not cut, a worn line
+    line(g, [[25, 37], [24, 48]], 0.45, 1)                                                                           // a tear under the one
+    shape(g, stone(g, 26, 38, 0.92, 0.4), [[31, 30], [34, 30], [35, 42], [30, 42]])                                // the nose, straight
+    g.beginPath(); g.ellipse(32, 48, 3.4, 2.4, 0, 0, Math.PI * 2); g.fillStyle = 'rgb(20,20,20)'; g.fill()          // the mouth, open
+  },
+  janus(g) {
+    plinth(g)
+    shape(g, stone(g, 12, 52, 0.7, 0.24), [[14, 84], [50, 84], [52, 118], [12, 118]])                             // the lower body, a block
+    shape(g, stone(g, 10, 54, 0.62, 0.2), [[12, 80], [52, 80], [52, 88], [12, 88]])                               // the belt
+    for (let x = 14; x < 50; x += 6) line(g, [[x, 80], [x + 3, 88], [x + 6, 80]], 0.4, 1)
+    shape(g, stone(g, 10, 54, 0.8, 0.26), [[16, 56], [24, 50], [40, 50], [48, 56], [52, 80], [12, 80]])           // the trunk, shoulders sloped
+    shape(g, stone(g, 12, 52, 0.86, 0.32), [[14, 64], [22, 60], [44, 74], [42, 80], [34, 78]])                    // the arms, crossed
+    shape(g, stone(g, 12, 52, 0.78, 0.28), [[50, 64], [42, 60], [20, 74], [22, 80], [30, 78]])
+    shape(g, stone(g, 12, 52, 0.84, 0.3), [[18, 14], [32, 6], [46, 14], [50, 30], [44, 46], [32, 56], [20, 46], [14, 30]])   // the head, the chin pointed
+    line(g, [[15, 22], [14, 34], [18, 44]], 0.5, 1.4); line(g, [[49, 22], [50, 34], [46, 44]], 0.5, 1.4)        // the seams to the other face
+    for (const ex of [24, 40]) {                                                                                     // the eyes, great ovals, rimmed
+      g.beginPath(); g.ellipse(ex, 26, 6, 4.5, 0, 0, Math.PI * 2); g.fillStyle = grey(0.62); g.fill(); g.strokeStyle = 'rgba(10,10,10,0.6)'; g.lineWidth = 1.4; g.stroke()
+      g.beginPath(); g.ellipse(ex, 27, 2.6, 2.6, 0, 0, Math.PI * 2); g.fillStyle = 'rgb(20,20,20)'; g.fill()
+      line(g, [[ex - 1, 31], [ex - 2, 44]], 0.45, 1)                                                                // a tear cut down the cheek
+    }
+    shape(g, stone(g, 26, 38, 0.9, 0.4), [[30, 28], [34, 28], [37, 38], [27, 38]])                                 // the nose
+    shape(g, 'rgb(20,20,20)', [[25, 46], [32, 42], [39, 46], [36, 48], [28, 48]])                                  // the mouth, open, turned down
+    line(g, [[26, 12], [32, 9], [38, 12]], 0.35, 1)
+  },
   // hooded, bowed, the robe falling straight to the ground, the hands lost in the sleeves
   mourner(g) {
     plinth(g)
@@ -121,21 +164,22 @@ export function sigilGlyph(kind, rgb, draw) {
   return c
 }
 
-// Plain icons for the moon's badge: Géaga (a hazel leaf and its nuts), the dead (a pale hooded face)
+// Plain icons for the moon's badge: Géaga (a purple blur with yellow eyes), the dead (a pale hooded face)
 export function figureGlyph(kind) {
   const c = document.createElement('canvas'); c.width = c.height = 96
   const g = c.getContext('2d')
   g.lineCap = 'round'; g.lineJoin = 'round'
   if (kind === 'geaga') {
-    g.translate(48, 50); g.rotate(-0.5)
-    const leaf = g.createLinearGradient(-30, 0, 30, 0); leaf.addColorStop(0, '#a9c56a'); leaf.addColorStop(1, '#5e7f2f')
-    g.fillStyle = leaf; g.beginPath(); g.moveTo(-34, 0)
-    for (let i = 0; i <= 12; i++) { const t = i / 12, x = -34 + 68 * t, w = Math.sin(Math.PI * t) * 20 + (i % 2 ? 2.5 : 0); g.lineTo(x, -w) }
-    for (let i = 12; i >= 0; i--) { const t = i / 12, x = -34 + 68 * t, w = Math.sin(Math.PI * t) * 20 + (i % 2 ? 2.5 : 0); g.lineTo(x, w) }
-    g.closePath(); g.fill(); g.strokeStyle = '#2e3d16'; g.lineWidth = 2; g.stroke()
-    g.beginPath(); g.moveTo(-34, 0); g.lineTo(32, 0); g.stroke()
-    g.rotate(0.5); g.translate(-48, -50)
-    for (const [x, y] of [[30, 70], [42, 76]]) { g.fillStyle = '#b07a32'; g.beginPath(); g.ellipse(x, y, 9, 8, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#4a3010'; g.stroke() }
+    // (a purple blur, and in it two slits of yellow light, tilted and shaped as the eyes she has in the water)
+    const blob = (x, y, rx, ry, a) => { const r = Math.max(rx, ry), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(122,62,176,${a})`); gr.addColorStop(1, 'rgba(122,62,176,0)')
+      g.save(); g.translate(x, y); g.scale(rx / r, ry / r); g.translate(-x, -y); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.restore() }
+    blob(48, 50, 44, 36, 0.95); blob(34, 54, 28, 24, 0.7); blob(62, 46, 28, 24, 0.7); blob(48, 62, 34, 20, 0.55)
+    for (const side of [-1, 1]) {
+      const x = 48 + side * 17, y = 48
+      const gl = g.createRadialGradient(x, y, 0, x, y, 17); gl.addColorStop(0, 'rgba(255,238,110,0.75)'); gl.addColorStop(1, 'rgba(255,238,110,0)')
+      g.fillStyle = gl; g.beginPath(); g.ellipse(x, y, 17, 9, 0, 0, Math.PI * 2); g.fill()
+      g.fillStyle = 'rgba(255,244,140,0.98)'; g.beginPath(); g.ellipse(x, y, 10, 3.2, side * -0.12, 0, Math.PI * 2); g.fill()
+    }
   } else {
     const fg = g.createRadialGradient(44, 40, 4, 48, 50, 40); fg.addColorStop(0, 'rgba(235,240,250,0.95)'); fg.addColorStop(1, 'rgba(150,165,190,0.6)')
     g.fillStyle = fg; g.beginPath(); g.moveTo(20, 90); g.quadraticCurveTo(14, 30, 48, 14); g.quadraticCurveTo(82, 30, 76, 90); g.closePath(); g.fill()

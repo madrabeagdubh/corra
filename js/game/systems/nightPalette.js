@@ -18,13 +18,12 @@
  */
 
 export const NIGHT = {
-    // Deepest background. Matches #ogd-root in introOghamDial.js.
-    baseCss : '#040409',
+    // Deepest background: the top of the sky's gradient (SKY below). Was #040409 (the ogham dial's root).
+    baseCss : '#02030a',
 
-    // Stars: a bone-green white rather than pure white, so they sit in the same
-    // air as the ogham strokes (#8fb3a2) instead of on top of them.
-    starHex : 0xe1e4f2,
-    starCss : '225, 228, 242',
+    // Stars: the champion sky's cold white with a touch of lavender (was 225,228,242).
+    starHex : 0xe1e8ff,
+    starCss : '225, 232, 255',
 
     /* n1-top@3x.png is strongly blue-dominant — sampled around R5 G20 B40 — and
        ADD blending makes that the purple the whole scene was swimming in. A
@@ -41,7 +40,7 @@ export const NIGHT = {
        green. +20deg carries it on to indigo-violet and keeps the crimson in the deep clouds:
        richer and stranger than the green was. */
     nebulaFilter : 'hue-rotate(20deg) saturate(0.85) brightness(0.95)',
-    nebulaAlpha  : 0.55,   // 0.5 -> 0.68 for a richer backdrop, then 0.74 with the above
+    nebulaAlpha  : 0.16,   // [oneNight] only a hint now, under the sky's own gradient (was 0.55)
 
     /* Procedural fallback, used when the nebula image is missing. Same greens,
        reached directly rather than by filter. */
@@ -53,6 +52,20 @@ export const NIGHT = {
         { x:0.78, y:0.58, r:0.34, c1:0x44388a, c2:0x120e30 },
     ],
 };
+
+/* [oneNight] THE NIGHT, AS THE CHAMPION SKY (starSky.js) DRAWS IT, FOR EVERY SKY IN THE GAME'S FRONT.
+   The skies are built differently -- the champion sky on a sphere of noise-clustered stars, the constellation scene as
+   a polar wheel of Phaser bobs, the loader and the road on plain canvases -- but they are one night and must look it:
+   the same gradient behind, the same small cold-white stars, no crosses. Change it here and in index.html's loader
+   (which cannot import this; its literals carry a note). */
+export const SKY = {
+    top: '#02030a', mid: '#07112c', bottom: '#0e1a38', midAt: 0.55,     // the gradient, top to foot of the screen
+    starRGB: '225,232,255',                                               // the stars
+};
+export function paintSkyGradient(ctx, w, h) {
+    const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, SKY.top); g.addColorStop(SKY.midAt, SKY.mid); g.addColorStop(1, SKY.bottom)
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+}
 
 /* The sky turns counter-clockwise, the way a northern sky turns about Polaris —
    and, more to the point, the way the ogham ring turns. They were opposed, and

@@ -30,7 +30,7 @@
 
   <style>
     html {
-      background: #040409;  /* NIGHT.baseCss */
+      background: #02030a;  /* NIGHT.baseCss (nightPalette.js) */
     }
 
     body {
@@ -46,7 +46,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: #040409;  /* NIGHT.baseCss */
+      background: linear-gradient(to bottom, #02030a 0%, #07112c 55%, #0e1a38 100%);  /* SKY (nightPalette.js) */
       
       pointer-events: none;
     }
@@ -93,7 +93,7 @@
     let lastTime = 0;
     const nebulaImage = new Image();
 
-    const STAR_COUNT = 350;
+    const STAR_COUNT = 700;
     nebulaImage.src = 'assets/n1-top@3x.png';
 
     class Star {
@@ -107,7 +107,7 @@
         const maxScreenDist = Math.sqrt(w * w + h * h);
         this.dist = Math.random() * maxScreenDist;
         this.angle = Math.random() * Math.PI * 2;
-        this.size = Math.random() * 1.4 + 0.2;
+        this.size = Math.random() < 0.85 ? 0.5 + Math.random() * 0.5 : 1 + Math.random() * 0.6;   // (small, as SKY's)
         // Negative: counter-clockwise, with the ogham ring. See nightPalette.js.
         this.rotationSpeed = -(Math.random() * 0.00004 + 0.00001);
         this.opacity = Math.random() * 0.6 + 0.2;
@@ -123,10 +123,8 @@
         const y = this.hubY + Math.sin(this.angle) * this.dist;
         const currentOpacity = this.opacity + Math.sin(now * this.twinkleSpeed) * 0.2;
 
-        ctx.fillStyle = `rgba(223, 233, 223, ${Math.max(0, currentOpacity)})`;  // NIGHT.starCss
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = `rgba(225, 232, 255, ${Math.max(0, currentOpacity)})`;  // NIGHT.starCss / SKY.starRGB (nightPalette.js)
+        ctx.fillRect(x - this.size, y - this.size, this.size * 2, this.size * 2);
       }
     }
 
@@ -168,7 +166,7 @@
         lastTime = now;
 
         // Background
-        ctx.fillStyle = '#040409';   // NIGHT.baseCss
+        { const sg = ctx.createLinearGradient(0, 0, 0, canvas.height); sg.addColorStop(0, '#02030a'); sg.addColorStop(0.55, '#07112c'); sg.addColorStop(1, '#0e1a38'); ctx.fillStyle = sg; }   // SKY (nightPalette.js)
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Nebula
@@ -178,7 +176,7 @@
           ctx.rotate(-now * 0.00002);
           // Same string as NIGHT.nebulaFilter — both nebulae, one colour.
           ctx.filter = 'hue-rotate(20deg) saturate(0.85) brightness(0.95)';
-          ctx.globalAlpha = 0.4 + (Math.sin(now * 0.0005) * 0.1);
+          ctx.globalAlpha = 0.12 + (Math.sin(now * 0.0005) * 0.03);   // (a hint only: NIGHT.nebulaAlpha)
 
           const scale = 2.2;
           const side = Math.max(canvas.width, canvas.height) * scale;

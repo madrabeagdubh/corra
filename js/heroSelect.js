@@ -1,4 +1,6 @@
-import { initConstellationScene, waitForHeroAssets, getPreloadedAssets, getPrewarmedPlayer } from './introModal.js';
+import { initConstellationScene, waitForHeroAssets, getPreloadedAssets, getPrewarmedPlayer, registerFrontAbort, unlockAudio } from './introModal.js';
+import { requestFullscreenWithFade } from './game/ui/fullscreenFade.js';
+import { armToastFog } from './game/ui/toastFog.js';
 import { startGame } from './main.js';
 import { champions } from '../data/champions.js';
 import { showCharacterModal } from './characterModal.js';
@@ -348,6 +350,8 @@ export function initHeroSelect() {
     // saved heroes along the bottom of the intro (js/heroSlots.js); touching the moon is a new hero
     const heroSlots = showHeroSlots();
     if (heroSlots.resumed) return;   // this load is "Ar aghaidh": straight into the saved scene
+    // [skyFront] the front is the moon and the sky of champions; ?front=old for the ogham dial and the card select
+    if (new URLSearchParams(location.search).get('front') !== 'old') { startSkyFront(heroSlots); return; }
     initConstellationScene(async (sliderValue, amerginLine) => {
         heroSlots.dismiss();
         console.log('[HeroSelect] Intro complete, slider value:', sliderValue);
@@ -357,6 +361,57 @@ export function initHeroSelect() {
         await waitForHeroAssets();
         initMainHeroSelect();
     });
+}
+
+// ── [skyFront] The front: the moon, the game's name, the sky of champions (starSky.js) ─────────────────────────────────
+// The dark moon waits; its first touch is the first gesture (fullscreen, audio) and a new hero (the saved heroes' strip
+// goes). Choosing at the pool goes down into the water and on into the constellation scene, already past the poem, its
+// last constellation the chosen champion's sign; the sky hands over to it as it comes up. When it ends, on to the road
+// (tutorialOrAdventure) with that champion: the card select is not needed. A saved hero chosen over the moon takes the
+// sky down (registerFrontAbort) and goes on as before.
+async function startSkyFront(heroSlots) {
+    const { initStarSky } = await import('./starSky.js');
+    let sky = null, chosen = false, constellationsSeen = false;
+    // on to the road with the champion, their tune starting (the road brings in the rest of the session)
+    const toRoad = (champ, sliderValue, amerginLine) => {
+        try {
+            if (!musicPlayer) musicPlayer = getPrewarmedPlayer() || new TradSessionPlayer();
+            playChampionTune(getTuneKeyForChampion(champ));
+        } catch (e) { console.warn('[skyFront] tune:', e); }
+        import('./tutorialOrAdventure.js').then(m => m.initTutorialOrAdventure(champ, sliderValue, amerginLine));
+    };
+    const open = (opening) => {
+        chosen = false;
+        sky = initStarSky({
+            champions, stand: 'court_megalith', opening, englishOpacity: GameSettings.englishOpacity ?? 0.2,
+            onWake: () => { try { heroSlots.dismiss(); } catch (e) {} unlockAudio(); },
+            onChoose: (champ, sign) => {
+                if (chosen) return; chosen = true;
+                registerFrontAbort(null); window.__frontMoonGeometry = null;
+                const phase = sky.englishOpacity();
+                GameSettings.setEnglishOpacity(phase);
+                if (constellationsSeen) { sky.handOver(900); toRoad(champ, phase, null); return; }   // (back from the road: once is enough)
+                constellationsSeen = true;
+                const gc = document.getElementById('gameContainer'); if (gc) gc.style.display = '';
+                initConstellationScene((sliderValue, amerginLine) => {
+                    GameSettings.setEnglishOpacity(sliderValue);
+                    toRoad(champ, sliderValue, amerginLine);
+                }, phase, { dialSeen: true, heroSign: sign, onReady: () => sky.handOver(1600) });
+            },
+        });
+        window.__frontMoonGeometry = () => sky.moonGeometry();      // (heroSlots.js: a saved hero's face goes on this moon)
+        registerFrontAbort(() => { sky.destroy(); window.__frontMoonGeometry = null; });
+    };
+    // the first touch asks for fullscreen; a phone only grants it as the finger lifts, so it is asked then. Until it is
+    // granted, the fog over the bottom of the screen hides the browser's notice (toastFog.js), as it did for the dial
+    armToastFog();
+    const askFs = () => { for (const ev of ['pointerup', 'touchend', 'click']) window.removeEventListener(ev, askFs, true); requestFullscreenWithFade(); unlockAudio(); };
+    for (const ev of ['pointerup', 'touchend', 'click']) window.addEventListener(ev, askFs, true);
+    open(true);
+    // the road's moon, tapped, comes back here: the sky again, straight to the champions (tutorialOrAdventure.js)
+    window.__frontBack = () => { try { musicPlayer?.stop?.(); } catch (e) {} open(false); };
+    try { window.stopStarfield?.(); } catch (e) {}
+    const loader = document.getElementById('starfieldLoader'); if (loader) setTimeout(() => { loader.style.display = 'none'; }, 400);
 }
 
 function initMainHeroSelect() {

@@ -1004,6 +1004,7 @@ try {
       ringGestures: () => !!this._moonOwner?.swordInHand?.(),     // with a weapon equipped, the whole brooch ring takes the draw / salute / sheathe swipe
       onLongPressProgress: (p) => {
         if (this._moonOwner?.claimsLongPress?.()) return
+        if (!this.menuByLongPress) return               // (the menu opens by turning the brooch; set scene.menuByLongPress = true to have the long press too)
         this.joystick?.drawChargeGlow(p)
         if (p < 0.15) return
         this._menuPreview.style.display = 'block'
@@ -1011,13 +1012,14 @@ try {
       },
       onLongPress: () => {
         if (this._moonOwner?.claimsLongPress?.()) return
+        if (!this.menuByLongPress) return
         if (Date.now() - (this._lastMenuClose ?? 0) < 400) return
         this.joystick?.drawChargeGlow(0)
         this._menuPreview.style.transition = 'opacity 0.2s ease'
         this._menuPreview.style.opacity = '0'
         this._menuHub?.open()
       },
-      // turn the hoop a full round, the pin comes free: the menu (as the long press does; both are kept, to compare)
+      // turn the hoop a half round, the pin comes free: the menu
       onRingRelease: () => {
         if (this._moonOwner?.claimsLongPress?.()) return
         if (Date.now() - (this._lastMenuClose ?? 0) < 400) return
@@ -1066,6 +1068,7 @@ try {
     const now = Date.now()
     if (now - (this._lastJoyTap || 0) < 700) return
     this._lastJoyTap = now
+    if (this._menuHub?.isOpen()) { this._menuHub.close(); return }            // (a menu is up: a tap on the moon shuts it, whatever badge or glyph is about)
     if (this._encounterPanel?._card?._isDoor) {
       this._triggerDoor(this._encounterPanel._card._door)
       return

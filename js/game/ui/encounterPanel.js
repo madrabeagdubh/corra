@@ -124,10 +124,12 @@ export class EncounterPanel {
   // What tapping the badge does. The brooch's stone does the same while lit
   // (see _showBadge), so either the portrait on the moon or the stone works.
   _activateBadge() {
+    if (this._menuUp()) return
     // A card that brings its own action (the cladach engravings): do it, then the badge goes
     // until the scene offers it again. (card.onActivate; card.visual.glyph is its icon)
     if (this._card?.onActivate) {
       const act = this._card.onActivate
+      if (this._card.repeat) { act(); return }     // a card that can be pressed again and again (the gate's feed / stop)
       this._card.onActivate = null                 // once only: it is offered again when the scene re-notifies
       this.clearNotify()
       act()
@@ -148,8 +150,12 @@ export class EncounterPanel {
 
   // -- Notify ----------------------------------------------------------------
 
+  // a menu (the pack) is up: no badge or glyph is offered over it, and the one showing goes
+  _menuUp() { const s = this._scene; return !!(s?._menuHub?.isOpen?.() || s?.worldMenu?.isOpen) }
+
   notify(card, zoneObj) {
     if (this._isOpen) return
+    if (this._menuUp()) { if (this._badgeVisible) { this._hideBadge(); this._card = null; this._active = null }; return }
     if (this._clearTimer) { clearTimeout(this._clearTimer); this._clearTimer = null }
     // Same card AND the badge is actually up -- nothing to do. The
     // _badgeVisible test matters: without it, a badge that went down while
@@ -199,7 +205,7 @@ clearNotify() {
       ctx.globalAlpha = 1
       requestAnimationFrame(() => { badge.style.opacity = '1' })
       const audioCtx = this._scene?.sound?.context
-      if (audioCtx) SoundBoard.playWeb('HARP_CHIME', audioCtx)       // a thing to look at: a harp chord, not a blip
+      if (audioCtx && !this._card?.quiet) SoundBoard.playWeb('HARP_CHIME', audioCtx)       // a thing to look at: a harp chord, not a blip
       return
     }
 

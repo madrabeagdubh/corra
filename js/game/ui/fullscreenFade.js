@@ -68,7 +68,7 @@ export function isScreenObscured() {
 }
 
 /** Ready to run whenever it's needed; a fast no-op whenever it isn't. */
-export function requestFullscreenWithFade() {
+export function requestFullscreenWithFade({ fade = true } = {}) {   // (fade false: no veil; for a screen that redraws itself at once)
     console.log('[fullscreenFade] requestFullscreenWithFade() called, _fsDone=', _fsDone);
     if (_fsDone) return;
     try {
@@ -79,27 +79,27 @@ export function requestFullscreenWithFade() {
         }
         if (el.requestFullscreen) {
             console.log('[fullscreenFade] calling el.requestFullscreen()');
-            _fsFadeIn();
+            if (fade) _fsFadeIn();
             el.requestFullscreen()
                 .then(() => {
                     console.log('[fullscreenFade] fullscreen GRANTED');
                     _fsDone = true;
-                    setTimeout(() => _fsFadeOut(450), 300);
+                    setTimeout(() => fade && _fsFadeOut(450), 300);
                 })
                 .catch(err => {
                     console.warn('[fullscreenFade] Fullscreen request rejected:', err && err.message, err);
-                    _fsFadeOut(150);
+                    fade && _fsFadeOut(150);
                 });
         } else if (el.webkitRequestFullscreen) {
             console.log('[fullscreenFade] calling el.webkitRequestFullscreen()');
-            _fsFadeIn();
+            if (fade) _fsFadeIn();
             el.webkitRequestFullscreen(); _fsDone = true;
-            setTimeout(() => _fsFadeOut(450), 500);
+            setTimeout(() => fade && _fsFadeOut(450), 500);
         } else if (el.msRequestFullscreen) {
             console.log('[fullscreenFade] calling el.msRequestFullscreen()');
-            _fsFadeIn();
+            if (fade) _fsFadeIn();
             el.msRequestFullscreen(); _fsDone = true;
-            setTimeout(() => _fsFadeOut(450), 500);
+            setTimeout(() => fade && _fsFadeOut(450), 500);
         } else {
             console.warn('[fullscreenFade] no requestFullscreen API available on this element');
         }

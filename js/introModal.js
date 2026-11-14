@@ -13,7 +13,7 @@ import { createMoonWidget, getMoonBottomOffset } from './game/ui/moonWidget.js';
 import { runOghamDial } from './introOghamDial.js';
 import { quality } from './game/systems/quality.js';
 import { createDomButton } from './game/systems/gameTypography.js';
-import { paintSkyGradient, NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
+import { paintSkyGradient, SKY, NIGHT, SKY_SPIN } from './game/systems/nightPalette.js';
 import { createNightScape } from './game/effects/nightScape.js';
 import IntroLevelScene from './game/scenes/locations/bog/introLevel.js';   // [introLevel v4]
 import { createStarField } from './game/effects/starField.js';
@@ -131,7 +131,10 @@ var _activeIntro = null;   // the ConstellationScene while its dial waits for a 
 const LEVEL_ON = true;
 /* opts (the star sky front, heroSelect.js): dialSeen -- start past the ogham dial, as ?afterdial does; heroSign -- the
    chosen champion's sign (starSky.js championSign), drawn as the last constellation, the hero, in place of the authored
-   one; onReady -- called once the scene's sky and constellations are up, so the front can hand over to it. */
+   one; onReady -- called once the scene's sky and constellations are up, so the front can hand over to it;
+   arriveSpin -- come in whirling, as out of the well's water, the whirl slowing to rest on the hound (the first
+   constellation), whose stars then twinkle up; arriveWait -- a function giving a promise: the whirl starts when it
+   resolves (the front, as it begins to fade into the scene). */
 export function initConstellationScene(onComplete, startPhase, opts = {}) {
     if (_sceneInitialized) return;
     _sceneInitialized = true;
@@ -156,6 +159,8 @@ export function initConstellationScene(onComplete, startPhase, opts = {}) {
     if (opts.dialSeen) game.registry.set('dialSeen', true);
     game.registry.set('heroSign', opts.heroSign || null);
     game.registry.set('onReady', opts.onReady || null);
+    game.registry.set('arriveSpin', !!opts.arriveSpin);
+    game.registry.set('arriveWait', opts.arriveWait || null);
     game.registry.set('onComplete', onComplete);
     game.registry.set('startPhase', startPhase);
     return game;
@@ -355,6 +360,31 @@ function _nightNebula(scene, img) {
 }
 
 // [wheelsEase] How long the star wheels take to wind down once the poem has ended.
+// [skyFront] The arrival out of the well (arriveSpin): how far round the view starts, in degrees; how fast the star
+// wheels race at first (times their usual speed); how long the whirl takes to come to rest (Cubic ease-out: fastest at
+// first, ~3*ARRIVE_DEG/ARRIVE_MS degrees a millisecond, matching the water's whirl as the sky fades into it).
+const ARRIVE_DEG = 120, ARRIVE_WHEELS = 30, ARRIVE_MS = 2600;
+// [skyFront] The landing: the whirl stops with the hound at the sight (mid-screen, where the well's whirl was centred) and
+// the land out of view; a beat (ARRIVE_BEAT_MS) and the view tilts down (ARRIVE_TILT of the screen) as the land rises
+// into the foot of the frame (from ARRIVE_LAND_VH below), over ARRIVE_LAND_MS; the moon tile comes up with the land
+// (ARRIVE_TILE_AT through the tilt), and the hound's stars twinkle up once all is still.
+const ARRIVE_TILT = 0.22, ARRIVE_LAND_VH = 36, ARRIVE_BEAT_MS = 500, ARRIVE_LAND_MS = 2600, ARRIVE_TILE_AT = 0.55;
+// (the land: the level's ground canvases, its haze and light, and the figures over it, moved together by the CSS
+// `translate` property, which leaves their own transforms alone. Not the level's screen-space layers -- its vignette
+// above all, which, moved, showed its top edge as a faint band going up the screen)
+const LAND_SEL = ['#pgr-ground', '#pgr-objects', '#pgr-mountain-img', '#pgr-light', '#pgr-intro-fog', '#steep-face-overlay', '[data-nightscape]'];
+function landDown(on, animate) {
+    if (!document.getElementById('land-arrive-css')) {
+        const st = document.createElement('style'); st.id = 'land-arrive-css';
+        st.textContent = LAND_SEL.map(q => `body.land-arrive ${q}`).join(',') + `{transition:translate ${ARRIVE_LAND_MS}ms cubic-bezier(.65,0,.35,1) !important}\n` +
+            LAND_SEL.map(q => `body.land-down ${q}`).join(',') + `{translate:0 ${ARRIVE_LAND_VH}vh}\n` +
+            // (the moon's glow on the land, whose moon tile is not up yet: it comes up with the tile)
+            `body.land-down #intro-moon-glow{filter:opacity(0)}\nbody.land-arrive #intro-moon-glow{transition:filter 1.4s ease ${Math.round(ARRIVE_LAND_MS * ARRIVE_TILE_AT)}ms !important}`;
+        document.head.appendChild(st);
+    }
+    document.body.classList.toggle('land-arrive', !!animate);
+    document.body.classList.toggle('land-down', !!on);
+}
 const WHEELS_EASE_MS = (() => {
     const m = /[?&]wheelsEase=([0-9]+)/.exec((typeof location !== 'undefined' && location.search) || '');
     return m ? parseInt(m[1], 10) : 5500;   // ?wheelsEase=0 gives back the old abrupt stop
@@ -491,6 +521,9 @@ export class ConstellationScene extends Phaser.Scene {
         this.worldCX = wSize / 2; this.worldCY = wSize / 2;
         this.cameras.main.setBackgroundColor(NIGHT.baseCss);
         this.cameras.main.setBounds(0, 0, wSize, wSize);
+        // [oneNight] behind the gradient, the night's middle colour: what shows at the corners if the view is turned far
+        // (the arrival out of the well turns it a third of the way round)
+        this.cameras.main.setBackgroundColor(SKY.mid);
         // [oneNight] the sky's gradient behind everything, fixed to the screen, as the champion sky has it
         const _paintGrad = () => {
             if (this.textures.exists('skyGradient')) this.textures.remove('skyGradient');
@@ -762,6 +795,9 @@ if (wrapper) {
             wrapper.style.left      = '50%';
             wrapper.style.transform = 'translateX(-50%)';
             wrapper.style.transition = 'none';
+            // [skyFront] arriving out of the well, the moon tile is not there yet: it comes up a beat after the whirl
+            // has come to rest (settleMoon)
+            if (this.registry.get('arriveSpin')) { wrapper.style.opacity = '0'; wrapper.style.pointerEvents = 'none'; }
         }
 
         this._moonWidget.setLongPressHandler(() => {
@@ -857,7 +893,8 @@ if (wrapper) {
         // It used to hide behind a sky that had just stopped; with the sky winding down it
         // showed as stutter in the stars. So it waits until they are nearly still (see
         // _easeWheelsToStill), and _startHarpOnSwipe starts it itself if the player is faster.
-        if (!(this._dialRan && WHEELS_EASE_MS > 0)) this._kickHarpPrep();
+        const arrive = this.registry.get('arriveSpin');   // [skyFront]
+        if (!arrive && !(this._dialRan && WHEELS_EASE_MS > 0)) this._kickHarpPrep();
         // The sky still stills here, same moment as before: freezing it at
         // the first star touch instead reads as the player's own touch
         // having broken something (tried and reverted once already -- see
@@ -865,14 +902,15 @@ if (wrapper) {
         // starting, which no longer happens at this point.
         // [wheelsEase] After the dial the sky has been turning behind the poem the whole
         // time, so let it wind down rather than stop dead. With no dial, stop at once.
-        if (this._dialRan) this._easeWheelsToStill(); else this._bgWheelsPaused = true;
+        if (arrive) { /* (the arrival below winds the wheels down itself) */ }
+        else if (this._dialRan) this._easeWheelsToStill(); else this._bgWheelsPaused = true;
 
         /* Stilling the wheels makes the pan read as a deliberate camera move —
            but only when they were not already established. After the dial they
            have been turning behind the ogham for the whole poem, and a 1400ms
            freeze here lands a dead stop on the frame the player is watching the
            moon settle onto. One continuous night means one continuous turn. */
-        if (!this._dialRan) this._bgWheelsPaused = true;
+        if (!this._dialRan && !arrive) this._bgWheelsPaused = true;
         this.spinAngle = 0;
         this.cameras.main.setAngle(0);
 
@@ -882,6 +920,49 @@ if (wrapper) {
         const finalScrollY  = targetScrollY + this.H * 0.22;
         const panStartY     = finalScrollY - this.H * 0.35;
 
+        /* [skyFront] Arriving out of the well's water: the view comes in whirling the way the water whirled (the whole
+           view turning round the hound's place, the star wheels racing) and slows, as the heavy sky does, to rest with the
+           hound at the sight; then its stars twinkle up, one by one, the first the player will join. */
+        if (arrive) {
+            const cam = this.cameras.main, k = { t: 0 }, tiltFrom = finalScrollY - this.H * ARRIVE_TILT;
+            cam.setScroll(targetScrollX, tiltFrom); cam.setOrigin(0.5, 0.5);      // (the hound mid-screen, the land below)
+            landDown(true, false);
+            this._wheelsEasing = true; this._bgWheelsPaused = true;
+            this.spinAngle = ARRIVE_DEG; cam.setAngle(ARRIVE_DEG); this._bgWheelsSpeedMult = ARRIVE_WHEELS;
+            // (it waits, still, under the front's water, until the front begins to fade into it; or 8s at most)
+            const wait = this.registry.get('arriveWait');
+            const go = () => { if (this._arriveGone) return; this._arriveGone = true; this._bgWheelsPaused = false; this.tweens.add({
+                targets: k, t: 1, duration: ARRIVE_MS, ease: 'Cubic.easeOut',
+                onUpdate: () => { const v = 1 - k.t; this.spinAngle = ARRIVE_DEG * v; cam.setAngle(this.spinAngle); this._bgWheelsSpeedMult = ARRIVE_WHEELS * v * v; },
+                onComplete: () => {
+                    this.spinAngle = 0; cam.setAngle(0); this._wheelsEasing = false; this._bgWheelsPaused = true; this._bgWheelsSpeedMult = 1;
+                    this._kickHarpPrep();
+                    // the landing: a beat, then the view tilts down and the land comes up into the frame
+                    this.time.delayedCall(ARRIVE_BEAT_MS, () => {
+                        if (this._aborted) return;
+                        landDown(false, true);
+                        const tk = { t: 0 }; let tileUp = false;
+                        this.tweens.add({ targets: tk, t: 1, duration: ARRIVE_LAND_MS, ease: 'Cubic.easeInOut',
+                            onUpdate: () => {
+                                cam.scrollY = tiltFrom + (finalScrollY - tiltFrom) * tk.t;
+                                if (!tileUp && tk.t >= ARRIVE_TILE_AT) { tileUp = true;   // (the moon tile, with the land)
+                                    const el = this._moonWidget?.element; if (el) {
+                                        el.style.transition = 'opacity 1.4s ease'; el.style.opacity = '1'; el.style.pointerEvents = '';
+                                        setTimeout(() => { if (el.style.transition.startsWith('opacity')) el.style.transition = 'none'; }, 1500);
+                                    } }
+                            },
+                            onComplete: () => {
+                                cam.scrollY = finalScrollY; cam.setOrigin(0.5, 0.28);
+                                landDown(false, false);
+                                this._twinkleIn(c0);
+                                this._startPostSettleSequence(finalScrollY);
+                            },
+                        });
+                    });
+                },
+            }); };
+            Promise.resolve(wait ? wait() : null).then(go); setTimeout(go, 8000);
+        } else {
         this.cameras.main.setScroll(targetScrollX, panStartY);
 
         const panProg = { t: 0 };
@@ -892,6 +973,7 @@ if (wrapper) {
             },
             onComplete: () => { this._startPostSettleSequence(finalScrollY); },
         });
+        }
 
         // Delay Amergin text fade until after moon drift completes (~2600ms)
         setTimeout(() => {
@@ -905,6 +987,19 @@ if (wrapper) {
     }
 
     // ── _startPostSettleSequence ──────────────────────────────────────────────
+    /* [skyFront] The hound's stars, one by one, a soft light swelling on each and settling to a glow, as the
+       constellation itself fades in under them (_startPostSettleSequence). */
+    _twinkleIn(c) {
+        if (!c) return;
+        c.stars.forEach((st, i) => {
+            const r = Math.max(6, Math.min(this.W, this.H) * 0.022);
+            const glow = this.add.circle(st.wx, st.wy, r, NIGHT.starHex, 1).setDepth(11).setAlpha(0).setScale(0.3).setBlendMode(Phaser.BlendModes.ADD);
+            if (this.uiCamera) this.uiCamera.ignore(glow);
+            this.tweens.add({ targets: glow, alpha: { from: 0, to: 0.9 }, scale: { from: 0.3, to: 1.4 }, delay: 120 + i * 190, duration: 420, ease: 'Sine.easeOut',
+                onComplete: () => this.tweens.add({ targets: glow, alpha: 0, scale: 0.6, duration: 1400, ease: 'Sine.easeIn', onComplete: () => glow.destroy() }) });
+        });
+    }
+
     _startPostSettleSequence(baseScrollY) {
         this.tweens.add({
             targets: this.worldG, alpha: 1, duration: 1200, ease: 'Sine.easeIn',
@@ -1685,6 +1780,7 @@ if (wrapper) {
         try { this.shutdown(); } catch (e) {}
         try { if (this._moonWidget) { this._moonWidget.destroy(); this._moonWidget = null; } } catch (e) {}
         try { this.scene.stop('intro_level'); } catch (e) {}
+        try { landDown(false, false); } catch (e) {}
         try { clearToastFog(); } catch (e) {}
         const canvas = this.game.canvas;
         this.game.destroy(true);
@@ -1728,6 +1824,7 @@ if (wrapper) {
         if (this._menuPreview?.parentNode){this._menuPreview.remove();this._menuPreview=null;}
         if (this._shadowHillEl?.parentNode){this._shadowHillEl.remove();this._shadowHillEl=null;}
         if (this._nightScape){this._nightScape.destroy();this._nightScape=null;}
+        try { landDown(false, false); } catch (e) {}
         if (this._starField){this._starField.destroy();this._starField=null;
                              this._bgWheelRt=this._driftWheelRt=this._fgWheelRt=null;}
         this._hideDarkImage(true);

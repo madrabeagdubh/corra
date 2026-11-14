@@ -34,6 +34,7 @@
  *   moon.moonD
  */
 
+import { drawMoonFace, moonFaceReady, whenMoonFaceReady } from './moonFace.js'
 import { SoundBoard } from "../systems/soundBoard.js"
 
 const STATUS_H = 42
@@ -371,6 +372,8 @@ export function createMoonWidget(opts = {}) {
 
     const initR = embedded ? Math.floor(canvas.width / 2) : moonR
     _drawMoon(canvas, phase, initR, 0, 0)
+    // (once the moon's picture has loaded, draw it again with its face; moonFace.js)
+    if (!moonFaceReady()) whenMoonFaceReady(() => { try { _drawMoon(canvas, phase, embedded ? Math.floor(canvas.width / 2) : moonR, _rawToCyclePos(rawPhase), 0) } catch (e) { } })
     if (!embedded && showSlider && wrapperEl) {
         requestAnimationFrame(() => _positionMoonCanvas(canvas, wrapperEl, phase, moonR))
     }
@@ -547,12 +550,15 @@ function _drawMoon(canvas, phase, r, cyclePos, pulseT = 0) {
     ctx.fillStyle = 'rgb(8,4,30)'
     ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.fill()
 
+    // the moon's own face (moonFace.js), as the champion sky's moon has it; the drawn one only until it has loaded
+    const hasFace = drawMoonFace(ctx, cx, cy, r * 0.92, phase, waning)
     const lr = Math.round(160 + phase * 20)
     const lg = Math.round(170 + phase * 20)
     const lb = Math.round(225 + phase * 25)
     ctx.fillStyle = `rgb(${lr},${lg},${lb})`
     ctx.beginPath()
-    if (phase >= 0.99) {
+    if (hasFace) { /* (no drawn lit part) */ }
+    else if (phase >= 0.99) {
         ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2)
     } else {
         const tx = r * 0.92 * Math.cos(phase * Math.PI)
@@ -571,7 +577,7 @@ function _drawMoon(canvas, phase, r, cyclePos, pulseT = 0) {
     ctx.lineWidth   = 1
     ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2); ctx.stroke()
 
-    if (phase > 0.1) {
+    if (phase > 0.1 && !hasFace) {
         const mare = (mx, my, mr, a) => {
             ctx.fillStyle = `rgba(140,130,200,${(a * phase).toFixed(3)})`
             ctx.beginPath()

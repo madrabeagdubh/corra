@@ -18,6 +18,7 @@
 //   drone.tension(false); // let go without joining anything
 //   drone.release();      // the tune has begun
 //   drone.stop();         // fade out, free everything
+//   createIntroDrone(ac, dest, { transpose: 2 })   // the same, a whole tone up (in D: the champion sky, starSky.js)
 
 const NOTES      = [130.81, 196.00, 261.63, 392.00];        // C3 G3 C4 G4
 const WAVES      = ['triangle', 'triangle', 'sine', 'sine'];
@@ -59,7 +60,7 @@ function smooth01(x) {
 const FADE_OUT_S = 10;
 const BLOOM_ATTACK_S = 0.25;   // the swell as the tune enters; the fade starts the instant it peaks
 
-export function createIntroDrone(ac, destination) {
+export function createIntroDrone(ac, destination, { transpose = 0 } = {}) {
     const master = ac.createGain();
     master.gain.value = 0.0001;
     master.connect(destination);
@@ -83,7 +84,7 @@ export function createIntroDrone(ac, destination) {
             const o = ac.createOscillator();
             o.type = WAVES[i];
             o.frequency.value = hz;
-            o.detune.value = cents;
+            o.detune.value = cents + transpose * 100;
             const g = ac.createGain();
             g.gain.value = VOICE_GAIN[i];
             o.connect(g);
@@ -101,7 +102,7 @@ export function createIntroDrone(ac, destination) {
             const o = ac.createOscillator();
             o.type = 'sine';
             o.frequency.value = hz;
-            o.detune.value = cents;
+            o.detune.value = cents + transpose * 100;
             o.connect(shimmerGain);
             oscs.push(o);
         });

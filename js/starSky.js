@@ -5,9 +5,11 @@
 // coasts). The constellation at the sight, above his horns, is lit: its name rises high in the sky in starlight with the
 // champion dancing over it, and its name stands gold by its stars too.
 //
-// The opening: the moon hangs big and dark in an empty night, waiting for a touch. Any touch wakes it: it flares, the harp
-// runs up, and the game's name strikes in gold, its English coming up under it as the moon fills (hold the moon and it
-// fills slowly; swipe it, right or up for more). The sky can be turned at once (anywhere off the moon). The name fades
+// The opening: the moon hangs big and dark in an empty night under the game's name in gold, waiting for a touch. Any touch
+// wakes it: it flares, the harp runs up, it glides to nearly half, and the English of the name bangs in under the Irish
+// (and after that comes and goes as the moon fills and empties: hold the moon and it fills; swipe it and the light
+// follows the finger, round and round, as the ogham dial's did). The sky can be turned at once (a real drag, off the
+// moon). The name fades
 // (after a while, or as soon as the sky is turned) as the moon shrinks up and aside into the sky, one body among the stars,
 // which the sky can be turned away from, and the land comes up. Below, where
 // the moon tile always sits, a small pool: it ripples while the sky turns, and when it stops it settles on the moon's
@@ -27,11 +29,15 @@
 
 import { allTunes } from './game/systems/music/allTunes.js'
 import { parseAbcToNotes } from './game/systems/music/abcToPhrase.js'
+import { ornamentPlan, tunePitchClasses } from './game/systems/music/abcOrnaments.js'
 import { FONTS } from './game/systems/gameTypography.js'
 import { hopMsForTuneKey } from './game/effects/championDance.js'
 import { getTuneKeyForChampion } from './game/systems/music/championTuneMapping.js'
 import { LANDS } from './skyLands.js'
+import { createCourt } from './skyCourt3d.js'
 import { paintSkyGradient } from './game/systems/nightPalette.js'
+import { drawMoonFace } from './game/ui/moonFace.js'
+import { createIntroDrone } from './game/systems/music/introDrone.js'
 
 const FOV = 62 * Math.PI / 180          // across the screen
 const N_BG = 7000                       // faint stars between the constellations, clustered by a noise over the sky
@@ -188,13 +194,18 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
   parent.appendChild(cv)
   // the moon and the pool (see the top). `stage`: dark (waiting for a touch), title (the name up), rise (the name fading,
   // the moon shrinking up and aside, the land coming up), browse (the sky), dive (into the pool), under (in the water)
-  const TITLE = title || { ga: ['Tóraíocht', 'na Féinne'], en: 'FENIAN QUEST' }
+  const TITLE = title || { ga: ['Fiannaíocht'], en: 'FENIAN QUEST' }
   let stage = opening ? 'dark' : 'browse', wakeT = 0, lastMoonT = 0, fadeT = 0, tiltT = 0, tiltDone = opening ? 1e-9 : 1, tiltLast = 0, flareT = -1e9, riseRot = null
   const RISE_TO = [0.22, 0.17], RISE_SHRINK = 0.55                     // (where the moon rises to, as fractions of the screen; how small it ends)
   if (opening) englishOpacity = 0
-  let mdir = null, mR = 0, mdrag = null, poolShift = 0, calm = 1, dive = null, under = false
+  let mdir = null, mR = 0, mdrag = null, poolShift = 0, calm = 1, dive = null, under = false, underT = 0, pendingHand = null, diveTold = false, handStart = null
   const ripples = []
-  const setPhase = (v) => { englishOpacity = Math.max(0, Math.min(1, v)) }
+  // the moon's phase as the ogham dial's moon had it: unbounded, so one drag goes on round, light to dark to light. The
+  // first half of each turn waxes, lit from the side the finger comes from, the second wanes; the terminator is tilted,
+  // and the light follows the finger across it. englishOpacity is the lit share
+  const cyc = (r) => ((r % 2) + 2) % 2, MOON_TILT = -35 * Math.PI / 180, ADV = [Math.cos(MOON_TILT), Math.sin(MOON_TILT)]
+  let moonRaw = englishOpacity
+  const setRaw = (r) => { moonRaw = r; const c = cyc(r); englishOpacity = c <= 1 ? c : 2 - c }
   // the champions themselves, from their sheet, to dance over the name
   const sheet = new Image(); let atlas = null
   sheet.src = 'assets/champions/champions-with-kit.png'
@@ -210,6 +221,10 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     const v = c && { c, hop }; sprites.set(ch, v); return v
   }
   const druid = new Image(), queen = new Image()
+  const TONE = (k) => { const a = [5, 7, 13], b = [96, 106, 138]; k = Math.max(0, Math.min(1, k)); return `rgb(${a.map((v, j) => v + (b[j] - v) * k | 0).join(',')})` }
+  let court = null
+  const cam = { x: 0, y: 1.7, z: 0, pitch: 0, hy: 0 }                 // (the court's camera; see skyCourt3d.js)
+  let skyPitch = 0, RS = null                                           // (the sky seen by that camera, bowed with it in the dive)
   druid.src = 'assets/nightscape/druid.png'; queen.src = 'assets/nightscape/queen.png'
 
   let W = 0, H = 0, DPR = 1, f = 1, PX = 0, PY = 0, L = {}, land = null
@@ -225,20 +240,40 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     PX = W / 2; PY = H * 0.5                                         // the sight: up where his horns lead the eye
     L = { rr, water, mtn, headY, tipY: headY - rr * 2.5, bull: [PX - rr * 3.7, headY - rr * 2.8, PX + rr * 3.7, H] }
     land = null                                                      // (the land is drawn once, to a canvas, then reused)
+    // the court in the round (stand 'court3d'): the land a camera can move through; the painted land is then only the far
+    // mountains and hills
+    court = stand === 'court3d' ? createCourt({ W, H, f, PX, dpr: DPR, druid, queen, tone: TONE }) : null
+    if (court) { L.water = court.HY + 6; cam.hy = court.HY }
   }
-  layout(); window.addEventListener('resize', layout)
+  // a change of size (going fullscreen, notably) clears the canvas: draw again at once, with the frame before laid over
+  // the new one and dissolving into it, so there is neither a blank nor a jump
+  let snap = null
+  function onResize() {
+    try { if (W && H && cv.width) { const c = snap?.c || document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(cv, 0, 0); snap = { c, t: performance.now(), w: W, h: H } } } catch (e) { snap = null }
+    layout()
+    try { const now = performance.now(); draw(now, lastSettled); veil(now) } catch (e) { }
+  }
+  function veil(now) {
+    if (!snap) return
+    const u = (now - snap.t) / 500; if (u >= 1) { snap = null; return }
+    g.save(); g.globalAlpha = 1 - u * u * (3 - 2 * u); g.drawImage(snap.c, (W - snap.w) / 2, (H - snap.h) / 2, snap.w, snap.h); g.restore()
+  }
+  layout(); window.addEventListener('resize', onResize)
   const moonR = () => Math.round(Math.min(W * 0.3, H * 0.18))
   const tileR = () => Math.max(24, Math.round(Math.min(W, H) * 0.055))
   // the pool: where the moon tile sits in the game (its centre STATUS_H + JOY_R = 102px up), wider than the tile and flat
-  const pool = () => { const rx = Math.max(40, tileR() * 1.7); return { cx: PX, cy: H - 102 + landOff(), rx, ry: rx * 0.8 } }   // (nearly round: the moon tile, laid in the ground)
-  const landOff = () => (1 - tiltDone) * H * 0.55
+  const pool = () => {
+    if (court) { const w = court.wellOnScreen(cam); return w ? { cx: w.cx, cy: w.cy, rx: w.rx * TILE_IN, ry: w.ry * TILE_IN } : { cx: PX, cy: H * 2, rx: 1, ry: 1 } }
+    const rx = Math.max(40, tileR() * 1.7); return { cx: PX, cy: H - 102 + landOff(), rx, ry: rx * 0.8 }
+  }   // (nearly round: the moon tile, laid in the ground)
+  const landOff = () => court ? 0 : (1 - tiltDone) * H * 0.55
   const moonAt = () => mdir ? proj(mdir) : null
 
   let R = [1, 0, 0, 0, 1, 0, 0, 0, 1]
   const toward = (c) => { const ax = cross(c, [0, 0, 1]), an = Math.acos(Math.max(-1, Math.min(1, c[2]))); return Math.hypot(...ax) > 1e-9 ? axisAngle(ax, an) : null }
   { const T = toward(opening ? MOON_DIR : cons[Math.floor(Math.random() * N)].c); if (T) R = T }   // (opening: the moon dead ahead)
   mdir = MOON_DIR
-  const proj = (v) => { const c = mul(R, v); if (c[2] < 0.12) return null; return [PX + f * c[0] / c[2], PY - f * c[1] / c[2], c[2]] }
+  const proj = (v) => { const c = mul(RS || R, v); if (c[2] < 0.12) return null; return [PX + f * c[0] / c[2], PY - f * c[1] / c[2], c[2]] }
 
   // the finger: drag to wheel the sky; flick it and it coasts a long way, slowing gently (heavy: see FLICK, VMAX)
   // the sky is heavy: a flick adds only a part of the finger's speed to the sky's own, so it takes swipe on swipe to wind
@@ -265,38 +300,39 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     const x = e.clientX, y = e.clientY
     let what = null
     if (stage === 'dark') what = 'moon'
-    else if (stage === 'title') { const mp = moonAt(); if (mp && Math.hypot(x - mp[0], y - mp[1]) < mR * 1.1) what = 'moon' }
+    else if (stage === 'title') { const mp = moonAt(); if (mp && Math.hypot(x - mp[0], y - mp[1]) < mR * 1.25) what = 'moon' }
     else {
       const P = pool(), mp = moonAt()
       if (tiltDone > 0.6 && Math.pow((x - P.cx) / (P.rx * 1.45), 2) + Math.pow((y - P.cy) / (P.ry * 1.55), 2) < 1) what = 'pool'
-      else if (mp && Math.hypot(x - mp[0], y - mp[1]) < mR * 1.05) what = 'moon'
+      else if (mp && Math.hypot(x - mp[0], y - mp[1]) < Math.max(mR * 1.35, 30)) what = 'moon'
     }
-    if (!what) { if (stage === 'title') rise(); return false }          // (the sky dragged: the name goes and the land comes up now)
+    if (!what) return false                                             // (the sky: dragged far enough, it takes the name away; see pointermove)
     if (stage === 'dark') wakeMoon()
-    mdrag = { what, x, y, t: performance.now(), ph: englishOpacity, moved: false }
+    mdrag = { what, x, y, t: performance.now(), ph: moonRaw, moved: false }
     try { cv.setPointerCapture(e.pointerId) } catch (er) { }
     lastMoonT = performance.now()
     return true
   }
   function moveMoon(e) {
     const dx = e.clientX - mdrag.x, dy = e.clientY - mdrag.y, dist = Math.hypot(dx, dy)
-    if (mdrag.what === 'moon' && stage !== 'title' && stage !== 'dark') {           // (the risen moon is part of the sky:
-      if (dist > 10 && performance.now() - mdrag.t < 260) {                         //  a swipe from it turns the sky; held, it fills)
-        mdrag = null; drag = { x: e.clientX, y: e.clientY, t: performance.now() }; carry = [vx, vy]; vx = vy = 0; seek = -1; pend[0] += dx; pend[1] += dy
-      }
-      return
+    if (!mdrag.moved) {
+      if (dist <= 10) return
+      // moving now: the phase goes on from wherever it is (a tap's glide may have taken it on), from here
+      mdrag.moved = true; wakeFill = null; mdrag.ph = moonRaw; mdrag.x = e.clientX; mdrag.y = e.clientY; return
     }
-    if (dist > 10) mdrag.moved = true
-    if (!mdrag.moved) return
-    const sgn = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : Math.sign(-dy), range = mdrag.what === 'pool' ? 150 : Math.max(150, mR * 1.4)
-    setPhase(mdrag.ph + dist * sgn / range); lastMoonT = performance.now()
+    setRaw(mdrag.ph + (dx * ADV[0] + dy * ADV[1]) / (W * 0.8)); lastMoonT = performance.now()   // (the light goes the way the finger goes)
   }
   function endMoon(e) {
     const m = mdrag; mdrag = null
-    if (!m.moved && performance.now() - m.t < 280) { if (m.what === 'pool') choose(e.clientX, e.clientY); else flareT = performance.now() }
+    if (!m.moved && performance.now() - m.t < 280) { if (m.what === 'pool') choose(e.clientX, e.clientY); else { flareT = performance.now(); tapFill() } }
   }
+  // the ogham dial's drone: an open fifth (in D, with the waking run) from the first touch, swelling while the name is up
+  // and as the moon is filled; let go, blooming, as the land comes up and the harp takes the tune
+  let drone = null, droneT = 0
+  function droneOn() { try { if (!drone && actx) { drone = createIntroDrone(actx, actx.destination, { transpose: 2 }); drone.begin() } } catch (e) { drone = null } }
   function rise() {                                                     // the name fades, the moon shrinks up and aside, the land comes up
     if (stage !== 'title') return
+    try { drone?.release() } catch (e) { }
     stage = 'rise'; fadeT = tiltT = performance.now()
     // where the sky will end: turned so the moon is at RISE_TO, then on a little so that the champion nearest the sight is
     // at it (else the sky would ease on to them afterwards); the moon ends near RISE_TO, in its room
@@ -309,9 +345,17 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     const ax = [Q[7] - Q[5], Q[2] - Q[6], Q[3] - Q[1]], l = Math.hypot(...ax)
     riseRot = l > 1e-9 && ang > 1e-6 ? { ax: ax.map(v => v / l), ang, m0: mdir, m1: tmul(Rf, b) } : { ax: [1, 0, 0], ang: 0, m0: mdir, m1: tmul(Rf, b) }
   }
+  // a tap on the moon brings it up to nearly half, gliding, on the side it is on (unless it is brighter already)
+  const TAP_FILL = 0.45
+  let wakeFill = null
+  function tapFill() {
+    if (englishOpacity >= TAP_FILL) return
+    const c = cyc(moonRaw), base = moonRaw - c
+    wakeFill = { a: moonRaw, b: c <= 1 ? base + TAP_FILL : base + 2 - TAP_FILL, t: performance.now() }
+  }
   function wakeMoon() {                                                   // the first touch: the moon flares, the harp runs up, the name strikes
-    stage = 'title'; wakeT = performance.now(); flareT = wakeT; setPhase(Math.max(englishOpacity, 0.22))
-    audio(); if (actx) { music.start(actx); music.flourish() }
+    stage = 'title'; wakeT = performance.now(); flareT = wakeT; tapFill()
+    audio(); if (actx) { music.start(actx); music.flourish(); droneOn() }
     try { navigator.vibrate?.([10, 30, 18]) } catch (e) { }
     try { onWake() } catch (e) { }
   }
@@ -322,6 +366,7 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     const now = performance.now(), dx = e.clientX - drag.x, dy = e.clientY - drag.y, dt = Math.max(1, now - drag.t)
     pend[0] += dx; pend[1] += dy; vx = vx * 0.6 + (dx / dt) * 0.4; vy = vy * 0.6 + (dy / dt) * 0.4
     drag = { x: e.clientX, y: e.clientY, t: now }
+    if (stage === 'title' && downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 28) rise()   // (a real drag of the sky, not a slip of the finger)
   })
   let downAt = null
   cv.addEventListener('pointerdown', (e) => { downAt = mdrag || stage === 'dive' || stage === 'under' ? null : { x: e.clientX, y: e.clientY } })
@@ -404,6 +449,21 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
             n.w = Math.min(1, w + Math.max(0, Math.min(0.2, (durOf(n) - 1) * 0.1)))     // (a long note counts for a bit more)
             n.dv = devAt(m)
           }
+          // the triplets the tune writes ((3Bcd): even among themselves, from their lilted start to their lilted end
+          const tg = new Map(); for (const n of notes) if (n.tupletGroupId != null) { const q = tg.get(n.tupletGroupId); q ? q.push(n) : tg.set(n.tupletGroupId, [n]) }
+          for (const q of tg.values()) { const a = q[0].mp, b = q[q.length - 1].mp + durOf(q[q.length - 1]), L0 = a + devAt(a), L1 = b + devAt(b); q.forEach((n, k) => { n.dv = L0 + (L1 - L0) * k / q.length - n.mp }) }
+          // the ornaments it marks (~ rolls, {} grace notes), as the notes a harper plays for them (abcOrnaments.js): when,
+          // in quavers from the note's place, in the lilt
+          const tpc = tunePitchClasses(notes)
+          for (const n of notes) {
+            const pl = ornamentPlan(n, tpc); if (!pl) continue
+            n.orn = pl.map(q => {
+              let at
+              if (q.trip) { const [s0, k, sp] = q.trip, a = n.mp + s0, b = a + sp, L0 = a + devAt(a), L1 = b + devAt(b); at = L0 + (L1 - L0) * k / 3 }
+              else at = q.o < 0 ? n.mp + n.dv + q.o : n.mp + q.o + devAt(n.mp + q.o)
+              return { o: at - n.mp, m: q.m, v: q.v }
+            })
+          }
           // the beats the left hand plays: the downbeat; and the half bar in common time, each dotted crotchet in jigs
           const beats = compound ? Array.from({ length: Math.round(B / 3) }, (_, i) => i * 3) : B === 8 ? [0, 4] : [0]
           // the home note low (G2 up to F#3); and the other chord: the fifth below in a major key, the whole tone below in
@@ -481,7 +541,9 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
           if (sounding.length > 40) sounding = sounding.filter(q => q.to > ctx.currentTime)
           if (!quiet) {
             // pared to the bones while the sky turns: only the notes strong enough for how fast it turns
-            if (density >= 1 || n.w >= 1 - density) pluck(n.midi, vel * (0.78 + 0.32 * n.w + (Math.random() - 0.5) * 0.06), next + n.dv * E, ring)
+            const vv = vel * (0.78 + 0.32 * n.w + (Math.random() - 0.5) * 0.06)
+            if (density >= 1 && n.orn) for (const q of n.orn) pluck(q.m, vv * q.v, Math.max(ctx.currentTime, next + q.o * E), ring)   // (at rest, ornamented)
+            else if (density >= 1 || n.w >= 1 - density) pluck(n.midi, vv, next + n.dv * E, ring)
             // the left hand: every beat this note covers, whether or not the melody note itself was played; at rest, only
             // the downbeat (the tune whole carries the rest), while turning every beat, to keep the bar going
             for (const b of t.beats) if (b >= n.mp - 1e-3 && b < n.mp + dur - 1e-3 && (b < 1e-3 || density < 1)) {
@@ -497,18 +559,18 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
 
   // the name: one at a time, large, in an arc over the horns. It comes up as the sky slows, faint while it turns fast,
   // brighter and steadier as it comes to rest. When the sky moves on, its letters rise, drift apart and twinkle away
-  let ringA = 0, wndA = 0, fdt = 16, focus = -1, held = 0, chosen = null, raf = 0, tick = 0, nameA = 0, arrival = null, meteor = null, nextMeteor = performance.now() + 4000
+  let ringA = 0, wndA = 0, fdt = 16, focus = -1, held = 0, chosen = null, raf = 0, tick = 0, nameA = 0, arrival = null, arrived = -1, meteor = null, nextMeteor = performance.now() + 4000
   const flecks = []                                                    // (the letters going up into the sky)
   // the choice: a touch on the pool when a champion rests at the sight. Its ripples spread and calm, and in the water is
   // that champion's sign; then down into the water
   const choose = (x, y) => {
     if (focus < 0 || chosen || dive || !(lastSettled && held > 250)) return
     const k = cons[focus], P = pool(), now = performance.now(); chosen = { k, t: now }
-    dive = { t: now, k, x0: P.cx, y0: P.cy, rx0: P.rx, ry0: P.ry }; stage = 'dive'
+    dive = { t: now, k, x0: P.cx, y0: P.cy, rx0: P.rx, ry0: P.ry, sign: lastSign }; stage = 'dive'
     for (let i = 0; i < 3; i++) ripples.push({ u: (x - P.cx) / P.rx, v: (y - P.cy) / P.ry, t: now + i * 240, a: 1 })
     try { navigator.vibrate?.([12, 40, 24]) } catch (e) { }
   }
-  let lastSettled = false
+  let lastSettled = false, lastSign = null
   const ARC = () => ({ cx: PX, cy: H * 0.33 + L.rr * 12.5, rad: L.rr * 12.5, fs: Math.round(Math.min(48, W / 8.2)) })
   const LABEL_R = 0.7                                                 // how far from the sight the constellations' own names show (radians)
   let labels = []                                                      // (where they were drawn, for touching)
@@ -547,7 +609,12 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
       tiltLast = e; tiltDone = Math.max(1e-9, e)
       if (u >= 1) { tiltDone = 1; stage = 'browse'; held = 0 }
     }
-    if (mdrag && !mdrag.moved && now - mdrag.t > 260) { setPhase(englishOpacity + dt / 2600); lastMoonT = now }   // (held: filling)
+    if (wakeFill) { const u = Math.min(1, (now - wakeFill.t) / 650); setRaw(wakeFill.a + (wakeFill.b - wakeFill.a) * (1 - Math.pow(1 - u, 3))); lastMoonT = now; if (u >= 1) wakeFill = null }
+    if (mdrag && !mdrag.moved && now - mdrag.t > 260) {                  // (held: filling, back toward the nearest full)
+      wakeFill = null
+      const tg = 2 * Math.round((moonRaw - 1) / 2) + 1, st = dt / 2600; setRaw(Math.abs(tg - moonRaw) <= st ? tg : moonRaw + Math.sign(tg - moonRaw) * st); lastMoonT = now
+    }
+    if (drone && stage === 'title' && now - droneT > 250) { droneT = now; drone.progress(Math.min(1, (now - wakeT) / 7000 * 0.75 + englishOpacity * 0.35)) }
     mR = moonR() * (1 - (1 - RISE_SHRINK) * (opening ? tiltDone : 1))
     if (drag && now - drag.t > 90) { vx = 0; vy = 0; carry = [0, 0] }    // (a finger held still: the sky is at rest under it)
     if (pend[0] || pend[1]) {                                            // (the sky following the finger, a little behind)
@@ -575,14 +642,14 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     const dist = Math.acos(Math.min(1, bz)), moving = (drag && spd > 0.02) || spd > 0.03 || seek >= 0
     if (best !== focus) {
       if (focus >= 0 && nameA > 0.6) scatter(cons[focus], nameA)
-      focus = best; held = 0; nameA = 0
+      focus = best; held = 0; nameA = 0; arrived = -1
       music.want(cons[best].ch)
     }
     const settled = !moving && dist < (drag ? 0.1 : 0.05)                 // (under a held finger, near enough is enough)
     if (settled) {
-      if (held === 0 && stage === 'browse') {                          // a champion arrives: its stars flare
-        try { navigator.vibrate?.(8) } catch (e) { }
-        arrival = { t: now, i: focus }
+      if (held === 0 && stage === 'browse' && arrived !== focus) {     // a champion arrives: its stars flare (once each time the
+        try { navigator.vibrate?.(8) } catch (e) { }                    //  sight comes to it, however a slow finger stops and starts)
+        arrival = { t: now, i: focus }; arrived = focus
       }
       held += dt
     } else if (moving) held = 0
@@ -619,7 +686,16 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
       meteor = { t: now, a: toSky(x0, y0), b: toSky(x0 + dx * W * 0.35, y0 + dy * W * 0.35), tail: 0.3, dur: 900 + Math.random() * 500 }
       nextMeteor = now + 7000 + Math.random() * 9000
     }
-    fdt = dt; draw(now, settled)
+    // the court's camera: at rest, or (opening) looking up from the land at first; in the dive, on its way into the well;
+    // the sky seen through it, bowed with it
+    if (court) {
+      if (dive) diveCam(now - dive.t)
+      else { cam.x = 0; cam.z = 0; cam.y = court.EYE; cam.hy = court.HY; cam.pitch = opening ? -0.75 * (1 - tiltDone) : 0 }
+      skyPitch = Math.max(0, cam.pitch); const c = Math.cos(skyPitch), sn = Math.sin(skyPitch)
+      RS = skyPitch > 1e-4 ? mmul([1, 0, 0, 0, c, sn, 0, -sn, c], R) : null
+      if (pendingHand && stage === 'under' && now - underT > 700) { const m = pendingHand; pendingHand = null; api.handOver(m) }
+    }
+    fdt = dt; draw(now, settled); veil(now)
     lastSettled = settled
   }
 
@@ -735,7 +811,7 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
       let mn = 0, mx = 0; for (const p of P) { const t = (p[0] - cx) * nx + (p[1] - cy) * ny; mn = Math.max(mn, t); mx = Math.max(mx, -t) }
       const w = [...k.ch.nameGa].reduce((s, ch) => s + g.measureText(ch).width + LS, -LS)
       const pos = [[cx + nx * (mn + lfs * 0.85), cy + ny * (mn + lfs * 0.85)], [cx - nx * (mx + lfs * 0.85), cy - ny * (mx + lfs * 0.85)]]
-      cand.push({ i, k, a: a * tiltDone, pos, ang, nx, ny, w, own: i === focus, pr: i === focus ? 1e9 : k.shown ? 1e6 - k.since : -k.d })
+      cand.push({ i, k, a: a * tiltDone * (dive ? 0 : 1), pos, ang, nx, ny, w, own: i === focus, pr: i === focus ? 1e9 : k.shown ? 1e6 - k.since : -k.d })
     }
     cand.sort((p, q) => q.pr - p.pr)
     const ezIn = 1 - Math.exp(-fdt / 300), ezOut = 1 - Math.exp(-fdt / 140)
@@ -795,27 +871,71 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
         g.shadowColor = STAR_GLOW; g.shadowBlur = 14; g.drawImage(sp.c, -ww / 2, -hh, ww, hh); g.restore()
       }
     }
-    // the game's name, over the waking moon: the Irish in gold, struck; the English beneath it as the moon allows
-    const titleA = stage === 'title' ? Math.min(1, (now - wakeT) / 350) : stage === 'rise' ? Math.max(0, 1 - (now - fadeT) / 1500) : 0
+    // the game's name, over the moon: the Irish in gold from the first, waiting with the dark moon; the English beneath it
+    // only as the moon allows, and its first coming a bang (see enBang)
+    const titleA = stage === 'dark' ? Math.min(1, (now - bornT) / 1500) : stage === 'title' ? 1 : stage === 'rise' ? Math.max(0, 1 - (now - fadeT) / 1500) : 0
     if (titleA > 0.01) {
       // (above the moon: the foot of the screen is the saved heroes' and, until fullscreen is granted, the fog's)
       const mp = moonAt() || [PX, PY], fs = Math.round(Math.min(56, W / 6.4)), blockH = fs * 1.05 * (TITLE.ga.length - 1) + fs * 0.95 + fs * 0.4
       const ty = mp[1] - mR - Math.min(60, H * 0.06) - blockH + fs * 0.5
-      const strike = Math.max(0, 1 - (now - wakeT) / 450), sc = 1 + 0.25 * strike * strike
-      g.save(); g.translate(PX, ty); g.scale(sc, sc); g.textAlign = 'center'; g.textBaseline = 'middle'
-      g.font = `${fs}px IrishPenny, ${GA}`; g.fillStyle = GOLD; g.shadowColor = GOLD; g.shadowBlur = 16 + 40 * strike; g.globalAlpha = titleA
+      g.save(); g.translate(PX, ty); g.textAlign = 'center'; g.textBaseline = 'middle'
+      g.font = `${fs}px IrishPenny, ${GA}`; g.fillStyle = GOLD; g.shadowColor = GOLD; g.shadowBlur = 16; g.globalAlpha = titleA
       TITLE.ga.forEach((l, i) => g.fillText(l, 0, i * fs * 1.05))       // (IrishPenny: the heavy uncial, struck rather than written)
       g.restore()
-      const ea = titleA * englishOpacity
-      if (ea > 0.01) {
+      const ea = titleA * enOf(englishOpacity)
+      if (ea > 0.01 || (bang && now - bang.t < 1800)) {
         const efs = Math.round(fs * 0.4), ey = ty + fs * 1.05 * (TITLE.ga.length - 1) + fs * 0.95, sp = efs * 0.35
-        g.save(); g.font = `${efs}px ${EN}`; g.fillStyle = '#e2dccb'; g.globalAlpha = ea; g.textBaseline = 'middle'; g.textAlign = 'left'
+        g.save(); g.font = `${efs}px ${EN}`; g.textBaseline = 'middle'; g.textAlign = 'left'
         const ws = [...TITLE.en].map(c => g.measureText(c).width), tot = ws.reduce((a, b) => a + b, 0) + sp * (ws.length - 1)
-        let xx = PX - tot / 2; [...TITLE.en].forEach((c, i) => { g.fillText(c, xx, ey); xx += ws[i] + sp })
+        if (!bang && stage === 'title' && ea > 0.01) enBang(now, PX, ey, tot, efs)
+        // the kick: it swells, flares white and shakes, and settles (the ogham dial's revealBang, drawn)
+        const u = bang ? (now - bang.t) / 900 : 1, env = u < 0.18 ? u / 0.18 : u < 1 ? Math.pow(1 - (u - 0.18) / 0.82, 2) : 0
+        const shake = u > 0.18 && u < 1 ? 9 * Math.sin((u - 0.18) * Math.PI * 7) * (1 - u) : 0, sc = 1 + 0.38 * env
+        g.translate(PX + shake, ey); g.scale(sc, sc)
+        const draw = () => { let xx = -tot / 2; [...TITLE.en].forEach((c, i) => { g.fillText(c, xx, 0); xx += ws[i] + sp }) }
+        g.globalAlpha = Math.max(ea, env); g.fillStyle = '#e2dccb'
+        if (env > 0.01) { g.shadowColor = 'rgba(255,246,210,0.95)'; g.shadowBlur = 22 * env }
+        draw()
+        if (env > 0.01) { g.globalAlpha = env * 0.8; g.fillStyle = '#fffbe8'; g.shadowColor = 'rgba(190,220,255,0.8)'; g.shadowBlur = 48 * env; draw() }
         g.restore()
       }
     }
+    if (bang) drawSparks(now)
     if (dive) drawDive(now)
+  }
+  // the English's share of the light: none for a dark moon or a sliver, all of it by nearly half (a tap's worth)
+  const enOf = (p) => { const u = Math.max(0, Math.min(1, (p - 0.15) / 0.28)); return u * u * (3 - 2 * u) }
+  // THE BANG: the English arrives, the first time the moon lets it -- as the ogham dial had it: the line kicks, a spray of
+  // sparks leaves it, a bell rings over a low note (in D here, with the harp's waking run), and a phone buzzes
+  let bang = null
+  const bornT = performance.now()
+  function enBang(now, cx, cy, w, h) {
+    const sparks = []
+    for (let i = 0; i < 24; i++) sparks.push({ x: cx - w / 2 + Math.random() * w, y: cy - h / 2 + Math.random() * h, a: Math.random() * Math.PI * 2, d: 36 + Math.random() * 90, dur: 700 + Math.random() * 700, dl: Math.random() * 160, sz: 3 + Math.random() * 5, c: Math.random() < 0.5 ? '255,233,168' : '191,224,255' })
+    bang = { t: now, sparks }
+    try { navigator.vibrate?.([18, 30, 46]) } catch (e) { }
+    const ac = audio(); if (!ac) return
+    const k = Math.pow(2, 2 / 12)
+    for (const [f, gn, d, dl] of [[130.81, 0.10, 1.6, 0], [1046.5, 0.075, 2.2, 0.02], [1568.0, 0.055, 2.4, 0.06], [2093.0, 0.04, 2.6, 0.10], [2637.0, 0.028, 2.8, 0.15]]) {
+      try {
+        const o = ac.createOscillator(), gg = ac.createGain(), t0 = ac.currentTime + 0.02 + dl
+        o.type = 'sine'; o.frequency.value = f * k; gg.gain.setValueAtTime(0, t0); gg.gain.linearRampToValueAtTime(gn, t0 + 0.008); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + d)
+        o.connect(gg); gg.connect(ac.destination); o.start(t0); o.stop(t0 + d + 0.05)
+      } catch (e) { }
+    }
+  }
+  function drawSparks(now) {
+    let live = false
+    for (const p of bang.sparks) {
+      const u = (now - bang.t - p.dl) / p.dur; if (u < 0 || u >= 1) { if (u < 0) live = true; continue }
+      live = true
+      const a = u < 0.35 ? u / 0.35 : 1, b = u < 0.35 ? 0 : (u - 0.35) / 0.65
+      const f = u < 0.35 ? 0.6 * a : 0.6 + 0.4 * b, yo = u < 0.35 ? -12 * a : -12 + 30 * b, s2 = u < 0.35 ? 0.4 + 0.9 * a : 1.3 - 1.1 * b, al = u < 0.35 ? 1 : 1 - b
+      const x = p.x + Math.cos(p.a) * p.d * f, y = p.y + Math.sin(p.a) * p.d * f + yo, r = p.sz * s2
+      const gr = g.createRadialGradient(x, y, 0, x, y, r * 1.6); gr.addColorStop(0, `rgba(255,251,232,${al.toFixed(3)})`); gr.addColorStop(0.45, `rgba(${p.c},${(al * 0.9).toFixed(3)})`); gr.addColorStop(1, `rgba(${p.c},0)`)
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 1.6, 0, Math.PI * 2); g.fill()
+    }
+    if (!live && now - bang.t > 3000) bang.sparks = []
   }
 
   // ── the moon among the stars, as the moon tile draws it (lit from the right, waxing), large; with a few seas
@@ -825,7 +945,8 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, r * gm, 0, Math.PI * 2); g.fill()
     const rr = r * 0.92
     g.fillStyle = 'rgb(8,4,30)'; g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill()
-    if (ph > 0.005) {
+    if (drawMoonFace(g, x, y, rr, ph, cyc(moonRaw) <= 1, MOON_TILT)) { }                              // (the moon's own face, moonFace.js)
+    else if (ph > 0.005) {                                                // (until it has loaded: a drawn one)
       g.save(); g.beginPath()
       if (ph >= 0.99) g.arc(x, y, rr, 0, Math.PI * 2)
       else { const tx = rr * Math.cos(ph * Math.PI); g.arc(x, y, rr, -Math.PI / 2, Math.PI / 2); g.ellipse(x, y, Math.abs(tx), rr, 0, Math.PI / 2, -Math.PI / 2, tx > 0) }
@@ -863,13 +984,29 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); g.clip()
     const wg = g.createLinearGradient(0, cy - ry, 0, cy + ry); wg.addColorStop(0, '#0c1634'); wg.addColorStop(1, '#03060f'); g.fillStyle = wg; g.fillRect(cx - rx, cy - ry, rx * 2, ry * 2)
     if (o.full > 0) { g.save(); g.globalAlpha = o.full; paintSkyGradient(g, W, H); g.restore() }   // (deep in, the water is the night itself)
-    const z = Math.max(1, Math.min(1.8, rx / 220)), nS = Math.min(PSTARS.length, Math.round(60 + rx * 1.2))
-    for (let si = 0; si < nS; si++) { const s2 = PSTARS[si]
+    const z = Math.max(1, Math.min(1.8, rx / 220)), nS = Math.min(PSTARS.length, Math.round(60 + rx * 1.2)), sw = o.swirl
+    if (sw) {                                                           // (whirling: the stars round the middle, drawn out along their way)
+      g.lineCap = 'round'
+      for (let si = 0; si < nS; si++) { const s2 = PSTARS[si], d = Math.hypot(s2.u, s2.v)
+        const th = Math.atan2(s2.v, s2.u) + sw.ang * (0.7 + 0.5 * (1 - d)), tr = Math.max(0.02, Math.min(0.5, sw.w * 0.05 * (0.5 + s2.m)))
+        g.strokeStyle = `rgba(225,232,255,${(s2.m * 0.8).toFixed(3)})`; g.lineWidth = z * (0.8 + s2.m * 0.6); g.beginPath()
+        for (let q = 0; q <= 3; q++) { const u = th + tr * q / 3, X = cx + Math.cos(u) * d * rx, Y = cy + Math.sin(u) * d * ry; q ? g.lineTo(X, Y) : g.moveTo(X, Y) }
+        g.stroke()
+      }
+      g.lineCap = 'butt'
+      for (let q = 0; q < 3; q++) {                                     // (ripples going out from the middle)
+        const age = ((sw.a + q * 0.6) % 1.8) / 1.8
+        g.strokeStyle = `rgba(200,210,245,${(0.35 * (1 - age) * Math.min(1, sw.a / 0.6)).toFixed(3)})`; g.lineWidth = Math.max(1, rx / 120); g.beginPath(); g.ellipse(cx, cy, Math.max(0.5, rx * age), Math.max(0.5, ry * age), 0, 0, Math.PI * 2); g.stroke()
+      }
+    } else for (let si = 0; si < nS; si++) { const s2 = PSTARS[si]
       const u = ((s2.u + poolShift + 1) % 2 + 2) % 2 - 1, X = cx + u * rx, Y = cy + s2.v * ry, a = s2.m * (0.6 + 0.4 * Math.sin(t * 1.7 + s2.tw))
       g.fillStyle = `rgba(225,232,255,${a.toFixed(3)})`; g.fillRect(X - z / 2, Y - z / 2, z, z)
     }
     if (o.sign && o.signA > 0.01) {                                     // (a champion's sign, in the water)
-      const P = o.sign.pts, ext = Math.max(0.05, ...P.map(p => Math.hypot(p[0], p[1]))), sc = Math.min(rx * 0.5, W * 0.3) / ext, at = (p) => [cx + p[0] * sc, cy - p[1] * sc * (ry / rx)]
+      // (sign.screen: offsets as seen on the screen, y down, which the water turns upside down; else the sign's own, y up)
+      const P = o.sign.pts, ext = Math.max(o.sign.screen ? 1 : 0.05, ...P.map(p => Math.hypot(p[0], p[1]))), sc = Math.min(rx * 0.5, W * 0.3) / ext
+      const ca = Math.cos(sw ? sw.ang : 0), sa = Math.sin(sw ? sw.ang : 0)    // (whirled with the water)
+      const at = (p) => { const x = p[0] * ca + p[1] * sa, y = -p[0] * sa + p[1] * ca; return [cx + x * sc, cy - y * sc * (ry / rx)] }
       g.save(); g.globalAlpha = o.signA; g.strokeStyle = 'rgba(242,213,140,0.9)'; g.lineWidth = Math.max(1, rx / 110); g.shadowColor = GOLD; g.shadowBlur = Math.max(4, rx / 30)
       g.beginPath(); for (const [i, j] of o.sign.edges) { const a = at(P[i]), b = at(P[j]); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]) } g.stroke()
       g.fillStyle = 'rgba(255,250,235,1)'; for (const p of P) { const q = at(p); g.beginPath(); g.arc(q[0], q[1], Math.max(1.4, rx / 90), 0, Math.PI * 2); g.fill() }
@@ -885,7 +1022,44 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
   // the dive: the ripples calm on the sign (1.3s); then down into the water, the pool growing and rounding as we come to
   // look straight down into it, the night closing round it (1.7s); then a wave through the water, and we are in it
   const oc = document.createElement('canvas'), ocx = oc.getContext('2d')
+  // the dive, with the court in the round: the camera walks to the well and bows over it, rising a little to see it all
+  // (2s); goes down into the water (0.7s), the scene below told to come up as it does; then, in the water, the stars and
+  // the moon whirl round, ripples closing over, until that scene is up and the sky fades into it (handOver)
+  const WALK = 2000, DROP = 700
+  function diveCam(ms) {
+    const u = Math.min(1, ms / WALK), e = u * u * (3 - 2 * u), d = Math.max(0, Math.min(1, (ms - WALK) / DROP)), de = d * d
+    cam.x = 0; cam.z = court.ZP * e
+    cam.pitch = e * Math.PI / 2 * 0.999
+    cam.y = court.EYE + (2.4 - court.EYE) * e - (2.4 - court.WATER_Y - 0.06) * de
+    cam.hy = court.HY + (H / 2 - court.HY) * e
+  }
+  function drawDive3d(now) {
+    const ms = now - dive.t
+    if (ms > WALK && !diveTold) { diveTold = true; try { onChoose(dive.k.ch, dive.k.sign) } catch (e) { } }
+    if (ms > WALK + DROP && stage !== 'under') { stage = 'under'; underT = now; under = true }
+    if (stage === 'under') drawSwirl(now)
+  }
+  // in the water: the night all round, its stars whirling the way the sky turns (against the clock), the moon carried
+  // round with them, ripples going out
+  const SPIN = 2.4, SPIN_UP = 1.6                                      // (the whirl's speed, rad/s; how long it takes to get up to it)
+  function swirlAt(now) { const a = Math.max(0, (now - dive.t) / 1000); return { a, ang: -SPIN * (a < SPIN_UP ? a * a / (2 * SPIN_UP) : SPIN_UP / 2 + (a - SPIN_UP)), w: SPIN * Math.min(1, a / SPIN_UP) } }
+  function drawSwirl(now) {
+    const R0 = Math.hypot(W, H) / 2, cx = W / 2, cy = H / 2, { a, ang, w } = swirlAt(now)
+    paintSkyGradient(g, W, H); g.fillStyle = 'rgba(2,4,12,0.3)'; g.fillRect(0, 0, W, H)
+    g.lineCap = 'round'
+    for (const s2 of PSTARS) {
+      const r = Math.hypot(s2.u, s2.v) * R0, th = Math.atan2(s2.v, s2.u) + ang * (0.7 + 0.5 * (1 - r / R0)), tr = Math.min(0.5, w * 0.05 * (0.5 + s2.m))
+      g.strokeStyle = `rgba(225,232,255,${(s2.m * 0.8).toFixed(3)})`; g.lineWidth = 1 + s2.m
+      g.beginPath(); g.arc(cx, cy, Math.max(1, r), th, th + tr); g.stroke()
+    }
+    for (let k = 0; k < 3; k++) {
+      const age = ((a + k * 0.6) % 1.8) / 1.8, r = R0 * age
+      g.strokeStyle = `rgba(200,210,245,${(0.35 * (1 - age)).toFixed(3)})`; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke()
+    }
+    g.lineCap = 'butt'
+  }
   function drawDive(now) {
+    if (court) return drawDive3d(now)
     const ms = now - dive.t, Rf = Math.hypot(W, H) * 0.62
     if (ms < 3000) {
       const zu = Math.max(0, Math.min(1, (ms - 1300) / 1700)), ze = zu * zu * (3 - 2 * zu)
@@ -911,6 +1085,16 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
   // further, paler in the haze, a few lights among them; the druid and the queen on his back with us
   function drawLand(t, settled) {
     if (!land) land = paintLand()
+    if (court) {
+      const hz = cam.hy - f * Math.tan(cam.pitch), shift = hz - court.HY
+      if (shift < H) g.drawImage(land, 0, shift, W, H)                  // (the far mountains and hills ride the horizon)
+      const k = focus >= 0 ? cons[focus] : null, sp = k && !dive ? k.stars.map(proj) : null
+      let sign = null
+      if (k && sp && sp.every(Boolean)) { const mx = sp.reduce((a, p) => a + p[0], 0) / sp.length, my = sp.reduce((a, p) => a + p[1], 0) / sp.length; sign = { pts: sp.map(p => [p[0] - mx, p[1] - my]), edges: k.sign.edges, screen: true }; lastSign = sign }
+      const now = t * 1000, o = dive ? { sign: dive.sign, signA: Math.max(0, 1 - (now - dive.t) / 1600), swirl: swirlAt(now) } : { sign, signA: calm * (stage === 'browse' ? 1 : 0) }
+      court.draw(g, cam, now, (cx, cy, rx, ry) => drawPool(cx, cy, rx, ry, now, o))
+      return
+    }
     const off = landOff(); if (off >= H) return
     g.save(); g.translate(0, off)
     g.drawImage(land, 0, 0, W, H)
@@ -920,7 +1104,13 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
       g.fillStyle = tg; g.beginPath(); g.arc(tx, ty, 6, 0, Math.PI * 2); g.fill()
     })
     g.restore()
-    if (!dive) { const P = pool(); drawPool(P.cx, P.cy, P.rx, P.ry, t * 1000, { sign: focus >= 0 ? cons[focus].sign : null, signA: calm * (stage === 'browse' ? 1 : 0) }) }
+    if (!dive) {
+      // the sign in the water as the sky shows it, turned as it is turned up there, mirrored by the water
+      const P = pool(), k = focus >= 0 ? cons[focus] : null, sp = k ? k.stars.map(proj) : null
+      let sign = null
+      if (k && sp.every(Boolean)) { const mx = sp.reduce((a, p) => a + p[0], 0) / sp.length, my = sp.reduce((a, p) => a + p[1], 0) / sp.length; sign = { pts: sp.map(p => [p[0] - mx, p[1] - my]), edges: k.sign.edges, screen: true } }
+      drawPool(P.cx, P.cy, P.rx, P.ry, t * 1000, { sign, signA: calm * (stage === 'browse' ? 1 : 0) })
+    }
   }
   // a horn's centre line, base (u 0) to point (u 1): out from his poll, wide, then up, the points turned toward the sight
   const hornPath = (sx) => {
@@ -946,6 +1136,7 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
     for (let i = 0; i <= 48; i++) { const X = W * i / 48; x.lineTo(X, hill(X)) }
     x.lineTo(W, H); x.closePath(); x.fill()
     for (const fx of [0.05, 0.12, 0.2, 0.78, 0.86, 0.93]) { const X = W * fx; x.fillStyle = 'rgba(255,200,130,0.55)'; x.fillRect(X, hill(X) + 3 + rnd() * 6, 1.6, 1.6) }
+    if (court) { L.tips = []; L.tipRGB = null; L.bull = [0, H * 0.7, W, H]; L.glow = null; return c }   // (the court is drawn live: skyCourt3d.js)
     // (somewhere else to stand than the bull, to try: see skyLands.js)
     if (stand !== 'bull' && LANDS[stand]) {
       const r = LANDS[stand](x, { W, H, PX, PY, S, rnd, tone, druid, queen, hill })
@@ -1040,17 +1231,20 @@ export function initStarSky({ champions, englishOpacity = 0.5, onChoose = () => 
   const api = {
     destroy() {
       if (gone) return; gone = true
-      cancelAnimationFrame(raf); window.removeEventListener('resize', layout); cv.remove(); music.hush(true)
+      cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); cv.remove(); music.hush(true); try { drone?.stop() } catch (e) { }
       for (const ev of ['pointerup', 'touchend', 'click', 'keydown']) document.removeEventListener(ev, wakeAudio, true)
       document.removeEventListener('visibilitychange', onVis)
     },
-    setEnglishOpacity(v) { englishOpacity = v },
+    setEnglishOpacity(v) { setRaw(v) },
     englishOpacity() { return englishOpacity },
     // where the moon is, as { cx, cy, d } in px (heroSlots.js sets a saved hero's face on it)
     moonGeometry() { const mp = moonAt() || [PX, PY]; return { cx: mp[0], cy: mp[1], d: mR * 2 * 0.92 } },
     // from in the water to whatever has come up underneath: the sky fades out over `ms`, its music with it, and goes
-    handOver(ms = 1400) {
+    handOver(ms = 1400, onStart = null) {
       if (gone) return
+      if (onStart) handStart = onStart
+      if (court && (stage !== 'under' || performance.now() - underT < 700)) { pendingHand = ms; return }   // (not before we are in the water)
+      try { handStart?.() } catch (e) { } handStart = null
       music.hush(true); cv.style.pointerEvents = 'none'; cv.style.transition = `opacity ${ms}ms ease`
       requestAnimationFrame(() => { cv.style.opacity = '0' })
       setTimeout(() => api.destroy(), ms + 100)

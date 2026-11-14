@@ -383,7 +383,7 @@ async function startSkyFront(heroSlots) {
     const open = (opening) => {
         chosen = false;
         sky = initStarSky({
-            champions, stand: 'court_megalith', opening, englishOpacity: GameSettings.englishOpacity ?? 0.2,
+            champions, stand: 'court3d', opening, englishOpacity: GameSettings.englishOpacity ?? 0.2,
             onWake: () => { try { heroSlots.dismiss(); } catch (e) {} unlockAudio(); },
             onChoose: (champ, sign) => {
                 if (chosen) return; chosen = true;
@@ -393,10 +393,13 @@ async function startSkyFront(heroSlots) {
                 if (constellationsSeen) { sky.handOver(900); toRoad(champ, phase, null); return; }   // (back from the road: once is enough)
                 constellationsSeen = true;
                 const gc = document.getElementById('gameContainer'); if (gc) gc.style.display = '';
+                // the scene comes in whirling, as out of the water; the whirl starts as the sky begins to fade into it
+                let goArrive = null; const arriveGate = new Promise(r => { goArrive = r; });
                 initConstellationScene((sliderValue, amerginLine) => {
                     GameSettings.setEnglishOpacity(sliderValue);
                     toRoad(champ, sliderValue, amerginLine);
-                }, phase, { dialSeen: true, heroSign: sign, onReady: () => sky.handOver(1600) });
+                }, phase, { dialSeen: true, heroSign: sign, arriveSpin: true, arriveWait: () => arriveGate,
+                            onReady: () => sky.handOver(1200, () => goArrive()) });
             },
         });
         window.__frontMoonGeometry = () => sky.moonGeometry();      // (heroSlots.js: a saved hero's face goes on this moon)
@@ -405,7 +408,7 @@ async function startSkyFront(heroSlots) {
     // the first touch asks for fullscreen; a phone only grants it as the finger lifts, so it is asked then. Until it is
     // granted, the fog over the bottom of the screen hides the browser's notice (toastFog.js), as it did for the dial
     armToastFog();
-    const askFs = () => { for (const ev of ['pointerup', 'touchend', 'click']) window.removeEventListener(ev, askFs, true); requestFullscreenWithFade(); unlockAudio(); };
+    const askFs = () => { for (const ev of ['pointerup', 'touchend', 'click']) window.removeEventListener(ev, askFs, true); requestFullscreenWithFade({ fade: false }); unlockAudio(); };   // (no veil: the sky dissolves itself across the change)
     for (const ev of ['pointerup', 'touchend', 'click']) window.addEventListener(ev, askFs, true);
     open(true);
     // the road's moon, tapped, comes back here: the sky again, straight to the champions (tutorialOrAdventure.js)

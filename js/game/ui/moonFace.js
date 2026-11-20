@@ -32,6 +32,30 @@ function litPath(ctx, cx, cy, r, phase, waning, tilt = 0) {
     ctx.restore()
 }
 
+// The terminator is softened by a MASK: everything but the dark part of the disc, blurred (the limb side stays solid, so the bright edge is crisp and the soft edge
+// runs out into it at the horns with no cut). The blurred mask is kept until the phase moves on.
+const SOFT = 0.26                // how far the light eases out toward the terminator, as a share of the radius
+const CAN_BLUR = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype
+let off = null
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c }
+const maskCache = { key: '', c: null, pad: 0 }
+function softMask(n, sc, r, phase, waning, tilt) {
+    const key = [n, Math.round(r * sc), Math.round(phase * 90), waning ? 1 : 0, Math.round(tilt * 60)].join('|')
+    if (maskCache.key === key && maskCache.c) return maskCache
+    const b = Math.max(1, r * sc * SOFT * 0.55), pad = Math.ceil(b * 3), N = n + pad * 2
+    const m = mk(N, N), g = m.getContext('2d')
+    g.fillStyle = '#fff'; g.fillRect(0, 0, N, N)
+    g.save(); g.translate(N / 2, N / 2); g.scale(sc, sc)
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.clip()
+    g.globalCompositeOperation = 'destination-out'; g.fillRect(-r - 2, -r - 2, r * 2 + 4, r * 2 + 4)       // the disc, cleared ...
+    g.globalCompositeOperation = 'source-over'; g.fillStyle = '#fff'; litPath(g, 0, 0, r, phase, waning, tilt); g.fill()   // ... but for the lit part
+    g.restore()
+    const m2 = mk(N, N), g2 = m2.getContext('2d')
+    g2.filter = `blur(${b}px)`; g2.drawImage(m, 0, 0); g2.filter = 'none'
+    maskCache.key = key; maskCache.c = m2; maskCache.pad = pad
+    return maskCache
+}
+
 /** Draw the face in a disc of radius r at (cx, cy). The caller draws any glow first and the dark disc under it.
  *  Returns false (drawing nothing) until the picture has loaded. */
 export function drawMoonFace(ctx, cx, cy, r, phase, waning = false, tilt = 0) {
@@ -41,10 +65,22 @@ export function drawMoonFace(ctx, cx, cy, r, phase, waning = false, tilt = 0) {
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip()
     ctx.globalAlpha = EARTHSHINE; ctx.drawImage(IMG, cx - s, cy - s, s * 2, s * 2); ctx.globalAlpha = 1
     if (phase > 0.005) {
-        litPath(ctx, cx, cy, r, phase, waning, tilt); ctx.clip()
-        ctx.drawImage(IMG, cx - s, cy - s, s * 2, s * 2)
-        ctx.globalCompositeOperation = 'color'; ctx.fillStyle = TINT; ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
-        ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = LIFT; ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
+        const soft = CAN_BLUR && phase < 0.985
+        // the lit part is laid down on a spare canvas so its edge can be eased away there
+        const m = ctx.getTransform(), sc = Math.hypot(m.a, m.b) || 1, n = Math.ceil(s * 2 * sc), o = soft ? (off = off && off.width === n && off.height === n ? off : mk(n, n)) : null, g = o ? o.getContext('2d') : ctx
+        const ox = o ? s : cx, oy = o ? s : cy
+        if (o) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, n, n); g.setTransform(sc, 0, 0, sc, 0, 0) }
+        g.save()
+        litPath(g, ox, oy, r, phase, waning, tilt); g.clip()
+        g.drawImage(IMG, ox - s, oy - s, s * 2, s * 2)
+        g.globalCompositeOperation = 'color'; g.fillStyle = TINT; g.fillRect(ox - r, oy - r, r * 2, r * 2)
+        g.globalCompositeOperation = 'screen'; g.fillStyle = LIFT; g.fillRect(ox - r, oy - r, r * 2, r * 2)
+        g.restore()
+        if (o) {
+            const mk2 = softMask(n, sc, r, phase, waning, tilt)
+            g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(mk2.c, -mk2.pad, -mk2.pad); g.restore()
+            ctx.drawImage(o, cx - s, cy - s, n / sc, n / sc)
+        }
     }
     ctx.restore()
     return true

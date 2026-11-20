@@ -145,6 +145,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
     // horizon ends up (fraction of screen height) -- the sky becomes a band
     // at the top, the sea a page beneath.
     const CAM = C.cam
+    let leadDone = 0
     let zBoat = C.startZ, zCam = C.follow ? C.startZ - CAM.behind : C.camZ, vBoat = 0.7, camH = CAM.h1
     let bob = 0                                           // the swell lifting the boat
     let xBoat = 0                                         // sideways, for a diagonal course (C.drift)
@@ -205,7 +206,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         sea.addColorStop(1, rgb(mixRGB(top, [0, 0, 0], 0.45)))
         ctx.fillStyle = sea; ctx.fillRect(0, yH, W, H - yH)
         // the sun coming up behind Skye
-        const sunA = C.sun ? smooth(0.72, 1, t) : 0
+        const sunA = C.sun ? smooth(0.72, 1, t) * (1 - 0.7 * (C.squall ? smooth(C.squall.from, 0.97, t) : 0)) : 0
         if (sunA > 0) {
             const g = ctx.createRadialGradient(W * 0.6, yH, 0, W * 0.6, yH, H * 0.5)
             g.addColorStop(0, `rgba(255,214,150,${0.55 * sunA})`); g.addColorStop(1, 'rgba(255,214,150,0)')
@@ -214,10 +215,11 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
     }
 
     function drawStars(now, t, vScreens) {
-        const a = 1 - smooth(0.58, 0.86, t)
-        if (a <= 0) return
-        const still = smooth(T.still0, T.still1, t) * (1 - smooth(0.7, 0.95, t))
+        if (t > 0.62) return
+        const still = smooth(T.still0, T.still1, t) * (1 - smooth(0.3, 0.55, t))
         for (const s of skyStars) {
+            const a = 1 - smooth(0.1 + 0.34 * n2(s.x * 5 + windU * 0.04, s.y * 4), 0.18 + 0.34 * n2(s.x * 5 + windU * 0.04, s.y * 4), t)      // the cloud closes over them in patches
+            if (a <= 0) continue
             const tw = 0.65 + 0.35 * Math.sin(now * s.tw + s.ph)
             const x = s.x * W, y = s.y * yH * 0.97
             ctx.fillStyle = `rgba(235,240,255,${s.a * tw * a})`
@@ -242,9 +244,102 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
     // Skye: the pixel-art headland (assets/skye2.png), cropped to its
     // pixels, drawn crisp and low on the horizon, veiled in the dawn haze.
     const skye = { img: null, crop: null, tint: null }
+    // The Cuillin from the sea, painted from the real ridge's profile (see paintSkye): a long crest of summits all within a tenth of one another, joined by
+    // notches, with corries below them, spurs running down into mist, and the far mainland a ghost behind. Drawn once.
+    function paintSkye() {
+        const Wd = 1100, Hd = 400, c = document.createElement('canvas'); c.width = Wd; c.height = Hd
+        const g = c.getContext('2d')
+        let sd = 20260; const rn = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296
+        const tab = () => Array.from({ length: 64 }, rn), T1 = tab(), T2 = tab()
+        const noise = (tb, x) => { const i = Math.floor(x), f = x - i, a = tb[((i % 64) + 64) % 64], b = tb[(((i + 1) % 64) + 64) % 64], u = f * f * (3 - 2 * f); return a + (b - a) * u }
+        const RIM = (C.rim || [250, 190, 130]).join(','), RIM2 = (C.rim2 || [255, 205, 150]).join(','), RK = C.rimK ?? 0.5
+        // A range is DESIGNED, not generated: a list of peaks, each [x, height 0..1, half-width left, half-width right, flank]. The flank exponent shapes
+        // it: above 1 the sides sweep in concave to a pointed top (the Cuillin), below 1 they are domed (the Red Hills). Where two meet a soft-max rounds
+        // the saddle; a little fine rock is laid on top, more on the high ground, but never enough to make a zigzag.
+        const prof = (x, p) => { const d = x - p[0], u = 1 - Math.abs(d) / (d < 0 ? p[2] : p[3]); return u <= 0 ? 0 : p[1] * Math.pow(u, p[4]) }
+        const heights = (peaks, off) => {
+            const hs = new Float32Array(Wd + 1)
+            for (let x = 0; x <= Wd; x++) {
+                let sum = 1, m = 0
+                for (const p of peaks) { const v = prof(x, p); if (v > 0) { sum += Math.exp(14 * v) - 1; if (v > m) m = v } }
+                const h = Math.log(sum) / 14, e = Math.pow(Math.sin(Math.PI * clamp(x / Wd, 0, 1)), 0.5)          // down to the sea at both ends
+                const crest = Math.pow(Math.max(0, h - 0.3), 1.2), tooth = (1 - Math.abs(noise(T1, x * 0.17 + off * 3) * 2 - 1)) - 0.5       // teeth along the high crest only
+                hs[x] = Math.max(0, h * e + ((noise(T1, x * 0.085 + off) - 0.5) * 0.02 + (noise(T2, x * 0.3 + off * 2) - 0.5) * 0.007) * Math.min(1, h * 3) + tooth * 0.045 * crest)
+            }
+            return hs
+        }
+        // THE CUILLIN, from its real profile: the main ridge is a long crest whose summits all stand within a tenth of one another (Alasdair 992 m,
+        // Dearg 986, Ghreadaidh 973, Banachdich 965, Gillean 964 ...) joined by notches, the bealachs, and not a row of separate spires. Each control point is
+        // [x, height as a fraction of 992 m]; between them the ridge runs straight, its joins softened, a little fine rock on top. Seen from the west: north
+        // (Gillean, Basteir, Bruach na Frìthe) on the left, the south end (Gars-bheinn) on the right.
+        const ridge = (pts, off) => {
+            const hs = new Float32Array(Wd + 1)
+            for (let x = 0, i = 0; x <= Wd; x++) {
+                while (i < pts.length - 2 && x > pts[i + 1][0]) i++
+                const [x0, h0] = pts[i], [x1, h1] = pts[i + 1]; hs[x] = h0 + (h1 - h0) * clamp((x - x0) / (x1 - x0), 0, 1)
+            }
+            for (let pass = 0; pass < 2; pass++) { const c = hs.slice(); for (let x = 2; x < Wd - 1; x++) hs[x] = (c[x - 2] + c[x - 1] + c[x] + c[x + 1] + c[x + 2]) / 5 }
+            for (let x = 0; x <= Wd; x++) hs[x] = Math.max(0, hs[x] + ((noise(T1, x * 0.07 + off) - 0.5) * 0.014 + (noise(T2, x * 0.25 + off * 2) - 0.5) * 0.006) * Math.min(1, hs[x] * 3))
+            return hs
+        }
+        const layer = (peaks, off, amp, base, c0, c1, rimA, gullies, corries) => {
+            const hs = peaks instanceof Float32Array ? peaks : heights(peaks, off), ys = Array.from(hs, h => base - amp * h)
+            const path = () => { g.beginPath(); g.moveTo(0, Hd); ys.forEach((y, x) => g.lineTo(x, y)); g.lineTo(Wd, Hd); g.closePath() }
+            path(); const gr = g.createLinearGradient(0, base - amp, 0, Hd); gr.addColorStop(0, c0); gr.addColorStop(1, c1); g.fillStyle = gr; g.fill()
+            const sl = x => (ys[Math.min(Wd, x + 5)] - ys[Math.max(0, x - 5)]) / 10                  // the slope, smoothed: no banding
+            g.save(); path(); g.clip()
+            for (let x = 0; x <= Wd; x++) {                                                          // the faces turned from the light go dark, softly, deeper toward their foot
+                const s = sl(x); if (s >= 0) continue
+                const a = Math.min(0.42, -s * 0.07), y = ys[x], sg = g.createLinearGradient(0, y, 0, Hd)
+                sg.addColorStop(0, `rgba(4,8,20,${(a * 0.55).toFixed(3)})`); sg.addColorStop(0.5, `rgba(4,8,20,${a.toFixed(3)})`); sg.addColorStop(1, 'rgba(4,8,20,0)')
+                g.fillStyle = sg; g.fillRect(x, y, 1, Hd - y)
+            }
+            for (let x = 0; x <= Wd; x++) {                                                          // those toward it catch the light along the top
+                const s = sl(x); if (s <= 0.15) continue
+                g.fillStyle = `rgba(${RIM},${(Math.min(0.3, s * 0.06) * rimA).toFixed(3)})`; g.fillRect(x, ys[x], 1, 10 + 10 * Math.min(1, s))
+            }
+            if (corries) {
+                for (const nx of corries) {                                                          // below each notch a corrie, in shadow, opening downward
+                    const y0 = ys[nx] + 3, wd = 34 + (Hd - y0) * 0.22, cg = g.createLinearGradient(0, y0, 0, Hd)
+                    cg.addColorStop(0, 'rgba(4,8,20,0.15)'); cg.addColorStop(0.6, 'rgba(4,8,20,0.07)'); cg.addColorStop(1, 'rgba(4,8,20,0)')
+                    g.fillStyle = cg; g.beginPath(); g.moveTo(nx - 2, y0); g.lineTo(nx + 2, y0); g.lineTo(nx + wd, Hd); g.lineTo(nx - wd, Hd); g.closePath(); g.fill()
+                }
+                for (let n = 0; n < 90; n++) {                                                       // scree and gullies, a few strokes each
+                    const x0 = 200 + rn() * 720, y0 = ys[Math.round(x0)] + 6 + rn() * 8, ln = (Hd - y0) * (0.25 + 0.3 * rn()), lean = (rn() - 0.5) * 14
+                    g.strokeStyle = 'rgba(4,8,20,0.17)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + lean * 0.3, y0 + ln * 0.5, x0 + lean, y0 + ln); g.stroke()
+                    g.strokeStyle = `rgba(${RIM},0.06)`; g.lineWidth = 1; g.beginPath(); g.moveTo(x0 + 1.5, y0); g.quadraticCurveTo(x0 + lean * 0.3 + 1.5, y0 + ln * 0.5, x0 + lean + 1.5, y0 + ln); g.stroke()
+                }
+            }
+            if (gullies) for (const p of gullies) for (const side of [-1, 1]) for (let k = 0; k < 4; k++) {   // gullies down the faces from near the summit
+                const w = side < 0 ? p[2] : p[3], x0 = p[0] + side * (2 + k * 4), x1 = p[0] + side * w * (0.2 + 0.11 * k + rn() * 0.05)
+                const y0 = ys[Math.round(clamp(x0, 0, Wd))] + 4, y1 = y0 + (Hd - y0) * (0.4 + 0.12 * rn())
+                g.strokeStyle = 'rgba(4,8,20,0.2)'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + side * w * 0.04, (y0 + y1) / 2, x1, y1); g.stroke()
+                g.strokeStyle = `rgba(${RIM},0.07)`; g.lineWidth = 1; g.beginPath(); g.moveTo(x0 + 1.5, y0); g.quadraticCurveTo(x0 + side * w * 0.04 + 1.5, (y0 + y1) / 2, x1 + 1.5, y1); g.stroke()
+            }
+            g.restore()
+            for (let x = 1; x <= Wd; x++) {                                                          // the edge: a thread of light, brightest where the face looks to it
+                g.strokeStyle = `rgba(${RIM2},${(RK * rimA * (0.18 + 0.82 * clamp(sl(x) / 2.5, 0, 1))).toFixed(3)})`; g.lineWidth = 1.1
+                g.beginPath(); g.moveTo(x - 1, ys[x - 1]); g.lineTo(x, ys[x]); g.stroke()
+            }
+        }
+        const veil = (a) => { g.save(); g.globalCompositeOperation = 'source-atop'; const m = g.createLinearGradient(0, Hd * 0.2, 0, Hd); m.addColorStop(0, 'rgba(150,166,190,0)'); m.addColorStop(1, `rgba(150,166,190,${a})`); g.fillStyle = m; g.fillRect(0, 0, Wd, Hd); g.restore() }
+        // A SMALLER, TAMER island: low rolling hills along the coast, and a few peaks standing off beyond them, pale in the haze (the Cuillin, a long way off)
+        const PK = [[0, 0], [300, 0], [372, .5], [392, .46], [420, .8], [452, .62], [480, .7], [520, .98], [548, .86], [575, .92], [610, .55], [650, .72], [690, .9], [722, .6], [770, .34], [830, 0], [1100, 0]]
+        layer(ridge(PK.map(([x, h]) => [x, h]), 47), 47, 210, Hd - 40, 'rgb(92,108,142)', 'rgb(76,92,126)', 0.6)
+        veil(0.3)
+        // the hills behind the coast, domed and broad
+        layer([[210, .5, 210, 170, .8], [470, .66, 190, 230, .85], [720, .56, 230, 190, .8], [930, .42, 170, 190, .8]], 11, 130, Hd + 14, 'rgb(40,54,82)', 'rgb(30,42,68)', 0.9)
+        veil(0.2)
+        // the coast itself: low, rolling, the nearest and darkest
+        layer([[120, .3, 170, 150, .75], [350, .4, 160, 150, .8], [590, .33, 170, 190, .75], [830, .42, 180, 160, .8], [1010, .26, 120, 100, .8]], 83, 80, Hd + 8, 'rgb(28,40,62)', 'rgb(20,30,50)', 0.7)
+        const mist = g.createLinearGradient(0, Hd * 0.66, 0, Hd)                                  // its foot in the mist
+        g.globalCompositeOperation = 'destination-out'; mist.addColorStop(0, 'rgba(0,0,0,0)'); mist.addColorStop(1, 'rgba(0,0,0,1)')
+        g.fillStyle = mist; g.fillRect(0, Hd * 0.66, Wd, Hd * 0.34)
+        return c
+    }
     ;(function loadSkye() {
-        const img = new Image()
-        img.onload = () => {
+        {
+            const img = paintSkye()
             const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
             const g = c.getContext('2d'); g.drawImage(img, 0, 0)
             const d = g.getImageData(0, 0, c.width, c.height).data
@@ -252,13 +347,13 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
             for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
                 if (d[(y * c.width + x) * 4 + 3] > 8) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
             }
-            if (x1 <= x0) return
+            if (x1 > x0) {
             skye.crop = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }
             skye.img = img
             skye.tint = document.createElement('canvas'); skye.tint.width = skye.crop.w; skye.tint.height = skye.crop.h
             skye.occ = document.createElement('canvas'); skye.occ.width = skye.crop.w; skye.occ.height = skye.crop.h
+            }
         }
-        img.src = C.landmark.src
     })()
 
     function drawSkye(t, hor, top) {
@@ -267,6 +362,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         const { x, y, w, h } = skye.crop
         const dw = W * C.landmark.w, dh = dw * h / w
         const X = W * C.landmark.x - dw / 2, Y = yH - dh + 1
+        skye.box = { X, Y, dw, dh }
         // The land is there before it can be seen: its silhouette, filled with
         // the sky behind it, hides the stars from the first frame -- a patch
         // of starless sky that becomes the island as the light comes.
@@ -279,7 +375,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
             const grad = og.createLinearGradient(0, 0, 0, h)
             grad.addColorStop(0, rgb(skyAtY(Y))); grad.addColorStop(1, rgb(skyAtY(Y + dh)))
             og.fillStyle = grad; og.fillRect(0, 0, w, h)
-            ctx.save(); ctx.imageSmoothingEnabled = false
+            ctx.save(); ctx.imageSmoothingEnabled = true
             ctx.drawImage(skye.occ, X, Y, dw, dh)
             ctx.restore()
         }
@@ -288,11 +384,157 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         tg.globalCompositeOperation = 'source-over'
         tg.clearRect(0, 0, w, h); tg.drawImage(skye.img, x, y, w, h, 0, 0, w, h)
         tg.globalCompositeOperation = 'source-atop'                   // the haze
-        tg.fillStyle = rgb(mixRGB(hor, [30, 32, 58], 0.35), 0.62 - 0.3 * smooth(0.8, 1, t))
+        tg.fillStyle = rgb(mixRGB(hor, [30, 32, 58], 0.35), 0.6 - 0.42 * smooth(0.5, 0.95, t))
         tg.fillRect(0, 0, w, h)
-        ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = a
+        ctx.save(); ctx.imageSmoothingEnabled = true; ctx.globalAlpha = a
         ctx.drawImage(skye.tint, X, Y, dw, dh)
         ctx.restore()
+    }
+
+    // ── the weather turning, on the way in ───────────────────────────────────
+    // Cloud gathers on the summit and rain curtains hang from it (under the island's own haze, over the water), then the light goes
+    // out of the gold, and in the last seconds a thin rain crosses the whole view: the rain at the landing is what you rowed into.
+    const SQ = { cap: Array.from({ length: 7 }, (_, i) => ({ u: (i + 0.5) / 7 + rnd(-0.05, 0.05), r: rnd(0.12, 0.22), y: rnd(0.0, 0.3), sp: rnd(0.02, 0.05), a: rnd(0.6, 1) })),
+                 cur: Array.from({ length: 4 }, (_, i) => ({ u: 0.22 + i * 0.19 + rnd(-0.04, 0.04), w: rnd(0.15, 0.24), a: rnd(0.7, 1), st: Array.from({ length: 14 }, () => ({ x: Math.random(), ph: Math.random(), l: rnd(0.12, 0.3) })) })),
+                 rain: Array.from({ length: 110 }, () => ({ x: Math.random(), ph: Math.random(), l: rnd(0.03, 0.08), a: rnd(0.4, 1) })) }
+    function drawSquall(now, t, hor) {
+        const Q = C.squall; if (!Q || !skye.box) return
+        const k = smooth(Q.from, 0.97, t); if (k <= 0.01) return
+        const { X, Y, dw, dh } = skye.box, tt = now / 1000
+        const grey = mixRGB(hor, [150, 158, 174], 0.7), dark = mixRGB(hor, [54, 60, 76], 0.75)
+        // the curtains: from the cloud down to the water, slanting with the wind, streaked
+        for (const c of SQ.cur) {
+            const cx = X + dw * c.u, wd = dw * c.w, top = Y + dh * 0.08, bot = yH + 1, sl = wd * 0.35, a = 0.5 * c.a * smooth(0.12, 0.8, k)
+            const hx = ctx.createLinearGradient(-wd / 2, 0, wd / 2, 0), dk = rgb(dark, 1); hx.addColorStop(0, rgb(dark, 0)); hx.addColorStop(0.3, dk); hx.addColorStop(0.7, dk); hx.addColorStop(1, rgb(dark, 0))
+            ctx.save(); ctx.beginPath(); ctx.rect(cx - wd, top, wd * 2 + sl, bot - top); ctx.clip(); ctx.fillStyle = hx
+            const N = 24, sh = (bot - top) / N
+            for (let i = 0; i < N; i++) {                                                         // slices: faded at the cloud, thickest under it, thinning to the water
+                const f = (i + 0.5) / N, v = Math.sin(Math.min(1, f * 1.6) * Math.PI / 2) * (1 - 0.45 * f)
+                ctx.globalAlpha = a * v; ctx.save(); ctx.translate(cx + sl * f, 0); { const y0 = Math.round(top + i * sh), y1 = Math.round(top + (i + 1) * sh); ctx.fillRect(-wd / 2, y0, wd, y1 - y0) }; ctx.restore()
+            }
+            ctx.globalAlpha = 1
+            ctx.strokeStyle = rgb(mixRGB(hor, [230, 234, 242], 0.6), 0.22 * k); ctx.lineWidth = 1; ctx.beginPath()
+            for (const s of c.st) {
+                const y = top + (((tt * 0.9 + s.ph) % 1) * (bot - top + 30)) - 30, f = (y - top) / (bot - top), xx = cx - wd / 2 + s.x * wd + sl * f
+                ctx.moveTo(xx, Math.max(top, y)); ctx.lineTo(xx + sl * 0.12, Math.min(bot, y + s.l * (bot - top)))
+            }
+            ctx.stroke(); ctx.restore()
+        }
+        // the cloud on the summit: soft, slow
+        for (const c of SQ.cap) {
+            const cx = X + dw * (c.u + 0.02 * Math.sin(tt * c.sp * 6 + c.u * 9)), cy = Y + dh * (0.12 + c.y), r = dw * c.r
+            ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.36)
+            const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, r); cg.addColorStop(0, rgb(grey, 0.62 * c.a * k)); cg.addColorStop(0.6, rgb(grey, 0.3 * c.a * k)); cg.addColorStop(1, rgb(grey, 0))
+            ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+        }
+    }
+    // ── the weather above: wind that rises as the crossing goes on (windU), carrying the mist, the cloud and the patches of light all the same way (to the
+    // left, with the rain's slant). Under it the water stays still: the hush. ─────────────────────────────────────────────────────────────────────────
+    let windU = 0, windLast = 0
+    function windStep(now, t) { const dt = windLast ? Math.min(0.1, (now - windLast) / 1000) : 0; windLast = now; windU += dt * (0.5 + 2.5 * smooth(0.3, 0.95, t)) }
+    const N2 = Array.from({ length: 256 }, () => rnd(0, 1))
+    const n2 = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy)
+        const h = (a, b) => N2[(((a * 57 + b * 131) % 256) + 256) % 256]; return (h(ix, iy) * (1 - u) + h(ix + 1, iy) * u) * (1 - v) + (h(ix, iy + 1) * (1 - u) + h(ix + 1, iy + 1) * u) * v }
+    // where the light is lying on the world at (x, y): ragged patches, sliding left as the wind takes the cloud over
+    const patchAt = (x, y) => smooth(0.4, 0.64, n2((x + windU * 30) * 0.0036, y * 0.0055) * 0.62 + n2((x + windU * 30) * 0.009 + 7, y * 0.013 + 3) * 0.38)
+    // ── mist: low banks drifting over the water, thickening as the island nears (C.mist: {from, to, alpha}) ─────────────────────────────────────────────
+    const MIST = Array.from({ length: 8 }, (_, i) => ({ u: i / 8 + rnd(-0.04, 0.04), y: rnd(0.02, 1), w: rnd(0.4, 0.8), sp: -rnd(0.35, 1), a: rnd(0.55, 1) }))
+    function drawMist(now, t, hor) {
+        const M = C.mist; if (!M) return
+        const k = smooth(M.from, M.to, t) * M.alpha; if (k <= 0.01) return
+        const water = H - yH, col = mixRGB(hor, [212, 224, 228], 0.5)
+        for (const m of MIST) {
+            const u = (((m.u + windU * 0.008 * m.sp) % 1.5) + 1.5) % 1.5 - 0.25, cy = yH - H * 0.012 + water * 0.5 * m.y * m.y
+            const rx = W * m.w * (0.5 + 0.9 * m.y), ry = Math.max(6, rx * (0.05 + 0.05 * m.y)), a = k * m.a * (0.55 + 0.45 * m.y)
+            ctx.save(); ctx.translate(u * W, cy); ctx.scale(1, ry / rx)
+            const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, rgb(col, 0.5 * a)); gr.addColorStop(0.55, rgb(col, 0.22 * a)); gr.addColorStop(1, rgb(col, 0))
+            ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+        }
+    }
+    // ── cloud, and the light through it. A dark bank across the sky; the beams are PARALLEL shafts coming down from above the top of the screen, all at one
+    // angle, each passing through a gap in the cloud that glows; patches of light slide along them. A brief flare when the light first breaks.
+    // C.clouds {from, to, alpha}; C.beams {from, to, alpha, angle, n} ─────────────────────────────────────────────────────────────────────────────────
+    const CLOUD = Array.from({ length: 22 }, (_, i) => ({ u: (i + 0.5) / 22 * 1.3 - 0.15 + rnd(-0.03, 0.03), v: rnd(0.02, 0.8), rx: rnd(0.14, 0.38), ry: rnd(0.05, 0.12), sp: -rnd(0.4, 1), a: rnd(0.6, 1) }))
+    // the light comes in EVENTS, not a regular row: a couple of fleeting shafts, then one dramatic one that finds the boat and fades away on the wind. All at one angle.
+    // C.beams.events: [{ at (s), dur (s), x (screen fraction) or aim: 'boat', w (width fraction), g (strength) }]
+    let BEAMS = []                                                                                 // those alive now: { x (where it crosses y = -30), w, g, aim }
+    const beamX = (b, y, th) => b.x + (y + 30) * Math.tan(th)                                       // where beam b crosses height y
+    function beamsNow(t) {
+        const B = C.beams; BEAMS = []; if (!B?.events) return
+        const th = B.angle ?? -0.17, ts = t * JOURNEY_S
+        for (const e of B.events) {
+            const u = (ts - e.at) / e.dur; if (u < 0 || u > 1) continue
+            const cross = e.aim === 'cross'                                                         // the big one sweeps across the boat's path, brightest as it crosses, and moves on
+            const g = e.g * (cross ? smooth(0, 0.38, u) * (1 - smooth(0.46, 0.85, u)) : smooth(0, 0.35, u) * (1 - smooth(0.4, 1, u)))
+            let x = e.x * W - u * e.dur * W * 0.06, by = 0
+            if (cross) { const bp = proj(xBoat, 0, zBoat); x = bp.x - (bp.y + 30) * Math.tan(th) - (u - 0.45) * W * 1.1; by = bp.y }
+            BEAMS.push({ x, w: e.w, g, u, cross, key: e, by })
+        }
+    }
+    function drawClouds(now, t, hor, top) {
+        const Cl = C.clouds; if (!Cl) return
+        const k = smooth(Cl.from, Cl.to, t) * Cl.alpha; if (k <= 0.01) return
+        const dark = mixRGB(mixRGB(top, hor, 0.5), [30, 42, 56], 0.65), th = C.beams ? C.beams.angle : -0.17
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, yH + 1); ctx.clip()
+        for (const c of CLOUD) {
+            const x = (((c.u + windU * 0.012 * c.sp) % 1.5) + 1.5) % 1.5 * W - 0.2 * W, y = c.v * yH
+            const rx = c.rx * W, ry = Math.max(8, c.ry * yH * 1.6)
+            let gap = 9; for (const b of BEAMS) gap = Math.min(gap, Math.abs(x - beamX(b, y, th)) / (W * 0.1) + (1 - Math.min(1, b.g)) * 1.5)
+            const a = k * c.a * smooth(0.5, 1.5, gap)                                                // the puffs open where a beam comes through
+            if (a <= 0.01) continue
+            ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx)
+            const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+            cg.addColorStop(0, rgb(dark, 0.7 * a)); cg.addColorStop(0.6, rgb(dark, 0.36 * a)); cg.addColorStop(1, rgb(dark, 0))
+            ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+        }
+        ctx.restore()
+    }
+    // Light through the weather, DIFFUSE: hardly a shaft at all, a lightness in the air; mostly it is seen where it lies on the sea, turning a wide patch of the grey to silver.
+    function drawBeams(now, t) {
+        const B = C.beams; if (!B) return
+        beamsNow(t); if (!BEAMS.length) return
+        const th = B.angle ?? -0.17, al = B.alpha ?? 1, SIL = '236,243,246'
+        const dx = Math.sin(th), dy = Math.cos(th), NS = 28, yG = yH * 0.3
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'
+        for (const b of BEAMS) {
+            const on = b.g * al; if (on < 0.01) continue
+            const wTop = W * b.w, yE = b.cross ? Math.min(H, b.by) : yH + (H - yH) * 0.3, L = (yE + 30) / dy
+            const x0 = b.x
+            const gx = x0 + (yG + 30) * Math.tan(th)                                                 // a soft brightening where the cloud lets it through
+            ctx.save(); ctx.translate(gx, yG); ctx.scale(1, 0.4); const gr = W * 0.22, gg = ctx.createRadialGradient(0, 0, 0, 0, 0, gr)
+            gg.addColorStop(0, `rgba(${SIL},${(0.26 * on).toFixed(3)})`); gg.addColorStop(1, `rgba(${SIL},0)`); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+            for (let i = 0; i < NS; i++) {                                                           // the shaft itself: wide, faint, edges melting away, patchy
+                const s0 = i / NS, s1 = (i + 1) / NS, sm = (s0 + s1) / 2, cx = x0 + dx * L * sm, cy = -30 + dy * L * sm
+                const a = 0.11 * on * (0.35 + 0.65 * patchAt(cx, cy)) * smooth(0, 0.3, sm) * (1 - 0.5 * sm); if (a < 0.002) continue
+                const w0 = wTop * (1 + 0.8 * s0) / dy, w1 = wTop * (1 + 0.8 * s1) / dy, ax = x0 + dx * L * s0, ay = -30 + dy * L * s0, ex = x0 + dx * L * s1, ey = -30 + dy * L * s1
+                for (const f of [1, 0.78, 0.56, 0.36, 0.18]) {
+                    ctx.fillStyle = `rgba(${SIL},${(a * 0.34).toFixed(3)})`
+                    ctx.beginPath(); ctx.moveTo(ax - w0 * f, ay); ctx.lineTo(ax + w0 * f, ay); ctx.lineTo(ex + w1 * f, ey); ctx.lineTo(ex - w1 * f, ey); ctx.closePath(); ctx.fill()
+                }
+            }
+            // where it lies on the sea: a wide pool, no edge to speak of, and a fainter wider one round it
+            const px = x0 + dx * L, pk = patchAt(px, yE) * 0.5 + 0.5
+            for (const [rw, ry, pa] of [[W * 0.7, 0.09, 0.24], [W * 0.45, 0.1, 0.3], [W * 0.26, 0.09, 0.14]]) {
+                ctx.save(); ctx.translate(px, yE); ctx.scale(1, ry * 1.3); const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, rw)
+                const q = (pa * on * pk).toFixed(3); pg.addColorStop(0, `rgba(${SIL},${q})`); pg.addColorStop(0.5, `rgba(${SIL},${(q * 0.45).toFixed(3)})`); pg.addColorStop(1, `rgba(${SIL},0)`)
+                ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(0, 0, rw, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+            }
+        }
+        ctx.restore()
+    }
+    // over everything: the gold going out of the light, and a thin rain across the view
+    function drawSquallLate(now, t) {
+        const Q = C.squall; if (!Q) return
+        const k = smooth(Q.from + 0.1, 1, t); if (k <= 0.01) return
+        ctx.fillStyle = `rgba(52,60,78,${(0.32 * k).toFixed(3)})`; ctx.fillRect(0, 0, W, H)
+        const r = smooth(0.84, 0.99, t); if (r <= 0.01) return
+        const tt = now / 1000, sl = H * 0.05
+        ctx.strokeStyle = `rgba(214,222,236,${(0.2 * r).toFixed(3)})`; ctx.lineWidth = 1; ctx.beginPath()
+        for (const s of SQ.rain) {
+            const y = (((tt * 0.8 + s.ph) % 1) * (H + 40)) - 20, x = s.x * (W + sl) - sl * (y / H)
+            if (s.a > 1 - r) { ctx.moveTo(x, y); ctx.lineTo(x - sl * 0.5 * s.l * 10, y + s.l * H) }
+        }
+        ctx.stroke()
     }
 
     // ── ripples ─────────────────────────────────────────────────────────────
@@ -428,7 +670,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         // edges. Tinted on its own small canvas -- source-atop on the main
         // canvas would flood the (opaque) background.
         const rimA = 0.15 + 0.7 * smooth(0.5, 1, t)
-        const rimCol = rgb(mixRGB(hor, [255, 240, 210], 0.35))
+        const rimCol = rgb(mixRGB(hor, C.rimWarm || [255, 240, 210], 0.35))
         if (!rower.tint) { rower.tint = document.createElement('canvas'); rower.tint.width = rower.w; rower.tint.height = rower.h }
         const tg = rower.tint.getContext('2d')
         tg.globalCompositeOperation = 'source-over'
@@ -574,7 +816,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
             if (p.y < yH + 1 || p.y > H + 4) continue
             // distant rings are drawn at a minimum size: the far sea glitters too
             const rx = Math.max(I.minPx || 0, m.r * (0.3 + age) * p.s * m.sq)
-            const flat = clamp(camH / Math.max(0.5, m.z - zCam) * 1.2, 0.14, 0.9)
+            const flat = clamp(camH / Math.max(0.5, m.z - zCam) * (I.flat ?? 1.2), I.flatMin ?? 0.14, I.flatMax ?? 0.9)     // squashed by perspective: a ring on the water seen at a low angle is an oval
             bins[Math.min(2, Math.floor(age * 3))].push([m.v, p.x, p.y, rx, rx * flat])
         }
         bins.forEach((list, b) => {
@@ -600,7 +842,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         const tt = now / 1000
         // From high above a curtain makes no sense: each one fades, and the
         // same squall is seen as a dark cell drifting over the sea below it.
-        const above = smooth(0.25, 0.75, goNow)
+        const above = V.above === false ? 0 : smooth(0.25, 0.75, goNow)
         for (const v of veils) {
             if (above > 0.01) {
                 const c = proj(v.x, 0, v.z)
@@ -941,7 +1183,7 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         const mid = CAM.mid ? smooth(CAM.mid.from / JOURNEY_S, CAM.mid.to / JOURNEY_S, t) : 0
         const behindNow = lerp(CAM.behind, CAM.mid ? CAM.mid.behind : CAM.behind, mid)
         if (C.followAll) zCam = zBoat - lerp(behindNow, CAM.behind2 ?? CAM.behind, go)   // stay with the boat, pulling back
-        else if (C.follow) zCam += HEAD * vBoat * dt * (1 - go)
+        else if (C.follow) { zCam += HEAD * vBoat * dt * (1 - go); if (CAM.lead) { const want = CAM.lead * go; zCam += HEAD * (want - leadDone); leadDone = want } }     // the camera runs ahead as it rises: the boat is out of frame a while
         camH = lerp(lerp(CAM.h1, CAM.mid ? CAM.mid.h : CAM.h1, mid), CAM.h2, go)
         if (C.ascent) camH = lerp(camH, C.ascent.h, smooth(C.ascent.from / JOURNEY_S, C.ascent.to / JOURNEY_S, t))
         camH += bob * (C.camRide || 0) * (1 - go)          // a camera out there rides the same swell
@@ -997,7 +1239,10 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         // stars behind it, in proportion to how solid it has become
         const vScreens = vortexScreens(now)
         if (C.stars) drawStars(now, t, vScreens)
+        windStep(now, t)
+        drawClouds(now, t, hor, top)
         drawSkye(t, hor, top)
+        drawSquall(now, t, hor)
         if (C.weather?.fog) {
             // a fog bank on the horizon, thickening: the island is lost in it
             const f = lerp(C.weather.fog[0], C.weather.fog[1], smooth(T.skye0, T.skye1, t))
@@ -1006,6 +1251,8 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
             g.addColorStop(0, rgb(fc, 0)); g.addColorStop(0.7, rgb(fc, f)); g.addColorStop(0.85, rgb(fc, f)); g.addColorStop(1, rgb(fc, 0))
             ctx.fillStyle = g; ctx.fillRect(0, yH - H * 0.2, W, H * 0.3)
         }
+        drawMist(now, t, hor)
+        drawBeams(now, t)
         drawRipples(now, t, hor)
         if (C.weather) drawWeather(now, dt, t, hor)
         if (C.weather?.veils) drawVeils(now, dt, t, hor)
@@ -1014,6 +1261,10 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
         drawDripsAndRings(now, dt)
         // the boat, the oars behind the rower, the rower, then the near oars
         if (Math.min(zBoat, zBoat + HEAD * BOAT.len) - zCam > 0.3) {   // until it has passed us
+            // seen from far off and only a little above the water the boat is foreshortened, more and more the farther it goes: squash it about its waterline
+            let sq = 1
+            if (CAM.flat && goNow > 0.01) { const dz = Math.max(1, zRow - zCam); sq = lerp(1, lerp(CAM.flat[0], CAM.flat[1], smooth(CAM.flat[2], CAM.flat[3], dz)), goNow) }
+            if (sq < 0.999) { const wp = proj(xBoat, 0, zRow); ctx.save(); ctx.translate(wp.x, wp.y); ctx.scale(1, sq); ctx.translate(-wp.x, -wp.y) }
             drawBoat(st, t, hor)
             drawOarOut(-1, st, zRow, t); drawOarOut(1, st, zRow, t)
             if (C.rowerView === 'back') {           // seen from behind, the body hides the handles
@@ -1023,7 +1274,9 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
                 drawRower(st, zRow, t, hor)
                 drawOarIn(-1, st, zRow, t); drawOarIn(1, st, zRow, t)
             }
+            if (sq < 0.999) ctx.restore()
         }
+        drawSquallLate(now, t)
         if (C.weather?.rain) drawRain(now, dt, hor)
 
         if (C.ascent) drawCloudsOver(elapsed / 1000)
@@ -1057,20 +1310,33 @@ export function createSeaWorld({ canvas, ctx, champion, tickSounds = () => {}, o
 // ── the journeys ─────────────────────────────────────────────────────────────
 // Times are seconds from the start. sky: [journey fraction, top, horizon].
 export const DAWN = {
-    journeyS: 36, still: [2, 8], act2: 10, act2Len: 3, landmarkIn: [13, 29],
-    landmark: { src: 'assets/skye2.png', x: 0.52, w: 0.46, fade: 'in' },
+    journeyS: 36, still: [2, 8], act2: 10, act2Len: 3, landmarkIn: [31, 36],
+    landmark: { x: 0.54, w: 0.95, fade: 'in' },
+    // Before the sun, and it never comes: black water and sky, easing to slate and a cold silver-green at the horizon. Mist gathers on the water
+    // and round the island (the Isle of Mist); curtains of weather stand off in the distance, and in the last seconds the mist comes down as
+    // drizzle -- the rain you land in.
     sky: [
         [0.00, '#03050b', '#0b1224'],
-        [0.40, '#080c24', '#1e2244'],
-        [0.68, '#1a2150', '#6a4a72'],
-        [0.86, '#3d5288', '#d98a78'],
-        [1.00, '#6f8cbc', '#f6c48a'],
+        [0.40, '#060c1a', '#13213a'],
+        [0.68, '#0e1b2a', '#27414f'],
+        [0.88, '#1b2e3b', '#4b6872'],
+        [1.00, '#2c4552', '#7d9aa1'],
     ],
-    stars: true, sun: true,
-    cam: { behind: 1.5, h1: 1.75, h2: 7.5, horizon1: 0.44, horizon2: 0.2 },
+    stars: true, sun: false,
+    rim: [160, 192, 204], rim2: [196, 220, 228], rimK: 0.4, rimWarm: [200, 224, 230],     // the cold light on the island's edge, and on the rower
+    mist: { from: 0.12, to: 0.82, alpha: 0.42 },
+    clouds: { from: 0.08, to: 0.55, alpha: 0.95 },                              // a bank of cloud, the wind aloft rising ...
+    beams: { alpha: 1, angle: -0.17, events: [                                   // ... and the light through it, in events: two faint ones, then one that sweeps over the boat's path and is gone
+        { at: 25, dur: 7, x: 0.3, w: 0.07, g: 0.4 }, { at: 28, dur: 7, x: 0.78, w: 0.08, g: 0.45 },
+        { at: 29, dur: 8, aim: 'cross', w: 0.1, g: 1 }] },
+    cam: { behind: 1.5, h1: 1.75, h2: 7.5, horizon1: 0.44, horizon2: 0.2, zoom2: 0.5, lead: 5, flat: [0.6, 0.24, 2, 40] },          // after the swoop the lens widens: the boat comes back small, alone on the open sea
     follow: true, heading: 1, startZ: 0, camZ: -1.5,
     rowerView: 'front', silhouette: 0.86,
-    weather: null,
+    weather: { swell: 0.1, swellS: 4.2, crestM: 4, crestSpeed: 0, crestA: 0.12, windX: -0.35, windZ: 0, rain: 0, fog: [0.1, 0.28],
+               front: { from: 25, to: 33, startDist: 70, endDist: 3.2, band: 0.05, bandGap: 0.09, bandShare: 0.08, ragged: 0.12 },
+               impacts: { perSec: 520, max: 700, lifeMs: 520, r: 0.1, near: 1.2, far: 90, alpha: 0.4, minPx: 1.2, flat: 0.5, flatMin: 0.08, flatMax: 0.45 },
+               veils: { count: 9, near: 30, far: 110, width: [16, 40], speed: 0.45, alpha: 0.55, streaks: 12, fall: 0.8, spread: 30, bend: [0.25, 0.9], above: false,
+                        grow: { from: 10, to: 30, alpha: [0.0, 1.2] } } },
 }
 
 // The return: Skye to Eire on a grey, windy, ominous day -- the dawn
@@ -1086,7 +1352,7 @@ export const RETURN = {
     // reaches us and the glass takes the splash, the rower large behind the
     // drops; ~28 s only then the rise, down to a speck; then the cloud.
     journeyS: 40, still: [999, 999], act2: 28, act2Len: 7, landmarkIn: [6, 32],
-    landmark: { src: 'assets/skye2.png', x: 0.5, w: 0.4, fade: 'out', fadeTo: 0.97 },
+    landmark: { x: 0.5, w: 0.55, fade: 'out', fadeTo: 0.97 },
     sky: [
         [0.00, '#5b6169', '#8c9299'],
         [0.50, '#4f555d', '#7c8289'],

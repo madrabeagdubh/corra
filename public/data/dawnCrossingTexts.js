@@ -5,13 +5,13 @@
 export const dawnCrossingTexts = {
     crossing: [
             {
-            ga: 'Fágaim chladach Éireann roimh éirí na gréinne',
+            ga: 'Fágaim cladach Éireann roimh éirí na gréinne',
             en: 'I leave the shore of Ireland before the dawn',
             speaker: 'hero',
         },
 
         {
-            ga: 'Fada an turas treasna an t-uisce',
+            ga: 'Fada an turas treasna an uisce',
             en: 'Long is the journey across the water',
             speaker: 'hero',
         },
@@ -26,7 +26,7 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
         {
-            ga: 'Ionúin dorchadas glas an t-uisce',
+            ga: 'Ionúin dorchadas glas an uisce',
             en: 'Beloved the water dark and green',
             speaker: 'hero',
         },
@@ -41,7 +41,7 @@ export const dawnCrossingTexts = {
             speaker: 'hero',
         },
               {
-            ga: '...go h-Oileánn an Cheo.',
+            ga: '...go hOileán an Cheo.',
             en: '...to the Isle of Skye.',
             speaker: 'hero',
         },

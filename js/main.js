@@ -1,5 +1,6 @@
 import './game/systems/worldBus.js'      // first: it must be in place before any AudioContext is made (bullet time muffles the world through it)
 import './game/systems/quality.js'       // the device tier, ?q= and ?fx= switches, ?perf=1 (it also stills the audio for ?fx=nosound)
+import './orientationGuard.js'      // portrait only: lock, a turning-phone cover when on its side, and the layout settled after a turn
 import Phaser from 'phaser'
 import './heroSelect.js'
 import BowTutorial from './game/scenes/locations/bowTutorial.js'

@@ -109,7 +109,7 @@ function ensureStyle() {
 #${STRIP} .hs-face{height:60px;width:auto;max-width:100%;image-rendering:pixelated}
 #${STRIP} .hs-ga{font-family:${TYPE.button.font};font-size:${TYPE.button.size};line-height:1.15;overflow-wrap:anywhere}
 #${STRIP} .hs-en{font-family:${FONTS.english};font-size:${TYPE.label.size};line-height:1.1;color:${COLORS.english}}
-#${TITLE}{position:fixed;z-index:999999;transform:translate(-50%,-100%);width:max-content;max-width:min(88vw,420px);
+#${TITLE}{position:fixed;z-index:999999;transform:translate(-50%,0);width:max-content;max-width:min(88vw,420px);
   text-align:center;pointer-events:none;font-family:${TYPE.heading.font};font-size:${TYPE.heading.size};line-height:1.25;
   color:${COLORS.irish};text-shadow:0 0 16px rgba(0,0,0,.95),0 0 4px rgba(0,0,0,.8);opacity:0;transition:opacity .8s ease .2s}
 #${TITLE}.on{opacity:1}
@@ -424,7 +424,7 @@ export function showHeroSlots() {
     }
     if (title) {
       title.style.left = g.cx + 'px'
-      title.style.top = (g.cy - g.d * 0.9) + 'px'
+      title.style.top = (g.cy + g.d * 0.66) + 'px'            // (below the moon: above it is the game's name)
     }
   }
   // fullscreen resizes the screen and the dial re-lays itself out: follow it
@@ -537,5 +537,6 @@ export function showHeroSlots() {
     setTimeout(() => { if (!gone) strip.classList.add('on') }, FADE_IN_DELAY_MS)
   })
 
+  window.__heroSlots = handle
   return handle
 }

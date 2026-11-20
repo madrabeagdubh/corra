@@ -157,6 +157,8 @@ export default class Landfall {
     flag.tileX = this.c.x; flag.tileY = this.c.y
     flag.hidden = false
 
+    // arriving from the crossing: the shore is up, so the sea may dissolve into it (slowly: the hail comes only after)
+    setTimeout(() => window.__crossingHandoff?.ready?.(), 500)
     this._script().catch(e => {
       console.error('[landfall] script failed:', e)
       this._toBlack().then(() => this._done())
@@ -283,6 +285,8 @@ export default class Landfall {
     const cap = this.scene._caption
     if (!cap || this.skipped) return
     cap.setColor(who === 'conall' ? CONALL : PLAYER)
+    // who is speaking, as on the dialogue cards: their little portrait over the line (none for a silent line)
+    if (line.ga.trim()) cap.setPortrait(who === 'conall' ? this.conall.zone.getData('portrait') : this.scene.perspectiveGround?._playerCanvas)
     cap.show(line.ga, line.en, hold)
   }
 

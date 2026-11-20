@@ -9,6 +9,12 @@
  *   });
  */
 
+// [enCurve] English opacity follows the moon's lit share on a curve, so it is only fully bright at the full moon.
+// The moon widget and the title sky convert at their edge (phase <-> opacity); everything else just sees an opacity.
+export const EN_CURVE = 2
+export const englishAlpha = (phase) => Math.pow(Math.max(0, Math.min(1, phase)), EN_CURVE)
+export const englishPhaseFromAlpha = (alpha) => Math.pow(Math.max(0, Math.min(1, alpha)), 1 / EN_CURVE)
+
 export const GameSettings = {
     englishOpacity:  0.15,
     lastMenuPanel:   'inventory',   // persists across open/close

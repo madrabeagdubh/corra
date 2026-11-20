@@ -370,6 +370,11 @@ export function initHeroSelect() {
 // (tutorialOrAdventure) with that champion: the card select is not needed. A saved hero chosen over the moon takes the
 // sky down (registerFrontAbort) and goes on as before.
 async function startSkyFront(heroSlots) {
+    window.__hideFrontLoader = () => {
+        const loader = document.getElementById('starfieldLoader'); if (!loader || loader.dataset.going) return
+        loader.dataset.going = '1'; loader.style.transition = 'opacity 0.6s ease'; loader.style.opacity = '0'
+        setTimeout(() => { loader.style.display = 'none'; try { window.stopStarfield?.() } catch (e) {} }, 650)
+    }
     const { initStarSky } = await import('./starSky.js');
     let sky = null, chosen = false, constellationsSeen = false;
     // on to the road with the champion, their tune starting (the road brings in the rest of the session)
@@ -378,13 +383,17 @@ async function startSkyFront(heroSlots) {
             if (!musicPlayer) musicPlayer = getPrewarmedPlayer() || new TradSessionPlayer();
             playChampionTune(getTuneKeyForChampion(champ));
         } catch (e) { console.warn('[skyFront] tune:', e); }
-        import('./tutorialOrAdventure.js').then(m => m.initTutorialOrAdventure(champ, sliderValue, amerginLine));
+        import('./tutorialOrAdventure.js').then(m => {
+            // a returning player is offered the road (Training / Bog); a first-time player goes straight on to the dawn crossing
+            if (m.isReturning()) m.initTutorialOrAdventure(champ, sliderValue, amerginLine); else m.skipToCrossing(champ);
+        });
     };
     const open = (opening) => {
         chosen = false;
         sky = initStarSky({
             champions, stand: 'court3d', opening, englishOpacity: GameSettings.englishOpacity ?? 0.2,
             onWake: () => { try { heroSlots.dismiss(); } catch (e) {} unlockAudio(); },
+            onReady: () => window.__hideFrontLoader?.(),
             onChoose: (champ, sign) => {
                 if (chosen) return; chosen = true;
                 registerFrontAbort(null); window.__frontMoonGeometry = null;
@@ -414,7 +423,8 @@ async function startSkyFront(heroSlots) {
     // the road's moon, tapped, comes back here: the sky again, straight to the champions (tutorialOrAdventure.js)
     window.__frontBack = () => { try { musicPlayer?.stop?.(); } catch (e) {} open(false); };
     try { window.stopStarfield?.(); } catch (e) {}
-    const loader = document.getElementById('starfieldLoader'); if (loader) setTimeout(() => { loader.style.display = 'none'; }, 400);
+    // the loader stays until the sky is running smoothly (starSky's onReady), so the name's first animation is seen; six seconds at most
+    setTimeout(() => window.__hideFrontLoader?.(), 6000);
 }
 
 function initMainHeroSelect() {

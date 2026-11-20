@@ -17,6 +17,14 @@
      font-family: 'IrishPenny';
      src: url('../public/assets/fonts/IrishPenny.ttf') format('truetype');
    }
+   @font-face {
+     font-family: 'UncialAntiqua';
+     src: url('../public/assets/fonts/UncialAntiqua.ttf') format('truetype');
+   }
+   @font-face {
+     font-family: 'RussoOne';
+     src: url('../public/assets/fonts/RussoOne.ttf') format('truetype');
+   }
   
 
 

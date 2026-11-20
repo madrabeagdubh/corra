@@ -6,6 +6,7 @@ import { GameSettings } from '../settings/gameSettings.js';
 import { createMoonWidget } from '../ui/moonWidget.js';
 import { createContrast } from '../ui/textContrast.js';
 import { createSeaWorld, DAWN } from './crossing/seaWorld.js';
+import { RainSound } from '../systems/weatherAudio.js';
 
 const clamp  = (x, a, b) => x < a ? a : x > b ? b : x;
 
@@ -416,31 +417,24 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
         moonWidget.destroy();
 
 
-        if (boatAC) {
-            try {
-                if (masterOut) {
-                    masterOut.gain.setValueAtTime(masterOut.gain.value, boatAC.currentTime);
-                    masterOut.gain.linearRampToValueAtTime(0, boatAC.currentTime + 2.5);
-                }
-                setTimeout(() => { try { boatAC.close(); } catch(e){} }, 3000);
-            } catch(e) {}
+        // The handoff to the cladach is one continuous thing: no black, no spinner. The sea stays up (its drizzle, and the sound of the rain, going on) while
+        // the shore is built behind it; when the shore is ready, rained on and tilt-shifted with the hail begun (the cladach says so: __crossingHandoff.ready),
+        // the sea dissolves into it, and the sound of the sea's rain gives way to the shore's (which comes up slowly).
+        let fired = false, gone = false
+        const fadeOutSea = () => {
+            if (gone) return; gone = true
+            container.style.transition = 'opacity 3s ease'; container.style.opacity = '0'; container.style.pointerEvents = 'none'
+            if (boatAC && masterOut) { try { masterOut.gain.setValueAtTime(masterOut.gain.value, boatAC.currentTime); masterOut.gain.linearRampToValueAtTime(0, boatAC.currentTime + 3.2) } catch (e) {} }
+            setTimeout(() => {
+                cancelAnimationFrame(rafId); rainClosed = true
+                try { rainSnd?.destroy?.() } catch (e) {}
+                try { boatAC?.close() } catch (e) {}
+                container.remove(); window.__crossingHandoff = null
+            }, 3400)
         }
-
-        const veil = document.createElement('div');
-        veil.style.cssText = [
-            'position:fixed;inset:0;z-index:1000000;',
-            'background:#adb5be;opacity:0;transition:opacity 2.8s ease;pointer-events:none;',
-        ].join('');
-        document.body.appendChild(veil);
+        const ready = () => { if (fired) return; fired = true; setTimeout(fadeOutSea, 300) }
+        window.__crossingHandoff = { ready }
         setTimeout(() => {
-            cancelAnimationFrame(rafId);
-            requestAnimationFrame(() => { veil.style.opacity = '1'; });
-            transitionOut(2800);
-        }, 500);
-        setTimeout(() => {
-            container.remove();
-            veil.remove();
-            transitionIn();
             const gc = document.getElementById('gameContainer');
             if (gc) {
                 gc.style.display  = '';
@@ -449,20 +443,37 @@ export function initDawnCrossing(champion, sliderValue, onComplete) {
                 gc.style.inset    = '0';
                 gc.style.zIndex   = '999999';
             }
-            console.log('[dawnCrossing] calling onComplete, gameContainer:',
-                document.getElementById('gameContainer')?.style.display);
             if (onComplete) onComplete();
-        }, 3900);
+            // a cladach with no cut-scene to announce itself (a later visit): ready once the scene is up and still
+            const poll = setInterval(() => {
+                if (fired) return clearInterval(poll)
+                const sc = window.game?.scene?.getScene?.('skye_cladach')
+                if (sc && sc.player && sc._phase && sc._phase !== 'landfall' && window.game.scene.isActive('skye_cladach')) { clearInterval(poll); setTimeout(ready, 1200) }
+            }, 300)
+            setTimeout(() => { clearInterval(poll); ready() }, 15000)       // failsafe
+        }, 600);
     }
 
     // ── The crossing itself: the shared sea world (crossing/seaWorld.js) ──────
     // Everything visual -- the sea, the rower, the stroke, the ripples, Skye
     // rising out of the dawn -- is the DAWN journey there.
     const world = createSeaWorld({ canvas, ctx, champion, tickSounds, config: DAWN })
+    // The weather system's rain soundscape on this scene's own audio context (as the return crossing does): it rises with the drizzle, and goes on
+    // under the handoff to the cladach, so the rain is heard before the shore is seen.
+    let rainSnd = null, rainClosed = false
+    function tickRainSound() {
+        if (rainClosed || !boatAC || !masterOut) return
+        if (!rainSnd) {
+            rainSnd = new RainSound(null, { ctx: boatAC, out: masterOut, duck: false, global: false, prepare: true, water: 1,
+                source: () => ({ rain: world.rain, mist: 0.5, wind: 0.3 }) })
+        }
+        rainSnd.update('outdoor', 'Water')
+    }
     let rafId = null
     function draw(now) {
         rafId = requestAnimationFrame(draw)
         world.draw(now)
+        tickRainSound()
     }
 
     rafId = requestAnimationFrame(draw);

@@ -167,33 +167,11 @@ export function initConstellationScene(onComplete, startPhase, opts = {}) {
 }
 
 const CONSTELLATION_DATA = [
-   
-{ id: 'cu', starOffsets: [
-    { lx: -1.20, ly:  0.60 }, // 0 — rear haunches
-    { lx: -0.30, ly: -0.80 }, // 1 — back/spine
-    { lx:  0.60, ly: -0.50 }, // 2 — neck
-    { lx:  1.10, ly:  0.70 }, // 3 — nose/head down
-], connections: [
-    { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 },
-]},  { id: 'naomhog', starOffsets: [
+{ id: 'naomhog', starOffsets: [
         { lx:  1.37, ly: -0.10 }, { lx:  0.55, ly:  0.37 }, { lx:  0.13, ly: -0.07 },
         { lx: -0.64, ly: -0.02 }, { lx: -1.40, ly: -0.38 },
     ], connections: [
         { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
-    ]},
-    // [conReach] The Plough as it really is: its seven stars projected from their true sky
-    // positions (north up, east to the left), bowl to the right, handle curving down-left.
-    { id: 'carr', starOffsets: [
-        { lx:  1.19, ly: -0.67 },   // 0 Dubhe
-        { lx:  1.40, ly: -0.10 },   // 1 Merak
-        { lx:  0.63, ly:  0.37 },   // 2 Phecda
-        { lx:  0.26, ly:  0.02 },   // 3 Megrez
-        { lx: -0.34, ly:  0.12 },   // 4 Alioth
-        { lx: -0.83, ly:  0.15 },   // 5 Mizar
-        { lx: -1.40, ly:  0.67 },   // 6 Alkaid
-    ], connections: [
-        { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 0 },
-        { from: 3, to: 4 }, { from: 4, to: 5 }, { from: 5, to: 6 },
     ]},
     // [conReach] The Boar side-on, wider than tall (it was a tall diagonal, whose lowest
     // stars sat on the text band): snout and tusk right, bristled back, a leg fore and aft.
@@ -224,13 +202,6 @@ const CONSTELLATION_DATA = [
     ], connections: [
         { from: 0, to: 1 }, { from: 0, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
     ]},
-    { id: 'clairseach', starOffsets: [
-        { lx:  1.31, ly: -1.28 }, { lx:  0.45, ly: -0.77 }, { lx: -0.08, ly:  1.10 },
-        { lx: -1.07, ly:  1.40 }, { lx: -0.61, ly: -0.45 },
-    ], connections: [
-        { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 },
-        { from: 3, to: 4 }, { from: 4, to: 1 },
-    ]},
     { id: 'laoch', starOffsets: [
         { lx:  0.78, ly: -1.45 }, { lx:  0.21, ly: -1.03 }, { lx: -0.33, ly: -0.79 },
         { lx:  0.71, ly:  0.00 }, { lx: -0.74, ly:  0.11 }, { lx: -0.64, ly:  1.05 },
@@ -246,13 +217,10 @@ const SPIRAL_A = 550, SPIRAL_B = 0.9, SPIRAL_STEP = 1.45;   // the old spiral la
 // about two thirds of the screen's width on a phone, a third of its height). Anywhere is fine
 // as long as no two are closer than SKY_MIN_GAP -- checked at start-up, with a warning.
 const SKY_LAYOUT = {
-    cu:         [ 0.0,  0.0],   // the hound: straight ahead, where the poem left us
-    naomhog:    [ 1.6,  1.4],   // the curragh: low, riding the sea above the land
-    carr:       [ 1.2, -2.2],   // the chariot: high above the curragh
-    torc:       [-1.4,  0.9],   // the boar: below and west -- it rises into view
+    naomhog:    [ 0.0,  0.0],   // the curragh: straight ahead, where the poem left us (the first constellation now)
+    torc:       [ 0.0,  1.4],   // the boar: straight below the curragh -- it rises into view beneath it
     cuirt:      [-3.0,  2.0],   // Tethra's court: far west, low, near the land
     draoi:      [-0.6, -2.1],   // the druid: overhead
-    clairseach: [ 2.4, -0.6],   // the harp, with the new star
     laoch:      [ 3.4,  1.0],   // the hero
 };
 const SKY_MIN_GAP = 1.2;
@@ -273,12 +241,10 @@ const CON_HIT      = 0.09;   // of min(W, H): as in hitR()
 const SKY_MOVE_DEFAULT = { ms: 3000, ease: 'Cubic.easeInOut', arc: 0.28, via: null, wheel: 0 };
 const SKY_MOVES = {
     naomhog:    { ms: 3200, ease: 'Cubic.easeInOut', arc:  0.30, wheel:  14 },   // "And at sea?"
-    carr:       { ms: 4600, ease: 'Sine.easeInOut',  arc:  0.06 },               // the chariot revealed
-    torc:       { ms: 2300, ease: 'Cubic.easeInOut', arc: -0.22, wheel: -10 },   // the boar rises
+    torc:       { ms: 2600, ease: 'Cubic.easeInOut', arc: -0.08, wheel:   0 },   // the boar rises beneath
     cuirt:      { ms: 4200, ease: 'Quad.easeInOut',  arc:  0.18 },               // a heavy descent
     draoi:      { ms: 4800, ease: 'Sine.easeInOut',  arc:  0.20 },               // [plainPan] one long move
-    clairseach: { ms: 3800, ease: 'Sine.easeInOut',  arc:  0.12 },               // an uneasy drift
-    laoch:      { ms: 2000, ease: 'Cubic.easeInOut', arc: -0.30, wheel:  12 },   // the zip to the hero
+    laoch:      { ms: 3600, ease: 'Cubic.easeInOut', arc: -0.25, wheel:  12 },   // the long sweep to the hero
 };
 // Star-wheel degrees per px of sideways travel (the old sweep's rate).
 const SKY_WHEEL_PER_PX = 0.018;
@@ -730,7 +696,7 @@ export class ConstellationScene extends Phaser.Scene {
                 enEl.style.opacity = String(phase);
                 this._syncNightScape(phase);
 
-                if (!this._moonSwipeDone && !this._dialRan && phase > 0.5) {
+                if (!this._moonSwipeDone && !this._dialRan && phase > 0.25)   /* [enCurve] past a half moon */ {
                     this._moonSwipeDone = true;
                     clearInterval(this._lyricInterval);
                     requestFullscreenWithFade();
@@ -941,6 +907,7 @@ if (wrapper) {
                     this.time.delayedCall(ARRIVE_BEAT_MS, () => {
                         if (this._aborted) return;
                         landDown(false, true);
+                        this._firstWords = true; this.showWaitingTexts(this.constellations[0], () => {});   // [firstWords] the druid speaks as the land rises, before the first constellation is touched
                         const tk = { t: 0 }; let tileUp = false;
                         this.tweens.add({ targets: tk, t: 1, duration: ARRIVE_LAND_MS, ease: 'Cubic.easeInOut',
                             onUpdate: () => {
@@ -984,6 +951,23 @@ if (wrapper) {
                 if (this.moonOverlay) { this.moonOverlay.remove(); this.moonOverlay = null; }
             }, 1400);
         }, 2200);
+    }
+
+    /* [skyFront] A last shiver as the whirl comes to rest: we are still, in a way, looking through at a reflection of something far away. The whole view
+       heaves like water struck from beneath (zoom, tilt and, where the renderer has it, a lens that bulges and pinches), dying away over two seconds. */
+    _reflectWobble(cam, c) {
+        try {
+            let barrel = null
+            try { if (this.game.renderer.type === Phaser.WEBGL && cam.postFX) barrel = cam.postFX.addBarrel(1) } catch (e) { barrel = null }
+            const k = { t: 0 }
+            this.tweens.add({ targets: k, t: 1, duration: 2300, ease: 'Linear',
+                onUpdate: () => {
+                    const e = Math.exp(-2.6 * k.t), w = Math.sin(k.t * 21)
+                    cam.setZoom(1 + 0.11 * e * w); cam.setAngle(3.4 * e * Math.sin(k.t * 13 + 1))
+                    if (barrel) barrel.amount = 1 + 0.75 * e * Math.sin(k.t * 21 + 0.6)
+                },
+                onComplete: () => { cam.setZoom(1); cam.setAngle(0); try { if (barrel) cam.postFX.remove(barrel) } catch (e) { } } })
+        } catch (e) { console.warn('[introModal] wobble:', e) }
     }
 
     // ── _startPostSettleSequence ──────────────────────────────────────────────
@@ -1287,6 +1271,7 @@ if (wrapper) {
         this._hideDarkImage(false);
         this.currentIndex = idx;
         const panNow = this.time.now;
+        { const nc = this.constellations[idx]; if (nc && nc._appearAt === undefined) nc._appearAt = animate ? panNow : -1e9; }   // [appear]
         for (const c of this.constellations) {
             if (c.completed) for (const cn of c.connections) {
                 if (cn.completedAt !== null && cn.panStartTime === undefined) cn.panStartTime = panNow;
@@ -1450,18 +1435,19 @@ if (wrapper) {
         if (onComplete) onComplete();
     }
 
-    startSequencePulse() {
+    startSequencePulse(pulseDelay=0) {
         if (this.pulseTimer) { this.pulseTimer.remove(); this.pulseTimer=null; }
         this.pulseIdx=0; this._interactionStarted=true; this.canInteract=true;
         /* Nothing is said before the first constellation. The poem has just
            ended on "and lay their secrets bare before thy servant"; the druid
            and queen then wait in a still sky for the player to begin. Later
            constellations narrate as usual. */
-        if (this.currentIndex > 0)
+        if (this.currentIndex > 0 || !this._firstWords)
             this.showWaitingTexts(this.constellations[this.currentIndex], ()=>{});
-        this.runPulseStep();
-        // [starHint] the streak is a second, slower prompt on top of the pulse.
-        this._armHint(HINT_FIRST_MS);
+        // [appear] the pulse and the hint wait until the view has arrived (the words do not)
+        const _at = this.currentIndex;
+        const _go = () => { if (this.currentIndex !== _at || this.constellations[_at].completed || this._aborted) return; this.runPulseStep(); this._armHint(HINT_FIRST_MS); };
+        if (pulseDelay > 0) this.time.delayedCall(pulseDelay, _go); else _go();
     }
 
     runPulseStep() {
@@ -1754,7 +1740,8 @@ if (wrapper) {
                             this.currentIndex++;
                             if (this.currentIndex<this.constellations.length){
                                 this.panCameraTo(this.currentIndex,true);
-                                this.time.delayedCall(800,()=>this.startSequencePulse());
+                                const _mv={...SKY_MOVE_DEFAULT,...(SKY_MOVES[this.constellations[this.currentIndex].id]||{})};
+                                this.time.delayedCall(800,()=>this.startSequencePulse(Math.max(0,_mv.ms-800)));
                             } else { this.onAllComplete(); }
                         });
                     },
@@ -2062,6 +2049,10 @@ if (wrapper) {
         for (const c of this.constellations) {
             if (Math.hypot(c.wcx-(camX+this.W/2),c.wcy-(camY+this.H/2))>cullD) continue;
             const isActive=this.constellations[this.currentIndex]===c&&!c.completed;
+            // [appear] a constellation not yet reached is not drawn at all; it fades in as the view sets out for it
+            let ap=1;
+            if (!c.completed && this.constellations.indexOf(c)>0) { ap=c._appearAt===undefined?0:Math.min(1,(now-c._appearAt)/1800); ap=ap*ap*(3-2*ap); }
+            if (ap<=0) continue;
             for (const conn of c.connections) {
                 if (!conn.completed) continue;
                 const a=c.stars[conn.from], b=c.stars[conn.to];
@@ -2086,8 +2077,8 @@ if (wrapper) {
                     if (f>0) {this.worldG.fillStyle(0xbbddff,Math.min(0.35,0.12*f));this.worldG.fillCircle(star.wx,star.wy,6+f*5);}
                     this.worldG.fillStyle(0xcfe0f4,Math.min(1,0.55+f*0.2));this.worldG.fillCircle(star.wx,star.wy,2.0+f*0.8);
                 }
-                else if (isActive)   {this.drawActiveStar(star.wx,star.wy,star.brightness);}
-                else                 {this.worldG.fillStyle(0x6677aa,0.20);this.worldG.fillCircle(star.wx,star.wy,1.8);}
+                else if (isActive)   {this.drawActiveStar(star.wx,star.wy,star.brightness,ap);}
+                else                 {this.worldG.fillStyle(0x6677aa,0.20*ap);this.worldG.fillCircle(star.wx,star.wy,1.8);}
             }
         }
 
@@ -2119,9 +2110,9 @@ if (wrapper) {
         }
     }
 
-    drawActiveStar(wx,wy,br) {
+    drawActiveStar(wx,wy,br,k=1) {
         const cl=Math.min(br,2.5),coreR=2.0+cl*0.85,spike=coreR*(3.0+cl*0.8);
-        const alpha=0.6+Math.min(cl-1,1)*0.4,sw=Math.max(0.7,cl*0.5);
+        const alpha=(0.6+Math.min(cl-1,1)*0.4)*k,sw=Math.max(0.7,cl*0.5);
         this.worldG.fillStyle(0xbbddff,alpha*0.14); this.worldG.fillCircle(wx,wy,coreR*3.5);
         this.worldG.lineStyle(sw,0xffffff,alpha*0.5);
         this.worldG.lineBetween(wx-spike,wy,wx+spike,wy); this.worldG.lineBetween(wx,wy-spike,wx,wy+spike);

@@ -191,7 +191,7 @@ export function createGameMenuHub({
             const sBody  = document.createElement('div')
             sBody.style.cssText  = `font-family:${FONTS.english};font-size:0.78rem;color:${COLORS.uiDim};line-height:1.5;`
             const update = () => {
-                const useEn = GameSettings.englishOpacity >= 0.5
+                const useEn = GameSettings.englishOpacity >= 0.25   /* [enCurve] a half moon */
                 sTitle.textContent = useEn ? section.titleEn : section.titleGa
                 sBody.textContent  = useEn ? section.bodyEn  : section.bodyGa
             }
@@ -251,7 +251,7 @@ export function createGameMenuHub({
         })
 
         function refresh() {
-            const useEn = GameSettings.englishOpacity >= 0.5
+            const useEn = GameSettings.englishOpacity >= 0.25   /* [enCurve] a half moon */
             const chosen = quality.forced ? quality.tier : 'auto'
             title.textContent = useEn ? 'Graphics quality' : 'Cáilíocht grafaicí'
             hint.textContent = useEn
@@ -289,7 +289,7 @@ export function createGameMenuHub({
 
         container._refresh = () => {
             list.innerHTML = ''
-            const useEn = GameSettings.englishOpacity >= 0.5
+            const useEn = GameSettings.englishOpacity >= 0.25   /* [enCurve] a half moon */
             const entries = Object.entries(QUEST_REGISTRY)
                 .map(([id, text]) => ({ id, text, status: GameState.getQuest(id) }))
                 .filter(q => q.status !== 'inactive')

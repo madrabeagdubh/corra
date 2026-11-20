@@ -316,6 +316,7 @@ export default class Joystick {
     this._onFsChange = () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement)
       this._fsIcon.style.display = isFs ? 'none' : 'flex'
+      if (!isFs && this._root.style.opacity !== '0') this._fsIcon.style.opacity = '1'   // [fsBack] it may never have been faded in
       setTimeout(_reposition, 300)
       setTimeout(_reposition, 600)
     }

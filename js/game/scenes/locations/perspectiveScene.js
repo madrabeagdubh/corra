@@ -390,6 +390,7 @@ if (this.perspectiveGround) this.perspectiveGround.update()
     if (!this._rainSound && this.getRainSound?.() !== false && quality.fx('rainsound')) this._rainSound = new RainSound(this)
     if (this._rainSound) {
       this._rainSound.quality = quality.get().rainSound            // (a weak phone is spared the minor layers and the single drops)
+      this._rainSound.scale = this.getRainScale?.() ?? 1            // (a map may keep it lower: the cladach's, under the music)
       this._rainSound.update(
         this._weatherVeil ? 'outdoor' : (this.getCloudShadows?.() === false ? 'roof' : 'none'),
         this.terrainManager?.currentTerrain?.name)

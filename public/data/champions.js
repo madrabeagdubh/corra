@@ -1,6 +1,8 @@
+// [sprites87] pictures re-paired with names; each changed champion keeps its old id (undo: patch_front87.py --undo)
 export const champions = [
   {
-    "spriteKey": "001.png",
+    "spriteKey": "025.png",
+    "id": "001.png|Tassach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tassach",
@@ -39,7 +41,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "003.png",
+    "spriteKey": "009.png",
+    "id": "003.png|Fionn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fionn",
@@ -59,7 +62,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "004.png",
+    "spriteKey": "104.png",
+    "id": "004.png|Gormán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gormán",
@@ -79,7 +83,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "005.png",
+    "spriteKey": "305.png",
+    "id": "005.png|Conlaodh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conlaodh",
@@ -139,7 +144,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "008.png",
+    "spriteKey": "117.png",
+    "id": "008.png|Beag",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Beag",
@@ -159,7 +165,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "009.png",
+    "spriteKey": "204.png",
+    "id": "009.png|Rós",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rós",
@@ -219,7 +226,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "012.png",
+    "spriteKey": "093.png",
+    "id": "012.png|Sadhbh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sadhbh",
@@ -239,7 +247,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "014.png",
+    "spriteKey": "180.png",
+    "id": "014.png|Áine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áine",
@@ -259,7 +268,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "015.png",
+    "spriteKey": "001.png",
+    "id": "015.png|Ceara",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ceara",
@@ -279,7 +289,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "016.png",
+    "spriteKey": "182.png",
+    "id": "016.png|Lomán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lomán",
@@ -299,7 +310,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "017.png",
+    "spriteKey": "187.png",
+    "id": "017.png|Aodnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Aodnait",
@@ -319,7 +331,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "018.png",
+    "spriteKey": "127.png",
+    "id": "018.png|Rúadhnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rúadhnait",
@@ -339,7 +352,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "019.png",
+    "spriteKey": "184.png",
+    "id": "019.png|Gráinne",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Gráinne",
@@ -379,7 +393,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "021.png",
+    "spriteKey": "022.png",
+    "id": "021.png|Téide",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Téide",
@@ -399,7 +414,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "022.png",
+    "spriteKey": "277.png",
+    "id": "022.png|Flann",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Flann",
@@ -439,7 +455,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "024.png",
+    "spriteKey": "299.png",
+    "id": "024.png|Dearbhail",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dearbhail",
@@ -459,7 +476,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "025.png",
+    "spriteKey": "021.png",
+    "id": "025.png|Éimhín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éimhín",
@@ -479,7 +497,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "026.png",
+    "spriteKey": "124.png",
+    "id": "026.png|Fechín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fechín",
@@ -499,7 +518,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "027.png",
+    "spriteKey": "298.png",
+    "id": "027.png|Muadhnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muadhnait",
@@ -519,7 +539,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "028.png",
+    "spriteKey": "041.png",
+    "id": "028.png|Breasal",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Breasal",
@@ -559,7 +580,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "030.png",
+    "spriteKey": "260.png",
+    "id": "030.png|Bláthnaid",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bláthnaid",
@@ -599,7 +621,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "069.png",
+    "spriteKey": "145.png",
+    "id": "069.png|Orthanach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Orthanach",
@@ -659,7 +682,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "035.png",
+    "spriteKey": "283.png",
+    "id": "035.png|Éibhleann",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éibhleann",
@@ -679,7 +703,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "036.png",
+    "spriteKey": "175.png",
+    "id": "036.png|Tuathal",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tuathal",
@@ -699,7 +724,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "037.png",
+    "spriteKey": "194.png",
+    "id": "037.png|Ógán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ógán",
@@ -719,7 +745,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "038.png",
+    "spriteKey": "026.png",
+    "id": "038.png|Odhrán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Odhrán",
@@ -739,7 +766,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "039.png",
+    "spriteKey": "096.png",
+    "id": "039.png|Onchú",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Onchú",
@@ -779,7 +807,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "041.png",
+    "spriteKey": "048.png",
+    "id": "041.png|Saorla",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saorla",
@@ -799,7 +828,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "042.png",
+    "spriteKey": "030.png",
+    "id": "042.png|Deasmumhnach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Deasmumhnach",
@@ -819,7 +849,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "043.png",
+    "spriteKey": "250.png",
+    "id": "043.png|Tighearnán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tighearnán",
@@ -839,7 +870,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "044.png",
+    "spriteKey": "304.png",
+    "id": "044.png|Bearach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Bearach",
@@ -879,7 +911,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "046.png",
+    "spriteKey": "012.png",
+    "id": "046.png|Seanchán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Seanchán",
@@ -918,7 +951,8 @@ export const champions = [
     "themeTuneTitle": "Donnybrook Fair"
   },
   {
-    "spriteKey": "048.png",
+    "spriteKey": "032.png",
+    "id": "048.png|Cuán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cuán",
@@ -1055,7 +1089,8 @@ export const champions = [
     "themeTuneTitle": "Fanny Power"
   },
   {
-    "spriteKey": "055.png",
+    "spriteKey": "317.png",
+    "id": "055.png|Dubhghlas",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dubhghlas",
@@ -1134,7 +1169,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "059.png",
+    "spriteKey": "061.png",
+    "id": "059.png|Niamh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Niamh",
@@ -1174,7 +1210,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "061.png",
+    "spriteKey": "319.png",
+    "id": "061.png|Meallán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Meallán",
@@ -1214,7 +1251,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "063.png",
+    "spriteKey": "005.png",
+    "id": "063.png|Donnchadh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Donnchadh",
@@ -1234,7 +1272,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "064.png",
+    "spriteKey": "024.png",
+    "id": "064.png|Lorcán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lorcán",
@@ -1254,7 +1293,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "065.png",
+    "spriteKey": "160.png",
+    "id": "065.png|Uasal",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Uasal",
@@ -1373,7 +1413,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "071.png",
+    "spriteKey": "082.png",
+    "id": "071.png|Suibhne",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Suibhne",
@@ -1413,7 +1454,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "053.png",
+    "spriteKey": "293.png",
+    "id": "053.png|Nuala",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Nuala",
@@ -1453,7 +1495,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "075.png",
+    "spriteKey": "086.png",
+    "id": "075.png|Oilithir",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oilithir",
@@ -1493,7 +1536,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "077.png",
+    "spriteKey": "118.png",
+    "id": "077.png|Tómmán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tómmán",
@@ -1513,7 +1557,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "078.png",
+    "spriteKey": "192.png",
+    "id": "078.png|Bairrfhionn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Bairrfhionn",
@@ -1552,7 +1597,8 @@ export const champions = [
     "themeTuneTitle": "Hardiman The Fiddler"
   },
   {
-    "spriteKey": "080.png",
+    "spriteKey": "077.png",
+    "id": "080.png|Bébhinn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bébhinn",
@@ -1564,7 +1610,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "081.png",
+    "spriteKey": "101.png",
+    "id": "081.png|Sárán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Sárán",
@@ -1584,7 +1631,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "082.png",
+    "spriteKey": "245.png",
+    "id": "082.png|Saoirse",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saoirse",
@@ -1604,7 +1652,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "083.png",
+    "spriteKey": "312.png",
+    "id": "083.png|Ciara",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ciara",
@@ -1664,7 +1713,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "086.png",
+    "spriteKey": "016.png",
+    "id": "086.png|Úna",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Úna",
@@ -1704,7 +1754,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "088.png",
+    "spriteKey": "095.png",
+    "id": "088.png|Pádraig",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Pádraig",
@@ -1743,7 +1794,8 @@ export const champions = [
     "themeTuneTitle": "Dinkey's"
   },
   {
-    "spriteKey": "090.png",
+    "spriteKey": "107.png",
+    "id": "090.png|Éanna",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Éanna",
@@ -1762,7 +1814,8 @@ export const champions = [
     "themeTuneTitle": "Road To Lisdoonvarna, The"
   },
   {
-    "spriteKey": "091.png",
+    "spriteKey": "114.png",
+    "id": "091.png|Rónnad",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rónnad",
@@ -1781,7 +1834,8 @@ export const champions = [
     "themeTuneTitle": "Bird In The Bush, The"
   },
   {
-    "spriteKey": "092.png",
+    "spriteKey": "152.png",
+    "id": "092.png|Neasa",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Neasa",
@@ -1800,7 +1854,8 @@ export const champions = [
     "themeTuneTitle": "Leitrim Fancy, The"
   },
   {
-    "spriteKey": "093.png",
+    "spriteKey": "139.png",
+    "id": "093.png|Cillian",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cillian",
@@ -1838,7 +1893,8 @@ export const champions = [
     "themeTuneTitle": "Rakes Of Mallow, The"
   },
   {
-    "spriteKey": "095.png",
+    "spriteKey": "115.png",
+    "id": "095.png|Lonán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lonán",
@@ -1857,7 +1913,8 @@ export const champions = [
     "themeTuneTitle": "Virginia, The"
   },
   {
-    "spriteKey": "096.png",
+    "spriteKey": "120.png",
+    "id": "096.png|Treasa",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Treasa",
@@ -1913,7 +1970,8 @@ export const champions = [
     "themeTuneTitle": "My Love Is In America"
   },
   {
-    "spriteKey": "099.png",
+    "spriteKey": "035.png",
+    "id": "099.png|Giolla-Padraig",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Giolla-Padraig",
@@ -1932,7 +1990,8 @@ export const champions = [
     "themeTuneTitle": "Silver Spire, The"
   },
   {
-    "spriteKey": "110.png",
+    "spriteKey": "151.png",
+    "id": "110.png|Áine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áine",
@@ -1951,7 +2010,8 @@ export const champions = [
     "themeTuneTitle": "Banks Of Lough Gowna, The"
   },
   {
-    "spriteKey": "051.png",
+    "spriteKey": "137.png",
+    "id": "051.png|Fionnghuala",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fionnghuala",
@@ -2011,7 +2071,8 @@ export const champions = [
 
 	,
   {
-    "spriteKey": "114.png",
+    "spriteKey": "280.png",
+    "id": "114.png|Maol Mhuire",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maol Mhuire",
@@ -2030,7 +2091,8 @@ export const champions = [
     "themeTuneTitle": "Old Hag, You Have Killed Me"
   },
   {
-    "spriteKey": "115.png",
+    "spriteKey": "148.png",
+    "id": "115.png|Brocc",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Brocc",
@@ -2068,7 +2130,8 @@ export const champions = [
     "themeTuneTitle": "Brian Boru's March"
   },
   {
-    "spriteKey": "117.png",
+    "spriteKey": "078.png",
+    "id": "117.png|Teimhnín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Teimhnín",
@@ -2087,7 +2150,8 @@ export const champions = [
     "themeTuneTitle": "Mug Of Brown Ale"
   },
   {
-    "spriteKey": "118.png",
+    "spriteKey": "178.png",
+    "id": "118.png|Daigh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Daigh",
@@ -2106,7 +2170,8 @@ export const champions = [
     "themeTuneTitle": "Soldier's Joy"
   },
   {
-    "spriteKey": "119.png",
+    "spriteKey": "261.png",
+    "id": "119.png|Anamcha",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Anamcha",
@@ -2125,7 +2190,8 @@ export const champions = [
     "themeTuneTitle": "Rolling Waves, The"
   },
   {
-    "spriteKey": "120.png",
+    "spriteKey": "108.png",
+    "id": "120.png|Mac Nisse",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mac Nisse",
@@ -2193,7 +2259,8 @@ export const champions = [
     "themeTuneTitle": "Woman Of The House, The"
   },
   {
-    "spriteKey": "124.png",
+    "spriteKey": "177.png",
+    "id": "124.png|Tíreachán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tíreachán",
@@ -2250,7 +2317,8 @@ export const champions = [
     "themeTuneTitle": "Bag Of Spuds, The"
   },
   {
-    "spriteKey": "127.png",
+    "spriteKey": "027.png",
+    "id": "127.png|Muireadhach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Muireadhach",
@@ -2269,7 +2337,8 @@ export const champions = [
     "themeTuneTitle": "Bill Sullivan's"
   },
   {
-    "spriteKey": "128.png",
+    "spriteKey": "147.png",
+    "id": "128.png|Eoghan",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Eoghan",
@@ -2349,7 +2418,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "132.png",
+    "spriteKey": "199.png",
+    "id": "132.png|Mael Íosa",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Mael Íosa",
@@ -2409,7 +2479,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "135.png",
+    "spriteKey": "042.png",
+    "id": "135.png|Aoife",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Aoife",
@@ -2449,7 +2520,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "137.png",
+    "spriteKey": "059.png",
+    "id": "137.png|Ceallach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ceallach",
@@ -2469,7 +2541,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "138.png",
+    "spriteKey": "140.png",
+    "id": "138.png|Dunfhlaith",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dunfhlaith",
@@ -2489,7 +2562,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "139.png",
+    "spriteKey": "307.png",
+    "id": "139.png|Uallach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uallach",
@@ -2509,7 +2583,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "140.png",
+    "spriteKey": "090.png",
+    "id": "140.png|Uainionn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uainionn",
@@ -2569,7 +2644,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "143.png",
+    "spriteKey": "167.png",
+    "id": "143.png|Scáthach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scáthach",
@@ -2589,7 +2665,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "144.png",
+    "spriteKey": "043.png",
+    "id": "144.png|Báine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Báine",
@@ -2609,7 +2686,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "145.png",
+    "spriteKey": "183.png",
+    "id": "145.png|Ríona",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Ríona",
@@ -2649,7 +2727,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "117.png",
+    "spriteKey": "285.png",
+    "id": "117.png|Lachtna",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lachtna",
@@ -2669,7 +2748,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "148.png",
+    "spriteKey": "014.png",
+    "id": "148.png|Gormghiolla",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gormghiolla",
@@ -2729,7 +2809,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "151.png",
+    "spriteKey": "153.png",
+    "id": "151.png|Lachtnán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lachtnán",
@@ -2749,7 +2830,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "152.png",
+    "spriteKey": "274.png",
+    "id": "152.png|Ailbhe",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ailbhe",
@@ -2769,7 +2851,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "153.png",
+    "spriteKey": "075.png",
+    "id": "153.png|Moinnine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Moinnine",
@@ -2789,7 +2872,8 @@ export const champions = [
   },
   null,
   {
-    "spriteKey": "154.png",
+    "spriteKey": "311.png",
+    "id": "154.png|Tóla",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tóla",
@@ -2868,7 +2952,8 @@ export const champions = [
     "themeTuneTitle": "Far From Home"
   },
   {
-    "spriteKey": "158.png",
+    "spriteKey": "099.png",
+    "id": "158.png|Lasair",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Lasair",
@@ -2906,7 +2991,8 @@ export const champions = [
     "themeTuneTitle": "Scholar, The"
   },
   {
-    "spriteKey": "160.png",
+    "spriteKey": "154.png",
+    "id": "160.png|Banbha",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Banbha",
@@ -2982,7 +3068,8 @@ export const champions = [
     "themeTuneTitle": "New Copperplate, The"
   },
   {
-    "spriteKey": "164.png",
+    "spriteKey": "281.png",
+    "id": "164.png|Cassair",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Cassair",
@@ -3020,7 +3107,8 @@ export const champions = [
     "themeTuneTitle": "Tuttle's"
   },
   {
-    "spriteKey": "166.png",
+    "spriteKey": "019.png",
+    "id": "166.png|Cormac",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cormac",
@@ -3039,7 +3127,8 @@ export const champions = [
     "themeTuneTitle": "Boyne Hunt, The"
   },
   {
-    "spriteKey": "167.png",
+    "spriteKey": "110.png",
+    "id": "167.png|Cathaír",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cathaír",
@@ -3183,7 +3272,8 @@ export const champions = [
     "themeTuneTitle": "Gander In The Pratie Hole, The"
   },
   {
-    "spriteKey": "175.png",
+    "spriteKey": "212.png",
+    "id": "175.png|Dairinn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Dairinn",
@@ -3202,7 +3292,8 @@ export const champions = [
     "themeTuneTitle": "Belfast, The"
   },
   {
-    "spriteKey": "176.png",
+    "spriteKey": "055.png",
+    "id": "176.png|Glaisne",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Glaisne",
@@ -3221,7 +3312,8 @@ export const champions = [
     "themeTuneTitle": "Holly Bush, The"
   },
   {
-    "spriteKey": "177.png",
+    "spriteKey": "314.png",
+    "id": "177.png|Feardorcha",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Feardorcha",
@@ -3240,7 +3332,8 @@ export const champions = [
     "themeTuneTitle": "Porthole Of The Kelp"
   },
   {
-    "spriteKey": "178.png",
+    "spriteKey": "198.png",
+    "id": "178.png|Beagán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Beagán",
@@ -3278,7 +3371,8 @@ export const champions = [
     "themeTuneTitle": "Martin Wynne's"
   },
   {
-    "spriteKey": "180.png",
+    "spriteKey": "240.png",
+    "id": "180.png|Maeleachlainn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Maeleachlainn",
@@ -3316,7 +3410,8 @@ export const champions = [
     "themeTuneTitle": "High Road To Linton, The"
   },
   {
-    "spriteKey": "182.png",
+    "spriteKey": "081.png",
+    "id": "182.png|Dubhgall",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dubhgall",
@@ -3335,7 +3430,8 @@ export const champions = [
     "themeTuneTitle": "Lord Mayo"
   },
   {
-    "spriteKey": "183.png",
+    "spriteKey": "255.png",
+    "id": "183.png|Tuileach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Tuileach",
@@ -3354,7 +3450,8 @@ export const champions = [
     "themeTuneTitle": "Clumsy Lover, The"
   },
   {
-    "spriteKey": "184.png",
+    "spriteKey": "209.png",
+    "id": "184.png|Garbhán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Garbhán",
@@ -3392,7 +3489,8 @@ export const champions = [
     "themeTuneTitle": "Farrel O'Gara's"
   },
   {
-    "spriteKey": "186.png",
+    "spriteKey": "071.png",
+    "id": "186.png|Dáire",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Dáire",
@@ -3411,7 +3509,8 @@ export const champions = [
     "themeTuneTitle": "Gold Ring, The"
   },
   {
-    "spriteKey": "187.png",
+    "spriteKey": "064.png",
+    "id": "187.png|Saraid",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Saraid",
@@ -3487,7 +3586,8 @@ export const champions = [
     "themeTuneTitle": "Plains Of Boyle, The"
   },
   {
-    "spriteKey": "191.png",
+    "spriteKey": "018.png",
+    "id": "191.png|Cian",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cian",
@@ -3506,7 +3606,8 @@ export const champions = [
     "themeTuneTitle": "Midnight On The Water"
   },
   {
-    "spriteKey": "192.png",
+    "spriteKey": "230.png",
+    "id": "192.png|Fiachra",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fiachra",
@@ -3544,7 +3645,8 @@ export const champions = [
     "themeTuneTitle": "Lisnagun, The"
   },
   {
-    "spriteKey": "194.png",
+    "spriteKey": "094.png",
+    "id": "194.png|Damhnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Damhnait",
@@ -3620,7 +3722,8 @@ export const champions = [
     "themeTuneTitle": "Red-Haired Lass, The"
   },
   {
-    "spriteKey": "198.png",
+    "spriteKey": "273.png",
+    "id": "198.png|Scoithín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoithín",
@@ -3639,7 +3742,8 @@ export const champions = [
     "themeTuneTitle": "Superfly"
   },
   {
-    "spriteKey": "199.png",
+    "spriteKey": "214.png",
+    "id": "199.png|Scoithniamh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoithniamh",
@@ -3658,7 +3762,8 @@ export const champions = [
     "themeTuneTitle": "Niel Gow's Lament For His Second Wife"
   },
   {
-    "spriteKey": "210.png",
+    "spriteKey": "000.png",
+    "id": "210.png|Ruarc",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ruarc",
@@ -3677,7 +3782,8 @@ export const champions = [
     "themeTuneTitle": "Lucy Farr's"
   },
   {
-    "spriteKey": "243.png",
+    "spriteKey": "028.png",
+    "id": "243.png|Bríghid",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Bríghid",
@@ -3696,7 +3802,8 @@ export const champions = [
     "themeTuneTitle": "Paddy Ryan's Dream"
   },
   {
-    "spriteKey": "212.png",
+    "spriteKey": "158.png",
+    "id": "212.png|Scolaí",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Scolaí",
@@ -3734,7 +3841,8 @@ export const champions = [
     "themeTuneTitle": "Pull The Knife And Stick It Again"
   },
   {
-    "spriteKey": "214.png",
+    "spriteKey": "241.png",
+    "id": "214.png|Baoth",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Baoth",
@@ -3753,7 +3861,8 @@ export const champions = [
     "themeTuneTitle": "Drowsy Maggie"
   },
   {
-    "spriteKey": "215.png",
+    "spriteKey": "303.png",
+    "id": "215.png|Scoth",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Scoth",
@@ -3810,7 +3919,8 @@ export const champions = [
     "themeTuneTitle": "Butterfly, The"
   },
   {
-    "spriteKey": "218.png",
+    "spriteKey": "232.png",
+    "id": "218.png|Finnén",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Finnén",
@@ -3829,7 +3939,8 @@ export const champions = [
     "themeTuneTitle": "Morrison's"
   },
   {
-    "spriteKey": "219.png",
+    "spriteKey": "135.png",
+    "id": "219.png|Ultán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ultán",
@@ -3886,7 +3997,8 @@ export const champions = [
     "themeTuneTitle": "Maid Behind The Bar, The"
   },
   {
-    "spriteKey": "222.png",
+    "spriteKey": "038.png",
+    "id": "222.png|Rónnad",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rónnad",
@@ -3943,7 +4055,8 @@ export const champions = [
     "themeTuneTitle": "Wind That Shakes The Barley, The"
   },
   {
-    "spriteKey": "125.png",
+    "spriteKey": "164.png",
+    "id": "125.png|Olcán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Olcán",
@@ -3962,7 +4075,8 @@ export const champions = [
     "themeTuneTitle": "Tam Lin"
   },
   {
-    "spriteKey": "226.png",
+    "spriteKey": "267.png",
+    "id": "226.png|Lonán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Lonán",
@@ -4000,7 +4114,8 @@ export const champions = [
     "themeTuneTitle": "Connaughtman's Rambles, The"
   },
   {
-    "spriteKey": "228.png",
+    "spriteKey": "036.png",
+    "id": "228.png|Sárnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Sárnait",
@@ -4019,7 +4134,8 @@ export const champions = [
     "themeTuneTitle": "Blarney Pilgrim, The"
   },
   {
-    "spriteKey": "229.png",
+    "spriteKey": "166.png",
+    "id": "229.png|Osnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Osnait",
@@ -4038,7 +4154,8 @@ export const champions = [
     "themeTuneTitle": "Swallowtail, The"
   },
   {
-    "spriteKey": "230.png",
+    "spriteKey": "288.png",
+    "id": "230.png|Echna",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Echna",
@@ -4057,7 +4174,8 @@ export const champions = [
     "themeTuneTitle": "Rights Of Man, The"
   },
   {
-    "spriteKey": "231.png",
+    "spriteKey": "017.png",
+    "id": "231.png|Seanán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Seanán",
@@ -4076,7 +4194,8 @@ export const champions = [
     "themeTuneTitle": "King Of The Fairies"
   },
   {
-    "spriteKey": "232.png",
+    "spriteKey": "295.png",
+    "id": "232.png|Easnadh",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Easnadh",
@@ -4095,7 +4214,8 @@ export const champions = [
     "themeTuneTitle": "Harvest Home, The"
   },
   {
-    "spriteKey": "233.png",
+    "spriteKey": "265.png",
+    "id": "233.png|Oillill",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Oillill",
@@ -4171,7 +4291,8 @@ export const champions = [
     "themeTuneTitle": "Sí Bheag Sí Mhór"
   },
   {
-    "spriteKey": "237.png",
+    "spriteKey": "004.png",
+    "id": "237.png|Iarfhlaith",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Iarfhlaith",
@@ -4190,7 +4311,8 @@ export const champions = [
     "themeTuneTitle": "Sally Gardens, The"
   },
   {
-    "spriteKey": "238.png",
+    "spriteKey": "300.png",
+    "id": "238.png|Eirnín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Eirnín",
@@ -4228,7 +4350,8 @@ export const champions = [
     "themeTuneTitle": "Mountain Road, The"
   },
   {
-    "spriteKey": "240.png",
+    "spriteKey": "191.png",
+    "id": "240.png|Fianait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fianait",
@@ -4247,7 +4370,8 @@ export const champions = [
     "themeTuneTitle": "Saint Anne's"
   },
   {
-    "spriteKey": "241.png",
+    "spriteKey": "233.png",
+    "id": "241.png|Tanaí",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Tanaí",
@@ -4285,7 +4409,8 @@ export const champions = [
     "themeTuneTitle": "Cliffs Of Moher, The"
   },
   {
-    "spriteKey": "211.png",
+    "spriteKey": "266.png",
+    "id": "211.png|Urard",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Urard",
@@ -4323,7 +4448,8 @@ export const champions = [
     "themeTuneTitle": "Calliope House"
   },
   {
-    "spriteKey": "245.png",
+    "spriteKey": "218.png",
+    "id": "245.png|Iobhar",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Iobhar",
@@ -4418,7 +4544,8 @@ export const champions = [
     "themeTuneTitle": "Tripping Up The Stairs"
   },
   {
-    "spriteKey": "250.png",
+    "spriteKey": "037.png",
+    "id": "250.png|Íonait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Íonait",
@@ -4513,7 +4640,8 @@ export const champions = [
     "themeTuneTitle": "Irish Washerwoman, The"
   },
   {
-    "spriteKey": "255.png",
+    "spriteKey": "132.png",
+    "id": "255.png|Róinseach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Róinseach",
@@ -4532,7 +4660,8 @@ export const champions = [
     "themeTuneTitle": "Morning Dew, The"
   },
   {
-    "spriteKey": "256.png",
+    "spriteKey": "302.png",
+    "id": "256.png|Ruaidhrí",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ruaidhrí",
@@ -4570,7 +4699,8 @@ export const champions = [
     "themeTuneTitle": "Miss McLeod's"
   },
   {
-    "spriteKey": "258.png",
+    "spriteKey": "286.png",
+    "id": "258.png|Miach",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Miach",
@@ -4589,7 +4719,8 @@ export const champions = [
     "themeTuneTitle": "Wise Maid, The"
   },
   {
-    "spriteKey": "259.png",
+    "spriteKey": "013.png",
+    "id": "259.png|Labhrás",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Labhrás",
@@ -4608,7 +4739,8 @@ export const champions = [
     "themeTuneTitle": "A Fig For A Kiss"
   },
   {
-    "spriteKey": "260.png",
+    "spriteKey": "092.png",
+    "id": "260.png|Abbán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Abbán",
@@ -4627,7 +4759,8 @@ export const champions = [
     "themeTuneTitle": "My Darling Asleep"
   },
   {
-    "spriteKey": "261.png",
+    "spriteKey": "015.png",
+    "id": "261.png|Uaine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Uaine",
@@ -4646,7 +4779,8 @@ export const champions = [
     "themeTuneTitle": "Road To Lisdoonvarna, The"
   },
   {
-    "spriteKey": "262.png",
+    "spriteKey": "080.png",
+    "id": "262.png|Ólchobhar",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ólchobhar",
@@ -4703,7 +4837,8 @@ export const champions = [
     "themeTuneTitle": "Earl's Chair, The"
   },
   {
-    "spriteKey": "265.png",
+    "spriteKey": "258.png",
+    "id": "265.png|Rathnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Rathnait",
@@ -4722,7 +4857,8 @@ export const champions = [
     "themeTuneTitle": "Pigeon On The Gate, The"
   },
   {
-    "spriteKey": "266.png",
+    "spriteKey": "301.png",
+    "id": "266.png|Laoise",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Laoise",
@@ -4741,7 +4877,8 @@ export const champions = [
     "themeTuneTitle": "Mist Covered Mountain, The"
   },
   {
-    "spriteKey": "267.png",
+    "spriteKey": "316.png",
+    "id": "267.png|Ailill",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Ailill",
@@ -4779,7 +4916,8 @@ export const champions = [
     "themeTuneTitle": "Jimmy Ward's"
   },
   {
-    "spriteKey": "269.png",
+    "spriteKey": "256.png",
+    "id": "269.png|Líobhan",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Líobhan",
@@ -4798,7 +4936,8 @@ export const champions = [
     "themeTuneTitle": "Julia Delaney's"
   },
   {
-    "spriteKey": "270.png",
+    "spriteKey": "259.png",
+    "id": "270.png|Laisrén",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Laisrén",
@@ -4855,7 +4994,8 @@ export const champions = [
     "themeTuneTitle": "Humours Of Tulla, The"
   },
   {
-    "spriteKey": "273.png",
+    "spriteKey": "083.png",
+    "id": "273.png|Somhairle",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Somhairle",
@@ -4874,7 +5014,8 @@ export const champions = [
     "themeTuneTitle": "Little Beggarman, The"
   },
   {
-    "spriteKey": "274.png",
+    "spriteKey": "091.png",
+    "id": "274.png|Neacht",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Neacht",
@@ -4931,7 +5072,8 @@ export const champions = [
     "themeTuneTitle": "Haste To The Wedding"
   },
   {
-    "spriteKey": "277.png",
+    "spriteKey": "219.png",
+    "id": "277.png|Muirín",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muirín",
@@ -4969,7 +5111,8 @@ export const champions = [
     "themeTuneTitle": "Brenda Stubbert's"
   },
   {
-    "spriteKey": "279.png",
+    "spriteKey": "202.png",
+    "id": "279.png|Mór",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Mór",
@@ -4988,7 +5131,8 @@ export const champions = [
     "themeTuneTitle": "Rolling Waves, The"
   },
   {
-    "spriteKey": "280.png",
+    "spriteKey": "044.png",
+    "id": "280.png|Aoibhegréine",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Aoibhegréine",
@@ -5007,7 +5151,8 @@ export const champions = [
     "themeTuneTitle": "Castle Kelly"
   },
   {
-    "spriteKey": "281.png",
+    "spriteKey": "109.png",
+    "id": "281.png|Conchobhar",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Conchobhar",
@@ -5045,7 +5190,8 @@ export const champions = [
     "themeTuneTitle": "Farewell To Ireland"
   },
   {
-    "spriteKey": "283.png",
+    "spriteKey": "138.png",
+    "id": "283.png|Rúadhán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rúadhán",
@@ -5083,7 +5229,8 @@ export const champions = [
     "themeTuneTitle": "Ashokan Farewell"
   },
   {
-    "spriteKey": "285.png",
+    "spriteKey": "231.png",
+    "id": "285.png|Órlaith",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Órlaith",
@@ -5102,7 +5249,8 @@ export const champions = [
     "themeTuneTitle": "Otter's Holt, The"
   },
   {
-    "spriteKey": "286.png",
+    "spriteKey": "237.png",
+    "id": "286.png|Éabha",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Éabha",
@@ -5140,7 +5288,8 @@ export const champions = [
     "themeTuneTitle": "Dunmore Lasses, The"
   },
   {
-    "spriteKey": "288.png",
+    "spriteKey": "143.png",
+    "id": "288.png|Fionnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Fionnait",
@@ -5235,7 +5384,8 @@ export const champions = [
     "themeTuneTitle": "Garrett Barry's"
   },
   {
-    "spriteKey": "293.png",
+    "spriteKey": "269.png",
+    "id": "293.png|Rónán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Rónán",
@@ -5273,7 +5423,8 @@ export const champions = [
     "themeTuneTitle": "Rakish Paddy"
   },
   {
-    "spriteKey": "295.png",
+    "spriteKey": "073.png",
+    "id": "295.png|Laoire",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Laoire",
@@ -5330,7 +5481,8 @@ export const champions = [
     "themeTuneTitle": "Teetotaller's, The"
   },
   {
-    "spriteKey": "298.png",
+    "spriteKey": "238.png",
+    "id": "298.png|Gobnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Gobnait",
@@ -5349,7 +5501,8 @@ export const champions = [
     "themeTuneTitle": "Sligo Maid, The"
   },
   {
-    "spriteKey": "299.png",
+    "spriteKey": "128.png",
+    "id": "299.png|Fionntán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Fionntán",
@@ -5387,7 +5540,8 @@ export const champions = [
     "themeTuneTitle": "Rolling In The Ryegrass"
   },
   {
-    "spriteKey": "101.png",
+    "spriteKey": "065.png",
+    "id": "101.png|Áinfean",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Áinfean",
@@ -5444,7 +5598,8 @@ export const champions = [
     "themeTuneTitle": "Donnybrook Fair"
   },
   {
-    "spriteKey": "104.png",
+    "spriteKey": "229.png",
+    "id": "104.png|Earnán",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Earnán",
@@ -5463,7 +5618,8 @@ export const champions = [
     "themeTuneTitle": "Rambling Pitchfork, The"
   },
   {
-    "spriteKey": "105.png",
+    "spriteKey": "279.png",
+    "id": "105.png|Cathal",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Cathal",
@@ -5501,7 +5657,8 @@ export const champions = [
     "themeTuneTitle": "Frank's"
   },
   {
-    "spriteKey": "107.png",
+    "spriteKey": "008.png",
+    "id": "107.png|Deirbhile",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Deirbhile",
@@ -5520,7 +5677,8 @@ export const champions = [
     "themeTuneTitle": "Toss The Feathers"
   },
   {
-    "spriteKey": "108.png",
+    "spriteKey": "320.png",
+    "id": "108.png|Caoilfhionn",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Caoilfhionn",
@@ -5539,7 +5697,8 @@ export const champions = [
     "themeTuneTitle": "Old Favourite, The"
   },
   {
-    "spriteKey": "109.png",
+    "spriteKey": "088.png",
+    "id": "109.png|Gormlaith",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Gormlaith",
@@ -5577,7 +5736,8 @@ export const champions = [
     "themeTuneTitle": "Over The Moor To Maggie"
   },
   {
-    "spriteKey": "201.png",
+    "spriteKey": "308.png",
+    "id": "201.png|Lasairfhiona",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Lasairfhiona",
@@ -5596,7 +5756,8 @@ export const champions = [
     "themeTuneTitle": "Humours Of Glendart, The"
   },
   {
-    "spriteKey": "202.png",
+    "spriteKey": "310.png",
+    "id": "202.png|Daighre",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "he", "object": "him", "possessive": "his" }, "ga": { "subject": "sé", "object": "é", "possessive": "a" } },
     "nameGa": "Daighre",
@@ -5634,7 +5795,8 @@ export const champions = [
     "themeTuneTitle": "Tenpenny Bit, The"
   },
   {
-    "spriteKey": "204.png",
+    "spriteKey": "211.png",
+    "id": "204.png|Séanait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Séanait",
@@ -5729,7 +5891,8 @@ export const champions = [
     "themeTuneTitle": "Father Kelly's"
   },
   {
-    "spriteKey": "209.png",
+    "spriteKey": "186.png",
+    "id": "209.png|Muirne",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Muirne",
@@ -5748,7 +5911,8 @@ export const champions = [
     "themeTuneTitle": "Glass Of Beer, The"
   },
   {
-    "spriteKey": "300.png",
+    "spriteKey": "119.png",
+    "id": "300.png|Líadan",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Líadan",
@@ -5767,7 +5931,8 @@ export const champions = [
     "themeTuneTitle": "Ashplant, The"
   },
   {
-    "spriteKey": "241.png",
+    "spriteKey": "003.png",
+    "id": "241.png|Órnait",
     "monologueID": 1,
     "pronouns": { "en": { "subject": "she", "object": "her", "possessive": "her" }, "ga": { "subject": "sí", "object": "í", "possessive": "a" } },
     "nameGa": "Órnait",

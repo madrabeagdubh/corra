@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "http-server -p 8080",
-    "build": "vite build"
+    "start": "node tools/syncData.cjs && http-server -p 8080",
+    "build": "vite build",
+    "sync-data": "node tools/syncData.cjs"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
     "phaser": "^3.90.0",
     "rot-js": "^2.2.1",
     "seedrandom": "^3.0.5",
-    "simplex-noise": "^4.0.3"
+    "simplex-noise": "^4.0.3",
+    "sl": "^0.0.6"
   }
 }

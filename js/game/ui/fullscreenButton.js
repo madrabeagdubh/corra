@@ -19,14 +19,16 @@ export function initFullscreenButton() {
 
   const btn = document.createElement('button')
   btn.id = 'pgr-fullscreen-btn'
-  btn.textContent = '⛶'
+  // [fsIcon] the whole tile is the tap target; the icon itself is a small gold-and-dark badge in its middle, legible on any moon
+  const ico = document.createElement('span')
+  ico.style.cssText = 'position:absolute;left:50%;top:50%;width:46%;height:46%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(6,8,16,0.62);box-shadow:0 0 0 1.5px rgba(212,175,55,0.8),0 0 12px rgba(0,0,0,0.7);pointer-events:none'
+  ico.innerHTML = '<svg viewBox="0 0 24 24" width="64%" height="64%" fill="none" stroke="#f6e3a6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>'
+  btn.appendChild(ico)
   btn.style.cssText = [
     'position:fixed',
     'z-index:2147483647',     // max z-index — guaranteed on top of everything
-    'font-size:20px',
-    'background:rgba(0,0,0,0.45)',
-    'color:white',
-    'border:1px solid rgba(255,255,255,0.25)',
+    'background:none',
+    'border:none',
     'border-radius:50%',
     'cursor:pointer',
     'display:none',

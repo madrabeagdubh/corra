@@ -101,6 +101,9 @@ export class SkyeCladach extends SkyeScene {
   // done (the tournament fought, the brooch silver) the sea has drawn back.
   getMapKey() { return GameState.hasNote('faiche_tournament_done') || GameState.hasNote('brooch_silver') ? 'skye_cladach_ebb' : 'skye_cladach' }
 
+  // The landing rain sits well under the dialogue's music (the rain's own ducking steps it back further while he speaks)
+  getRainScale() { return 0.55 }
+
   // The champion stands as tall as Conall here (the default, 0.7, drew them
   // about two thirds of his height beside him).
   getPGRConfig() { return { ...super.getPGRConfig(), PLAYER_SCALE: 0.8 } }
@@ -159,7 +162,7 @@ export class SkyeCladach extends SkyeScene {
       this._phase = 'landfall'                   // none of the old arrival logic runs
       // The landing is in the rain: more dramatic. (It eases to a drizzle by Conall's cabin, two days on --
       // tighConaill.js -- and the weather is the director's again once it has gone on from there.)
-      if (!weather.locked) { weather.lock('rain', { fade: 0 }); this._rainLock = true }
+      if (!weather.locked) { weather.lock('rain', { fade: window.__crossingHandoff ? 8 : 2 }); this._rainLock = true }       // (coming off the sea the rain thickens slowly)
       this._landfall = new Landfall(this, this._conall, () => this._afterLandfall())
       this._landfall.start()
     } else if (GameState.hasNote('pep_done') || GameState.hasNote('landfall_done')) {

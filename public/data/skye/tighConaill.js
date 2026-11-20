@@ -59,8 +59,8 @@ export const tighConaillContent = {
         {
           exchange: [
             {
-              say: 'Bhí mé ag bá. Bhí mé báite gan amhras.',
-              sayEn: 'I was drowning. I was surely drowning.',
+              say: 'Bhí mé ag bá.\nBhí mé báite gan amhras.',
+              sayEn: 'I was drowning.\nI was surely drowning.',
               replyGa: 'Níl ort ach tuirse.',
               replyEn: 'Thou art weary, nothing more.',
             },
@@ -93,18 +93,18 @@ export const tighConaillContent = {
         {
           exchange: [
             {
-              say: 'Níor thugas liom eallach,\nná tiarnas breá airgid.',
-              sayEn: 'I brought no cattle with me,\nnor fine tribute of silver.',
-              replyGa: 'Bí socair\nRinne tú do chás cheana féin nuair a bhain tú amach an trá, gan aithne, leathbáite,\nagus an fharraige fós ag sileadh uait.\nLig do scíth,\nAnsin cuirfidh mé ar bhóthar an chlaímh thú,',
-              replyEn: 'Be still\nThou hast made thy case already upon the shore, senseless and half-drowned,\nwith the sea still running from thee.\nTake thy rest,\nThen shall I set thee on the path of the blade,',
+              say: 'Ach níor thugas liom eallach,\nná tiarnas breá airgid.',
+              sayEn: 'But I brought no cattle with me,\nnor fine tribute of silver.',
+              replyGa: 'Bí socair\nRinne tú do chás cheana féin\ncois trá\ngan aithne\nleathbáite\nan fharraige fós ag sileadh uait.\nLig do scíth.\nCuirfidh mé ar bhóthar an chlaímh thú,',
+              replyEn: 'Be still\nThou hast made thy case already\nupon the shore\nsenseless\nhalf-drowned\nthe sea still running from thee.\nTake thy rest.\nI set thee on the path of the blade,',
             },
           ],
         },
 
         // ── node 5 — at the door ──────────────────────────────────
         {
-          ga: 'Nach é sin a tógann na Taoisigh Gaelach ar fad go Cheo?',
-          en: 'Is that not why all Gaelic Chieftains come to Skye?',
+          ga: 'Nach é sin a mheallann na Taoisigh Ghaelacha go Ceo?',
+          en: 'Is that not why ye Gaelic Chieftains come to Skye?',
         },
 
       ],

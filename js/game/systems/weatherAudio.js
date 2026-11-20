@@ -430,7 +430,7 @@ export class RainSound {
     const mist = clamp(this._read().mist, 0, 1)
     const cut = Math.exp(Math.log(14000) + (Math.log(2600) - Math.log(14000)) * Math.min(1, mist * 1.1))
     G.fog.frequency.setTargetAtTime(roof ? Math.min(cut, 5200) : cut, now, 1.2)
-    G.out.gain.setTargetAtTime(this.volume * (0.8 + 0.2 * (1 - mist)), now, 0.6)
+    G.out.gain.setTargetAtTime(this.volume * (this.scale ?? 1) * (0.8 + 0.2 * (1 - mist)), now, 0.6)
 
     // someone is speaking (the dialogue harp is playing): the rain steps back to
     // about a quarter, with the mids carved out further, and comes up slowly after

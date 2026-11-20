@@ -8,6 +8,7 @@ import { initReturnCrossing } from './game/scenes/returnCrossing.js';
 import { initDawnCrossing }   from './game/scenes/dawnCrossing.js';
 import { FONTS, COLORS, TYPE, SPACING, BUTTON, createDomButton } from './game/systems/gameTypography.js';
 import { GameSettings }     from './game/settings/gameSettings.js';
+import { GameState }        from './game/systems/gameState.js';
 import { createMoonWidget } from './game/ui/moonWidget.js';
 import { SKY } from './game/systems/nightPalette.js';
 import { hopMsForTuneKey, danceTransform, musicClockFor } from './game/effects/championDance.js';
@@ -17,6 +18,25 @@ const _state = {
     currentAmerginLine: null,
     initialized:        false,
 };
+
+// A player who has been over the water before (a hero saved, or a crossing finished) is RETURNING: starting a new campaign they are offered the road.
+// A first-time player is not: the dawn crossing to Skye is simply what comes next (this page is the bridge; it goes on of its own, below).
+const PLAYED_KEY = 'corra_played';
+const markPlayed = () => { try { localStorage.setItem(PLAYED_KEY, '1'); } catch (e) {} };
+const isReturning = () => {
+    try { return !!localStorage.getItem(PLAYED_KEY) || GameState.listHeroes().length > 0; } catch (e) { return false; }
+};
+
+// First-time players skip this page: from the constellations straight into the dawn crossing (the sky fades out over it).
+export function skipToCrossing(champion) {
+    initDawnCrossing(champion, GameSettings.englishOpacity, () => {
+        markPlayed();
+        window.startGame
+            ? window.startGame(champion, { startScene: 'skye_cladach' })
+            : console.error('[TutorialOrAdventure] window.startGame not found!');
+    });
+}
+export { isReturning };
 
 export function setCurrentAmerginLine(line) {
     _state.currentAmerginLine = line;
@@ -127,8 +147,12 @@ function createDance(el, champion, musicPlayerPromise) {
 export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLine = null) {
     if (_state.initialized) return;
     _state.initialized = true;
+    // the saved heroes' strip belongs to the front only: never at the road
+    try { window.__heroSlots?.dismiss?.() } catch (e) {}
+    for (const id of ['heroSlotsStrip', 'heroSlotsDim', 'heroSlotsFace', 'heroSlotsTitle']) document.getElementById(id)?.remove();
     let _responseRevealed = false;
     let _leaving = false;
+    let _autoTimer = null;
 
     GameSettings.setEnglishOpacity(
         typeof sliderValue === 'number' ? sliderValue : GameSettings.englishOpacity
@@ -367,22 +391,24 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         callback();
     }
 
-    const trainingBtn = createDomButton({
-        ga: 'Oiliúint', en: 'Training',
-        opacity: GameSettings.englishOpacity,
-        onClick: () => {
+    const goTraining = () => {
             showResponseAndProceed(() => {
                 // Training = the Isle of Skye: the dawn crossing rows the
                 // player over and they step off at the Skye jetty (the old
                 // BowTutorial stays registered until Scathach's archery is
                 // ported to the dún).
                 initDawnCrossing(champion, GameSettings.englishOpacity, () => {
+                    markPlayed();
                     window.startGame
                         ? window.startGame(champion, { startScene: 'skye_cladach' })
                         : console.error('[TutorialOrAdventure] window.startGame not found!');
                 });
             });
-        },
+    };
+    const trainingBtn = createDomButton({
+        ga: 'Oiliúint', en: 'Training',
+        opacity: GameSettings.englishOpacity,
+        onClick: goTraining,
     });
 
     const bogBtn = createDomButton({
@@ -391,6 +417,7 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
         onClick: () => {
             showResponseAndProceed(() => {
                 initReturnCrossing(champion, GameSettings.englishOpacity, () => {
+                    markPlayed();
                     window.startGame
                         ? window.startGame(champion, { startScene: 'd3_sea' })
                         : console.error('[TutorialOrAdventure] window.startGame not found!');
@@ -450,7 +477,14 @@ export function initTutorialOrAdventure(champion, sliderValue = 0.15, amerginLin
     document.body.appendChild(uiContainer);
     requestAnimationFrame(() => { uiContainer.style.opacity = '1'; });
 
+    // a first-time player has no road to choose: after a beat with the champion and the question, they step forward and answer, and the crossing begins
+    if (!isReturning()) {
+        bottomSection.style.opacity = '0'; bottomSection.style.pointerEvents = 'none';
+        _autoTimer = setTimeout(() => { if (!_leaving) goTraining(); }, 3200);
+    }
+
     function cleanup() {
+        clearTimeout(_autoTimer);
         _state.initialized = false;
         dance.stop();
         if (stopNightSky) { stopNightSky(); stopNightSky = null; }

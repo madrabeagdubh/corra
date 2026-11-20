@@ -55,7 +55,10 @@ export default class SkyeCaption {
       'line-height:1.3;margin-top:6px;color:rgb(230,237,245);white-space:pre-line;text-shadow:none'
     this._contrast = createContrast()
     this._inkTimer = setInterval(() => this._ink(), 220)
-    el.append(this._ga, this._en)
+    // the speaker's little portrait, above the line, as on the dialogue cards (setPortrait)
+    this._pic = document.createElement('canvas')
+    this._pic.style.cssText = 'display:none;height:56px;width:auto;margin:0 auto 6px;image-rendering:pixelated;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.9))'
+    el.append(this._pic, this._ga, this._en)
     document.body.appendChild(el)
     this._el = el
 
@@ -112,12 +115,28 @@ export default class SkyeCaption {
   /** The next line only, in another speaker's colour (a student, say). */
   setColor(c) { this._nextColor = c }
 
+  /** The next line only: the speaker's portrait above it. src: a canvas or image element, or a url. */
+  setPortrait(src) { this._nextPic = src || null }
+  _drawPic(src) {
+    const cv = this._pic; if (!cv) return
+    const put = (im) => {
+      const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height
+      if (!w || !h) { cv.style.display = 'none'; return }
+      cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, w, h); g.drawImage(im, 0, 0)
+      cv.style.display = 'block'
+    }
+    if (!src) { cv.style.display = 'none'; return }
+    if (typeof src === 'string') { const im = new Image(); im.onload = () => { if (this._pic) put(im) }; im.src = src; cv.style.display = 'none' }
+    else put(src)
+  }
+
   _put(ga, en, holdMs) {
     clearTimeout(this._timer)
     this._ga.style.color = this._nextColor || this._color
     this._nextColor = null
     this._ga.textContent = ga
     this._en.textContent = en
+    this._drawPic(this._nextPic); this._nextPic = null
     this._en.style.opacity = String(GameSettings.englishOpacity)
     this._el.style.opacity = '1'
     if (holdMs) this._timer = setTimeout(() => this.hide(), holdMs)

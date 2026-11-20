@@ -36,6 +36,7 @@
 
 import { drawMoonFace, moonFaceReady, whenMoonFaceReady } from './moonFace.js'
 import { SoundBoard } from "../systems/soundBoard.js"
+import { englishAlpha, englishPhaseFromAlpha } from '../settings/gameSettings.js'   // [enCurve]
 
 const STATUS_H = 42
 const JOY_R    = 60
@@ -88,7 +89,7 @@ export function createMoonWidget(opts = {}) {
     const moonD  = moonR * 2
     const pad    = 18
 
-    let phase         = Math.max(0, Math.min(1, initialPhase))
+    let phase         = Math.max(0, Math.min(1, englishPhaseFromAlpha(initialPhase)))   // [enCurve] initialPhase is an opacity
     let rawPhase      = phase
     let dragging      = false
     let driftPaused   = false
@@ -367,7 +368,7 @@ export function createMoonWidget(opts = {}) {
             if (trackFillEl) _updateTrackFill(trackFillEl, phase)
             if (wrapperEl)   _positionMoonCanvas(canvas, wrapperEl, phase, moonR)
         }
-        if (onChange) onChange(phase)
+        if (onChange) onChange(englishAlpha(phase))   // [enCurve] consumers get the opacity
     }
 
     const initR = embedded ? Math.floor(canvas.width / 2) : moonR
@@ -383,8 +384,8 @@ export function createMoonWidget(opts = {}) {
         element: rootEl,
         moonD,
 
-        setPhase(v)    { _setPhaseInternal(v) },
-        getPhase()     { return phase },
+        setPhase(v)    { _setPhaseInternal(englishPhaseFromAlpha(v)) },
+        getPhase()     { return englishAlpha(phase) },
         getCanvas()    { return canvas },
         nudgePhase(dx) { _setPhaseInternal(rawPhase + dx / swipeRange) },
 
@@ -397,7 +398,7 @@ export function createMoonWidget(opts = {}) {
 
         destroy() {
             // Save final phase so next widget starts here
-            if (typeof GameSettings !== 'undefined') GameSettings.setEnglishOpacity(phase)
+            if (typeof GameSettings !== 'undefined') GameSettings.setEnglishOpacity(englishAlpha(phase))
             destroyed = true
             if (rafId)       { cancelAnimationFrame(rafId);       rafId       = null }
             if (_pulseRafId) { cancelAnimationFrame(_pulseRafId); _pulseRafId = null }

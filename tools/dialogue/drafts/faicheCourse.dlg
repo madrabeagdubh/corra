@@ -1,4 +1,4 @@
-# faicheCourse — Conall's crash course in the garden (skyeGairdin)
+# faicheCourse — Fergus's crash course in the garden (skyeGairdin)
 #
 # THIS FILE IS THE SOURCE. js/game/scenes/locations/skye/courseLines.js is
 # GENERATED from it and overwritten on every compile. Edit here, not there.
@@ -13,12 +13,12 @@
 #
 #   == NAME   a lesson. The names are the code's; don't rename them.
 #   =  NAME   a slot in the lesson: a moment the code says something.
-#             Plain lines under it are Conall's (or the narrator's, in a
+#             Plain lines under it are Fergus's (or the narrator's, in a
 #             *Hint slot). One line per line on screen.
 #   *  TEXT   a button the player presses, ending that slot's card.
 #   >  TEXT   (under a *) what the player SAYS, if longer than the button.
 #             Without one, the button's own words are shown as theirs.
-#   <  TEXT   (under a *) what Conall says back.
+#   <  TEXT   (under a *) what Fergus says back.
 #   %  TEXT   the Irish for the line directly above. For now each one
 #             repeats the English (a placeholder: not shown as Irish, not
 #             voiced). Write over it when the Irish is ready.
@@ -26,12 +26,12 @@
 #               on     go on (the default)
 #               again  have the lesson once more
 #               wait   (meet only) not ready yet: no call to the mark
-#   @goto S   (under a *) Conall's reply is slot S of this lesson (a card
+#   @goto S   (under a *) Fergus's reply is slot S of this lesson (a card
 #             of its own, which may have buttons of its own)
 #   #         a comment
 #
 # A slot left out, or emptied, is simply not said. A slot ending in Hint (or
-# called hint) is the NARRATOR: grey plain instructions, not Conall.
+# called hint) is the NARRATOR: grey plain instructions, not Fergus.
 #
 # Slots with buttons are cards. Others are cards or captions as the logic
 # decides (captions are short, over the action).
@@ -624,7 +624,7 @@ Enough.
 
 # ══════════════════════════════════════════════════════════════════════
 == end
-# The course is done: the green is open. Give Conall an `= intro` (a card) to
+# The course is done: the green is open. Give Fergus an `= intro` (a card) to
 # say it himself; the narrator's line follows it either way.
 
 

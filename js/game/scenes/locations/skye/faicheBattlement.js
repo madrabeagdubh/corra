@@ -30,7 +30,7 @@ const CAM = { z: 0.5, py: -0.2 }      // how far the camera climbs (the ground v
 const L = (en, ga = en) => ({ ga, en })
 // ONE conversation, read as one continuous piece in the game's own dialogue scroll (which marks who is speaking):
 // a single node of scripted turns. Replace with the real dialogue when it is written: any node list the encounter
-// panel understands works here (see tighConaill.js's data for the format).
+// panel understands works here (see tighFhearghais.js's data for the format).
 const DIALOGUES = name => [{
   exchange: [
     { say: 'Who is that warrior down there?', sayEn: 'Who is that warrior down there?', replyGa: `Why, that is ${name}, madam.`, replyEn: `Why, that is ${name}, madam.` },
@@ -141,7 +141,7 @@ export default class FaicheBattlement {
     panel._card = { id: 'fixed:' + key, visual: { gid: 9201, flat: false } }
     panel._active = zone
     panel._openPanel()
-    // as the Conall scenes do: if a card goes and no next one comes, show it rather than wait on an empty field
+    // as the Fergus scenes do: if a card goes and no next one comes, show it rather than wait on an empty field
     const tp = sc.textPanel
     let idle = 0
     while (this.alive && panel._isOpen) {

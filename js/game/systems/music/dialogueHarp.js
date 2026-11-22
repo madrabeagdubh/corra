@@ -35,11 +35,13 @@ const NPC_TUNES = {
 
  // '/assets/npcs/muireann.png': 'kidOnTheMountainThe',
   //'/assets/npcs/othran.png': 'swallowtailThe',
- 'conall': 'oneills',	
+ 'fearghas': 'oneills',	
   '/assets/npcs/muireann.png': 'outOnTheOcean',
   '/assets/npcs/garbhan.png': 'blackthornStickThe',     // the bully on the loch's island: his own stick's tune
 
 }
+// a speaker (ui/speakers.js: 'fearghas') with a tune of their own, whatever portrait they wear in this scene
+export const hasNamedTune = (key) => !!(key && NPC_TUNES[key])
 import { getTuneKeyForChampion } from './championTuneMapping.js'
 import { parseAbcToNotes } from './abcToPhrase.js'
 import { SoundBoard } from '../soundBoard.js'

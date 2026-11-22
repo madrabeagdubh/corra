@@ -1,0 +1,114 @@
+# tighFhearghaisRescue -- the champion, half-drowned, in Fergus's cabin
+#
+# Plays in six parts (tighFhearghais.js, _dream and _run). Every node closes the conversation; the scene plays
+# them with _talk(1, n), and the actions are the scene's:
+#   node 0 -- in the dark: black screen, soft rain, the drowning, "Lie still."   (the eyes then open)
+#   node 1 -- "I was drowning" / "Thou art weary, nothing more."
+#            [he crosses to the window; tighFhearghais.dlg "the better part of two days", as he draws the curtain]
+#            [he comes back to the bed]
+#   node 2 -- "Where is this place?" / "Thou art my guest. I am Fergus."
+#            [he lifts the chest's lid and goes back towards the door]
+#   node 3 -- the mark: "Students wear the brooch of Skye. This one is for you."
+#            [the brooch is tossed into the chest; the lid falls shut]
+#   node 4 -- his clothes are in the chest; "I bring no cattle" ... "the path of the blade,"
+#            [he goes to the door and opens it; a pause]
+#   node 5 -- at the door: "Is that not why all Gaelic Chieftains come to Skye?"   [the pause; out]
+#
+# IRISH IS A FIRST DRAFT -- check before shipping.
+
+@file skye/tighFhearghais
+@encounter 1
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 0 — in the dark
+
+> Drowning!
+% Ag bá!
+> I am in the grip of black water,
+% Tá mé i ngreim ag an uisce dubh,
+> It fills my throat.
+% líonann sé mo scornach.
+
+< Lie still.
+% Bí socair.
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 1 — half-woken
+
+> I was drowning.
+% Bhí mé ag bá. 
+
+> I drowned! I know it.
+% Bhí mé báite gan amhras.
+
+< It was just a nightmare.
+% Ní raibh ann ach tromluí. 
+
+< You are safe.
+% Tá tú slán.
+
+# ══════════════════════════════════════════════════════════════════════
+= node 2 — where is this place
+
+> Who are you?
+% Cé tú féin?
+
+< Fergus is my name
+% Fearghas is ainm dom 
+
+< You are my guest
+% Mo aoi thú
+
+# ══════════════════════════════════════════════════════════════════════
+= node 3 — the mark
+
+
+< Thy clothes are in the chest at the foot of thy bed
+% Tá do chuid éadaigh sa chófra ag bun do leapa
+
+
+< Students wear the brooch of Skye 
+% Chaitheann daltaí dealg an Cheo
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 4 — the chest, and the path of the blade
+
+
+< This one is for you
+% Duitse an ceann seo
+
+
+> But I brought no cattle
+% Ach níor thugas eallach
+
+
+> nor fine tribute of silver
+% ná tiarnas breá airgid
+
+> Doesn't matter
+< Is cuma
+
+< upon the shore 
+% cois trá
+
+< half-drowned
+% leathbáite
+
+< the sea still running from thee
+% an fharraige fós ag sileadh uait
+
+< Thy case was made
+% Deanadh do chás 
+
+< I will set thee on the path of the blade
+% Cuirfidh mé ar bhóthar an chlaímh thú
+
+
+# ══════════════════════════════════════════════════════════════════════
+= node 5 — at the door
+
+> That's what lures you chiefs to Skye.
+% Sin a mheallann Taoisigh Ghaelacha go Ceo.

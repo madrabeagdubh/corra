@@ -63,7 +63,7 @@ export default class CaveTest extends PerspectiveScene {
   getMapPath() { return `/maps/cave/${this.getMapKey()}.json?v=${Date.now()}` }
 
   // CLIP_TOP_FRAC 0: PGR clips everything at the horizon unless told not to, and the rock has to rise
-  // above it. Put back on the way out (_cleanup), as tighConaill does
+  // above it. Put back on the way out (_cleanup), as tighFhearghais does
   getPGRConfig() {
     return { ...super.getPGRConfig(), ...(CAMS[Q.get('cam')] || CAMS.top), CLIP_TOP_FRAC: 0 }
   }

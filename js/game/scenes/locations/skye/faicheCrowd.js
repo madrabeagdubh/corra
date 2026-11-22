@@ -315,7 +315,7 @@ export default class FaicheCrowd {
 
   // ── struck in play ───────────────────────────────────────────────────────
   // Whoever is idle in the crowd and takes a cut from your practice sword runs: a few steps away from you, then
-  // a puff of dust (as Conall leaves) and gone from the green until things have calmed.
+  // a puff of dust (as Fergus leaves) and gone from the green until things have calmed.
   _ringBusy() { return !!this.scene._melee?.melee?.combat }
   _struck(s, from) {
     if (s.out || s.flee || s.goal || this.formation) return false

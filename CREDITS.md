@@ -52,7 +52,7 @@ These appear to be from "496 pixel art icons for medieval/fantasy RPG" by Henriq
 believe is CC0, needs checking on that page.
 
 ### Made for Corra
-- `public/assets/tigh/`: Conall's house, painted in code (`js/game/scenes/locations/skye/tighRoom.js`).
+- `public/assets/tigh/`: Fergus's house, painted in code (`js/game/scenes/locations/skye/tighRoom.js`).
 - `public/assets/countyMaps/`: redrawn from na-ring-gael's county maps (`tools/county-maps/`).
 
 ---

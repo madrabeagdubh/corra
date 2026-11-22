@@ -1168,7 +1168,7 @@ try {
     this._pgrView = new URLSearchParams(window.location.search).get('pinch') === '0' ? null : new PGRView(this)
   }
 
-  // The pinch/pan view (effects/pgrView.js) is for the open world. A room that small (the b0 hall, Conall's cabin) is already all in view.
+  // The pinch/pan view (effects/pgrView.js) is for the open world. A room that small (the b0 hall, Fergus's cabin) is already all in view.
   allowPinchView() { return (this.mapWidth / this.tileSize) * (this.mapHeight / this.tileSize) >= 600 }
 
   _onTapBeforePath(canvasX, canvasY) { return true }

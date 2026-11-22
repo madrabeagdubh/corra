@@ -10,7 +10,7 @@ Safe to run twice.
 """
 import re, sys, pathlib
 
-SCENE = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve() / 'js/game/scenes/locations/skye/tighConaill.js'
+SCENE = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve() / 'js/game/scenes/locations/skye/tighFhearghais.js'
 if not SCENE.exists():
     sys.exit(f'missing {SCENE} -- run this from the Corra repo root')
 src = SCENE.read_text()
@@ -30,7 +30,7 @@ def sub_once(text, pattern, repl, label):
 src = sub_once(
     src,
     r"    await this\._talk\(3, 1\)[^\n]*\n    this\._rainHandle\?\.stop\(4000\)\n",
-    "    await this._talk(3, 1)                                  // half-woken: \"where is this place\", \"I am Conall\"\n"
+    "    await this._talk(3, 1)                                  // half-woken: \"where is this place\", \"I am Fergus\"\n"
     "    if (this._dead) return\n"
     "    await this._talk(3, 2)                                  // \"the mark of a student of Dún Scáthach. It is thine.\"\n"
     "    if (this._dead) return\n"
@@ -50,6 +50,6 @@ src = sub_once(
     'scene: door talk + brooch')
 SCENE.write_text(src)
 print('scene: patched. Now:')
-print('  cp tighConaill.dlg tighConaillRescue.dlg tools/dialogue/drafts/')
-print('  node tools/dialogue/compile.mjs tools/dialogue/drafts/tighConaill.dlg')
-print('  node tools/dialogue/compile.mjs tools/dialogue/drafts/tighConaillRescue.dlg')
+print('  cp tighFhearghais.dlg tighFhearghaisRescue.dlg tools/dialogue/drafts/')
+print('  node tools/dialogue/compile.mjs tools/dialogue/drafts/tighFhearghais.dlg')
+print('  node tools/dialogue/compile.mjs tools/dialogue/drafts/tighFhearghaisRescue.dlg')

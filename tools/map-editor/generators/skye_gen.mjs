@@ -135,7 +135,7 @@ const cladach = (tide) => ({
       //              drawn identically to the rest: only his calls find it.
       //                gaps: (17,26)  (19,24)  (16,22)
       //   rows 0-21 the headland top, open ground running north to the
-      //              loch. Conall waits at (18,23).
+      //              loch. Fergus waits at (18,23).
       const LV = [0.1, 1.1, 2.1, 3.1]              // foot, terrace 1, terrace 2, top
       const GAPS = { 26: 17, 24: 19, 22: 16 }      // riser row -> stair column
       const FLOOD_ROW = HIGH_TIERS === 1 ? 25 : 23          // first drowned row
@@ -241,15 +241,15 @@ const MAPS = {
   skye_gairdin: {
     exits: { east: 'skye_cladach' },
     spawn: { x: 30, y: 18 },
-    extraEntries: { northwest: { x: 5, y: 6 } },    // from Conall's yard (its south exit): dry ground by the lake, the path starts here
+    extraEntries: { northwest: { x: 5, y: 6 } },    // from Fergus's yard (its south exit): dry ground by the lake, the path starts here
     vista: 'skye_gairdin_n',    // the lake's far shore and the hills behind it, drawn beyond row 0, never entered
     build(n) {
-      // ── Conall's training ground (skye/skyeGairdin.js) ────────────────
+      // ── Fergus's training ground (skye/skyeGairdin.js) ────────────────
       // A raised plateau of beaten earth, so the rain never floods it, with
       // the board of stones at its heart (kata.js: the step drills use it).
       // North of it the land falls to the shore of a lake: rows 0-3 or so
       // are water (not walkable), and the lake runs on into the distance
-      // (the far backdrop, painted by the scene). Conall waits at the
+      // (the far backdrop, painted by the scene). Fergus waits at the
       // plateau's north edge (LEDGE_AT in faicheCourse.js) looking out over
       // the water. A path comes in from the north-west corner, along the
       // shore, and climbs onto the plateau from the west.
@@ -267,7 +267,7 @@ const MAPS = {
         for (let dx = -R; dx <= R; dx++)
           if (onBoard(dx, dy)) stones.push([LAR[0] + dx, LAR[1] + dy, inlay(dx, dy)])
       // the lake: a C of water that we only ever see parts of. Along the north edge from column 7 eastward (the
-      // north-west corner is land, running on north to Conall's cottage: the vista), a lobe reaching down the west
+      // north-west corner is land, running on north to Fergus's cottage: the vista), a lobe reaching down the west
       // side to row 7 (the path from the corner goes round its foot), and a bay down the north-east. skye_gairdin_n
       // carries on from row 0: keep its west bank (column 7.5 at the edge) in step with this.
       const shoreRows = x => Math.max(1.05, 1.1 + 1.5 * smooth(8, 14, x) + 0.5 * n(x * 0.23, 3.1))
@@ -718,7 +718,7 @@ const MAPS = {
         height: vh,
         trail: [],
         extra: {
-          cottage: { x: 3.3, row: 28 },                            // local tile: Conall's cottage, on the west bank (gairdinFar.js)
+          cottage: { x: 3.3, row: 28 },                            // local tile: Fergus's cottage, on the west bank (gairdinFar.js)
           tintGrid: grid(W, H, (x, y) => {
             if (wet[y][x]) return null
             const h = (vh(x, y) + vh(x + 1, y) + vh(x, y + 1) + vh(x + 1, y + 1)) / 4

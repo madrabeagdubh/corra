@@ -116,7 +116,7 @@ export default class SkyeCaption {
   setColor(c) { this._nextColor = c }
 
   /** The next line only: the speaker's portrait above it. src: a canvas or image element, or a url. */
-  setPortrait(src) { this._nextPic = src || null }
+  setPortrait(src, deg = 0) { this._nextPic = src || null; this._nextPicDeg = deg || 0 }
   _drawPic(src) {
     const cv = this._pic; if (!cv) return
     const put = (im) => {
@@ -136,6 +136,8 @@ export default class SkyeCaption {
     this._nextColor = null
     this._ga.textContent = ga
     this._en.textContent = en
+    if (this._pic) { const d = this._nextPicDeg || 0; this._pic.style.transform = d ? `rotate(${d}deg)` : ''; this._pic.style.margin = d ? '14px auto 14px' : '0 auto 6px' }     // lying down: the face is turned with them
+    this._nextPicDeg = 0
     this._drawPic(this._nextPic); this._nextPic = null
     this._en.style.opacity = String(GameSettings.englishOpacity)
     this._el.style.opacity = '1'

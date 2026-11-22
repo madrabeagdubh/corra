@@ -1,7 +1,7 @@
 // gairdinFar.js
 // Location: js/game/scenes/locations/skye/gairdinFar.js
 //
-// What stands in the view north of the garden (the vista map skye_gairdin_n, drawn beyond row 0): Conall's
+// What stands in the view north of the garden (the vista map skye_gairdin_n, drawn beyond row 0): Fergus's
 // cottage on the west bank, near but in the background, a thread of smoke going up; and the heron, a huge one,
 // standing in the shallows among rocks and reeds (the set piece that opens the course: faicheCourse.js _watch).
 // Drawn on the ground canvas

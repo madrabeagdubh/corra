@@ -1,21 +1,21 @@
 // skyeGairdin.js
 // Location: js/game/scenes/locations/skye/skyeGairdin.js
 //
-// Conall's training ground: a raised plateau of beaten earth (so the rain never floods it) with a
+// Fergus's training ground: a raised plateau of beaten earth (so the rain never floods it) with a
 // gaming-board floor -- 13 x 13 stones inlaid in four colours around the lár, the centre stone. Clear,
 // quiet ground: the Warden's crash course happens here, one to one (faicheCourse.js). He waits at the
 // plateau's north edge, looking out over the lake: a few rows of water in the garden itself, then the view north
-// (the vista map skye_gairdin_n: the lake, its far shore and the hills behind it; Conall's cottage on the near west
+// (the vista map skye_gairdin_n: the lake, its far shore and the hills behind it; Fergus's cottage on the near west
 // bank, gairdinFar.js; the sea beyond the hills, getFarBackdrop). A path comes in from the north-west corner
 // (arrival from the cottage's yard), round the foot of the lake's west lobe through the marsh, and climbs onto
 // the plateau from the west.
 //
-//   lessons  drawing a route (Conall demonstrates), the sword (he faces you
+//   lessons  drawing a route (Fergus demonstrates), the sword (he faces you
 //            from the left), draw / salute / swish / sheathe, fatigue, the
-//            strong blow, Conall as the training dummy, a gentle practice duel
+//            strong blow, Fergus as the training dummy, a gentle practice duel
 //            (faicheCourse.js runs them; courseScript.js has the words)
 //   board    the stones light as you step on the called ones
-//   after    Conall sends you across the loch to the green, where Uathach is
+//   after    Fergus sends you across the loch to the green, where Uathach is
 //            taking a class
 //
 // Uathach is not here: she is up on the green's dais.
@@ -121,7 +121,7 @@ export class SkyeGairdin extends SkyeScene {
   }
 
   // the lake to the north: its still water and the sea beyond the hills are painted here (the land is the vista map
-  // skye_gairdin_n), and Conall's cottage on the west bank
+  // skye_gairdin_n), and Fergus's cottage on the west bank
   getFarBackdrop() {
     const w = this._dawn()
     if (w < 0.002) return FAR_LAKE
@@ -204,7 +204,7 @@ export class SkyeGairdin extends SkyeScene {
   _onTapBeforePath(canvasX, canvasY) {
     if (this._course?.speaking) return false   // a tap that scrolls his words is not a step
     if (this._course?.tapDummy?.(canvasX, canvasY)) return false
-    return true  // tap-to-walk is always on; Conall's lesson still teaches it
+    return true  // tap-to-walk is always on; Fergus's lesson still teaches it
   }
 
   // ── the training dummy, when the course has it out ───────────────────────
@@ -215,7 +215,7 @@ export class SkyeGairdin extends SkyeScene {
   }
   lensFocus() { return this._course?.lensFocus?.() ?? super.lensFocus() }
   lensSolo() { return !!this._course?.speaking || super.lensSolo() }
-  // walked into the dummy: a shove at it; into anyone else (Conall): the fight's business
+  // walked into the dummy: a shove at it; into anyone else (Fergus): the fight's business
   onBumpFigure(dx, dy) {
     const p = this.player, ts = this.tileSize
     const tx = Math.floor(p.logicalX / ts) + dx, ty = Math.floor(p.logicalY / ts) + dy
@@ -225,7 +225,7 @@ export class SkyeGairdin extends SkyeScene {
 
   onMeleeEvent(name, d) { this._course?.onMeleeEvent?.(name, d) }
   onDialogueEvent(ev) { this._course?.onTalkEvent?.(ev) }
-  // squared up to Conall for the sword lessons: you look at him, not the way you last walked
+  // squared up to Fergus for the sword lessons: you look at him, not the way you last walked
   playerFacing() { return this._melee?.view?.spinFacing?.() ?? this._course?.facing?.() ?? super.playerFacing() }
 
   // the sword in flight (the lesson draws it)
@@ -240,8 +240,8 @@ export class SkyeGairdin extends SkyeScene {
     v.tileQuad(ctx, mk, `rgba(245,208,96,${0.12 + 0.2 * t})`, `rgba(245,208,96,${0.55 + 0.4 * t})`, 3)
   }
 
-  // Conall's card for a musical dialogue (portrait, background), if the panel can give it
-  conallCard() {
+  // Fergus's card for a musical dialogue (portrait, background), if the panel can give it
+  fearghasCard() {
     try {
       const f = this._findFigure(SKYE_GID.WARDEN), ep = this._encounterPanel
       return {

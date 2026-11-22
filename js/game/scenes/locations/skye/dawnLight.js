@@ -1,7 +1,7 @@
 // dawnLight.js
 // Location: js/game/scenes/locations/skye/dawnLight.js
 //
-// The dawn's light on a picture, carried from the cottage (the curtain drawn back, tighConaill.js) out into the yard
+// The dawn's light on a picture, carried from the cottage (the curtain drawn back, tighFhearghais.js) out into the yard
 // (tighAmuigh.js) and down to the garden (skyeGairdin.js), so there is no sudden switch: a multiplied blue-violet tint
 // over everything, and a rose glow from the horizon. As the dawn drains (d from 1 to 0) the colour settles into a flat
 // grey morning (`grey`: it stays on, lightly).

@@ -161,7 +161,7 @@ const WALK = {
   fial:    [L('Walk with me, a chara.'), L('You never saw me move. I will show you.')],
 }
 const STUDENT_COLOR = '#d9e6b0'
-const WARDEN_COLOR = INK.conall, UATHACH_COLOR = INK.uathach
+const WARDEN_COLOR = INK.fearghas, UATHACH_COLOR = INK.uathach
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
 
 export default class FaicheTournament {

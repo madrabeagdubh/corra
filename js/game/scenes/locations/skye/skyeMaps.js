@@ -9,7 +9,7 @@ import { SkyeCladach } from './skyeCladach.js'
 import { SkyeLoch } from './skyeLoch.js'
 import { SkyeGairdin } from './skyeGairdin.js'
 import { SkyeFaiche } from './skyeFaiche.js'
-import { TighConaill } from './tighConaill.js'
+import { TighFhearghais } from './tighFhearghais.js'
 import { TighAmuigh } from './tighAmuigh.js'
 import skyeFlora from './skyeFlora.js'
 import FarShips from '../../../effects/farShips.js'
@@ -57,4 +57,4 @@ export class SkyeDun extends SkyeScene {
   getMapKey() { return 'skye_dun' }
 }
 
-export const SKYE_SCENES = [SkyeCladach, SkyeGairdin, SkyeLoch, SkyeMachaire, SkyeFaiche, SkyeDroichead, SkyeDun, TighConaill, TighAmuigh]
+export const SKYE_SCENES = [SkyeCladach, SkyeGairdin, SkyeLoch, SkyeMachaire, SkyeFaiche, SkyeDroichead, SkyeDun, TighFhearghais, TighAmuigh]

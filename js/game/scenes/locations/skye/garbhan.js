@@ -11,7 +11,7 @@
 //   fight   m.engage(): he shoves you (at the water's edge, into the loch), then the wooden sword,
 //           then, on his last wooden heart, a knife. Draw your sword or run: nothing is drawn for you.
 //   over    boutOver carries how it ended:
-//             ko, drowned   you wake in Conall's cabin (tighConaill.js, data.wake), and he is still here
+//             ko, drowned   you wake in Fergus's cabin (tighFhearghais.js, data.wake), and he is still here
 //             killed        the knife: the hero is deleted, back to the hero slots
 //             fled (lost)   you ran: he stays, the talk starts again if you come back
 //             fled (won)    you beat him to his last knife heart: he drops it and runs for the loch
@@ -106,7 +106,7 @@ export default class Garbhan {
   // ── the talk ─────────────────────────────────────────────────────────────
   // The game's own conversation card (encounterPanel.js / textPanel.js): his portrait and tune, the
   // reader's pace. The words are in public/data/skye/skyeLoch.js (from tools/dialogue/drafts/skyeLoch.dlg);
-  // the panel is opened here by hand, as tighConaill.js does. When the last card is read, the fight begins.
+  // the panel is opened here by hand, as tighFhearghais.js does. When the last card is read, the fight begins.
   async _talk() {
     const s = this.scene, panel = s._encounterPanel
     this.state = 'talk'
@@ -145,7 +145,7 @@ export default class Garbhan {
     const poll = () => {
       if (this.state !== 'talk') return
       if (!panel._isOpen) return done()
-      // Safety net (as in tighConaill.js): a card gone and no next one coming -- show it ourselves
+      // Safety net (as in tighFhearghais.js): a card gone and no next one coming -- show it ourselves
       const tp = s.textPanel
       idle = (!tp.isVisible && !tp.isFading && !panel._chainTimer) ? idle + 200 : 0
       if (idle >= 1500) { idle = 0; console.warn('[garbhan] dialogue stalled: showing the next card'); panel._reopenDialogue(zone) }
@@ -225,7 +225,7 @@ export default class Garbhan {
     this._later(900, () => this._veil(700))
     this._later(1800, () => {
       this.m?.endFight()
-      s.scene.start('skye_tigh_conaill', { champion: s.registry.get('selectedChampion') || window.selectedChampion, wake: 'garbhan', how })
+      s.scene.start('skye_tigh_fhearghais', { champion: s.registry.get('selectedChampion') || window.selectedChampion, wake: 'garbhan', how })
     })
   }
 

@@ -58,6 +58,7 @@ export function createGameMenuHub({
     onLabhairtClose  = null,
 } = {}) {
     let open      = false;
+    let locked    = false;                                  // loot window: no tabs, no swiping on to other panels
     let destroyed = false;
     let curIdx    = Math.max(0, PANELS.findIndex(p => p.key === (GameSettings.lastMenuPanel || 'inventory')));
 
@@ -343,6 +344,7 @@ export function createGameMenuHub({
     root.addEventListener('pointerup', (e) => {
         if (!swiping) return;
         swiping = false;
+        if (locked) return;
         const dx = e.clientX - swipeStartX;
         const dt = performance.now() - swipeStartT;
         if (Math.abs(dx) > 45 && dt < 400) {
@@ -437,6 +439,7 @@ export function createGameMenuHub({
         close()        { _close(); },
         isOpen()       { return open; },
         currentPanel() { return PANELS[curIdx].key; },
+        lock(on)       { locked = !!on; tabBar.style.visibility = locked ? 'hidden' : 'visible'; },
         setContent(key, el) {
             if (domPanels[key]) { domPanels[key].innerHTML = ''; domPanels[key].appendChild(el); }
         },

@@ -3,13 +3,13 @@
 //
 // The opening set piece at the cladach: a cut-scene, not a lesson. The
 // champion has just rowed to Skye and stands on the jetty, midway along its deck.
-// Conall, on the ledge by the stair, hails them; a short exchange; the champion
+// Fergus, on the ledge by the stair, hails them; a short exchange; the champion
 // is told to come to the fire -- and staggers three steps up the jetty, and falls.
-// Conall comes down and stands over them, lifts their head and shoulders (they
+// Fergus comes down and stands over them, lifts their head and shoulders (they
 // lie propped at about 45 degrees against him), then steps back, dragging
 // them: step, drag, step, drag -- and we fade to black.
 //
-//   1. THE HAIL    -- Conall's own conversation (skyeCladach.dlg, node 3,
+//   1. THE HAIL    -- Fergus's own conversation (skyeCladach.dlg, node 3,
 //                     opened by this module): cards, at the reader's own pace
 //                     (tap to skip ahead, hold the moon to peek the English).
 //                     It ends on "Then come."
@@ -19,12 +19,12 @@
 //                     mutter), and steps back up the stair, dragging them:
 //                     "I see that thou art." / "There is no need to narrate it."
 //                     as the black comes in. Captions (no dialogue mode: the
-//                     picture is the point), in the player's and Conall's colours.
+//                     picture is the point), in the player's and Fergus's colours.
 //
 // While it plays the player has NO control: the brooch (the d-pad hoop) is
 // hidden and kept hidden, taps and drawn routes do nothing, and the champion
 // moves only by the script's own steps. It is never given back: the next thing
-// is a new scene (Conall's cabin), and onDone() is where that begins.
+// is a new scene (Fergus's cabin), and onDone() is where that begins.
 //
 // SKIP: hold the moon (outside the conversation, where the hold is the English
 // peek) and a Scip button comes up, as in the crossings. It goes straight to
@@ -33,10 +33,10 @@
 // How the pieces are drawn:
 //   * the champion: the usual PGR player, walked with the real step machinery
 //     (slowed), plus a pose (scene.playerPose(): sway, slump, fall, dragged)
-//   * Conall: his fixed-encounter flag, moved by hand (tile + pose, so he
+//   * Fergus: his fixed-encounter flag, moved by hand (tile + pose, so he
 //     glides between tiles). While the cut-scene runs his proximity zone is
 //     parked off the map so no badge can open; it opens the hail itself.
-//   * the drag: the champion's logical position trails Conall's along the
+//   * the drag: the champion's logical position trails Fergus's along the
 //     route, LAG tiles behind (so PGR draws them in front of him), still
 //     propped at their angle. (Only a quiet ring where they fall: it is raining.)
 
@@ -46,10 +46,10 @@ import { createDomButton } from '../../../systems/gameTypography.js'
 import { moveFigure, figureBox, impactRing } from './dustDash.js'
 import { INK } from '../../../ui/speakers.js'
 
-const CONALL = INK.conall
+const FEARGHAS = INK.fearghas
 const PLAYER = '#f5ecc9'
 
-// The last exchange: muttered and answered while Conall drags them off.
+// The last exchange: muttered and answered while Fergus drags them off.
 export const LINES = {
    coming:  { ga: 'Tá mé ar mo bhealach anois.', en: 'I am on my way now.' },
  see:     { ga: 'Feicim go bhfuil.',      en: 'I see that thou art.' },
@@ -59,11 +59,12 @@ export const LINES = {
 // Tiles (skye_gen.mjs: the jetty is cols 18-19, rows 25-33, the last two rows
 // being the boat's; the stairs are at (17,26), (19,24) and (16,22); the
 // ledges are rows 25 and 23)
-const CONALL_AT = [18, 23]                              // where he waits (skyeCladach.js data)
-const START   = [18.5, 29]                              // the champion begins on the jetty, between its two
-                                                        // planks of tiles (x 18.5 -> the middle of the deck)
+const FEARGHAS_AT = [18, 23]                              // where he waits (skyeCladach.js data)
+const START   = [18.5, 31]                              // the champion lands at the boat's end of the jetty, between its two
+                                                        // planks of tiles (x 18.5 -> the middle of the deck)...
+const INTRO_STEPS = 2                                   // ...and takes two unsteady steps up it (to row 29: where the hail begins)
 const STAGGER_STEPS = 3                                 // three wobbly steps up the jetty, to row 26
-const DOWN    = [[19, 23], [19, 24], [19, 25], [19, 26]] // Conall, to stand over the fallen
+const DOWN    = [[19, 23], [19, 24], [19, 25], [19, 26]] // Fergus, to stand over the fallen
 // Where he steps back to: up the stair at (19,24), the champion dragged behind.
 const ROUTE = [[19, 26], [19, 25], [19, 24], [19, 23], [19, 22]]
 const DRAGS = 3                                         // step, drag, step, drag, ...
@@ -102,20 +103,20 @@ function boxAt(scene, fx, fy) {
 export default class Landfall {
   /**
    * @param scene   the cladach scene
-   * @param conall  { flag, zone } -- his fixed-encounter figure
+   * @param fearghas  { flag, zone } -- his fixed-encounter figure
    * @param onDone  called once the screen is black and held (or on skip)
    */
-  constructor(scene, conall, onDone) {
+  constructor(scene, fearghas, onDone) {
     this.scene = scene
-    this.conall = conall
+    this.fearghas = fearghas
     this.onDone = onDone
     this.alive = true
     this.skipped = false
     this.finished = false
     this.q = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 }     // the champion's pose
     this.sway = 0                                         // how drunk the walk is (0 = not at all)
-    this.cpose = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 }  // Conall's own pose (kneeling)
-    this.c = null                                         // Conall's float tile position
+    this.cpose = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 }  // Fergus's own pose (kneeling)
+    this.c = null                                         // Fergus's float tile position
     this.carrying = false
     this.s = 1                                            // how far along ROUTE he is
     this.blend = 0                                        // 0 = the champion where they fell, 1 = on the route behind him
@@ -151,9 +152,9 @@ export default class Landfall {
       sc.cameras.main.centerOn(p.logicalX, p.logicalY)
     }
 
-    // Conall waits where the data puts him
-    const { flag } = this.conall
-    this.c = { x: CONALL_AT[0], y: CONALL_AT[1] }
+    // Fergus waits where the data puts him
+    const { flag } = this.fearghas
+    this.c = { x: FEARGHAS_AT[0], y: FEARGHAS_AT[1] }
     flag.tileX = this.c.x; flag.tileY = this.c.y
     flag.hidden = false
 
@@ -180,7 +181,7 @@ export default class Landfall {
     if (sc.joystick && !sc.joystick._dirsHidden) sc.joystick.hideDirections()   // e.g. after a trip through the menu
     sc.joystick?.reset?.()
 
-    const f = this.conall.flag, c = this.c
+    const f = this.fearghas.flag, c = this.c
     if (this.carrying) {
       const [cx, cy] = routeAt(this.s)
       c.x = cx; c.y = cy
@@ -224,6 +225,15 @@ export default class Landfall {
   async _script() {
     const sc = this.scene
     await this._wait(1500)
+    // off the boat: two unsteady steps up the screen (sea legs), then the hail
+    for (let i = 0; i < INTRO_STEPS; i++) {
+      this.sway = 0.5 + 0.4 * i
+      await this._step(0, -1)
+      await this._wait(260)
+    }
+    const x0 = (START[0] + 0.5) * sc.tileSize                                // (a step lands on a tile's middle: settle back to where the hail has always begun)
+    await Promise.all([this._tw(this, { sway: 0 }, 700), this._tw(sc.player, { logicalX: x0, targetX: x0, startX: x0 }, 700, 'Sine.easeInOut')])
+    await this._wait(500)
     await this._talk()
 
     // "I am coming" (it comes later, muttered): the legs have other ideas, the length of the jetty
@@ -259,16 +269,16 @@ export default class Landfall {
     this._done()
   }
 
-  // The hail: Conall's own conversation (skyeCladach.dlg node 3, which the
+  // The hail: Fergus's own conversation (skyeCladach.dlg node 3, which the
   // note landfall_talk lets in), opened from here. The cards are the reader's.
   async _talk() {
     const sc = this.scene, panel = sc._encounterPanel
-    const { flag, zone } = this.conall
+    const { flag, zone } = this.fearghas
     if (panel) {
       const dialogues = zone.getData('dialogues') || []
       GameState.setNPCProgress(zone.getData('stateKey'), Math.max(0, dialogues.length - 1))   // start at the landfall node
       GameState.addNote('landfall_talk')
-      panel.notify({ id: 'fixed:conall', visual: flag.visual }, zone)
+      panel.notify({ id: 'fixed:fearghas', visual: flag.visual }, zone)
       panel._openPanel()
       await this._until(() => !panel._isOpen)
       GameState.removeNote('landfall_talk')
@@ -284,9 +294,9 @@ export default class Landfall {
   _say(who, line, hold) {
     const cap = this.scene._caption
     if (!cap || this.skipped) return
-    cap.setColor(who === 'conall' ? CONALL : PLAYER)
+    cap.setColor(who === 'fearghas' ? FEARGHAS : PLAYER)
     // who is speaking, as on the dialogue cards: their little portrait over the line (none for a silent line)
-    if (line.ga.trim()) cap.setPortrait(who === 'conall' ? this.conall.zone.getData('portrait') : this.scene.perspectiveGround?._playerCanvas)
+    if (line.ga.trim()) cap.setPortrait(who === 'fearghas' ? this.fearghas.zone.getData('portrait') : this.scene.perspectiveGround?._playerCanvas, who === 'fearghas' ? 0 : this.q.rot * 180 / Math.PI)    // (lying propped: the face is turned with them)
     cap.show(line.ga, line.en, hold)
   }
 
@@ -308,7 +318,7 @@ export default class Landfall {
     await this._wait(500)
   }
 
-  // Conall down the stair, to stand over the fallen.
+  // Fergus down the stair, to stand over the fallen.
   async _down() {
     for (const [x, y] of DOWN) await this._tw(this.c, { x, y }, 420)
   }
@@ -318,8 +328,8 @@ export default class Landfall {
   async _haul() {
     this._tw(this, { blend: 1 }, STEP_MS * 1.5, 'Sine.easeInOut')
     let fade = null
-    this._say('conall', LINES.see, 2200)
-    this._after(2 * (STEP_MS + PAUSE_MS) - 200, () => this._say('conall', LINES.narrate, 3200))
+    this._say('fearghas', LINES.see, 2200)
+    this._after(2 * (STEP_MS + PAUSE_MS) - 200, () => this._say('fearghas', LINES.narrate, 3200))
     for (let i = 0; i < DRAGS; i++) {
       if (i === FADE_AT - 1) fade = this._toBlack()
       await this._tw(this, { s: i + 1 }, STEP_MS, 'Sine.easeInOut')

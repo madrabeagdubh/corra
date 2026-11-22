@@ -1,7 +1,7 @@
 // tighRoom.js
 // Location: js/game/scenes/locations/skye/tighRoom.js
 //
-// Conall's cabin, painted in code: no image files. A fixed camera looks north into one small
+// Fergus's cabin, painted in code: no image files. A fixed camera looks north into one small
 // room, a cut-away (the south wall is the near edge, with the door in it). Drawn at 150 x 312
 // "room pixels" and scaled up with nearest-neighbour filtering by the scene, so it sits with
 // the game's small pixel sprites. Simple shapes, flat colours, Romanesque lines: no brickwork.
@@ -15,7 +15,7 @@
 //
 // paintRoom() returns canvases (the static room, the window curtain closed and drawn back, the
 // blanket over the sleeper, the door, the props, and the light layers). The scene
-// (tighConaill.js) animates them. To change the look: the palette is just below; each piece
+// (tighFhearghais.js) animates them. To change the look: the palette is just below; each piece
 // of the room is one small function.
 
 export const RW = 150
@@ -323,7 +323,7 @@ function woodPile(b, fx = SPOT.wood.x, fy = SPOT.wood.y) {
 }
 
 // The south wall: the near edge of the cut-away. The game's clay wall tile (120) either side
-// of the door; the door itself is separate (closed 137 / open 138), so Conall can open it.
+// of the door; the door itself is separate (closed 137 / open 138), so Fergus can open it.
 function southWall(ctx, img) {
   const { x: dx, y: top, w: dw, h: dh } = SPOT.door
   ctx.save(); ctx.imageSmoothingEnabled = false
@@ -625,6 +625,10 @@ export function paintSolids() {
   const chestFace = (w, h) => boxCanvas(w, h, (b) => { planks(b, w, h, P.tbM, P.tbD, P.tbL); b.rect(0, 0, w, 1, P.tbH); b.rect(3, 0, 2, h, P.iron); b.rect(w - 5, 0, 2, h, P.iron); b.rect(w / 2 - 1, 3, 3, 3, P.ironL) })
   o.seatTop = withProps(boxCanvas(22, 19, (b) => { planks(b, 22, 19, P.tbL, P.tbM, P.tbH); b.rect(3, 0, 2, 19, P.iron); b.rect(17, 0, 2, 19, P.iron) }), [['clothes', 2, 3]])
   o.seatTopEmpty = boxCanvas(22, 19, (b) => { planks(b, 22, 19, P.tbL, P.tbM, P.tbH); b.rect(3, 0, 2, 19, P.iron); b.rect(17, 0, 2, 19, P.iron) })
+  // the chest open: the top seen from above is the inside, dark under a rim, with the clothes folded in it (or empty)
+  const chestInside = (b) => { b.rect(0, 0, 22, 19, P.tbD); b.rect(0, 0, 22, 1, P.tbH); b.rect(2, 2, 18, 15, '#1a0f08'); b.rect(2, 2, 18, 2, '#0d0804') }
+  o.seatTopOpen = withProps(boxCanvas(22, 19, chestInside), [['clothes', 2, 4]])
+  o.seatTopOpenEmpty = boxCanvas(22, 19, chestInside)
   o.seatFront = chestFace(22, 11)
   o.seatSide = chestFace(19, 11)
   // ── v7: the woodpile, the sleeper's blanket, and a door tall enough for a man ──

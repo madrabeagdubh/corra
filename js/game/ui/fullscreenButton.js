@@ -19,10 +19,10 @@ export function initFullscreenButton() {
 
   const btn = document.createElement('button')
   btn.id = 'pgr-fullscreen-btn'
-  // [fsIcon] the whole tile is the tap target; the icon itself is a small gold-and-dark badge in its middle, legible on any moon
+  // [fsIcon] the whole tile is the tap target; the icon is four bare white corners, wide apart, with a dark halo so they read on any moon
   const ico = document.createElement('span')
-  ico.style.cssText = 'position:absolute;left:50%;top:50%;width:46%;height:46%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(6,8,16,0.62);box-shadow:0 0 0 1.5px rgba(212,175,55,0.8),0 0 12px rgba(0,0,0,0.7);pointer-events:none'
-  ico.innerHTML = '<svg viewBox="0 0 24 24" width="64%" height="64%" fill="none" stroke="#f6e3a6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>'
+  ico.style.cssText = 'position:absolute;left:50%;top:50%;width:62%;height:62%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none'
+  ico.innerHTML = '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 0 4px rgba(0,0,0,0.6))"><path d="M2 7V2h5M17 2h5v5M22 17v5h-5M7 22H2v-5"/></svg>'
   btn.appendChild(ico)
   btn.style.cssText = [
     'position:fixed',

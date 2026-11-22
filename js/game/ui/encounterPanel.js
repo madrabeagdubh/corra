@@ -29,9 +29,9 @@ import { GameSettings }  from '../settings/gameSettings.js'
 import { GameState }     from '../systems/gameState.js'
 import { SoundBoard }    from '../systems/soundBoard.js'
 import { announceQuest } from '../systems/quests.js'
-import { DialogueHarp } from '../systems/music/dialogueHarp.js'
+import { DialogueHarp, hasNamedTune } from '../systems/music/dialogueHarp.js'
 import { Bodhran }      from '../systems/music/bodhran.js'
-import { inkForZone }   from './speakers.js'
+import { inkForZone, speakerOf } from './speakers.js'
 import { MoonPeek }     from '../systems/moonPeek.js'
 
 const BADGE_FADE_MS   = 400
@@ -348,7 +348,9 @@ clearNotify() {
     // the card-building path every encounter takes. The URL is available
     // immediately even though the texture it names loads asynchronously, which
     // is the other reason the earlier attempts came up empty.
-    const npcId = url || (zone.getData('visual')?.gid
+    const who = zone.getData('tuneKey') || speakerOf(zone)      // (a scene may name the tune's owner outright)
+    // Fearghas has his tune in the cabin and on the shore, wearing a borrowed portrait there
+    const npcId = (hasNamedTune(who) ? who : null) || url || (zone.getData('visual')?.gid
       ? 'gid:' + zone.getData('visual').gid
       : null)
     if (npcId) { try { DialogueHarp.setNpc(npcId) } catch (e) {} }
@@ -406,7 +408,7 @@ clearNotify() {
       this._scene?.registry?.get('selectedChampion') ||
       window.selectedChampion || null,
       this._scene,
-      zone?.getData('portrait') || this._card?.id || null
+      (hasNamedTune(zone?.getData?.('tuneKey') || speakerOf(zone)) ? (zone?.getData?.('tuneKey') || speakerOf(zone)) : null) || zone?.getData('portrait') || this._card?.id || null
     )
 
     if (type === 'fixed_encounter') {

@@ -1,11 +1,11 @@
 // skyeCladach.js
 // Location: js/game/scenes/locations/skye/skyeCladach.js
 //
-// The shore: where Conall, the Warden, welcomes you and sends you up the
+// The shore: where Fergus, the Warden, welcomes you and sends you up the
 // wall. (Movement is taught in the garden: skyeGairdin.js, faicheCourse.js.)
 //
 //   0. ARRIVAL -- the player stands on the jetty (the sea is in: the quay,
-//      the first riser and the first terrace are under water) at the foot of a stepped harbour wall, Conall on the
+//      the first riser and the first terrace are under water) at the foot of a stepped harbour wall, Fergus on the
 //      top. After a few seconds, or on the first tap / d-pad press, his
 //      conversation opens by itself: starting a conversation isn't
 //      something to discover yet. He welcomes them and invites them up.
@@ -31,7 +31,7 @@
 // weed: tideWater.js. Engraving: wallEngravings.js.
 //
 // THE LANDFALL (landfall.js) comes first: on a first arrival the cladach opens
-// with a cut-scene (Conall hails the champion, who staggers and falls; he
+// with a cut-scene (Fergus hails the champion, who staggers and falls; he
 // carries them off and it fades to black) in place of the welcome, climb and
 // pep talk described above, which stay in the code behind LANDFALL.
 //
@@ -48,7 +48,7 @@
 // NOTES: climb_started (dialogue) -> climb_top -> pep_done; [garden] lesson_movement
 //        tide_out_seen  the ebb tide's one-off caption has been shown
 //        landfall_done  the opening cut-scene (landfall.js) has played
-//        landfall_talk  (set by landfall.js around Conall's hail: lets in his dialogue node 3)
+//        landfall_talk  (set by landfall.js around Fergus's hail: lets in his dialogue node 3)
 //
 // Layout constants must match skye_gen.mjs (skye_cladach).
 
@@ -104,7 +104,7 @@ export class SkyeCladach extends SkyeScene {
   // The landing rain sits well under the dialogue's music (the rain's own ducking steps it back further while he speaks)
   getRainScale() { return 0.55 }
 
-  // The champion stands as tall as Conall here (the default, 0.7, drew them
+  // The champion stands as tall as Fergus here (the default, 0.7, drew them
   // about two thirds of his height beside him).
   getPGRConfig() { return { ...super.getPGRConfig(), PLAYER_SCALE: 0.8 } }
 
@@ -130,8 +130,8 @@ export class SkyeCladach extends SkyeScene {
     // sea, seen when the dialogue camera pulls up.)
     if (this.perspectiveGround) this.perspectiveGround._phantomOceanOnly = new Set(['south'])
 
-    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt(), color: INK.conall })
-    this._conall = this._findFigure(SKYE_GID.WARDEN)
+    this._caption = new SkyeCaption({ scene: this, focusOn: () => this._speakerAt(), color: INK.fearghas })
+    this._fearghas = this._findFigure(SKYE_GID.WARDEN)
     this._boat    = this._findFigure(SKYE_GID.BOAT)
     if (this._boat) this._boat.flag.hidden = true   // ShoreProps draws the boat; the flag is just for talking
     this._phase   = 'free'
@@ -155,18 +155,18 @@ export class SkyeCladach extends SkyeScene {
     ))
 
     // A first arrival is the landfall cut-scene; later he's gone on ahead.
-    const landfall = LANDFALL && this._conall && (LANDFALL_REPLAY ||
+    const landfall = LANDFALL && this._fearghas && (LANDFALL_REPLAY ||
       !(GameState.hasNote('landfall_done') || GameState.hasNote('pep_done') ||
         GameState.hasNote('climb_top') || GameState.hasNote('climb_started')))
     if (landfall) {
       this._phase = 'landfall'                   // none of the old arrival logic runs
-      // The landing is in the rain: more dramatic. (It eases to a drizzle by Conall's cabin, two days on --
-      // tighConaill.js -- and the weather is the director's again once it has gone on from there.)
+      // The landing is in the rain: more dramatic. (It eases to a drizzle by Fergus's cabin, two days on --
+      // tighFhearghais.js -- and the weather is the director's again once it has gone on from there.)
       if (!weather.locked) { weather.lock('rain', { fade: window.__crossingHandoff ? 8 : 2 }); this._rainLock = true }       // (coming off the sea the rain thickens slowly)
-      this._landfall = new Landfall(this, this._conall, () => this._afterLandfall())
+      this._landfall = new Landfall(this, this._fearghas, () => this._afterLandfall())
       this._landfall.start()
     } else if (GameState.hasNote('pep_done') || GameState.hasNote('landfall_done')) {
-      this._vanishConall(false)                  // he's gone on ahead
+      this._vanishFearghas(false)                  // he's gone on ahead
       // sea out: the first time, say so (and so tell them to look down)
       if (this.mapData.tide?.state === 'low' && !GameState.hasNote('tide_out_seen')) {
         GameState.addNote('tide_out_seen')
@@ -221,11 +221,11 @@ export class SkyeCladach extends SkyeScene {
   playerPose() { return this._landfall?.pose() ?? super.playerPose() }
   hasContinuousAnimation() { return !!this._landfall?.alive || !!super.hasContinuousAnimation?.() }
 
-  // Black, and held: the next scene is Conall's cabin, where the eyes open (tighConaill.js).
+  // Black, and held: the next scene is Fergus's cabin, where the eyes open (tighFhearghais.js).
   // It takes the black over: it removes #landfall-veil itself, as the eyelids start to open.
   _afterLandfall() {
     if (!LANDFALL_REPLAY) GameState.addNote('landfall_done')
-    this.scene.start('skye_tigh_conaill', { champion: this.registry.get('selectedChampion') || window.selectedChampion })
+    this.scene.start('skye_tigh_fhearghais', { champion: this.registry.get('selectedChampion') || window.selectedChampion })
   }
 
   // ── 0. arrival ───────────────────────────────────────────────────────────
@@ -234,8 +234,8 @@ export class SkyeCladach extends SkyeScene {
     this._phase = 'free'
     this._introTimer?.remove?.()
     const panel = this._encounterPanel
-    if (!panel || !this._conall) return
-    panel.notify({ id: 'fixed:conall', visual: this._conall.flag.visual }, this._conall.zone)
+    if (!panel || !this._fearghas) return
+    panel.notify({ id: 'fixed:fearghas', visual: this._fearghas.flag.visual }, this._fearghas.zone)
     panel._openPanel()
   }
 
@@ -272,8 +272,8 @@ export class SkyeCladach extends SkyeScene {
     if (this._hinting) { this.joystick?.highlight?.(null); this._hinting = false }
     this.time.delayedCall(700, () => {
       const panel = this._encounterPanel
-      if (!panel || !this._conall || panel._isOpen) return
-      panel.notify({ id: 'fixed:conall', visual: this._conall.flag.visual }, this._conall.zone)
+      if (!panel || !this._fearghas || panel._isOpen) return
+      panel.notify({ id: 'fixed:fearghas', visual: this._fearghas.flag.visual }, this._fearghas.zone)
       panel._openPanel()
     })
   }
@@ -293,7 +293,7 @@ export class SkyeCladach extends SkyeScene {
   // dash -- the player sees which way he's going before he's gone.
   _leadToGarden() {
     this._phase = 'dash'
-    const u = this._conall
+    const u = this._fearghas
     this._caption.speak(LINES.follow.ga, LINES.follow.en, 3200)
     if (!u) { this._phase = 'free'; return }
     let t = 1600
@@ -308,7 +308,7 @@ export class SkyeCladach extends SkyeScene {
     this.time.delayedCall(t + 300, () => dash(this, {
       flag: u.flag, zone: u.zone, to: GARDEN_DASH,
       onArrive: () => this.time.delayedCall(500, () => {
-        this._vanishConall(true)
+        this._vanishFearghas(true)
         this._phase = 'free'
       }),
     }))
@@ -335,11 +335,11 @@ export class SkyeCladach extends SkyeScene {
     this._phase = 'dash'
     this._caption.speak(line.ga, line.en, 3000)
     this.time.delayedCall(1400, () => {
-      if (!this._conall) { this._phase = 'free'; return }
+      if (!this._fearghas) { this._phase = 'free'; return }
       dash(this, {
-        flag: this._conall.flag, zone: this._conall.zone, to,
+        flag: this._fearghas.flag, zone: this._fearghas.zone, to,
         onArrive: () => this.time.delayedCall(500, () => {
-          this._vanishConall(true)
+          this._vanishFearghas(true)
           this._phase = 'free'
         }),
       })
@@ -347,8 +347,8 @@ export class SkyeCladach extends SkyeScene {
   }
 
   // Gone: flag hidden, zone moved off the map so his badge can't appear.
-  _vanishConall(puff) {
-    const u = this._conall
+  _vanishFearghas(puff) {
+    const u = this._fearghas
     if (!u) return
     if (puff) {
       const box = figureBox(this, u.flag.tileX, u.flag.tileY)
@@ -410,7 +410,7 @@ export class SkyeCladach extends SkyeScene {
     }
     const mine = panel._card?.id?.startsWith('engraving:')
     if (near) {
-      if (panel._card && !mine) return                        // someone else's badge (Conall's)
+      if (panel._card && !mine) return                        // someone else's badge (Fergus's)
       if (panel._card?.id === 'engraving:' + near.id && panel._badgeVisible) return
       panel.notify({
         id: 'engraving:' + near.id,
@@ -425,9 +425,9 @@ export class SkyeCladach extends SkyeScene {
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
-  // Where Conall is standing, for the caption's focus -- or null.
+  // Where Fergus is standing, for the caption's focus -- or null.
   _speakerAt() {
-    const f = this._conall?.flag
+    const f = this._fearghas?.flag
     return f && !f.hidden ? [f.tileX, f.tileY] : null
   }
 

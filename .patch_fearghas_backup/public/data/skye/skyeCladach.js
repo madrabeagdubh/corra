@@ -1,0 +1,106 @@
+// skyeCladach.js
+// Location: public/data/skye/skyeCladach.js
+//
+// The shore of Skye, where the boat lands. Conall, the Warden, greets them:
+// he invites them up the harbour wall and they find the stair for themselves.
+// (Uathach, Scáthach's daughter, stays on the green's dais until the tournament.)
+// The climb itself lives in
+//   js/game/scenes/locations/skye/skyeCladach.js
+// This file only holds his placement and his conversation.
+//
+// The dialogues array is generated from
+//   tools/dialogue/drafts/skyeCladach.dlg
+// Do not hand-edit it: edit the draft and recompile:
+//   node tools/dialogue/compile.mjs tools/dialogue/drafts/skyeCladach.dlg
+// Everything else here (position, radius, visual) is hand-maintained.
+//
+// ── NOTES ─────────────────────────────────────────────────────────────────
+//   climb_started        -- dialogue: "I'm coming"; he leaves them to the wall
+//   climb_top            -- scene: they're on top of the wall; opens the pep talk
+//   leave_skye           -- boat dialogue: one-off; the scene clears it
+//                           and starts the crossing back to the mainland
+//   landfall_talk        -- scene: set only while the landfall's talk is open (selects node 3);
+//                           removed when it closes
+//   landfall_done        -- scene: the landfall has played; Conall is gone from the shore
+//
+// TWO SPEAKERS: Conall (skyeCladach.dlg, @encounter 0) and the boat
+// (skyeCladachBoat.dlg, @encounter 1). Keep `dialogues` the last field of
+// each -- the compiler finds each array's end from the next one.
+
+export const skyeCladachContent = {
+  objects: [],
+  npcs:    [],
+  fixedEncounters: [
+    {
+      id: 'conall',
+      // Down by the water, on the first dry ledge (row 23) beside the bottom
+      // stair (19,24): a few steps from the jetty, in the sharp band of the
+      // tilt-shift blur, so the player can see him from the landing.
+      // (He used to stand on the headland top, at (17,20).)
+      x: 18, y: 23,
+      radius: 2,
+      visual:   { gid: 9203, flat: false },
+      portrait: '/assets/npcs/othran.png',
+      dialogues: [
+
+        // ── node 3 — the landfall ─────────────────────────────────
+        {
+          requires: { note: 'landfall_talk' },
+          hold: true,
+          ga: 'Geal an éadan os cionn an maide!\nAn ghaiscíocht le hais na gualainne.',
+          en: 'Bright the brow above the oar!\nVictory behind those shoulders',
+          exchange: [
+            {
+              say: 'Iomramh fada déanta agam,\ni gcomhair chladach oileánn an Cheo.\nTá mo dhroim ag cur in iúl dom é.',
+              sayEn: 'Long have I rowed,\nfor Skye\'s grey shore.\nMy back is telling me so.',
+              replyGa: 'An dtiocfaidh tú chois tine?',
+              replyEn: 'Wilt thou come to the fire?',
+            },
+            {
+              say: 'Tiocfadh mé chois tine.',
+              sayEn: 'I will come to the fire.',
+              replyGa: 'Tar, mar sin.',
+              replyEn: 'Then come.',
+            },
+          ],
+        },
+
+      ],
+    },
+    // (the engraved words have no encounters: the scene captions them as you stand below them -- wallEngravings.js)
+    {
+      id: 'boat',
+      // The jetty head. The boat itself is drawn by ShoreProps (moored
+      // across the head, row 34); this is only its conversation, so the
+      // flag is hidden at runtime and the gid serves the moon badge.
+      // Its dialogue sets `leave_skye`, which the scene acts on.
+      x: 18, y: 33,
+      radius: 2.4,
+      visual:   { gid: 9202, flat: false },
+      portrait: '/assets/boat.png',
+      dialogues: [
+
+        // ── node 0 — the boat ─────────────────────────────────────
+        {
+          hold: true,
+          ga: 'An bád a thug anseo thú.\nThabharfadh sé ar ais thar farraige thú.',
+          en: 'The boat that brought you here.\nIt would take you back across the sea.',
+          options: [
+            {
+              note: 'leave_skye',
+              exit: true,
+              ga: 'Fág an t-oileán.',
+              en: 'Leave the island.',
+            },
+            {
+              exit: true,
+              ga: 'Ní fós.',
+              en: 'Not yet.',
+            },
+          ],
+        },
+
+      ],
+    },
+  ],
+}

@@ -536,7 +536,7 @@ export default class Escape extends HewnTest {
     this.time.delayedCall(2700, () => this._cap?.show('[Le leanúint]', '[To be continued]'))
   }
 
-  // ── a conversation the scene opens itself (as tighConaill.js does) ──────
+  // ── a conversation the scene opens itself (as tighFhearghais.js does) ──────
   _talk(id) {
     const panel = this._encounterPanel, enc = this._content?.fixedEncounters.find(e => e.id === id)
     if (!panel || !enc || panel._isOpen) return

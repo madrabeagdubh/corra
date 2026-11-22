@@ -135,6 +135,7 @@ export default class Joystick {
     this._open       = 0          // +-180 once the pin is free and the hoop has sprung open, until the finger lifts
     this._spin       = null       // { last, acc, t0, on, dir }: a finger circling the ring (TURN TO RELEASE)
     this._pinT       = -1e9       // when the pin last came free
+    this._auto       = null       // { t0, ms, dir }: the hoop turning by itself (autoTurn)
     this._hint       = null       // { deg, strength } from highlight()
     this._charge     = 0          // long-press progress 0..1
     this._stoneLit   = false
@@ -245,13 +246,10 @@ export default class Joystick {
       'pointer-events:all;',
       'cursor:pointer;',
       'z-index:1000006;',
-      'background:rgba(8,6,2,0.6);',
-      'border-radius:50%;',
-      'border:1px solid rgba(212,175,55,0.4);',
       'opacity:0;',                       // start hidden
       'transition:opacity 0.3s ease;',    // fade in
     ].join('')
-    this._fsIcon.textContent = '⛶'
+    // (no glyph of its own: the corners on the moonTile are drawn by ui/fullscreenButton.js; this stays as a tap target)
     this._fsIcon.addEventListener('pointerup', (e) => {
       e.stopPropagation()
       this._fsIcon.style.display = 'none'
@@ -683,13 +681,17 @@ export default class Joystick {
   // Where the hoop should be turned to: fastened (0), or as far round as a circling finger has taken it.
   _ringTarget() {
     if (this._open) return this._open
+    if (this._auto) {                                                     // turning by itself: eased, a half round
+      const k = Math.min(1, (performance.now() - this._auto.t0) / this._auto.ms)
+      return this._auto.dir * 180 * (k * k * (3 - 2 * k))
+    }
     const s = this._spin
     return s && Math.abs(s.tot) >= 6 ? s.a0 + 180 - G.GAP_AT + s.tot : 0          // the gap sits opposite the finger
   }
 
   _animating() {
     const off = Math.abs(this._ringTarget() - this._ringRot)
-    return off > 0.3 || Math.abs(this._ringVel) > 0.05 || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0 || (this._now || 0) - this._pinT < PIN_MS ||
+    return off > 0.3 || Math.abs(this._ringVel) > 0.05 || !!this._auto || !!this._hint || this._stoneLit || this._badgeGlow || this._charge > 0 || (this._now || 0) - this._pinT < PIN_MS ||
       (!!this._metal.fancy && ((this._now || 0) % SHEEN_EVERY) < SHEEN_MS + 60)
   }
 
@@ -986,6 +988,29 @@ export default class Joystick {
     const on = dir && DIR_DEG[dir] !== undefined && strength > 0
     this._hint = on ? { deg: DIR_DEG[dir], strength: Math.min(1, strength) } : null
     this._dirty = true
+  }
+
+  // The hoop turns a half round by itself, the pin comes free, and onRingRelease runs (the menu): what a finger
+  // does, shown once. A scene uses it to teach the turn without a word. Does nothing while a finger is on the ring.
+  // Returns false if it could not start.
+  autoTurn({ ms = 1000, dir = 1 } = {}) {
+    if (this._padMode || this._auto || this._open) return false
+    this._auto = { t0: performance.now(), ms, dir }
+    this._dirty = true
+    const done = () => {
+      if (!this._auto) return
+      const a = this._auto
+      if (performance.now() - a.t0 < a.ms) { requestAnimationFrame(done); return }
+      this._auto = null
+      this._open = a.dir * 180; this._ringVel = 0                       // sprung open, as after a finger's turn
+      this._pinT = performance.now()
+      try { navigator.vibrate?.([20, 40, 30]) } catch (_) {}
+      this._dirty = true
+      this._onRingRelease?.()
+      setTimeout(() => { if (!this._padMode) { this._open = 0; this._dirty = true } }, 700)   // no finger to hold it: it closes again
+    }
+    requestAnimationFrame(done)
+    return true
   }
 
   // The whole brooch goes, and stops taking touches, leaving the moon alone

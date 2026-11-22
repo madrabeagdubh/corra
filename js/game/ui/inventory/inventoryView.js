@@ -210,7 +210,7 @@ export default class InventoryView {
     // stats, under the champion's feet
     this.statsRow = el('div', `position:absolute;left:${FIG.x + 14}px;top:${STATS_Y}px;width:${FIG.w - 28}px;display:flex;justify-content:space-around;pointer-events:none;`, stage)
 
-    this._sectionLabel(stage, SECTION.agam, 14, AGAM_Y, T.section)
+    this._agamEl = this._sectionLabel(stage, SECTION.agam, 14, AGAM_Y, T.section)
 
     // the brat: its width is set in _layout, edge to edge
     const cloth = this.cloth = el('div', [
@@ -244,7 +244,7 @@ export default class InventoryView {
 
     // the ground, either side of the brooch
     this.ground = el('div', `position:absolute;left:0;width:100%;bottom:0;border-top:1px solid rgba(255,255,255,0.06);background:${GROUND_IDLE};transition:background 0.1s;`, root)
-    this._sectionLabel(this.ground, SECTION.talamh, 14, 6, 19, 0.9)
+    this._groundLabelEl = this._sectionLabel(this.ground, SECTION.talamh, 14, 6, 19, 0.9)
     this.groundItems = el('div', 'position:absolute;inset:0;', this.ground)
 
     // the card
@@ -259,6 +259,39 @@ export default class InventoryView {
     this.cardEl.addEventListener('pointerdown', e => e.stopPropagation())
   }
 
+  // loot window: the tabs are hidden (the menu hub), and the band they leave carries one way out, a close mark
+  _lootBar(on) {
+    if (!on) { this._lootBarEl?.remove(); this._lootBarEl = null; return }
+    if (this._lootBarEl) return
+    const bar = this._lootBarEl = el('div', 'position:fixed;left:0;top:0;width:100%;height:54px;z-index:1000003;background:linear-gradient(#0c0a06,#14110a);border-bottom:1px solid rgba(212,175,55,0.3);display:flex;align-items:center;justify-content:flex-end;padding-right:12px;box-sizing:border-box;touch-action:none;', document.body)
+    const x = el('div', 'width:40px;height:40px;border-radius:50%;border:1.5px solid rgba(212,175,55,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;', bar)
+    x.appendChild(svgIcon('M6 6l12 12M18 6L6 18', 20, GOLD, 2))
+    x.addEventListener('pointerup', (e) => { e.stopPropagation(); this.scene._menuHub?.close?.() })
+    if (!document.getElementById('inv-loot-css')) {
+      const st = document.createElement('style'); st.id = 'inv-loot-css'
+      st.textContent = '@keyframes lootPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,0)}50%{box-shadow:0 0 14px 4px rgba(212,175,55,0.65)}}'
+      document.head.appendChild(st)
+    }
+  }
+
+  // loot window: one tap puts the thing on (or into the pack): it lifts off and flies to its place
+  _lootTap(src, item, from) {
+    if (this._lootBusy) return
+    const slot = item.equipSlot
+    const to = slot ? this.slotEls[slot]?.box.getBoundingClientRect() : null
+    const go = () => { this._lootBusy = false; if (slot) this._equip(src, item, slot) ; else this._pickUp(src.ref); this._changed() }
+    if (!from || !to) { go(); return }
+    this._lootBusy = true
+    const ic = this._icon(item)
+    const w = from.width, k = Math.min(w / ic.w, from.height / ic.h)
+    const fly = el('img', `position:fixed;left:${from.left}px;top:${from.top}px;width:${ic.w * k}px;height:${ic.h * k}px;image-rendering:pixelated;pointer-events:none;z-index:1000004;transition:transform 0.38s cubic-bezier(.4,0,.2,1),opacity 0.38s;`, document.body, { src: ic.url, alt: '' })
+    requestAnimationFrame(() => {
+      const sc = Math.min(1, (to.width * 0.7) / (ic.w * k))
+      fly.style.transform = `translate(${to.left + to.width / 2 - from.left - ic.w * k / 2}px,${to.top + to.height / 2 - from.top - ic.h * k / 2}px) scale(${sc})`
+    })
+    setTimeout(() => { fly.remove(); go() }, 400)
+  }
+
   _sectionLabel(parent, words, x, y, size, alpha = 1) {
     const w = el('div', `position:absolute;left:${x}px;top:${y}px;display:flex;align-items:baseline;gap:7px;pointer-events:none;opacity:${alpha};`, parent)
     el('span', `font-size:${size}px;color:${GOLD};`, w).textContent = words.ga
@@ -270,6 +303,9 @@ export default class InventoryView {
 
   open() {
     this.isOpen = true
+    const loot = !!this.scene.lootMode
+    this.scene._menuHub?.lock?.(loot)
+    this._lootBar(loot)
     this.root.style.display = 'block'
     this._layout()
     this.render()
@@ -281,6 +317,8 @@ export default class InventoryView {
 
   close() {
     this.isOpen = false
+    this.scene._menuHub?.lock?.(false)
+    this._lootBar(false)
     this._cancelDrag()
     this.closeCard(true)
     saveInventory(this.inv)
@@ -317,12 +355,16 @@ export default class InventoryView {
     groundTop = Math.max(H * 0.62, Math.min(H - 70, groundTop))
     this.ground.style.top = `${groundTop}px`
     this._broochSpan = brooch && brooch.width ? [brooch.left - 6, brooch.right + 6] : [W / 2 - 60, W / 2 + 60]
+    const s = Math.min(W / STAGE_W, (groundTop - 2) / STAGE_H)
+    this.scale = s
+    // loot mode (scene.lootMode: a chest, a body, a barrel): no pack. The champion stays; what lies in the thing is
+    // laid out large where the pack was
+    const loot = this._loot = !!this.scene.lootMode
+    for (const e of [this.cloth, this.fringe, this.pack, this._agamEl, this.line]) e.style.display = loot ? 'none' : ''
+    if (loot) { groundTop = Math.min(groundTop, (AGAM_Y - 6) * s); this.ground.style.top = `${groundTop}px` }
     // the card rises from the top of the ground, so the brooch never covers it
     this.cardEl.style.bottom = `${H - groundTop}px`
     this.cardEl.style.maxHeight = `${Math.round(groundTop * 0.9)}px`
-
-    const s = Math.min(W / STAGE_W, (groundTop - 2) / STAGE_H)
-    this.scale = s
     const offX = Math.max(0, (W - STAGE_W * s) / 2)
     this.stage.style.transform = `scale(${s})`
     this.stage.style.left = `${offX}px`
@@ -469,6 +511,10 @@ export default class InventoryView {
 
   _renderGround() {
     this.groundItems.innerHTML = ''
+    for (const n in this.slotEls) this.slotEls[n].box.style.animation = ''
+    // a scene may name the place the things lie in (a chest, say): scene.groundLabel = { ga, en }
+    const gl = this.scene.groundLabel || SECTION.talamh, sp = this._groundLabelEl?.children
+    if (sp?.length >= 2) { sp[0].textContent = gl.ga; sp[1].textContent = gl.en }
     const near = this._nearbyGround()
     const W = window.innerWidth
     const [bl, br] = this._broochSpan || [W / 2 - 60, W / 2 + 60]
@@ -476,6 +522,17 @@ export default class InventoryView {
     const bandH = this.ground.getBoundingClientRect().height || 120
     const size = Math.max(36, Math.min(54, bandH * 0.42))
     let n = 0
+    if (this._loot) {                                     // a row of large things across the top of the strip, wrapping
+      const big = 72, per = Math.max(1, Math.floor((W - 24) / (big + 12)))
+      near.forEach((d, i) => {
+        const ic = this._icon(d.itemData), k = Math.min(big / ic.w, big / ic.h)
+        const wrap = el('div', `position:absolute;left:${12 + (i % per) * (big + 12)}px;top:${38 + Math.floor(i / per) * (big + 10)}px;width:${big}px;height:${big}px;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(240,220,180,0.28);border-radius:6px;box-sizing:border-box;animation:lootPulse 1.7s ease-in-out infinite;`, this.groundItems, { 'aria-label': d.itemData.nameGa || '' })
+        const eq = d.itemData.equipSlot; if (eq && this.slotEls[eq]) this.slotEls[eq].box.style.animation = 'lootPulse 1.7s ease-in-out infinite'     // where it will go
+        el('img', `width:${ic.w * k}px;height:${ic.h * k}px;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,0.6));`, wrap, { src: ic.url, alt: '' })
+        wrap.addEventListener('pointerdown', e => this._press(e, { kind: 'ground', ref: d }))
+      })
+      return
+    }
     near.forEach((d, i) => {
       const z = zones[i % 2]
       const slot = Math.floor(i / 2)
@@ -691,6 +748,7 @@ export default class InventoryView {
       target.removeEventListener('pointercancel', up)
       if (ev.type === 'pointercancel') { this._cancelDrag(); return }
       if (st.moved) this._dragEnd(ev.clientX, ev.clientY)
+      else if (this._loot && src.kind === 'ground') this._lootTap(src, item, target.getBoundingClientRect())
       else this._toggleCard(src, item)
     }
     target.addEventListener('pointermove', move)

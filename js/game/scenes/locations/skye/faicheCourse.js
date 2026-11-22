@@ -1,14 +1,14 @@
 // faicheCourse.js
 // Location: js/game/scenes/locations/skye/faicheCourse.js
 //
-// The crash course: Conall, alone with you in the garden (skyeGairdin.js: the
+// The crash course: Fergus, alone with you in the garden (skyeGairdin.js: the
 // ráth, with its board of stones), one lesson after another. When it is done
 // the notes the green waits for are set, so the green meets you with the
 // class in session (Uathach on the dais) and then the tournament.
 //
 // THE WORDS are all in tools/dialogue/drafts/faicheCourse.dlg (compiled into
 // courseLines.js; see courseScript.js). This file is the LOGIC: it runs the
-// lessons in ORDER, each one asking for something and watching for it. Conall
+// lessons in ORDER, each one asking for something and watching for it. Fergus
 // says only what the draft gives him; plain instructions are the narrator's
 // (the *Hint slots, grey). A slot left out of the draft is simply not said.
 //
@@ -36,7 +36,7 @@
 // Progress is kept in notes (faiche_course_<id>; tap uses lesson_movement), so
 // coming back picks up at the first lesson not yet done.
 //
-// VOICE: Conall's Irish is spoken aloud only for calls the player must act on
+// VOICE: Fergus's Irish is spoken aloud only for calls the player must act on
 // (_call: a step, a draw, a cut). His longer speeches are musical dialogue --
 // the harp card (_converse / _speech) -- with the d-pad put away and the camera
 // racked onto him; short asides are silent captions.
@@ -62,14 +62,14 @@ import { DUMMY_DONE, FOOT_DONE, SPAR_DONE } from './faicheLesson.js'
 import { SCRIPT, SALUTES, HINT_AFTER_MS, GIVE_UP_MS, setChampionGender } from './courseScript.js'
 import { INK } from '../../../ui/speakers.js'
 
-// the host scene (skyeGairdin.js) provides: _caption, _melee (Conall's bout),
+// the host scene (skyeGairdin.js) provides: _caption, _melee (Fergus's bout),
 // _routeDraw, player, tileSize, and
 //   courseMarker(tile|null)   a pulsing ring on a tile
 //   courseLit(tile)           light a stone of the board (null clears them all)
 const VOICE = ['ronnie', 'Ador']
-const WARDEN_COLOR = INK.conall, HINT_COLOR = INK.narrator     // the same colours as his cards (ui/speakers.js)
+const WARDEN_COLOR = INK.fearghas, HINT_COLOR = INK.narrator     // the same colours as his cards (ui/speakers.js)
 
-export const WARDEN_NAME = 'Conall'
+export const WARDEN_NAME = 'Fergus'
 export const MET = 'faiche_course_met'
 export const DIRS_DONE = 'faiche_course_dirs'
 export const TAP_DONE = 'lesson_movement'
@@ -98,23 +98,23 @@ const DEMO_PTS = [[18, 12], [21, 12], [21, 15], [18, 15], [15, 14], [14, 17], [1
 const DODGES = 3, SHOVES = 3                // the space lesson: steps off the red tile, shoves back
 const DRAW_STEP_MS = 120                   // the line grows a tile this often
 
-// the dummy: Conall stands in for it (see _standIn)
+// the dummy: Fergus stands in for it (see _standIn)
 const DUMMY_AT = [18, 15]                  // where he takes its place
 const DUMMY_GOAL = 12, PTS = { cut: 2, strong: 6, shove: 3 }, PASSES = 5
 const PASS_AFTER_STEP_MS = 900              // a cut this soon after a step is a cut on the move
 
 // the gentle duel: a novice, slowed right down, who goes down in three blows
-// three rounds against Conall: quicker and a little stronger each time
+// three rounds against Fergus: quicker and a little stronger each time
 const DUEL_ROUNDS = [
-  { ...PRESETS.conall, atk: 5, def: 8,  mobile: 1, windMs: 1000, recoverMs: 1100, restMin: 1200, restMax: 1900 },
-  { ...PRESETS.conall, atk: 6, def: 9,  mobile: 2, windMs: 850,  recoverMs: 950,  restMin: 900,  restMax: 1500 },
-  { ...PRESETS.conall, atk: 7, def: 10, mobile: 3, windMs: 700,  recoverMs: 800,  restMin: 600,  restMax: 1100 },
+  { ...PRESETS.fearghas, atk: 5, def: 8,  mobile: 1, windMs: 1000, recoverMs: 1100, restMin: 1200, restMax: 1900 },
+  { ...PRESETS.fearghas, atk: 6, def: 9,  mobile: 2, windMs: 850,  recoverMs: 950,  restMin: 900,  restMax: 1500 },
+  { ...PRESETS.fearghas, atk: 7, def: 10, mobile: 3, windMs: 700,  recoverMs: 800,  restMin: 600,  restMax: 1100 },
 ]
 const DUEL_GIVE_UP_MS = 420000
 const REMATCH_STAGE = 2                    // 'more practice' starts at his hardest
 
 // what he says when the lessons are done and you talk to him (the dialogue panel's format; `event` is handed to onTalkEvent)
-const CONALL_TALK = [
+const FEARGHAS_TALK = [
   { hold: true, ga: 'An mian leat tuilleadh cleachta?', en: 'Would you like more practice?',
     options: [
       { ga: 'Is mian.', en: 'Yes.', replyGa: 'Ar aire, mar sin.', replyEn: 'On guard, then.', last: true, event: 'rematch' },
@@ -176,17 +176,17 @@ export default class FaicheCourse {
     this.practice = true
     this.id = 'talk'; this.goal = null
     this.m.HOME = [...LEDGE_AT]
-    try { const z = this._conallZone(); z?.setData('dialogues', CONALL_TALK); z?.setData('radius', this.scene.tileSize * 1.8) } catch (_) {}
+    try { const z = this._fearghasZone(); z?.setData('dialogues', FEARGHAS_TALK); z?.setData('radius', this.scene.tileSize * 1.8) } catch (_) {}
   }
   /** the zone the moon looks for. The map has none for him (the bout draws him), so one is made here; it goes where he goes. */
-  _conallZone() {
+  _fearghasZone() {
     if (this._zone) return this._zone
     const sc = this.scene, ts = sc.tileSize, f = this.m.foe
     const x = f.c * ts + ts / 2, y = f.r * ts + ts / 2
     const z = sc.add.zone(x, y, ts, ts)
-    z.setData('id', 'conall_talk'); z.setData('type', 'fixed_encounter'); z.setData('stateKey', 'skye_gairdin.conall_talk')
+    z.setData('id', 'fearghas_talk'); z.setData('type', 'fixed_encounter'); z.setData('stateKey', 'skye_gairdin.fearghas_talk')
     z.setData('flagVisual', { gid: SKYE_GID.WARDEN, flat: false }); z.setData('visual', { gid: SKYE_GID.WARDEN, flat: false })
-    z.setData('radius', ts * 1.8); z.setData('dialogues', CONALL_TALK); z.setData('actions', [])
+    z.setData('radius', ts * 1.8); z.setData('dialogues', FEARGHAS_TALK); z.setData('actions', [])
     z.setData('logicalX', x); z.setData('logicalY', y)
     sc.interactables?.push(z)
     return (this._zone = z)
@@ -194,7 +194,7 @@ export default class FaicheCourse {
   /** he can be talked to when nothing is going on: the zone is where he stands, and is put away (far off) while he is busy */
   _zoneTick() {
     if (!this.practice) return
-    const z = this._conallZone(), f = this.m.foe, m = this.m
+    const z = this._fearghasZone(), f = this.m.foe, m = this.m
     const talk = this.id === 'talk' && !m.enGarde && !m.combat && !m.bout.over && !this.speaking && f.state === 'idle'
     const ts = this.scene.tileSize, c = talk ? f.c : -30, r = talk ? f.r : -30
     if (this._zc === c && this._zr === r) return
@@ -319,7 +319,7 @@ export default class FaicheCourse {
     }
   }
 
-  // the caption as Conall's, for StepDrill
+  // the caption as Fergus's, for StepDrill
   _drillCaption() {
     return { show: (ga, en, ms) => this._say({ ga, en }, ms ?? 2200, WARDEN_COLOR, true) }
   }
@@ -342,17 +342,17 @@ export default class FaicheCourse {
     if (Array.isArray(node) || !node) node = { say: node || [] }
     if (!node.say?.length && !node.ask?.length) { then?.(null); return }    // nothing written for it: go straight on
     if (!tp) return this._seq(node.say || [], () => then?.(node.ask?.[0]?.value ?? null))
-    const card = sc.conallCard?.() || {}
+    const card = sc.fearghasCard?.() || {}
     let hero = null
     try { hero = sc._encounterPanel?._resolveHeroGraphicKey?.() ?? null } catch (_) {}
     try { sc.joystick?.reset(); sc.player.isMoving = false; sc.joystick?.hideDirections?.() } catch (_) {}
-    try { DialogueHarp.open(sc.registry?.get('selectedChampion') || window.selectedChampion || null, sc, card.portrait || 'conall') } catch (_) {}
+    try { DialogueHarp.open(sc.registry?.get('selectedChampion') || window.selectedChampion || null, sc, card.portrait || 'fearghas') } catch (_) {}
     if (this.m.enGarde && !opts.keepBlade) { if (this.m.bare) this._bare(false); else this.m.setEnGarde(false) }   // blade away: the moon is for the English now
     sc._keepBladeInTalk = !!opts.keepBlade          // (the scene sheathes it for any words on screen, otherwise)
     // a caption still up (a word over the action): let it fade before the card comes, so the two never overlay
     const cap = sc._caption, wait = cap?.visible ? 320 : 0
     if (wait) cap.hide()
-    tp.setSpeakerInk?.(INK.conall)
+    tp.setSpeakerInk?.(INK.fearghas)
     this.speaking = true
     let value = null, ended = false
     // released: the last card closed the conversation itself (a plain dismiss);
@@ -517,7 +517,7 @@ export default class FaicheCourse {
     sc.heronZoom?.(1, 1)
     sc.setPiece?.(true, look)
     sc.setMood?.(1)
-    // The heron is not seen at first: Conall may only be admiring the lake. The picture pushes in while he talks (the garden and
+    // The heron is not seen at first: Fergus may only be admiring the lake. The picture pushes in while he talks (the garden and
     // the two of you slide down to the bottom edge) and she comes up out of the fog. From then on she acts when each card is
     // dismissed, so it is the reading that times it.
     const finish = () => {
@@ -954,7 +954,7 @@ export default class FaicheCourse {
     v.tileQuad(ctx, sp.tile, `rgba(220,60,50,${0.12 + 0.35 * k})`, `rgba(255,90,70,${0.4 + 0.6 * k})`)
   }
 
-  // ── the dummy: Conall stands in for it ───────────────────────────────────
+  // ── the dummy: Fergus stands in for it ───────────────────────────────────
   // He takes the dummy's place, blade out, and turns aside everything you throw.
   // He cannot be hurt, but he knows an effective blow when he sees one and counts
   // it as the straw post did. Nothing is shown: he is satisfied, or he is not.

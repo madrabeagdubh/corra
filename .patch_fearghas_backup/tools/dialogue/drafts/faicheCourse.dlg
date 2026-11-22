@@ -1,0 +1,639 @@
+# faicheCourse — Conall's crash course in the garden (skyeGairdin)
+#
+# THIS FILE IS THE SOURCE. js/game/scenes/locations/skye/courseLines.js is
+# GENERATED from it and overwritten on every compile. Edit here, not there.
+#
+#   node tools/dialogue/course.mjs tools/dialogue/drafts/faicheCourse.dlg --check
+#   node tools/dialogue/course.mjs tools/dialogue/drafts/faicheCourse.dlg
+#
+# The LOGIC (when each slot is said, what the player must do) is in
+# faicheCourse.js. This file is only the words.
+#
+# ── SYMBOLS ───────────────────────────────────────────────────────────────
+#
+#   == NAME   a lesson. The names are the code's; don't rename them.
+#   =  NAME   a slot in the lesson: a moment the code says something.
+#             Plain lines under it are Conall's (or the narrator's, in a
+#             *Hint slot). One line per line on screen.
+#   *  TEXT   a button the player presses, ending that slot's card.
+#   >  TEXT   (under a *) what the player SAYS, if longer than the button.
+#             Without one, the button's own words are shown as theirs.
+#   <  TEXT   (under a *) what Conall says back.
+#   %  TEXT   the Irish for the line directly above. For now each one
+#             repeats the English (a placeholder: not shown as Irish, not
+#             voiced). Write over it when the Irish is ready.
+#   @value X  (under a *) what the button means to the course:
+#               on     go on (the default)
+#               again  have the lesson once more
+#               wait   (meet only) not ready yet: no call to the mark
+#   @goto S   (under a *) Conall's reply is slot S of this lesson (a card
+#             of its own, which may have buttons of its own)
+#   #         a comment
+#
+# A slot left out, or emptied, is simply not said. A slot ending in Hint (or
+# called hint) is the NARRATOR: grey plain instructions, not Conall.
+#
+# Slots with buttons are cards. Others are cards or captions as the logic
+# decides (captions are short, over the action).
+
+@out js/game/scenes/locations/skye/courseLines.js
+
+== meet
+# He stands at the lake's edge watching the heron; the set piece opens when you walk up to him.
+
+= look
+What trick, do you suppose
+% Cén cleas, meas tú
+
+would make a champion invincible?
+% a dhéanfadh gaiscíoch dochlóite?
+
+The strike that splits an enemy in two?
+% An múadal béim?
+
+Or the strike of extraordinary precision?
+% An éamh faoi chumas? 
+
+The battle frenzy, perhaps?
+% An rístread b'feidir?
+
+look yonder.
+% féach thall.
+
+
+= look2
+ everything I could hope to teach
+% Tá gach ceacht atá agam
+is in the heron's eye
+% i súil an gcorr
+
+= look3
+
+Neither light nor shadow deceives her,
+% Ní bhuaileann solas ná scáil cleas uirthi,
+
+for she crafts a spell.
+% Oir atá sí i mbun draíochta.
+
+A spell of death?
+% Draíocht an bháis?
+
+= look4
+
+A spell of enlightenment.
+% Draíocht an léargais.
+
+# a caption, as he calls you to the marked stone
+= stand
+Now. Stand here.
+% Anois. Seas anseo.
+
+# a card, once you are on it. {prince} is "prince" or "princess" by the champion
+# (and the Irish, once there is some, likewise: prionsa / banphrionsa).
+= stance
+Like the heron
+% Ar nós an chorra
+
+Neither rigidly 
+% Ní righin
+
+nor slack
+% ná bog
+
+# a second card straight after
+= stance2
+The head is carried
+% Iomprítar an cloigeann 
+calmly, without restraint
+% go socair, gan srian
+
+Always.
+% I gcónaí.
+gentle eyes
+% súile lách 
+borderless vision
+% radharic gan teorainn 
+now...
+% anois...
+# ══════════════════════════════════════════════════════════════════════
+== space
+# Bare-handed. He lunges at the tile you stand on (it reddens): step off.
+# Then you shove him until he goes down on one knee.
+
+= intro
+
+FAUGH A BALLAGH! 
+% FÁG A'BEALACH!
+
+# each time you get clear (one picked in turn)
+= good
+Again.
+% Arís.
+
+= mid
+There.
+% Sin é.
+ 
+
+Now press me,
+% Anois brúigh síar mé, 
+
+until I am brought to my knee.
+% go dtí go mbeidh mé ar mo ghlúin.
+
+= shoveGo
+Come, then. 
+% Ar aghaidh, mar sin.
+
+Knock me down.
+% Leag mé.
+
+
+# each shove that lands, before the last
+= shoved
+Again.
+% Arís.
+
+= after
+There it is.
+% Sin agat é.
+Poor footing, half the battle.
+% Droch-sheasamh, leath an chatha.
+# ══════════════════════════════════════════════════════════════════════
+== sword
+# You on the mark, he two tiles to your left. He throws you a practice sword.
+
+# a caption, then the throw
+= intro
+Now.
+% Anois.
+
+# a card, once you've caught it (empty: none)
+= caught
+The sword in its sheath 
+% an claíomh sa truaill 
+
+a chieftain in repose
+% Taoiseach suan
+
+
+All his strength is there,
+% Ann atá a neart, 
+
+his fury, 
+% a chaon-fhearg, 
+
+the grief 
+% an brón
+
+he might bring upon his enemies.
+% a d'fhéadfadh sé imirt ar a naimhde
+
+Do not wake it without cause.
+% Ná mhúscail é gan cuais.
+
+# THE DRAW, DRILLED: draw / (his word on it) / put it away -- three draws, ending
+# drawn. The salute is held back till the next lesson. The moon shows each gesture.
+# the call, each time: the first line for the first draw, the second for the second, ...
+# (the last one is used for any after)
+= draw
+
+Draw now.
+% Tarraing anois.
+
+# the call to put it away, between draws (one for each, as with the draws)
+= sheathe
+The returning of the blade is not lesser than the drawing.
+% Ní lú é filleadh an chlaímh ná a tharraingt.
+
+Sheathe it.
+% Truaill é.
+
+# said once it is away: one for each sheathing
+= sheathed
+ 
+
+
+
+# after each draw, the next of these (a caption); the last draw gets all that's left
+= drawn
+
+
+# ══════════════════════════════════════════════════════════════════════
+== calls
+# The salute. A card, then: draw, salute, again, again, again. No buttons:
+# the blade stays out and the fatigue lesson follows straight on.
+
+= intro
+# In the order of the gesture, so that it can be said along with it: the hilt to the brow (the eyes: what he says to
+# his own heart), the blade to the sky, the point down and out (the clean intent).
+
+Now we salute.
+% Beannaímid anois
+
+Hilt to the brow.
+% Dornchla chun an éadain. 
+
+
+
+Blade to the sky.
+% Lann chun an spéire.
+
+
+Point to the earth.
+% Rinn chun na talún.
+
+Salute within, 
+% Beannaigh istigh, 
+
+salute in the heart.
+% beannaigh sa chroí. 
+
+I salute to say
+% Beannaighím chun rá
+
+What blood I spill here, 
+% Cibé fuil a dhoirtim anseo,
+
+I do so with open eyes.
+% déanaim sin le lán thuiscint.
+
+
+
+# the first call
+= salute
+Salute.
+% Beannaigh.
+
+
+# each call after the first (four salutes in all: faicheCourse.js SALUTES)
+= again
+Again.
+% Arís. 
+
+= enough
+It will do.
+% Is leor sin.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== fatigue
+# He stands in as a target and turns every cut aside, till you're winded. "Stop."
+# Then what it was for.
+
+# captions: the blade stays out
+= intro
+Come against me. 
+% Tar i mo choinne. 
+
+Use thy full weight. 
+% Bain úsáid as do mheáchan ar fad. 
+
+Press hard.
+% Brúigh go laidir.
+
+Again.
+% Arís.
+
+Mark how I do not remain where I was.
+% Tabhair faoi deara nach bhfanaim san áit a raibh mé.
+
+= stop
+Stop.
+% Stad.
+
+
+# a card, once you're winded and he's said "Stop." (no buttons); a second follows it
+= after
+The tide comes. 
+% Tagann an taoide. 
+
+It fills the low places. 
+% Líonann sí na háiteanna ísle. 
+
+It withdraws.
+% cúlíann sé.
+
+
+Thy breath is thy tide.
+% Is í do anáil do thaoide.
+
+Let it come. 
+% Lig di teacht. 
+
+Fill the low places.
+% Líon na hísle. 
+
+Withdraw.
+% cúlaigh.
+
+
+
+= after2
+Let the head of the fearful one
+% Bíodh cheann an chlaidhre 
+
+fill with chatter.
+% lán chainte.
+
+Let the thoughts of the boastful one
+% Bíodh smaointe an lán de lán
+
+crowd with enemies.
+% plódaithe le naimhde.
+
+
+
+So rises the thought,
+% Mar sin a thagann an smaoineamh, 
+
+so falls the thought,
+% mar sin  a imíonn sé.
+
+yet the stone beneath the tide does not move.
+% Ní chorraíonn an chloch faoin tíde.
+
+Be thou the stone.
+%  Bíse i do chloch.
+
+# ══════════════════════════════════════════════════════════════════════
+== dummy
+
+
+# he draws and offers his salute; then yours
+= salute
+Raise thy sword now.
+% Ardaigh do chlaímh anois.
+
+# once you have saluted
+= saluted
+Good.
+% Go maith. 
+# and the work begins
+= go
+Hold it with sureness.
+% Bíodh do greidhm cinnte. 
+
+Strike at me,
+% Tabhair buille dom.
+
+swift,
+% Bual go gasta.
+
+without hesitation.
+% Bual go cinnte.
+
+Come at me now, 
+% Tar
+
+let me see what thou canst do.
+% taispeáin dom cad atá ionat.
+
+
+# captions, over the play: the first blow that would have landed
+= landed
+Thus. Dost thou see?
+%  Mar sin. An léir duit?
+
+= after
+Look. 
+%  Féach. 
+
+Rooted as an oak. 
+% Fréamhaithe mar dhair. 
+
+No. No.
+% Ní hea. Ní hea.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== feet
+# He shows you first: back a step, in again, a cut; aside, in, a cut. Then you:
+# a step, then a cut (tap the moon just after a step). Each pass needs a fresh
+# step; a cut from where you stand, he turns aside. Five passes. He counts them:
+# One. Two. Three. Four. (the fifth opens the card below). No narrator, no hints.
+
+# said with each of his two cuts, as he shows you
+= demo
+Move thus.
+%  Gluais amhlaidh.
+And thus.
+%  Agus amhlaidh.
+
+= intro
+Find the Daingean within thyself.
+% Aimsigh an daingean ionat féin. 
+
+It sits low, 
+%Tá sé suite íseal,
+
+below the navel. 
+%faoin imleacán. 
+
+Let thy weight descend to it.
+%Scaoil do mheáchan síos chuige.
+
+Motion begins there
+% Tosaíonn an gluaiseacht ansin.
+
+Not from the arm. 
+% Ní ón géag. 
+
+Not from the leg. 
+% Ní ón cos.
+
+Not from the clenching jaw.
+% Ní ón giall fáscadh.
+
+Move as thou dost strike, 
+% Bual agus tú ag bogadh, 
+
+for these are not two separate matters.
+% óir ní dhá ábhar eagsúl iad. 
+
+
+Woe to him 
+% Is mairg an té 
+
+who remains where the sword expects to find him.
+
+% a fhanann áit a bhfuil claíomh ag súil leis.
+
+= go
+Move.
+% Bog.
+
+Strike. 
+% Buail. 
+
+Move again. 
+% Bog arís. 
+
+Let them reach for thee and find nothing, 
+% Lig dóibh tú a lorg áit a raibh tú, 
+
+while thy blade is already elsewhere.
+% agus do lann in áit eile cheana féin.
+
+
+
+
+
+
+
+
+# a cut from where you stand (now and then)
+= still
+ Move first.
+% Bog ar dtús. 
+Again. 
+% Arís. 
+
+Keep moving through the strike.
+% Coinnigh ort ag gluaiseacht tríd an mbuille. 
+
+Through it.
+% Tríd.
+
+
+
+# the first four passes, one line each (the fifth opens the card below)
+= count
+One.
+% A haon.
+Two.
+% A dó.
+Three.
+% A trí.
+Four.
+% A ceathair.
+
+= after
+Five.
+% A cúig.
+Step to the side.
+% Tóg céim ar leataobh.
+
+Press and yield,
+% Brúigh agus géill, 
+This is the nature of the thing.
+% Is é seo nádúr an ruda. 
+
+buail agus tarraing siar. 
+% strike and withdraw.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== drag
+# Only now, near the end: drawing a line to walk. He draws one on the ground and
+# walks it; then you draw yours, twice. (Till this lesson a drawn line does nothing,
+# so it can't carry you off by accident in the lessons before.)
+
+# a card; he sets off to draw his line when it is closed
+= intro
+Now. The movement.
+% Anois. An ghluaiseact.
+
+When thou must strike,
+% Nuair a caithfear buille a thabhairt, 
+
+do not think of striking.
+% ná smaoinaigh ar an bhuaille.
+
+
+Think of the movement.
+% Smaoinigh ar an ghluaiseacht.
+
+The strike is what the motion becomes.
+% Is é an buille an ghluaisne féin.
+
+
+# as he walks the line
+= following
+See it?
+% An bhfeiceann tú?
+
+= you
+Now thy turn.
+% Tusa anois.
+
+
+
+# after the first line you draw
+= good
+Again.
+% Arís.
+
+= after
+Good enough
+% Sásúil
+
+
+# ══════════════════════════════════════════════════════════════════════
+== duel
+# The last lesson: a bout. Draw a line at him; as you near him, time slows
+# (bullet time). Land a blow in that slow, and his work is done.
+
+= intro
+
+
+there is a place
+% Tá áit ann 
+
+
+Between one motion
+% idir gluaiseacht amháin
+
+
+and the next,
+%agus an chéad cheann eile.
+
+= go
+Now then.
+% Anois maise.
+En garde.
+% Ar aire.
+
+# a blow landed outside the slow (when you were not yet in the place between)
+= won
+Well struck.
+% Buaille  maith. 
+
+But there is a place between;
+% Ach tá áit sa troid
+
+
+thou hast not found it yet.
+% nar aimsigh tú fós. 
+
+
+# the blow landed in the slow: these, then `after`, as one card
+# (NEW LINES: English placeholders)
+= moment
+There! Thou wert there.
+% Mar sin! Bhí tú ann.
+Strike as lightning.
+% Buail mar thintreach.
+
+= after
+Thou hast the making of it.
+% Tá an t-ábhar ionat.
+Enough.
+% Is leor sin.
+
+
+# ══════════════════════════════════════════════════════════════════════
+== end
+# The course is done: the green is open. Give Conall an `= intro` (a card) to
+# say it himself; the narrator's line follows it either way.
+
+
+
+# ══════════════════════════════════════════════════════════════════════
+== generic
+
+# when you press "Once more"
+= again
+Again.
+% Arís.
+

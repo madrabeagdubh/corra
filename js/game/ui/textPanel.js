@@ -901,14 +901,16 @@ export default class TextPanel {
         const px = row.isHero
           ? startX + textW - CARD_SPEAKER_SIZE / 2
           : startX + CARD_SPEAKER_SIZE / 2
-        const img = this.scene.add.image(px, bodyTop + cy, row.portrait)
+        const lying = row.isHero ? (this.heroPortraitAngle || 0) : 0       // a scene sets this while the champion is lying down (in bed, fallen)
+        const img = this.scene.add.image(px, bodyTop + cy + (lying ? CARD_SPEAKER_SIZE / 2 : 0), row.portrait)
           .setDisplaySize(CARD_SPEAKER_SIZE, CARD_SPEAKER_SIZE)
-          .setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+          .setOrigin(0.5, lying ? 0.5 : 0).setScrollFactor(0).setDepth(depth + 4).setAlpha(0)
+        if (lying) img.setAngle(lying)
         img.setMask(mask)
         this._objects.push(img)
         this._contentItems.push({
           obj: img, localY: cy, baseAlpha: 1, group: row.group, reveal: 0,
-          isPortrait: true, isHero: !!row.isHero, bob: 0,
+          isPortrait: true, isHero: !!row.isHero, bob: 0, dy: lying ? CARD_SPEAKER_SIZE / 2 : 0, lying: !!lying,
         })
         cy += CARD_SPEAKER_SIZE + CARD_SPEAKER_PAD
         continue
@@ -1166,7 +1168,7 @@ export default class TextPanel {
     const item = this._contentItems.find(
       it => it.isPortrait && !!it.isHero === !!isHero
     )
-    if (!item?.obj?.active) return
+    if (!item?.obj?.active || item.lying) return                 // one lying down does not dance
 
     const hops = Math.max(1, Math.round(durationMs / stepMs))
     item.bob = 0
@@ -1232,7 +1234,7 @@ export default class TextPanel {
       // function rewrites the position every tick, so a tween on obj.y would
       // be undone the instant the player touched the card.
       const y = this._contentBaseY + localY - this._scrollY - (item.bob || 0)
-      obj.y = y
+      obj.y = y + (item.dy || 0)
 
       const bottom = y + (obj.height || 20)
       // Four inputs, one owner: the item's own intended alpha (which for

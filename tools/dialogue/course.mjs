@@ -10,7 +10,7 @@
 //
 // The format is described at the top of drafts/faicheCourse.dlg. In short:
 //   @out PATH     where the module goes (once)
-//   == lesson     = slot     plain lines (Conall, or the narrator in *Hint slots)
+//   == lesson     = slot     plain lines (Fergus, or the narrator in *Hint slots)
 //   * button  > player  < reply  % irish  @value v  @goto slot  # comment
 //
 // Output shape (courseLines.js):
@@ -100,7 +100,7 @@ src.forEach((raw, i) => {
   if (s.startsWith('@goto ')) { if (!opt) return err(n, '@goto outside a button'); opt._goto = s.slice(6).trim(); return }
   if (s.startsWith('@')) return err(n, `unknown directive: ${s.split(/\s/)[0]}`)
 
-  if (opt) return err(n, 'a plain line after a button: put Conall\'s reply on a < line, or start a new slot')
+  if (opt) return err(n, 'a plain line after a button: put Fergus\'s reply on a < line, or start a new slot')
   const l = line(s)
   slot.say.push(l); last = l; pendingEn = [n, s]
 })

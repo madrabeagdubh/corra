@@ -1,7 +1,7 @@
 // courseScript.js
 // Location: js/game/scenes/locations/skye/courseScript.js
 //
-// EVERYTHING CONALL SAYS in the crash course (faicheCourse.js) is written in
+// EVERYTHING FEARGHAS SAYS in the crash course (faicheCourse.js) is written in
 //
 //     tools/dialogue/drafts/faicheCourse.dlg
 //

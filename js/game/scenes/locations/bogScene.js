@@ -53,8 +53,8 @@ export default class BogScene extends PerspectiveScene {
       const content = module[jsKey + 'Content'] || {}
 
       // COPIED, not assigned: content.objects is the content module's own array, shared by every visit, and the
-      // fixed encounters pushed below would pile up in it on each re-entry (a second Conall and a second boat
-      // after every return to the cladach, an extra Conall in the garden). villageScene does the same.
+      // fixed encounters pushed below would pile up in it on each re-entry (a second Fergus and a second boat
+      // after every return to the cladach, an extra Fergus in the garden). villageScene does the same.
       this.mapData.objects        = [...(content.objects || [])]
       this.mapData.npcs           = [...(content.npcs || [])]
       this.mapData.introNarrative = content.introNarrative || []

@@ -1,10 +1,10 @@
 // tighAmuigh.js
 // Location: js/game/scenes/locations/skye/tighAmuigh.js
 //
-// Outside Tigh Chonaill. A little thatched cottage at the top of the screen, the champion standing before it;
+// Outside Tigh Fhearghais. A little thatched cottage at the top of the screen, the champion standing before it;
 // tumbledown drystone walls frame the garden, long neglected and thriving for it: wildflowers, swaying in
 // the breeze (effects/vegetation.js, the game's own wind). A trodden path leads south, out through a gap in
-// the wall, to the training ground (skye_gairdin) where Conall waits.
+// the wall, to the training ground (skye_gairdin) where Fergus waits.
 //
 // An official map: public/maps/skyeMaps/skye_tigh_amuigh.json (cottage: a billboard; walls: cuboids; the
 // textures are painted in tighRoom.js -> public/assets/tigh/out*.png). The cottage door is the map's own
@@ -17,7 +17,7 @@ import PerspectiveGroundRenderer from '../../../effects/perspectiveGroundRendere
 import SkyeCaption from './skyeCaption.js'
 import { checkLook } from './skyeLook.js'
 import { setupTapOnly } from './skyeTapOnly.js'
-import { TighConaill } from './tighConaill.js'
+import { TighFhearghais } from './tighFhearghais.js'
 import { chimneySmoke } from './skyeFx.js'
 import { DawnLight } from './dawnLight.js'
 
@@ -93,4 +93,4 @@ export class TighAmuigh extends SkyeScene {
 }
 
 // the cabin's synthesised door sounds
-for (const k of ['_audio', '_tone', '_noise', '_doorSound']) TighAmuigh.prototype[k] = TighConaill.prototype[k]
+for (const k of ['_audio', '_tone', '_noise', '_doorSound']) TighAmuigh.prototype[k] = TighFhearghais.prototype[k]

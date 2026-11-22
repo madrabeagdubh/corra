@@ -99,10 +99,10 @@ export const PRESETS = {
   // and she never cuts you. She throws you down, and after the third time it's over.
   uathach: { ...BASE, style: 'shover', hp: 99, stepMs: 300, windMs: 420, recoverMs: 700, restMin: 300, restMax: 700,
              untouchable: true, throws: 3, swordGid: 2496, liveBlade: true },
-  // Conall: a patient teacher, very hard to get past (def 9), who turns two blows in three aside
+  // Fergus: a patient teacher, very hard to get past (def 9), who turns two blows in three aside
   // (a master: `guard` is the chance he turns a blow aside in each state -- about 1 in 10 gets through;
   //  `steady`: he can't be knocked down, shoved over or disarmed; `reminders`: salutes he'll offer before he attacks in earnest)
-  conall:  { ...BASE, style: 'warden', reads: true, hp: 8, atk: 6, def: 9, stepMs: 420, windMs: 1000, strikeMs: 120, recoverMs: 1100, staggerMs: 520,
+  fearghas:  { ...BASE, style: 'warden', reads: true, hp: 8, atk: 6, def: 9, stepMs: 420, windMs: 1000, strikeMs: 120, recoverMs: 1100, staggerMs: 520,
              followWind: 700, counterWind0: 520, counterWindStep: 60, counterWindMin: 300, parryBase: 0.5, parryReel0: 0.35, parryReelStep: 0.1, parryMax: 0.72, restMin: 1200, restMax: 1900,
              steady: true, mercy: true, keepBout: true, moveWindow: 600, match: false, reminders: 3, guard: { base: 0.55, wind: 0.5, reel: 0.4, recover: 0.3, stagger: 0.3 } },
   // no guard, fast, three cuts, wide open afterwards

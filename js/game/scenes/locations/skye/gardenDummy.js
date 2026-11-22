@@ -4,7 +4,7 @@
 // The training dummy, brought into the garden for the crash course. It is
 // the green's own straw post (FaicheGrounds draws it, rocking when hit);
 // this just owns one of them: hidden until the lesson, carried about by
-// Conall, set down on a tile where it blocks like a figure.
+// Fergus, set down on a tile where it blocks like a figure.
 //
 //   const d = new GardenDummy(scene, [26, 14])
 //   d.show(); d.hide()

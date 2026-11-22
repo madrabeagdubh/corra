@@ -1,7 +1,7 @@
 // skyeFx.js
 // Location: js/game/scenes/locations/skye/skyeFx.js
 //
-// Small living things for the Tigh Chonaill scenes, drawn straight onto the perspective renderer's object
+// Small living things for the Tigh Fhearghais scenes, drawn straight onto the perspective renderer's object
 // canvas (stateless: every position is a function of the clock, so nothing to keep or clean up):
 //   hearthFire(scene)             the little fire in the cabin's hearth, a flag that sorts with the figures
 //   chimneySmoke(ctx, pgr, t)     smoke from the cottage chimney (outside)

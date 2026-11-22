@@ -1,7 +1,7 @@
 // skyeCladach.js
 // Location: public/data/skye/skyeCladach.js
 //
-// The shore of Skye, where the boat lands. Conall, the Warden, greets them:
+// The shore of Skye, where the boat lands. Fergus, the Warden, greets them:
 // he invites them up the harbour wall and they find the stair for themselves.
 // (Uathach, Scáthach's daughter, stays on the green's dais until the tournament.)
 // The climb itself lives in
@@ -21,9 +21,9 @@
 //                           and starts the crossing back to the mainland
 //   landfall_talk        -- scene: set only while the landfall's talk is open (selects node 3);
 //                           removed when it closes
-//   landfall_done        -- scene: the landfall has played; Conall is gone from the shore
+//   landfall_done        -- scene: the landfall has played; Fergus is gone from the shore
 //
-// TWO SPEAKERS: Conall (skyeCladach.dlg, @encounter 0) and the boat
+// TWO SPEAKERS: Fergus (skyeCladach.dlg, @encounter 0) and the boat
 // (skyeCladachBoat.dlg, @encounter 1). Keep `dialogues` the last field of
 // each -- the compiler finds each array's end from the next one.
 
@@ -32,7 +32,7 @@ export const skyeCladachContent = {
   npcs:    [],
   fixedEncounters: [
     {
-      id: 'conall',
+      id: 'fearghas',
       // Down by the water, on the first dry ledge (row 23) beside the bottom
       // stair (19,24): a few steps from the jetty, in the sharp band of the
       // tilt-shift blur, so the player can see him from the landing.

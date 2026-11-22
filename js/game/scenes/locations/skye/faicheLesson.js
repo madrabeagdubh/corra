@@ -148,7 +148,7 @@ const HINTS = {
   form:   L('Step with the brooch; tap the moon to cut.'),
   feet:   L('Drag a finger from yourself across the grass, past the dummy. Tap the moon as you go by.'),
 }
-const WARDEN_COLOR = INK.conall, UATHACH_COLOR = INK.uathach, HINT_COLOR = INK.narrator
+const WARDEN_COLOR = INK.fearghas, UATHACH_COLOR = INK.uathach, HINT_COLOR = INK.narrator
 
 const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]))
 

@@ -60,9 +60,9 @@ export const tighFhearghaisContent = {
           exchange: [
             {
               say: 'Bhí mé ag bá.\nBhí mé báite gan amhras.',
-              sayEn: 'I was drowning.\nI was surely drowning.',
-              replyGa: 'Bhí tromluí ort.\nYou are safe.',
-              replyEn: 'A nightmare was on .\nTá tú slán.',
+              sayEn: 'I was drowning.\nI drowned! I know it.',
+              replyGa: 'Ní raibh ann ach tromluí.\nTá tú slán.',
+              replyEn: 'It was just a nightmare.\nYou are safe.',
             },
           ],
         },
@@ -73,8 +73,8 @@ export const tighFhearghaisContent = {
             {
               say: 'Cé tú féin?',
               sayEn: 'Who are you?',
-              replyGa: 'Fearghas is ainm dom. Mo aoi thú.',
-              replyEn: 'Fergus is my name. You are my guest.',
+              replyGa: 'Fearghas is ainm dom\nMo aoi thú',
+              replyEn: 'Fergus is my name\nYou are my guest',
             },
           ],
         },
@@ -83,8 +83,8 @@ export const tighFhearghaisContent = {
         {
           exchange: [
             {
-              replyGa: 'Tá do chuid éadaigh sa chófra ag bun do leapa.\nChaitheann daltaí dealg an Cheo.',
-              replyEn: 'Thy clothes are in the chest at the foot of thy bed.\nStudents wear the brooch of Skye.',
+              replyGa: 'Tá do chuid éadaigh sa chófra ag bun do leapa\nChaitheann daltaí dealg an Cheo',
+              replyEn: 'Thy clothes are in the chest at the foot of thy bed\nStudents wear the brooch of Skye',
             },
           ],
         },
@@ -93,22 +93,26 @@ export const tighFhearghaisContent = {
         {
           exchange: [
             {
-              replyGa: 'Duitse an ceann seo.',
-              replyEn: 'This one is for you.',
+              replyGa: 'Duitse an ceann seo',
+              replyEn: 'This one is for you',
             },
             {
-              say: 'Ach níor thugas eallach,\nná tiarnas breá airgid.',
-              sayEn: 'But I brought no cattle,\nnor fine tribute of silver.',
-              replyGa: 'That doesn\'t matter.\nDeanadh do chás\ncois trá\nleathbáite\nan fharraige fós ag sileadh uait.\nCuirfidh mé ar bhóthar an chlaímh thú,',
-              replyEn: 'Is cuma sin.\nthy case was made\nupon the shore\nhalf-drowned\nthe sea still running from thee.\nI will set thee on the path of the blade,',
+              say: 'Ach níor thugas eallach\nná tiarnas breá airgid\nIs cuma',
+              sayEn: 'But I brought no cattle\nnor fine tribute of silver\nDoesn\'t matter',
+              replyGa: 'cois trá\nleathbáite\nan fharraige fós ag sileadh uait\nDeanadh do chás\nCuirfidh mé ar bhóthar an chlaímh thú',
+              replyEn: 'upon the shore\nhalf-drowned\nthe sea still running from thee\nThy case was made\nI will set thee on the path of the blade',
             },
           ],
         },
 
         // ── node 5 — at the door ──────────────────────────────────
         {
-          ga: 'Nach é sin a mheallann na Taoisigh Ghaelacha go Ceo?',
-          en: 'Is that not why Gaelic Chieftains come to Skye?',
+          exchange: [
+            {
+              say: 'Sin a mheallann Taoisigh Ghaelacha go Ceo.',
+              sayEn: 'That\'s what lures you chiefs to Skye.',
+            },
+          ],
         },
 
       ],

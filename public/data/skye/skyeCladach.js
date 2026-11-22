@@ -47,12 +47,10 @@ export const skyeCladachContent = {
         {
           requires: { note: 'landfall_talk' },
           hold: true,
-          ga: 'Geal an éadan os cionn an maide!\nAn ghaiscíocht le hais na gualainne.',
-          en: 'Bright the brow above the oar!\nVictory behind those shoulders',
           exchange: [
             {
-              say: 'Iomramh fada déanta agam,\ni gcomhair chladach oileánn an Cheo.\nTá mo dhroim ag cur in iúl dom é.',
-              sayEn: 'Long have I rowed,\nfor Skye\'s grey shore.\nMy back is telling me so.',
+              say: 'Iomramh fada déanta agam,\ni gcomhair chladach oileánn an Cheo.',
+              sayEn: 'Long have I rowed,\nfor Skye\'s grey shore.',
               replyGa: 'An dtiocfaidh tú chois tine?',
               replyEn: 'Wilt thou come to the fire?',
             },

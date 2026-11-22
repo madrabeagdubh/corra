@@ -79,6 +79,7 @@ export default class SkyeScene extends BogScene {
     }
   }
   getMusicTrack()  { return null }
+  usesSwallows()   { return false }                        // no swallows on Skye
 
   // Sea, plus the bushes and rocks that stand in for brambles and
   // chevaux de frise until there's real art. Skye only: on the mainland

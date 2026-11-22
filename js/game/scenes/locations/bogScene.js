@@ -36,6 +36,10 @@ const ALWAYS_UNWALKABLE = new Set([
 
 export default class BogScene extends PerspectiveScene {
 
+  // Swallows (and their calls) belong to the bog's maps (a2, d0, d3...): nowhere else has them. Skye, which is built on
+  // this class, says no (skyeScene.js); so do d3Sea and d3OpenSea.
+  usesSwallows() { return true }
+
   // Folder under public/data/ holding this map's content module.
   getContentDir() { return 'bog' }
 

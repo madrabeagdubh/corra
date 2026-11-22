@@ -1171,6 +1171,7 @@ try {
   // The pinch/pan view (effects/pgrView.js) is for the open world. A room that small (the b0 hall, Fergus's cabin) is already all in view.
   allowPinchView() { return (this.mapWidth / this.tileSize) * (this.mapHeight / this.tileSize) >= 600 }
 
+  usesSwallows() { return false }                          // (see create: only the bog's scenes say yes)
   _onTapBeforePath(canvasX, canvasY) { return true }
 
   _flashTargetTile(tx, ty) {
@@ -1328,7 +1329,7 @@ try {
       if (this._swallows) { this._swallows.stop(); this._swallows = null }
       document.getElementById('swallow-canvas')?.remove()
       console.log('[swallows] usesSwallows:', this.usesSwallows?.(), this.scene.key)
-      if (this.usesSwallows?.() !== false) {
+      if (this.usesSwallows?.() === true) {                 // swallows belong to the bog (BogScene opts in); nowhere else has them
         this._swallows = new SwallowSystem(() => PerspectiveGroundRenderer.HORIZON_Y_FRAC, this.scene.key)
         this._swallows.start()
       }

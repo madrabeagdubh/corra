@@ -732,10 +732,23 @@ function blit(dst, src, sx, sy, sw, sh, dx, dy) { dst.getContext('2d').drawImage
 // the small cabin: 5 tiles across (120px). The hearth stands in the middle (a solid, below); a shelf and the
 // woodpile on its left; on its right a window no bigger than a face, high up, with its curtain.
 export const WIN = { x: 106, y: 19, w: 12, h: 16 }
+// the wall around the chimney breast (it stands at x 50..94 of the back wall): blackened where the smoke has licked
+// round it over the years, thickest at its flanks and thinning outward and down
+function sootWall(b) {
+  const x0 = 50, x1 = 94
+  for (let y = 20; y < BH - 4; y++) for (let x = x0 - 16; x < x1 + 16; x++) {
+    const d = x < x0 ? x0 - x : x >= x1 ? x - x1 + 1 : 0
+    if (d > 15) continue
+    const reach = 16 * (1 - Math.min(1, (y - 20) / 40) * 0.6)            // wider up high, drawn in lower down
+    const k = Math.pow(1 - d / reach, 0.7) * (1 - Math.min(1, (y - 20) / 44)) * 1.0
+    if (k > 0.03) b.mul(x, y, 1 - k * (0.55 + 0.45 * hash(x, y, 91)))
+  }
+}
 export function paintBack8() {
   const b = new Buf(BW, BH); wallBase8(b)
   shelf(b, 20, 31)                                      // a shelf beside the hearth (the woodpile under it is a solid)
   windowPane(b, WIN)
+  sootWall(b)
   const wall = b.canvas()
   const mk = (open) => curtain(open, WIN, BW, BH)
   return { wall, curtainClosed: mk(false), curtainOpen: mk(true) }
@@ -756,9 +769,10 @@ function slab(w, h, base = P.stM, light = P.stH, dark = P.stD) {
   return b.canvas()
 }
 function paintHearthSolids() {
-  // 44 x 44 (1.83 x 1.83 tiles: up to the tie beam); the opening is a round-headed recess, 26px (a tile and a bit)
-  // high, its sill 12px (half a tile) off the floor.
-  const W = 44, H = 44, cx = 22, r = 9, crown = 5, spring = crown + r, sill = 32
+  // 44 x 60 (1.83 x 2.5 tiles): the breast runs right up into the thatch, a structural part of the house. The opening
+  // is a round-headed recess, 26px (a tile and a bit) high, its sill 12px (half a tile) off the floor; above it a
+  // stone lintel, and the stone over it blackened by the smoke.
+  const W = 44, H = 60, OFF = 16, cx = 22, r = 9, crown = 5 + OFF, spring = crown + r, sill = 32 + OFF
   const f = new Buf(W, H)
   f.fill(0, 0, W, H, (x, y) => { const n = hash(x >> 2, y >> 2, 31), e = Math.min(x, W - 1 - x); return tone(mix(P.plL, P.plH, 0.3 + n * 0.5), e < 2 ? 0.86 : 1) })
   const inside = (x, y, g) => {
@@ -768,16 +782,20 @@ function paintHearthSolids() {
     const dx = x + 0.5 - cx; return dx * dx + (y - spring) ** 2 <= (r + g) ** 2
   }
   for (let y = 0; y < sill + 1; y++) for (let x = 0; x < W; x++) {
-    if (inside(x, y, 0)) { const t = Math.max(0, (y - 12) / 20); f.set(x, y, mix('#0a0706', '#2b1810', t * t * 0.9 + (bay(x, y) - 0.5) * 0.05)) }
+    if (inside(x, y, 0)) { const t = Math.max(0, (y - 12 - OFF) / 20); f.set(x, y, mix('#0a0706', '#2b1810', t * t * 0.9 + (bay(x, y) - 0.5) * 0.05)) }
     else if (inside(x, y, 2)) f.set(x, y, mix(P.plD, P.plM, 0.45))
     else if (inside(x, y, 4)) f.set(x, y, mix(P.plM, P.plL, 0.3))
   }
-  // soot staining on the face above the crown
-  for (let y = 0; y < crown; y++) for (let x = cx - 8; x <= cx + 8; x++) {
-    const k = (1 - y / crown) * (1 - Math.abs(x - cx) / 9) * 0.5
-    if (k > 0.04) f.mul(x, y, 1 - k * (0.7 + 0.3 * hash(x, y, 71)))
+  // a stone lintel over the opening, then the stack above it: soot, heavy over the arch and thinning up and out
+  f.rect(cx - 15, crown - 8, 30, 3, P.stM); f.rect(cx - 15, crown - 8, 30, 1, P.stH); f.rect(cx - 15, crown - 6, 30, 1, P.stD)
+  f.mulRect(cx - 15, crown - 5, 30, 2, 0.6)
+  for (let y = 0; y < crown - 8; y++) for (let x = 0; x < W; x++) {
+    const up = (crown - 8 - y) / (crown - 8), spread = 1 - Math.abs(x - cx) / (W / 2) * (0.55 + 0.35 * up)
+    const k = (0.95 * (1 - up * 0.55)) * Math.max(0, spread)
+    if (k > 0.03) f.mul(x, y, 1 - k * (0.65 + 0.35 * hash(x, y, 71)))
   }
-  f.rect(0, 0, W, 2, P.plD)                                              // the cap
+  for (let y = crown - 5; y < crown; y++) for (let x = cx - 10; x <= cx + 10; x++) f.mul(x, y, 0.72 + 0.1 * hash(x, y, 72))   // smoke over the arch
+  f.mulRect(0, 0, W, 6, 0.55)                                           // where the stack goes up into the thatch
   f.rect(cx - 12, sill, 24, 2, '#8d887c'); f.rect(cx - 12, sill, 24, 1, '#b8b3a4')                          // the lip of the hearthstone
   f.rect(cx - 8, sill - 2, 16, 2, '#1d1511')                                                              // ash, logs, embers
   f.rect(cx - 8, sill - 5, 14, 3, '#3a2412'); f.rect(cx - 8, sill - 5, 14, 1, '#5c3a1e')
@@ -788,7 +806,7 @@ function paintHearthSolids() {
   f.rect(cx - 6, crown + 4, 13, 2, P.ironL)
   const sd = new Buf(12, H)
   sd.fill(0, 0, 12, H, (x, y) => tone(mix(P.plM, P.plL, 0.3 + 0.4 * hash(x >> 2, y >> 2, 33)), 0.78))
-  sd.rect(0, 0, 12, 2, P.plD)
+  sd.mulRect(0, 0, 12, 6, 0.55); sd.mulRect(0, 6, 12, 14, 0.8)
   return { hearthFront: f.canvas(), hearthSide: sd.canvas(), slabTop: slab(64, 14), slabFront: slab(64, 5), slabSide: slab(14, 5) }
 }
 

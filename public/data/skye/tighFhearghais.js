@@ -97,10 +97,10 @@ export const tighFhearghaisContent = {
               replyEn: 'This one is for you',
             },
             {
-              say: 'Ach níor thugas eallach\nná tiarnas breá airgid\nIs cuma',
-              sayEn: 'But I brought no cattle\nnor fine tribute of silver\nDoesn\'t matter',
-              replyGa: 'cois trá\nleathbáite\nan fharraige fós ag sileadh uait\nDeanadh do chás\nCuirfidh mé ar bhóthar an chlaímh thú',
-              replyEn: 'upon the shore\nhalf-drowned\nthe sea still running from thee\nThy case was made\nI will set thee on the path of the blade',
+              say: 'Ach níor thugas eallach\nná tiarnas breá airgid',
+              sayEn: 'But I brought no cattle\nnor fine tribute of silver',
+              replyGa: 'Is cuma\ncois trá\nleathbáite\nan fharraige fós ag sileadh uait\nDeanadh do chás\nCuirfidh mé ar bhóthar an chlaímh thú',
+              replyEn: 'Doesn\'t matter\nupon the shore\nhalf-drowned\nthe sea still running from thee\nThy case was made\nI will set thee on the path of the blade',
             },
           ],
         },
@@ -109,8 +109,8 @@ export const tighFhearghaisContent = {
         {
           exchange: [
             {
-              say: 'Sin a mheallann Taoisigh Ghaelacha go Ceo.',
-              sayEn: 'That\'s what lures you chiefs to Skye.',
+              replyGa: 'Sin a mheallann Taoisigh Ghaelacha go Ceo.',
+              replyEn: 'That\'s what lures you chiefs to Skye.',
             },
           ],
         },

@@ -37,6 +37,8 @@ import { paintSolids } from './tighRoom.js'
 import SkyeCaption from './skyeCaption.js'
 import { setupTapOnly } from './skyeTapOnly.js'
 import { checkLook, lookIcon, LOOK_KINDS } from './skyeLook.js'
+import { openFicheall } from '../../../ui/ficheall/ficheall.js'
+import { openTable } from '../../../ui/ficheall/ficheallTable.js'
 import { hearthFire } from './skyeFx.js'
 import { weather } from '../../../effects/weather.js'
 
@@ -86,7 +88,7 @@ const DAY_WASH   = { color: 0xb8a0d0, alpha: 0.2 }        // the cast over the r
 
 // Looking at things in here: each is offered only from its own spot (px from the spot; a tile is 48). A thing on a blocked
 // tile (the bed, the firewood) is looked at from the tile beside it. The clothes keep the island's wider reach.
-const LOOK_RANGE = { default: 40, bed: 52, wood: 52 }
+const LOOK_RANGE = { default: 40, bed: 52, wood: 52, ficheall: 52 }
 
 export class TighFhearghais extends SkyeScene {
   constructor() { super({ key: 'skye_tigh_fhearghais' }) }
@@ -148,6 +150,7 @@ export class TighFhearghais extends SkyeScene {
     this._caption = new SkyeCaption({ scene: this, color: '#e6dcc0' })
     this._spent = {}
     this._setTop('seat', 'assets/tigh/seatTopEmpty.png')   // the chest is shut: his clothes are inside, not on the lid
+    this._boardOnTable()
     for (const z of this.interactables) if (z.getData?.('type') === 'examine') z.setData('range', LOOK_RANGE[z.getData('id')] ?? LOOK_RANGE.default)
 
     this.player.setArmorVisible?.(false)                  // he sleeps in his shirt
@@ -164,6 +167,8 @@ export class TighFhearghais extends SkyeScene {
       this._fearghasGone = true; this._hideFearghas()
       this._giveBrooch()
       this._dressed = true
+      const bq = this._q.get('board')                     // ?script=0&board=1: straight to the board, standing south of the table
+      if (bq === '1' || bq === 'game') { this._placePlayer([6, 7]); this.time.delayedCall(500, () => this._openBoard(bq === 'game')) }
       return
     }
     this._stowArmour()                                      // his armour is in the chest until he puts it on
@@ -537,15 +542,44 @@ export class TighFhearghais extends SkyeScene {
     const S = this._spot; this._spot = null; if (!S) return
     cancelAnimationFrame(S.raf); S.spark.remove(); S.dim.remove(); S.sweep?.remove()
   }
+  // ── the board on the table (ui/ficheall/): painted onto the table's top, in front of the stew; looked at, it opens
+  // over the room, seen close (ficheallTable.js): he isn't here, the pieces are as he left them, to lift and look at
+  // and set down anywhere. It is seen from the side of the table you stand at. ?scene=skye_tigh_fhearghais&script=0&board=1
+  // opens it on arriving (&side=north, west or east to see it from there); &board=game opens the game against him
+  // instead (ficheall.js, rules and all), for trying it until he sits down to it with you.
+  async _boardOnTable() {
+    const b = this._bld('table'); if (!b) return
+    const top = await this._img('assets/tigh/tableTop.png')
+    if (this._dead || !top.naturalWidth) return
+    const c = document.createElement('canvas'); c.width = top.naturalWidth; c.height = top.naturalHeight
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false
+    g.drawImage(top, 0, 0)
+    const X = 3, Y = 14                                     // its corner, in the top's own pixels (48 x 24, the near edge at the bottom)
+    const px = (x, y, col) => { g.fillStyle = col; g.fillRect(X + x, Y + y, 1, 1) }
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(X + 1, Y + 1, 11, 9)                       // its shadow
+    g.fillStyle = '#4a321c'; g.fillRect(X, Y, 11, 10)                                      // the frame
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 9; f++) px(1 + f, 1 + r, (f + r) % 2 ? '#d6cbae' : '#9e8c68')
+    px(5, 4, '#e2bb4d'); px(5, 5, '#b8902c')                // the king in the well
+    for (const [x, y] of [[5, 1], [1, 4], [9, 4], [5, 8]]) px(x, y, '#26282b')             // the host round the edges
+    b.topCanvas = c; this._redraw()
+  }
+  _openBoard(game = false) {
+    if (this._ficheallOpen || this._dead) return
+    const dx = this.player.logicalX - 7 * TS, dy = this.player.logicalY - 6.5 * TS   // from the middle of the table (cells 6,6 and 7,6)
+    const side = this._q.get('side') || (Math.abs(dy) >= Math.abs(dx) ? (dy > 0 ? 'south' : 'north') : (dx < 0 ? 'west' : 'east'))
+    this._board = game ? openFicheall({ scene: this }) : openTable({ scene: this, side })   // each sets this._ficheallOpen while it is up
+  }
+
   // ── looking at things (skyeLook.js): the moonTile offers a ? (the chest); a tap shows the words as a caption, or does the thing ──
   checkProximityInteractions() {                          // nothing happens by itself here: it is offered, not forced
-    if (!this.player || this._locked || this._dead || !this._spent) return
+    if (!this.player || this._locked || this._dead || !this._spent || this._ficheallOpen) return
     if (this._walkIntoDoor()) return                              // the door, once he is dressed: walk into it (undressed, he says he will not)
     checkLook(this, {
       types: this._spot ? [] : this._dressed ? ['examine'] : ['chest'],      // the chest: nothing else is offered until he is dressed (nothing while the hoop is shown)
       icon: (id) => lookIcon(LOOK_KINDS[id] || 'look'),
       onLook: (id) => {
         if (id === 'chest') { this._openChest(); return true }
+        if (id === 'ficheall') { this._openBoard(); return true }
         return false
       },
     })
@@ -956,6 +990,7 @@ export class TighFhearghais extends SkyeScene {
 
   update(time, delta) {
     if (this._spot && this.joystick) this.joystick.force = 0      // the hoop is being shown: he stays put (only the force is held at 0, so the ring still turns)
+    if (this._ficheallOpen && this.joystick) this.joystick.force = 0      // at the board: he stays put
     super.update(time, delta)
     if (!this.perspectiveGround || this._dead) return
     if (this._fearghasGone) this._hideFearghas()

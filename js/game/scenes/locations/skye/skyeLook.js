@@ -21,7 +21,7 @@ import { GameState } from '../../../systems/gameState.js'
 // What each thing looked at is shown as on the moonTile: a small glyph (cream, dark-edged), an eye only when
 // there is none. Scenes need not name them: checkLook picks by the zone's id.
 export const LOOK_KINDS = {
-  clothes: 'clothes', fire: 'fire', wood: 'wood', window: 'window', bed: 'bed', table: 'table', chest: 'chest', door: 'door',
+  clothes: 'clothes', fire: 'fire', wood: 'wood', window: 'window', bed: 'bed', table: 'table', chest: 'chest', door: 'door', ficheall: 'board',
   tigh: 'house', balla: 'wall', cnoic: 'hills', sceacha: 'bush', gairdin: 'flower', carbad: 'chariot', cosan: 'path',
 }
 // Each glyph is the game's own graphic for the thing (its painted texture, a box shown as top over front), cut out
@@ -92,7 +92,17 @@ function window_() {
     g.beginPath(); g.moveTo(22, 22); g.lineTo(27, 17); g.lineWidth = 2.5; g.strokeStyle = '#ffffff'; g.stroke()            // a glint on the glass
   })
 }
-const DRAWN = { fire, window: window_ }
+// a board: nine by nine, the king gold in the middle, a dark piece at each side
+function board() {
+  return glyph(g => {
+    g.beginPath(); g.rect(7, 7, 50, 50); edge(g, 6); g.fillStyle = '#5a3c20'; g.fill()
+    for (let r = 0; r < 9; r++) for (let f = 0; f < 9; f++) { g.fillStyle = (f + r) % 2 ? '#e2d8bc' : '#a8966e'; g.fillRect(9.5 + f * 5, 9.5 + r * 5, 5, 5) }
+    const man = (x, y, fill, rad) => { g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); g.lineWidth = 2; g.strokeStyle = INK_EDGE; g.stroke() }
+    for (const [x, y] of [[32, 14.5], [14.5, 32], [49.5, 32], [32, 49.5]]) man(x, y, '#2e3135', 3.6)
+    man(32, 32, '#e2bb4d', 5)
+  })
+}
+const DRAWN = { fire, window: window_, board }
 
 export function lookIcon(kind) {
   if (DRAWN[kind]) return CACHE[kind] || (CACHE[kind] = DRAWN[kind]())
